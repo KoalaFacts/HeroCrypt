@@ -90,8 +90,12 @@ internal static class RsaCore
     
     public static byte[] Sign(byte[] data, RsaPrivateKey privateKey)
     {
+#if NET5_0_OR_GREATER
+        var hash = SHA256.HashData(data);
+#else
         using var sha256 = SHA256.Create();
         var hash = sha256.ComputeHash(data);
+#endif
         
         var paddedHash = PadForSignature(hash, GetByteLength(privateKey.Modulus));
         
@@ -103,8 +107,12 @@ internal static class RsaCore
     
     public static bool Verify(byte[] data, byte[] signature, RsaPublicKey publicKey)
     {
+#if NET5_0_OR_GREATER
+        var hash = SHA256.HashData(data);
+#else
         using var sha256 = SHA256.Create();
         var hash = sha256.ComputeHash(data);
+#endif
         
         var s = new BigInteger(signature);
         var m = s.ModPow(publicKey.Exponent, publicKey.Modulus);
@@ -112,7 +120,11 @@ internal static class RsaCore
         var decryptedPadded = m.ToByteArray();
         var expectedPadded = PadForSignature(hash, GetByteLength(publicKey.Modulus));
         
+#if NETSTANDARD2_0
+        return FixedTimeEquals(decryptedPadded, expectedPadded);
+#else
         return CryptographicOperations.FixedTimeEquals(decryptedPadded, expectedPadded);
+#endif
     }
     
     private static byte[] PadForSignature(byte[] hash, int targetLength)
@@ -310,6 +322,24 @@ internal static class RsaCore
         }
         return a;
     }
+
+#if NETSTANDARD2_0
+    /// <summary>
+    /// Constant-time comparison to prevent timing attacks
+    /// </summary>
+    private static bool FixedTimeEquals(byte[] a, byte[] b)
+    {
+        if (a.Length != b.Length)
+            return false;
+
+        var result = 0;
+        for (var i = 0; i < a.Length; i++)
+        {
+            result |= a[i] ^ b[i];
+        }
+        return result == 0;
+    }
+#endif
 }
 
 internal sealed class RsaKeyPair

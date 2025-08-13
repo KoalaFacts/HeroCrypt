@@ -1,5 +1,4 @@
 ﻿using HeroCrypt.Cryptography.Argon2;
-using HeroCrypt.Examples;
 using HeroCrypt.Services;
 using System.Diagnostics;
 
@@ -8,7 +7,6 @@ Console.WriteLine("==================\n");
 
 await RunArgon2Examples();
 await RunPgpExamples();
-await DependencyInjectionExample.RunAsync();
 
 async Task RunArgon2Examples()
 {

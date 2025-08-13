@@ -55,7 +55,7 @@ public class PluginLoader
         }
     }
     
-    private Assembly LoadPluginAssembly(string path)
+    private static Assembly LoadPluginAssembly(string path)
     {
 #if !NETSTANDARD2_0
         var loadContext = new PluginLoadContext(path);
@@ -77,7 +77,7 @@ public class PluginLoader
 }
 
 #if !NETSTANDARD2_0
-internal class PluginLoadContext : AssemblyLoadContext
+internal sealed class PluginLoadContext : AssemblyLoadContext
 {
     private readonly AssemblyDependencyResolver _resolver;
     

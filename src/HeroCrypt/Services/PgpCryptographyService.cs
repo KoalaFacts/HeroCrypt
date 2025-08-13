@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using System.Globalization;
 using HeroCrypt.Abstractions;
 using HeroCrypt.Cryptography.RSA;
 using BigInteger = HeroCrypt.Cryptography.RSA.BigInteger;
@@ -38,18 +39,20 @@ public sealed class PgpCryptographyService : ICryptographyService, IKeyGeneratio
     private const string PrivateKeyFooter = "-----END PGP PRIVATE KEY BLOCK-----";
     private const string MessageHeader = "-----BEGIN PGP MESSAGE-----";
     private const string MessageFooter = "-----END PGP MESSAGE-----";
+    
+    private static readonly char[] LineSeparators = { '\n' };
 
     public async Task<byte[]> EncryptAsync(byte[] data, string publicKey, CancellationToken cancellationToken = default)
     {
-#if NET8_0_OR_GREATER
+#if NET6_0_OR_GREATER
         ArgumentNullException.ThrowIfNull(data);
 #else
-        ArgumentNullExceptionExtensions.ThrowIfNull(data, nameof(data));
+        if (data == null) throw new ArgumentNullException(nameof(data));
 #endif
 #if NET8_0_OR_GREATER
         ArgumentException.ThrowIfNullOrWhiteSpace(publicKey);
 #else
-        ArgumentExceptionExtensions.ThrowIfNullOrWhiteSpace(publicKey, nameof(publicKey));
+        if (string.IsNullOrWhiteSpace(publicKey)) throw new ArgumentException("Value cannot be null or whitespace.", nameof(publicKey));
 #endif
 
         return await Task.Run(() =>
@@ -60,46 +63,69 @@ public sealed class PgpCryptographyService : ICryptographyService, IKeyGeneratio
             aes.GenerateKey();
             aes.GenerateIV();
             
-            var encryptedSessionKey = RsaCore.Encrypt(aes.Key, rsaPublicKey);
+            // Copy AES key for encryption
+            var keyBuffer = new byte[aes.Key.Length];
+            Array.Copy(aes.Key, keyBuffer, aes.Key.Length);
             
-            byte[] encryptedData;
-            using (var encryptor = aes.CreateEncryptor())
-            using (var msEncrypt = new MemoryStream())
+            try
             {
-                using (var csEncrypt = new CryptoStream(msEncrypt, encryptor, CryptoStreamMode.Write))
+                var encryptedSessionKey = RsaCore.Encrypt(keyBuffer, rsaPublicKey);
+                
+                byte[] encryptedData;
+                using (var encryptor = aes.CreateEncryptor())
+                using (var msEncrypt = new MemoryStream())
                 {
-                    csEncrypt.Write(data, 0, data.Length);
+                    using (var csEncrypt = new CryptoStream(msEncrypt, encryptor, CryptoStreamMode.Write))
+                    {
+                        csEncrypt.Write(data, 0, data.Length);
+                    }
+                    encryptedData = msEncrypt.ToArray();
                 }
-                encryptedData = msEncrypt.ToArray();
+                
+                // Clear the AES key from memory
+                ZeroMemory(aes.Key);
+                ZeroMemory(keyBuffer);
+                
+                return CombineEncryptedComponents(encryptedSessionKey, aes.IV, encryptedData);
             }
-            
-            var result = new List<byte>();
-            
-            result.AddRange(BitConverter.GetBytes(encryptedSessionKey.Length));
-            result.AddRange(encryptedSessionKey);
-            
-            result.AddRange(BitConverter.GetBytes(aes.IV.Length));
-            result.AddRange(aes.IV);
-            
-            result.AddRange(BitConverter.GetBytes(encryptedData.Length));
-            result.AddRange(encryptedData);
-            
-            var pgpMessage = FormatPgpMessage(result.ToArray());
-            return Encoding.UTF8.GetBytes(pgpMessage);
+            finally
+            {
+                // Ensure key material is cleared
+                if (aes.Key != null)
+                    ZeroMemory(aes.Key);
+                ZeroMemory(keyBuffer);
+            }
         }, cancellationToken);
+    }
+    
+    private static byte[] CombineEncryptedComponents(byte[] encryptedSessionKey, byte[] iv, byte[] encryptedData)
+    {
+        var result = new List<byte>();
+        
+        result.AddRange(BitConverter.GetBytes(encryptedSessionKey.Length));
+        result.AddRange(encryptedSessionKey);
+        
+        result.AddRange(BitConverter.GetBytes(iv.Length));
+        result.AddRange(iv);
+        
+        result.AddRange(BitConverter.GetBytes(encryptedData.Length));
+        result.AddRange(encryptedData);
+        
+        var pgpMessage = FormatPgpMessage(result.ToArray());
+        return Encoding.UTF8.GetBytes(pgpMessage);
     }
 
     public async Task<byte[]> DecryptAsync(byte[] encryptedData, string privateKey, CancellationToken cancellationToken = default)
     {
-#if NET8_0_OR_GREATER
+#if NET6_0_OR_GREATER
         ArgumentNullException.ThrowIfNull(encryptedData);
 #else
-        ArgumentNullExceptionExtensions.ThrowIfNull(encryptedData, nameof(encryptedData));
+        if (encryptedData == null) throw new ArgumentNullException(nameof(encryptedData));
 #endif
 #if NET8_0_OR_GREATER
         ArgumentException.ThrowIfNullOrWhiteSpace(privateKey);
 #else
-        ArgumentExceptionExtensions.ThrowIfNullOrWhiteSpace(privateKey, nameof(privateKey));
+        if (string.IsNullOrWhiteSpace(privateKey)) throw new ArgumentException("Value cannot be null or whitespace.", nameof(privateKey));
 #endif
 
         return await Task.Run(() =>
@@ -142,7 +168,7 @@ public sealed class PgpCryptographyService : ICryptographyService, IKeyGeneratio
 #if NET8_0_OR_GREATER
         ArgumentException.ThrowIfNullOrWhiteSpace(plainText);
 #else
-        ArgumentExceptionExtensions.ThrowIfNullOrWhiteSpace(plainText, nameof(plainText));
+        if (string.IsNullOrWhiteSpace(plainText)) throw new ArgumentException("Value cannot be null or whitespace.", nameof(plainText));
 #endif
         var encryptedBytes = await EncryptAsync(Encoding.UTF8.GetBytes(plainText), publicKey, cancellationToken);
         return Encoding.UTF8.GetString(encryptedBytes);
@@ -153,7 +179,7 @@ public sealed class PgpCryptographyService : ICryptographyService, IKeyGeneratio
 #if NET8_0_OR_GREATER
         ArgumentException.ThrowIfNullOrWhiteSpace(encryptedText);
 #else
-        ArgumentExceptionExtensions.ThrowIfNullOrWhiteSpace(encryptedText, nameof(encryptedText));
+        if (string.IsNullOrWhiteSpace(encryptedText)) throw new ArgumentException("Value cannot be null or whitespace.", nameof(encryptedText));
 #endif
         var decryptedBytes = await DecryptAsync(Encoding.UTF8.GetBytes(encryptedText), privateKey, cancellationToken);
         return Encoding.UTF8.GetString(decryptedBytes);
@@ -169,7 +195,7 @@ public sealed class PgpCryptographyService : ICryptographyService, IKeyGeneratio
 #if NET8_0_OR_GREATER
         ArgumentException.ThrowIfNullOrWhiteSpace(identity);
 #else
-        ArgumentExceptionExtensions.ThrowIfNullOrWhiteSpace(identity, nameof(identity));
+        if (string.IsNullOrWhiteSpace(identity)) throw new ArgumentException("Value cannot be null or whitespace.", nameof(identity));
 #endif
         
         return await Task.Run(() =>
@@ -209,12 +235,12 @@ public sealed class PgpCryptographyService : ICryptographyService, IKeyGeneratio
         var sb = new StringBuilder();
         sb.AppendLine(PublicKeyHeader);
         sb.AppendLine();
-        sb.AppendLine($"Identity: {keyData.Identity}");
-        sb.AppendLine($"Created: {keyData.Created:yyyy-MM-dd HH:mm:ss} UTC");
-        sb.AppendLine($"KeySize: {keyData.KeySize}");
+        sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "Identity: {0}", keyData.Identity));
+        sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "Created: {0:yyyy-MM-dd HH:mm:ss} UTC", keyData.Created));
+        sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "KeySize: {0}", keyData.KeySize));
         sb.AppendLine();
-        sb.AppendLine($"Modulus: {keyData.Modulus}");
-        sb.AppendLine($"Exponent: {keyData.Exponent}");
+        sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "Modulus: {0}", keyData.Modulus));
+        sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "Exponent: {0}", keyData.Exponent));
         sb.AppendLine();
         sb.AppendLine(PublicKeyFooter);
         return sb.ToString();
@@ -225,25 +251,25 @@ public sealed class PgpCryptographyService : ICryptographyService, IKeyGeneratio
         var sb = new StringBuilder();
         sb.AppendLine(PrivateKeyHeader);
         sb.AppendLine();
-        sb.AppendLine($"Identity: {keyData.Identity}");
-        sb.AppendLine($"Created: {keyData.Created:yyyy-MM-dd HH:mm:ss} UTC");
-        sb.AppendLine($"KeySize: {keyData.KeySize}");
+        sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "Identity: {0}", keyData.Identity));
+        sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "Created: {0:yyyy-MM-dd HH:mm:ss} UTC", keyData.Created));
+        sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "KeySize: {0}", keyData.KeySize));
         sb.AppendLine();
         
         if (!string.IsNullOrEmpty(passphrase))
         {
             var keyContent = $"{keyData.Modulus}|{keyData.D}|{keyData.P}|{keyData.Q}|{keyData.E}";
             var encrypted = EncryptWithPassphrase(keyContent, passphrase);
-            sb.AppendLine($"Encrypted: true");
-            sb.AppendLine($"Data: {encrypted}");
+            sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "Encrypted: {0}", "true"));
+            sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "Data: {0}", encrypted));
         }
         else
         {
-            sb.AppendLine($"Modulus: {keyData.Modulus}");
-            sb.AppendLine($"D: {keyData.D}");
-            sb.AppendLine($"P: {keyData.P}");
-            sb.AppendLine($"Q: {keyData.Q}");
-            sb.AppendLine($"E: {keyData.E}");
+            sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "Modulus: {0}", keyData.Modulus));
+            sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "D: {0}", keyData.D));
+            sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "P: {0}", keyData.P));
+            sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "Q: {0}", keyData.Q));
+            sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "E: {0}", keyData.E));
         }
         
         sb.AppendLine();
@@ -270,7 +296,7 @@ public sealed class PgpCryptographyService : ICryptographyService, IKeyGeneratio
 
     private static byte[] ParsePgpMessage(string pgpMessage)
     {
-        var lines = pgpMessage.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
+        var lines = pgpMessage.Split(LineSeparators, StringSplitOptions.RemoveEmptyEntries);
         var dataLines = new List<string>();
         var inData = false;
         
@@ -297,15 +323,15 @@ public sealed class PgpCryptographyService : ICryptographyService, IKeyGeneratio
 
     private static RsaPublicKey ParsePublicKey(string publicKeyString)
     {
-        var lines = publicKeyString.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
+        var lines = publicKeyString.Split(LineSeparators, StringSplitOptions.RemoveEmptyEntries);
         string? modulus = null;
         string? exponent = null;
         
         foreach (var line in lines)
         {
-            if (line.StartsWith("Modulus:"))
+            if (line.StartsWith("Modulus:", StringComparison.Ordinal))
                 modulus = line.Substring("Modulus:".Length).Trim();
-            else if (line.StartsWith("Exponent:"))
+            else if (line.StartsWith("Exponent:", StringComparison.Ordinal))
                 exponent = line.Substring("Exponent:".Length).Trim();
         }
         
@@ -319,7 +345,7 @@ public sealed class PgpCryptographyService : ICryptographyService, IKeyGeneratio
 
     private static RsaPrivateKey ParsePrivateKey(string privateKeyString)
     {
-        var lines = privateKeyString.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
+        var lines = privateKeyString.Split(LineSeparators, StringSplitOptions.RemoveEmptyEntries);
         string? modulus = null;
         string? d = null;
         string? p = null;
@@ -328,15 +354,15 @@ public sealed class PgpCryptographyService : ICryptographyService, IKeyGeneratio
         
         foreach (var line in lines)
         {
-            if (line.StartsWith("Modulus:"))
+            if (line.StartsWith("Modulus:", StringComparison.Ordinal))
                 modulus = line.Substring("Modulus:".Length).Trim();
-            else if (line.StartsWith("D:"))
+            else if (line.StartsWith("D:", StringComparison.Ordinal))
                 d = line.Substring("D:".Length).Trim();
-            else if (line.StartsWith("P:"))
+            else if (line.StartsWith("P:", StringComparison.Ordinal))
                 p = line.Substring("P:".Length).Trim();
-            else if (line.StartsWith("Q:"))
+            else if (line.StartsWith("Q:", StringComparison.Ordinal))
                 q = line.Substring("Q:".Length).Trim();
-            else if (line.StartsWith("E:"))
+            else if (line.StartsWith("E:", StringComparison.Ordinal))
                 e = line.Substring("E:".Length).Trim();
         }
         
@@ -354,9 +380,12 @@ public sealed class PgpCryptographyService : ICryptographyService, IKeyGeneratio
     private static string EncryptWithPassphrase(string data, string passphrase)
     {
         using var aes = Aes.Create();
+#if NET5_0_OR_GREATER
+        aes.Key = SHA256.HashData(Encoding.UTF8.GetBytes(passphrase));
+#else
         using var sha256 = SHA256.Create();
-        
         aes.Key = sha256.ComputeHash(Encoding.UTF8.GetBytes(passphrase));
+#endif
         aes.GenerateIV();
         
         using var encryptor = aes.CreateEncryptor();
@@ -371,5 +400,16 @@ public sealed class PgpCryptographyService : ICryptographyService, IKeyGeneratio
         }
         
         return Convert.ToBase64String(ms.ToArray());
+    }
+
+    /// <summary>
+    /// Zero out memory to prevent key material leakage
+    /// </summary>
+    private static void ZeroMemory(byte[] data)
+    {
+        if (data != null)
+        {
+            Array.Clear(data, 0, data.Length);
+        }
     }
 }

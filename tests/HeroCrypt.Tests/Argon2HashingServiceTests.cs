@@ -23,68 +23,68 @@ public class Argon2HashingServiceTests
     }
 
     [Fact]
-    public async Task HashAsync_WithString_ReturnsValidHash()
+    public async Task HashAsyncWithStringReturnsValidHash()
     {
         var input = "TestPassword123!";
         
-        var hash = await _service.HashAsync(input);
+        var hash = await _service.HashAsync(input, CancellationToken.None);
         
         Assert.NotNull(hash);
         Assert.NotEmpty(hash);
     }
 
     [Fact]
-    public async Task HashAsync_SameInput_ProducesDifferentHashes()
+    public async Task HashAsyncSameInputProducesDifferentHashes()
     {
         var input = "TestPassword123!";
         
-        var hash1 = await _service.HashAsync(input);
-        var hash2 = await _service.HashAsync(input);
+        var hash1 = await _service.HashAsync(input, CancellationToken.None);
+        var hash2 = await _service.HashAsync(input, CancellationToken.None);
         
         Assert.NotEqual(hash1, hash2);
     }
 
     [Fact]
-    public async Task VerifyAsync_WithCorrectPassword_ReturnsTrue()
+    public async Task VerifyAsyncWithCorrectPasswordReturnsTrue()
     {
         var input = "TestPassword123!";
-        var hash = await _service.HashAsync(input);
+        var hash = await _service.HashAsync(input, CancellationToken.None);
         
-        var result = await _service.VerifyAsync(input, hash);
+        var result = await _service.VerifyAsync(input, hash, CancellationToken.None);
         
         Assert.True(result);
     }
 
     [Fact]
-    public async Task VerifyAsync_WithIncorrectPassword_ReturnsFalse()
+    public async Task VerifyAsyncWithIncorrectPasswordReturnsFalse()
     {
         var input = "TestPassword123!";
         var wrongInput = "WrongPassword123!";
-        var hash = await _service.HashAsync(input);
+        var hash = await _service.HashAsync(input, CancellationToken.None);
         
-        var result = await _service.VerifyAsync(wrongInput, hash);
+        var result = await _service.VerifyAsync(wrongInput, hash, CancellationToken.None);
         
         Assert.False(result);
     }
 
     [Fact]
-    public async Task HashAsync_WithBytes_ReturnsValidHash()
+    public async Task HashAsyncWithBytesReturnsValidHash()
     {
         var input = new byte[] { 1, 2, 3, 4, 5 };
         
-        var hash = await _service.HashAsync(input);
+        var hash = await _service.HashAsync(input, CancellationToken.None);
         
         Assert.NotNull(hash);
         Assert.NotEmpty(hash);
     }
 
     [Fact]
-    public async Task VerifyAsync_WithBytes_WorksCorrectly()
+    public async Task VerifyAsyncWithBytesWorksCorrectly()
     {
         var input = new byte[] { 1, 2, 3, 4, 5 };
-        var hash = await _service.HashAsync(input);
+        var hash = await _service.HashAsync(input, CancellationToken.None);
         
-        var result = await _service.VerifyAsync(input, hash);
+        var result = await _service.VerifyAsync(input, hash, CancellationToken.None);
         
         Assert.True(result);
     }
@@ -93,7 +93,7 @@ public class Argon2HashingServiceTests
     [InlineData(Argon2Type.Argon2d)]
     [InlineData(Argon2Type.Argon2i)]
     [InlineData(Argon2Type.Argon2id)]
-    public async Task HashAsync_WithDifferentTypes_WorksCorrectly(Argon2Type type)
+    public async Task HashAsyncWithDifferentTypesWorksCorrectly(Argon2Type type)
     {
         var service = new Argon2HashingService(new Argon2Options
         {
@@ -104,29 +104,29 @@ public class Argon2HashingServiceTests
         });
         var input = "TestPassword";
         
-        var hash = await service.HashAsync(input);
-        var result = await service.VerifyAsync(input, hash);
+        var hash = await service.HashAsync(input, CancellationToken.None);
+        var result = await service.VerifyAsync(input, hash, CancellationToken.None);
         
         Assert.True(result);
     }
 
     [Fact]
-    public async Task VerifyAsync_WithInvalidHash_ReturnsFalse()
+    public async Task VerifyAsyncWithInvalidHashReturnsFalse()
     {
         var input = "TestPassword";
         var invalidHash = "InvalidBase64Hash!!!";
         
-        var result = await _service.VerifyAsync(input, invalidHash);
+        var result = await _service.VerifyAsync(input, invalidHash, CancellationToken.None);
         
         Assert.False(result);
     }
 
     [Fact]
-    public async Task VerifyAsync_WithEmptyHash_ReturnsFalse()
+    public async Task VerifyAsyncWithEmptyHashReturnsFalse()
     {
         var input = "TestPassword";
         
-        var result = await _service.VerifyAsync(input, "");
+        var result = await _service.VerifyAsync(input, "", CancellationToken.None);
         
         Assert.False(result);
     }

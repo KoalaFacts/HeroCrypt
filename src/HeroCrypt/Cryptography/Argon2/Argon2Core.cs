@@ -1,6 +1,5 @@
 #if NETSTANDARD2_0
-using HeroCrypt.Compatibility;
-using BinaryPrimitives = HeroCrypt.Compatibility.BinaryPrimitivesCompat;
+using System;
 #else
 using System.Buffers.Binary;
 #endif
@@ -47,17 +46,26 @@ public static class Argon2Core
         byte[]? associatedData = null,
         byte[]? secret = null)
     {
-        if (iterations < 1) throw new ArgumentException("Iterations must be at least 1", nameof(iterations));
-        if (memorySize < 8 * parallelism) throw new ArgumentException("Memory size must be at least 8 * parallelism", nameof(memorySize));
-        if (parallelism < 1) throw new ArgumentException("Parallelism must be at least 1", nameof(parallelism));
-        if (hashLength < 4) throw new ArgumentException("Hash length must be at least 4", nameof(hashLength));
+        // Validate inputs
+        if (iterations < 1) throw new ArgumentException("Iterations must be positive", nameof(iterations));
+        if (memorySize < 1) throw new ArgumentException("Memory size must be positive", nameof(memorySize));
+        if (parallelism < 1) throw new ArgumentException("Parallelism must be positive", nameof(parallelism));
+        if (hashLength < 1) throw new ArgumentException("Hash length must be positive", nameof(hashLength));
+        if (parallelism > memorySize) throw new ArgumentException("Parallelism cannot exceed memory size", nameof(parallelism));
+        
+        // RFC 9106: The memory size m MUST be at least 8*p KB
+        if (memorySize < 8 * parallelism) throw new ArgumentException($"Memory size must be at least {8 * parallelism} KB for {parallelism} parallelism", nameof(memorySize));
+        
+        // Password and salt can be empty for Argon2, but not null
+        password = password ?? Array.Empty<byte>();
+        salt = salt ?? Array.Empty<byte>();
 
         var context = new Argon2Context
         {
-            Password = password ?? [],
-            Salt = salt ?? [],
-            Secret = secret ?? [],
-            AssociatedData = associatedData ?? [],
+            Password = password,
+            Salt = salt,
+            Secret = secret ?? Array.Empty<byte>(),
+            AssociatedData = associatedData ?? Array.Empty<byte>(),
             Iterations = iterations,
             Memory = memorySize,
             Lanes = parallelism,
@@ -105,6 +113,7 @@ public static class Argon2Core
     {
         // Calculate H_0 as per RFC 9106 Section 3.2
         var h0Input = BuildH0Input(context);
+        
         var h0 = new byte[64];
         Blake2b(h0Input, h0, 64);
 
@@ -118,8 +127,13 @@ public static class Argon2Core
             // B[i][0] = H'^(1024)(H_0 || LE32(0) || LE32(i))
             var block0Input = new byte[h0.Length + 8];
             Array.Copy(h0, 0, block0Input, 0, h0.Length);
+#if NETSTANDARD2_0
+            WriteInt32LittleEndian(block0Input, h0.Length, 0);
+            WriteInt32LittleEndian(block0Input, h0.Length + 4, lane);
+#else
             BinaryPrimitives.WriteInt32LittleEndian(block0Input.AsSpan(h0.Length), 0);
             BinaryPrimitives.WriteInt32LittleEndian(block0Input.AsSpan(h0.Length + 4), lane);
+#endif
             
             var block0Data = new byte[BlockSize];
             Blake2bLong(block0Input, block0Data, BlockSize);
@@ -128,8 +142,13 @@ public static class Argon2Core
             // B[i][1] = H'^(1024)(H_0 || LE32(1) || LE32(i))
             var block1Input = new byte[h0.Length + 8];
             Array.Copy(h0, 0, block1Input, 0, h0.Length);
+#if NETSTANDARD2_0
+            WriteInt32LittleEndian(block1Input, h0.Length, 1);
+            WriteInt32LittleEndian(block1Input, h0.Length + 4, lane);
+#else
             BinaryPrimitives.WriteInt32LittleEndian(block1Input.AsSpan(h0.Length), 1);
             BinaryPrimitives.WriteInt32LittleEndian(block1Input.AsSpan(h0.Length + 4), lane);
+#endif
             
             var block1Data = new byte[BlockSize];
             Blake2bLong(block1Input, block1Data, BlockSize);
@@ -149,46 +168,86 @@ public static class Argon2Core
         var buffer = new byte[4];
         
         // p: parallelism degree
+#if NETSTANDARD2_0
+        WriteInt32LittleEndian(buffer, 0, context.Lanes);
+#else
         BinaryPrimitives.WriteInt32LittleEndian(buffer, context.Lanes);
+#endif
         ms.Write(buffer, 0, 4);
         
         // T: tag length in bytes
+#if NETSTANDARD2_0
+        WriteInt32LittleEndian(buffer, 0, context.HashLength);
+#else
         BinaryPrimitives.WriteInt32LittleEndian(buffer, context.HashLength);
+#endif
         ms.Write(buffer, 0, 4);
         
         // m: memory size in KB
+#if NETSTANDARD2_0
+        WriteInt32LittleEndian(buffer, 0, context.Memory);
+#else
         BinaryPrimitives.WriteInt32LittleEndian(buffer, context.Memory);
+#endif
         ms.Write(buffer, 0, 4);
         
         // t: number of iterations
+#if NETSTANDARD2_0
+        WriteInt32LittleEndian(buffer, 0, context.Iterations);
+#else
         BinaryPrimitives.WriteInt32LittleEndian(buffer, context.Iterations);
+#endif
         ms.Write(buffer, 0, 4);
         
         // v: version number (19 = 0x13)
+#if NETSTANDARD2_0
+        WriteInt32LittleEndian(buffer, 0, Version);
+#else
         BinaryPrimitives.WriteInt32LittleEndian(buffer, Version);
+#endif
         ms.Write(buffer, 0, 4);
         
         // y: Argon2 type (0=Argon2d, 1=Argon2i, 2=Argon2id)
+#if NETSTANDARD2_0
+        WriteInt32LittleEndian(buffer, 0, (int)context.Type);
+#else
         BinaryPrimitives.WriteInt32LittleEndian(buffer, (int)context.Type);
+#endif
         ms.Write(buffer, 0, 4);
         
         // Password with length prefix
+#if NETSTANDARD2_0
+        WriteInt32LittleEndian(buffer, 0, context.Password.Length);
+#else
         BinaryPrimitives.WriteInt32LittleEndian(buffer, context.Password.Length);
+#endif
         ms.Write(buffer, 0, 4);
         ms.Write(context.Password, 0, context.Password.Length);
         
         // Salt with length prefix
+#if NETSTANDARD2_0
+        WriteInt32LittleEndian(buffer, 0, context.Salt.Length);
+#else
         BinaryPrimitives.WriteInt32LittleEndian(buffer, context.Salt.Length);
+#endif
         ms.Write(buffer, 0, 4);
         ms.Write(context.Salt, 0, context.Salt.Length);
         
         // Secret with length prefix
+#if NETSTANDARD2_0
+        WriteInt32LittleEndian(buffer, 0, context.Secret.Length);
+#else
         BinaryPrimitives.WriteInt32LittleEndian(buffer, context.Secret.Length);
+#endif
         ms.Write(buffer, 0, 4);
         ms.Write(context.Secret, 0, context.Secret.Length);
         
         // Associated data with length prefix
+#if NETSTANDARD2_0
+        WriteInt32LittleEndian(buffer, 0, context.AssociatedData.Length);
+#else
         BinaryPrimitives.WriteInt32LittleEndian(buffer, context.AssociatedData.Length);
+#endif
         ms.Write(buffer, 0, 4);
         ms.Write(context.AssociatedData, 0, context.AssociatedData.Length);
         
@@ -233,7 +292,7 @@ public static class Argon2Core
             inputBlock.Data[3] = (ulong)context.Memory;
             inputBlock.Data[4] = (ulong)context.Iterations;
             inputBlock.Data[5] = (ulong)context.Type;
-            inputBlock.Data[6] = 0; // Counter for address generation
+            inputBlock.Data[6] = 1; // Counter for address generation (starts at 1 per RFC)
             
             // Clear remaining positions
             for (var j = 7; j < 128; j++)
@@ -517,9 +576,9 @@ public static class Argon2Core
     /// </summary>
     private static void GenerateAddresses(Block input, Block zero, Block output)
     {
-        input.Data[6]++; // Increment counter for address generation
         FillBlock(zero, input, output, false);
         FillBlock(zero, output, output, false);
+        input.Data[6]++; // Increment counter after generating addresses
     }
 
     private static byte[] Finalize(Argon2Context context, Block[] memory)
@@ -537,7 +596,8 @@ public static class Argon2Core
         }
 
         var result = new byte[context.HashLength];
-        Blake2bLong(BlockToBytes(finalBlock), result, context.HashLength);
+        var finalBlockBytes = BlockToBytes(finalBlock);
+        Blake2bLong(finalBlockBytes, result, context.HashLength);
         
         return result;
     }
@@ -547,7 +607,11 @@ public static class Argon2Core
         var bytes = new byte[1024];
         for (var i = 0; i < 128; i++)
         {
+#if NETSTANDARD2_0
+            WriteUInt64LittleEndian(bytes, i * 8, block.Data[i]);
+#else
             BinaryPrimitives.WriteUInt64LittleEndian(bytes.AsSpan(i * 8), block.Data[i]);
+#endif
         }
         return bytes;
     }
@@ -556,7 +620,11 @@ public static class Argon2Core
     {
         for (var i = 0; i < 128; i++)
         {
+#if NETSTANDARD2_0
+            block.Data[i] = ReadUInt64LittleEndian(bytes, i * 8);
+#else
             block.Data[i] = BinaryPrimitives.ReadUInt64LittleEndian(bytes.AsSpan(i * 8));
+#endif
         }
     }
 
@@ -568,7 +636,11 @@ public static class Argon2Core
     {
         // Create input with prepended length: LE32(T) || A
         var inputWithLength = new byte[4 + input.Length];
+#if NETSTANDARD2_0
+        WriteInt32LittleEndian(inputWithLength, 0, outputLength);
+#else
         BinaryPrimitives.WriteInt32LittleEndian(inputWithLength.AsSpan(0), outputLength);
+#endif
         Array.Copy(input, 0, inputWithLength, 4, input.Length);
         
         if (outputLength <= 64)
@@ -645,14 +717,22 @@ public static class Argon2Core
         // Output hash bytes
         for (var i = 0; i < outputLength / 8; i++)
         {
+#if NETSTANDARD2_0
+            WriteUInt64LittleEndian(output, i * 8, h[i]);
+#else
             BinaryPrimitives.WriteUInt64LittleEndian(output.AsSpan(i * 8), h[i]);
+#endif
         }
         
         // Handle remaining bytes
         if (outputLength % 8 != 0)
         {
             var lastBytes = new byte[8];
+#if NETSTANDARD2_0
+            WriteUInt64LittleEndian(lastBytes, 0, h[outputLength / 8]);
+#else
             BinaryPrimitives.WriteUInt64LittleEndian(lastBytes, h[outputLength / 8]);
+#endif
             Array.Copy(lastBytes, 0, output, (outputLength / 8) * 8, outputLength % 8);
         }
     }
@@ -663,7 +743,11 @@ public static class Argon2Core
         var m = new ulong[16];
         for (var i = 0; i < 16; i++)
         {
+#if NETSTANDARD2_0
+            m[i] = ReadUInt64LittleEndian(messageBlock, i * 8);
+#else
             m[i] = BinaryPrimitives.ReadUInt64LittleEndian(messageBlock.AsSpan(i * 8));
+#endif
         }
 
         // Initialize working vector
@@ -723,7 +807,7 @@ public static class Argon2Core
         public readonly ulong[] Data = new ulong[128];
     }
 
-    private sealed class Argon2Context
+    internal sealed class Argon2Context
     {
         public byte[] Password { get; set; } = [];
         public byte[] Salt { get; set; } = [];
@@ -735,4 +819,39 @@ public static class Argon2Core
         public int HashLength { get; set; }
         public Argon2Type Type { get; set; }
     }
+
+#if NETSTANDARD2_0
+    // Helper methods for .NET Standard 2.0 compatibility
+    private static void WriteInt32LittleEndian(byte[] destination, int offset, int value)
+    {
+        destination[offset] = (byte)value;
+        destination[offset + 1] = (byte)(value >> 8);
+        destination[offset + 2] = (byte)(value >> 16);
+        destination[offset + 3] = (byte)(value >> 24);
+    }
+
+    private static void WriteUInt64LittleEndian(byte[] destination, int offset, ulong value)
+    {
+        destination[offset] = (byte)value;
+        destination[offset + 1] = (byte)(value >> 8);
+        destination[offset + 2] = (byte)(value >> 16);
+        destination[offset + 3] = (byte)(value >> 24);
+        destination[offset + 4] = (byte)(value >> 32);
+        destination[offset + 5] = (byte)(value >> 40);
+        destination[offset + 6] = (byte)(value >> 48);
+        destination[offset + 7] = (byte)(value >> 56);
+    }
+
+    private static ulong ReadUInt64LittleEndian(byte[] source, int offset)
+    {
+        return (ulong)source[offset] |
+               ((ulong)source[offset + 1] << 8) |
+               ((ulong)source[offset + 2] << 16) |
+               ((ulong)source[offset + 3] << 24) |
+               ((ulong)source[offset + 4] << 32) |
+               ((ulong)source[offset + 5] << 40) |
+               ((ulong)source[offset + 6] << 48) |
+               ((ulong)source[offset + 7] << 56);
+    }
+#endif
 }

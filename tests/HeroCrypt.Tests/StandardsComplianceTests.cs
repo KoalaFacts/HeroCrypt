@@ -1,4 +1,5 @@
 using System.Text;
+using System.Globalization;
 using HeroCrypt.Cryptography.Argon2;
 
 namespace HeroCrypt.Tests;
@@ -17,7 +18,7 @@ public class StandardsComplianceTests
     /// Test vectors from RFC 9106 Appendix A.1 - Argon2d
     /// </summary>
     [Fact]
-    public void Argon2d_RFC9106_TestVector1()
+    public void Argon2dRfc9106TestVector1()
     {
         // RFC 9106 Test Vector 1 for Argon2d
         var password = new byte[] { 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
@@ -48,7 +49,11 @@ public class StandardsComplianceTests
             secret: secret
         );
         
-        var resultHex = BitConverter.ToString(result).Replace("-", "").ToLower();
+#if NET5_0_OR_GREATER
+        var resultHex = Convert.ToHexString(result).ToLower(CultureInfo.InvariantCulture);
+#else
+        var resultHex = BitConverter.ToString(result).Replace("-", "", StringComparison.Ordinal).ToLower(CultureInfo.InvariantCulture);
+#endif
         
         Assert.Equal(expected, resultHex);
     }
@@ -57,7 +62,7 @@ public class StandardsComplianceTests
     /// Test vectors from RFC 9106 Appendix A.2 - Argon2i
     /// </summary>
     [Fact]
-    public void Argon2i_RFC9106_TestVector2()
+    public void Argon2iRfc9106TestVector2()
     {
         var password = new byte[] { 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
                                     0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
@@ -87,7 +92,11 @@ public class StandardsComplianceTests
             secret: secret
         );
         
-        var resultHex = BitConverter.ToString(result).Replace("-", "").ToLower();
+#if NET5_0_OR_GREATER
+        var resultHex = Convert.ToHexString(result).ToLower(CultureInfo.InvariantCulture);
+#else
+        var resultHex = BitConverter.ToString(result).Replace("-", "", StringComparison.Ordinal).ToLower(CultureInfo.InvariantCulture);
+#endif
         
         Assert.Equal(expected, resultHex);
     }
@@ -96,7 +105,7 @@ public class StandardsComplianceTests
     /// Test vectors from RFC 9106 Appendix A.3 - Argon2id
     /// </summary>
     [Fact]
-    public void Argon2id_RFC9106_TestVector3()
+    public void Argon2idRfc9106TestVector3()
     {
         var password = new byte[] { 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
                                     0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
@@ -126,7 +135,11 @@ public class StandardsComplianceTests
             secret: secret
         );
         
-        var resultHex = BitConverter.ToString(result).Replace("-", "").ToLower();
+#if NET5_0_OR_GREATER
+        var resultHex = Convert.ToHexString(result).ToLower(CultureInfo.InvariantCulture);
+#else
+        var resultHex = BitConverter.ToString(result).Replace("-", "", StringComparison.Ordinal).ToLower(CultureInfo.InvariantCulture);
+#endif
         
         Assert.Equal(expected, resultHex);
     }
@@ -135,7 +148,7 @@ public class StandardsComplianceTests
     /// Test vector without secret and associated data
     /// </summary>
     [Fact]
-    public void Argon2id_SimpleTestVector()
+    public void Argon2idSimpleTestVector()
     {
         var password = Encoding.UTF8.GetBytes("password");
         var salt = Encoding.UTF8.GetBytes("somesalt");
@@ -161,7 +174,7 @@ public class StandardsComplianceTests
     /// Verify that different salts produce different outputs
     /// </summary>
     [Fact]
-    public void Argon2_DifferentSalts_ProduceDifferentOutputs()
+    public void Argon2DifferentSaltsProduceDifferentOutputs()
     {
         var password = Encoding.UTF8.GetBytes("password");
         var salt1 = new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
@@ -197,7 +210,7 @@ public class StandardsComplianceTests
     [InlineData(0, 32, 4)] // iterations < 1
     [InlineData(1, 7, 4)]  // memory < 8 * parallelism
     [InlineData(1, 32, 0)] // parallelism < 1
-    public void Argon2_InvalidParameters_ThrowsException(int iterations, int memory, int parallelism)
+    public void Argon2InvalidParametersThrowsException(int iterations, int memory, int parallelism)
     {
         var password = Encoding.UTF8.GetBytes("password");
         var salt = new byte[16];

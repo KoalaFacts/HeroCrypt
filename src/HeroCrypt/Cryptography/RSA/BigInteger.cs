@@ -1,4 +1,6 @@
+using System.Buffers;
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace HeroCrypt.Cryptography.RSA;
@@ -275,69 +277,184 @@ internal sealed class BigInteger : IComparable<BigInteger>
     private static uint[] Add(uint[] left, uint[] right)
     {
         var maxLength = Math.Max(left.Length, right.Length);
-        var result = new uint[maxLength + 1];
-        ulong carry = 0;
+        var pool = ArrayPool<uint>.Shared;
+        var result = pool.Rent(maxLength + 1);
         
-        for (var i = 0; i < maxLength; i++)
+        try
         {
-            var a = i < left.Length ? left[i] : 0u;
-            var b = i < right.Length ? right[i] : 0u;
+            Array.Clear(result, 0, maxLength + 1);
+            ulong carry = 0;
             
-            carry += a + (ulong)b;
-            result[i] = (uint)carry;
-            carry >>= 32;
+            for (var i = 0; i < maxLength; i++)
+            {
+                var a = i < left.Length ? left[i] : 0u;
+                var b = i < right.Length ? right[i] : 0u;
+                
+                carry += a + (ulong)b;
+                result[i] = (uint)carry;
+                carry >>= 32;
+            }
+            
+            if (carry != 0)
+                result[maxLength] = (uint)carry;
+            
+            var actualLength = carry != 0 ? maxLength + 1 : maxLength;
+            var finalResult = new uint[actualLength];
+            Array.Copy(result, finalResult, actualLength);
+            return finalResult;
         }
-        
-        if (carry != 0)
-            result[maxLength] = (uint)carry;
-        
-        return result;
+        finally
+        {
+            pool.Return(result);
+        }
     }
     
     private static uint[] Subtract(uint[] left, uint[] right)
     {
-        var result = new uint[left.Length];
-        long borrow = 0;
+        var pool = ArrayPool<uint>.Shared;
+        var result = pool.Rent(left.Length);
         
-        for (var i = 0; i < left.Length; i++)
+        try
         {
-            var a = left[i];
-            var b = i < right.Length ? right[i] : 0u;
+            Array.Clear(result, 0, left.Length);
+            long borrow = 0;
             
-            var diff = a - b - borrow;
-            if (diff < 0)
+            for (var i = 0; i < left.Length; i++)
             {
-                diff += 0x100000000L;
-                borrow = 1;
-            }
-            else
-            {
-                borrow = 0;
+                var a = left[i];
+                var b = i < right.Length ? right[i] : 0u;
+                
+                var diff = a - b - borrow;
+                if (diff < 0)
+                {
+                    diff += 0x100000000L;
+                    borrow = 1;
+                }
+                else
+                {
+                    borrow = 0;
+                }
+                
+                result[i] = (uint)diff;
             }
             
-            result[i] = (uint)diff;
+            var finalResult = new uint[left.Length];
+            Array.Copy(result, finalResult, left.Length);
+            return finalResult;
         }
-        
-        return result;
+        finally
+        {
+            pool.Return(result);
+        }
     }
     
     private static uint[] Multiply(uint[] left, uint[] right)
     {
-        var result = new uint[left.Length + right.Length];
-        
-        for (var i = 0; i < left.Length; i++)
+        // Use Karatsuba algorithm for large numbers
+        if (left.Length > 32 && right.Length > 32)
         {
-            ulong carry = 0;
-            for (var j = 0; j < right.Length; j++)
-            {
-                carry += (ulong)left[i] * right[j] + result[i + j];
-                result[i + j] = (uint)carry;
-                carry >>= 32;
-            }
-            result[i + right.Length] = (uint)carry;
+            return MultiplyKaratsuba(left, right);
         }
         
+        var pool = ArrayPool<uint>.Shared;
+        var result = pool.Rent(left.Length + right.Length);
+        
+        try
+        {
+            Array.Clear(result, 0, left.Length + right.Length);
+            
+            for (var i = 0; i < left.Length; i++)
+            {
+                ulong carry = 0;
+                for (var j = 0; j < right.Length; j++)
+                {
+                    carry += (ulong)left[i] * right[j] + result[i + j];
+                    result[i + j] = (uint)carry;
+                    carry >>= 32;
+                }
+                result[i + right.Length] = (uint)carry;
+            }
+            
+            var finalResult = new uint[left.Length + right.Length];
+            Array.Copy(result, finalResult, left.Length + right.Length);
+            return finalResult;
+        }
+        finally
+        {
+            pool.Return(result);
+        }
+    }
+    
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static uint[] MultiplyKaratsuba(uint[] left, uint[] right)
+    {
+        // Karatsuba multiplication for better performance with large numbers
+        var n = Math.Max(left.Length, right.Length);
+        if (n <= 32)
+        {
+            return Multiply(left, right);
+        }
+        
+        var half = n / 2;
+        
+        // Split the numbers
+        var leftLow = new uint[Math.Min(half, left.Length)];
+        var leftHigh = new uint[Math.Max(0, left.Length - half)];
+        var rightLow = new uint[Math.Min(half, right.Length)];
+        var rightHigh = new uint[Math.Max(0, right.Length - half)];
+        
+        if (left.Length > 0)
+        {
+            Array.Copy(left, 0, leftLow, 0, leftLow.Length);
+            if (left.Length > half)
+                Array.Copy(left, half, leftHigh, 0, leftHigh.Length);
+        }
+        
+        if (right.Length > 0)
+        {
+            Array.Copy(right, 0, rightLow, 0, rightLow.Length);
+            if (right.Length > half)
+                Array.Copy(right, half, rightHigh, 0, rightHigh.Length);
+        }
+        
+        // Compute three products
+        var z0 = Multiply(leftLow, rightLow);
+        var z2 = Multiply(leftHigh, rightHigh);
+        
+        var leftSum = Add(leftLow, leftHigh);
+        var rightSum = Add(rightLow, rightHigh);
+        var z1 = Multiply(leftSum, rightSum);
+        z1 = Subtract(z1, z0);
+        z1 = Subtract(z1, z2);
+        
+        // Combine results
+        var result = new uint[left.Length + right.Length];
+        AddShifted(result, z0, 0);
+        AddShifted(result, z1, half);
+        AddShifted(result, z2, 2 * half);
+        
         return result;
+    }
+    
+    private static void AddShifted(uint[] result, uint[] value, int shift)
+    {
+        ulong carry = 0;
+        for (var i = 0; i < value.Length; i++)
+        {
+            if (i + shift < result.Length)
+            {
+                carry += result[i + shift] + (ulong)value[i];
+                result[i + shift] = (uint)carry;
+                carry >>= 32;
+            }
+        }
+        
+        for (var i = value.Length + shift; i < result.Length && carry != 0; i++)
+        {
+            carry += result[i];
+            result[i] = (uint)carry;
+            carry >>= 32;
+        }
     }
     
     private static (uint[] quotient, uint[] remainder) DivideWithRemainder(uint[] dividend, uint[] divisor)
@@ -495,7 +612,7 @@ internal sealed class BigInteger : IComparable<BigInteger>
         var hex = new StringBuilder();
         for (var i = _data.Length - 1; i >= 0; i--)
         {
-            hex.Append(_data[i].ToString("X8"));
+            hex.Append(_data[i].ToString("X8", CultureInfo.InvariantCulture));
         }
         return hex.ToString().TrimStart('0');
     }

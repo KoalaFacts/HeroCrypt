@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using System.Runtime.CompilerServices;
 using HeroCrypt.Abstractions;
 using HeroCrypt.Cryptography.Argon2;
 #if !NET8_0_OR_GREATER
@@ -19,6 +20,12 @@ public sealed class Argon2HashingService : IHashingService
     public Argon2HashingService(Argon2Options options)
     {
         _options = options ?? throw new ArgumentNullException(nameof(options));
+        
+        // Basic validation
+        if (_options.Iterations < 1) throw new ArgumentException("Iterations must be positive", nameof(options));
+        if (_options.MemorySize < 1) throw new ArgumentException("MemorySize must be positive", nameof(options));
+        if (_options.Parallelism < 1) throw new ArgumentException("Parallelism must be positive", nameof(options));
+        if (_options.HashSize < 1) throw new ArgumentException("HashSize must be positive", nameof(options));
     }
 
     public async Task<string> HashAsync(string input, CancellationToken cancellationToken = default)
@@ -26,17 +33,17 @@ public sealed class Argon2HashingService : IHashingService
 #if NET8_0_OR_GREATER
         ArgumentException.ThrowIfNullOrWhiteSpace(input);
 #else
-        ArgumentExceptionExtensions.ThrowIfNullOrWhiteSpace(input, nameof(input));
+        if (string.IsNullOrWhiteSpace(input)) throw new ArgumentException("Value cannot be null or whitespace.", nameof(input));
 #endif
         return await HashAsync(Encoding.UTF8.GetBytes(input), cancellationToken);
     }
 
     public async Task<string> HashAsync(byte[] input, CancellationToken cancellationToken = default)
     {
-#if NET8_0_OR_GREATER
+#if NET6_0_OR_GREATER
         ArgumentNullException.ThrowIfNull(input);
 #else
-        ArgumentNullExceptionExtensions.ThrowIfNull(input, nameof(input));
+        if (input == null) throw new ArgumentNullException(nameof(input));
 #endif
 
         return await Task.Run(() =>
@@ -65,17 +72,17 @@ public sealed class Argon2HashingService : IHashingService
 #if NET8_0_OR_GREATER
         ArgumentException.ThrowIfNullOrWhiteSpace(input);
 #else
-        ArgumentExceptionExtensions.ThrowIfNullOrWhiteSpace(input, nameof(input));
+        if (string.IsNullOrWhiteSpace(input)) throw new ArgumentException("Value cannot be null or whitespace.", nameof(input));
 #endif
         return await VerifyAsync(Encoding.UTF8.GetBytes(input), hash, cancellationToken);
     }
 
     public async Task<bool> VerifyAsync(byte[] input, string hash, CancellationToken cancellationToken = default)
     {
-#if NET8_0_OR_GREATER
+#if NET6_0_OR_GREATER
         ArgumentNullException.ThrowIfNull(input);
 #else
-        ArgumentNullExceptionExtensions.ThrowIfNull(input, nameof(input));
+        if (input == null) throw new ArgumentNullException(nameof(input));
 #endif
         
         // Return false for null or empty hash instead of throwing
@@ -106,7 +113,8 @@ public sealed class Argon2HashingService : IHashingService
                     storedHash.Length,
                     _options.Type);
                 
-                return CryptographicOperations.FixedTimeEquals(storedHash, computedHash);
+                // Use constant-time comparison
+                return ConstantTimeEquals(storedHash, computedHash);
             }
             catch
             {
@@ -118,9 +126,32 @@ public sealed class Argon2HashingService : IHashingService
     private byte[] GenerateSalt()
     {
         var salt = new byte[_options.SaltSize];
-        using var rng = RandomNumberGenerator.Create();
-        rng.GetBytes(salt);
+#if NETSTANDARD2_0
+        using (var rng = RandomNumberGenerator.Create())
+        {
+            rng.GetBytes(salt);
+        }
+#else
+        RandomNumberGenerator.Fill(salt);
+#endif
         return salt;
+    }
+
+    /// <summary>
+    /// Constant-time comparison to prevent timing attacks
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
+    private static bool ConstantTimeEquals(byte[] a, byte[] b)
+    {
+        if (a.Length != b.Length)
+            return false;
+
+        var result = 0;
+        for (var i = 0; i < a.Length; i++)
+        {
+            result |= a[i] ^ b[i];
+        }
+        return result == 0;
     }
 }
 

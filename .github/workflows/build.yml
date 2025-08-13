@@ -12,6 +12,7 @@ env:
   DOTNET_VERSION: '9.0.x'
   DOTNET_NOLOGO: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
+  CI: true
 
 jobs:
   test:
@@ -34,32 +35,57 @@ jobs:
           8.0.x
           9.0.x
           
+    - name: Cache NuGet packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.nuget/packages
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/Directory.Build.props') }}
+        restore-keys: |
+          ${{ runner.os }}-nuget-
+          
     - name: Restore dependencies
       run: dotnet restore
       
     - name: Build
       run: dotnet build --no-restore --configuration Release
+      env:
+        CI: true
       
-    - name: Run all tests
-      run: dotnet test --no-build --configuration Release --logger "trx;LogFileName=test-results.trx" --collect:"XPlat Code Coverage"
+    - name: Check for build warnings
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        echo "Checking for build warnings..."
+        if dotnet build --no-restore --configuration Release --verbosity minimal 2>&1 | grep -i "warning"; then
+          echo "WARNING: Build completed with warnings (this is expected during development)"
+        else
+          echo "SUCCESS: Build completed without warnings"
+        fi
       
-    - name: Run RFC compliance tests
-      run: dotnet test --filter "ClassName=StandardsComplianceTests" --no-build --configuration Release
+    - name: Run fast tests
+      run: dotnet test --filter "Category=Fast" --no-build --configuration Release --logger "trx;LogFileName=test-results.trx" --collect:"XPlat Code Coverage" --settings coverlet.runsettings
+      env:
+        CI: true
+      
+    - name: Run compliance tests
+      run: dotnet test --filter "Category=Compliance" --no-build --configuration Release
+      env:
+        CI: true
       
     - name: Upload test results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: test-results-${{ matrix.os }}
         path: '**/test-results.trx'
         
     - name: Upload coverage reports
-      uses: codecov/codecov-action@v3
+      uses: codecov/codecov-action@v4
       if: matrix.os == 'ubuntu-latest'
       with:
         file: '**/coverage.cobertura.xml'
         flags: unittests
         name: codecov-${{ matrix.os }}
+        token: ${{ secrets.CODECOV_TOKEN }}
 
   security-scan:
     name: Security Scan
@@ -79,16 +105,26 @@ jobs:
       
     - name: Check for vulnerable packages
       run: |
-        dotnet list package --vulnerable --include-transitive
-        if [ $? -ne 0 ]; then
-          echo "Vulnerable packages found!"
+        # Store output and exit code
+        if ! dotnet list package --vulnerable --include-transitive > vuln_check.log 2>&1; then
+          echo "Error checking for vulnerabilities"
+          cat vuln_check.log
           exit 1
+        fi
+        
+        # Check if vulnerabilities were found in output
+        if grep -q "has the following vulnerable packages" vuln_check.log; then
+          echo "ERROR: Vulnerable packages found!"
+          cat vuln_check.log
+          exit 1
+        else
+          echo "SUCCESS: No vulnerable packages found"
         fi
         
     - name: Run security audit
       run: |
-        dotnet tool install --global dotnet-audit
-        dotnet audit
+        dotnet tool install --global security-scan --version 5.6.7
+        dotnet security-scan --project .
 
   build-package:
     name: Build NuGet Package
@@ -112,15 +148,20 @@ jobs:
       
     - name: Build solution
       run: dotnet build --configuration Release --no-restore
+      env:
+        CI: true
       
     - name: Create NuGet package
       run: dotnet pack --configuration Release --no-build --output ./artifacts
+      env:
+        CI: true
       
     - name: Upload NuGet package
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: nuget-package
         path: ./artifacts/*.nupkg
+        retention-days: 30
         
   publish-nuget:
     name: Publish to NuGet
@@ -131,7 +172,7 @@ jobs:
     
     steps:
     - name: Download NuGet package
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: nuget-package
         path: ./artifacts

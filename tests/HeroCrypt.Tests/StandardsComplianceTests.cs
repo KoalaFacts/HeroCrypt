@@ -9,6 +9,8 @@ namespace HeroCrypt.Tests;
 /// - RSA: PKCS#1 v2.2 (RFC 8017)
 /// - Blake2b: RFC 7693
 /// </summary>
+[Trait("Category", TestCategories.Fast)]
+[Trait("Category", TestCategories.Compliance)]
 public class StandardsComplianceTests
 {
     /// <summary>

@@ -6,6 +6,8 @@ namespace HeroCrypt.Tests;
 /// <summary>
 /// Tests for Blake2b implementation according to RFC 7693
 /// </summary>
+[Trait("Category", TestCategories.Fast)]
+[Trait("Category", TestCategories.Unit)]
 public class Blake2bTests
 {
     /// <summary>

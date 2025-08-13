@@ -495,7 +495,7 @@ public static class Argon2Core
     }
     
     /// <summary>
-    /// Multiplication function for Argon2: Mul(x,y) = (x & 0xFFFFFFFF) * (y & 0xFFFFFFFF)
+    /// Multiplication function for Argon2: Mul(x,y) = (x &amp; 0xFFFFFFFF) * (y &amp; 0xFFFFFFFF)
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static ulong Mul(ulong x, ulong y)

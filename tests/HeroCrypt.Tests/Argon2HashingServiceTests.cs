@@ -3,6 +3,8 @@ using HeroCrypt.Services;
 
 namespace HeroCrypt.Tests;
 
+[Trait("Category", TestCategories.Fast)]
+[Trait("Category", TestCategories.Unit)]
 public class Argon2HashingServiceTests
 {
     private readonly Argon2HashingService _service;

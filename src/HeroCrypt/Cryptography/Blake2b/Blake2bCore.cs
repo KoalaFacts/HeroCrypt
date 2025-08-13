@@ -113,7 +113,7 @@ public static class Blake2bCore
         }
         
         // Set parameters in H[0]
-        ctx.H[0] ^= 0x01010000UL | ((ulong)ctx.KeyLength << 8) | (ulong)ctx.HashSize;
+        ctx.H[0] ^= 0x01010000UL | ((ulong)(byte)ctx.KeyLength << 8) | (ulong)ctx.HashSize;
         
         // If we have a key, pad it to BlockSize and treat it as the first block
         if (key != null && key.Length > 0)

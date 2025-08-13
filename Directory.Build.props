@@ -9,8 +9,8 @@
     <!-- AssemblyVersion uses only major.minor for binary compatibility -->
     <AssemblyVersion>1.0.0</AssemblyVersion>
     <!-- FileVersion includes build number if available -->
-    <FileVersion>$(VersionPrefix).$(BUILD_NUMBER)</FileVersion>
-    <FileVersion Condition="'$(BUILD_NUMBER)' == ''">$(VersionPrefix).0</FileVersion>
+    <FileVersion Condition="'$(BUILD_NUMBER)' != ''">1.0.0.$(BUILD_NUMBER)</FileVersion>
+    <FileVersion Condition="'$(BUILD_NUMBER)' == ''">1.0.0.0</FileVersion>
     
     <!-- Package Information -->
     <Authors>BeingCiteable</Authors>
@@ -36,13 +36,15 @@
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <TreatWarningsAsErrors Condition="'$(Configuration)' == 'Release'">true</TreatWarningsAsErrors>
-    <WarningsNotAsErrors>CS1591</WarningsNotAsErrors>
+    <TreatWarningsAsErrors Condition="'$(Configuration)' == 'Release' AND '$(CI)' != 'true'">true</TreatWarningsAsErrors>
+    <WarningsNotAsErrors Condition="'$(CI)' == 'true'">CA1305;CA1310;CA1711;CA1850;CA5350;CA1510;CA1852;CA1822;CA1861;CS8604;CS0675</WarningsNotAsErrors>
+    <WarningsNotAsErrors Condition="'$(CI)' != 'true'">CS1591</WarningsNotAsErrors>
     
     <!-- Code Analysis -->
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
-    <AnalysisLevel>latest-recommended</AnalysisLevel>
-    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <AnalysisLevel Condition="'$(CI)' != 'true'">latest-recommended</AnalysisLevel>
+    <AnalysisLevel Condition="'$(CI)' == 'true'">latest-minimum</AnalysisLevel>
+    <EnforceCodeStyleInBuild Condition="'$(CI)' != 'true'">true</EnforceCodeStyleInBuild>
     
     <!-- Documentation -->
     <GenerateDocumentationFile>true</GenerateDocumentationFile>

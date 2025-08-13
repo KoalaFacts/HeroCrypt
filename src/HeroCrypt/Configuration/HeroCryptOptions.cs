@@ -1,0 +1,66 @@
+using HeroCrypt.Cryptography.Argon2;
+using HeroCrypt.Services;
+
+namespace HeroCrypt.Configuration;
+
+/// <summary>
+/// Configuration options for HeroCrypt library
+/// </summary>
+public class HeroCryptOptions
+{
+    /// <summary>
+    /// Default Argon2 configuration
+    /// </summary>
+    public Argon2Options DefaultArgon2Options { get; set; } = new();
+
+    /// <summary>
+    /// Default RSA key size for new key generation
+    /// </summary>
+    public int DefaultRsaKeySize { get; set; } = 2048;
+
+    /// <summary>
+    /// Enable hardware acceleration when available
+    /// </summary>
+    public bool EnableHardwareAcceleration { get; set; } = true;
+
+    /// <summary>
+    /// Default security level for operations
+    /// </summary>
+    public SecurityLevel DefaultSecurityLevel { get; set; } = SecurityLevel.High;
+
+    /// <summary>
+    /// Enable detailed logging of cryptographic operations
+    /// </summary>
+    public bool EnableDetailedLogging { get; set; }
+
+    /// <summary>
+    /// Maximum memory usage for Argon2 operations (in KB)
+    /// </summary>
+    public int MaxMemoryUsageKb { get; set; } = 1024 * 1024; // 1GB default
+}
+
+/// <summary>
+/// Security levels for cryptographic operations
+/// </summary>
+public enum SecurityLevel
+{
+    /// <summary>
+    /// Low security - faster operations, less secure
+    /// </summary>
+    Low = 1,
+
+    /// <summary>
+    /// Medium security - balanced performance and security
+    /// </summary>
+    Medium = 2,
+
+    /// <summary>
+    /// High security - stronger security, slower operations
+    /// </summary>
+    High = 3,
+
+    /// <summary>
+    /// Military grade security - maximum security
+    /// </summary>
+    Military = 4
+}

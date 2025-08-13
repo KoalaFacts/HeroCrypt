@@ -1,0 +1,82 @@
+name: Release Pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number (e.g., 2.1.0)'
+        required: true
+        type: string
+      prerelease:
+        description: 'Is this a pre-release?'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  create-release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+        
+    - name: Validate version format
+      run: |
+        if ! [[ "${{ inputs.version }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "Error: Version must be in format x.y.z"
+          exit 1
+        fi
+        
+    - name: Update version
+      run: |
+        # Update version in project files
+        find . -name "*.csproj" -exec sed -i "s/<Version>.*<\/Version>/<Version>${{ inputs.version }}<\/Version>/g" {} \;
+        
+    - name: Run RFC compliance tests
+      run: |
+        dotnet restore
+        dotnet build --configuration Release
+        dotnet test --filter "ClassName=StandardsComplianceTests" --configuration Release
+        
+    - name: Generate release notes
+      id: release_notes
+      run: |
+        echo "## HeroCrypt v${{ inputs.version }}" > release_notes.md
+        echo "" >> release_notes.md
+        echo "### 🔐 RFC Compliance" >> release_notes.md
+        echo "- ✅ Argon2 (RFC 9106): All test vectors passing" >> release_notes.md
+        echo "- ✅ Blake2b (RFC 7693): Fully compliant" >> release_notes.md
+        echo "" >> release_notes.md
+        echo "### 📦 Package Information" >> release_notes.md
+        echo "- NuGet: [HeroCrypt ${{ inputs.version }}](https://www.nuget.org/packages/HeroCrypt/${{ inputs.version }})" >> release_notes.md
+        echo "- Target Frameworks: .NET Standard 2.0, .NET 6.0, 7.0, 8.0, 9.0" >> release_notes.md
+        echo "" >> release_notes.md
+        echo "### 🔧 Installation" >> release_notes.md
+        echo '```bash' >> release_notes.md
+        echo "dotnet add package HeroCrypt --version ${{ inputs.version }}" >> release_notes.md
+        echo '```' >> release_notes.md
+        
+    - name: Create Git tag
+      run: |
+        git config user.name github-actions
+        git config user.email github-actions@github.com
+        git tag -a "v${{ inputs.version }}" -m "Release v${{ inputs.version }}"
+        git push origin "v${{ inputs.version }}"
+        
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: v${{ inputs.version }}
+        name: HeroCrypt v${{ inputs.version }}
+        body_path: release_notes.md
+        prerelease: ${{ inputs.prerelease }}
+        generate_release_notes: true

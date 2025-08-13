@@ -1,0 +1,56 @@
+<Project>
+  <!-- Version Information -->
+  <PropertyGroup>
+    <VersionPrefix>1.0.0-prerelease</VersionPrefix>
+    <VersionSuffix Condition="'$(Configuration)' == 'Debug'">dev</VersionSuffix>
+    <VersionSuffix Condition="'$(CI)' == 'true' AND '$(GITHUB_REF)' != '' AND !$(GITHUB_REF.StartsWith('refs/tags/'))">preview</VersionSuffix>
+    
+    <!-- Assembly versioning strategy -->
+    <!-- AssemblyVersion uses only major.minor for binary compatibility -->
+    <AssemblyVersion>1.0.0</AssemblyVersion>
+    <!-- FileVersion includes build number if available -->
+    <FileVersion>$(VersionPrefix).$(BUILD_NUMBER)</FileVersion>
+    <FileVersion Condition="'$(BUILD_NUMBER)' == ''">$(VersionPrefix).0</FileVersion>
+    
+    <!-- Package Information -->
+    <Authors>BeingCiteable</Authors>
+    <Company>BeingCiteable</Company>
+    <Product>HeroCrypt Cryptographic Library</Product>
+    <Copyright>Copyright © BeingCiteable</Copyright>
+    
+    <!-- Repository Information -->
+    <RepositoryUrl>https://github.com/BeingCiteable/HeroCrypt</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    
+    <!-- Source Link -->
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+  
+  <!-- Build Configuration -->
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors Condition="'$(Configuration)' == 'Release'">true</TreatWarningsAsErrors>
+    <WarningsNotAsErrors>CS1591</WarningsNotAsErrors>
+    
+    <!-- Code Analysis -->
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    
+    <!-- Documentation -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+  
+  <!-- Global Package References -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="all" />
+  </ItemGroup>
+</Project>

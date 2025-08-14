@@ -5,6 +5,8 @@ using HeroCrypt.Services;
 using HeroCrypt.Configuration;
 using HeroCrypt.Hardware;
 using HeroCrypt.Fluent;
+using HeroCrypt.Observability;
+using HeroCrypt.Memory;
 
 namespace HeroCrypt.Extensions;
 
@@ -47,6 +49,12 @@ public static class ServiceCollectionExtensions
         {
             return HardwareAccelerationDetector.CreateAccelerator();
         });
+
+        // Register telemetry
+        services.TryAddSingleton<ICryptoTelemetry, DefaultCryptoTelemetry>();
+
+        // Register secure memory management
+        services.TryAddSingleton<ISecureMemoryManager, DefaultSecureMemoryManager>();
 
         services.TryAddScoped<IHashingService, Argon2HashingService>();
         services.TryAddScoped<ICryptographyService, PgpCryptographyService>();

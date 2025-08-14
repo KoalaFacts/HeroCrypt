@@ -1,9 +1,12 @@
 # HeroCrypt
 
 [![NuGet Version](https://img.shields.io/nuget/v/HeroCrypt.svg)](https://www.nuget.org/packages/HeroCrypt/)
+[![Build Status](https://github.com/BeingCiteable/HeroCrypt/workflows/Build%20Pipeline/badge.svg)](https://github.com/BeingCiteable/HeroCrypt/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![.NET](https://img.shields.io/badge/.NET%20Standard-2.0-blue)](https://dotnet.microsoft.com/download)
+[![.NET](https://img.shields.io/badge/.NET-6.0%20|%207.0%20|%208.0%20|%209.0-blue)](https://dotnet.microsoft.com/download)
 
-A fully RFC-compliant cryptographic library for .NET featuring high-performance, secure implementations of modern cryptographic algorithms.
+A fully RFC-compliant cryptographic library for .NET featuring high-performance, secure implementations of modern cryptographic algorithms with multi-framework support.
 
 ## ✨ Features
 

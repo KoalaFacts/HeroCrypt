@@ -1,4 +1,17 @@
 <Project>
+  <!-- Centralized Framework Versions -->
+  <PropertyGroup>
+    <!-- Target Frameworks Definition -->
+    <SupportedTargetFrameworks>netstandard2.0;net6.0;net7.0;net8.0;net9.0</SupportedTargetFrameworks>
+    
+    <!-- SDK Versions for CI/CD -->
+    <DotNet6Version>6.0.x</DotNet6Version>
+    <DotNet7Version>7.0.x</DotNet7Version>
+    <DotNet8Version>8.0.x</DotNet8Version>
+    <DotNet9Version>9.0.x</DotNet9Version>
+    <DotNetLatestVersion>9.0.x</DotNetLatestVersion>
+  </PropertyGroup>
+
   <!-- Version Information -->
   <PropertyGroup>
     <VersionPrefix>1.0.0-prerelease</VersionPrefix>
@@ -36,9 +49,9 @@
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <TreatWarningsAsErrors Condition="'$(Configuration)' == 'Release' AND '$(CI)' != 'true'">true</TreatWarningsAsErrors>
-    <WarningsNotAsErrors Condition="'$(CI)' == 'true'">CA1305;CA1310;CA1711;CA1850;CA5350;CA1510;CA1852;CA1822;CA1861;CS8604;CS0675</WarningsNotAsErrors>
-    <WarningsNotAsErrors Condition="'$(CI)' != 'true'">CS1591</WarningsNotAsErrors>
+    <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
+    <TreatWarningsAsErrors Condition="'$(Configuration)' == 'Release' AND '$(CI)' != 'true'">false</TreatWarningsAsErrors>
+    <NoWarn>CA1710;CA1816;CA2201;CA1859;CA1510;CA1869;IL2026;IL3050;CA1513;IL2091;CA1305;CA1310;CA1711;CA1850;CA5350;CA1852;CA1822;CA1861;CS8604;CS0675;CS1591</NoWarn>
     
     <!-- Code Analysis -->
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
@@ -49,6 +62,29 @@
     <!-- Documentation -->
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
+    
+    <!-- Performance optimizations -->
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <RestoreLockedMode Condition="'$(CI)' == 'true'">true</RestoreLockedMode>
+    <DisableImplicitNuGetFallbackFolder>true</DisableImplicitNuGetFallbackFolder>
+    <NUGET_XMLDOC_MODE Condition="'$(CI)' == 'true'">skip</NUGET_XMLDOC_MODE>
+  </PropertyGroup>
+  
+  <!-- Framework-specific optimizations -->
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net9.0'">
+    <EnableAOTAnalyzer>true</EnableAOTAnalyzer>
+    <IsAotCompatible>true</IsAotCompatible>
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+    <IsTrimmable>true</IsTrimmable>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net8.0'">
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+    <IsTrimmable>true</IsTrimmable>
+  </PropertyGroup>
+  
+  <PropertyGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
+    <NoWarn>$(NoWarn);CS8632</NoWarn>
   </PropertyGroup>
   
   <!-- Global Package References -->

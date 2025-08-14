@@ -4,28 +4,34 @@ using HeroCrypt.Abstractions;
 using HeroCrypt.Configuration;
 using HeroCrypt.Cryptography.Argon2;
 using HeroCrypt.Services;
+using HeroCrypt.Memory;
 
 namespace HeroCrypt.Fluent;
 
 /// <summary>
 /// Fluent builder implementation for Argon2 hashing operations
 /// </summary>
-public class Argon2FluentBuilder : IArgon2FluentBuilder
+public class Argon2FluentBuilder : IArgon2FluentBuilder, IDisposable
 {
     private readonly HeroCryptOptions _options;
     private readonly IHardwareAccelerator _hardwareAccelerator;
+    private readonly ICryptoTelemetry _telemetry;
+    private readonly ISecureMemoryManager _memoryManager;
     
-    private byte[]? _password;
-    private byte[]? _salt;
+    private SecureBuffer? _password;
+    private SecureBuffer? _salt;
     private Argon2Options _argon2Options;
-    private byte[]? _associatedData;
-    private byte[]? _secret;
+    private SecureBuffer? _associatedData;
+    private SecureBuffer? _secret;
     private bool _useHardwareAcceleration;
+    private bool _disposed;
 
-    public Argon2FluentBuilder(IOptions<HeroCryptOptions> options, IHardwareAccelerator hardwareAccelerator)
+    public Argon2FluentBuilder(IOptions<HeroCryptOptions> options, IHardwareAccelerator hardwareAccelerator, ICryptoTelemetry telemetry, ISecureMemoryManager memoryManager)
     {
         _options = options.Value;
         _hardwareAccelerator = hardwareAccelerator;
+        _telemetry = telemetry;
+        _memoryManager = memoryManager;
         _argon2Options = new Argon2Options
         {
             Type = _options.DefaultArgon2Options.Type,
@@ -43,13 +49,18 @@ public class Argon2FluentBuilder : IArgon2FluentBuilder
         if (string.IsNullOrEmpty(password))
             throw new ArgumentException("Password cannot be null or empty", nameof(password));
 
-        _password = Encoding.UTF8.GetBytes(password);
+        _password?.Dispose();
+        _password = _memoryManager.AllocateFrom(Encoding.UTF8.GetBytes(password));
         return this;
     }
 
     public IArgon2FluentBuilder WithPassword(byte[] password)
     {
-        _password = password ?? throw new ArgumentNullException(nameof(password));
+        if (password == null)
+            throw new ArgumentNullException(nameof(password));
+
+        _password?.Dispose();
+        _password = _memoryManager.AllocateFrom(password);
         return this;
     }
 
@@ -58,13 +69,18 @@ public class Argon2FluentBuilder : IArgon2FluentBuilder
         if (string.IsNullOrEmpty(salt))
             throw new ArgumentException("Salt cannot be null or empty", nameof(salt));
 
-        _salt = Encoding.UTF8.GetBytes(salt);
+        _salt?.Dispose();
+        _salt = _memoryManager.AllocateFrom(Encoding.UTF8.GetBytes(salt));
         return this;
     }
 
     public IArgon2FluentBuilder WithSalt(byte[] salt)
     {
-        _salt = salt ?? throw new ArgumentNullException(nameof(salt));
+        if (salt == null)
+            throw new ArgumentNullException(nameof(salt));
+
+        _salt?.Dispose();
+        _salt = _memoryManager.AllocateFrom(salt);
         return this;
     }
 
@@ -120,13 +136,21 @@ public class Argon2FluentBuilder : IArgon2FluentBuilder
 
     public IArgon2FluentBuilder WithAssociatedData(byte[] associatedData)
     {
-        _associatedData = associatedData ?? throw new ArgumentNullException(nameof(associatedData));
+        if (associatedData == null)
+            throw new ArgumentNullException(nameof(associatedData));
+
+        _associatedData?.Dispose();
+        _associatedData = _memoryManager.AllocateFrom(associatedData);
         return this;
     }
 
     public IArgon2FluentBuilder WithSecret(byte[] secret)
     {
-        _secret = secret ?? throw new ArgumentNullException(nameof(secret));
+        if (secret == null)
+            throw new ArgumentNullException(nameof(secret));
+
+        _secret?.Dispose();
+        _secret = _memoryManager.AllocateFrom(secret);
         return this;
     }
 
@@ -158,10 +182,14 @@ public class Argon2FluentBuilder : IArgon2FluentBuilder
         var hashBytes = await HashBytesAsync(cancellationToken);
         
         // Prepend salt to hash for storage (similar to how Argon2HashingService works)
-        var salt = _salt ?? GenerateSalt();
-        var result = new byte[salt.Length + hashBytes.Length];
-        Array.Copy(salt, 0, result, 0, salt.Length);
-        Array.Copy(hashBytes, 0, result, salt.Length, hashBytes.Length);
+        using var salt = _salt ?? GenerateSecureSalt();
+        var result = new byte[salt.Size + hashBytes.Length];
+        var saltArray = salt.ToArray();
+        Array.Copy(saltArray, 0, result, 0, saltArray.Length);
+        Array.Copy(hashBytes, 0, result, saltArray.Length, hashBytes.Length);
+        
+        // Clear temporary salt array
+        Array.Clear(saltArray, 0, saltArray.Length);
         
         return Convert.ToBase64String(result);
     }
@@ -170,30 +198,50 @@ public class Argon2FluentBuilder : IArgon2FluentBuilder
     {
         ValidateConfiguration();
 
-        // Try hardware acceleration first if enabled
-        if (_useHardwareAcceleration && _hardwareAccelerator.IsAvailable)
-        {
-            var acceleratedResult = await _hardwareAccelerator.AcceleratedHashAsync(
-                _password!, "ARGON2", cancellationToken);
-            
-            if (acceleratedResult != null)
-                return acceleratedResult;
-        }
+        using var tracker = _telemetry.TrackOperation(
+            "Argon2Hash", 
+            _argon2Options.Type.ToString(), 
+            _password!.Size,
+            _useHardwareAcceleration && _hardwareAccelerator.IsAvailable);
 
-        // Fall back to software implementation
-        var salt = _salt ?? GenerateSalt();
-        
-        return await Task.Run(() => Argon2Core.Hash(
-            password: _password!,
-            salt: salt,
-            iterations: _argon2Options.Iterations,
-            memorySize: _argon2Options.MemorySize,
-            parallelism: _argon2Options.Parallelism,
-            hashLength: _argon2Options.HashSize,
-            type: _argon2Options.Type,
-            associatedData: _associatedData,
-            secret: _secret
-        ), cancellationToken);
+        try
+        {
+            // Try hardware acceleration first if enabled
+            if (_useHardwareAcceleration && _hardwareAccelerator.IsAvailable)
+            {
+                var acceleratedResult = await _hardwareAccelerator.AcceleratedHashAsync(
+                    _password!.ToArray(), "ARGON2", cancellationToken);
+                
+                if (acceleratedResult != null)
+                {
+                    tracker.MarkSuccess();
+                    return acceleratedResult;
+                }
+            }
+
+            // Fall back to software implementation
+            using var salt = _salt ?? GenerateSecureSalt();
+            
+            var result = await Task.Run(() => Argon2Core.Hash(
+                password: _password!.ToArray(),
+                salt: salt.ToArray(),
+                iterations: _argon2Options.Iterations,
+                memorySize: _argon2Options.MemorySize,
+                parallelism: _argon2Options.Parallelism,
+                hashLength: _argon2Options.HashSize,
+                type: _argon2Options.Type,
+                associatedData: _associatedData?.ToArray(),
+                secret: _secret?.ToArray()
+            ), cancellationToken);
+
+            tracker.MarkSuccess();
+            return result;
+        }
+        catch (Exception ex)
+        {
+            tracker.MarkFailure(ex.Message);
+            throw;
+        }
     }
 
     public async Task<bool> VerifyAsync(string hash, CancellationToken cancellationToken = default)
@@ -220,15 +268,15 @@ public class Argon2FluentBuilder : IArgon2FluentBuilder
 
             // Compute hash with extracted salt
             var computedHash = await Task.Run(() => Argon2Core.Hash(
-                password: _password!,
+                password: _password!.ToArray(),
                 salt: salt,
                 iterations: _argon2Options.Iterations,
                 memorySize: _argon2Options.MemorySize,
                 parallelism: _argon2Options.Parallelism,
                 hashLength: _argon2Options.HashSize,
                 type: _argon2Options.Type,
-                associatedData: _associatedData,
-                secret: _secret
+                associatedData: _associatedData?.ToArray(),
+                secret: _secret?.ToArray()
             ), cancellationToken);
 
             // Constant-time comparison
@@ -259,12 +307,21 @@ public class Argon2FluentBuilder : IArgon2FluentBuilder
         return new Argon2HashingService(_argon2Options);
     }
 
-    private byte[] GenerateSalt()
+    private SecureBuffer GenerateSecureSalt()
     {
-        var salt = new byte[_argon2Options.SaltSize];
+        using var pooledBuffer = _memoryManager.GetPooled(_argon2Options.SaltSize);
         using var rng = System.Security.Cryptography.RandomNumberGenerator.Create();
-        rng.GetBytes(salt);
-        return salt;
+        
+#if NET6_0_OR_GREATER
+        rng.GetBytes(pooledBuffer.AsSpan());
+#else
+        var tempBytes = new byte[_argon2Options.SaltSize];
+        rng.GetBytes(tempBytes);
+        tempBytes.AsSpan().CopyTo(pooledBuffer.AsSpan());
+        Array.Clear(tempBytes, 0, tempBytes.Length);
+#endif
+        
+        return _memoryManager.AllocateFrom(pooledBuffer.AsReadOnlySpan());
     }
 
     private static bool ConstantTimeEquals(byte[] a, byte[] b)
@@ -278,5 +335,23 @@ public class Argon2FluentBuilder : IArgon2FluentBuilder
             result |= a[i] ^ b[i];
         }
         return result == 0;
+    }
+
+    public void Dispose()
+    {
+        if (!_disposed)
+        {
+            _password?.Dispose();
+            _salt?.Dispose();
+            _associatedData?.Dispose();
+            _secret?.Dispose();
+            
+            _password = null;
+            _salt = null;
+            _associatedData = null;
+            _secret = null;
+            
+            _disposed = true;
+        }
     }
 }

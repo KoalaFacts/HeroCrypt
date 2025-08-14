@@ -7,84 +7,119 @@ on:
     branches: [ main ]
   release:
     types: [ published ]
+  workflow_dispatch:
 
 env:
-  DOTNET_VERSION: '9.0.x'
   DOTNET_NOLOGO: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  NUGET_XMLDOC_MODE: skip
   CI: true
 
 jobs:
   test:
-    name: Test on ${{ matrix.os }}
+    name: Test ${{ matrix.framework }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
+        framework: [net6.0, net7.0, net8.0, net9.0]
+        include:
+          - os: ubuntu-latest
+            framework: netstandard2.0
+          - framework: net6.0
+            dotnet-version: '6.0.x'
+          - framework: net7.0
+            dotnet-version: '7.0.x'
+          - framework: net8.0
+            dotnet-version: '8.0.x'
+          - framework: net9.0
+            dotnet-version: '9.0.x'
+          - framework: netstandard2.0
+            dotnet-version: '8.0.x'
         
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Setup .NET
+    - name: Setup .NET SDK ${{ matrix.dotnet-version }}
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ matrix.dotnet-version }}
+    
+    - name: Setup additional .NET SDKs
+      if: matrix.framework == 'netstandard2.0'
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: |
           6.0.x
           7.0.x
-          8.0.x
           9.0.x
           
     - name: Cache NuGet packages
       uses: actions/cache@v4
       with:
-        path: ~/.nuget/packages
-        key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/Directory.Build.props') }}
+        path: |
+          ~/.nuget/packages
+          ${{ github.workspace }}/.nuget/packages
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/Directory.Build.props', '**/packages.lock.json') }}
         restore-keys: |
           ${{ runner.os }}-nuget-
           
     - name: Restore dependencies
       run: dotnet restore
       
-    - name: Build
-      run: dotnet build --no-restore --configuration Release
+    - name: Build for ${{ matrix.framework }}
+      run: dotnet build --no-restore --configuration Release --framework ${{ matrix.framework }}
       env:
         CI: true
+        TargetFramework: ${{ matrix.framework }}
       
     - name: Check for build warnings
-      if: matrix.os == 'ubuntu-latest'
+      if: matrix.os == 'ubuntu-latest' && matrix.framework == 'net9.0'
       run: |
         echo "Checking for build warnings..."
-        if dotnet build --no-restore --configuration Release --verbosity minimal 2>&1 | grep -i "warning"; then
+        if dotnet build --no-restore --configuration Release --framework ${{ matrix.framework }} --verbosity minimal 2>&1 | grep -i "warning"; then
           echo "WARNING: Build completed with warnings (this is expected during development)"
         else
           echo "SUCCESS: Build completed without warnings"
         fi
       
+    - name: Verify netstandard2.0 compilation
+      if: matrix.framework == 'netstandard2.0'
+      run: |
+        echo "✅ netstandard2.0 builds successfully"
+        echo "Note: netstandard2.0 is a library target - tests run on concrete frameworks"
+    
     - name: Run fast tests
-      run: dotnet test --filter "Category=Fast" --no-build --configuration Release --logger "trx;LogFileName=test-results.trx" --collect:"XPlat Code Coverage" --settings coverlet.runsettings
+      if: matrix.framework != 'netstandard2.0'
+      run: dotnet test --filter "Category=Fast" --no-build --configuration Release --framework ${{ matrix.framework }} --logger "trx;LogFileName=test-results-${{ matrix.framework }}.trx" --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
       env:
         CI: true
+        TargetFramework: ${{ matrix.framework }}
       
     - name: Run compliance tests
-      run: dotnet test --filter "Category=Compliance" --no-build --configuration Release
+      if: matrix.framework != 'netstandard2.0'
+      run: dotnet test --filter "Category=Compliance" --no-build --configuration Release --framework ${{ matrix.framework }}
       env:
         CI: true
+        TargetFramework: ${{ matrix.framework }}
       
     - name: Upload test results
       uses: actions/upload-artifact@v4
-      if: always()
+      if: always() && matrix.framework != 'netstandard2.0'
       with:
-        name: test-results-${{ matrix.os }}
-        path: '**/test-results.trx'
+        name: test-results-${{ matrix.os }}-${{ matrix.framework }}
+        path: '**/test-results-*.trx'
         
     - name: Upload coverage reports
       uses: codecov/codecov-action@v4
-      if: matrix.os == 'ubuntu-latest'
+      if: matrix.os == 'ubuntu-latest' && matrix.framework == 'net9.0'
       with:
         file: '**/coverage.cobertura.xml'
         flags: unittests
-        name: codecov-${{ matrix.os }}
+        name: codecov-${{ matrix.os }}-${{ matrix.framework }}
         token: ${{ secrets.CODECOV_TOKEN }}
 
   security-scan:
@@ -98,7 +133,11 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: ${{ env.DOTNET_VERSION }}
+        dotnet-version: |
+          6.0.x
+          7.0.x
+          8.0.x
+          9.0.x
         
     - name: Restore dependencies
       run: dotnet restore
@@ -141,7 +180,11 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: ${{ env.DOTNET_VERSION }}
+        dotnet-version: |
+          6.0.x
+          7.0.x
+          8.0.x
+          9.0.x
         
     - name: Restore dependencies
       run: dotnet restore
@@ -150,11 +193,13 @@ jobs:
       run: dotnet build --configuration Release --no-restore
       env:
         CI: true
+        MULTI_TARGET_BUILD: true
       
     - name: Create NuGet package
-      run: dotnet pack --configuration Release --no-build --output ./artifacts
+      run: dotnet pack --configuration Release --no-build --output ./artifacts -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg
       env:
         CI: true
+        MULTI_TARGET_BUILD: true
       
     - name: Upload NuGet package
       uses: actions/upload-artifact@v4
@@ -180,7 +225,7 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: ${{ env.DOTNET_VERSION }}
+        dotnet-version: '9.0.x'
         
     - name: Publish to NuGet
       run: |

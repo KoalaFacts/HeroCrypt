@@ -5,6 +5,7 @@ using System.Buffers.Binary;
 #endif
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
+using HeroCrypt.Cryptography.Blake2b;
 
 namespace HeroCrypt.Cryptography.Argon2;
 
@@ -13,27 +14,6 @@ public static class Argon2Core
     private const int BlockSize = 1024;
     private const int Version = 0x13; // Argon2 version 19
     
-    // Blake2b initialization vectors
-    private static readonly ulong[] Blake2bIv = 
-    {
-        0x6a09e667f3bcc908UL, 0xbb67ae8584caa73bUL, 0x3c6ef372fe94f82bUL, 0xa54ff53a5f1d36f1UL,
-        0x510e527fade682d1UL, 0x9b05688c2b3e6c1fUL, 0x1f83d9abfb41bd6bUL, 0x5be0cd19137e2179UL
-    };
-    
-    // Blake2b message schedule permutation table
-    private static readonly byte[,] Blake2bSigma = new byte[10, 16]
-    {
-        { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 },
-        { 14, 10, 4, 8, 9, 15, 13, 6, 1, 12, 0, 2, 11, 7, 5, 3 },
-        { 11, 8, 12, 0, 5, 2, 15, 13, 10, 14, 3, 6, 7, 1, 9, 4 },
-        { 7, 9, 3, 1, 13, 12, 11, 14, 2, 6, 5, 10, 4, 0, 15, 8 },
-        { 9, 0, 5, 7, 2, 4, 10, 15, 14, 1, 11, 12, 6, 8, 3, 13 },
-        { 2, 12, 6, 10, 0, 11, 8, 3, 4, 13, 7, 5, 15, 14, 1, 9 },
-        { 12, 5, 1, 15, 14, 13, 4, 10, 0, 7, 6, 3, 9, 2, 8, 11 },
-        { 13, 11, 7, 14, 12, 1, 3, 9, 5, 0, 15, 4, 8, 6, 2, 10 },
-        { 6, 15, 14, 9, 11, 3, 0, 8, 12, 2, 13, 7, 1, 4, 10, 5 },
-        { 10, 2, 8, 4, 7, 6, 1, 5, 15, 11, 9, 14, 3, 12, 13, 0 }
-    };
 
     public static byte[] Hash(
         byte[] password,
@@ -114,8 +94,7 @@ public static class Argon2Core
         // Calculate H_0 as per RFC 9106 Section 3.2
         var h0Input = BuildH0Input(context);
         
-        var h0 = new byte[64];
-        Blake2b(h0Input, h0, 64);
+        var h0 = Blake2bCore.ComputeHash(h0Input, 64);
 
         var blocksPerLane = context.Memory / context.Lanes;
 
@@ -135,8 +114,7 @@ public static class Argon2Core
             BinaryPrimitives.WriteInt32LittleEndian(block0Input.AsSpan(h0.Length + 4), lane);
 #endif
             
-            var block0Data = new byte[BlockSize];
-            Blake2bLong(block0Input, block0Data, BlockSize);
+            var block0Data = Blake2bCore.ComputeLongHash(block0Input, BlockSize);
             BytesToBlock(block0Data, memory[startIdx]);
             
             // B[i][1] = H'^(1024)(H_0 || LE32(1) || LE32(i))
@@ -150,8 +128,7 @@ public static class Argon2Core
             BinaryPrimitives.WriteInt32LittleEndian(block1Input.AsSpan(h0.Length + 4), lane);
 #endif
             
-            var block1Data = new byte[BlockSize];
-            Blake2bLong(block1Input, block1Data, BlockSize);
+            var block1Data = Blake2bCore.ComputeLongHash(block1Input, BlockSize);
             BytesToBlock(block1Data, memory[startIdx + 1]);
         }
     }
@@ -595,11 +572,8 @@ public static class Argon2Core
             }
         }
 
-        var result = new byte[context.HashLength];
         var finalBlockBytes = BlockToBytes(finalBlock);
-        Blake2bLong(finalBlockBytes, result, context.HashLength);
-        
-        return result;
+        return Blake2bCore.ComputeLongHash(finalBlockBytes, context.HashLength);
     }
 
     private static byte[] BlockToBytes(Block block)
@@ -628,176 +602,6 @@ public static class Argon2Core
         }
     }
 
-    /// <summary>
-    /// H' function: Variable-length hash function based on Blake2b
-    /// RFC 9106 Section 2.4
-    /// </summary>
-    private static void Blake2bLong(byte[] input, byte[] output, int outputLength)
-    {
-        // Create input with prepended length: LE32(T) || A
-        var inputWithLength = new byte[4 + input.Length];
-#if NETSTANDARD2_0
-        WriteInt32LittleEndian(inputWithLength, 0, outputLength);
-#else
-        BinaryPrimitives.WriteInt32LittleEndian(inputWithLength.AsSpan(0), outputLength);
-#endif
-        Array.Copy(input, 0, inputWithLength, 4, input.Length);
-        
-        if (outputLength <= 64)
-        {
-            // For T <= 64: H'(A) = H^T(LE32(T) || A)
-            Blake2b(inputWithLength, output, outputLength);
-        }
-        else
-        {
-            // For T > 64: Use multi-stage approach
-            // r = ceil(T/32) - 2
-            var r = (outputLength + 31) / 32 - 2;
-            
-            // V_1 = H^(64)(LE32(T) || A)
-            var v = new byte[64];
-            Blake2b(inputWithLength, v, 64);
-            
-            // W_1: first 32 bytes of V_1
-            Array.Copy(v, 0, output, 0, 32);
-            var position = 32;
-            
-            // Generate V_2, V_3, ..., V_r
-            for (var i = 1; i < r; i++)
-            {
-                Blake2b(v, v, 64);
-                Array.Copy(v, 0, output, position, 32);
-                position += 32;
-            }
-            
-            // Final block V_{r+1} with reduced length
-            var finalLength = outputLength - 32 * r;
-            if (finalLength > 0)
-            {
-                var finalBlock = new byte[finalLength];
-                Blake2b(v, finalBlock, finalLength);
-                Array.Copy(finalBlock, 0, output, position, finalLength);
-            }
-        }
-    }
-
-    /// <summary>
-    /// Blake2b hash function implementation
-    /// RFC 9106 Section 2.3
-    /// </summary>
-    private static void Blake2b(byte[] input, byte[] output, int outputLength)
-    {
-        // Initialize hash state
-        var h = new ulong[8];
-        Array.Copy(Blake2bIv, h, 8);
-        h[0] ^= 0x01010000UL ^ (uint)outputLength; // Parameter block: depth=1, fanout=1, digest_size=outputLength
-
-        // Process input in 128-byte chunks
-        var bytesCompressed = 0;
-        while (bytesCompressed < input.Length)
-        {
-            var chunkSize = Math.Min(128, input.Length - bytesCompressed);
-            var isLastBlock = bytesCompressed + chunkSize == input.Length;
-            
-            // Prepare message block (128 bytes, zero-padded if necessary)
-            var messageBlock = new byte[128];
-            Array.Copy(input, bytesCompressed, messageBlock, 0, chunkSize);
-            
-            CompressBlake2b(h, messageBlock, bytesCompressed + chunkSize, isLastBlock);
-            bytesCompressed += chunkSize;
-        }
-        
-        // Handle empty input
-        if (input.Length == 0)
-        {
-            var emptyBlock = new byte[128];
-            CompressBlake2b(h, emptyBlock, 0, true);
-        }
-
-        // Output hash bytes
-        for (var i = 0; i < outputLength / 8; i++)
-        {
-#if NETSTANDARD2_0
-            WriteUInt64LittleEndian(output, i * 8, h[i]);
-#else
-            BinaryPrimitives.WriteUInt64LittleEndian(output.AsSpan(i * 8), h[i]);
-#endif
-        }
-        
-        // Handle remaining bytes
-        if (outputLength % 8 != 0)
-        {
-            var lastBytes = new byte[8];
-#if NETSTANDARD2_0
-            WriteUInt64LittleEndian(lastBytes, 0, h[outputLength / 8]);
-#else
-            BinaryPrimitives.WriteUInt64LittleEndian(lastBytes, h[outputLength / 8]);
-#endif
-            Array.Copy(lastBytes, 0, output, (outputLength / 8) * 8, outputLength % 8);
-        }
-    }
-    
-    private static void CompressBlake2b(ulong[] h, byte[] messageBlock, int bytesCompressed, bool isLastBlock)
-    {
-        // Convert message block to 16 64-bit words
-        var m = new ulong[16];
-        for (var i = 0; i < 16; i++)
-        {
-#if NETSTANDARD2_0
-            m[i] = ReadUInt64LittleEndian(messageBlock, i * 8);
-#else
-            m[i] = BinaryPrimitives.ReadUInt64LittleEndian(messageBlock.AsSpan(i * 8));
-#endif
-        }
-
-        // Initialize working vector
-        var v = new ulong[16];
-        Array.Copy(h, v, 8);
-        Array.Copy(Blake2bIv, 0, v, 8, 8);
-        
-        // XOR in counter and final block flag
-        v[12] ^= (ulong)bytesCompressed; // Low 64 bits of counter
-        v[13] ^= 0; // High 64 bits of counter (always 0 for our use)
-        if (isLastBlock)
-        {
-            v[14] ^= 0xFFFFFFFFFFFFFFFFUL; // Invert all bits for final block
-        }
-
-        // 12 rounds of mixing
-        for (var round = 0; round < 12; round++)
-        {
-            // Column step
-            G(v, 0, 4, 8, 12, m[Blake2bSigma[round % 10, 0]], m[Blake2bSigma[round % 10, 1]]);
-            G(v, 1, 5, 9, 13, m[Blake2bSigma[round % 10, 2]], m[Blake2bSigma[round % 10, 3]]);
-            G(v, 2, 6, 10, 14, m[Blake2bSigma[round % 10, 4]], m[Blake2bSigma[round % 10, 5]]);
-            G(v, 3, 7, 11, 15, m[Blake2bSigma[round % 10, 6]], m[Blake2bSigma[round % 10, 7]]);
-            
-            // Diagonal step
-            G(v, 0, 5, 10, 15, m[Blake2bSigma[round % 10, 8]], m[Blake2bSigma[round % 10, 9]]);
-            G(v, 1, 6, 11, 12, m[Blake2bSigma[round % 10, 10]], m[Blake2bSigma[round % 10, 11]]);
-            G(v, 2, 7, 8, 13, m[Blake2bSigma[round % 10, 12]], m[Blake2bSigma[round % 10, 13]]);
-            G(v, 3, 4, 9, 14, m[Blake2bSigma[round % 10, 14]], m[Blake2bSigma[round % 10, 15]]);
-        }
-
-        // Finalize hash value
-        for (var i = 0; i < 8; i++)
-        {
-            h[i] ^= v[i] ^ v[i + 8];
-        }
-    }
-    
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void G(ulong[] v, int a, int b, int c, int d, ulong x, ulong y)
-    {
-        v[a] = v[a] + v[b] + x;
-        v[d] = RotateRight(v[d] ^ v[a], 32);
-        v[c] = v[c] + v[d];
-        v[b] = RotateRight(v[b] ^ v[c], 24);
-        v[a] = v[a] + v[b] + y;
-        v[d] = RotateRight(v[d] ^ v[a], 16);
-        v[c] = v[c] + v[d];
-        v[b] = RotateRight(v[b] ^ v[c], 63);
-    }
 
 
 

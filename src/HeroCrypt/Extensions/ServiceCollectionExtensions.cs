@@ -56,7 +56,14 @@ public static class ServiceCollectionExtensions
         // Register secure memory management
         services.TryAddSingleton<ISecureMemoryManager, DefaultSecureMemoryManager>();
 
+        // Register hashing services
         services.TryAddScoped<IHashingService, Argon2HashingService>();
+        services.TryAddScoped<IBlake2bService, Blake2bHashingService>();
+
+        // Register key derivation services
+        services.TryAddScoped<IKeyDerivationService, KeyDerivationService>();
+
+        // Register cryptography services
         services.TryAddScoped<ICryptographyService, PgpCryptographyService>();
         services.TryAddScoped<IKeyGenerationService, PgpCryptographyService>();
 

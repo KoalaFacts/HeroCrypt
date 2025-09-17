@@ -77,6 +77,36 @@ public static class SecureMemoryOperations
     }
 
     /// <summary>
+    /// Securely clears a span of ulong values
+    /// </summary>
+    /// <param name="sensitiveData">The sensitive data span to clear</param>
+    public static void SecureClear(Span<ulong> sensitiveData)
+    {
+        if (sensitiveData.Length == 0)
+            return;
+
+        for (var i = 0; i < sensitiveData.Length; i++)
+        {
+            sensitiveData[i] = 0;
+        }
+    }
+
+    /// <summary>
+    /// Securely clears a span of uint values
+    /// </summary>
+    /// <param name="sensitiveData">The sensitive data span to clear</param>
+    public static void SecureClear(Span<uint> sensitiveData)
+    {
+        if (sensitiveData.Length == 0)
+            return;
+
+        for (var i = 0; i < sensitiveData.Length; i++)
+        {
+            sensitiveData[i] = 0;
+        }
+    }
+
+    /// <summary>
     /// Performs constant-time comparison of two byte arrays to prevent timing attacks
     /// </summary>
     /// <param name="a">First array to compare</param>

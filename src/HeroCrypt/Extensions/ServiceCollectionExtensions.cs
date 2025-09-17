@@ -69,6 +69,10 @@ public static class ServiceCollectionExtensions
         services.TryAddScoped<IDigitalSignatureService, RsaDigitalSignatureService>();
         services.TryAddScoped<ICryptographicKeyGenerationService, CryptographicKeyGenerationService>();
 
+        // Register modern cryptography services
+        services.TryAddScoped<IEllipticCurveService, EllipticCurveService>();
+        services.TryAddScoped<IAeadService, AeadService>();
+
         // Register fluent API builders
         services.TryAddScoped<IArgon2FluentBuilder, Argon2FluentBuilder>();
         services.TryAddScoped<IPgpFluentBuilder, PgpFluentBuilder>();

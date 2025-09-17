@@ -78,6 +78,31 @@ public enum HardwareAccelerationType
     Hsm = 8,
 
     /// <summary>
+    /// Intel AVX2 (Advanced Vector Extensions 2)
+    /// </summary>
+    IntelAvx2 = 16,
+
+    /// <summary>
+    /// Intel AVX-512 (Advanced Vector Extensions 512-bit)
+    /// </summary>
+    IntelAvx512 = 32,
+
+    /// <summary>
+    /// Intel RDRAND/RDSEED (Hardware Random Number Generator)
+    /// </summary>
+    IntelRdrand = 64,
+
+    /// <summary>
+    /// Intel SHA extensions
+    /// </summary>
+    IntelSha = 128,
+
+    /// <summary>
+    /// ARM SVE (Scalable Vector Extension)
+    /// </summary>
+    ArmSve = 256,
+
+    /// <summary>
     /// Custom hardware acceleration
     /// </summary>
     Custom = 16

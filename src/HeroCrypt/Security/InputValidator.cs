@@ -1,0 +1,307 @@
+using System;
+using System.Linq;
+
+namespace HeroCrypt.Security;
+
+/// <summary>
+/// Provides comprehensive input validation for cryptographic operations
+/// </summary>
+public static class InputValidator
+{
+    /// <summary>
+    /// Maximum allowed array size to prevent DoS attacks
+    /// </summary>
+    public const int MaxArraySize = 100 * 1024 * 1024; // 100MB
+
+    /// <summary>
+    /// Maximum allowed key size in bits
+    /// </summary>
+    public const int MaxKeySizeBits = 16384; // 16KB keys
+
+    /// <summary>
+    /// Minimum secure key size in bits
+    /// </summary>
+    public const int MinSecureKeySizeBits = 1024;
+
+    /// <summary>
+    /// Maximum allowed iteration count for key derivation
+    /// </summary>
+    public const int MaxIterationCount = 10_000_000;
+
+    /// <summary>
+    /// Maximum allowed memory usage for Scrypt (in bytes)
+    /// </summary>
+    public const long MaxScryptMemory = 1L * 1024 * 1024 * 1024; // 1GB
+
+    /// <summary>
+    /// Validates a byte array for cryptographic use
+    /// </summary>
+    /// <param name="data">Data to validate</param>
+    /// <param name="parameterName">Parameter name for exception messages</param>
+    /// <param name="allowEmpty">Whether to allow empty arrays</param>
+    /// <param name="maxSize">Maximum allowed size</param>
+    /// <exception cref="ArgumentNullException">When data is null</exception>
+    /// <exception cref="ArgumentException">When data fails validation</exception>
+    public static void ValidateByteArray(byte[] data, string parameterName, bool allowEmpty = false, int maxSize = MaxArraySize)
+    {
+        if (data == null)
+            throw new ArgumentNullException(parameterName);
+
+        if (!allowEmpty && data.Length == 0)
+            throw new ArgumentException("Array cannot be empty", parameterName);
+
+        if (data.Length > maxSize)
+            throw new ArgumentException($"Array size {data.Length} exceeds maximum allowed size {maxSize}", parameterName);
+    }
+
+    /// <summary>
+    /// Validates RSA key size
+    /// </summary>
+    /// <param name="keySizeBits">Key size in bits</param>
+    /// <param name="parameterName">Parameter name for exception messages</param>
+    /// <exception cref="ArgumentException">When key size is invalid</exception>
+    public static void ValidateRsaKeySize(int keySizeBits, string parameterName)
+    {
+        if (keySizeBits < MinSecureKeySizeBits)
+            throw new ArgumentException($"RSA key size {keySizeBits} is below minimum secure size {MinSecureKeySizeBits}", parameterName);
+
+        if (keySizeBits > MaxKeySizeBits)
+            throw new ArgumentException($"RSA key size {keySizeBits} exceeds maximum allowed size {MaxKeySizeBits}", parameterName);
+
+        if (keySizeBits % 8 != 0)
+            throw new ArgumentException($"RSA key size {keySizeBits} must be a multiple of 8", parameterName);
+
+        // Ensure key size is reasonable (power of 2 or common sizes)
+        var commonSizes = new[] { 1024, 2048, 3072, 4096, 8192, 16384 };
+        if (!commonSizes.Contains(keySizeBits))
+        {
+            // Allow other sizes but warn if they're not common
+            if (!IsPowerOfTwo(keySizeBits) && keySizeBits % 1024 != 0)
+                throw new ArgumentException($"RSA key size {keySizeBits} is not a standard size. Use 1024, 2048, 3072, 4096, 8192, or 16384", parameterName);
+        }
+    }
+
+    /// <summary>
+    /// Validates PBKDF2 parameters
+    /// </summary>
+    /// <param name="password">Password data</param>
+    /// <param name="salt">Salt data</param>
+    /// <param name="iterations">Iteration count</param>
+    /// <param name="keyLength">Desired key length</param>
+    public static void ValidatePbkdf2Parameters(byte[] password, byte[] salt, int iterations, int keyLength)
+    {
+        ValidateByteArray(password, nameof(password), allowEmpty: true);
+        ValidateByteArray(salt, nameof(salt), allowEmpty: false, maxSize: 1024);
+
+        if (salt.Length < 8)
+            throw new ArgumentException("Salt must be at least 8 bytes for security", nameof(salt));
+
+        if (iterations < 1000)
+            throw new ArgumentException("Iteration count must be at least 1000 for security", nameof(iterations));
+
+        if (iterations > MaxIterationCount)
+            throw new ArgumentException($"Iteration count {iterations} exceeds maximum {MaxIterationCount}", nameof(iterations));
+
+        if (keyLength < 1)
+            throw new ArgumentException("Key length must be positive", nameof(keyLength));
+
+        if (keyLength > MaxArraySize)
+            throw new ArgumentException($"Key length {keyLength} exceeds maximum {MaxArraySize}", nameof(keyLength));
+    }
+
+    /// <summary>
+    /// Validates HKDF parameters
+    /// </summary>
+    /// <param name="inputKeyMaterial">Input key material</param>
+    /// <param name="salt">Salt (optional)</param>
+    /// <param name="info">Info parameter (optional)</param>
+    /// <param name="keyLength">Desired output length</param>
+    public static void ValidateHkdfParameters(byte[] inputKeyMaterial, byte[] salt, byte[] info, int keyLength)
+    {
+        ValidateByteArray(inputKeyMaterial, nameof(inputKeyMaterial), allowEmpty: false);
+
+        if (salt != null)
+            ValidateByteArray(salt, nameof(salt), allowEmpty: true, maxSize: 1024);
+
+        if (info != null)
+            ValidateByteArray(info, nameof(info), allowEmpty: true, maxSize: 1024);
+
+        if (keyLength < 1)
+            throw new ArgumentException("Key length must be positive", nameof(keyLength));
+
+        if (keyLength > 255 * 32) // RFC 5869 limit for SHA-256
+            throw new ArgumentException($"Key length {keyLength} exceeds HKDF maximum for SHA-256", nameof(keyLength));
+    }
+
+    /// <summary>
+    /// Validates Scrypt parameters for security and DoS prevention
+    /// </summary>
+    /// <param name="password">Password data</param>
+    /// <param name="salt">Salt data</param>
+    /// <param name="n">CPU/memory cost parameter</param>
+    /// <param name="r">Block size parameter</param>
+    /// <param name="p">Parallelization parameter</param>
+    /// <param name="keyLength">Desired key length</param>
+    public static void ValidateScryptParameters(byte[] password, byte[] salt, int n, int r, int p, int keyLength)
+    {
+        ValidateByteArray(password, nameof(password), allowEmpty: true);
+        ValidateByteArray(salt, nameof(salt), allowEmpty: false, maxSize: 1024);
+
+        if (salt.Length < 8)
+            throw new ArgumentException("Salt must be at least 8 bytes for security", nameof(salt));
+
+        if (n < 2)
+            throw new ArgumentException("N must be at least 2", nameof(n));
+
+        if ((n & (n - 1)) != 0)
+            throw new ArgumentException("N must be a power of 2", nameof(n));
+
+        if (r < 1)
+            throw new ArgumentException("R must be at least 1", nameof(r));
+
+        if (p < 1)
+            throw new ArgumentException("P must be at least 1", nameof(p));
+
+        if (keyLength < 1)
+            throw new ArgumentException("Key length must be positive", nameof(keyLength));
+
+        if (keyLength > MaxArraySize)
+            throw new ArgumentException($"Key length {keyLength} exceeds maximum {MaxArraySize}", nameof(keyLength));
+
+        // Check for potential overflow and DoS conditions
+        var memoryRequired = (long)128 * r * n;
+        if (memoryRequired > MaxScryptMemory)
+            throw new ArgumentException($"Scrypt memory requirement {memoryRequired} bytes exceeds maximum {MaxScryptMemory}", nameof(n));
+
+        var operationsRequired = (long)2 * n * r * p;
+        if (operationsRequired > MaxIterationCount)
+            throw new ArgumentException($"Scrypt operations {operationsRequired} exceed maximum {MaxIterationCount}", nameof(n));
+
+        // Additional security checks
+        if (n > 1048576) // 2^20, reasonable upper limit
+            throw new ArgumentException($"N parameter {n} is too large for practical use", nameof(n));
+
+        if (r > 64)
+            throw new ArgumentException($"R parameter {r} is too large for practical use", nameof(r));
+
+        if (p > 64)
+            throw new ArgumentException($"P parameter {p} is too large for practical use", nameof(p));
+    }
+
+    /// <summary>
+    /// Validates symmetric key parameters
+    /// </summary>
+    /// <param name="keyLength">Key length in bytes</param>
+    /// <param name="algorithm">Algorithm name</param>
+    public static void ValidateSymmetricKeyLength(int keyLength, string algorithm)
+    {
+        if (keyLength < 1)
+            throw new ArgumentException("Key length must be positive", nameof(keyLength));
+
+        if (keyLength > 256) // 2048-bit keys
+            throw new ArgumentException($"Key length {keyLength} is unreasonably large", nameof(keyLength));
+
+        // Algorithm-specific validation
+        switch (algorithm?.ToUpperInvariant())
+        {
+            case "AES":
+            case "AES128":
+                if (keyLength != 16)
+                    throw new ArgumentException("AES-128 requires 16-byte keys", nameof(keyLength));
+                break;
+            case "AES192":
+                if (keyLength != 24)
+                    throw new ArgumentException("AES-192 requires 24-byte keys", nameof(keyLength));
+                break;
+            case "AES256":
+                if (keyLength != 32)
+                    throw new ArgumentException("AES-256 requires 32-byte keys", nameof(keyLength));
+                break;
+            case "CHACHA20":
+                if (keyLength != 32)
+                    throw new ArgumentException("ChaCha20 requires 32-byte keys", nameof(keyLength));
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Validates that a key contains sufficient entropy
+    /// </summary>
+    /// <param name="key">Key to validate</param>
+    /// <param name="parameterName">Parameter name for exceptions</param>
+    /// <returns>True if key appears to have sufficient entropy</returns>
+    public static bool ValidateKeyEntropy(byte[] key, string parameterName)
+    {
+        if (key == null)
+            throw new ArgumentNullException(parameterName);
+
+        if (key.Length == 0)
+            return false;
+
+        // Check for all-zero key
+        if (key.All(b => b == 0))
+            throw new ArgumentException("Key cannot be all zeros", parameterName);
+
+        // Check for all-same bytes
+        if (key.All(b => b == key[0]))
+            throw new ArgumentException("Key cannot contain all identical bytes", parameterName);
+
+        // Simple entropy check - count unique bytes
+        var uniqueBytes = key.Distinct().Count();
+        var expectedMinimumUnique = Math.Min(16, key.Length / 4); // At least 25% unique bytes, max 16
+
+        if (uniqueBytes < expectedMinimumUnique)
+            throw new ArgumentException($"Key appears to have low entropy (only {uniqueBytes} unique bytes)", parameterName);
+
+        return true;
+    }
+
+    /// <summary>
+    /// Validates password strength for key derivation
+    /// </summary>
+    /// <param name="password">Password to validate</param>
+    /// <param name="parameterName">Parameter name for exceptions</param>
+    /// <param name="minLength">Minimum password length</param>
+    /// <returns>True if password meets minimum requirements</returns>
+    public static bool ValidatePasswordStrength(byte[] password, string parameterName, int minLength = 8)
+    {
+        if (password == null)
+            throw new ArgumentNullException(parameterName);
+
+        if (password.Length < minLength)
+            throw new ArgumentException($"Password must be at least {minLength} bytes", parameterName);
+
+        // Additional entropy checks for passwords
+        if (password.Length > 4)
+        {
+            ValidateKeyEntropy(password, parameterName);
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Validates that an array size is reasonable for the given operation
+    /// </summary>
+    /// <param name="size">Size to validate</param>
+    /// <param name="operation">Operation name for error messages</param>
+    /// <param name="maxSize">Maximum allowed size</param>
+    public static void ValidateArraySize(int size, string operation, int maxSize = MaxArraySize)
+    {
+        if (size < 0)
+            throw new ArgumentException($"Size cannot be negative for {operation}", nameof(size));
+
+        if (size > maxSize)
+            throw new ArgumentException($"Size {size} exceeds maximum {maxSize} for {operation}", nameof(size));
+    }
+
+    /// <summary>
+    /// Checks if a number is a power of two
+    /// </summary>
+    /// <param name="value">Value to check</param>
+    /// <returns>True if value is a power of two</returns>
+    private static bool IsPowerOfTwo(int value)
+    {
+        return value > 0 && (value & (value - 1)) == 0;
+    }
+}

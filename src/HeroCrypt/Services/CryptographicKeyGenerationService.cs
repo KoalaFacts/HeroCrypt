@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging;
 using HeroCrypt.Abstractions;
 using HeroCrypt.Cryptography.RSA;
 using HeroCrypt.Memory;
+using HeroCrypt.Security;
 using BigInteger = HeroCrypt.Cryptography.RSA.BigInteger;
 
 namespace HeroCrypt.Services;
@@ -39,8 +40,7 @@ public sealed class CryptographicKeyGenerationService : ICryptographicKeyGenerat
     /// <inheritdoc />
     public byte[] GenerateRandomBytes(int length)
     {
-        if (length <= 0)
-            throw new ArgumentException("Length must be positive", nameof(length));
+        InputValidator.ValidateArraySize(length, "random byte generation");
 
         _logger?.LogDebug("Generating {Length} random bytes", length);
 
@@ -54,8 +54,7 @@ public sealed class CryptographicKeyGenerationService : ICryptographicKeyGenerat
     /// <inheritdoc />
     public async Task<byte[]> GenerateRandomBytesAsync(int length, CancellationToken cancellationToken = default)
     {
-        if (length <= 0)
-            throw new ArgumentException("Length must be positive", nameof(length));
+        InputValidator.ValidateArraySize(length, "async random byte generation");
 
         _logger?.LogDebug("Asynchronously generating {Length} random bytes", length);
 
@@ -69,8 +68,7 @@ public sealed class CryptographicKeyGenerationService : ICryptographicKeyGenerat
     /// <inheritdoc />
     public byte[] GenerateSymmetricKey(int keyLength)
     {
-        if (keyLength <= 0)
-            throw new ArgumentException("Key length must be positive", nameof(keyLength));
+        InputValidator.ValidateArraySize(keyLength, "symmetric key generation");
 
         _logger?.LogDebug("Generating symmetric key of {KeyLength} bytes", keyLength);
 
@@ -92,6 +90,8 @@ public sealed class CryptographicKeyGenerationService : ICryptographicKeyGenerat
             CryptographicAlgorithm.ChaCha20Poly1305 => 32,
             _ => throw new ArgumentException($"Unsupported symmetric algorithm: {algorithm}", nameof(algorithm))
         };
+
+        InputValidator.ValidateSymmetricKeyLength(keyLength, algorithm.ToString());
 
         _logger?.LogDebug("Generating symmetric key for {Algorithm} ({KeyLength} bytes)", algorithm, keyLength);
 
@@ -186,10 +186,7 @@ public sealed class CryptographicKeyGenerationService : ICryptographicKeyGenerat
     /// <inheritdoc />
     public (byte[] privateKey, byte[] publicKey) GenerateRsaKeyPair(int keySize = 2048)
     {
-        if (keySize < 1024)
-            throw new ArgumentException("RSA key size must be at least 1024 bits for security", nameof(keySize));
-        if (keySize % 8 != 0)
-            throw new ArgumentException("RSA key size must be a multiple of 8", nameof(keySize));
+        InputValidator.ValidateRsaKeySize(keySize, nameof(keySize));
 
         _logger?.LogDebug("Generating RSA key pair with {KeySize}-bit keys", keySize);
 
@@ -270,6 +267,16 @@ public sealed class CryptographicKeyGenerationService : ICryptographicKeyGenerat
         if (string.IsNullOrEmpty(algorithm))
         {
             _logger?.LogWarning("Key material validation failed: null or empty algorithm");
+            return false;
+        }
+
+        try
+        {
+            InputValidator.ValidateKeyEntropy(keyMaterial, nameof(keyMaterial));
+        }
+        catch (ArgumentException ex)
+        {
+            _logger?.LogWarning("Key material validation failed: {Message}", ex.Message);
             return false;
         }
 

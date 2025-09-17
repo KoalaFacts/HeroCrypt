@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using HeroCrypt.Abstractions;
 using HeroCrypt.Cryptography.RSA;
 using HeroCrypt.Memory;
+using HeroCrypt.Security;
 using BigInteger = HeroCrypt.Cryptography.RSA.BigInteger;
 
 namespace HeroCrypt.Services;
@@ -28,10 +29,7 @@ public sealed class RsaDigitalSignatureService : IDigitalSignatureService
         ILogger<RsaDigitalSignatureService>? logger = null,
         ISecureMemoryManager? memoryManager = null)
     {
-        if (keySize < 1024)
-            throw new ArgumentException("RSA key size must be at least 1024 bits for security", nameof(keySize));
-        if (keySize % 8 != 0)
-            throw new ArgumentException("RSA key size must be a multiple of 8", nameof(keySize));
+        InputValidator.ValidateRsaKeySize(keySize, nameof(keySize));
 
         _keySize = keySize;
         _logger = logger;
@@ -82,6 +80,8 @@ public sealed class RsaDigitalSignatureService : IDigitalSignatureService
         if (privateKey == null) throw new ArgumentNullException(nameof(privateKey));
 #endif
 
+        InputValidator.ValidateByteArray(privateKey, nameof(privateKey));
+
         _logger?.LogDebug("Deriving public key from private key");
 
         try
@@ -112,6 +112,9 @@ public sealed class RsaDigitalSignatureService : IDigitalSignatureService
         if (data == null) throw new ArgumentNullException(nameof(data));
         if (privateKey == null) throw new ArgumentNullException(nameof(privateKey));
 #endif
+
+        InputValidator.ValidateByteArray(data, nameof(data));
+        InputValidator.ValidateByteArray(privateKey, nameof(privateKey));
 
         _logger?.LogDebug("Signing data with RSA private key (data size: {DataSize} bytes)", data.Length);
 
@@ -151,6 +154,10 @@ public sealed class RsaDigitalSignatureService : IDigitalSignatureService
         if (publicKey == null) throw new ArgumentNullException(nameof(publicKey));
 #endif
 
+        InputValidator.ValidateByteArray(signature, nameof(signature));
+        InputValidator.ValidateByteArray(data, nameof(data));
+        InputValidator.ValidateByteArray(publicKey, nameof(publicKey));
+
         _logger?.LogDebug("Verifying RSA signature (data size: {DataSize} bytes, signature size: {SignatureSize} bytes)",
             data.Length, signature.Length);
 
@@ -186,40 +193,48 @@ public sealed class RsaDigitalSignatureService : IDigitalSignatureService
         var qBytes = privateKey.Q.ToByteArray();
         var eBytes = privateKey.E.ToByteArray();
 
-        var totalSize = 20 + modulusBytes.Length + dBytes.Length + pBytes.Length + qBytes.Length + eBytes.Length; // 5 length fields (4 bytes each)
-        var result = new byte[totalSize];
-        var offset = 0;
+        try
+        {
+            var totalSize = 20 + modulusBytes.Length + dBytes.Length + pBytes.Length + qBytes.Length + eBytes.Length; // 5 length fields (4 bytes each)
+            var result = new byte[totalSize];
+            var offset = 0;
 
-        // Modulus
-        BitConverter.GetBytes(modulusBytes.Length).CopyTo(result, offset);
-        offset += 4;
-        modulusBytes.CopyTo(result, offset);
-        offset += modulusBytes.Length;
+            // Modulus
+            BitConverter.GetBytes(modulusBytes.Length).CopyTo(result, offset);
+            offset += 4;
+            modulusBytes.CopyTo(result, offset);
+            offset += modulusBytes.Length;
 
-        // D
-        BitConverter.GetBytes(dBytes.Length).CopyTo(result, offset);
-        offset += 4;
-        dBytes.CopyTo(result, offset);
-        offset += dBytes.Length;
+            // D
+            BitConverter.GetBytes(dBytes.Length).CopyTo(result, offset);
+            offset += 4;
+            dBytes.CopyTo(result, offset);
+            offset += dBytes.Length;
 
-        // P
-        BitConverter.GetBytes(pBytes.Length).CopyTo(result, offset);
-        offset += 4;
-        pBytes.CopyTo(result, offset);
-        offset += pBytes.Length;
+            // P
+            BitConverter.GetBytes(pBytes.Length).CopyTo(result, offset);
+            offset += 4;
+            pBytes.CopyTo(result, offset);
+            offset += pBytes.Length;
 
-        // Q
-        BitConverter.GetBytes(qBytes.Length).CopyTo(result, offset);
-        offset += 4;
-        qBytes.CopyTo(result, offset);
-        offset += qBytes.Length;
+            // Q
+            BitConverter.GetBytes(qBytes.Length).CopyTo(result, offset);
+            offset += 4;
+            qBytes.CopyTo(result, offset);
+            offset += qBytes.Length;
 
-        // E
-        BitConverter.GetBytes(eBytes.Length).CopyTo(result, offset);
-        offset += 4;
-        eBytes.CopyTo(result, offset);
+            // E
+            BitConverter.GetBytes(eBytes.Length).CopyTo(result, offset);
+            offset += 4;
+            eBytes.CopyTo(result, offset);
 
-        return result;
+            return result;
+        }
+        finally
+        {
+            // Securely clear all sensitive intermediate arrays
+            SecureMemoryOperations.SecureClear(modulusBytes, dBytes, pBytes, qBytes, eBytes);
+        }
     }
 
     private static byte[] SerializePublicKey(RsaPublicKey publicKey)

@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using HeroCrypt.Abstractions;
+using HeroCrypt.Security;
 
 namespace HeroCrypt.Memory;
 

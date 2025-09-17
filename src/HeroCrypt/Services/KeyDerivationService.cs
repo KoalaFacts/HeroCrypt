@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using HeroCrypt.Abstractions;
 using HeroCrypt.Cryptography.Scrypt;
+using HeroCrypt.Security;
 using Microsoft.Extensions.Logging;
 using CryptoHashAlgorithmName = System.Security.Cryptography.HashAlgorithmName;
 using HeroCryptHashAlgorithmName = HeroCrypt.Abstractions.HashAlgorithmName;
@@ -39,14 +40,7 @@ public class KeyDerivationService : IKeyDerivationService
         int keyLength,
         HeroCryptHashAlgorithmName hashAlgorithm = default)
     {
-        if (password == null)
-            throw new ArgumentNullException(nameof(password));
-        if (salt == null)
-            throw new ArgumentNullException(nameof(salt));
-        if (iterations < 1)
-            throw new ArgumentException("Iterations must be positive", nameof(iterations));
-        if (keyLength < 1)
-            throw new ArgumentException("Key length must be positive", nameof(keyLength));
+        InputValidator.ValidatePbkdf2Parameters(password, salt, iterations, keyLength);
 
         var algorithm = hashAlgorithm == default ? HeroCryptHashAlgorithmName.SHA256 : hashAlgorithm;
         _logger?.LogDebug("Deriving PBKDF2 key with {Algorithm}, {Iterations} iterations, {KeyLength} bytes",
@@ -100,10 +94,7 @@ public class KeyDerivationService : IKeyDerivationService
         byte[]? info = null,
         HeroCryptHashAlgorithmName hashAlgorithm = default)
     {
-        if (ikm == null)
-            throw new ArgumentNullException(nameof(ikm));
-        if (keyLength < 1)
-            throw new ArgumentException("Key length must be positive", nameof(keyLength));
+        InputValidator.ValidateHkdfParameters(ikm, salt, info, keyLength);
 
         var algorithm = hashAlgorithm == default ? HeroCryptHashAlgorithmName.SHA256 : hashAlgorithm;
         _logger?.LogDebug("Deriving HKDF key with {Algorithm}, {KeyLength} bytes", algorithm.Name, keyLength);
@@ -156,18 +147,7 @@ public class KeyDerivationService : IKeyDerivationService
         int p,
         int keyLength)
     {
-        if (password == null)
-            throw new ArgumentNullException(nameof(password));
-        if (salt == null)
-            throw new ArgumentNullException(nameof(salt));
-        if (n < 1 || (n & (n - 1)) != 0)
-            throw new ArgumentException("N must be a positive power of 2", nameof(n));
-        if (r < 1)
-            throw new ArgumentException("R must be positive", nameof(r));
-        if (p < 1)
-            throw new ArgumentException("P must be positive", nameof(p));
-        if (keyLength < 1)
-            throw new ArgumentException("Key length must be positive", nameof(keyLength));
+        InputValidator.ValidateScryptParameters(password, salt, n, r, p, keyLength);
 
         _logger?.LogDebug("Deriving scrypt key with N={N}, r={R}, p={P}, {KeyLength} bytes", n, r, p, keyLength);
 
@@ -189,12 +169,10 @@ public class KeyDerivationService : IKeyDerivationService
     /// <inheritdoc/>
     public byte[] DeriveKey(byte[] masterKey, string context, int keyLength)
     {
-        if (masterKey == null)
-            throw new ArgumentNullException(nameof(masterKey));
+        InputValidator.ValidateByteArray(masterKey, nameof(masterKey));
         if (string.IsNullOrEmpty(context))
             throw new ArgumentException("Context cannot be null or empty", nameof(context));
-        if (keyLength < 1)
-            throw new ArgumentException("Key length must be positive", nameof(keyLength));
+        InputValidator.ValidateArraySize(keyLength, "key derivation");
 
         _logger?.LogDebug("Deriving key for context '{Context}', {KeyLength} bytes", context, keyLength);
 

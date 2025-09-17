@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using HeroCrypt.Abstractions;
+using HeroCrypt.Cryptography.Scrypt;
 using Microsoft.Extensions.Logging;
 using CryptoHashAlgorithmName = System.Security.Cryptography.HashAlgorithmName;
 using HeroCryptHashAlgorithmName = HeroCrypt.Abstractions.HashAlgorithmName;
@@ -170,9 +171,19 @@ public class KeyDerivationService : IKeyDerivationService
 
         _logger?.LogDebug("Deriving scrypt key with N={N}, r={R}, p={P}, {KeyLength} bytes", n, r, p, keyLength);
 
-        // Scrypt is complex to implement from scratch and not included in .NET BCL
-        // For production use, consider using a dedicated scrypt library
-        throw new NotImplementedException("Scrypt implementation requires a dedicated library. Consider using ScryptSharp or similar.");
+        try
+        {
+            var result = ScryptCore.DeriveKey(password, salt, n, r, p, keyLength);
+
+            _logger?.LogDebug("Successfully derived scrypt key: {KeyLength} bytes", result.Length);
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Failed to derive scrypt key");
+            throw;
+        }
     }
 
     /// <inheritdoc/>

@@ -51,12 +51,16 @@ public class ServiceRegistrationTests
         var hashingService = serviceProvider.GetService<IHashingService>();
         var cryptoService = serviceProvider.GetService<ICryptographyService>();
         var keyGenService = serviceProvider.GetService<IKeyGenerationService>();
+        var digitalSignatureService = serviceProvider.GetService<IDigitalSignatureService>();
+        var cryptoKeyGenService = serviceProvider.GetService<ICryptographicKeyGenerationService>();
         var memoryManager = serviceProvider.GetService<ISecureMemoryManager>();
         var telemetry = serviceProvider.GetService<ICryptoTelemetry>();
 
         Assert.NotNull(hashingService);
         Assert.NotNull(cryptoService);
         Assert.NotNull(keyGenService);
+        Assert.NotNull(digitalSignatureService);
+        Assert.NotNull(cryptoKeyGenService);
         Assert.NotNull(memoryManager);
         Assert.NotNull(telemetry);
     }
@@ -96,6 +100,48 @@ public class ServiceRegistrationTests
 
         Assert.Equal(32, key.Length);
         Assert.NotEqual(new byte[32], key);
+    }
+
+    [Fact]
+    [Trait("Category", TestCategories.Integration)]
+    public void DigitalSignatureService_ViaInjection_WorksCorrectly()
+    {
+        var services = new ServiceCollection();
+        services.AddHeroCrypt();
+        services.AddLogging();
+
+        var serviceProvider = services.BuildServiceProvider();
+        var digitalSignatureService = serviceProvider.GetRequiredService<IDigitalSignatureService>();
+
+        var (privateKey, publicKey) = digitalSignatureService.GenerateKeyPair();
+        var testData = Encoding.UTF8.GetBytes("Dependency Injection Signature Test");
+        var signature = digitalSignatureService.Sign(testData, privateKey);
+        var isValid = digitalSignatureService.Verify(signature, testData, publicKey);
+
+        Assert.True(isValid);
+        Assert.Equal("RSA-SHA256", digitalSignatureService.AlgorithmName);
+    }
+
+    [Fact]
+    [Trait("Category", TestCategories.Integration)]
+    public void CryptographicKeyGenerationService_ViaInjection_WorksCorrectly()
+    {
+        var services = new ServiceCollection();
+        services.AddHeroCrypt();
+        services.AddLogging();
+
+        var serviceProvider = services.BuildServiceProvider();
+        var keyGenService = serviceProvider.GetRequiredService<ICryptographicKeyGenerationService>();
+
+        var randomBytes = keyGenService.GenerateRandomBytes(32);
+        var symmetricKey = keyGenService.GenerateSymmetricKey(CryptographicAlgorithm.Aes256);
+        var salt = keyGenService.GenerateSalt();
+        var securePassword = keyGenService.GenerateSecurePassword(16);
+
+        Assert.Equal(32, randomBytes.Length);
+        Assert.Equal(32, symmetricKey.Length);
+        Assert.Equal(32, salt.Length);
+        Assert.Equal(16, securePassword.Length);
     }
 
     [Fact]

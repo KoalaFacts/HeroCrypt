@@ -5,7 +5,6 @@ using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using HeroCrypt.Abstractions;
-using HeroCrypt.Cryptography.Symmetric.AesGcm;
 using HeroCrypt.Cryptography.Symmetric.ChaCha20Poly1305;
 using HeroCrypt.Cryptography.Symmetric.XChaCha20Poly1305;
 using HeroCrypt.Security;
@@ -369,8 +368,8 @@ public class AeadService : IAeadService
         {
             AeadAlgorithm.ChaCha20Poly1305 => ChaCha20Poly1305Core.KeySize,
             AeadAlgorithm.XChaCha20Poly1305 => XChaCha20Poly1305Core.KeySize,
-            AeadAlgorithm.Aes128Gcm => AesGcmCore.Aes128KeySize,
-            AeadAlgorithm.Aes256Gcm => AesGcmCore.Aes256KeySize,
+            AeadAlgorithm.Aes128Gcm => 16, // AES-128 key size
+            AeadAlgorithm.Aes256Gcm => 32, // AES-256 key size
             _ => throw new NotSupportedException($"Algorithm {algorithm} is not supported")
         };
     }
@@ -382,8 +381,8 @@ public class AeadService : IAeadService
         {
             AeadAlgorithm.ChaCha20Poly1305 => ChaCha20Poly1305Core.NonceSize,
             AeadAlgorithm.XChaCha20Poly1305 => XChaCha20Poly1305Core.NonceSize,
-            AeadAlgorithm.Aes128Gcm => AesGcmCore.NonceSize,
-            AeadAlgorithm.Aes256Gcm => AesGcmCore.NonceSize,
+            AeadAlgorithm.Aes128Gcm => 12, // AES-GCM nonce size
+            AeadAlgorithm.Aes256Gcm => 12, // AES-GCM nonce size
             _ => throw new NotSupportedException($"Algorithm {algorithm} is not supported")
         };
     }
@@ -395,8 +394,8 @@ public class AeadService : IAeadService
         {
             AeadAlgorithm.ChaCha20Poly1305 => ChaCha20Poly1305Core.TagSize,
             AeadAlgorithm.XChaCha20Poly1305 => XChaCha20Poly1305Core.TagSize,
-            AeadAlgorithm.Aes128Gcm => AesGcmCore.TagSize,
-            AeadAlgorithm.Aes256Gcm => AesGcmCore.TagSize,
+            AeadAlgorithm.Aes128Gcm => 16, // AES-GCM tag size
+            AeadAlgorithm.Aes256Gcm => 16, // AES-GCM tag size
             _ => throw new NotSupportedException($"Algorithm {algorithm} is not supported")
         };
     }
@@ -411,8 +410,8 @@ public class AeadService : IAeadService
         {
             AeadAlgorithm.ChaCha20Poly1305 => ChaCha20Poly1305Core.Encrypt(ciphertext, plaintext, key, nonce, associatedData),
             AeadAlgorithm.XChaCha20Poly1305 => XChaCha20Poly1305Core.Encrypt(ciphertext, plaintext, key, nonce, associatedData),
-            AeadAlgorithm.Aes128Gcm => AesGcmCore.Encrypt(ciphertext, plaintext, key, nonce, associatedData),
-            AeadAlgorithm.Aes256Gcm => AesGcmCore.Encrypt(ciphertext, plaintext, key, nonce, associatedData),
+            AeadAlgorithm.Aes128Gcm => EncryptAesGcm(ciphertext, plaintext, key, nonce, associatedData),
+            AeadAlgorithm.Aes256Gcm => EncryptAesGcm(ciphertext, plaintext, key, nonce, associatedData),
             _ => throw new NotSupportedException($"Algorithm {algorithm} is not supported")
         };
     }
@@ -427,8 +426,8 @@ public class AeadService : IAeadService
         {
             AeadAlgorithm.ChaCha20Poly1305 => ChaCha20Poly1305Core.Decrypt(plaintext, ciphertext, key, nonce, associatedData),
             AeadAlgorithm.XChaCha20Poly1305 => XChaCha20Poly1305Core.Decrypt(plaintext, ciphertext, key, nonce, associatedData),
-            AeadAlgorithm.Aes128Gcm => AesGcmCore.Decrypt(plaintext, ciphertext, key, nonce, associatedData),
-            AeadAlgorithm.Aes256Gcm => AesGcmCore.Decrypt(plaintext, ciphertext, key, nonce, associatedData),
+            AeadAlgorithm.Aes128Gcm => DecryptAesGcm(plaintext, ciphertext, key, nonce, associatedData),
+            AeadAlgorithm.Aes256Gcm => DecryptAesGcm(plaintext, ciphertext, key, nonce, associatedData),
             _ => throw new NotSupportedException($"Algorithm {algorithm} is not supported")
         };
     }
@@ -488,6 +487,45 @@ public class AeadService : IAeadService
             throw new ArgumentException($"Key must be {expectedKeySize} bytes for {algorithm}", nameof(key));
         if (nonce.Length != expectedNonceSize)
             throw new ArgumentException($"Nonce must be {expectedNonceSize} bytes for {algorithm}", nameof(nonce));
+    }
+
+    private static int EncryptAesGcm(Span<byte> ciphertext, ReadOnlySpan<byte> plaintext,
+        ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce, ReadOnlySpan<byte> associatedData)
+    {
+#if NET6_0_OR_GREATER
+        using var aes = new AesGcm(key);
+        var tag = ciphertext.Slice(plaintext.Length, 16);
+        var actualCiphertext = ciphertext.Slice(0, plaintext.Length);
+
+        aes.Encrypt(nonce, plaintext, actualCiphertext, tag, associatedData);
+
+        return plaintext.Length + 16; // Include tag length
+#else
+        throw new NotSupportedException("AES-GCM requires .NET 6 or higher");
+#endif
+    }
+
+    private static int DecryptAesGcm(Span<byte> plaintext, ReadOnlySpan<byte> ciphertext,
+        ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce, ReadOnlySpan<byte> associatedData)
+    {
+#if NET6_0_OR_GREATER
+        using var aes = new AesGcm(key);
+        var tag = ciphertext.Slice(ciphertext.Length - 16, 16);
+        var actualCiphertext = ciphertext.Slice(0, ciphertext.Length - 16);
+
+        try
+        {
+            aes.Decrypt(nonce, actualCiphertext, tag, plaintext, associatedData);
+        }
+        catch (CryptographicException ex)
+        {
+            throw new UnauthorizedAccessException("Authentication failed: invalid ciphertext, key, nonce, or associated data", ex);
+        }
+
+        return actualCiphertext.Length;
+#else
+        throw new NotSupportedException("AES-GCM requires .NET 6 or higher");
+#endif
     }
 
     /// <summary>

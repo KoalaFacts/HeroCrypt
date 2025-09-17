@@ -136,7 +136,8 @@ HeroCrypt is built with a modular architecture:
 
 ## 📖 Documentation
 
-See [STANDARDS_COMPLIANCE.md](STANDARDS_COMPLIANCE.md) for detailed compliance information and test vectors.
+- [STANDARDS_COMPLIANCE.md](STANDARDS_COMPLIANCE.md) - Detailed compliance information and test vectors
+- [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md) - Complete development roadmap and planned features
 
 ## 🤝 Contributing
 

@@ -36,12 +36,13 @@ public class CryptographicKeyGenerationServiceTests
 
     [Fact]
     [Trait("Category", TestCategories.Unit)]
-    public void GenerateRandomBytes_WithZeroLength_ThrowsException()
+    public void GenerateRandomBytes_WithZeroLength_ReturnsEmptyArray()
     {
         var service = new CryptographicKeyGenerationService();
 
-        var ex = Assert.Throws<ArgumentException>(() => service.GenerateRandomBytes(0));
-        Assert.Contains("Length must be positive", ex.Message);
+        var result = service.GenerateRandomBytes(0);
+        Assert.Empty(result);
+        Assert.Equal(0, result.Length);
     }
 
     [Fact]
@@ -51,7 +52,7 @@ public class CryptographicKeyGenerationServiceTests
         var service = new CryptographicKeyGenerationService();
 
         var ex = Assert.Throws<ArgumentException>(() => service.GenerateRandomBytes(-5));
-        Assert.Contains("Length must be positive", ex.Message);
+        Assert.Contains("Length cannot be negative", ex.Message);
     }
 
     [Fact]

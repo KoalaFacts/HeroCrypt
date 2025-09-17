@@ -13,6 +13,15 @@
     <PackageReleaseNotes>See https://github.com/BeingCiteable/HeroCrypt/releases for release notes.</PackageReleaseNotes>
   </PropertyGroup>
 
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>HeroCrypt.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <PropertyGroup>
+  </PropertyGroup>
+
   <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
     <PackageReference Include="System.Memory" Version="4.6.3" />
     <PackageReference Include="Microsoft.CSharp" Version="4.7.0" />

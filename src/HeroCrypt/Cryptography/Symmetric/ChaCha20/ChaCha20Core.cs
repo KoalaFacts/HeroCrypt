@@ -39,7 +39,7 @@ internal static class ChaCha20Core
     /// </summary>
     public static bool IsHardwareAccelerated =>
 #if NET5_0_OR_GREATER
-        Avx2.IsSupported && Vector256.IsHardwareAccelerated;
+        Avx2.IsSupported;
 #else
         false;
 #endif

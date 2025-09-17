@@ -40,7 +40,11 @@ public sealed class CryptographicKeyGenerationService : ICryptographicKeyGenerat
     /// <inheritdoc />
     public byte[] GenerateRandomBytes(int length)
     {
-        InputValidator.ValidateArraySize(length, "random byte generation");
+        if (length < 0)
+            throw new ArgumentException("Length cannot be negative", nameof(length));
+
+        if (length > InputValidator.MaxArraySize)
+            throw new ArgumentException($"Length {length} exceeds maximum {InputValidator.MaxArraySize}", nameof(length));
 
         _logger?.LogDebug("Generating {Length} random bytes", length);
 

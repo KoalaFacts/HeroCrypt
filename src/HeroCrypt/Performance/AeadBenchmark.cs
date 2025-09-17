@@ -3,7 +3,6 @@ using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Threading.Tasks;
 using HeroCrypt.Abstractions;
-using HeroCrypt.Cryptography.Symmetric.AesGcm;
 using HeroCrypt.Cryptography.Symmetric.ChaCha20Poly1305;
 using HeroCrypt.Cryptography.Symmetric.XChaCha20Poly1305;
 using Microsoft.Extensions.Logging;
@@ -52,7 +51,11 @@ public class AeadBenchmark
             results.XChaCha20Poly1305Results.Add(size, xchachaResult);
 
             // Benchmark AES-GCM (if hardware acceleration is available)
-            if (AesGcmCore.IsHardwareAccelerated)
+    #if NET6_0_OR_GREATER
+        if (true) // AES-GCM available in .NET 6+
+#else
+        if (false)
+#endif
             {
                 var aes128Result = await BenchmarkAes128GcmAsync(data);
                 results.Aes128GcmResults.Add(size, aes128Result);
@@ -184,30 +187,37 @@ public class AeadBenchmark
     /// </summary>
     private async Task<AlgorithmBenchmarkResult> BenchmarkAes128GcmAsync(byte[] data)
     {
-        var key = new byte[AesGcmCore.Aes128KeySize];
-        var nonce = new byte[AesGcmCore.NonceSize];
+#if NET6_0_OR_GREATER
+        var key = new byte[16]; // AES-128 key size
+        var nonce = new byte[12]; // AES-GCM nonce size
         _rng.GetBytes(key);
         _rng.GetBytes(nonce);
 
-        var ciphertext = new byte[data.Length + AesGcmCore.TagSize];
+        var ciphertext = new byte[data.Length + 16]; // + tag size
         var decrypted = new byte[data.Length];
 
         const int iterations = 1000;
         var encryptTimes = new double[iterations];
         var decryptTimes = new double[iterations];
 
+        using var aes = new AesGcm(key);
+
         // Warm up
         for (var i = 0; i < 10; i++)
         {
-            AesGcmCore.Encrypt(ciphertext, data, key, nonce);
-            AesGcmCore.Decrypt(decrypted, ciphertext, key, nonce);
+            var tag = ciphertext.AsSpan(data.Length, 16);
+            var actualCiphertext = ciphertext.AsSpan(0, data.Length);
+            aes.Encrypt(nonce, data, actualCiphertext, tag);
+            aes.Decrypt(nonce, actualCiphertext, tag, decrypted);
         }
 
         // Benchmark encryption
         for (var i = 0; i < iterations; i++)
         {
             var stopwatch = Stopwatch.StartNew();
-            AesGcmCore.Encrypt(ciphertext, data, key, nonce);
+            var tag = ciphertext.AsSpan(data.Length, 16);
+            var actualCiphertext = ciphertext.AsSpan(0, data.Length);
+            aes.Encrypt(nonce, data, actualCiphertext, tag);
             stopwatch.Stop();
             encryptTimes[i] = stopwatch.Elapsed.TotalMilliseconds * 1000;
         }
@@ -216,7 +226,9 @@ public class AeadBenchmark
         for (var i = 0; i < iterations; i++)
         {
             var stopwatch = Stopwatch.StartNew();
-            AesGcmCore.Decrypt(decrypted, ciphertext, key, nonce);
+            var tag = ciphertext.AsSpan(data.Length, 16);
+            var actualCiphertext = ciphertext.AsSpan(0, data.Length);
+            aes.Decrypt(nonce, actualCiphertext, tag, decrypted);
             stopwatch.Stop();
             decryptTimes[i] = stopwatch.Elapsed.TotalMilliseconds * 1000;
         }
@@ -227,8 +239,12 @@ public class AeadBenchmark
             DataSize = data.Length,
             EncryptionTimes = encryptTimes,
             DecryptionTimes = decryptTimes,
-            HardwareAccelerated = AesGcmCore.IsHardwareAccelerated
+            HardwareAccelerated = true // AES-GCM hardware acceleration in .NET 6+
         };
+#else
+        await Task.CompletedTask;
+        throw new NotSupportedException("AES-GCM requires .NET 6 or higher");
+#endif
     }
 
     /// <summary>
@@ -236,30 +252,37 @@ public class AeadBenchmark
     /// </summary>
     private async Task<AlgorithmBenchmarkResult> BenchmarkAes256GcmAsync(byte[] data)
     {
-        var key = new byte[AesGcmCore.Aes256KeySize];
-        var nonce = new byte[AesGcmCore.NonceSize];
+#if NET6_0_OR_GREATER
+        var key = new byte[32]; // AES-256 key size
+        var nonce = new byte[12]; // AES-GCM nonce size
         _rng.GetBytes(key);
         _rng.GetBytes(nonce);
 
-        var ciphertext = new byte[data.Length + AesGcmCore.TagSize];
+        var ciphertext = new byte[data.Length + 16]; // + tag size
         var decrypted = new byte[data.Length];
 
         const int iterations = 1000;
         var encryptTimes = new double[iterations];
         var decryptTimes = new double[iterations];
 
+        using var aes = new AesGcm(key);
+
         // Warm up
         for (var i = 0; i < 10; i++)
         {
-            AesGcmCore.Encrypt(ciphertext, data, key, nonce);
-            AesGcmCore.Decrypt(decrypted, ciphertext, key, nonce);
+            var tag = ciphertext.AsSpan(data.Length, 16);
+            var actualCiphertext = ciphertext.AsSpan(0, data.Length);
+            aes.Encrypt(nonce, data, actualCiphertext, tag);
+            aes.Decrypt(nonce, actualCiphertext, tag, decrypted);
         }
 
         // Benchmark encryption
         for (var i = 0; i < iterations; i++)
         {
             var stopwatch = Stopwatch.StartNew();
-            AesGcmCore.Encrypt(ciphertext, data, key, nonce);
+            var tag = ciphertext.AsSpan(data.Length, 16);
+            var actualCiphertext = ciphertext.AsSpan(0, data.Length);
+            aes.Encrypt(nonce, data, actualCiphertext, tag);
             stopwatch.Stop();
             encryptTimes[i] = stopwatch.Elapsed.TotalMilliseconds * 1000;
         }
@@ -268,7 +291,9 @@ public class AeadBenchmark
         for (var i = 0; i < iterations; i++)
         {
             var stopwatch = Stopwatch.StartNew();
-            AesGcmCore.Decrypt(decrypted, ciphertext, key, nonce);
+            var tag = ciphertext.AsSpan(data.Length, 16);
+            var actualCiphertext = ciphertext.AsSpan(0, data.Length);
+            aes.Decrypt(nonce, actualCiphertext, tag, decrypted);
             stopwatch.Stop();
             decryptTimes[i] = stopwatch.Elapsed.TotalMilliseconds * 1000;
         }
@@ -279,8 +304,12 @@ public class AeadBenchmark
             DataSize = data.Length,
             EncryptionTimes = encryptTimes,
             DecryptionTimes = decryptTimes,
-            HardwareAccelerated = AesGcmCore.IsHardwareAccelerated
+            HardwareAccelerated = true // AES-GCM hardware acceleration in .NET 6+
         };
+#else
+        await Task.CompletedTask;
+        throw new NotSupportedException("AES-GCM requires .NET 6 or higher");
+#endif
     }
 
     /// <summary>

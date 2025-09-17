@@ -167,7 +167,7 @@ public class ServiceRegistrationTests
 
         var password = Encoding.UTF8.GetBytes("log_password");
         var salt = Encoding.UTF8.GetBytes("log_salt_123");
-        var key = keyDerivationService.DerivePbkdf2(password, salt, 100, 32);
+        var key = keyDerivationService.DerivePbkdf2(password, salt, 1000, 32);
 
         Assert.Equal(32, hash.Length);
         Assert.True(isValid);

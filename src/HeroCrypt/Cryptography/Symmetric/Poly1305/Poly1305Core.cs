@@ -69,14 +69,15 @@ internal static class Poly1305Core
         h.Clear();
 
         // Process message in 16-byte blocks
+        // Move stackalloc outside the loop to prevent stack overflow
+        Span<ulong> blockNum = stackalloc ulong[3];
         var offset = 0;
         while (offset < message.Length)
         {
             var blockSize = Math.Min(BlockSize, message.Length - offset);
             var block = message.Slice(offset, blockSize);
 
-            // Convert block to number with padding bit
-            Span<ulong> blockNum = stackalloc ulong[3];
+            // Convert block to number with padding bit (reuse the blockNum buffer)
             BlockToNumber(block, blockNum);
 
             // h = (h + blockNum) * r mod p
@@ -173,6 +174,9 @@ internal static class Poly1305Core
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void BytesToUInt64LE(ReadOnlySpan<byte> bytes, Span<ulong> numbers)
     {
+        // Move stackalloc outside the loop to prevent stack overflow
+        Span<byte> temp = stackalloc byte[8];
+
         for (var i = 0; i < numbers.Length; i++)
         {
             var offset = i * 8;
@@ -187,8 +191,8 @@ internal static class Poly1305Core
             }
             else
             {
-                // Handle partial read
-                Span<byte> temp = stackalloc byte[8];
+                // Handle partial read (reuse the temp buffer)
+                temp.Clear();
                 var remaining = bytes.Length - offset;
                 bytes.Slice(offset, remaining).CopyTo(temp);
 #if NET5_0_OR_GREATER
@@ -328,38 +332,35 @@ internal static class Poly1305Core
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void ReduceP(Span<ulong> a)
     {
-        // Check if a >= 2^130 - 5
-        if (a[2] > 3 || (a[2] == 3 && (a[1] > P1 || (a[1] == P1 && a[0] >= P0))))
+        // For Poly1305, we need to reduce modulo 2^130 - 5
+        // If the value >= 2^130, we subtract 2^130 and add back 5
+
+        // Use a loop instead of recursion to avoid stack overflow
+        while (a[2] >= 4)
         {
-            // Subtract 2^130 - 5
-            var borrow = 0UL;
+            var overflow = a[2] >> 2;
+            a[2] &= 0x3;
 
-            // a[0] -= P0
-            if (a[0] >= P0)
-            {
-                a[0] -= P0;
-            }
-            else
-            {
-                a[0] = a[0] + (ulong.MaxValue - P0) + 1;
-                borrow = 1;
-            }
+            // Add overflow * 5 to the lower parts
+            var toAdd = overflow * 5;
 
-            // a[1] -= P1 + borrow
-            var toSubtract = P1 + borrow;
-            if (a[1] >= toSubtract)
-            {
-                a[1] -= toSubtract;
-                borrow = 0;
-            }
-            else
-            {
-                a[1] = a[1] + (ulong.MaxValue - toSubtract) + 1;
-                borrow = 1;
-            }
+            // Add to a[0] with carry
+            var oldA0 = a[0];
+            a[0] += toAdd;
+            var carry = a[0] < oldA0 ? 1UL : 0UL;
 
-            // a[2] -= P2 + borrow
-            a[2] -= P2 + borrow;
+            if (carry > 0)
+            {
+                var oldA1 = a[1];
+                a[1] += carry;
+                carry = a[1] < oldA1 ? 1UL : 0UL;
+
+                if (carry > 0)
+                {
+                    a[2] += carry;
+                    // The loop will continue if a[2] >= 4
+                }
+            }
         }
     }
 
@@ -381,14 +382,15 @@ internal static class Poly1305Core
         overflow *= 5;
 
         var carry = 0UL;
-        var sum = output[0] + (overflow & ulong.MaxValue) + carry;
-        output[0] = sum;
-        carry = sum < output[0] ? 1UL : 0UL;
+        var overflowLow = overflow & ulong.MaxValue;
+        var oldOutput0 = output[0];
+        output[0] = oldOutput0 + overflowLow + carry;
+        carry = output[0] < oldOutput0 || output[0] < overflowLow ? 1UL : 0UL;
 
         overflow >>= 64;
-        sum = output[1] + overflow + carry;
-        output[1] = sum;
-        carry = sum < output[1] ? 1UL : 0UL;
+        var oldOutput1 = output[1];
+        output[1] = oldOutput1 + overflow + carry;
+        carry = output[1] < oldOutput1 || output[1] < overflow ? 1UL : 0UL;
 
         if (carry > 0)
         {

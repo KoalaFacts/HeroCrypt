@@ -20,191 +20,164 @@ internal static class ScryptCore
     /// <returns>The derived key</returns>
     public static byte[] DeriveKey(byte[] password, byte[] salt, int n, int r, int p, int keyLength)
     {
-        // Validate parameters according to RFC 7914
-        ValidateParameters(password, salt, n, r, p, keyLength);
+        // Allow empty password and salt for RFC test vectors
+        if (password == null) password = Array.Empty<byte>();
+        if (salt == null) salt = Array.Empty<byte>();
+
+        if (n <= 0 || (n & (n - 1)) != 0) throw new ArgumentException("N must be a power of 2 greater than 0");
+        if (r <= 0) throw new ArgumentException("r must be greater than 0");
+        if (p <= 0) throw new ArgumentException("p must be greater than 0");
+        if (keyLength <= 0) throw new ArgumentException("keyLength must be greater than 0");
 
         // Step 1: Generate initial hash using PBKDF2-HMAC-SHA256
         var blockSize = 128 * r;
-        var b = DeriveInitialHash(password, salt, p * blockSize);
+        var b = new byte[p * blockSize];
+
+#if NETSTANDARD2_0
+        using (var pbkdf2 = new Rfc2898DeriveBytes(password, salt, 1))
+        {
+            b = pbkdf2.GetBytes(p * blockSize);
+        }
+#else
+        using (var pbkdf2 = new Rfc2898DeriveBytes(password, salt, 1, HashAlgorithmName.SHA256))
+        {
+            b = pbkdf2.GetBytes(p * blockSize);
+        }
+#endif
 
         // Step 2: Apply Scrypt mixing function to each block
         for (var i = 0; i < p; i++)
         {
             var blockOffset = i * blockSize;
-            var block = new byte[blockSize];
-            Array.Copy(b, blockOffset, block, 0, blockSize);
-
-            var mixed = ScryptMixingFunction(block, n, r);
-            Array.Copy(mixed, 0, b, blockOffset, blockSize);
+            var block = new Span<byte>(b, blockOffset, blockSize);
+            ROMix(block, n, r);
         }
 
         // Step 3: Final PBKDF2 to produce output
-        return DeriveOutput(password, b, keyLength);
-    }
-
-    private static void ValidateParameters(byte[] password, byte[] salt, int n, int r, int p, int keyLength)
-    {
-        if (password == null)
-            throw new ArgumentNullException(nameof(password));
-        if (salt == null)
-            throw new ArgumentNullException(nameof(salt));
-        if (n < 2 || (n & (n - 1)) != 0)
-            throw new ArgumentException("N must be a power of 2 greater than 1", nameof(n));
-        if (r < 1)
-            throw new ArgumentException("R must be positive", nameof(r));
-        if (p < 1)
-            throw new ArgumentException("P must be positive", nameof(p));
-        if (keyLength < 1 || keyLength > int.MaxValue)
-            throw new ArgumentException("Key length must be positive", nameof(keyLength));
-
-        // Check for potential overflow conditions
-        var maxMemory = (long)128 * r * n;
-        if (maxMemory > int.MaxValue)
-            throw new ArgumentException("Parameters would require too much memory");
-
-        var maxOperations = (long)32 * r * (n + p);
-        if (maxOperations > int.MaxValue)
-            throw new ArgumentException("Parameters would require too many operations");
-    }
-
-    private static byte[] DeriveInitialHash(byte[] password, byte[] salt, int outputLength)
-    {
-#if NET5_0_OR_GREATER
-        return Rfc2898DeriveBytes.Pbkdf2(password, salt, 1, HashAlgorithmName.SHA256, outputLength);
+#if NETSTANDARD2_0
+        using (var pbkdf2 = new Rfc2898DeriveBytes(password, b, 1))
+        {
+            return pbkdf2.GetBytes(keyLength);
+        }
 #else
-        using var pbkdf2 = new Rfc2898DeriveBytes(password, salt, 1);
-        return pbkdf2.GetBytes(outputLength);
+        using (var pbkdf2 = new Rfc2898DeriveBytes(password, b, 1, HashAlgorithmName.SHA256))
+        {
+            return pbkdf2.GetBytes(keyLength);
+        }
 #endif
     }
 
-    private static byte[] DeriveOutput(byte[] password, byte[] salt, int keyLength)
-    {
-#if NET5_0_OR_GREATER
-        return Rfc2898DeriveBytes.Pbkdf2(password, salt, 1, HashAlgorithmName.SHA256, keyLength);
-#else
-        using var pbkdf2 = new Rfc2898DeriveBytes(password, salt, 1);
-        return pbkdf2.GetBytes(keyLength);
-#endif
-    }
-
-    private static byte[] ScryptMixingFunction(byte[] block, int n, int r)
+    private static void ROMix(Span<byte> block, int n, int r)
     {
         var blockSize = 128 * r;
-        var v = new uint[32 * r * n]; // Working memory
-        var x = new uint[32 * r];     // Working block
-
-        // Convert input block to uint32 array (little-endian)
-        BytesToUInt32(block, x);
+        var v = new byte[n * blockSize];
+        var x = new byte[blockSize];
+        var y = new byte[blockSize];
 
         // Step 1: Fill V array
-        Array.Copy(x, 0, v, 0, 32 * r);
-
-        for (var i = 1; i < n; i++)
-        {
-            ScryptBlockMix(x, r);
-            Array.Copy(x, 0, v, i * 32 * r, 32 * r);
-        }
-
-        // Step 2: Perform mixing operations
+        block.CopyTo(x);
         for (var i = 0; i < n; i++)
         {
-            var j = (int)(x[32 * r - 16] & (n - 1));
-            for (var k = 0; k < 32 * r; k++)
-            {
-                x[k] ^= v[j * 32 * r + k];
-            }
-            ScryptBlockMix(x, r);
+            x.CopyTo(v.AsSpan(i * blockSize, blockSize));
+            BlockMix(x, y, r);
+            y.AsSpan().CopyTo(x.AsSpan());
         }
 
-        // Convert back to bytes
-        var result = new byte[blockSize];
-        UInt32ToBytes(x, result);
-        return result;
+        // Step 2: Second loop with random access
+        for (var i = 0; i < n; i++)
+        {
+            var j = Integerify(x, r) & (n - 1);
+            Xor(x, v.AsSpan(j * blockSize, blockSize));
+            BlockMix(x, y, r);
+            y.AsSpan().CopyTo(x.AsSpan());
+        }
+
+        x.CopyTo(block);
     }
 
-    private static void ScryptBlockMix(uint[] x, int r)
+    private static void BlockMix(Span<byte> input, Span<byte> output, int r)
     {
-        var y = new uint[32 * r];
-        var t = new uint[16];
+        var x = new byte[64];
+        var temp = new byte[64];
 
-        // Extract the last 64-byte block
-        Array.Copy(x, 32 * r - 16, t, 0, 16);
+        // X = B[2r-1]
+        input.Slice((2 * r - 1) * 64, 64).CopyTo(x);
 
         // Process each 64-byte block
         for (var i = 0; i < 2 * r; i++)
         {
-            // XOR with current block
-            var blockOffset = i * 16;
-            for (var j = 0; j < 16; j++)
+            // X = Salsa(X XOR B[i])
+            Xor(x, input.Slice(i * 64, 64));
+            Salsa20_8(x, temp);
+            temp.AsSpan().CopyTo(x.AsSpan());
+
+            // Store result according to RFC pattern
+            if (i % 2 == 0)
             {
-                t[j] ^= x[blockOffset + j];
+                x.CopyTo(output.Slice((i / 2) * 64, 64));
             }
-
-            // Apply Salsa20/8 core
-            Salsa208Core(t);
-
-            // Store result
-            var outputOffset = (i % 2) * r + (i / 2);
-            Array.Copy(t, 0, y, outputOffset * 16, 16);
+            else
+            {
+                x.CopyTo(output.Slice((r + i / 2) * 64, 64));
+            }
         }
-
-        Array.Copy(y, x, 32 * r);
     }
 
-    private static void Salsa208Core(uint[] x)
+    private static void Salsa20_8(Span<byte> input, Span<byte> output)
     {
-        var w = new uint[16];
-        Array.Copy(x, w, 16);
+        Span<uint> x = stackalloc uint[16];
 
-        for (var i = 0; i < 8; i += 2)
-        {
-            // Column rounds
-            w[4] ^= RotateLeft(w[0] + w[12], 7);
-            w[8] ^= RotateLeft(w[4] + w[0], 9);
-            w[12] ^= RotateLeft(w[8] + w[4], 13);
-            w[0] ^= RotateLeft(w[12] + w[8], 18);
-
-            w[9] ^= RotateLeft(w[5] + w[1], 7);
-            w[13] ^= RotateLeft(w[9] + w[5], 9);
-            w[1] ^= RotateLeft(w[13] + w[9], 13);
-            w[5] ^= RotateLeft(w[1] + w[13], 18);
-
-            w[14] ^= RotateLeft(w[10] + w[6], 7);
-            w[2] ^= RotateLeft(w[14] + w[10], 9);
-            w[6] ^= RotateLeft(w[2] + w[14], 13);
-            w[10] ^= RotateLeft(w[6] + w[2], 18);
-
-            w[3] ^= RotateLeft(w[15] + w[11], 7);
-            w[7] ^= RotateLeft(w[3] + w[15], 9);
-            w[11] ^= RotateLeft(w[7] + w[3], 13);
-            w[15] ^= RotateLeft(w[11] + w[7], 18);
-
-            // Row rounds
-            w[1] ^= RotateLeft(w[0] + w[3], 7);
-            w[2] ^= RotateLeft(w[1] + w[0], 9);
-            w[3] ^= RotateLeft(w[2] + w[1], 13);
-            w[0] ^= RotateLeft(w[3] + w[2], 18);
-
-            w[6] ^= RotateLeft(w[5] + w[4], 7);
-            w[7] ^= RotateLeft(w[6] + w[5], 9);
-            w[4] ^= RotateLeft(w[7] + w[6], 13);
-            w[5] ^= RotateLeft(w[4] + w[7], 18);
-
-            w[11] ^= RotateLeft(w[10] + w[9], 7);
-            w[8] ^= RotateLeft(w[11] + w[10], 9);
-            w[9] ^= RotateLeft(w[8] + w[11], 13);
-            w[10] ^= RotateLeft(w[9] + w[8], 18);
-
-            w[12] ^= RotateLeft(w[15] + w[14], 7);
-            w[13] ^= RotateLeft(w[12] + w[15], 9);
-            w[14] ^= RotateLeft(w[13] + w[12], 13);
-            w[15] ^= RotateLeft(w[14] + w[13], 18);
-        }
-
+        // Convert bytes to words (little-endian)
         for (var i = 0; i < 16; i++)
         {
-            x[i] += w[i];
+            var offset = i * 4;
+            x[i] = (uint)(input[offset] | (input[offset + 1] << 8) | (input[offset + 2] << 16) | (input[offset + 3] << 24));
         }
+
+        // Save original for addition later
+        Span<uint> original = stackalloc uint[16];
+        x.CopyTo(original);
+
+        // 8 rounds (4 double rounds)
+        for (var i = 0; i < 4; i++)
+        {
+            // Column rounds
+            QuarterRound(x, 0, 4, 8, 12);
+            QuarterRound(x, 5, 9, 13, 1);
+            QuarterRound(x, 10, 14, 2, 6);
+            QuarterRound(x, 15, 3, 7, 11);
+
+            // Row rounds
+            QuarterRound(x, 0, 1, 2, 3);
+            QuarterRound(x, 5, 6, 7, 4);
+            QuarterRound(x, 10, 11, 8, 9);
+            QuarterRound(x, 15, 12, 13, 14);
+        }
+
+        // Add original
+        for (var i = 0; i < 16; i++)
+        {
+            x[i] += original[i];
+        }
+
+        // Convert words back to bytes (little-endian)
+        for (var i = 0; i < 16; i++)
+        {
+            var offset = i * 4;
+            var value = x[i];
+            output[offset] = (byte)value;
+            output[offset + 1] = (byte)(value >> 8);
+            output[offset + 2] = (byte)(value >> 16);
+            output[offset + 3] = (byte)(value >> 24);
+        }
+    }
+
+    private static void QuarterRound(Span<uint> x, int a, int b, int c, int d)
+    {
+        x[b] ^= RotateLeft(x[a] + x[d], 7);
+        x[c] ^= RotateLeft(x[b] + x[a], 9);
+        x[d] ^= RotateLeft(x[c] + x[b], 13);
+        x[a] ^= RotateLeft(x[d] + x[c], 18);
     }
 
     private static uint RotateLeft(uint value, int shift)
@@ -212,28 +185,17 @@ internal static class ScryptCore
         return (value << shift) | (value >> (32 - shift));
     }
 
-    private static void BytesToUInt32(byte[] input, uint[] output)
+    private static int Integerify(Span<byte> block, int r)
     {
-        for (var i = 0; i < output.Length; i++)
-        {
-            var byteIndex = i * 4;
-            output[i] = (uint)(input[byteIndex] |
-                               (input[byteIndex + 1] << 8) |
-                               (input[byteIndex + 2] << 16) |
-                               (input[byteIndex + 3] << 24));
-        }
+        var offset = (2 * r - 1) * 64;
+        return (int)(block[offset] | (block[offset + 1] << 8) | (block[offset + 2] << 16) | (block[offset + 3] << 24));
     }
 
-    private static void UInt32ToBytes(uint[] input, byte[] output)
+    private static void Xor(Span<byte> a, ReadOnlySpan<byte> b)
     {
-        for (var i = 0; i < input.Length; i++)
+        for (var i = 0; i < a.Length; i++)
         {
-            var byteIndex = i * 4;
-            var value = input[i];
-            output[byteIndex] = (byte)value;
-            output[byteIndex + 1] = (byte)(value >> 8);
-            output[byteIndex + 2] = (byte)(value >> 16);
-            output[byteIndex + 3] = (byte)(value >> 24);
+            a[i] ^= b[i];
         }
     }
 }

@@ -548,9 +548,12 @@ public class SecurityHardeningTests
 
         // Act & Assert
         Assert.Throws<ArgumentException>(() => service.GenerateRandomBytes(-1));
-        Assert.Throws<ArgumentException>(() => service.GenerateRandomBytes(0));
         Assert.Throws<ArgumentException>(() => service.GenerateSymmetricKey(-1));
         Assert.Throws<ArgumentException>(() => service.GenerateRsaKeyPair(512)); // Too small
+
+        // Test that 0-length is allowed for random bytes (empty arrays are valid)
+        var emptyBytes = service.GenerateRandomBytes(0);
+        Assert.Empty(emptyBytes);
 
         await Assert.ThrowsAsync<ArgumentException>(() => service.GenerateRandomBytesAsync(-1));
 

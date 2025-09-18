@@ -1,6 +1,8 @@
 using HeroCrypt.Abstractions;
 using HeroCrypt.Services;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace HeroCrypt.Tests;
 
@@ -15,8 +17,8 @@ public class PgpCryptographyServiceTests
     private static readonly Lazy<Task<KeyPair>> _lazyTestKeyPair1024 = new(() => 
         new PgpCryptographyService().GenerateKeyPairAsync(1024));
     
-    private static KeyPair _testKeyPair => _lazyTestKeyPair.Value.GetAwaiter().GetResult();
-    private static KeyPair _testKeyPair2048 => _lazyTestKeyPair1024.Value.GetAwaiter().GetResult(); // Reuse 1024 to save time
+    private static Task<KeyPair> GetSmallKeyPairAsync() => _lazyTestKeyPair.Value;
+    private static Task<KeyPair> GetLargeKeyPairAsync() => _lazyTestKeyPair1024.Value; // Reuse 1024-bit key to save time
     
     public PgpCryptographyServiceTests()
     {
@@ -25,9 +27,9 @@ public class PgpCryptographyServiceTests
 
     [Fact]
     [Trait("Category", TestCategories.Slow)]
-    public void GenerateKeyPairAsyncReturnsValidKeyPair()
+    public async Task GenerateKeyPairAsyncReturnsValidKeyPair()
     {
-        var keyPair = _testKeyPair;
+        var keyPair = await GetSmallKeyPairAsync();
         
         Assert.NotNull(keyPair);
         Assert.NotNull(keyPair.PublicKey);
@@ -53,7 +55,7 @@ public class PgpCryptographyServiceTests
     [Trait("Category", TestCategories.Integration)]
     public async Task EncryptDecryptTextWorksCorrectly()
     {
-        var keyPair = _testKeyPair;
+        var keyPair = await GetSmallKeyPairAsync();
         var originalText = "This is a secret message!";
         
         var encrypted = await _service.EncryptTextAsync(originalText, keyPair.PublicKey, CancellationToken.None);
@@ -67,7 +69,7 @@ public class PgpCryptographyServiceTests
     [Trait("Category", TestCategories.Integration)]
     public async Task EncryptDecryptBytesWorksCorrectly()
     {
-        var keyPair = _testKeyPair;
+        var keyPair = await GetSmallKeyPairAsync();
         var originalData = Encoding.UTF8.GetBytes("This is binary data!");
         
         var encrypted = await _service.EncryptAsync(originalData, keyPair.PublicKey, CancellationToken.None);
@@ -80,7 +82,7 @@ public class PgpCryptographyServiceTests
     [Trait("Category", TestCategories.Slow)]
     public async Task EncryptProducesDifferentOutputForSameInput()
     {
-        var keyPair = _testKeyPair;
+        var keyPair = await GetSmallKeyPairAsync();
         var originalText = "Same message";
         
         var encrypted1 = await _service.EncryptTextAsync(originalText, keyPair.PublicKey, CancellationToken.None);
@@ -93,7 +95,7 @@ public class PgpCryptographyServiceTests
     [Trait("Category", TestCategories.Slow)]
     public async Task EncryptedMessageHasPgpFormat()
     {
-        var keyPair = _testKeyPair;
+        var keyPair = await GetSmallKeyPairAsync();
         var originalText = "Test message";
         
         var encrypted = await _service.EncryptTextAsync(originalText, keyPair.PublicKey, CancellationToken.None);
@@ -106,7 +108,7 @@ public class PgpCryptographyServiceTests
     [Trait("Category", TestCategories.Slow)]
     public async Task DecryptWithWrongKeyThrowsException()
     {
-        var keyPair1 = _testKeyPair;
+        var keyPair1 = await GetSmallKeyPairAsync();
         var keyPair2 = await _service.GenerateKeyPairAsync(512, CancellationToken.None); // Generate small key for this test
         var originalText = "Secret";
         
@@ -121,28 +123,33 @@ public class PgpCryptographyServiceTests
     public async Task GenerateKeyPairAsyncDifferentKeySizesWorkCorrectly()
     {
         // Test with pre-generated keys to avoid slow generation
-        var testCases = new[] { 
-            (512, _testKeyPair),
-            (1024, await _lazyTestKeyPair1024.Value)
+        var smallKeyPair = await GetSmallKeyPairAsync();
+        var largeKeyPair = await GetLargeKeyPairAsync();
+
+        var testCases = new[]
+        {
+            (512, smallKeyPair),
+            (1024, largeKeyPair)
         };
-        
+
         foreach (var (size, keyPair) in testCases)
         {
             var message = "Test message for key size " + size;
-            
+
             var encrypted = await _service.EncryptTextAsync(message, keyPair.PublicKey, CancellationToken.None);
             var decrypted = await _service.DecryptTextAsync(encrypted, keyPair.PrivateKey, CancellationToken.None);
-            
+
             Assert.Equal(message, decrypted);
         }
     }
+
 
     [Fact]
     [Trait("Category", TestCategories.Slow)]
     [Trait("Category", TestCategories.Integration)]
     public async Task EncryptDecryptLargeDataWorksCorrectly()
     {
-        var keyPair = _testKeyPair;
+        var keyPair = await GetSmallKeyPairAsync();
         var largeText = new string('A', 1000);
         
         var encrypted = await _service.EncryptTextAsync(largeText, keyPair.PublicKey, CancellationToken.None);
@@ -155,7 +162,7 @@ public class PgpCryptographyServiceTests
     [Trait("Category", TestCategories.Slow)]
     public async Task EncryptDecryptSpecialCharactersWorksCorrectly()
     {
-        var keyPair = _testKeyPair;
+        var keyPair = await GetSmallKeyPairAsync();
         var specialText = "Special chars: !@#$%^&*()_+-=[]{}|;':\",./<>?`~\n\t\r";
         
         var encrypted = await _service.EncryptTextAsync(specialText, keyPair.PublicKey, CancellationToken.None);
@@ -164,3 +171,4 @@ public class PgpCryptographyServiceTests
         Assert.Equal(specialText, decrypted);
     }
 }
+

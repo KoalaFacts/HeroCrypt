@@ -185,33 +185,39 @@ internal sealed class BigInteger : IComparable<BigInteger>
     
     public BigInteger ModInverse(BigInteger modulus)
     {
-        if (modulus.IsZero) throw new DivideByZeroException();
-        
+        if (modulus.IsZero)
+            throw new DivideByZeroException();
+
+        var m0 = modulus;
         var a = this % modulus;
-        var m = modulus;
+
+        if (a.IsZero)
+            throw new ArgumentException("Value and modulus are not coprime", nameof(modulus));
+
         var x0 = Zero;
         var x1 = One;
-        
-        if (a < Zero) a = a + modulus;
-        
-        while (a > One)
+
+        while (!modulus.IsZero)
         {
-            var q = a / m;
-            var t = m;
-            
-            m = a % m;
-            a = t;
-            t = x0;
-            
-            x0 = x1 - q * x0;
-            x1 = t;
+            var quotient = a / modulus;
+            var remainder = a % modulus;
+
+            a = modulus;
+            modulus = remainder;
+
+            var temp = x0;
+            x0 = x1 - quotient * x0;
+            x1 = temp;
         }
-        
-        if (x1 < Zero) x1 = x1 + modulus;
-        
+
+        if (a != One)
+            throw new ArgumentException("Value and modulus are not coprime", nameof(modulus));
+
+        if (x1 < Zero)
+            x1 = x1 + m0;
+
         return x1;
     }
-    
     public static BigInteger operator <<(BigInteger value, int shift)
     {
         if (shift < 0) throw new ArgumentException("Negative shift");

@@ -113,7 +113,7 @@ public sealed class RsaDigitalSignatureService : IDigitalSignatureService
         if (privateKey == null) throw new ArgumentNullException(nameof(privateKey));
 #endif
 
-        InputValidator.ValidateByteArray(data, nameof(data));
+        InputValidator.ValidateByteArray(data, nameof(data), allowEmpty: true);
         InputValidator.ValidateByteArray(privateKey, nameof(privateKey));
 
         _logger?.LogDebug("Signing data with RSA private key (data size: {DataSize} bytes)", data.Length);
@@ -155,7 +155,7 @@ public sealed class RsaDigitalSignatureService : IDigitalSignatureService
 #endif
 
         InputValidator.ValidateByteArray(signature, nameof(signature));
-        InputValidator.ValidateByteArray(data, nameof(data));
+        InputValidator.ValidateByteArray(data, nameof(data), allowEmpty: true);
         InputValidator.ValidateByteArray(publicKey, nameof(publicKey));
 
         _logger?.LogDebug("Verifying RSA signature (data size: {DataSize} bytes, signature size: {SignatureSize} bytes)",

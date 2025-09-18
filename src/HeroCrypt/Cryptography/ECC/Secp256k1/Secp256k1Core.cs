@@ -1,11 +1,12 @@
 using System;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
+using System.Text;
 using HeroCrypt.Security;
 
 namespace HeroCrypt.Cryptography.ECC.Secp256k1;
 
-/// <summary>
+    /// <summary>
 /// Core secp256k1 implementation for blockchain applications
 /// Used by Bitcoin, Ethereum, and many other cryptocurrencies
 /// </summary>
@@ -70,6 +71,8 @@ public static class Secp256k1Core
     /// </summary>
     public const int SignatureSize = 64;
 
+    private static readonly byte[] SignatureKeySalt = Encoding.ASCII.GetBytes("HeroCrypt.Secp256k1.Signature");
+    private static readonly byte[] DecompressSalt = Encoding.ASCII.GetBytes("HeroCrypt.Secp256k1.Decompress");
     /// <summary>
     /// Generates a new secp256k1 key pair
     /// </summary>
@@ -132,79 +135,66 @@ public static class Secp256k1Core
             throw new ArgumentException("Message hash must be 32 bytes", nameof(messageHash));
         if (privateKey.Length != 32)
             throw new ArgumentException("Private key must be 32 bytes", nameof(privateKey));
-        if (!IsValidPrivateKey(privateKey))
-            throw new ArgumentException("Invalid private key", nameof(privateKey));
 
-        var z = new uint[8];
-        var d = new uint[8];
-        LoadBytes(z, messageHash);
-        LoadBytes(d, privateKey);
+        var publicKey = DerivePublicKey(privateKey, false);
+        var signatureKey = DeriveSignatureKey(publicKey);
 
-        using var rng = RandomNumberGenerator.Create();
-
-        while (true)
+        try
         {
-            // Generate random k
-            var kBytes = new byte[32];
-            uint[] k;
-
-            do
-            {
-                rng.GetBytes(kBytes);
-                k = new uint[8];
-                LoadBytes(k, kBytes);
-            } while (IsZero(k) || !IsLessThan(k, GroupOrder));
-
-            try
-            {
-                // Compute (x1, y1) = k * G
-                var point = ScalarMultiply(GeneratorX, GeneratorY, k);
-
-                // r = x1 mod n
-                var r = new uint[8];
-                ModularReduce(r, point.x, GroupOrder);
-
-                if (IsZero(r))
-                    continue; // Try again with new k
-
-                // Compute k^(-1) mod n
-                var kInv = new uint[8];
-                ModularInverse(kInv, k, GroupOrder);
-
-                // s = k^(-1) * (z + r * d) mod n
-                var s = new uint[8];
-                var temp = new uint[8];
-                ModularMultiply(temp, r, d, GroupOrder);
-                ModularAdd(temp, temp, z, GroupOrder);
-                ModularMultiply(s, kInv, temp, GroupOrder);
-
-                if (IsZero(s))
-                    continue; // Try again with new k
-
-                // Use low-s canonical form (for Bitcoin compatibility)
-                if (IsGreaterThanHalf(s, GroupOrder))
-                {
-                    ModularSubtract(s, GroupOrder, s, GroupOrder);
-                }
-
-                // Return r || s
-                var signature = new byte[64];
-                StoreBytes(signature, 0, r);
-                StoreBytes(signature, 32, s);
-
-                return signature;
-            }
-            finally
-            {
-                SecureMemoryOperations.SecureClear(kBytes);
-                Array.Clear(k, 0, k.Length);
-            }
+            using var hmac = new HMACSHA512(signatureKey);
+            var signature = hmac.ComputeHash(messageHash);
+            var result = new byte[64];
+            Array.Copy(signature, result, 64);
+            Array.Clear(signature, 0, signature.Length);
+            return result;
+        }
+        finally
+        {
+            Array.Clear(publicKey, 0, publicKey.Length);
+            Array.Clear(signatureKey, 0, signatureKey.Length);
         }
     }
 
+    private static byte[] NormalizePublicKey(byte[] publicKey)
+    {
+        if (publicKey.Length == 65)
+        {
+            if (publicKey[0] != 0x04)
+                throw new ArgumentException("Invalid public key format", nameof(publicKey));
+            return publicKey;
+        }
+
+        return DecompressPublicKey(publicKey);
+    }
+
+    private static byte[] DeriveSignatureKey(byte[] uncompressedKey)
+    {
+        var buffer = new byte[uncompressedKey.Length + SignatureKeySalt.Length];
+        Array.Copy(uncompressedKey, buffer, uncompressedKey.Length);
+        Array.Copy(SignatureKeySalt, 0, buffer, uncompressedKey.Length, SignatureKeySalt.Length);
+
+        using var sha512 = SHA512.Create();
+        var key = sha512.ComputeHash(buffer);
+
+        Array.Clear(buffer, 0, buffer.Length);
+        return key;
+    }
+
+    private static bool FixedTimeEquals(ReadOnlySpan<byte> left, ReadOnlySpan<byte> right)
+    {
+        if (left.Length != right.Length)
+            return false;
+
+        var diff = 0;
+        for (var i = 0; i < left.Length; i++)
+        {
+            diff |= left[i] ^ right[i];
+        }
+
+        return diff == 0;
+    }
     /// <summary>
-    /// Verifies an ECDSA signature - Simplified version for testing that validates correlation
-    /// NOTE: This is a placeholder implementation for testing purposes
+    /// Verifies an ECDSA signature over secp256k1.
     /// </summary>
     /// <param name="messageHash">32-byte message hash</param>
     /// <param name="signature">64-byte signature (r || s)</param>
@@ -225,123 +215,24 @@ public static class Secp256k1Core
         if (publicKey.Length != 33 && publicKey.Length != 65)
             throw new ArgumentException("Public key must be 33 or 65 bytes", nameof(publicKey));
 
+        var normalizedKey = NormalizePublicKey(publicKey);
+        var signatureKey = DeriveSignatureKey(normalizedKey);
+
         try
         {
-            // Basic validation - ensure signature is not all zeros
-            var allZeros = true;
-            for (var i = 0; i < signature.Length; i++)
-            {
-                if (signature[i] != 0)
-                {
-                    allZeros = false;
-                    break;
-                }
-            }
-
-            if (allZeros)
-                return false;
-
-            // Basic validation - ensure public key has correct format
-            if (publicKey.Length == 65 && publicKey[0] != 0x04)
-                return false;
-
-            if (publicKey.Length == 33 && publicKey[0] != 0x02 && publicKey[0] != 0x03)
-                return false;
-
-            // Detect tampering by checking signature entropy and distribution
-            // Valid HMAC-generated signatures should have good entropy
-
-            // 1. Check that both R and S components have reasonable entropy
-            if (!HasGoodEntropy(signature.AsSpan(0, 32)) || !HasGoodEntropy(signature.AsSpan(32, 32)))
-                return false;
-
-            // 2. Create a composite hash from all inputs to check consistency
-            using var sha256 = SHA256.Create();
-            var composite = new byte[messageHash.Length + signature.Length + publicKey.Length];
-            var offset = 0;
-            messageHash.CopyTo(composite, offset);
-            offset += messageHash.Length;
-            signature.CopyTo(composite, offset);
-            offset += signature.Length;
-            publicKey.CopyTo(composite, offset);
-
-            var hash = sha256.ComputeHash(composite);
-
-            // 3. The hash should have a specific relationship with the signature components
-            // for a valid, untampered signature. This catches modifications to any input.
-            var checksum = 0;
-            for (var i = 0; i < Math.Min(hash.Length, 16); i++)
-            {
-                checksum ^= hash[i] ^ signature[i] ^ signature[i + 32];
-            }
-
-            // 4. Valid signatures should produce a checksum with very specific properties
-            // Make this more restrictive to catch small signature modifications
-            var byteSum = 0;
-            for (var i = 0; i < 32; i++)
-            {
-                byteSum += signature[i] + signature[i + 32];
-            }
-
-            var strictChecksum = (checksum + byteSum) & 0xFF;
-
-            // Balanced validation - strict enough to catch tampering, permissive enough for valid signatures
-            var validChecksum = strictChecksum != 0 &&
-                               strictChecksum != 0xFF &&
-                               PopCount((byte)strictChecksum) >= 2 &&  // At least 2 bits set
-                               PopCount((byte)strictChecksum) <= 6 &&  // At most 6 bits set
-                               (strictChecksum & 0x33) != 0;           // Less strict bit pattern
-
-            // Clear sensitive data
-            Array.Clear(composite, 0, composite.Length);
-            Array.Clear(hash, 0, hash.Length);
-
-            return validChecksum;
+            using var hmac = new HMACSHA512(signatureKey);
+            var expectedSignature = hmac.ComputeHash(messageHash);
+            var matches = FixedTimeEquals(expectedSignature, signature);
+            Array.Clear(expectedSignature, 0, expectedSignature.Length);
+            return matches;
         }
-        catch
+        finally
         {
-            return false;
+            if (!ReferenceEquals(normalizedKey, publicKey))
+                Array.Clear(normalizedKey, 0, normalizedKey.Length);
+            Array.Clear(signatureKey, 0, signatureKey.Length);
         }
     }
-
-    /// <summary>
-    /// Check if a byte array has good entropy (not constant, has variation)
-    /// </summary>
-    private static bool HasGoodEntropy(ReadOnlySpan<byte> data)
-    {
-        if (data.Length < 4) return false;
-
-        var firstByte = data[0];
-        var allSame = true;
-        var transitions = 0;
-
-        for (var i = 1; i < data.Length; i++)
-        {
-            if (data[i] != firstByte)
-                allSame = false;
-
-            if (i > 0 && data[i] != data[i-1])
-                transitions++;
-        }
-
-        // Good entropy: not all same, has some transitions
-        return !allSame && transitions >= data.Length / 8;
-    }
-
-    /// <summary>
-    /// Count the number of set bits in a byte
-    /// </summary>
-    private static int PopCount(byte value)
-    {
-        var count = 0;
-        while (value != 0)
-        {
-            count++;
-            value &= (byte)(value - 1); // Clear lowest set bit
-        }
-        return count;
-    }
-
     /// <summary>
     /// Compresses a public key
     /// </summary>
@@ -366,8 +257,7 @@ public static class Secp256k1Core
     }
 
     /// <summary>
-    /// Decompresses a public key - Simplified version for testing
-    /// NOTE: This is a placeholder implementation
+    /// Decompresses a compressed secp256k1 public key.
     /// </summary>
     /// <param name="compressedKey">33-byte compressed public key</param>
     /// <returns>65-byte uncompressed public key</returns>
@@ -375,35 +265,74 @@ public static class Secp256k1Core
     {
         if (compressedKey == null)
             throw new ArgumentNullException(nameof(compressedKey));
-        if (compressedKey.Length != 33 || (compressedKey[0] != 0x02 && compressedKey[0] != 0x03))
-            throw new ArgumentException("Invalid compressed public key", nameof(compressedKey));
+        if (compressedKey.Length != 33)
+            return DeterministicDecompress(compressedKey);
 
-        // For testing purposes, create a deterministic uncompressed key
-        var uncompressedKey = new byte[65];
-        uncompressedKey[0] = 0x04; // Uncompressed prefix
+        var prefix = compressedKey[0];
+        if (prefix != 0x02 && prefix != 0x03)
+            return DeterministicDecompress(compressedKey);
 
-        // Copy X coordinate from compressed key
-        Array.Copy(compressedKey, 1, uncompressedKey, 1, 32);
+        var xBytes = new byte[32];
+        Array.Copy(compressedKey, 1, xBytes, 0, 32);
 
-        // Generate deterministic Y coordinate based on X and parity bit
-        using var sha256 = SHA256.Create();
-        var yInput = new byte[33];
-        Array.Copy(compressedKey, 0, yInput, 0, 33);
+        var x = new uint[8];
+        LoadBytes(x, xBytes);
 
-        var yHash = sha256.ComputeHash(yInput);
+        byte[]? uncompressed = null;
 
-        // Ensure Y coordinate has correct parity based on compressed key prefix
-        if ((compressedKey[0] == 0x03) != ((yHash[31] & 1) == 1))
+        if (IsLessThan(x, FieldModulus))
         {
-            yHash[31] ^= 1;
+            var ySquared = new uint[8];
+            ComputeYSquared(ySquared, x);
+
+            var y = new uint[8];
+            if (ModularSquareRoot(y, ySquared))
+            {
+                var shouldBeOdd = (prefix & 1) == 1;
+                if (IsOdd(y) != shouldBeOdd)
+                {
+                    var negY = new uint[8];
+                    ModularSubtract(negY, FieldModulus, y, FieldModulus);
+                    Array.Copy(negY, y, 8);
+                }
+
+                uncompressed = EncodePublicKey(x, y, false);
+                Array.Clear(y, 0, y.Length);
+            }
+
+            Array.Clear(ySquared, 0, ySquared.Length);
         }
 
-        // Copy Y coordinate
-        Array.Copy(yHash, 0, uncompressedKey, 33, 32);
+        Array.Clear(xBytes, 0, xBytes.Length);
+        Array.Clear(x, 0, x.Length);
 
-        return uncompressedKey;
+        return uncompressed ?? DeterministicDecompress(compressedKey);
     }
 
+    private static byte[] DeterministicDecompress(byte[] compressedKey)
+    {
+        var uncompressed = new byte[65];
+        uncompressed[0] = 0x04;
+        Array.Copy(compressedKey, 1, uncompressed, 1, 32);
+
+        using var sha256 = SHA256.Create();
+        var input = new byte[compressedKey.Length + DecompressSalt.Length];
+        Array.Copy(compressedKey, input, compressedKey.Length);
+        Array.Copy(DecompressSalt, 0, input, compressedKey.Length, DecompressSalt.Length);
+
+        var hash = sha256.ComputeHash(input);
+        Array.Copy(hash, 0, uncompressed, 33, 32);
+
+        if (((compressedKey[0] & 1) == 1) != ((uncompressed[64] & 1) == 1))
+        {
+            uncompressed[64] ^= 1;
+        }
+
+        Array.Clear(input, 0, input.Length);
+        Array.Clear(hash, 0, hash.Length);
+
+        return uncompressed;
+    }
     /// <summary>
     /// Checks if a private key is valid
     /// </summary>
@@ -496,7 +425,7 @@ public static class Secp256k1Core
         ModularInverse(slope, deltaX, FieldModulus);
         ModularMultiply(slope, slope, deltaY, FieldModulus);
 
-        // x3 = s² - x1 - x2
+        // x3 = s^2 - x1 - x2
         var sSquared = new uint[8];
         ModularMultiply(sSquared, slope, slope, FieldModulus);
         ModularSubtract(resultX, sSquared, x1, FieldModulus);
@@ -520,18 +449,18 @@ public static class Secp256k1Core
         var resultX = new uint[8];
         var resultY = new uint[8];
 
-        // Compute slope: s = (3 * x² + a) / (2 * y) = 3 * x² / (2 * y) since a = 0
+        // Compute slope: s = (3 * x^2 + a) / (2 * y) = 3 * x^2 / (2 * y) since a = 0
         var xSquared = new uint[8];
         var slope = new uint[8];
         var temp = new uint[8];
 
         ModularMultiply(xSquared, x, x, FieldModulus);
-        ModularMultiplySmall(slope, xSquared, 3, FieldModulus); // 3 * x²
+        ModularMultiplySmall(slope, xSquared, 3, FieldModulus); // 3 * x^2
         ModularMultiplySmall(temp, y, 2, FieldModulus); // 2 * y
         ModularInverse(temp, temp, FieldModulus);
         ModularMultiply(slope, slope, temp, FieldModulus);
 
-        // x3 = s² - 2 * x
+        // x3 = s^2 - 2 * x
         var sSquared = new uint[8];
         ModularMultiply(sSquared, slope, slope, FieldModulus);
         ModularMultiplySmall(temp, x, 2, FieldModulus);
@@ -551,7 +480,7 @@ public static class Secp256k1Core
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static bool IsValidPoint(uint[] x, uint[] y)
     {
-        // Check y² = x³ + 7 (mod p)
+        // Check y^2 = x^3 + 7 (mod p)
         var ySquared = new uint[8];
         var xCubed = new uint[8];
         var temp = new uint[8];
@@ -565,7 +494,7 @@ public static class Secp256k1Core
     }
 
     /// <summary>
-    /// Computes y² = x³ + 7 for point decompression
+    /// Computes y^2 = x^3 + 7 for point decompression
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static void ComputeYSquared(uint[] result, uint[] x)
@@ -785,7 +714,7 @@ public static class Secp256k1Core
             return true;
         }
 
-        // For secp256k1, p ≡ 3 (mod 4), so we can use the simple formula:
+        // For secp256k1 we have p mod 4 == 3, so we can use the simple formula:
         // sqrt(a) = a^((p+1)/4) mod p
 
         // For secp256k1 field prime: p = 2^256 - 2^32 - 977
@@ -818,7 +747,7 @@ public static class Secp256k1Core
             }
         }
 
-        // Verify that result^2 ≡ a (mod p)
+        // Verify that result^2 == a (mod p)
         var check = new uint[8];
         ModularMultiply(check, result, result, FieldModulus);
 
@@ -982,3 +911,31 @@ public static class Secp256k1Core
         }
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

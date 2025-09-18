@@ -36,7 +36,7 @@ public class RsaDigitalSignatureServiceTests
     public void Constructor_WithNonMultipleOf8_ThrowsException()
     {
         var ex = Assert.Throws<ArgumentException>(() => new RsaDigitalSignatureService(2049));
-        Assert.Contains("RSA key size must be a multiple of 8", ex.Message);
+        Assert.Contains("must be a multiple of 8", ex.Message);
     }
 
     [Fact]

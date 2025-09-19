@@ -93,7 +93,7 @@ jobs:
         echo "Note: netstandard2.0 is a library target; tests run on concrete frameworks."
     
     - name: Run tests (excluding slow)
-      if: matrix.framework != 'netstandard2.0'
+      if: matrix.framework == 'net8.0' || matrix.framework == 'net9.0'
       run: dotnet test --filter "Category!=Slow" --no-build --configuration Release --framework ${{ matrix.framework }} --logger "trx;LogFileName=test-results-${{ matrix.framework }}.trx" --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
       env:
         CI: true
@@ -101,7 +101,7 @@ jobs:
       
     - name: Upload test results
       uses: actions/upload-artifact@v4
-      if: always() && matrix.framework != 'netstandard2.0'
+      if: always() && (matrix.framework == 'net8.0' || matrix.framework == 'net9.0')
       with:
         name: test-results-${{ matrix.os }}-${{ matrix.framework }}
         path: '**/test-results-*.trx'

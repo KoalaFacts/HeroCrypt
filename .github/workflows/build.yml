@@ -33,60 +33,96 @@ jobs:
       id: matrix
       shell: pwsh
       run: |
+        function Resolve-Value {
+          param(
+            [string]$Value,
+            [hashtable]$Map,
+            [int]$Depth = 0
+          )
+          if ([string]::IsNullOrWhiteSpace($Value)) { return '' }
+          if ($Depth -gt 8) { return $Value }
+          return [regex]::Replace($Value, '\$\(([^)]+)\)', {
+              param($match)
+              $name = $match.Groups[1].Value
+              if ($Map.ContainsKey($name)) {
+                return Resolve-Value -Value $Map[$name] -Map $Map -Depth ($Depth + 1)
+              }
+              return $match.Value
+            })
+        }
+
         [xml]$props = Get-Content -LiteralPath 'Directory.Build.props'
         $propGroups = $props.Project.PropertyGroup
-        $tfmGroup = $propGroups | Where-Object { $_.SupportedTargetFrameworks } | Select-Object -First 1
-        if ($null -eq $tfmGroup) {
-          throw 'SupportedTargetFrameworks not found in Directory.Build.props.'
-        }
-        $allTfms = $tfmGroup.SupportedTargetFrameworks -split ';'
-        $allTfms = $allTfms | ForEach-Object { $_.Trim() } | Where-Object { $_ }
-        $ciGroup = $propGroups | Where-Object { $_.ContinuousIntegrationTargetFrameworks } | Select-Object -First 1
-        $runtimeTfms = @()
-        if ($ciGroup) {
-          $runtimeTfms = $ciGroup.ContinuousIntegrationTargetFrameworks -split ';'
-          $runtimeTfms = $runtimeTfms | ForEach-Object { $_.Trim() } | Where-Object { $_ }
-        }
-        $versionMap = @{}
+
+        $values = @{}
         foreach ($group in $propGroups) {
           foreach ($child in $group.ChildNodes) {
-            if ($child.NodeType -eq [System.Xml.XmlNodeType]::Element -and $child.Name -like 'DotNet*Version') {
-              $versionMap[$child.Name] = $child.InnerText.Trim()
+            if ($child.NodeType -eq [System.Xml.XmlNodeType]::Element) {
+              $values[$child.Name] = $child.InnerText.Trim()
             }
           }
         }
-        function Get-Sdk([string]$tfm) {
-          switch -Wildcard ($tfm) {
+
+        if (-not $values.ContainsKey('SupportedTargetFrameworks')) {
+          throw 'SupportedTargetFrameworks not found in Directory.Build.props.'
+        }
+
+        $supportedTfmsRaw = Resolve-Value -Value $values['SupportedTargetFrameworks'] -Map $values
+        $supportedTfms = $supportedTfmsRaw -split ';' | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+
+        $runtimeTfms = @()
+        if ($values.ContainsKey('ContinuousIntegrationTargetFrameworks')) {
+          $runtimeTfmsRaw = Resolve-Value -Value $values['ContinuousIntegrationTargetFrameworks'] -Map $values
+          $runtimeTfms = $runtimeTfmsRaw -split ';' | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+        }
+        if ($runtimeTfms.Count -eq 0) {
+          $runtimeTfms = $supportedTfms
+        }
+
+        $runtimeSet = $runtimeTfms | ForEach-Object { $_.ToLowerInvariant() }
+
+        $versionMap = @{}
+        foreach ($key in $values.Keys | Where-Object { $_ -like 'DotNet*Version' }) {
+          $versionMap[$key] = (Resolve-Value -Value $values[$key] -Map $values).Trim()
+        }
+
+        function Get-Sdk {
+          param([string]$Tfm)
+          switch -Wildcard ($Tfm) {
             'net6.*' { return $versionMap['DotNet6Version'] }
             'net7.*' { return $versionMap['DotNet7Version'] }
             'net8.*' { return $versionMap['DotNet8Version'] }
             'net9.*' { return $versionMap['DotNet9Version'] }
             'netstandard*' { return $versionMap['DotNetLatestVersion'] }
-            Default { return $versionMap['DotNetLatestVersion'] }
+            default { return $versionMap['DotNetLatestVersion'] }
           }
         }
+
         $osList = @('ubuntu-latest','windows-latest','macos-latest')
         $entries = @()
         foreach ($os in $osList) {
-          foreach ($tfm in $allTfms) {
+          foreach ($tfm in $supportedTfms) {
             if ($tfm -eq 'netstandard2.0' -and $os -ne 'ubuntu-latest') {
               continue
             }
-            $sdk = Get-Sdk $tfm
+            $sdk = Get-Sdk -Tfm $tfm
             if ([string]::IsNullOrWhiteSpace($sdk)) {
               $sdk = $versionMap['DotNetLatestVersion']
             }
-            $entries += [ordered]@{
+            $runTests = $runtimeSet -contains $tfm.ToLowerInvariant()
+            $entries += [pscustomobject]@{
               os = $os
               framework = $tfm
               sdk = $sdk
-              runTests = ($runtimeTfms -contains $tfm)
+              runTests = $runTests
             }
           }
         }
+
         if ($entries.Count -eq 0) {
           throw 'No matrix entries computed from Directory.Build.props.'
         }
+
         $sdkList = $entries | Select-Object -ExpandProperty sdk -Unique
         $matrixJson = @{ include = $entries } | ConvertTo-Json -Compress
         $sdkJson = $sdkList | ConvertTo-Json -Compress
@@ -168,8 +204,6 @@ jobs:
       with:
         name: test-results-${{ matrix.os }}-${{ matrix.framework }}
         path: '**/test-results-*.trx'
-
-
 
   security-scan:
     name: Security Scan
@@ -277,9 +311,3 @@ jobs:
           --api-key ${{ secrets.NUGET_API_KEY }} \
           --source https://api.nuget.org/v3/index.json \
           --skip-duplicate
-
-
-
-
-
-

@@ -22,54 +22,8 @@ env:
   CI: true
 
 jobs:
-  determine-sdks:
-    name: Determine SDKs
-    runs-on: ubuntu-latest
-    outputs:
-      sdk_install_list: ${{ steps.sdks.outputs.sdkInstallList }}
-      latest_sdk: ${{ steps.sdks.outputs.latestSdk }}
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v5
-      with:
-        fetch-depth: 0
-
-    - name: Read SDK versions
-      id: sdks
-      shell: pwsh
-      run: |
-        [xml]$props = Get-Content -LiteralPath 'Directory.Build.props'
-        $propGroups = $props.Project.PropertyGroup
-        $versions = @{}
-        foreach ($group in $propGroups) {
-          foreach ($child in $group.ChildNodes) {
-            if ($child.NodeType -eq [System.Xml.XmlNodeType]::Element -and $child.Name -like 'DotNet*Version') {
-              $versions[$child.Name] = $child.InnerText.Trim()
-            }
-          }
-        }
-        $keys = 'DotNet6Version','DotNet7Version','DotNet8Version','DotNet9Version','DotNetLatestVersion'
-        $sdkList = @()
-        foreach ($key in $keys) {
-          if ($versions.ContainsKey($key) -and -not [string]::IsNullOrWhiteSpace($versions[$key])) {
-            $sdkList += $versions[$key]
-          }
-        }
-        $sdkList = $sdkList | Select-Object -Unique
-        if ($sdkList.Count -eq 0) {
-          throw 'No SDK versions found in Directory.Build.props.'
-        }
-        $joined = $sdkList -join "`n"
-        $latest = $versions['DotNetLatestVersion']
-        if ([string]::IsNullOrWhiteSpace($latest)) {
-          $latest = $sdkList[-1]
-        }
-        "sdkInstallList=$joined" >> $env:GITHUB_OUTPUT
-        "latestSdk=$latest" >> $env:GITHUB_OUTPUT
-
   create-release:
     name: Create Release
-    needs: determine-sdks
     runs-on: ubuntu-latest
 
     steps:
@@ -82,7 +36,11 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v5
       with:
-        dotnet-version: ${{ needs.determine-sdks.outputs.sdk_install_list }}
+        dotnet-version: |
+          6.0.x
+          7.0.x
+          8.0.x
+          9.0.x
 
     - name: Validate version format
       run: |

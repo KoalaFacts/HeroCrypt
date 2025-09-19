@@ -12,74 +12,8 @@ env:
   CI: true
 
 jobs:
-  determine-sdks:
-    name: Determine SDKs
-    runs-on: ubuntu-latest
-    outputs:
-      sdk_install_list: ${{ steps.sdks.outputs.sdkInstallList }}
-      latest_sdk: ${{ steps.sdks.outputs.latestSdk }}
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v5
-
-    - name: Read SDK versions
-      id: sdks
-      shell: pwsh
-      run: |
-        function Resolve-Value {
-          param(
-            [string]$Value,
-            [hashtable]$Map,
-            [int]$Depth = 0
-          )
-          if ([string]::IsNullOrWhiteSpace($Value)) { return '' }
-          if ($Depth -gt 8) { return $Value }
-          return [regex]::Replace($Value, '\$\(([^)]+)\)', {
-              param($match)
-              $name = $match.Groups[1].Value
-              if ($Map.ContainsKey($name)) {
-                return Resolve-Value -Value $Map[$name] -Map $Map -Depth ($Depth + 1)
-              }
-              return $match.Value
-            })
-        }
-
-        [xml]$props = Get-Content -LiteralPath 'Directory.Build.props'
-        $propGroups = $props.Project.PropertyGroup
-        $values = @{}
-        foreach ($group in $propGroups) {
-          foreach ($child in $group.ChildNodes) {
-            if ($child.NodeType -eq [System.Xml.XmlNodeType]::Element) {
-              $values[$child.Name] = $child.InnerText.Trim()
-            }
-          }
-        }
-
-        $keys = 'DotNet6Version','DotNet7Version','DotNet8Version','DotNet9Version','DotNetLatestVersion'
-        $sdkList = @()
-        foreach ($key in $keys) {
-          if ($values.ContainsKey($key)) {
-            $resolved = (Resolve-Value -Value $values[$key] -Map $values).Trim()
-            if (-not [string]::IsNullOrWhiteSpace($resolved)) {
-              $sdkList += $resolved
-            }
-          }
-        }
-        $sdkList = $sdkList | Select-Object -Unique
-        if ($sdkList.Count -eq 0) {
-          throw 'No SDK versions found in Directory.Build.props.'
-        }
-        $joined = $sdkList -join "`n"
-        $latest = (Resolve-Value -Value $values['DotNetLatestVersion'] -Map $values).Trim()
-        if ([string]::IsNullOrWhiteSpace($latest)) {
-          $latest = $sdkList[-1]
-        }
-        "sdkInstallList=$joined" >> $env:GITHUB_OUTPUT
-        "latestSdk=$latest" >> $env:GITHUB_OUTPUT
-
   full-test-suite:
     name: Full Test Suite on ${{ matrix.os }}
-    needs: determine-sdks
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -92,7 +26,11 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v5
       with:
-        dotnet-version: ${{ needs.determine-sdks.outputs.sdk_install_list }}
+        dotnet-version: |
+          6.0.x
+          7.0.x
+          8.0.x
+          9.0.x
 
     - name: Cache NuGet packages
       uses: actions/cache@v4
@@ -126,7 +64,6 @@ jobs:
 
   performance-benchmark:
     name: Performance Benchmarks
-    needs: determine-sdks
     runs-on: ubuntu-latest
 
     steps:
@@ -136,7 +73,7 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v5
       with:
-        dotnet-version: ${{ needs.determine-sdks.outputs.latest_sdk }}
+        dotnet-version: 9.0.x
 
     - name: Build Release
       run: dotnet build --configuration Release

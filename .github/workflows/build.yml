@@ -55,40 +55,17 @@ jobs:
       with:
         dotnet-version: |
           ${{ matrix.sdk }}
-          ${{ matrix.runTests == true && !contains(matrix.sdk, '8.0') && '8.0.x' || '' }}
-
-    - name: Cache NuGet packages
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.nuget/packages
-          ${{ github.workspace }}/.nuget/packages
-        key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json', '**/*.csproj') }}-${{ matrix.framework }}
-        restore-keys: |
-          ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json', '**/*.csproj') }}-
-          ${{ runner.os }}-nuget-
-
-    - name: Restore dependencies (library)
-      if: matrix.runTests != true
-      run: dotnet restore ${{ env.MAIN_PROJECT }} --locked-mode
-
-    - name: Restore dependencies (solution)
-      if: matrix.runTests == true
-      run: dotnet restore --locked-mode
-
-    - name: Clean build outputs
-      run: dotnet clean --configuration Release
 
     - name: Build library for ${{ matrix.framework }}
       if: matrix.runTests != true
-      run: dotnet build ${{ env.MAIN_PROJECT }} --no-restore --configuration Release --framework ${{ matrix.framework }} --maxcpucount:1
+      run: dotnet build ${{ env.MAIN_PROJECT }} --locked-mode --configuration Release --framework ${{ matrix.framework }}
       env:
         CI: true
         TargetFramework: ${{ matrix.framework }}
 
     - name: Build solution for ${{ matrix.framework }}
       if: matrix.runTests == true
-      run: dotnet build --no-restore --configuration Release --framework ${{ matrix.framework }} --maxcpucount:1
+      run: dotnet build --locked-mode --configuration Release --framework ${{ matrix.framework }}
       env:
         CI: true
         TargetFramework: ${{ matrix.framework }}

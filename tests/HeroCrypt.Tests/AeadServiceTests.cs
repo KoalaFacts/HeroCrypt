@@ -29,10 +29,10 @@ public class AeadServiceTests
         var associatedData = "metadata"u8.ToArray();
 
         // Act - Encrypt
-        var ciphertext = await _aeadService.EncryptAsync(plaintext, key, nonce, associatedData, algorithm);
+        var ciphertext = await _aeadService.EncryptAsync(plaintext, key, nonce, associatedData, algorithm, TestContext.Current.CancellationToken);
 
         // Act - Decrypt
-        var decrypted = await _aeadService.DecryptAsync(ciphertext, key, nonce, associatedData, algorithm);
+        var decrypted = await _aeadService.DecryptAsync(ciphertext, key, nonce, associatedData, algorithm, TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(plaintext, decrypted);

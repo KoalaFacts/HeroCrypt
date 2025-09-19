@@ -53,8 +53,6 @@
     <ImplicitUsings>enable</ImplicitUsings>
 
     <!-- Code Analysis -->
-    <EnableNETAnalyzers>true</EnableNETAnalyzers>
-    <AnalysisLevel>latest-recommended</AnalysisLevel>
     <EnforceCodeStyleInBuild Condition="'$(CI)' != 'true'">true</EnforceCodeStyleInBuild>
 
     <!-- Documentation -->
@@ -80,6 +78,5 @@
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
-    <NoWarn>$(NoWarn);CS8632</NoWarn>
   </PropertyGroup>
 </Project>

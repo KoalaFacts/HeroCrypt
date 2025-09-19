@@ -42,9 +42,9 @@ jobs:
           - { name: "net8.0 on macOS", os: macos-latest, framework: net8.0, sdk: 8.0.x, runTests: true }
 
           # Compilation verification only for older frameworks (Ubuntu only)
-          - { name: "net7.0 compilation", os: ubuntu-latest, framework: net7.0, sdk: 7.0.x, runTests: false }
-          - { name: "net6.0 compilation", os: ubuntu-latest, framework: net6.0, sdk: 6.0.x, runTests: false }
-          - { name: "netstandard2.0 compilation", os: ubuntu-latest, framework: netstandard2.0, sdk: 8.0.x, runTests: false }
+          - { name: "net7.0 ubuntu", os: ubuntu-latest, framework: net7.0, sdk: 7.0.x, runTests: false }
+          - { name: "net6.0 ubuntu", os: ubuntu-latest, framework: net6.0, sdk: 6.0.x, runTests: false }
+          - { name: "netstandard2.0 ubuntu", os: ubuntu-latest, framework: netstandard2.0, sdk: 8.0.x, runTests: false }
 
     steps:
     - name: Checkout code

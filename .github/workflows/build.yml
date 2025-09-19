@@ -165,7 +165,7 @@ jobs:
         dotnet tool install --global security-scan --version 5.6.7
         export PATH="$PATH:$HOME/.dotnet/tools"
         echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
-        security-scan --project .
+        security-scan HeroCrypt.sln
 
   build-package:
     name: Build NuGet Package

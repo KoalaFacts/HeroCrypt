@@ -1,4 +1,4 @@
-name: Build Pipeline
+﻿name: Build Pipeline
 
 on:
   push:
@@ -164,7 +164,7 @@ jobs:
         dotnet tool install --global security-scan --version 5.6.7
         export PATH="$PATH:$HOME/.dotnet/tools"
         echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
-        security-scan HeroCrypt.sln
+        security-scan src/HeroCrypt/HeroCrypt.csproj --excl-proj "**/tests/**" --excl-proj "**/benchmarks/**"
 
   build-package:
     name: Build NuGet Package
@@ -234,3 +234,4 @@ jobs:
           --api-key ${{ secrets.NUGET_API_KEY }} \
           --source https://api.nuget.org/v3/index.json \
           --skip-duplicate
+

@@ -4,6 +4,13 @@
     <!-- Target Frameworks Definition -->
     <SupportedTargetFrameworks>netstandard2.0;net6.0;net7.0;net8.0;net9.0</SupportedTargetFrameworks>
 
+    <!-- Framework Groups for Build + CI -->
+    <SupportedRuntimeTargetFrameworks>net8.0;net9.0</SupportedRuntimeTargetFrameworks>
+    <SupportedLibraryTargetFrameworks>$(SupportedTargetFrameworks)</SupportedLibraryTargetFrameworks>
+    <SupportedApplicationTargetFrameworks>$(SupportedRuntimeTargetFrameworks)</SupportedApplicationTargetFrameworks>
+    <SupportedTestTargetFrameworks>$(SupportedRuntimeTargetFrameworks)</SupportedTestTargetFrameworks>
+    <ContinuousIntegrationTargetFrameworks>$(SupportedRuntimeTargetFrameworks)</ContinuousIntegrationTargetFrameworks>
+
     <!-- SDK Versions for CI/CD -->
     <DotNet6Version>6.0.x</DotNet6Version>
     <DotNet7Version>7.0.x</DotNet7Version>
@@ -15,8 +22,10 @@
   <!-- Version Information -->
   <PropertyGroup>
     <VersionPrefix>1.0.0-prerelease</VersionPrefix>
+    <GitHubRefIsTag Condition="'$(GITHUB_REF)' != ''">$([System.String]::Copy('$(GITHUB_REF)').StartsWith('refs/tags/'))</GitHubRefIsTag>
+    <GitHubRefIsTag Condition="'$(GitHubRefIsTag)' == ''">False</GitHubRefIsTag>
     <VersionSuffix Condition="'$(Configuration)' == 'Debug'">dev</VersionSuffix>
-    <VersionSuffix Condition="'$(CI)' == 'true' AND '$(GITHUB_REF)' != '' AND !$(GITHUB_REF.StartsWith('refs/tags/'))">preview</VersionSuffix>
+    <VersionSuffix Condition="'$(CI)' == 'true' AND '$(GITHUB_REF)' != '' AND '$(GitHubRefIsTag)' != 'True'">preview</VersionSuffix>
 
     <!-- Assembly versioning strategy -->
     <!-- AssemblyVersion uses only major.minor for binary compatibility -->
@@ -29,7 +38,7 @@
     <Authors>BeingCiteable;OpenAI;Claude</Authors>
     <Company>BeingCiteable</Company>
     <Product>HeroCrypt Cryptographic Library</Product>
-    <Copyright>Copyright © BeingCiteable</Copyright>
+    <Copyright>Copyright BeingCiteable</Copyright>
 
     <!-- Repository Information -->
     <RepositoryUrl>https://github.com/BeingCiteable/HeroCrypt</RepositoryUrl>
@@ -50,8 +59,8 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
-    <TreatWarningsAsErrors Condition="'$(Configuration)' == 'Release' AND '$(CI)' != 'true'">false</TreatWarningsAsErrors>
-    <NoWarn>CA1710;CA1816;CA2201;CA1859;CA1510;CA1869;IL2026;IL3050;CA1513;IL2091;CA1305;CA1310;CA1711;CA1850;CA5350;CA1852;CA1822;CA1861;CS8604;CS0675;CS1591</NoWarn>
+    <TreatWarningsAsErrors Condition="'$(CI)' == 'true'">true</TreatWarningsAsErrors>
+    <TreatWarningsAsErrors Condition="'$(CI)' != 'true' AND '$(Configuration)' == 'Release'">false</TreatWarningsAsErrors>
 
     <!-- Code Analysis -->
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
@@ -64,10 +73,9 @@
     <NoWarn>$(NoWarn);CS1591</NoWarn>
 
     <!-- Performance optimizations -->
-    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
     <RestoreLockedMode Condition="'$(CI)' == 'true'">true</RestoreLockedMode>
     <DisableImplicitNuGetFallbackFolder>true</DisableImplicitNuGetFallbackFolder>
-    <NUGET_XMLDOC_MODE Condition="'$(CI)' == 'true'">skip</NUGET_XMLDOC_MODE>
+    <NuGetXmlDocMode Condition="'$(CI)' == 'true'">skip</NuGetXmlDocMode>
   </PropertyGroup>
 
   <!-- Framework-specific optimizations -->
@@ -86,9 +94,5 @@
   <PropertyGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
     <NoWarn>$(NoWarn);CS8632</NoWarn>
   </PropertyGroup>
-
-  <!-- Global Package References -->
-  <ItemGroup>
-    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="all" />
-  </ItemGroup>
 </Project>
+

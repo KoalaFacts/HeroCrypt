@@ -47,12 +47,12 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v5
 
-    - name: Setup .NET SDK ${{ matrix.dotnet-version }}
+    - name: Setup .NET SDKs
       uses: actions/setup-dotnet@v5
       with:
         dotnet-version: |
           ${{ matrix.dotnet-version }}
-          8.0.x
+          9.0.x
 
     - name: Setup additional .NET SDKs
       if: matrix.framework == 'netstandard2.0'
@@ -79,7 +79,7 @@ jobs:
       run: dotnet restore src/HeroCrypt/HeroCrypt.csproj
 
     - name: Restore dependencies (solution)
-      if: matrix.framework == 'net8.0'
+      if: matrix.framework == 'net8.0' || matrix.framework == 'net9.0'
       run: dotnet restore
 
     - name: Build library for ${{ matrix.framework }}
@@ -90,7 +90,7 @@ jobs:
         TargetFramework: ${{ matrix.framework }}
 
     - name: Build solution for ${{ matrix.framework }}
-      if: matrix.framework == 'net8.0'
+      if: matrix.framework == 'net8.0' || matrix.framework == 'net9.0'
       run: dotnet build --no-restore --configuration Release --framework ${{ matrix.framework }}
       env:
         CI: true
@@ -103,7 +103,7 @@ jobs:
         echo "Note: netstandard2.0 is a library target; tests run on concrete frameworks."
 
     - name: Run tests (excluding slow)
-      if: matrix.framework == 'net8.0'
+      if: matrix.framework == 'net8.0' || matrix.framework == 'net9.0'
       run: dotnet test --filter "Category!=Slow" --configuration Release --framework ${{ matrix.framework }} --logger "trx;LogFileName=test-results-${{ matrix.framework }}.trx" --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
       env:
         CI: true
@@ -111,7 +111,7 @@ jobs:
 
     - name: Upload test results
       uses: actions/upload-artifact@v4
-      if: always() && matrix.framework == 'net8.0'
+      if: always() && (matrix.framework == 'net8.0' || matrix.framework == 'net9.0')
       with:
         name: test-results-${{ matrix.os }}-${{ matrix.framework }}
         path: '**/test-results-*.trx'
@@ -174,7 +174,7 @@ jobs:
     name: Build NuGet Package
     runs-on: ubuntu-latest
     needs: [test, security-scan]
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    if: (github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))) || github.event_name == 'release'
 
     steps:
     - name: Checkout code
@@ -238,3 +238,4 @@ jobs:
           --api-key ${{ secrets.NUGET_API_KEY }} \
           --source https://api.nuget.org/v3/index.json \
           --skip-duplicate
+

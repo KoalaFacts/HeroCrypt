@@ -20,6 +20,9 @@ env:
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
   NUGET_XMLDOC_MODE: skip
   CI: true
+  # Project paths
+  MAIN_PROJECT: src/HeroCrypt/HeroCrypt.csproj
+  TEST_PROJECTS: tests/**/*.csproj
 
 jobs:
   test:
@@ -35,6 +38,8 @@ jobs:
           - { name: "net9.0 on Windows", os: windows-latest, framework: net9.0, sdk: 9.0.x, runTests: true }
           - { name: "net9.0 on macOS", os: macos-latest, framework: net9.0, sdk: 9.0.x, runTests: true }
           - { name: "net8.0 on Ubuntu", os: ubuntu-latest, framework: net8.0, sdk: 8.0.x, runTests: true }
+          - { name: "net8.0 on Windows", os: windows-latest, framework: net8.0, sdk: 8.0.x, runTests: true }
+          - { name: "net8.0 on macOS", os: macos-latest, framework: net8.0, sdk: 8.0.x, runTests: true }
 
           # Compilation verification only for older frameworks (Ubuntu only)
           - { name: "net7.0 compilation", os: ubuntu-latest, framework: net7.0, sdk: 7.0.x, runTests: false }
@@ -45,19 +50,12 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v5
 
-    - name: Setup .NET SDK ${{ matrix.sdk }}
-      uses: actions/setup-dotnet@v5
-      with:
-        dotnet-version: ${{ matrix.sdk }}
-
-    - name: Setup additional SDKs for multi-targeting
-      if: matrix.runTests == true
+    - name: Setup .NET SDKs
       uses: actions/setup-dotnet@v5
       with:
         dotnet-version: |
-          6.0.x
-          7.0.x
-          8.0.x
+          ${{ matrix.sdk }}
+          ${{ matrix.runTests == true && matrix.sdk != '8.0.x' && '8.0.x' || '' }}
 
     - name: Cache NuGet packages
       uses: actions/cache@v4
@@ -70,20 +68,9 @@ jobs:
           ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json', '**/*.csproj') }}-
           ${{ runner.os }}-nuget-
 
-    - name: Cache build outputs
-      uses: actions/cache@v4
-      with:
-        path: |
-          **/bin/Release
-          **/obj/Release
-        key: ${{ runner.os }}-build-${{ matrix.framework }}-${{ hashFiles('**/*.cs', '**/*.csproj', '**/Directory.Build.props') }}
-        restore-keys: |
-          ${{ runner.os }}-build-${{ matrix.framework }}-
-          ${{ runner.os }}-build-
-
     - name: Restore dependencies (library)
       if: matrix.runTests != true
-      run: dotnet restore src/HeroCrypt/HeroCrypt.csproj
+      run: dotnet restore ${{ env.MAIN_PROJECT }}
 
     - name: Restore dependencies (solution)
       if: matrix.runTests == true
@@ -91,7 +78,7 @@ jobs:
 
     - name: Build library for ${{ matrix.framework }}
       if: matrix.runTests != true
-      run: dotnet build src/HeroCrypt/HeroCrypt.csproj --no-restore --configuration Release --framework ${{ matrix.framework }}
+      run: dotnet build ${{ env.MAIN_PROJECT }} --no-restore --configuration Release --framework ${{ matrix.framework }}
       env:
         CI: true
         TargetFramework: ${{ matrix.framework }}
@@ -102,12 +89,6 @@ jobs:
       env:
         CI: true
         TargetFramework: ${{ matrix.framework }}
-
-    - name: Verify netstandard2.0 compilation
-      if: matrix.framework == 'netstandard2.0'
-      run: |
-        echo "netstandard2.0 build succeeded"
-        echo "Note: netstandard2.0 is a library target; tests run on concrete frameworks."
 
     - name: Run tests (excluding slow)
       if: matrix.runTests == true
@@ -122,49 +103,3 @@ jobs:
       with:
         name: test-results-${{ matrix.os }}-${{ matrix.framework }}
         path: '**/test-results-*.trx'
-
-  security-scan:
-    name: Security Scan
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v5
-
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v5
-      with:
-        dotnet-version: |
-          6.0.x
-          7.0.x
-          8.0.x
-          9.0.x
-
-    - name: Restore dependencies
-      run: dotnet restore
-
-    - name: Check for vulnerable packages
-      run: |
-        # Store output and exit code
-        if ! dotnet list package --vulnerable --include-transitive > vuln_check.log 2>&1; then
-          echo "Error checking for vulnerabilities"
-          cat vuln_check.log
-          exit 1
-        fi
-
-        # Check if vulnerabilities were found in output
-        if grep -q "has the following vulnerable packages" vuln_check.log; then
-          echo "ERROR: Vulnerable packages found!"
-          cat vuln_check.log
-          exit 1
-        else
-          echo "SUCCESS: No vulnerable packages found"
-        fi
-
-    - name: Run security audit
-      run: |
-        dotnet tool install --global security-scan --version 5.6.7
-        export PATH="$PATH:$HOME/.dotnet/tools"
-        echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
-        security-scan src/HeroCrypt/HeroCrypt.csproj --excl-proj "**/tests/**" --excl-proj "**/benchmarks/**"
-

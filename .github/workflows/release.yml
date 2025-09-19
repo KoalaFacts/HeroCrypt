@@ -25,6 +25,9 @@ jobs:
   create-release:
     name: Create Release
     runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://github.com/${{ github.repository }}/releases/tag/v${{ inputs.version }}
 
     steps:
     - name: Checkout code
@@ -107,6 +110,46 @@ jobs:
       env:
         CI: true
 
+    - name: Generate SBOM
+      run: |
+        dotnet tool install --global Microsoft.Sbom.Tool
+        sbom-tool generate \
+          -b ./artifacts \
+          -bc ./src \
+          -pn HeroCrypt \
+          -pv ${{ inputs.version }} \
+          -ps BeingCiteable \
+          -nsb https://github.com/BeingCiteable/HeroCrypt
+
+    - name: Sign NuGet packages
+      if: ${{ secrets.SIGNING_CERTIFICATE_BASE64 && secrets.SIGNING_CERTIFICATE_PASSWORD }}
+      run: |
+        # Install NuGet signing tool
+        dotnet tool install --global NuGet.CommandLine
+
+        # Decode certificate from base64
+        echo "${{ secrets.SIGNING_CERTIFICATE_BASE64 }}" | base64 -d > signing-cert.p12
+
+        # Sign all .nupkg files
+        for package in ./artifacts/*.nupkg; do
+          echo "Signing $package"
+          nuget sign "$package" \
+            -CertificatePath signing-cert.p12 \
+            -CertificatePassword "${{ secrets.SIGNING_CERTIFICATE_PASSWORD }}" \
+            -Timestamper http://timestamp.digicert.com
+        done
+
+        # Clean up certificate file
+        rm -f signing-cert.p12
+
+    - name: Verify package signatures
+      if: ${{ secrets.SIGNING_CERTIFICATE_BASE64 && secrets.SIGNING_CERTIFICATE_PASSWORD }}
+      run: |
+        for package in ./artifacts/*.nupkg; do
+          echo "Verifying signature for $package"
+          nuget verify -Signatures "$package"
+        done
+
     - name: Push version bump commit
       if: github.ref_type == 'branch'
       run: git push origin HEAD:${{ github.ref_name }}
@@ -134,3 +177,23 @@ jobs:
           --api-key "${{ secrets.NUGET_API_KEY }}" \
           --source https://api.nuget.org/v3/index.json \
           --skip-duplicate
+
+    - name: Release Summary
+      run: |
+        if [ "${{ job.status }}" == "success" ]; then
+          echo "✅ HeroCrypt v${{ inputs.version }} released successfully!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📦 **NuGet**: https://www.nuget.org/packages/HeroCrypt/${{ inputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "🔗 **GitHub Release**: https://github.com/${{ github.repository }}/releases/tag/v${{ inputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "👤 **Released by**: ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Installation" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "dotnet add package HeroCrypt --version ${{ inputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ HeroCrypt v${{ inputs.version }} release failed!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🔍 **Check workflow logs**: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> $GITHUB_STEP_SUMMARY
+          echo "👤 **Attempted by**: ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+        fi

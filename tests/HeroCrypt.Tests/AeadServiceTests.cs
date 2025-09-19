@@ -70,8 +70,8 @@ public class AeadServiceTests
         var nonce = _aeadService.GenerateNonce(algorithm);
 
         // Act
-        var ciphertext = await _aeadService.EncryptAsync(plaintext, key, nonce, null, algorithm);
-        var decrypted = await _aeadService.DecryptAsync(ciphertext, key, nonce, null, algorithm);
+        var ciphertext = await _aeadService.EncryptAsync(plaintext, key, nonce, null, algorithm, TestContext.Current.CancellationToken);
+        var decrypted = await _aeadService.DecryptAsync(ciphertext, key, nonce, null, algorithm, TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(plaintext, decrypted);

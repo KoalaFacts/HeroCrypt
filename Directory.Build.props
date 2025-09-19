@@ -3,7 +3,7 @@
   <PropertyGroup>
     <!-- Target Frameworks Definition -->
     <SupportedTargetFrameworks>netstandard2.0;net6.0;net7.0;net8.0;net9.0</SupportedTargetFrameworks>
-    
+
     <!-- SDK Versions for CI/CD -->
     <DotNet6Version>6.0.x</DotNet6Version>
     <DotNet7Version>7.0.x</DotNet7Version>
@@ -17,25 +17,25 @@
     <VersionPrefix>1.0.0-prerelease</VersionPrefix>
     <VersionSuffix Condition="'$(Configuration)' == 'Debug'">dev</VersionSuffix>
     <VersionSuffix Condition="'$(CI)' == 'true' AND '$(GITHUB_REF)' != '' AND !$(GITHUB_REF.StartsWith('refs/tags/'))">preview</VersionSuffix>
-    
+
     <!-- Assembly versioning strategy -->
     <!-- AssemblyVersion uses only major.minor for binary compatibility -->
     <AssemblyVersion>1.0.0</AssemblyVersion>
     <!-- FileVersion includes build number if available -->
     <FileVersion Condition="'$(BUILD_NUMBER)' != ''">1.0.0.$(BUILD_NUMBER)</FileVersion>
     <FileVersion Condition="'$(BUILD_NUMBER)' == ''">1.0.0.0</FileVersion>
-    
+
     <!-- Package Information -->
-    <Authors>BeingCiteable</Authors>
+    <Authors>BeingCiteable;OpenAI;Claude</Authors>
     <Company>BeingCiteable</Company>
     <Product>HeroCrypt Cryptographic Library</Product>
     <Copyright>Copyright © BeingCiteable</Copyright>
-    
+
     <!-- Repository Information -->
     <RepositoryUrl>https://github.com/BeingCiteable/HeroCrypt</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
-    
+
     <!-- Source Link -->
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <IncludeSymbols>true</IncludeSymbols>
@@ -43,7 +43,7 @@
     <Deterministic>true</Deterministic>
     <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
   </PropertyGroup>
-  
+
   <!-- Build Configuration -->
   <PropertyGroup>
     <LangVersion>latest</LangVersion>
@@ -52,24 +52,24 @@
     <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
     <TreatWarningsAsErrors Condition="'$(Configuration)' == 'Release' AND '$(CI)' != 'true'">false</TreatWarningsAsErrors>
     <NoWarn>CA1710;CA1816;CA2201;CA1859;CA1510;CA1869;IL2026;IL3050;CA1513;IL2091;CA1305;CA1310;CA1711;CA1850;CA5350;CA1852;CA1822;CA1861;CS8604;CS0675;CS1591</NoWarn>
-    
+
     <!-- Code Analysis -->
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
     <AnalysisLevel Condition="'$(CI)' != 'true'">latest-recommended</AnalysisLevel>
     <AnalysisLevel Condition="'$(CI)' == 'true'">latest-minimum</AnalysisLevel>
     <EnforceCodeStyleInBuild Condition="'$(CI)' != 'true'">true</EnforceCodeStyleInBuild>
-    
+
     <!-- Documentation -->
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
-    
+
     <!-- Performance optimizations -->
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
     <RestoreLockedMode Condition="'$(CI)' == 'true'">true</RestoreLockedMode>
     <DisableImplicitNuGetFallbackFolder>true</DisableImplicitNuGetFallbackFolder>
     <NUGET_XMLDOC_MODE Condition="'$(CI)' == 'true'">skip</NUGET_XMLDOC_MODE>
   </PropertyGroup>
-  
+
   <!-- Framework-specific optimizations -->
   <PropertyGroup Condition="'$(TargetFramework)' == 'net9.0'">
     <EnableAOTAnalyzer>true</EnableAOTAnalyzer>
@@ -82,11 +82,11 @@
     <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
     <IsTrimmable>true</IsTrimmable>
   </PropertyGroup>
-  
+
   <PropertyGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
     <NoWarn>$(NoWarn);CS8632</NoWarn>
   </PropertyGroup>
-  
+
   <!-- Global Package References -->
   <ItemGroup>
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="all" />

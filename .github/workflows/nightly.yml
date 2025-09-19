@@ -67,7 +67,7 @@ jobs:
       uses: codecov/codecov-action@v4
       if: matrix.os == 'ubuntu-latest'
       with:
-        file: '**/coverage.cobertura.xml'
+        files: "**/coverage.cobertura.xml"
         flags: nightly
         name: codecov-nightly-${{ matrix.os }}
         token: ${{ secrets.CODECOV_TOKEN }}

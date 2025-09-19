@@ -89,8 +89,8 @@ jobs:
     - name: Verify netstandard2.0 compilation
       if: matrix.framework == 'netstandard2.0'
       run: |
-        echo "✅ netstandard2.0 builds successfully"
-        echo "Note: netstandard2.0 is a library target - tests run on concrete frameworks"
+        echo "netstandard2.0 build succeeded"
+        echo "Note: netstandard2.0 is a library target; tests run on concrete frameworks."
     
     - name: Run fast tests
       if: matrix.framework != 'netstandard2.0'
@@ -117,7 +117,7 @@ jobs:
       uses: codecov/codecov-action@v4
       if: matrix.os == 'ubuntu-latest' && matrix.framework == 'net9.0'
       with:
-        file: '**/coverage.cobertura.xml'
+        files: "**/coverage.cobertura.xml"
         flags: unittests
         name: codecov-${{ matrix.os }}-${{ matrix.framework }}
         token: ${{ secrets.CODECOV_TOKEN }}

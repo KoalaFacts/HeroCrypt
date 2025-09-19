@@ -10,6 +10,13 @@
     <SupportedApplicationTargetFrameworks>$(SupportedRuntimeTargetFrameworks)</SupportedApplicationTargetFrameworks>
     <SupportedTestTargetFrameworks>$(SupportedRuntimeTargetFrameworks)</SupportedTestTargetFrameworks>
     <ContinuousIntegrationTargetFrameworks>$(SupportedRuntimeTargetFrameworks)</ContinuousIntegrationTargetFrameworks>
+
+    <!-- .NET SDK Versions for CI -->
+    <DotNet6Version>6.0</DotNet6Version>
+    <DotNet7Version>7.0</DotNet7Version>
+    <DotNet8Version>8.0</DotNet8Version>
+    <DotNet9Version>9.0</DotNet9Version>
+    <DotNetLatestVersion>9.0</DotNetLatestVersion>
   </PropertyGroup>
 
   <!-- Version Information -->

@@ -26,21 +26,43 @@ jobs:
       id: sdks
       shell: pwsh
       run: |
+        function Resolve-Value {
+          param(
+            [string]$Value,
+            [hashtable]$Map,
+            [int]$Depth = 0
+          )
+          if ([string]::IsNullOrWhiteSpace($Value)) { return '' }
+          if ($Depth -gt 8) { return $Value }
+          return [regex]::Replace($Value, '\$\(([^)]+)\)', {
+              param($match)
+              $name = $match.Groups[1].Value
+              if ($Map.ContainsKey($name)) {
+                return Resolve-Value -Value $Map[$name] -Map $Map -Depth ($Depth + 1)
+              }
+              return $match.Value
+            })
+        }
+
         [xml]$props = Get-Content -LiteralPath 'Directory.Build.props'
         $propGroups = $props.Project.PropertyGroup
-        $versions = @{}
+        $values = @{}
         foreach ($group in $propGroups) {
           foreach ($child in $group.ChildNodes) {
-            if ($child.NodeType -eq [System.Xml.XmlNodeType]::Element -and $child.Name -like 'DotNet*Version') {
-              $versions[$child.Name] = $child.InnerText.Trim()
+            if ($child.NodeType -eq [System.Xml.XmlNodeType]::Element) {
+              $values[$child.Name] = $child.InnerText.Trim()
             }
           }
         }
+
         $keys = 'DotNet6Version','DotNet7Version','DotNet8Version','DotNet9Version','DotNetLatestVersion'
         $sdkList = @()
         foreach ($key in $keys) {
-          if ($versions.ContainsKey($key) -and -not [string]::IsNullOrWhiteSpace($versions[$key])) {
-            $sdkList += $versions[$key]
+          if ($values.ContainsKey($key)) {
+            $resolved = (Resolve-Value -Value $values[$key] -Map $values).Trim()
+            if (-not [string]::IsNullOrWhiteSpace($resolved)) {
+              $sdkList += $resolved
+            }
           }
         }
         $sdkList = $sdkList | Select-Object -Unique
@@ -48,7 +70,7 @@ jobs:
           throw 'No SDK versions found in Directory.Build.props.'
         }
         $joined = $sdkList -join "`n"
-        $latest = $versions['DotNetLatestVersion']
+        $latest = (Resolve-Value -Value $values['DotNetLatestVersion'] -Map $values).Trim()
         if ([string]::IsNullOrWhiteSpace($latest)) {
           $latest = $sdkList[-1]
         }
@@ -102,8 +124,6 @@ jobs:
         path: '**/test-results-full.trx'
         retention-days: 7
 
-
-
   performance-benchmark:
     name: Performance Benchmarks
     needs: determine-sdks
@@ -138,4 +158,3 @@ jobs:
         name: performance-results
         path: performance.txt
         retention-days: 30
-

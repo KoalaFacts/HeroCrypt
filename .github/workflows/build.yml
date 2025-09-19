@@ -34,11 +34,11 @@ jobs:
       run: |
         # Simple, maintainable matrix configuration
         $sdkVersions = @{
-          'net6.0' = '6.0'
-          'net7.0' = '7.0'
-          'net8.0' = '8.0'
-          'net9.0' = '9.0'
-          'netstandard2.0' = '8.0'  # Use .NET 8 SDK to build netstandard2.0
+          'net6.0' = '6.0.x'
+          'net7.0' = '7.0.x'
+          'net8.0' = '8.0.x'
+          'net9.0' = '9.0.x'
+          'netstandard2.0' = '8.0.x'  # Use .NET 8 SDK to build netstandard2.0
         }
 
         # Frameworks that should run tests (newer runtimes only)
@@ -68,7 +68,7 @@ jobs:
         # Extract unique SDK versions for installation
         $uniqueSdks = $entries.sdk | Sort-Object -Unique
         $sdkInstallList = $uniqueSdks -join "`n"
-        $latestSdk = '9.0'
+        $latestSdk = '9.0.x'
 
         # Create matrix JSON
         $matrixJson = @{ include = $entries } | ConvertTo-Json -Compress

@@ -3,9 +3,6 @@ using HeroCrypt.Services;
 
 namespace HeroCrypt.Tests;
 
-/// <summary>
-/// Tests for AEAD (Authenticated Encryption with Associated Data) service
-/// </summary>
 public class AeadServiceTests
 {
     private readonly AeadService _aeadService;

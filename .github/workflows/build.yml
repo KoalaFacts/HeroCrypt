@@ -73,12 +73,19 @@ jobs:
     - name: Restore dependencies
       run: dotnet restore
       
-    - name: Build for ${{ matrix.framework }}
+    - name: Build library for ${{ matrix.framework }}
+      if: matrix.framework != 'net8.0' && matrix.framework != 'net9.0'
+      run: dotnet build src/HeroCrypt/HeroCrypt.csproj --no-restore --configuration Release --framework ${{ matrix.framework }}
+      env:
+        CI: true
+        TargetFramework: ${{ matrix.framework }}
+
+    - name: Build solution for ${{ matrix.framework }}
+      if: matrix.framework == 'net8.0' || matrix.framework == 'net9.0'
       run: dotnet build --no-restore --configuration Release --framework ${{ matrix.framework }}
       env:
         CI: true
         TargetFramework: ${{ matrix.framework }}
-      
     - name: Check for build warnings
       if: matrix.os == 'ubuntu-latest' && matrix.framework == 'net9.0'
       run: |

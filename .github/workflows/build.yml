@@ -92,16 +92,9 @@ jobs:
         echo "netstandard2.0 build succeeded"
         echo "Note: netstandard2.0 is a library target; tests run on concrete frameworks."
     
-    - name: Run fast tests
+    - name: Run tests (excluding slow)
       if: matrix.framework != 'netstandard2.0'
-      run: dotnet test --filter "Category=Fast" --no-build --configuration Release --framework ${{ matrix.framework }} --logger "trx;LogFileName=test-results-${{ matrix.framework }}.trx" --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
-      env:
-        CI: true
-        TargetFramework: ${{ matrix.framework }}
-      
-    - name: Run compliance tests
-      if: matrix.framework != 'netstandard2.0'
-      run: dotnet test --filter "Category=Compliance" --no-build --configuration Release --framework ${{ matrix.framework }}
+      run: dotnet test --filter "Category!=Slow" --no-build --configuration Release --framework ${{ matrix.framework }} --logger "trx;LogFileName=test-results-${{ matrix.framework }}.trx" --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
       env:
         CI: true
         TargetFramework: ${{ matrix.framework }}

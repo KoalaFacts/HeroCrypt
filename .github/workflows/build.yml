@@ -23,6 +23,7 @@ env:
   # Project paths
   MAIN_PROJECT: src/HeroCrypt/HeroCrypt.csproj
   TEST_PROJECTS: tests/**/*.csproj
+  LATEST_SDK: 9.0.x
 
 jobs:
   test:
@@ -54,6 +55,7 @@ jobs:
       uses: actions/setup-dotnet@v5
       with:
         dotnet-version: |
+          ${{ env.LATEST_SDK }}
           ${{ matrix.sdk }}
 
     - name: Build library for ${{ matrix.framework }}

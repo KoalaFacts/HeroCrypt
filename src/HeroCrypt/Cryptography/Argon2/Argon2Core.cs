@@ -601,10 +601,6 @@ public static class Argon2Core
         }
     }
 
-
-
-
-
     private sealed class Block
     {
         public readonly ulong[] Data = new ulong[128];

@@ -163,7 +163,9 @@ jobs:
     - name: Run security audit
       run: |
         dotnet tool install --global security-scan --version 5.6.7
-        dotnet security-scan --project .
+        export PATH="$PATH:$HOME/.dotnet/tools"
+        echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
+        security-scan --project .
 
   build-package:
     name: Build NuGet Package

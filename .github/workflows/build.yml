@@ -55,7 +55,7 @@ jobs:
       with:
         dotnet-version: |
           ${{ matrix.sdk }}
-          ${{ matrix.runTests == true && matrix.sdk != '8.0.x' && '8.0.x' || '' }}
+          ${{ matrix.runTests == true && !contains(matrix.sdk, '8.0') && '8.0.x' || '' }}
 
     - name: Cache NuGet packages
       uses: actions/cache@v4
@@ -70,22 +70,25 @@ jobs:
 
     - name: Restore dependencies (library)
       if: matrix.runTests != true
-      run: dotnet restore ${{ env.MAIN_PROJECT }}
+      run: dotnet restore ${{ env.MAIN_PROJECT }} --locked-mode
 
     - name: Restore dependencies (solution)
       if: matrix.runTests == true
-      run: dotnet restore
+      run: dotnet restore --locked-mode
+
+    - name: Clean build outputs
+      run: dotnet clean --configuration Release
 
     - name: Build library for ${{ matrix.framework }}
       if: matrix.runTests != true
-      run: dotnet build ${{ env.MAIN_PROJECT }} --no-restore --configuration Release --framework ${{ matrix.framework }}
+      run: dotnet build ${{ env.MAIN_PROJECT }} --no-restore --configuration Release --framework ${{ matrix.framework }} --maxcpucount:1
       env:
         CI: true
         TargetFramework: ${{ matrix.framework }}
 
     - name: Build solution for ${{ matrix.framework }}
       if: matrix.runTests == true
-      run: dotnet build --no-restore --configuration Release --framework ${{ matrix.framework }}
+      run: dotnet build --no-restore --configuration Release --framework ${{ matrix.framework }} --maxcpucount:1
       env:
         CI: true
         TargetFramework: ${{ matrix.framework }}

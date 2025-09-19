@@ -153,12 +153,12 @@ public class PgpFluentBuilder : IPgpFluentBuilder
         {
             // Try text decryption first
             var text = Encoding.UTF8.GetString(_encryptedData!);
-            return await service.DecryptTextAsync(text, _privateKey!, cancellationToken);
+            return await service.DecryptTextAsync(text, _privateKey!, _passphrase, cancellationToken);
         }
         catch
         {
             // Fall back to binary decryption
-            var decrypted = await service.DecryptAsync(_encryptedData!, _privateKey!, cancellationToken);
+            var decrypted = await service.DecryptAsync(_encryptedData!, _privateKey!, _passphrase, cancellationToken);
             return Encoding.UTF8.GetString(decrypted);
         }
     }
@@ -168,7 +168,7 @@ public class PgpFluentBuilder : IPgpFluentBuilder
         ValidateDecryption();
 
         var service = CreateService();
-        return await service.DecryptAsync(_encryptedData!, _privateKey!, cancellationToken);
+        return await service.DecryptAsync(_encryptedData!, _privateKey!, _passphrase, cancellationToken);
     }
 
     public async Task<KeyPair> GenerateKeyPairAsync(CancellationToken cancellationToken = default)
@@ -220,3 +220,4 @@ public class PgpFluentBuilder : IPgpFluentBuilder
         return new PgpCryptographyService();
     }
 }
+

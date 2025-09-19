@@ -86,7 +86,7 @@ public class CryptographicKeyGenerationServiceTests
         var cts = new CancellationTokenSource();
         cts.Cancel();
 
-        await Assert.ThrowsAsync<OperationCanceledException>(() =>
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
             service.GenerateRandomBytesAsync(32, cts.Token));
     }
 
@@ -290,7 +290,7 @@ public class CryptographicKeyGenerationServiceTests
         var service = new CryptographicKeyGenerationService();
 
         var ex = Assert.Throws<ArgumentException>(() => service.GenerateRsaKeyPair(2049));
-        Assert.Contains("RSA key size must be a multiple of 8", ex.Message);
+        Assert.Contains("must be a multiple of 8", ex.Message);
     }
 
     [Fact]

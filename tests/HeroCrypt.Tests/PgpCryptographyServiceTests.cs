@@ -170,5 +170,71 @@ public class PgpCryptographyServiceTests
         
         Assert.Equal(specialText, decrypted);
     }
+    [Fact]
+    [Trait("Category", TestCategories.Slow)]
+    public async Task EncryptDecryptTextWithPassphraseProtectedKeyWorks()
+    {
+        var passphrase = "strong-passphrase";
+        var keyPair = await _service.GenerateKeyPairAsync("secure@example.com", passphrase, 512, CancellationToken.None);
+        var originalText = "Message protected by passphrase";
+
+        var encrypted = await _service.EncryptTextAsync(originalText, keyPair.PublicKey, CancellationToken.None);
+        var decrypted = await _service.DecryptTextAsync(encrypted, keyPair.PrivateKey, passphrase, CancellationToken.None);
+
+        Assert.Equal(originalText, decrypted);
+    }
+
+    [Fact]
+    [Trait("Category", TestCategories.Slow)]
+    public async Task DecryptingPassphraseProtectedKeyWithoutPassphraseThrows()
+    {
+        var passphrase = "another-passphrase";
+        var keyPair = await _service.GenerateKeyPairAsync("nopass@example.com", passphrase, 512, CancellationToken.None);
+        var encrypted = await _service.EncryptTextAsync("protected", keyPair.PublicKey, CancellationToken.None);
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            _service.DecryptTextAsync(encrypted, keyPair.PrivateKey, CancellationToken.None));
+    }
+
+    [Fact]
+    [Trait("Category", TestCategories.Slow)]
+    public async Task DecryptingWithWrongPassphraseThrows()
+    {
+        var keyPair = await _service.GenerateKeyPairAsync("wrong@example.com", "correct-passphrase", 512, CancellationToken.None);
+        var encrypted = await _service.EncryptTextAsync("protected", keyPair.PublicKey, CancellationToken.None);
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            _service.DecryptTextAsync(encrypted, keyPair.PrivateKey, "incorrect-passphrase", CancellationToken.None));
+    }
+
+    [Fact]
+    [Trait("Category", TestCategories.Slow)]
+    [Trait("Category", TestCategories.Integration)]
+    public async Task SenderCanEncryptAndRecipientCanReply()
+    {
+        var senderPassphrase = "sender-secret";
+        var recipientPassphrase = "recipient-secret";
+
+        var sender = await _service.GenerateKeyPairAsync("alice@example.com", senderPassphrase, 512, CancellationToken.None);
+        var recipient = await _service.GenerateKeyPairAsync("bob@example.com", recipientPassphrase, 512, CancellationToken.None);
+
+        var outgoingMessage = "Hello Bob, this is Alice.";
+        var encryptedForRecipient = await _service.EncryptTextAsync(outgoingMessage, recipient.PublicKey, CancellationToken.None);
+        var decryptedByRecipient = await _service.DecryptTextAsync(encryptedForRecipient, recipient.PrivateKey, recipientPassphrase, CancellationToken.None);
+
+        Assert.Equal(outgoingMessage, decryptedByRecipient);
+
+        var replyMessage = "Hi Alice, message received.";
+        var encryptedReply = await _service.EncryptTextAsync(replyMessage, sender.PublicKey, CancellationToken.None);
+        var decryptedBySender = await _service.DecryptTextAsync(encryptedReply, sender.PrivateKey, senderPassphrase, CancellationToken.None);
+
+        Assert.Equal(replyMessage, decryptedBySender);
+    }
 }
+
+
+
+
+
+
 

@@ -8,7 +8,7 @@ namespace HeroCrypt.Tests;
 /// </summary>
 public class AeadServiceTests
 {
-    private readonly IAeadService _aeadService;
+    private readonly AeadService _aeadService;
 
     public AeadServiceTests()
     {

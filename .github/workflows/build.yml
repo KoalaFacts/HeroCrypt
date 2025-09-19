@@ -22,7 +22,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
-      sdk_list: ${{ steps.matrix.outputs.sdkList }}
       sdk_install_list: ${{ steps.matrix.outputs.sdkInstallList }}
       latest_sdk: ${{ steps.matrix.outputs.latestSdk }}
     steps:
@@ -33,108 +32,51 @@ jobs:
       id: matrix
       shell: pwsh
       run: |
-        function Resolve-Value {
-          param(
-            [string]$Value,
-            [hashtable]$Map,
-            [int]$Depth = 0
-          )
-          if ([string]::IsNullOrWhiteSpace($Value)) { return '' }
-          if ($Depth -gt 8) { return $Value }
-          return [regex]::Replace($Value, '\$\(([^)]+)\)', {
-              param($match)
-              $name = $match.Groups[1].Value
-              if ($Map.ContainsKey($name)) {
-                return Resolve-Value -Value $Map[$name] -Map $Map -Depth ($Depth + 1)
-              }
-              return $match.Value
-            })
+        # Simple, maintainable matrix configuration
+        $sdkVersions = @{
+          'net6.0' = '6.0'
+          'net7.0' = '7.0'
+          'net8.0' = '8.0'
+          'net9.0' = '9.0'
+          'netstandard2.0' = '8.0'  # Use .NET 8 SDK to build netstandard2.0
         }
 
-        [xml]$props = Get-Content -LiteralPath 'Directory.Build.props'
-        $propGroups = $props.Project.PropertyGroup
+        # Frameworks that should run tests (newer runtimes only)
+        $testFrameworks = @('net8.0', 'net9.0')
 
-        $values = @{}
-        foreach ($group in $propGroups) {
-          foreach ($child in $group.ChildNodes) {
-            if ($child.NodeType -eq [System.Xml.XmlNodeType]::Element) {
-              $values[$child.Name] = $child.InnerText.Trim()
-            }
-          }
-        }
+        # Operating systems to test on
+        $operatingSystems = @('ubuntu-latest', 'windows-latest', 'macos-latest')
 
-        if (-not $values.ContainsKey('SupportedTargetFrameworks')) {
-          throw 'SupportedTargetFrameworks not found in Directory.Build.props.'
-        }
-
-        $supportedTfmsRaw = Resolve-Value -Value $values['SupportedTargetFrameworks'] -Map $values
-        $supportedTfms = $supportedTfmsRaw -split ';' | ForEach-Object { $_.Trim() } | Where-Object { $_ }
-
-        $runtimeTfms = @()
-        if ($values.ContainsKey('ContinuousIntegrationTargetFrameworks')) {
-          $runtimeTfmsRaw = Resolve-Value -Value $values['ContinuousIntegrationTargetFrameworks'] -Map $values
-          $runtimeTfms = $runtimeTfmsRaw -split ';' | ForEach-Object { $_.Trim() } | Where-Object { $_ }
-        }
-        if ($runtimeTfms.Count -eq 0) {
-          $runtimeTfms = $supportedTfms
-        }
-
-        $runtimeSet = $runtimeTfms | ForEach-Object { $_.ToLowerInvariant() }
-
-        $versionMap = @{}
-        foreach ($key in $values.Keys | Where-Object { $_ -like 'DotNet*Version' }) {
-          $versionMap[$key] = (Resolve-Value -Value $values[$key] -Map $values).Trim()
-        }
-
-        function Get-Sdk {
-          param([string]$Tfm)
-          switch -Wildcard ($Tfm) {
-            'net6.*' { return $versionMap['DotNet6Version'] }
-            'net7.*' { return $versionMap['DotNet7Version'] }
-            'net8.*' { return $versionMap['DotNet8Version'] }
-            'net9.*' { return $versionMap['DotNet9Version'] }
-            'netstandard*' { return $versionMap['DotNetLatestVersion'] }
-            default { return $versionMap['DotNetLatestVersion'] }
-          }
-        }
-
-        $osList = @('ubuntu-latest','windows-latest','macos-latest')
+        # Build the matrix
         $entries = @()
-        foreach ($os in $osList) {
-          foreach ($tfm in $supportedTfms) {
-            if ($tfm -eq 'netstandard2.0' -and $os -ne 'ubuntu-latest') {
+        foreach ($os in $operatingSystems) {
+          foreach ($framework in $sdkVersions.Keys) {
+            # Skip netstandard2.0 on non-Linux (it's just a library target)
+            if ($framework -eq 'netstandard2.0' -and $os -ne 'ubuntu-latest') {
               continue
             }
-            $sdk = Get-Sdk -Tfm $tfm
-            if ([string]::IsNullOrWhiteSpace($sdk)) {
-              $sdk = $versionMap['DotNetLatestVersion']
-            }
-            $runTests = $runtimeSet -contains $tfm.ToLowerInvariant()
+
             $entries += [pscustomobject]@{
               os = $os
-              framework = $tfm
-              sdk = $sdk
-              runTests = $runTests
+              framework = $framework
+              sdk = $sdkVersions[$framework]
+              runTests = $testFrameworks -contains $framework
             }
           }
         }
 
-        if ($entries.Count -eq 0) {
-          throw 'No matrix entries computed from Directory.Build.props.'
-        }
+        # Extract unique SDK versions for installation
+        $uniqueSdks = $entries.sdk | Sort-Object -Unique
+        $sdkInstallList = $uniqueSdks -join "`n"
+        $latestSdk = '9.0'
 
-        $sdkList = $entries | Select-Object -ExpandProperty sdk -Unique
+        # Create matrix JSON
         $matrixJson = @{ include = $entries } | ConvertTo-Json -Compress
-        $sdkJson = $sdkList | ConvertTo-Json -Compress
-        $sdkInstall = $sdkList -join "`n"
-        $latest = $versionMap['DotNetLatestVersion']
-        if ([string]::IsNullOrWhiteSpace($latest)) {
-          $latest = $sdkList[-1]
-        }
+
+        # Output for GitHub Actions
         "matrix=$matrixJson" >> $env:GITHUB_OUTPUT
-        "sdkList=$sdkJson" >> $env:GITHUB_OUTPUT
-        "sdkInstallList=$sdkInstall" >> $env:GITHUB_OUTPUT
-        "latestSdk=$latest" >> $env:GITHUB_OUTPUT
+        "sdkInstallList=$sdkInstallList" >> $env:GITHUB_OUTPUT
+        "latestSdk=$latestSdk" >> $env:GITHUB_OUTPUT
 
   test:
     name: Test ${{ matrix.framework }} on ${{ matrix.os }}

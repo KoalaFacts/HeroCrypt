@@ -10,13 +10,6 @@
     <SupportedApplicationTargetFrameworks>$(SupportedRuntimeTargetFrameworks)</SupportedApplicationTargetFrameworks>
     <SupportedTestTargetFrameworks>$(SupportedRuntimeTargetFrameworks)</SupportedTestTargetFrameworks>
     <ContinuousIntegrationTargetFrameworks>$(SupportedRuntimeTargetFrameworks)</ContinuousIntegrationTargetFrameworks>
-
-    <!-- SDK Versions for CI/CD -->
-    <DotNet6Version>6.0.x</DotNet6Version>
-    <DotNet7Version>7.0.x</DotNet7Version>
-    <DotNet8Version>8.0.x</DotNet8Version>
-    <DotNet9Version>9.0.x</DotNet9Version>
-    <DotNetLatestVersion>9.0.x</DotNetLatestVersion>
   </PropertyGroup>
 
   <!-- Version Information -->
@@ -58,24 +51,19 @@
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
-    <TreatWarningsAsErrors Condition="'$(CI)' == 'true'">true</TreatWarningsAsErrors>
-    <TreatWarningsAsErrors Condition="'$(CI)' != 'true' AND '$(Configuration)' == 'Release'">false</TreatWarningsAsErrors>
 
     <!-- Code Analysis -->
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
-    <AnalysisLevel Condition="'$(CI)' != 'true'">latest-recommended</AnalysisLevel>
-    <AnalysisLevel Condition="'$(CI)' == 'true'">latest-minimum</AnalysisLevel>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
     <EnforceCodeStyleInBuild Condition="'$(CI)' != 'true'">true</EnforceCodeStyleInBuild>
 
     <!-- Documentation -->
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <NoWarn>$(NoWarn);CS1591</NoWarn>
 
     <!-- Performance optimizations -->
     <RestoreLockedMode Condition="'$(CI)' == 'true'">true</RestoreLockedMode>
-    <DisableImplicitNuGetFallbackFolder>true</DisableImplicitNuGetFallbackFolder>
     <NuGetXmlDocMode Condition="'$(CI)' == 'true'">skip</NuGetXmlDocMode>
+    <DisableImplicitNuGetFallbackFolder>true</DisableImplicitNuGetFallbackFolder>
   </PropertyGroup>
 
   <!-- Framework-specific optimizations -->
@@ -95,4 +83,3 @@
     <NoWarn>$(NoWarn);CS8632</NoWarn>
   </PropertyGroup>
 </Project>
-

@@ -17,54 +17,95 @@ permissions:
   contents: write
 
 env:
-  DOTNET_VERSION: '9.0.x'
   DOTNET_NOLOGO: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
   CI: true
 
 jobs:
+  determine-sdks:
+    name: Determine SDKs
+    runs-on: ubuntu-latest
+    outputs:
+      sdk_install_list: ${{ steps.sdks.outputs.sdkInstallList }}
+      latest_sdk: ${{ steps.sdks.outputs.latestSdk }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v5
+      with:
+        fetch-depth: 0
+
+    - name: Read SDK versions
+      id: sdks
+      shell: pwsh
+      run: |
+        [xml]$props = Get-Content -LiteralPath 'Directory.Build.props'
+        $propGroups = $props.Project.PropertyGroup
+        $versions = @{}
+        foreach ($group in $propGroups) {
+          foreach ($child in $group.ChildNodes) {
+            if ($child.NodeType -eq [System.Xml.XmlNodeType]::Element -and $child.Name -like 'DotNet*Version') {
+              $versions[$child.Name] = $child.InnerText.Trim()
+            }
+          }
+        }
+        $keys = 'DotNet6Version','DotNet7Version','DotNet8Version','DotNet9Version','DotNetLatestVersion'
+        $sdkList = @()
+        foreach ($key in $keys) {
+          if ($versions.ContainsKey($key) -and -not [string]::IsNullOrWhiteSpace($versions[$key])) {
+            $sdkList += $versions[$key]
+          }
+        }
+        $sdkList = $sdkList | Select-Object -Unique
+        if ($sdkList.Count -eq 0) {
+          throw 'No SDK versions found in Directory.Build.props.'
+        }
+        $joined = $sdkList -join "`n"
+        $latest = $versions['DotNetLatestVersion']
+        if ([string]::IsNullOrWhiteSpace($latest)) {
+          $latest = $sdkList[-1]
+        }
+        "sdkInstallList=$joined" >> $env:GITHUB_OUTPUT
+        "latestSdk=$latest" >> $env:GITHUB_OUTPUT
+
   create-release:
     name: Create Release
+    needs: determine-sdks
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v5
       with:
         fetch-depth: 0
         token: ${{ secrets.GITHUB_TOKEN }}
-        
+
     - name: Setup .NET
       uses: actions/setup-dotnet@v5
       with:
-        dotnet-version: |
-          6.0.x
-          7.0.x
-          8.0.x
-          9.0.x
-        
+        dotnet-version: ${{ needs.determine-sdks.outputs.sdk_install_list }}
+
     - name: Validate version format
       run: |
         if ! [[ "${{ inputs.version }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
           echo "Error: Version must be in format x.y.z"
           exit 1
         fi
-        
+
     - name: Update version
       run: |
         # Update version in Directory.Build.props
         sed -i "s|<VersionPrefix>.*</VersionPrefix>|<VersionPrefix>${{ inputs.version }}</VersionPrefix>|g" Directory.Build.props
-        
+
         # Also update AssemblyVersion (major.minor.0)
         VERSION_MAJOR_MINOR=$(echo "${{ inputs.version }}" | cut -d'.' -f1,2)
         sed -i "s|<AssemblyVersion>.*</AssemblyVersion>|<AssemblyVersion>${VERSION_MAJOR_MINOR}.0</AssemblyVersion>|g" Directory.Build.props
-        
+
         # Commit version changes
         git config user.name github-actions
         git config user.email github-actions@github.com
         git add Directory.Build.props
         git commit -m "Update version to ${{ inputs.version }}" || echo "No changes to commit"
-        
+
     - name: Cache NuGet packages
       uses: actions/cache@v4
       with:
@@ -72,7 +113,7 @@ jobs:
         key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/Directory.Build.props') }}
         restore-keys: |
           ${{ runner.os }}-nuget-
-          
+
     - name: Run RFC compliance tests
       run: |
         dotnet restore
@@ -80,7 +121,7 @@ jobs:
         dotnet test --filter "Category=Compliance" --configuration Release --logger "console;verbosity=detailed"
       env:
         CI: true
-        
+
     - name: Generate release notes
       id: release_notes
       run: |
@@ -100,7 +141,7 @@ jobs:
         dotnet add package HeroCrypt --version ${{ inputs.version }}
         ```
         EOF
-        
+
     - name: Build and package
       run: |
         dotnet build --configuration Release --no-restore
@@ -116,7 +157,7 @@ jobs:
       run: |
         git tag -a "v${{ inputs.version }}" -m "Release v${{ inputs.version }}"
         git push origin "v${{ inputs.version }}"
-        
+
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v2
       with:
@@ -127,7 +168,7 @@ jobs:
         files: |
           ./artifacts/*.nupkg
           ./artifacts/*.snupkg
-        
+
     - name: Publish to NuGet
       if: ${{ !inputs.prerelease }}
       run: |

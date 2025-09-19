@@ -7,32 +7,71 @@ on:
   workflow_dispatch:
 
 env:
-  DOTNET_VERSION: '9.0.x'
   DOTNET_NOLOGO: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
   CI: true
 
 jobs:
+  determine-sdks:
+    name: Determine SDKs
+    runs-on: ubuntu-latest
+    outputs:
+      sdk_install_list: ${{ steps.sdks.outputs.sdkInstallList }}
+      latest_sdk: ${{ steps.sdks.outputs.latestSdk }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v5
+
+    - name: Read SDK versions
+      id: sdks
+      shell: pwsh
+      run: |
+        [xml]$props = Get-Content -LiteralPath 'Directory.Build.props'
+        $propGroups = $props.Project.PropertyGroup
+        $versions = @{}
+        foreach ($group in $propGroups) {
+          foreach ($child in $group.ChildNodes) {
+            if ($child.NodeType -eq [System.Xml.XmlNodeType]::Element -and $child.Name -like 'DotNet*Version') {
+              $versions[$child.Name] = $child.InnerText.Trim()
+            }
+          }
+        }
+        $keys = 'DotNet6Version','DotNet7Version','DotNet8Version','DotNet9Version','DotNetLatestVersion'
+        $sdkList = @()
+        foreach ($key in $keys) {
+          if ($versions.ContainsKey($key) -and -not [string]::IsNullOrWhiteSpace($versions[$key])) {
+            $sdkList += $versions[$key]
+          }
+        }
+        $sdkList = $sdkList | Select-Object -Unique
+        if ($sdkList.Count -eq 0) {
+          throw 'No SDK versions found in Directory.Build.props.'
+        }
+        $joined = $sdkList -join "`n"
+        $latest = $versions['DotNetLatestVersion']
+        if ([string]::IsNullOrWhiteSpace($latest)) {
+          $latest = $sdkList[-1]
+        }
+        "sdkInstallList=$joined" >> $env:GITHUB_OUTPUT
+        "latestSdk=$latest" >> $env:GITHUB_OUTPUT
+
   full-test-suite:
     name: Full Test Suite on ${{ matrix.os }}
+    needs: determine-sdks
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v5
-      
+
     - name: Setup .NET
       uses: actions/setup-dotnet@v5
       with:
-        dotnet-version: |
-          6.0.x
-          7.0.x
-          8.0.x
-          9.0.x
-          
+        dotnet-version: ${{ needs.determine-sdks.outputs.sdk_install_list }}
+
     - name: Cache NuGet packages
       uses: actions/cache@v4
       with:
@@ -40,21 +79,21 @@ jobs:
         key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/Directory.Build.props') }}
         restore-keys: |
           ${{ runner.os }}-nuget-
-          
+
     - name: Restore dependencies
       run: dotnet restore
-      
+
     - name: Build
       run: dotnet build --no-restore --configuration Release
       env:
         CI: true
-      
+
     - name: Run ALL tests (including slow)
       run: dotnet test --no-build --configuration Release --logger "trx;LogFileName=test-results-full.trx" --collect:"XPlat Code Coverage" --settings coverlet.runsettings
       timeout-minutes: 30
       env:
         CI: true
-      
+
     - name: Upload test results
       uses: actions/upload-artifact@v4
       if: always()
@@ -62,7 +101,7 @@ jobs:
         name: test-results-full-${{ matrix.os }}
         path: '**/test-results-full.trx'
         retention-days: 7
-        
+
     - name: Upload coverage reports
       uses: codecov/codecov-action@v5
       if: matrix.os == 'ubuntu-latest'
@@ -71,25 +110,26 @@ jobs:
         flags: nightly
         name: codecov-nightly-${{ matrix.os }}
         token: ${{ secrets.CODECOV_TOKEN }}
-        
+
   performance-benchmark:
     name: Performance Benchmarks
+    needs: determine-sdks
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v5
-      
+
     - name: Setup .NET
       uses: actions/setup-dotnet@v5
       with:
-        dotnet-version: ${{ env.DOTNET_VERSION }}
-        
+        dotnet-version: ${{ needs.determine-sdks.outputs.latest_sdk }}
+
     - name: Build Release
       run: dotnet build --configuration Release
       env:
         CI: true
-      
+
     - name: Run performance tests
       run: |
         echo "=== Argon2 Performance ===" > performance.txt
@@ -98,7 +138,7 @@ jobs:
         dotnet test --filter "FullyQualifiedName~Blake2b" --configuration Release --no-build --logger "console;verbosity=detailed" >> performance.txt
         echo "=== RSA/PGP Performance ===" >> performance.txt
         dotnet test --filter "FullyQualifiedName~Pgp&Category=Slow" --configuration Release --no-build --logger "console;verbosity=detailed" >> performance.txt
-        
+
     - name: Upload performance results
       uses: actions/upload-artifact@v4
       with:

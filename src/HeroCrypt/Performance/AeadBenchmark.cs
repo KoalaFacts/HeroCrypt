@@ -1,11 +1,8 @@
-using System;
-using System.Diagnostics;
-using System.Security.Cryptography;
-using System.Threading.Tasks;
-using HeroCrypt.Abstractions;
 using HeroCrypt.Cryptography.Symmetric.ChaCha20Poly1305;
 using HeroCrypt.Cryptography.Symmetric.XChaCha20Poly1305;
 using Microsoft.Extensions.Logging;
+using System.Diagnostics;
+using System.Security.Cryptography;
 
 namespace HeroCrypt.Performance;
 
@@ -51,8 +48,8 @@ public class AeadBenchmark
             results.XChaCha20Poly1305Results.Add(size, xchachaResult);
 
             // Benchmark AES-GCM (if hardware acceleration is available)
-    #if NET6_0_OR_GREATER
-        if (true) // AES-GCM available in .NET 6+
+#if NET6_0_OR_GREATER
+            if (true) // AES-GCM available in .NET 6+
 #else
         if (false)
 #endif

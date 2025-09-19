@@ -1,5 +1,4 @@
 using System.Runtime.InteropServices;
-using System.Security;
 
 namespace HeroCrypt.Memory;
 
@@ -105,7 +104,7 @@ public sealed class SecureBuffer : IDisposable
     {
         if (source == null)
             throw new ArgumentNullException(nameof(source));
-        
+
         if (source.Length != _size)
             throw new ArgumentException($"Source array size ({source.Length}) doesn't match buffer size ({_size})", nameof(source));
 
@@ -214,13 +213,13 @@ public sealed class SecureBuffer : IDisposable
                 {
                     // Multiple-pass secure cleanup
                     SecureZeroMemory(_handle, _size);
-                    
+
                     if (_handle != IntPtr.Zero)
                     {
                         FreeSecureMemory(_handle);
                         _handle = IntPtr.Zero;
                     }
-                    
+
                     _disposed = true;
                 }
             }
@@ -245,7 +244,7 @@ public sealed class SecureBuffer : IDisposable
     {
         // Allocate memory that won't be paged to disk
         IntPtr ptr;
-        
+
 #if NET5_0_OR_GREATER
         unsafe
         {
@@ -273,10 +272,10 @@ public sealed class SecureBuffer : IDisposable
         var randomBytes = new byte[size];
         random.NextBytes(randomBytes);
         Marshal.Copy(randomBytes, 0, ptr, size);
-        
+
         // Clear the random data
         ZeroMemory(ptr, size);
-        
+
         // Clear the temporary array
         Array.Clear(randomBytes, 0, randomBytes.Length);
 
@@ -315,7 +314,7 @@ public sealed class SecureBuffer : IDisposable
 
         // Multiple-pass secure cleanup to defeat forensic recovery
         var patterns = new byte[] { 0x00, 0xFF, 0xAA, 0x55, 0x00 };
-        
+
         foreach (var pattern in patterns)
         {
             FillMemory(ptr, size, pattern);

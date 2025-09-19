@@ -1,11 +1,8 @@
-using System;
-using System.Security.Cryptography;
-using System.Threading;
-using System.Threading.Tasks;
 using HeroCrypt.Abstractions;
 using HeroCrypt.Cryptography.Scrypt;
 using HeroCrypt.Security;
 using Microsoft.Extensions.Logging;
+using System.Security.Cryptography;
 using CryptoHashAlgorithmName = System.Security.Cryptography.HashAlgorithmName;
 using HeroCryptHashAlgorithmName = HeroCrypt.Abstractions.HashAlgorithmName;
 

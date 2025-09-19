@@ -1,8 +1,7 @@
-using System;
-using System.Runtime.CompilerServices;
 using HeroCrypt.Cryptography.Symmetric.ChaCha20;
 using HeroCrypt.Cryptography.Symmetric.Poly1305;
 using HeroCrypt.Security;
+using System.Runtime.CompilerServices;
 
 namespace HeroCrypt.Cryptography.Symmetric.ChaCha20Poly1305;
 

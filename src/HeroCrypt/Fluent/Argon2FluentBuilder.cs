@@ -1,10 +1,10 @@
-using System.Text;
-using Microsoft.Extensions.Options;
 using HeroCrypt.Abstractions;
 using HeroCrypt.Configuration;
 using HeroCrypt.Cryptography.Argon2;
-using HeroCrypt.Services;
 using HeroCrypt.Memory;
+using HeroCrypt.Services;
+using Microsoft.Extensions.Options;
+using System.Text;
 
 namespace HeroCrypt.Fluent;
 
@@ -17,7 +17,7 @@ public class Argon2FluentBuilder : IArgon2FluentBuilder, IDisposable
     private readonly IHardwareAccelerator _hardwareAccelerator;
     private readonly ICryptoTelemetry _telemetry;
     private readonly ISecureMemoryManager _memoryManager;
-    
+
     private SecureBuffer? _password;
     private SecureBuffer? _salt;
     private Argon2Options _argon2Options;
@@ -56,8 +56,11 @@ public class Argon2FluentBuilder : IArgon2FluentBuilder, IDisposable
 
     public IArgon2FluentBuilder WithPassword(byte[] password)
     {
-        if (password == null)
-            throw new ArgumentNullException(nameof(password));
+#if NET6_0_OR_GREATER
+        ArgumentNullException.ThrowIfNull(password);
+#else
+        if (password == null) throw new ArgumentNullException(nameof(password));    
+#endif
 
         _password?.Dispose();
         _password = _memoryManager.AllocateFrom(password);
@@ -76,9 +79,11 @@ public class Argon2FluentBuilder : IArgon2FluentBuilder, IDisposable
 
     public IArgon2FluentBuilder WithSalt(byte[] salt)
     {
-        if (salt == null)
-            throw new ArgumentNullException(nameof(salt));
-
+#if NET6_0_OR_GREATER
+        ArgumentNullException.ThrowIfNull(salt);
+#else
+        if (salt == null) throw new ArgumentNullException(nameof(salt));    
+#endif
         _salt?.Dispose();
         _salt = _memoryManager.AllocateFrom(salt);
         return this;
@@ -157,14 +162,14 @@ public class Argon2FluentBuilder : IArgon2FluentBuilder, IDisposable
     public IArgon2FluentBuilder WithSecurityLevel(SecurityLevel securityLevel)
     {
         var policyOptions = SecurityPolicies.GetArgon2Policy(securityLevel);
-        
+
         _argon2Options.Type = policyOptions.Type;
         _argon2Options.Iterations = policyOptions.Iterations;
         _argon2Options.MemorySize = policyOptions.MemorySize;
         _argon2Options.Parallelism = policyOptions.Parallelism;
         _argon2Options.HashSize = policyOptions.HashSize;
         _argon2Options.SaltSize = policyOptions.SaltSize;
-        
+
         return this;
     }
 
@@ -180,17 +185,17 @@ public class Argon2FluentBuilder : IArgon2FluentBuilder, IDisposable
 
         var service = CreateService();
         var hashBytes = await HashBytesAsync(cancellationToken);
-        
+
         // Prepend salt to hash for storage (similar to how Argon2HashingService works)
         using var salt = _salt ?? GenerateSecureSalt();
         var result = new byte[salt.Size + hashBytes.Length];
         var saltArray = salt.ToArray();
         Array.Copy(saltArray, 0, result, 0, saltArray.Length);
         Array.Copy(hashBytes, 0, result, saltArray.Length, hashBytes.Length);
-        
+
         // Clear temporary salt array
         Array.Clear(saltArray, 0, saltArray.Length);
-        
+
         return Convert.ToBase64String(result);
     }
 
@@ -199,8 +204,8 @@ public class Argon2FluentBuilder : IArgon2FluentBuilder, IDisposable
         ValidateConfiguration();
 
         using var tracker = _telemetry.TrackOperation(
-            "Argon2Hash", 
-            _argon2Options.Type.ToString(), 
+            "Argon2Hash",
+            _argon2Options.Type.ToString(),
             _password!.Size,
             _useHardwareAcceleration && _hardwareAccelerator.IsAvailable);
 
@@ -211,7 +216,7 @@ public class Argon2FluentBuilder : IArgon2FluentBuilder, IDisposable
             {
                 var acceleratedResult = await _hardwareAccelerator.AcceleratedHashAsync(
                     _password!.ToArray(), "ARGON2", cancellationToken);
-                
+
                 if (acceleratedResult != null)
                 {
                     tracker.MarkSuccess();
@@ -221,7 +226,7 @@ public class Argon2FluentBuilder : IArgon2FluentBuilder, IDisposable
 
             // Fall back to software implementation
             using var salt = _salt ?? GenerateSecureSalt();
-            
+
             var result = await Task.Run(() => Argon2Core.Hash(
                 password: _password!.ToArray(),
                 salt: salt.ToArray(),
@@ -254,7 +259,7 @@ public class Argon2FluentBuilder : IArgon2FluentBuilder, IDisposable
         try
         {
             var hashBytes = Convert.FromBase64String(hash);
-            
+
             if (hashBytes.Length <= _argon2Options.SaltSize)
                 return false;
 
@@ -311,7 +316,7 @@ public class Argon2FluentBuilder : IArgon2FluentBuilder, IDisposable
     {
         using var pooledBuffer = _memoryManager.GetPooled(_argon2Options.SaltSize);
         using var rng = System.Security.Cryptography.RandomNumberGenerator.Create();
-        
+
 #if NET6_0_OR_GREATER
         rng.GetBytes(pooledBuffer.AsSpan());
 #else
@@ -320,7 +325,7 @@ public class Argon2FluentBuilder : IArgon2FluentBuilder, IDisposable
         tempBytes.AsSpan().CopyTo(pooledBuffer.AsSpan());
         Array.Clear(tempBytes, 0, tempBytes.Length);
 #endif
-        
+
         return _memoryManager.AllocateFrom(pooledBuffer.AsReadOnlySpan());
     }
 
@@ -345,12 +350,12 @@ public class Argon2FluentBuilder : IArgon2FluentBuilder, IDisposable
             _salt?.Dispose();
             _associatedData?.Dispose();
             _secret?.Dispose();
-            
+
             _password = null;
             _salt = null;
             _associatedData = null;
             _secret = null;
-            
+
             _disposed = true;
         }
     }

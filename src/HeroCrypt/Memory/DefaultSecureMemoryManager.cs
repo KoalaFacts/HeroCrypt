@@ -1,6 +1,5 @@
-using System.Collections.Concurrent;
 using HeroCrypt.Abstractions;
-using HeroCrypt.Security;
+using System.Collections.Concurrent;
 
 namespace HeroCrypt.Memory;
 
@@ -12,7 +11,7 @@ public sealed class DefaultSecureMemoryManager : ISecureMemoryManager, IDisposab
     private readonly object _lock = new();
     private readonly ConcurrentDictionary<int, ConcurrentQueue<SecureBuffer>> _bufferPools = new();
     private readonly ConcurrentDictionary<SecureBuffer, DateTime> _activeBuffers = new();
-    
+
     // Memory tracking
     private long _totalAllocatedBytes;
     private long _peakMemoryUsage;
@@ -27,7 +26,7 @@ public sealed class DefaultSecureMemoryManager : ISecureMemoryManager, IDisposab
     public SecureBuffer Allocate(int size)
     {
         ThrowIfDisposed();
-        
+
         if (size <= 0)
             throw new ArgumentException("Size must be positive", nameof(size));
 
@@ -42,7 +41,7 @@ public sealed class DefaultSecureMemoryManager : ISecureMemoryManager, IDisposab
             throw new ArgumentNullException(nameof(source));
 
         ThrowIfDisposed();
-        
+
         var buffer = new SecureBuffer(source);
         TrackBuffer(buffer, source.Length);
         return buffer;
@@ -51,7 +50,7 @@ public sealed class DefaultSecureMemoryManager : ISecureMemoryManager, IDisposab
     public SecureBuffer AllocateFrom(ReadOnlySpan<byte> source)
     {
         ThrowIfDisposed();
-        
+
         var buffer = new SecureBuffer(source);
         TrackBuffer(buffer, source.Length);
         return buffer;
@@ -60,7 +59,7 @@ public sealed class DefaultSecureMemoryManager : ISecureMemoryManager, IDisposab
     public IPooledSecureBuffer GetPooled(int size)
     {
         ThrowIfDisposed();
-        
+
         if (size <= 0)
             throw new ArgumentException("Size must be positive", nameof(size));
 
@@ -82,20 +81,20 @@ public sealed class DefaultSecureMemoryManager : ISecureMemoryManager, IDisposab
     public MemoryUsageInfo GetMemoryUsage()
     {
         ThrowIfDisposed();
-        
+
         lock (_lock)
         {
             var pooledCount = _bufferPools.Values.Sum(pool => pool.Count);
             var totalPooledBytes = _bufferPools.Sum(kvp => kvp.Key * kvp.Value.Count);
-            
+
             return new MemoryUsageInfo
             {
                 TotalAllocatedBytes = _totalAllocatedBytes,
                 ActiveBufferCount = _activeBufferCount,
                 PooledBufferCount = pooledCount,
                 PeakMemoryUsage = _peakMemoryUsage,
-                EfficiencyRatio = _totalAllocatedBytes > 0 
-                    ? (_totalAllocatedBytes - totalPooledBytes) / (double)_totalAllocatedBytes 
+                EfficiencyRatio = _totalAllocatedBytes > 0
+                    ? (_totalAllocatedBytes - totalPooledBytes) / (double)_totalAllocatedBytes
                     : 1.0
             };
         }
@@ -104,7 +103,7 @@ public sealed class DefaultSecureMemoryManager : ISecureMemoryManager, IDisposab
     public void ForceCleanup()
     {
         ThrowIfDisposed();
-        
+
         lock (_lock)
         {
             // Clean up timed-out active buffers
@@ -172,7 +171,7 @@ public sealed class DefaultSecureMemoryManager : ISecureMemoryManager, IDisposab
         _activeBuffers.TryAdd(buffer, DateTime.UtcNow);
         Interlocked.Increment(ref _activeBufferCount);
         Interlocked.Add(ref _totalAllocatedBytes, size);
-        
+
         // Update peak usage
         var currentTotal = _totalAllocatedBytes;
         if (currentTotal > _peakMemoryUsage)
@@ -189,7 +188,7 @@ public sealed class DefaultSecureMemoryManager : ISecureMemoryManager, IDisposab
             if (commonSize >= requestedSize)
                 return commonSize;
         }
-        
+
         // For very large sizes, round up to nearest 1KB
         return ((requestedSize - 1) / 1024 + 1) * 1024;
     }

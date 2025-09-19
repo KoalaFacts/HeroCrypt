@@ -1,8 +1,5 @@
-using System;
-using System.Security.Cryptography;
-using System.Threading;
-using HeroCrypt.Abstractions;
 using Microsoft.Extensions.Logging;
+using System.Security.Cryptography;
 
 namespace HeroCrypt.Security;
 

@@ -9,7 +9,7 @@ public enum RsaPaddingMode
     /// PKCS#1 v1.5 padding
     /// </summary>
     Pkcs1,
-    
+
     /// <summary>
     /// Optimal Asymmetric Encryption Padding (OAEP)
     /// </summary>

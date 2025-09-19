@@ -1,14 +1,10 @@
-using System;
-using System.Diagnostics;
-using System.IO;
-using System.Security.Cryptography;
-using System.Threading;
-using System.Threading.Tasks;
 using HeroCrypt.Abstractions;
 using HeroCrypt.Cryptography.Symmetric.ChaCha20Poly1305;
 using HeroCrypt.Cryptography.Symmetric.XChaCha20Poly1305;
 using HeroCrypt.Security;
 using Microsoft.Extensions.Logging;
+using System.Diagnostics;
+using System.Security.Cryptography;
 
 namespace HeroCrypt.Services;
 

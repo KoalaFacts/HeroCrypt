@@ -1,8 +1,8 @@
-using System.Text;
-using Microsoft.Extensions.Options;
 using HeroCrypt.Abstractions;
 using HeroCrypt.Configuration;
 using HeroCrypt.Services;
+using Microsoft.Extensions.Options;
+using System.Text;
 
 namespace HeroCrypt.Fluent;
 
@@ -13,7 +13,7 @@ public class PgpFluentBuilder : IPgpFluentBuilder
 {
     private readonly HeroCryptOptions _options;
     private readonly IHardwareAccelerator _hardwareAccelerator;
-    
+
     private byte[]? _data;
     private byte[]? _encryptedData;
     private string? _publicKey;
@@ -120,7 +120,7 @@ public class PgpFluentBuilder : IPgpFluentBuilder
         ValidateEncryption();
 
         var service = CreateService();
-        
+
         if (_data!.Length == Encoding.UTF8.GetBytes(Encoding.UTF8.GetString(_data)).Length)
         {
             // Data appears to be text, use text encryption
@@ -148,7 +148,7 @@ public class PgpFluentBuilder : IPgpFluentBuilder
         ValidateDecryption();
 
         var service = CreateService();
-        
+
         try
         {
             // Try text decryption first
@@ -176,7 +176,7 @@ public class PgpFluentBuilder : IPgpFluentBuilder
         ValidateKeyGeneration();
 
         var service = CreateService();
-        
+
         if (!string.IsNullOrEmpty(_identity) && !string.IsNullOrEmpty(_passphrase))
         {
             return await service.GenerateKeyPairAsync(_identity!, _passphrase!, _keySize, cancellationToken);

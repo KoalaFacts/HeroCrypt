@@ -99,17 +99,17 @@ internal sealed class DefaultHardwareAccelerator : IHardwareAccelerator
             using var aes = Aes.Create();
             aes.Key = key;
             aes.GenerateIV();
-            
+
             using var encryptor = aes.CreateEncryptor();
             using var ms = new MemoryStream();
-            
+
             // Prepend IV to the encrypted data
             ms.Write(aes.IV, 0, aes.IV.Length);
-            
+
             using var cs = new CryptoStream(ms, encryptor, CryptoStreamMode.Write);
             cs.Write(data, 0, data.Length);
             cs.FlushFinalBlock();
-            
+
             return ms.ToArray();
         }
         catch
@@ -137,7 +137,7 @@ internal sealed class DefaultHardwareAccelerator : IHardwareAccelerator
         if ((_accelerationType & HardwareAccelerationType.Hsm) != 0)
             descriptions.Add("Hardware Security Module");
 
-        return descriptions.Count > 0 
+        return descriptions.Count > 0
             ? $"Hardware acceleration: {string.Join(", ", descriptions)}"
             : "Hardware acceleration available";
     }

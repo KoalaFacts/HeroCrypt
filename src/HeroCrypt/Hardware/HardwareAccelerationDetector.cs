@@ -11,7 +11,7 @@ namespace HeroCrypt.Hardware;
 /// </summary>
 public static class HardwareAccelerationDetector
 {
-    private static readonly Lazy<HardwareAccelerationType> _availableAcceleration = 
+    private static readonly Lazy<HardwareAccelerationType> _availableAcceleration =
         new(() => DetectAvailableAcceleration());
 
     /// <summary>
@@ -68,7 +68,7 @@ public static class HardwareAccelerationDetector
     /// <summary>
     /// Checks if ARM crypto extensions are available
     /// </summary>
-    public static bool IsArmCryptoAvailable => RuntimeInformation.ProcessArchitecture == Architecture.Arm64 && 
+    public static bool IsArmCryptoAvailable => RuntimeInformation.ProcessArchitecture == Architecture.Arm64 &&
                                                CheckArmCryptoSupport();
 
     /// <summary>
@@ -244,16 +244,16 @@ public class HardwareCapabilities
     public override string ToString()
     {
         var capabilities = new List<string>();
-        
+
         if (AesNiSupported) capabilities.Add("AES-NI");
         if (Avx2Supported) capabilities.Add("AVX2");
         if (Avx512Supported) capabilities.Add("AVX-512");
         if (RdrandSupported) capabilities.Add("RDRAND");
         if (ShaExtensionsSupported) capabilities.Add("SHA");
         if (ArmCryptoSupported) capabilities.Add("ARM Crypto");
-        
+
         var capabilityString = capabilities.Count > 0 ? string.Join(", ", capabilities) : "None";
-        
+
         return $"Architecture: {ProcessorArchitecture}, " +
                $"Cores: {ProcessorCount}, " +
                $"Hardware Acceleration: {capabilityString}";

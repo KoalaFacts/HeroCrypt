@@ -1,12 +1,12 @@
+using HeroCrypt.Abstractions;
+using HeroCrypt.Configuration;
+using HeroCrypt.Fluent;
+using HeroCrypt.Hardware;
+using HeroCrypt.Memory;
+using HeroCrypt.Observability;
+using HeroCrypt.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using HeroCrypt.Abstractions;
-using HeroCrypt.Services;
-using HeroCrypt.Configuration;
-using HeroCrypt.Hardware;
-using HeroCrypt.Fluent;
-using HeroCrypt.Observability;
-using HeroCrypt.Memory;
 
 namespace HeroCrypt.Extensions;
 

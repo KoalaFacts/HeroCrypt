@@ -1,4 +1,3 @@
-using HeroCrypt.Cryptography.Argon2;
 using HeroCrypt.Services;
 
 namespace HeroCrypt.Configuration;

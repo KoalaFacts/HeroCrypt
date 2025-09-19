@@ -1,9 +1,9 @@
-using System.Diagnostics;
-using System.Text;
-using Microsoft.Extensions.Options;
 using HeroCrypt.Abstractions;
 using HeroCrypt.Configuration;
 using HeroCrypt.Hardware;
+using Microsoft.Extensions.Options;
+using System.Diagnostics;
+using System.Text;
 
 namespace HeroCrypt.Services;
 
@@ -28,15 +28,15 @@ public class HeroCryptService : IHeroCrypt
         HashingService = hashingService;
         CryptographyService = cryptographyService;
         KeyGenerationService = keyGenerationService;
-        
-        _hardwareCapabilities = new Lazy<HardwareCapabilities>(() => 
+
+        _hardwareCapabilities = new Lazy<HardwareCapabilities>(() =>
             HardwareAccelerationDetector.GetCapabilities());
     }
 
-    public IArgon2FluentBuilder Argon2 => 
+    public IArgon2FluentBuilder Argon2 =>
         (IArgon2FluentBuilder)_serviceProvider.GetService(typeof(IArgon2FluentBuilder))!;
 
-    public IPgpFluentBuilder PGP => 
+    public IPgpFluentBuilder PGP =>
         (IPgpFluentBuilder)_serviceProvider.GetService(typeof(IPgpFluentBuilder))!;
 
     public IHashingService HashingService { get; }
@@ -273,23 +273,23 @@ public class HeroCryptService : IHeroCrypt
 
         // Benchmark different memory sizes
         var memorySizes = new[] { 32.MB(), 64.MB(), 128.MB() };
-        
+
         foreach (var memorySize in memorySizes)
         {
             if (cancellationToken.IsCancellationRequested) return;
 
             var stopwatch = Stopwatch.StartNew();
-            
+
             await Argon2
                 .WithPassword(testPassword)
                 .WithIterations(iterations)
                 .WithMemory(memorySize)
                 .WithParallelism(2)
                 .HashAsync(cancellationToken);
-            
+
             stopwatch.Stop();
-            
-            result.Argon2Benchmarks[$"Argon2_{memorySize.ValueInKb/1024}MB"] = stopwatch.ElapsedMilliseconds;
+
+            result.Argon2Benchmarks[$"Argon2_{memorySize.ValueInKb / 1024}MB"] = stopwatch.ElapsedMilliseconds;
         }
     }
 
@@ -306,19 +306,19 @@ public class HeroCryptService : IHeroCrypt
                 .WithKeySize(1024)
                 .GenerateKeyPairAsync(cancellationToken);
             keyGenStopwatch.Stop();
-            
+
             result.PgpBenchmarks["KeyGeneration_1024"] = keyGenStopwatch.ElapsedMilliseconds;
 
             // Benchmark encryption/decryption
             var testData = new string('A', 1000); // 1KB test data
-            
+
             var encryptStopwatch = Stopwatch.StartNew();
             var encrypted = await PGP
                 .WithData(testData)
                 .WithPublicKey(keyPair.PublicKey)
                 .EncryptAsync(cancellationToken);
             encryptStopwatch.Stop();
-            
+
             result.PgpBenchmarks["Encryption_1KB"] = encryptStopwatch.ElapsedMilliseconds;
 
             var decryptStopwatch = Stopwatch.StartNew();
@@ -327,7 +327,7 @@ public class HeroCryptService : IHeroCrypt
                 .WithPrivateKey(keyPair.PrivateKey)
                 .DecryptAsync(cancellationToken);
             decryptStopwatch.Stop();
-            
+
             result.PgpBenchmarks["Decryption_1KB"] = decryptStopwatch.ElapsedMilliseconds;
         }
         catch (Exception ex)
@@ -342,7 +342,7 @@ public class HeroCryptService : IHeroCrypt
         if (cancellationToken.IsCancellationRequested) return;
 
         var hardwareAccelerator = (IHardwareAccelerator)_serviceProvider.GetService(typeof(IHardwareAccelerator))!;
-        
+
         if (!hardwareAccelerator.IsAvailable)
         {
             result.HardwareAccelerationBenchmarks["Available"] = 0;

@@ -169,14 +169,7 @@ jobs:
         name: test-results-${{ matrix.os }}-${{ matrix.framework }}
         path: '**/test-results-*.trx'
 
-    - name: Upload coverage reports
-      uses: codecov/codecov-action@v5
-      if: matrix.os == 'ubuntu-latest' && matrix.framework == 'net9.0'
-      with:
-        files: "**/coverage.cobertura.xml"
-        flags: unittests
-        name: codecov-${{ matrix.os }}-${{ matrix.framework }}
-        token: ${{ secrets.CODECOV_TOKEN }}
+
 
   security-scan:
     name: Security Scan
@@ -284,6 +277,7 @@ jobs:
           --api-key ${{ secrets.NUGET_API_KEY }} \
           --source https://api.nuget.org/v3/index.json \
           --skip-duplicate
+
 
 
 

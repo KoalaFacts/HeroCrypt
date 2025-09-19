@@ -1,11 +1,7 @@
+using HeroCrypt.Abstractions;
 using System.Collections.Concurrent;
 using System.Diagnostics;
-#if NET5_0_OR_GREATER
 using System.Text.Json;
-#else
-using Newtonsoft.Json;
-#endif
-using HeroCrypt.Abstractions;
 
 namespace HeroCrypt.Observability;
 
@@ -17,25 +13,24 @@ public sealed class DefaultCryptoTelemetry : ICryptoTelemetry
     private readonly ConcurrentDictionary<string, CryptoOperationEvent> _activeOperations = new();
     private readonly ConcurrentQueue<CryptoOperationEvent> _completedOperations = new();
     private readonly ConcurrentQueue<SecurityAuditEvent> _securityEvents = new();
-    private readonly object _metricsLock = new();
-    
+
     // Metrics tracking
     private long _totalOperations;
     private long _successfulOperations;
     private long _failedOperations;
     private readonly ConcurrentDictionary<string, OperationMetrics> _operationMetrics = new();
     private readonly DateTime _startTime = DateTime.UtcNow;
-    
+
     // Events
     public event EventHandler<CryptoOperationEvent>? OperationStarted;
     public event EventHandler<CryptoOperationEvent>? OperationCompleted;
     public event EventHandler<SecurityAuditEvent>? SecurityEventOccurred;
 
     public string StartOperation(
-        string operationType, 
-        string algorithm, 
-        long dataSize, 
-        bool hardwareAccelerated = false, 
+        string operationType,
+        string algorithm,
+        long dataSize,
+        bool hardwareAccelerated = false,
         Dictionary<string, object>? metadata = null)
     {
         var operationId = Guid.NewGuid().ToString();
@@ -51,13 +46,13 @@ public sealed class DefaultCryptoTelemetry : ICryptoTelemetry
         };
 
         _activeOperations.TryAdd(operationId, operationEvent);
-        
+
         // Fire event
         OperationStarted?.Invoke(this, operationEvent);
-        
+
         // Update metrics
         Interlocked.Increment(ref _totalOperations);
-        
+
         return operationId;
     }
 
@@ -81,7 +76,7 @@ public sealed class DefaultCryptoTelemetry : ICryptoTelemetry
 
             // Store completed operation
             _completedOperations.Enqueue(operationEvent);
-            
+
             // Update operation-specific metrics
             UpdateOperationMetrics(operationEvent);
 
@@ -91,11 +86,11 @@ public sealed class DefaultCryptoTelemetry : ICryptoTelemetry
     }
 
     public void RecordSecurityEvent(
-        SecurityEventType eventType, 
-        SecuritySeverity severity, 
-        string component, 
-        string description, 
-        string? relatedOperationId = null, 
+        SecurityEventType eventType,
+        SecuritySeverity severity,
+        string component,
+        string description,
+        string? relatedOperationId = null,
         Dictionary<string, object>? data = null)
     {
         var securityEvent = new SecurityAuditEvent
@@ -105,14 +100,14 @@ public sealed class DefaultCryptoTelemetry : ICryptoTelemetry
             Component = component,
             Description = description,
             RelatedOperationId = relatedOperationId,
-            Data = data ?? new Dictionary<string, object>()
+            Data = data ?? []
         };
 
         _securityEvents.Enqueue(securityEvent);
-        
+
         // Fire event
         SecurityEventOccurred?.Invoke(this, securityEvent);
-        
+
         // Log high-severity events immediately
         if (severity >= SecuritySeverity.High)
         {
@@ -127,13 +122,13 @@ public sealed class DefaultCryptoTelemetry : ICryptoTelemetry
         var totalOps = _totalOperations;
         var successOps = _successfulOperations;
         var failedOps = _failedOperations;
-        
+
         var uptime = DateTime.UtcNow - _startTime;
         var opsPerMinute = totalOps > 0 ? (long)(totalOps / uptime.TotalMinutes) : 0;
 
         // Calculate average duration from recent operations
         var recentOperations = GetRecentOperations(TimeSpan.FromMinutes(5));
-        var avgDuration = recentOperations.Any() 
+        var avgDuration = recentOperations.Any()
             ? TimeSpan.FromMilliseconds(recentOperations.Average(op => op.Duration.TotalMilliseconds))
             : TimeSpan.Zero;
 
@@ -166,8 +161,8 @@ public sealed class DefaultCryptoTelemetry : ICryptoTelemetry
     }
 
     public async Task<IEnumerable<OperationMetrics>> GetOperationMetricsAsync(
-        string? operationType = null, 
-        TimeSpan? timeWindow = null, 
+        string? operationType = null,
+        TimeSpan? timeWindow = null,
         CancellationToken cancellationToken = default)
     {
         await Task.CompletedTask; // Placeholder for any async operations
@@ -183,8 +178,8 @@ public sealed class DefaultCryptoTelemetry : ICryptoTelemetry
     }
 
     public async Task<IEnumerable<SecurityAuditEvent>> GetSecurityEventsAsync(
-        TimeSpan timeWindow, 
-        SecuritySeverity? severityFilter = null, 
+        TimeSpan timeWindow,
+        SecuritySeverity? severityFilter = null,
         CancellationToken cancellationToken = default)
     {
         await Task.CompletedTask; // Placeholder for any async operations
@@ -258,16 +253,14 @@ public sealed class DefaultCryptoTelemetry : ICryptoTelemetry
     }
 
     public async Task<byte[]> ExportTelemetryDataAsync(
-        TelemetryExportFormat format, 
-        TimeSpan timeWindow, 
+        TelemetryExportFormat format,
+        TimeSpan timeWindow,
         CancellationToken cancellationToken = default)
     {
-        var cutoffTime = DateTime.UtcNow - timeWindow;
-        
         // Collect data within time window
         var operations = GetRecentOperations(timeWindow).ToList();
         var securityEvents = (await GetSecurityEventsAsync(timeWindow, cancellationToken: cancellationToken)).ToList();
-        
+
         var exportData = new
         {
             ExportTimestamp = DateTime.UtcNow,
@@ -277,34 +270,23 @@ public sealed class DefaultCryptoTelemetry : ICryptoTelemetry
             Metrics = await GetOperationMetricsAsync(cancellationToken: cancellationToken)
         };
 
-#if NET5_0_OR_GREATER
         return format switch
         {
-            TelemetryExportFormat.Json => JsonSerializer.SerializeToUtf8Bytes(exportData, new JsonSerializerOptions 
-            { 
-                WriteIndented = true 
+            TelemetryExportFormat.Json => JsonSerializer.SerializeToUtf8Bytes(exportData, new JsonSerializerOptions
+            {
+                WriteIndented = true
             }),
             TelemetryExportFormat.Csv => throw new NotImplementedException("CSV export not yet implemented"),
             TelemetryExportFormat.Xml => throw new NotImplementedException("XML export not yet implemented"),
             TelemetryExportFormat.Binary => throw new NotImplementedException("Binary export not yet implemented"),
             _ => throw new ArgumentException($"Unsupported export format: {format}")
         };
-#else
-        return format switch
-        {
-            TelemetryExportFormat.Json => System.Text.Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(exportData, Formatting.Indented)),
-            TelemetryExportFormat.Csv => throw new NotImplementedException("CSV export not yet implemented"),
-            TelemetryExportFormat.Xml => throw new NotImplementedException("XML export not yet implemented"),
-            TelemetryExportFormat.Binary => throw new NotImplementedException("Binary export not yet implemented"),
-            _ => throw new ArgumentException($"Unsupported export format: {format}")
-        };
-#endif
     }
 
     private void UpdateOperationMetrics(CryptoOperationEvent operationEvent)
     {
         var key = $"{operationEvent.OperationType}:{operationEvent.AlgorithmUsed}";
-        
+
         _operationMetrics.AddOrUpdate(key,
             // Add new metric
             new OperationMetrics
@@ -325,7 +307,7 @@ public sealed class DefaultCryptoTelemetry : ICryptoTelemetry
                 var newCount = existing.Count + 1;
                 var successCount = (long)(existing.SuccessRate / 100.0 * existing.Count) + (operationEvent.Success ? 1 : 0);
                 var hardwareCount = (long)(existing.HardwareAccelerationUsage / 100.0 * existing.Count) + (operationEvent.HardwareAccelerated ? 1 : 0);
-                
+
                 // Calculate new average duration
                 var totalMs = existing.AverageDuration.TotalMilliseconds * existing.Count + operationEvent.Duration.TotalMilliseconds;
                 var newAvgMs = totalMs / newCount;
@@ -373,18 +355,18 @@ public sealed class DefaultCryptoTelemetry : ICryptoTelemetry
     private static HealthStatus DetermineHealthStatus(long successOps, long failedOps, TimeSpan uptime)
     {
         var totalOps = successOps + failedOps;
-        
+
         if (totalOps == 0)
             return HealthStatus.Unknown;
 
         var successRate = successOps / (double)totalOps;
-        
+
         if (successRate >= 0.99)
             return HealthStatus.Healthy;
-        
+
         if (successRate >= 0.95)
             return HealthStatus.Degraded;
-        
+
         return HealthStatus.Unhealthy;
     }
 

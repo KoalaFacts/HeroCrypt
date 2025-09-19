@@ -1,6 +1,5 @@
-using System;
-using System.Runtime.CompilerServices;
 using HeroCrypt.Security;
+using System.Runtime.CompilerServices;
 
 namespace HeroCrypt.Cryptography.Symmetric.Poly1305;
 

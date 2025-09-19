@@ -24,7 +24,7 @@ public static class SecurityPolicies
             HashSize = 32,
             SaltSize = 16
         },
-        
+
         SecurityLevel.Medium => new Argon2Options
         {
             Type = Argon2Type.Argon2id,
@@ -34,7 +34,7 @@ public static class SecurityPolicies
             HashSize = 32,
             SaltSize = 16
         },
-        
+
         SecurityLevel.High => new Argon2Options
         {
             Type = Argon2Type.Argon2id,
@@ -44,7 +44,7 @@ public static class SecurityPolicies
             HashSize = 32,
             SaltSize = 16
         },
-        
+
         SecurityLevel.Military => new Argon2Options
         {
             Type = Argon2Type.Argon2id,
@@ -54,7 +54,7 @@ public static class SecurityPolicies
             HashSize = 64,
             SaltSize = 32
         },
-        
+
         _ => GetArgon2Policy(SecurityLevel.High)
     };
 
@@ -81,7 +81,7 @@ public static class SecurityPolicies
     public static bool ValidateArgon2Security(Argon2Options options, SecurityLevel minimumLevel)
     {
         var minimumPolicy = GetArgon2Policy(minimumLevel);
-        
+
         return options.Iterations >= minimumPolicy.Iterations &&
                options.MemorySize >= minimumPolicy.MemorySize &&
                options.HashSize >= minimumPolicy.HashSize &&

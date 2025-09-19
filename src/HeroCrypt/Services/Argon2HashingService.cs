@@ -1,8 +1,8 @@
-using System.Security.Cryptography;
-using System.Text;
-using System.Runtime.CompilerServices;
 using HeroCrypt.Abstractions;
 using HeroCrypt.Cryptography.Argon2;
+using System.Runtime.CompilerServices;
+using System.Security.Cryptography;
+using System.Text;
 #if !NET8_0_OR_GREATER
 using System;
 #endif
@@ -20,7 +20,7 @@ public sealed class Argon2HashingService : IHashingService
     public Argon2HashingService(Argon2Options options)
     {
         _options = options ?? throw new ArgumentNullException(nameof(options));
-        
+
         // Basic validation
         if (_options.Iterations < 1) throw new ArgumentException("Iterations must be positive", nameof(options));
         if (_options.MemorySize < 1) throw new ArgumentException("MemorySize must be positive", nameof(options));
@@ -49,7 +49,7 @@ public sealed class Argon2HashingService : IHashingService
         return await Task.Run(() =>
         {
             var salt = GenerateSalt();
-            
+
             var hash = Argon2Core.Hash(
                 input,
                 salt,
@@ -58,11 +58,11 @@ public sealed class Argon2HashingService : IHashingService
                 _options.Parallelism,
                 _options.HashSize,
                 _options.Type);
-            
+
             var result = new byte[_options.SaltSize + hash.Length];
             Array.Copy(salt, 0, result, 0, _options.SaltSize);
             Array.Copy(hash, 0, result, _options.SaltSize, hash.Length);
-            
+
             return Convert.ToBase64String(result);
         }, cancellationToken);
     }
@@ -84,7 +84,7 @@ public sealed class Argon2HashingService : IHashingService
 #else
         if (input == null) throw new ArgumentNullException(nameof(input));
 #endif
-        
+
         // Return false for null or empty hash instead of throwing
         if (string.IsNullOrWhiteSpace(hash))
             return false;
@@ -94,16 +94,16 @@ public sealed class Argon2HashingService : IHashingService
             try
             {
                 var hashBytes = Convert.FromBase64String(hash);
-                
+
                 if (hashBytes.Length <= _options.SaltSize)
                     return false;
 
                 var salt = new byte[_options.SaltSize];
                 Array.Copy(hashBytes, 0, salt, 0, _options.SaltSize);
-                
+
                 var storedHash = new byte[hashBytes.Length - _options.SaltSize];
                 Array.Copy(hashBytes, _options.SaltSize, storedHash, 0, storedHash.Length);
-                
+
                 var computedHash = Argon2Core.Hash(
                     input,
                     salt,
@@ -112,7 +112,7 @@ public sealed class Argon2HashingService : IHashingService
                     _options.Parallelism,
                     storedHash.Length,
                     _options.Type);
-                
+
                 // Use constant-time comparison
                 return ConstantTimeEquals(storedHash, computedHash);
             }

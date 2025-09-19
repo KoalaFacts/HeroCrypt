@@ -1,7 +1,6 @@
-using System;
+using HeroCrypt.Security;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
-using HeroCrypt.Security;
 
 namespace HeroCrypt.Cryptography.ECC.Curve25519;
 

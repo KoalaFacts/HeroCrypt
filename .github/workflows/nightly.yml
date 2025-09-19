@@ -102,14 +102,7 @@ jobs:
         path: '**/test-results-full.trx'
         retention-days: 7
 
-    - name: Upload coverage reports
-      uses: codecov/codecov-action@v5
-      if: matrix.os == 'ubuntu-latest'
-      with:
-        files: "**/coverage.cobertura.xml"
-        flags: nightly
-        name: codecov-nightly-${{ matrix.os }}
-        token: ${{ secrets.CODECOV_TOKEN }}
+
 
   performance-benchmark:
     name: Performance Benchmarks
@@ -145,3 +138,4 @@ jobs:
         name: performance-results
         path: performance.txt
         retention-days: 30
+

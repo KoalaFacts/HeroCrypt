@@ -4,7 +4,6 @@ using System;
 using System.Buffers.Binary;
 #endif
 using System.Runtime.CompilerServices;
-using System.Security.Cryptography;
 using HeroCrypt.Cryptography.Blake2b;
 
 namespace HeroCrypt.Cryptography.Argon2;
@@ -13,7 +12,7 @@ public static class Argon2Core
 {
     private const int BlockSize = 1024;
     private const int Version = 0x13; // Argon2 version 19
-    
+
 
     public static byte[] Hash(
         byte[] password,
@@ -32,10 +31,10 @@ public static class Argon2Core
         if (parallelism < 1) throw new ArgumentException("Parallelism must be positive", nameof(parallelism));
         if (hashLength < 1) throw new ArgumentException("Hash length must be positive", nameof(hashLength));
         if (parallelism > memorySize) throw new ArgumentException("Parallelism cannot exceed memory size", nameof(parallelism));
-        
+
         // RFC 9106: The memory size m MUST be at least 8*p KB
         if (memorySize < 8 * parallelism) throw new ArgumentException($"Memory size must be at least {8 * parallelism} KB for {parallelism} parallelism", nameof(memorySize));
-        
+
         // Password and salt can be empty for Argon2, but not null
         password = password ?? Array.Empty<byte>();
         salt = salt ?? Array.Empty<byte>();
@@ -62,7 +61,7 @@ public static class Argon2Core
         var blocksPerLane = context.Memory / context.Lanes;
         var actualMemoryBlocks = blocksPerLane * context.Lanes;
         var segmentLength = blocksPerLane / 4;
-        
+
         var memory = new Block[actualMemoryBlocks];
         for (var i = 0; i < memory.Length; i++)
         {
@@ -93,7 +92,7 @@ public static class Argon2Core
     {
         // Calculate H_0 as per RFC 9106 Section 3.2
         var h0Input = BuildH0Input(context);
-        
+
         var h0 = Blake2bCore.ComputeHash(h0Input, 64);
 
         var blocksPerLane = context.Memory / context.Lanes;
@@ -102,7 +101,7 @@ public static class Argon2Core
         for (var lane = 0; lane < context.Lanes; lane++)
         {
             var startIdx = lane * blocksPerLane;
-            
+
             // B[i][0] = H'^(1024)(H_0 || LE32(0) || LE32(i))
             var block0Input = new byte[h0.Length + 8];
             Array.Copy(h0, 0, block0Input, 0, h0.Length);
@@ -113,10 +112,10 @@ public static class Argon2Core
             BinaryPrimitives.WriteInt32LittleEndian(block0Input.AsSpan(h0.Length), 0);
             BinaryPrimitives.WriteInt32LittleEndian(block0Input.AsSpan(h0.Length + 4), lane);
 #endif
-            
+
             var block0Data = Blake2bCore.ComputeLongHash(block0Input, BlockSize);
             BytesToBlock(block0Data, memory[startIdx]);
-            
+
             // B[i][1] = H'^(1024)(H_0 || LE32(1) || LE32(i))
             var block1Input = new byte[h0.Length + 8];
             Array.Copy(h0, 0, block1Input, 0, h0.Length);
@@ -127,12 +126,12 @@ public static class Argon2Core
             BinaryPrimitives.WriteInt32LittleEndian(block1Input.AsSpan(h0.Length), 1);
             BinaryPrimitives.WriteInt32LittleEndian(block1Input.AsSpan(h0.Length + 4), lane);
 #endif
-            
+
             var block1Data = Blake2bCore.ComputeLongHash(block1Input, BlockSize);
             BytesToBlock(block1Data, memory[startIdx + 1]);
         }
     }
-    
+
     /// <summary>
     /// Build input for H_0 calculation according to RFC 9106
     /// H_0 = H^(64)(LE32(p) || LE32(T) || LE32(m) || LE32(t) || LE32(v) || LE32(y) ||
@@ -143,7 +142,7 @@ public static class Argon2Core
     {
         using var ms = new MemoryStream();
         var buffer = new byte[4];
-        
+
         // p: parallelism degree
 #if NETSTANDARD2_0
         WriteInt32LittleEndian(buffer, 0, context.Lanes);
@@ -151,7 +150,7 @@ public static class Argon2Core
         BinaryPrimitives.WriteInt32LittleEndian(buffer, context.Lanes);
 #endif
         ms.Write(buffer, 0, 4);
-        
+
         // T: tag length in bytes
 #if NETSTANDARD2_0
         WriteInt32LittleEndian(buffer, 0, context.HashLength);
@@ -159,7 +158,7 @@ public static class Argon2Core
         BinaryPrimitives.WriteInt32LittleEndian(buffer, context.HashLength);
 #endif
         ms.Write(buffer, 0, 4);
-        
+
         // m: memory size in KB
 #if NETSTANDARD2_0
         WriteInt32LittleEndian(buffer, 0, context.Memory);
@@ -167,7 +166,7 @@ public static class Argon2Core
         BinaryPrimitives.WriteInt32LittleEndian(buffer, context.Memory);
 #endif
         ms.Write(buffer, 0, 4);
-        
+
         // t: number of iterations
 #if NETSTANDARD2_0
         WriteInt32LittleEndian(buffer, 0, context.Iterations);
@@ -175,7 +174,7 @@ public static class Argon2Core
         BinaryPrimitives.WriteInt32LittleEndian(buffer, context.Iterations);
 #endif
         ms.Write(buffer, 0, 4);
-        
+
         // v: version number (19 = 0x13)
 #if NETSTANDARD2_0
         WriteInt32LittleEndian(buffer, 0, Version);
@@ -183,7 +182,7 @@ public static class Argon2Core
         BinaryPrimitives.WriteInt32LittleEndian(buffer, Version);
 #endif
         ms.Write(buffer, 0, 4);
-        
+
         // y: Argon2 type (0=Argon2d, 1=Argon2i, 2=Argon2id)
 #if NETSTANDARD2_0
         WriteInt32LittleEndian(buffer, 0, (int)context.Type);
@@ -191,7 +190,7 @@ public static class Argon2Core
         BinaryPrimitives.WriteInt32LittleEndian(buffer, (int)context.Type);
 #endif
         ms.Write(buffer, 0, 4);
-        
+
         // Password with length prefix
 #if NETSTANDARD2_0
         WriteInt32LittleEndian(buffer, 0, context.Password.Length);
@@ -200,7 +199,7 @@ public static class Argon2Core
 #endif
         ms.Write(buffer, 0, 4);
         ms.Write(context.Password, 0, context.Password.Length);
-        
+
         // Salt with length prefix
 #if NETSTANDARD2_0
         WriteInt32LittleEndian(buffer, 0, context.Salt.Length);
@@ -209,7 +208,7 @@ public static class Argon2Core
 #endif
         ms.Write(buffer, 0, 4);
         ms.Write(context.Salt, 0, context.Salt.Length);
-        
+
         // Secret with length prefix
 #if NETSTANDARD2_0
         WriteInt32LittleEndian(buffer, 0, context.Secret.Length);
@@ -218,7 +217,7 @@ public static class Argon2Core
 #endif
         ms.Write(buffer, 0, 4);
         ms.Write(context.Secret, 0, context.Secret.Length);
-        
+
         // Associated data with length prefix
 #if NETSTANDARD2_0
         WriteInt32LittleEndian(buffer, 0, context.AssociatedData.Length);
@@ -227,7 +226,7 @@ public static class Argon2Core
 #endif
         ms.Write(buffer, 0, 4);
         ms.Write(context.AssociatedData, 0, context.AssociatedData.Length);
-        
+
         return ms.ToArray();
     }
 
@@ -238,13 +237,13 @@ public static class Argon2Core
     private static void FillSegment(Argon2Context context, Block[] memory, int pass, int lane, int slice, int segmentLength)
     {
         // Determine addressing mode
-        var dataIndependentAddressing = context.Type == Argon2Type.Argon2i || 
+        var dataIndependentAddressing = context.Type == Argon2Type.Argon2i ||
                                        (context.Type == Argon2Type.Argon2id && pass == 0 && slice < 2);
 
         var blocksPerLane = context.Memory / context.Lanes;
         var startingIndex = lane * blocksPerLane + slice * segmentLength;
         var currentIndex = startingIndex;
-        
+
         // Skip first two blocks in first segment of first pass
         if (pass == 0 && slice == 0)
         {
@@ -261,7 +260,7 @@ public static class Argon2Core
             addressBlock = new Block();
             inputBlock = new Block();
             zeroBlock = new Block();
-            
+
             // Initialize input block for address generation
             inputBlock.Data[0] = (ulong)pass;
             inputBlock.Data[1] = (ulong)lane;
@@ -270,13 +269,13 @@ public static class Argon2Core
             inputBlock.Data[4] = (ulong)context.Iterations;
             inputBlock.Data[5] = (ulong)context.Type;
             inputBlock.Data[6] = 1; // Counter for address generation (starts at 1 per RFC)
-            
+
             // Clear remaining positions
             for (var j = 7; j < 128; j++)
             {
                 inputBlock.Data[j] = 0;
             }
-            
+
             // Generate initial addresses
             GenerateAddresses(inputBlock, zeroBlock, addressBlock);
         }
@@ -286,7 +285,7 @@ public static class Argon2Core
         for (var i = currentIndex; i < endIndex; i++)
         {
             ulong pseudoRandom;
-            
+
             if (dataIndependentAddressing)
             {
                 var addressIndex = (i - currentIndex) % 128;
@@ -310,7 +309,7 @@ public static class Argon2Core
 
             // Determine reference lane
             var refLane = (int)((pseudoRandom >> 32) % (ulong)context.Lanes);
-            
+
             // First slice of first pass can only reference same lane
             if (pass == 0 && slice == 0)
             {
@@ -321,7 +320,7 @@ public static class Argon2Core
             var segmentIndex = i - startingIndex;
             var refIndex = IndexAlpha(context, pass, lane, slice, segmentIndex, (uint)pseudoRandom, refLane == lane);
             var refBlock = memory[refLane * blocksPerLane + refIndex];
-            
+
             // Get previous block
             var prevBlockIndex = i - 1;
             if (prevBlockIndex < lane * blocksPerLane)
@@ -329,7 +328,7 @@ public static class Argon2Core
                 prevBlockIndex = (lane + 1) * blocksPerLane - 1; // Wrap to end of lane
             }
             var prevBlock = memory[prevBlockIndex];
-            
+
             // Fill the current block
             FillBlock(prevBlock, refBlock, memory[i], pass > 0);
         }
@@ -343,10 +342,10 @@ public static class Argon2Core
     {
         var blocksPerLane = context.Memory / context.Lanes;
         var segmentLength = blocksPerLane / 4;
-        
+
         // Calculate reference area size W
         int referenceAreaSize;
-        
+
         if (pass == 0)
         {
             // First pass
@@ -400,7 +399,7 @@ public static class Argon2Core
             // For subsequent passes, start from next segment (wrapping to 0 for slice 3)
             startPosition = ((slice + 1) % 4) * segmentLength;
         }
-        
+
         return (int)(((ulong)startPosition + relativePosition) % (ulong)blocksPerLane);
     }
 
@@ -412,20 +411,20 @@ public static class Argon2Core
     {
         var blockR = new Block();
         var blockZ = new Block();
-        
+
         // Save original nextBlock content if needed for XOR
         var originalNext = withXor ? new Block() : null;
         if (withXor)
         {
             Array.Copy(nextBlock.Data, originalNext!.Data, 128);
         }
-        
+
         // Step 1: R = prevBlock XOR refBlock
         for (var i = 0; i < 128; i++)
         {
             blockR.Data[i] = prevBlock.Data[i] ^ refBlock.Data[i];
         }
-        
+
         // Step 2: Z = R
         Array.Copy(blockR.Data, blockZ.Data, 128);
 
@@ -437,7 +436,7 @@ public static class Argon2Core
         {
             nextBlock.Data[i] = blockZ.Data[i] ^ blockR.Data[i];
         }
-        
+
         // Step 5: If this is not the first pass, XOR with original content
         if (withXor)
         {
@@ -447,7 +446,7 @@ public static class Argon2Core
             }
         }
     }
-    
+
     /// <summary>
     /// Apply Blake2b-based permutation P to a block
     /// RFC 9106 Section 3.4
@@ -462,9 +461,9 @@ public static class Argon2Core
             {
                 column[i] = block.Data[col * 16 + i];
             }
-            
+
             Blake2bRoundFunction(column);
-            
+
             for (var i = 0; i < 16; i++)
             {
                 block.Data[col * 16 + i] = column[i];
@@ -475,16 +474,16 @@ public static class Argon2Core
         for (var row = 0; row < 8; row++)
         {
             var rowData = new ulong[16];
-            
+
             // Extract row elements (2 elements from each column)
             for (var col = 0; col < 8; col++)
             {
                 rowData[col * 2] = block.Data[col * 16 + row * 2];
                 rowData[col * 2 + 1] = block.Data[col * 16 + row * 2 + 1];
             }
-            
+
             Blake2bRoundFunction(rowData);
-            
+
             // Write back row elements
             for (var col = 0; col < 8; col++)
             {
@@ -493,7 +492,7 @@ public static class Argon2Core
             }
         }
     }
-    
+
     /// <summary>
     /// Blake2b round function for 16 64-bit words
     /// This is the modified Blake2b round with Argon2's multiplication
@@ -505,14 +504,14 @@ public static class Argon2Core
         GB(v, 1, 5, 9, 13);
         GB(v, 2, 6, 10, 14);
         GB(v, 3, 7, 11, 15);
-        
+
         // Diagonal step
         GB(v, 0, 5, 10, 15);
         GB(v, 1, 6, 11, 12);
         GB(v, 2, 7, 8, 13);
         GB(v, 3, 4, 9, 14);
     }
-    
+
     /// <summary>
     /// GB function: Modified Blake2b mixing function with multiplication
     /// RFC 9106 Section 3.4
@@ -529,7 +528,7 @@ public static class Argon2Core
         v[c] = v[c] + v[d] + 2 * Mul(v[c], v[d]);
         v[b] = RotateRight(v[b] ^ v[c], 63);
     }
-    
+
     /// <summary>
     /// Multiplication function for Argon2: Mul(x,y) = (x &amp; 0xFFFFFFFF) * (y &amp; 0xFFFFFFFF)
     /// </summary>
@@ -589,7 +588,7 @@ public static class Argon2Core
         }
         return bytes;
     }
-    
+
     private static void BytesToBlock(byte[] bytes, Block block)
     {
         for (var i = 0; i < 128; i++)

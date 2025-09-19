@@ -8,7 +8,7 @@ public interface IAlgorithmPlugin
     string Version { get; }
     string Description { get; }
     AlgorithmCategory Category { get; }
-    
+
     void Register(IServiceCollection services);
 }
 

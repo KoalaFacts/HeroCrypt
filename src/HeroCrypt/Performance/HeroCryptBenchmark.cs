@@ -1,11 +1,7 @@
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using HeroCrypt.Cryptography.Blake2b;
-using HeroCrypt.Cryptography;
 using HeroCrypt.Security;
 using HeroCrypt.Hardware;
 using Microsoft.Extensions.Logging;
@@ -131,7 +127,8 @@ public class HeroCryptBenchmark : IDisposable
             var output = new byte[64];
 
             // Benchmark scalar Blake2b
-            var scalarTime = MeasureOperation(() => {
+            var scalarTime = MeasureOperation(() =>
+            {
                 var result = Blake2bCore.ComputeHash(data, 64);
                 result.CopyTo(output, 0);
             }, iterations);
@@ -190,7 +187,8 @@ public class HeroCryptBenchmark : IDisposable
                 ConstantTimeOperations.ConstantTimeArrayEquals(array1, array2), iterations);
             scalarResults["ArrayEquals"][size] = scalarEqualsTime;
 
-            var scalarXorTime = MeasureOperation(() => {
+            var scalarXorTime = MeasureOperation(() =>
+            {
                 for (var i = 0; i < size; i++)
                     result[i] = (byte)(array1[i] ^ array2[i]);
             }, iterations);
@@ -238,7 +236,8 @@ public class HeroCryptBenchmark : IDisposable
         foreach (var size in sizes)
         {
             // Benchmark memory allocation
-            var allocTime = MeasureOperation(() => {
+            var allocTime = MeasureOperation(() =>
+            {
                 var buffer = new byte[size];
                 GC.KeepAlive(buffer);
             }, iterations);

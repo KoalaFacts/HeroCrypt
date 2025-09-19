@@ -32,9 +32,9 @@ public interface ICryptoTelemetry
     /// <param name="metadata">Additional metadata</param>
     /// <returns>Operation ID for tracking</returns>
     string StartOperation(
-        string operationType, 
-        string algorithm, 
-        long dataSize, 
+        string operationType,
+        string algorithm,
+        long dataSize,
         bool hardwareAccelerated = false,
         Dictionary<string, object>? metadata = null);
 
@@ -208,10 +208,10 @@ internal sealed class OperationTracker : IOperationTracker
     public string OperationId { get; }
 
     public OperationTracker(
-        ICryptoTelemetry telemetry, 
-        string operationType, 
-        string algorithm, 
-        long dataSize, 
+        ICryptoTelemetry telemetry,
+        string operationType,
+        string algorithm,
+        long dataSize,
         bool hardwareAccelerated)
     {
         _telemetry = telemetry;

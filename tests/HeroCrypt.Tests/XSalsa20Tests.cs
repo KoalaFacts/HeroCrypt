@@ -1,8 +1,5 @@
-using System;
-using System.Text;
 using HeroCrypt.Cryptography.Symmetric.Salsa20;
-using Xunit;
-using Xunit.v3;
+using System.Text;
 
 namespace HeroCrypt.Tests;
 

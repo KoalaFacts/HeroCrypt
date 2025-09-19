@@ -1,12 +1,10 @@
-using System;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
-using HeroCrypt.Security;
 
 namespace HeroCrypt.Cryptography.ECC.Secp256k1;
 
-    /// <summary>
+/// <summary>
 /// Core secp256k1 implementation for blockchain applications
 /// Used by Bitcoin, Ethereum, and many other cryptocurrencies
 /// </summary>

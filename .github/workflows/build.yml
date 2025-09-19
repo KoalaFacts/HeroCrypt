@@ -58,14 +58,14 @@ jobs:
 
     - name: Build library for ${{ matrix.framework }}
       if: matrix.runTests != true
-      run: dotnet build ${{ env.MAIN_PROJECT }} --locked-mode --configuration Release --framework ${{ matrix.framework }}
+      run: dotnet build ${{ env.MAIN_PROJECT }} --configuration Release --framework ${{ matrix.framework }}
       env:
         CI: true
         TargetFramework: ${{ matrix.framework }}
 
     - name: Build solution for ${{ matrix.framework }}
       if: matrix.runTests == true
-      run: dotnet build --locked-mode --configuration Release --framework ${{ matrix.framework }}
+      run: dotnet build --configuration Release --framework ${{ matrix.framework }}
       env:
         CI: true
         TargetFramework: ${{ matrix.framework }}

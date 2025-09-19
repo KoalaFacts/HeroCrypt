@@ -58,21 +58,21 @@ jobs:
 
     - name: Build library for ${{ matrix.framework }}
       if: matrix.runTests != true
-      run: dotnet build ${{ env.MAIN_PROJECT }} --configuration Release --framework ${{ matrix.framework }}
+      run: dotnet build ${{ env.MAIN_PROJECT }} /p:Configuration=Release /p:TargetFrameworks=${{ matrix.framework }}
       env:
         CI: true
         TargetFramework: ${{ matrix.framework }}
 
     - name: Build solution for ${{ matrix.framework }}
       if: matrix.runTests == true
-      run: dotnet build --configuration Release --framework ${{ matrix.framework }}
+      run: dotnet build /p:Configuration=Release /p:TargetFrameworks=${{ matrix.framework }}
       env:
         CI: true
         TargetFramework: ${{ matrix.framework }}
 
     - name: Run tests (excluding slow)
       if: matrix.runTests == true
-      run: dotnet test --filter "Category!=Slow" --configuration Release --framework ${{ matrix.framework }} --logger "trx;LogFileName=test-results-${{ matrix.framework }}.trx" --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+      run: dotnet test /p:TargetFrameworks=${{ matrix.framework }} /p:Configuration=Release --filter "Category!=Slow" --logger "trx;LogFileName=test-results-${{ matrix.framework }}.trx" --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
       env:
         CI: true
         TargetFramework: ${{ matrix.framework }}

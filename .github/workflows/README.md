@@ -74,10 +74,18 @@ Each successful build creates an artifact package containing:
 
 **Retention:** 90 days
 
+### Validation Steps
+Every build includes:
+- ✅ Multi-framework compilation
+- ✅ Unit tests (net8.0, net9.0)
+- ✅ **RFC Compliance Tests** (Argon2, Blake2b, ChaCha20-Poly1305, etc.)
+- ✅ **Security Validation Tests** (constant-time ops, secure memory, etc.)
+- ✅ Code coverage collection
+
 ### Outputs
 - Test results (`.trx` files)
 - Code coverage reports (Cobertura format)
-- Packaged artifacts ready for release
+- Packaged artifacts ready for release (only if all tests pass)
 
 ---
 
@@ -105,12 +113,14 @@ Manual workflow dispatch only
 3. ✅ Downloads specified build artifacts
 4. ✅ Verifies artifact integrity
 5. ✅ Updates version in `Directory.Build.props`
-6. ✅ Runs RFC compliance tests
-7. ✅ Runs security validation tests
+6. ✅ Runs RFC compliance tests (final validation)
+7. ✅ Runs security validation tests (final validation)
 8. ✅ Commits version update
 9. ✅ Creates git tag (`v{version}`)
 10. ✅ Pushes changes and tag
 11. ✅ Creates GitHub Release with artifacts
+
+**Note:** RFC compliance and security tests already run during the build phase. These are re-run during release as a final quality gate.
 
 ### Environment
 - **Name:** `production`
@@ -183,7 +193,7 @@ permissions:
 7. ✅ Publishes workflow summary
 
 ### Environment
-- **Name:** `nuget-production`
+- **Name:** `production` (same as create-release workflow)
 - **URL:** `https://www.nuget.org/packages/HeroCrypt`
 
 ### NuGet Trusted Publishing Setup
@@ -200,12 +210,14 @@ Before using this workflow, you **must** configure NuGet Trusted Publishing:
    - **Repository owner:** `BeingCiteable` (or your username)
    - **Repository name:** `HeroCrypt`
    - **Workflow file:** `publish-nuget.yml`
-   - **Environment name:** `nuget-production`
+   - **Environment name:** `production`
 7. Save the configuration
 
 #### 2. Verify GitHub Environment
+The `production` environment is shared between the `create-release.yml` and `publish-nuget.yml` workflows.
+
 1. Go to your repository **Settings** → **Environments**
-2. Create environment: `nuget-production`
+2. Verify environment: `production` exists (created during release setup)
 3. (Optional) Add protection rules:
    - Required reviewers
    - Wait timer
@@ -415,8 +427,8 @@ If you need to rollback a release:
 ### NuGet Publishing Fails
 **Error: "Authentication failed"**
 - Verify NuGet Trusted Publishing is configured
-- Check environment name matches: `nuget-production`
-- Verify workflow file name is correct
+- Check environment name matches: `production`
+- Verify workflow file name is correct: `publish-nuget.yml`
 
 **Error: "Package version already exists"**
 - NuGet doesn't allow overwriting versions

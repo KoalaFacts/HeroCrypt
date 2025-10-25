@@ -163,6 +163,18 @@ jobs:
       env:
         BUILD_NUMBER: ${{ github.run_number }}
 
+    - name: Run RFC Compliance Tests
+      run: |
+        echo "🧪 Running RFC compliance validation..."
+        dotnet test --filter "Category=Compliance" --configuration Release --no-build --logger "console;verbosity=detailed"
+        echo "✅ RFC compliance tests passed"
+
+    - name: Run Security Validation Tests
+      run: |
+        echo "🔒 Running security validation tests..."
+        dotnet test --filter "Category=Security|Category=Critical" --configuration Release --no-build --logger "console;verbosity=detailed"
+        echo "✅ Security tests passed"
+
     - name: Create NuGet package
       run: dotnet pack --configuration Release --no-build --output ./artifacts /p:BUILD_NUMBER=${{ github.run_number }}
       env:
@@ -225,6 +237,8 @@ jobs:
         echo "### Artifacts" >> $GITHUB_STEP_SUMMARY
         echo "Package artifacts are available for download and can be used to create a release." >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### Test Matrix" >> $GITHUB_STEP_SUMMARY
+        echo "### Validation" >> $GITHUB_STEP_SUMMARY
         echo "- ✅ .NET 6.0, 7.0, 8.0, 9.0, Standard 2.0" >> $GITHUB_STEP_SUMMARY
         echo "- ✅ Ubuntu, Windows, macOS" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ RFC Compliance Tests Passed" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Security Validation Tests Passed" >> $GITHUB_STEP_SUMMARY

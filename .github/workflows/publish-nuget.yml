@@ -25,7 +25,7 @@ jobs:
     name: Publish to NuGet.org
     runs-on: ubuntu-latest
     environment:
-      name: nuget-production
+      name: production
       url: https://www.nuget.org/packages/HeroCrypt
 
     steps:

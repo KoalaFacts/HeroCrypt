@@ -239,7 +239,7 @@ internal static class AesSivCore
         while (remaining.Length > 0)
         {
             // Generate keystream block
-            aes.TransformBlock(counter.ToArray(), 0, BlockSize, keystreamArray, 0);
+            encryptor.TransformBlock(counter.ToArray(), 0, BlockSize, keystreamArray, 0);
             keystreamArray.CopyTo(keystream);
 
             // XOR with plaintext

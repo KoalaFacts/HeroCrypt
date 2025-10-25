@@ -4,7 +4,7 @@ This directory contains the GitHub Actions workflows for building, testing, rele
 
 ## 📋 Workflow Overview
 
-**Simple and Clean:** Only 4 active workflows - no archived clutter, no legacy code.
+**Simple and Clean:** Only 3 active workflows - no archived clutter, no legacy code.
 
 The CI/CD pipeline consists of three main workflows:
 
@@ -265,15 +265,23 @@ Built into the **Build and Test** workflow:
 
 These tests run on **every build** before artifacts are created.
 
-### Dependabot Auto-merge
-**File:** `dependabot-automerge.yml`
+### Dependabot (GitHub Feature)
+**File:** `.github/dependabot.yml`
 
-Automatically approves and merges:
-- Minor version updates
-- Patch version updates
+Automatically monitors and updates dependencies:
+- 📦 **NuGet packages** - Weekly on Mondays
+- ⚙️ **GitHub Actions** - Weekly on Mondays
+- 🔄 **Groups** minor and patch updates together
+- 👤 Requests review from BeingCiteable
+- ⚠️ Major updates require manual review
 
-**Requires manual review:**
-- Major version updates
+**Setup Required:**
+1. Go to **Settings** → **General** → **Pull Requests**
+2. Enable "**Allow auto-merge**"
+3. Dependabot will create grouped PRs for minor/patch updates
+4. You can enable auto-merge on those PRs directly
+
+This replaces the need for a custom auto-merge workflow!
 
 ---
 
@@ -464,18 +472,20 @@ dotnet nuget push *.nupkg \
 
 ## 🎯 Workflow Summary
 
-**Total Active Workflows:** 4
+**Total Active Workflows:** 3
 
 | Workflow | Purpose | Trigger | Lines |
 |----------|---------|---------|-------|
 | `build-and-test.yml` | Multi-framework build & validation | Every commit | 232 |
 | `create-release.yml` | Create GitHub Release | Manual | 194 |
 | `publish-nuget.yml` | Publish to NuGet.org | On release | 230 |
-| `dependabot-automerge.yml` | Auto-merge dependencies | Dependabot PR | 33 |
 
-**Total:** 689 lines of clean, focused workflow code.
+**Total:** 656 lines of clean, focused workflow code.
 
-**Philosophy:** Simple, essential, maintainable. No archived workflows, no legacy code, no clutter.
+**Additional Configuration:**
+- `.github/dependabot.yml` - Dependency monitoring (uses GitHub's native features)
+
+**Philosophy:** Simple, essential, maintainable. No archived workflows, no legacy code, no clutter. Use GitHub's built-in features when possible.
 
 ---
 

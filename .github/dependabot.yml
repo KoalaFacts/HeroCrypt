@@ -1,6 +1,6 @@
 version: 2
 updates:
-  # Enable version updates for NuGet packages
+  # NuGet package dependencies
   - package-ecosystem: "nuget"
     directory: "/"
     schedule:
@@ -13,13 +13,21 @@ updates:
     commit-message:
       prefix: "chore"
       include: "scope"
-    
-  # Enable version updates for GitHub Actions
+    # Group minor and patch updates together
+    groups:
+      minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # GitHub Actions dependencies
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
-      day: "monday"  
+      day: "monday"
       time: "09:00"
     open-pull-requests-limit: 5
     reviewers:
@@ -27,3 +35,11 @@ updates:
     commit-message:
       prefix: "ci"
       include: "scope"
+    # Group minor and patch updates together
+    groups:
+      minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"

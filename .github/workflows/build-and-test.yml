@@ -180,15 +180,6 @@ jobs:
       env:
         BUILD_NUMBER: ${{ github.run_number }}
 
-    - name: Generate SBOM
-      uses: anchore/sbom-action@v0
-      continue-on-error: true
-      with:
-        path: ./artifacts
-        artifact-name: sbom-spdx.json
-        output-file: ./artifacts/sbom.spdx.json
-        format: spdx-json
-
     - name: Create build manifest
       shell: bash
       run: |
@@ -220,15 +211,6 @@ jobs:
           ./artifacts/build-manifest.json
         retention-days: 90
         if-no-files-found: error
-
-    - name: Upload SBOM (optional)
-      uses: actions/upload-artifact@v4
-      if: hashFiles('./artifacts/sbom.spdx.json') != ''
-      continue-on-error: true
-      with:
-        name: herocrypt-${{ steps.build-number.outputs.build-number }}-sbom
-        path: ./artifacts/sbom.spdx.json
-        retention-days: 90
 
     - name: Build summary
       shell: bash

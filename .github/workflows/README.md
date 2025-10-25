@@ -68,13 +68,10 @@ Each successful build creates an artifact package containing:
 - `*.nupkg` - NuGet package (multi-framework)
 - `*.snupkg` - Symbol package for debugging
 - `build-manifest.json` - Build metadata
-- `sbom.spdx.json` - SBOM (Software Bill of Materials) - optional
 
 **Artifact Name:** `herocrypt-{build-number}`
 
 **Retention:** 90 days
-
-**Note:** SBOM generation is optional and uses Anchore SBOM Action. If SBOM generation fails, the build will continue successfully.
 
 ### Validation Steps
 Every build includes:

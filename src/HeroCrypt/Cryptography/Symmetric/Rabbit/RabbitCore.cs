@@ -120,17 +120,22 @@ internal static class RabbitCore
         try
         {
             // Initialize state variables
+            // RFC 4503 Section 2.4: Xj = left || right means (left << 16) | right
             for (var i = 0; i < 8; i++)
             {
                 if (i % 2 == 0)
                 {
-                    state.X[i] = (uint)(k[(i + 1) % 8] | (k[i] << 16));
-                    state.C[i] = (uint)(k[(i + 4) % 8] | (k[(i + 5) % 8] << 16));
+                    // Xj = K(j+1 mod 8) || Kj
+                    state.X[i] = (uint)((k[(i + 1) % 8] << 16) | k[i]);
+                    // Cj = K(j+4 mod 8) || K(j+5 mod 8)
+                    state.C[i] = (uint)((k[(i + 4) % 8] << 16) | k[(i + 5) % 8]);
                 }
                 else
                 {
-                    state.X[i] = (uint)(k[(i + 5) % 8] | (k[(i + 4) % 8] << 16));
-                    state.C[i] = (uint)(k[i] | (k[(i + 1) % 8] << 16));
+                    // Xj = K(j+5 mod 8) || K(j+4 mod 8)
+                    state.X[i] = (uint)((k[(i + 5) % 8] << 16) | k[(i + 4) % 8]);
+                    // Cj = Kj || K(j+1 mod 8)
+                    state.C[i] = (uint)((k[i] << 16) | k[(i + 1) % 8]);
                 }
             }
 

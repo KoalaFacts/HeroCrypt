@@ -244,6 +244,7 @@ internal static class AesCcmCore
                 // First block
                 aadRemaining.Slice(0, firstBlockSpace).CopyTo(aadBlock.Slice(aadOffset));
                 XorBlock(mac, aadBlock);
+                mac.CopyTo(macArray);
                 aes.TransformBlock(macArray, 0, BlockSize, macArray, 0);
                 macArray.CopyTo(mac);
                 aadRemaining = aadRemaining.Slice(firstBlockSpace);

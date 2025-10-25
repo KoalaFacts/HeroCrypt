@@ -1,0 +1,194 @@
+name: Create Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., 1.0.0)'
+        required: true
+        type: string
+      build-number:
+        description: 'Build number to release (e.g., main-20241025.123.abc1234)'
+        required: true
+        type: string
+      prerelease:
+        description: 'Mark as pre-release'
+        required: false
+        type: boolean
+        default: false
+      release-notes:
+        description: 'Additional release notes (optional)'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  actions: read
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  CI: true
+
+jobs:
+  create-release:
+    name: Create Release v${{ inputs.version }}
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://github.com/${{ github.repository }}/releases/tag/v${{ inputs.version }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v5
+
+    - name: Validate version format
+      run: |
+        if ! [[ "${{ inputs.version }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]; then
+          echo "❌ Error: Version must be in format x.y.z or x.y.z-prerelease"
+          echo "Examples: 1.0.0, 1.2.3-beta.1, 2.0.0-rc.2"
+          exit 1
+        fi
+        echo "✅ Version format valid: ${{ inputs.version }}"
+
+    - name: Check if tag already exists
+      run: |
+        git fetch --tags
+        if git tag -l | grep -q "^v${{ inputs.version }}$"; then
+          echo "❌ Error: Tag v${{ inputs.version }} already exists"
+          echo "Existing tags:"
+          git tag -l | grep "^v" | sort -V | tail -10
+          exit 1
+        fi
+        echo "✅ Tag v${{ inputs.version }} is available"
+
+    - name: Download build artifacts
+      uses: actions/download-artifact@v6
+      with:
+        name: herocrypt-${{ inputs.build-number }}
+        path: ./release-artifacts
+
+    - name: Verify artifacts
+      run: |
+        echo "📦 Verifying downloaded artifacts..."
+        ls -lah ./release-artifacts/
+
+        # Check for required files
+        if [ ! -f ./release-artifacts/build-manifest.json ]; then
+          echo "❌ Error: build-manifest.json not found"
+          exit 1
+        fi
+
+        NUPKG_COUNT=$(find ./release-artifacts -name "*.nupkg" -not -name "*.symbols.nupkg" | wc -l)
+        SNUPKG_COUNT=$(find ./release-artifacts -name "*.snupkg" | wc -l)
+
+        echo "Found $NUPKG_COUNT .nupkg files"
+        echo "Found $SNUPKG_COUNT .snupkg files"
+
+        if [ "$NUPKG_COUNT" -eq 0 ]; then
+          echo "❌ Error: No .nupkg files found"
+          exit 1
+        fi
+
+        echo "✅ Artifacts verified"
+
+        # Display build manifest
+        echo "📋 Build Manifest:"
+        cat ./release-artifacts/build-manifest.json
+
+    - name: Generate release notes
+      id: release-notes
+      run: |
+        # Read build manifest
+        BUILD_COMMIT=$(jq -r '.commitHash' ./release-artifacts/build-manifest.json)
+        BUILD_DATE=$(jq -r '.buildDate' ./release-artifacts/build-manifest.json)
+        BUILD_ACTOR=$(jq -r '.actor' ./release-artifacts/build-manifest.json)
+
+        # Create release notes
+        cat > release-notes.md << 'EOF'
+        ## HeroCrypt v${{ inputs.version }}
+
+        ### 🎉 What's New
+        ${{ inputs.release-notes }}
+
+        ### 📦 Package Information
+        - **Version:** ${{ inputs.version }}
+        - **Build Number:** ${{ inputs.build-number }}
+        - **Build Date:** ${BUILD_DATE}
+        - **NuGet:** [HeroCrypt ${{ inputs.version }}](https://www.nuget.org/packages/HeroCrypt/${{ inputs.version }})
+
+        ### 🔒 Security & Compliance
+        - ✅ RFC 9106 (Argon2): Fully compliant
+        - ✅ RFC 7693 (Blake2b): Fully compliant
+        - ✅ RFC 8439 (ChaCha20-Poly1305): Fully compliant
+        - ✅ RFC 7748 (Curve25519): Fully compliant
+
+        ### 🎯 Target Frameworks
+        - .NET Standard 2.0
+        - .NET 6.0, 7.0, 8.0, 9.0
+
+        ### 📥 Installation
+        ```bash
+        dotnet add package HeroCrypt --version ${{ inputs.version }}
+        ```
+
+        Or via Package Manager:
+        ```powershell
+        Install-Package HeroCrypt -Version ${{ inputs.version }}
+        ```
+
+        ### 🔗 Links
+        - [Documentation](https://github.com/${{ github.repository }})
+        - [Release Notes](https://github.com/${{ github.repository }}/releases/tag/v${{ inputs.version }})
+        - [NuGet Package](https://www.nuget.org/packages/HeroCrypt/${{ inputs.version }})
+
+        ### 📊 Build Details
+        - **Build Commit:** ${BUILD_COMMIT}
+        - **Built By:** ${BUILD_ACTOR}
+        - **Released By:** ${{ github.actor }}
+
+        ---
+
+        🤖 Generated with [Claude Code](https://claude.com/claude-code)
+        EOF
+
+        cat release-notes.md
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: v${{ inputs.version }}
+        name: HeroCrypt v${{ inputs.version }}
+        body_path: release-notes.md
+        prerelease: ${{ inputs.prerelease }}
+        draft: false
+        files: |
+          ./release-artifacts/*.nupkg
+          ./release-artifacts/*.snupkg
+          ./release-artifacts/build-manifest.json
+        fail_on_unmatched_files: true
+
+    - name: Release summary
+      run: |
+        echo "# ✅ Release Created Successfully" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## Release Information" >> $GITHUB_STEP_SUMMARY
+        echo "- **Version:** v${{ inputs.version }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Build Number:** ${{ inputs.build-number }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Pre-release:** ${{ inputs.prerelease }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Released by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Release Date:** $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## Links" >> $GITHUB_STEP_SUMMARY
+        echo "- 🔗 [GitHub Release](https://github.com/${{ github.repository }}/releases/tag/v${{ inputs.version }})" >> $GITHUB_STEP_SUMMARY
+        echo "- 📦 [NuGet Package](https://www.nuget.org/packages/HeroCrypt/${{ inputs.version }}) (available after publishing)" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## Next Steps" >> $GITHUB_STEP_SUMMARY
+        echo "The **Publish to NuGet** workflow will automatically trigger to publish this release to NuGet.org" >> $GITHUB_STEP_SUMMARY
+
+    - name: Trigger notification
+      if: success()
+      run: |
+        echo "🎉 Release v${{ inputs.version }} created successfully!"
+        echo "📦 GitHub Release: https://github.com/${{ github.repository }}/releases/tag/v${{ inputs.version }}"
+        echo "⏳ NuGet publishing workflow will start automatically..."

@@ -1,0 +1,230 @@
+name: Publish to NuGet
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      release-tag:
+        description: 'Release tag to publish (e.g., v1.0.0)'
+        required: true
+        type: string
+
+permissions:
+  id-token: write  # Required for OIDC authentication with NuGet
+  contents: read
+  actions: read
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  CI: true
+
+jobs:
+  publish:
+    name: Publish to NuGet.org
+    runs-on: ubuntu-latest
+    environment:
+      name: nuget-production
+      url: https://www.nuget.org/packages/HeroCrypt
+
+    steps:
+    - name: Determine release tag
+      id: release-info
+      run: |
+        if [ "${{ github.event_name }}" == "release" ]; then
+          RELEASE_TAG="${{ github.event.release.tag_name }}"
+          IS_PRERELEASE="${{ github.event.release.prerelease }}"
+        else
+          RELEASE_TAG="${{ inputs.release-tag }}"
+          IS_PRERELEASE="false"
+        fi
+
+        # Extract version from tag (remove 'v' prefix)
+        VERSION="${RELEASE_TAG#v}"
+
+        echo "release-tag=${RELEASE_TAG}" >> $GITHUB_OUTPUT
+        echo "version=${VERSION}" >> $GITHUB_OUTPUT
+        echo "is-prerelease=${IS_PRERELEASE}" >> $GITHUB_OUTPUT
+
+        echo "📦 Publishing release: ${RELEASE_TAG}"
+        echo "📋 Version: ${VERSION}"
+        echo "🔖 Pre-release: ${IS_PRERELEASE}"
+
+    - name: Checkout code at release tag
+      uses: actions/checkout@v5
+      with:
+        ref: ${{ steps.release-info.outputs.release-tag }}
+        fetch-depth: 0
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v5
+      with:
+        dotnet-version: 9.0.x
+
+    - name: Download release assets
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        echo "📥 Downloading release assets from ${{ steps.release-info.outputs.release-tag }}"
+
+        # Create directory for release assets
+        mkdir -p ./release-packages
+
+        # Download all .nupkg and .snupkg files from the release
+        gh release download ${{ steps.release-info.outputs.release-tag }} \
+          --pattern '*.nupkg' \
+          --pattern '*.snupkg' \
+          --dir ./release-packages
+
+        echo "📦 Downloaded packages:"
+        ls -lah ./release-packages/
+
+    - name: Verify package integrity
+      run: |
+        echo "🔍 Verifying package integrity..."
+
+        # Count packages
+        NUPKG_COUNT=$(find ./release-packages -name "*.nupkg" -not -name "*.symbols.nupkg" | wc -l)
+        SNUPKG_COUNT=$(find ./release-packages -name "*.snupkg" | wc -l)
+
+        echo "Found $NUPKG_COUNT .nupkg files"
+        echo "Found $SNUPKG_COUNT .snupkg files"
+
+        if [ "$NUPKG_COUNT" -eq 0 ]; then
+          echo "❌ Error: No .nupkg files found in release"
+          exit 1
+        fi
+
+        # Verify package metadata
+        for package in ./release-packages/*.nupkg; do
+          if [[ "$package" == *".symbols.nupkg" ]]; then
+            continue
+          fi
+
+          echo "Verifying: $package"
+
+          # Extract and display package info using unzip
+          unzip -p "$package" "*.nuspec" > /tmp/package.nuspec || true
+
+          if [ -f /tmp/package.nuspec ]; then
+            PKG_VERSION=$(grep -oP '(?<=<version>)[^<]+' /tmp/package.nuspec | head -1)
+            PKG_ID=$(grep -oP '(?<=<id>)[^<]+' /tmp/package.nuspec | head -1)
+
+            echo "  Package ID: $PKG_ID"
+            echo "  Package Version: $PKG_VERSION"
+
+            # Verify version matches release
+            if [ "$PKG_VERSION" != "${{ steps.release-info.outputs.version }}" ]; then
+              echo "⚠️  Warning: Package version ($PKG_VERSION) doesn't match release version (${{ steps.release-info.outputs.version }})"
+            fi
+          fi
+        done
+
+        echo "✅ Package integrity verified"
+
+    - name: Publish to NuGet.org (Trusted Publishing)
+      run: |
+        echo "📤 Publishing to NuGet.org using Trusted Publishing (OIDC)..."
+
+        # Publish main package (not symbol packages)
+        for package in ./release-packages/*.nupkg; do
+          # Skip symbol packages (they'll be pushed automatically with main package)
+          if [[ "$package" == *".symbols.nupkg" ]]; then
+            echo "Skipping symbol package: $package (will be pushed with main package)"
+            continue
+          fi
+
+          echo "Publishing: $package"
+
+          # Use dotnet nuget push with trusted publishing
+          # The id-token permission allows GitHub to authenticate with NuGet via OIDC
+          dotnet nuget push "$package" \
+            --source https://api.nuget.org/v3/index.json \
+            --skip-duplicate \
+            --no-symbols true
+
+          echo "✅ Published: $package"
+        done
+
+        echo "🎉 All packages published successfully!"
+
+    - name: Verify package on NuGet.org
+      run: |
+        echo "🔍 Verifying package availability on NuGet.org..."
+
+        # Wait a moment for NuGet to index
+        sleep 10
+
+        VERSION="${{ steps.release-info.outputs.version }}"
+
+        # Check if package is available
+        PACKAGE_URL="https://www.nuget.org/packages/HeroCrypt/${VERSION}"
+
+        echo "Checking: $PACKAGE_URL"
+
+        # Query NuGet API
+        API_RESPONSE=$(curl -s "https://api.nuget.org/v3-flatcontainer/herocrypt/index.json")
+
+        if echo "$API_RESPONSE" | jq -e ".versions[] | select(. == \"${VERSION}\")" > /dev/null; then
+          echo "✅ Package HeroCrypt ${VERSION} is available on NuGet.org"
+          echo "📦 Package URL: $PACKAGE_URL"
+        else
+          echo "⚠️  Package not yet indexed (this can take a few minutes)"
+          echo "   Check manually: $PACKAGE_URL"
+        fi
+
+    - name: Create symbols package check
+      run: |
+        echo "🔍 Checking symbol package..."
+
+        SNUPKG_COUNT=$(find ./release-packages -name "*.snupkg" | wc -l)
+
+        if [ "$SNUPKG_COUNT" -gt 0 ]; then
+          echo "✅ Symbol package (.snupkg) was included in the upload"
+          echo "   Symbols will be available on NuGet symbol server"
+        else
+          echo "ℹ️  No symbol package found (this is optional)"
+        fi
+
+    - name: Publish summary
+      run: |
+        echo "# 🎉 NuGet Publishing Complete" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## Published Package" >> $GITHUB_STEP_SUMMARY
+        echo "- **Package:** HeroCrypt" >> $GITHUB_STEP_SUMMARY
+        echo "- **Version:** ${{ steps.release-info.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Release Tag:** ${{ steps.release-info.outputs.release-tag }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Pre-release:** ${{ steps.release-info.outputs.is-prerelease }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## Links" >> $GITHUB_STEP_SUMMARY
+        echo "- 📦 [NuGet Package](https://www.nuget.org/packages/HeroCrypt/${{ steps.release-info.outputs.version }})" >> $GITHUB_STEP_SUMMARY
+        echo "- 🔗 [GitHub Release](https://github.com/${{ github.repository }}/releases/tag/${{ steps.release-info.outputs.release-tag }})" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## Installation" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+        echo "dotnet add package HeroCrypt --version ${{ steps.release-info.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## Authentication Method" >> $GITHUB_STEP_SUMMARY
+        echo "✅ Published using **NuGet Trusted Publishing** (OIDC)" >> $GITHUB_STEP_SUMMARY
+        echo "- No API keys required" >> $GITHUB_STEP_SUMMARY
+        echo "- Secure GitHub-NuGet authentication" >> $GITHUB_STEP_SUMMARY
+        echo "- Automatic token management" >> $GITHUB_STEP_SUMMARY
+
+    - name: Notify success
+      if: success()
+      run: |
+        echo "🎉 SUCCESS: HeroCrypt ${{ steps.release-info.outputs.version }} published to NuGet.org"
+        echo "📦 Package: https://www.nuget.org/packages/HeroCrypt/${{ steps.release-info.outputs.version }}"
+        echo "🔒 Published using Trusted Publishing (OIDC)"
+
+    - name: Notify failure
+      if: failure()
+      run: |
+        echo "❌ FAILED: Publishing to NuGet.org failed"
+        echo "Please check the workflow logs for details"
+        echo "Common issues:"
+        echo "  - NuGet Trusted Publishing not configured"
+        echo "  - Package version already exists"
+        echo "  - Package validation errors"

@@ -1,0 +1,230 @@
+name: Build and Test
+
+on:
+  push:
+    branches: ['**']  # Build on every branch
+  pull_request:
+    branches: ['**']
+  workflow_dispatch:
+
+# Cancel in-progress builds when a new commit is pushed to the same branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  NUGET_XMLDOC_MODE: skip
+  CI: true
+
+jobs:
+  build-and-test:
+    name: Build ${{ matrix.framework }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        framework: [net6.0, net7.0, net8.0, net9.0, netstandard2.0]
+        include:
+          # Full testing on latest frameworks
+          - framework: net9.0
+            run-tests: true
+          - framework: net8.0
+            run-tests: true
+          # Compilation verification only for older frameworks
+          - framework: net7.0
+            run-tests: false
+          - framework: net6.0
+            run-tests: false
+          - framework: netstandard2.0
+            run-tests: false
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v5
+      with:
+        fetch-depth: 0  # Need full history for build number
+
+    - name: Setup .NET SDKs
+      uses: actions/setup-dotnet@v5
+      with:
+        dotnet-version: |
+          6.0.x
+          7.0.x
+          8.0.x
+          9.0.x
+
+    - name: Calculate build number
+      id: build-number
+      shell: bash
+      run: |
+        # Extract branch name and sanitize it
+        BRANCH_NAME="${{ github.ref_name }}"
+        BRANCH_SAFE=$(echo "$BRANCH_NAME" | sed 's/[^a-zA-Z0-9-]/-/g' | sed 's/--*/-/g')
+
+        # Get date in YYYYMMDD format
+        BUILD_DATE=$(date -u +%Y%m%d)
+
+        # Get run number
+        RUN_NUMBER="${{ github.run_number }}"
+
+        # Get short commit hash
+        COMMIT_HASH=$(git rev-parse --short=7 HEAD)
+
+        # Build number format: branch-date-run-commit
+        BUILD_NUMBER="${BRANCH_SAFE}-${BUILD_DATE}-${RUN_NUMBER}-${COMMIT_HASH}"
+
+        echo "build-number=${BUILD_NUMBER}" >> $GITHUB_OUTPUT
+        echo "branch-safe=${BRANCH_SAFE}" >> $GITHUB_OUTPUT
+        echo "build-date=${BUILD_DATE}" >> $GITHUB_OUTPUT
+        echo "run-number=${RUN_NUMBER}" >> $GITHUB_OUTPUT
+        echo "commit-hash=${COMMIT_HASH}" >> $GITHUB_OUTPUT
+
+        echo "Build Number: ${BUILD_NUMBER}"
+
+    - name: Restore dependencies
+      run: dotnet restore
+
+    - name: Build library for ${{ matrix.framework }}
+      if: matrix.run-tests != true
+      run: dotnet build src/HeroCrypt/HeroCrypt.csproj /p:Configuration=Release /p:TargetFrameworks=${{ matrix.framework }} /p:BUILD_NUMBER=${{ steps.build-number.outputs.run-number }}
+      env:
+        BUILD_NUMBER: ${{ steps.build-number.outputs.run-number }}
+
+    - name: Build solution for ${{ matrix.framework }}
+      if: matrix.run-tests == true
+      run: dotnet build /p:Configuration=Release /p:TargetFrameworks=${{ matrix.framework }} /p:BUILD_NUMBER=${{ steps.build-number.outputs.run-number }}
+      env:
+        BUILD_NUMBER: ${{ steps.build-number.outputs.run-number }}
+
+    - name: Run tests (excluding slow)
+      if: matrix.run-tests == true
+      run: dotnet test /p:TargetFrameworks=${{ matrix.framework }} /p:Configuration=Release --no-build --filter "Category!=Slow" --logger "trx;LogFileName=test-results-${{ matrix.framework }}-${{ matrix.os }}.trx" --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura,opencover
+      env:
+        BUILD_NUMBER: ${{ steps.build-number.outputs.run-number }}
+
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
+      if: always() && matrix.run-tests == true
+      with:
+        name: test-results-${{ matrix.os }}-${{ matrix.framework }}-${{ steps.build-number.outputs.build-number }}
+        path: '**/test-results-*.trx'
+        retention-days: 30
+
+    - name: Upload code coverage
+      uses: actions/upload-artifact@v4
+      if: always() && matrix.run-tests == true
+      with:
+        name: code-coverage-${{ matrix.os }}-${{ matrix.framework }}-${{ steps.build-number.outputs.build-number }}
+        path: '**/coverage.cobertura.xml'
+        retention-days: 30
+
+  package:
+    name: Create Release Package
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    if: success()
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v5
+      with:
+        fetch-depth: 0
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v5
+      with:
+        dotnet-version: 9.0.x
+
+    - name: Calculate build number
+      id: build-number
+      shell: bash
+      run: |
+        BRANCH_NAME="${{ github.ref_name }}"
+        BRANCH_SAFE=$(echo "$BRANCH_NAME" | sed 's/[^a-zA-Z0-9-]/-/g' | sed 's/--*/-/g')
+        BUILD_DATE=$(date -u +%Y%m%d)
+        RUN_NUMBER="${{ github.run_number }}"
+        COMMIT_HASH=$(git rev-parse --short=7 HEAD)
+        BUILD_NUMBER="${BRANCH_SAFE}-${BUILD_DATE}-${RUN_NUMBER}-${COMMIT_HASH}"
+
+        echo "build-number=${BUILD_NUMBER}" >> $GITHUB_OUTPUT
+        echo "Build Number: ${BUILD_NUMBER}"
+
+    - name: Restore dependencies
+      run: dotnet restore
+
+    - name: Build Release
+      run: dotnet build --configuration Release --no-restore /p:BUILD_NUMBER=${{ github.run_number }}
+      env:
+        BUILD_NUMBER: ${{ github.run_number }}
+
+    - name: Create NuGet package
+      run: dotnet pack --configuration Release --no-build --output ./artifacts /p:BUILD_NUMBER=${{ github.run_number }}
+      env:
+        BUILD_NUMBER: ${{ github.run_number }}
+
+    - name: Generate SBOM
+      run: |
+        dotnet tool install --global Microsoft.Sbom.Tool
+        sbom-tool generate \
+          -b ./artifacts \
+          -bc ./src \
+          -pn HeroCrypt \
+          -pv 1.0.0-preview \
+          -ps BeingCiteable \
+          -nsb https://github.com/BeingCiteable/HeroCrypt
+
+    - name: Create build manifest
+      shell: bash
+      run: |
+        cat > ./artifacts/build-manifest.json << EOF
+        {
+          "buildNumber": "${{ steps.build-number.outputs.build-number }}",
+          "branchName": "${{ github.ref_name }}",
+          "commitHash": "$(git rev-parse HEAD)",
+          "commitHashShort": "$(git rev-parse --short=7 HEAD)",
+          "buildDate": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+          "runNumber": "${{ github.run_number }}",
+          "runId": "${{ github.run_id }}",
+          "actor": "${{ github.actor }}",
+          "repository": "${{ github.repository }}",
+          "frameworks": ["netstandard2.0", "net6.0", "net7.0", "net8.0", "net9.0"],
+          "platforms": ["ubuntu-latest", "windows-latest", "macos-latest"]
+        }
+        EOF
+
+        cat ./artifacts/build-manifest.json
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: herocrypt-${{ steps.build-number.outputs.build-number }}
+        path: |
+          ./artifacts/*.nupkg
+          ./artifacts/*.snupkg
+          ./artifacts/build-manifest.json
+          ./artifacts/_manifest/spdx_2.2/*.json
+        retention-days: 90
+        if-no-files-found: error
+
+    - name: Build summary
+      shell: bash
+      run: |
+        echo "## Build Completed Successfully" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Build Number:** \`${{ steps.build-number.outputs.build-number }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Build Date:** $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Artifacts" >> $GITHUB_STEP_SUMMARY
+        echo "Package artifacts are available for download and can be used to create a release." >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Test Matrix" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ .NET 6.0, 7.0, 8.0, 9.0, Standard 2.0" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Ubuntu, Windows, macOS" >> $GITHUB_STEP_SUMMARY

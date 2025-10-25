@@ -166,18 +166,27 @@ internal static class RabbitCore
     private static void IvSetup(ref RabbitState state, ReadOnlySpan<byte> iv)
     {
         // Convert IV to 32-bit words (little-endian)
+        // iv0 = IV[31..0], iv1 = IV[63..32]
         var iv0 = (uint)(iv[0] | (iv[1] << 8) | (iv[2] << 16) | (iv[3] << 24));
         var iv1 = (uint)(iv[4] | (iv[5] << 8) | (iv[6] << 16) | (iv[7] << 24));
 
-        // Modify counters based on IV
+        // Modify counters based on IV (RFC 4503 Section 2.4)
+        // C0 = C0 ^ IV[31..0]
         state.C[0] ^= iv0;
+        // C1 = C1 ^ (IV[63..48] || IV[31..16])
         state.C[1] ^= (iv1 & 0xFFFF0000) | (iv0 >> 16);
+        // C2 = C2 ^ IV[63..32]
         state.C[2] ^= iv1;
-        state.C[3] ^= (iv0 & 0xFFFF0000) | (iv1 >> 16);
+        // C3 = C3 ^ (IV[47..32] || IV[15..0])
+        state.C[3] ^= ((iv1 & 0xFFFF) << 16) | (iv0 & 0xFFFF);
+        // C4 = C4 ^ IV[31..0]
         state.C[4] ^= iv0;
+        // C5 = C5 ^ (IV[63..48] || IV[31..16])
         state.C[5] ^= (iv1 & 0xFFFF0000) | (iv0 >> 16);
+        // C6 = C6 ^ IV[63..32]
         state.C[6] ^= iv1;
-        state.C[7] ^= (iv0 & 0xFFFF0000) | (iv1 >> 16);
+        // C7 = C7 ^ (IV[47..32] || IV[15..0])
+        state.C[7] ^= ((iv1 & 0xFFFF) << 16) | (iv0 & 0xFFFF);
 
         // Iterate system 4 times
         for (var i = 0; i < 4; i++)

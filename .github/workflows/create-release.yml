@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       build-number:
-        description: 'Build number to release (e.g., main-20241025-123-abc1234)'
+        description: 'Build number to release (e.g., main-20241025.123.abc1234)'
         required: true
         type: string
       prerelease:
@@ -31,7 +31,7 @@ env:
   CI: true
 
 jobs:
-  validate-and-release:
+  create-release:
     name: Create Release v${{ inputs.version }}
     runs-on: ubuntu-latest
     environment:
@@ -41,18 +41,6 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v5
-      with:
-        fetch-depth: 0
-        token: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v5
-      with:
-        dotnet-version: |
-          6.0.x
-          7.0.x
-          8.0.x
-          9.0.x
 
     - name: Validate version format
       run: |
@@ -65,6 +53,7 @@ jobs:
 
     - name: Check if tag already exists
       run: |
+        git fetch --tags
         if git tag -l | grep -q "^v${{ inputs.version }}$"; then
           echo "❌ Error: Tag v${{ inputs.version }} already exists"
           echo "Existing tags:"
@@ -107,67 +96,6 @@ jobs:
         echo "📋 Build Manifest:"
         cat ./release-artifacts/build-manifest.json
 
-    - name: Update version in codebase
-      run: |
-        echo "📝 Updating version to ${{ inputs.version }}"
-
-        # Update Directory.Build.props
-        sed -i "s|<VersionPrefix>.*</VersionPrefix>|<VersionPrefix>${{ inputs.version }}</VersionPrefix>|g" Directory.Build.props
-
-        # Update AssemblyVersion (major.minor.0 for binary compatibility)
-        VERSION_MAJOR_MINOR=$(echo "${{ inputs.version }}" | sed 's/-.*//' | cut -d'.' -f1,2)
-        sed -i "s|<AssemblyVersion>.*</AssemblyVersion>|<AssemblyVersion>${VERSION_MAJOR_MINOR}.0</AssemblyVersion>|g" Directory.Build.props
-
-        echo "✅ Version updated in Directory.Build.props"
-
-        # Show changes
-        git diff Directory.Build.props
-
-    - name: Run RFC compliance tests
-      run: |
-        echo "🧪 Running RFC compliance tests..."
-        dotnet restore
-        dotnet build --configuration Release
-        dotnet test --filter "Category=Compliance" --configuration Release --logger "console;verbosity=detailed" --no-build
-
-        echo "✅ RFC compliance tests passed"
-
-    - name: Run critical security tests
-      run: |
-        echo "🔒 Running security validation tests..."
-        dotnet test --filter "Category=Security|Category=Critical" --configuration Release --logger "console;verbosity=detailed" --no-build
-
-        echo "✅ Security tests passed"
-
-    - name: Commit version update
-      run: |
-        git config user.name "github-actions[bot]"
-        git config user.email "github-actions[bot]@users.noreply.github.com"
-
-        git add Directory.Build.props
-        git commit -m "Release v${{ inputs.version }}
-
-        Build Number: ${{ inputs.build-number }}
-        Released by: ${{ github.actor }}
-        Release Date: $(date -u +%Y-%m-%dT%H:%M:%SZ)
-        " || echo "No changes to commit"
-
-    - name: Create git tag
-      run: |
-        git tag -a "v${{ inputs.version }}" -m "Release v${{ inputs.version }}
-
-        Build Number: ${{ inputs.build-number }}
-        Released by: ${{ github.actor }}
-        Release Date: $(date -u +%Y-%m-%dT%H:%M:%SZ)
-        "
-        echo "✅ Created tag v${{ inputs.version }}"
-
-    - name: Push changes and tag
-      run: |
-        git push origin HEAD:${{ github.ref_name }}
-        git push origin v${{ inputs.version }}
-        echo "✅ Pushed version update and tag"
-
     - name: Generate release notes
       id: release-notes
       run: |
@@ -186,15 +114,14 @@ jobs:
         ### 📦 Package Information
         - **Version:** ${{ inputs.version }}
         - **Build Number:** ${{ inputs.build-number }}
-        - **Build Date:** $(date -u +%Y-%m-%d)
+        - **Build Date:** ${BUILD_DATE}
         - **NuGet:** [HeroCrypt ${{ inputs.version }}](https://www.nuget.org/packages/HeroCrypt/${{ inputs.version }})
 
         ### 🔒 Security & Compliance
-        - ✅ Argon2 (RFC 9106): Fully compliant with test vectors
-        - ✅ Blake2b (RFC 7693): Fully compliant
-        - ✅ ChaCha20-Poly1305 (RFC 8439): Fully compliant
-        - ✅ Curve25519 (RFC 7748): Fully compliant
-        - ✅ All security tests passed
+        - ✅ RFC 9106 (Argon2): Fully compliant
+        - ✅ RFC 7693 (Blake2b): Fully compliant
+        - ✅ RFC 8439 (ChaCha20-Poly1305): Fully compliant
+        - ✅ RFC 7748 (Curve25519): Fully compliant
 
         ### 🎯 Target Frameworks
         - .NET Standard 2.0
@@ -254,15 +181,10 @@ jobs:
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "## Links" >> $GITHUB_STEP_SUMMARY
         echo "- 🔗 [GitHub Release](https://github.com/${{ github.repository }}/releases/tag/v${{ inputs.version }})" >> $GITHUB_STEP_SUMMARY
-        echo "- 📦 [NuGet Package](https://www.nuget.org/packages/HeroCrypt/${{ inputs.version }})" >> $GITHUB_STEP_SUMMARY
+        echo "- 📦 [NuGet Package](https://www.nuget.org/packages/HeroCrypt/${{ inputs.version }}) (available after publishing)" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "## Next Steps" >> $GITHUB_STEP_SUMMARY
         echo "The **Publish to NuGet** workflow will automatically trigger to publish this release to NuGet.org" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "✅ All RFC compliance tests passed" >> $GITHUB_STEP_SUMMARY
-        echo "✅ All security tests passed" >> $GITHUB_STEP_SUMMARY
-        echo "✅ Git tag created and pushed" >> $GITHUB_STEP_SUMMARY
-        echo "✅ GitHub release published" >> $GITHUB_STEP_SUMMARY
 
     - name: Trigger notification
       if: success()

@@ -112,15 +112,11 @@ Manual workflow dispatch only
 2. ✅ Checks tag doesn't already exist
 3. ✅ Downloads specified build artifacts
 4. ✅ Verifies artifact integrity
-5. ✅ Updates version in `Directory.Build.props`
-6. ✅ Runs RFC compliance tests (final validation)
-7. ✅ Runs security validation tests (final validation)
-8. ✅ Commits version update
-9. ✅ Creates git tag (`v{version}`)
-10. ✅ Pushes changes and tag
-11. ✅ Creates GitHub Release with artifacts
+5. ✅ Generates release notes (from input + build manifest)
+6. ✅ Creates GitHub Release with git tag (`v{version}`)
+7. ✅ Attaches artifacts (.nupkg, .snupkg, build-manifest.json)
 
-**Note:** RFC compliance and security tests already run during the build phase. These are re-run during release as a final quality gate.
+**Simple and Clean:** No code changes, no test runs, no version updates. Just takes your pre-validated build artifacts and creates a release.
 
 ### Environment
 - **Name:** `production`
@@ -233,35 +229,40 @@ gh workflow run publish-nuget.yml \
 
 ---
 
-## 🔒 Security Workflows
+## 🔒 Security & Quality
 
-### GitHub Default CodeQL
-**Configuration:** GitHub's default CodeQL setup (automatic)
+### GitHub Security Features
+GitHub provides built-in security features that you can enable:
 
-GitHub's default CodeQL setup provides:
-- Automatic security scanning
-- Always up-to-date with latest security rules
-- Integrated into GitHub Security tab
-- No workflow configuration needed
+1. **CodeQL Analysis** (Recommended)
+   - Go to **Settings** → **Code security and analysis**
+   - Enable **CodeQL analysis** (default setup)
+   - Select **C#** as the language
+   - Automatic security scanning with always up-to-date rules
 
-**To enable:**
-1. Go to repository **Settings** → **Code security and analysis**
-2. Enable **CodeQL analysis** (default setup)
-3. Select languages to scan (C#)
+2. **Dependabot Alerts** (Recommended)
+   - Automatic vulnerability detection in dependencies
+   - Security advisories and patch suggestions
 
-### Security Scan Workflow
-**File:** `security-scan.yml`
+3. **Secret Scanning** (Recommended)
+   - Automatic detection of exposed secrets
+   - Prevents accidental credential commits
 
-Provides additional security checks beyond CodeQL:
-- **Dependency Review:** Vulnerability detection in dependencies
-- **Secrets Scanning:** TruffleHog for exposed credentials
-- **Cryptographic Validation:** RFC compliance and test vector verification
+4. **Dependency Graph**
+   - Visualize project dependencies
+   - Track dependency updates
 
-**Triggers:**
-- Push to main/develop
-- Pull requests
-- Weekly schedule (Mondays)
-- Manual dispatch
+**Note:** All these features are configured in **Settings** → **Code security and analysis**
+
+### RFC Compliance & Security Tests
+Built into the **Build and Test** workflow:
+- ✅ RFC 9106 (Argon2) compliance tests
+- ✅ RFC 7693 (Blake2b) compliance tests
+- ✅ RFC 8439 (ChaCha20-Poly1305) compliance tests
+- ✅ RFC 7748 (Curve25519) compliance tests
+- ✅ Security validation (constant-time ops, secure memory)
+
+These tests run on **every build** before artifacts are created.
 
 ### Dependabot Auto-merge
 **File:** `dependabot-automerge.yml`
@@ -379,14 +380,13 @@ gh run view {run-id} --log
 - **Development:** Automatically handled by `Directory.Build.props`
 
 ### Release Checklist
-- [ ] All tests passing on main branch
+- [ ] All tests passing on main branch (check build workflow)
 - [ ] Code review completed
 - [ ] Documentation updated
 - [ ] CHANGELOG.md updated (if exists)
-- [ ] RFC compliance tests passing
-- [ ] Security tests passing
-- [ ] Build artifacts verified
+- [ ] Build artifacts available and verified
 - [ ] NuGet Trusted Publishing configured
+- [ ] Release notes prepared
 
 ### Rollback Process
 If you need to rollback a release:
@@ -422,7 +422,7 @@ If you need to rollback a release:
 - Verify build artifact exists and is correct
 - Check version format (must be semver)
 - Ensure tag doesn't already exist
-- Verify RFC compliance tests pass
+- Check artifact name matches build number
 
 ### NuGet Publishing Fails
 **Error: "Authentication failed"**
@@ -465,10 +465,11 @@ dotnet nuget push *.nupkg \
 
 Old workflows have been moved to `archive/` for reference:
 - `archive/build.yml` - Old build pipeline
-- `archive/release.yml` - Old release pipeline
+- `archive/release.yml` - Old release pipeline (included version updates and test re-runs)
 - `archive/nightly.yml` - Nightly test suite
 - `archive/hotfix-release.yml` - Hotfix workflow
 - `archive/rollback.yml` - Rollback workflow
+- `archive/security-scan.yml` - Custom security scanning (replaced by GitHub's built-in features)
 
 These workflows are kept for reference but are no longer active.
 

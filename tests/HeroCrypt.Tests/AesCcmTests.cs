@@ -212,8 +212,10 @@ public class AesCcmTests
     [Trait("Category", TestCategories.Fast)]
     public void AesCcm_LargeData_Success()
     {
-        // Arrange - 1 MB of data
-        var plaintext = new byte[1024 * 1024];
+        // Arrange - 60 KB of data (within AES-CCM limit of 65,535 bytes for 13-byte nonce)
+        // AES-CCM max plaintext = 2^(8*L) - 1 where L = 15 - nonceSize
+        // For 13-byte nonce: L=2, max = 2^16 - 1 = 65,535 bytes
+        var plaintext = new byte[60 * 1024]; // 61,440 bytes
         new Random(42).NextBytes(plaintext);
         var key = _aeadService.GenerateKey(AeadAlgorithm.Aes256Ccm);
         var nonce = _aeadService.GenerateNonce(AeadAlgorithm.Aes256Ccm);

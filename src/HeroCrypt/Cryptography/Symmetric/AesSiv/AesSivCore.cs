@@ -185,7 +185,7 @@ internal static class AesSivCore
             t.CopyTo(combined.AsSpan(xorLen));
 
             AesCmacCore.ComputeTag(output, combined, key);
-            Array.Clear(combined);
+            Array.Clear(combined, 0, combined.Length);
         }
         else
         {

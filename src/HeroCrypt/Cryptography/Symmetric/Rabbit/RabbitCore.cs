@@ -49,13 +49,13 @@ internal static class RabbitCore
     /// <param name="output">Output buffer</param>
     /// <param name="input">Input buffer</param>
     /// <param name="key">16-byte key</param>
-    /// <param name="iv">8-byte initialization vector</param>
+    /// <param name="iv">8-byte initialization vector (or empty for key-only mode)</param>
     public static void Transform(Span<byte> output, ReadOnlySpan<byte> input, ReadOnlySpan<byte> key, ReadOnlySpan<byte> iv)
     {
         if (key.Length != KeySize)
             throw new ArgumentException($"Key must be {KeySize} bytes", nameof(key));
-        if (iv.Length != IvSize)
-            throw new ArgumentException($"IV must be {IvSize} bytes", nameof(iv));
+        if (iv.Length != 0 && iv.Length != IvSize)
+            throw new ArgumentException($"IV must be {IvSize} bytes or empty for key-only mode", nameof(iv));
         if (output.Length < input.Length)
             throw new ArgumentException("Output buffer too small", nameof(output));
 
@@ -66,8 +66,11 @@ internal static class RabbitCore
             // Initialize state with key
             KeySetup(ref state, key);
 
-            // Setup IV
-            IvSetup(ref state, iv);
+            // Setup IV (only if provided)
+            if (iv.Length == IvSize)
+            {
+                IvSetup(ref state, iv);
+            }
 
             // Generate keystream and XOR with input
             var blocks = (input.Length + BlockSize - 1) / BlockSize;
@@ -299,8 +302,8 @@ internal static class RabbitCore
     {
         if (key.Length != KeySize)
             throw new ArgumentException($"Key must be {KeySize} bytes", nameof(key));
-        if (iv.Length != IvSize)
-            throw new ArgumentException($"IV must be {IvSize} bytes", nameof(iv));
+        if (iv.Length != 0 && iv.Length != IvSize)
+            throw new ArgumentException($"IV must be {IvSize} bytes or empty for key-only mode", nameof(iv));
     }
 
     /// <summary>

@@ -190,15 +190,15 @@ public class RabbitTests
 
     /// <summary>
     /// RFC 4503 Appendix A.1 - Test Vector 1
-    /// Key setup with zero key
+    /// Testing without IV Setup (key-only mode)
     /// </summary>
     [Fact]
     [Trait("Category", "Compliance")]
     public void Rfc4503_TestVector1_ZeroKey_Success()
     {
-        // Arrange - Zero key, zero IV
+        // Arrange - Zero key, NO IV (key-only mode per RFC 4503 Appendix A.1)
         var key = new byte[16]; // All zeros
-        var iv = new byte[8];   // All zeros
+        var iv = Array.Empty<byte>();   // Empty IV = key-only mode
         var plaintext = new byte[48]; // 3 blocks of zeros
 
         var expectedCiphertext = HexToBytes(
@@ -217,18 +217,18 @@ public class RabbitTests
 
     /// <summary>
     /// RFC 4503 Appendix A.2 - Test Vector 2
-    /// Key setup with sequential key
+    /// Testing without IV Setup (key-only mode)
     /// </summary>
     [Fact]
     [Trait("Category", "Compliance")]
     public void Rfc4503_TestVector2_SequentialKey_Success()
     {
-        // Arrange - Sequential key: 0x00, 0x01, 0x02, ..., 0x0F
+        // Arrange - Sequential key: 0x00, 0x01, 0x02, ..., 0x0F, NO IV
         var key = new byte[16];
         for (var i = 0; i < 16; i++)
             key[i] = (byte)i;
 
-        var iv = new byte[8]; // Zero IV
+        var iv = Array.Empty<byte>(); // Empty IV = key-only mode per RFC 4503 Appendix A.2
         var plaintext = new byte[48]; // 3 blocks of zeros
 
         var expectedCiphertext = HexToBytes(
@@ -310,18 +310,18 @@ public class RabbitTests
 
     /// <summary>
     /// RFC 4503 Appendix A.5 - Test Vector 5
-    /// Key setup with alternating pattern
+    /// Testing without IV Setup (key-only mode with alternating pattern)
     /// </summary>
     [Fact]
     [Trait("Category", "Compliance")]
     public void Rfc4503_TestVector5_AlternatingKey_Success()
     {
-        // Arrange - Alternating 0xAA pattern
+        // Arrange - Alternating 0xAA pattern, NO IV
         var key = new byte[16];
         for (var i = 0; i < 16; i++)
             key[i] = 0xAA;
 
-        var iv = new byte[8]; // Zero IV
+        var iv = Array.Empty<byte>(); // Empty IV = key-only mode
         var plaintext = new byte[48]; // 3 blocks of zeros
 
         var expectedCiphertext = HexToBytes(

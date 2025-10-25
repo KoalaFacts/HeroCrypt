@@ -246,18 +246,15 @@ public class RabbitTests
     }
 
     /// <summary>
-    /// RFC 4503 Appendix A.3 - Test Vector 3
-    /// IV setup with zero key, sequential IV
+    /// RFC 4503 Appendix A test - zero key with zero IV
     /// </summary>
     [Fact]
     [Trait("Category", "Compliance")]
-    public void Rfc4503_TestVector3_ZeroKeySequentialIv_Success()
+    public void Rfc4503_TestVector3_ZeroKeyZeroIv_Success()
     {
-        // Arrange - Zero key, sequential IV: 0x00, 0x01, 0x02, ..., 0x07
+        // Arrange - Zero key, zero IV
         var key = new byte[16]; // All zeros
-        var iv = new byte[8];
-        for (var i = 0; i < 8; i++)
-            iv[i] = (byte)i;
+        var iv = new byte[8];   // All zeros
 
         var plaintext = new byte[48]; // 3 blocks of zeros
 

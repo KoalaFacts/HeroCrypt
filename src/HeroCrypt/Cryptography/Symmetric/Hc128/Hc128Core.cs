@@ -115,7 +115,7 @@ internal static class Hc128Core
             // Generate expanded key using message expansion
             for (var i = 16; i < 1280; i++)
             {
-                w[i] = F2(w[i - 2]) + w[i - 7] + F1(w[i - 15]) + w[i - 16] + i;
+                w[i] = F2(w[i - 2]) + w[i - 7] + F1(w[i - 15]) + w[i - 16] + (uint)i;
             }
 
             // Initialize P and Q tables

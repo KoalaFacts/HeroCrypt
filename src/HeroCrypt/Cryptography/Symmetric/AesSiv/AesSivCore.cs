@@ -330,4 +330,16 @@ internal static class AesSivCore
         if (plaintextLength < 0)
             throw new ArgumentException("Invalid plaintext length", nameof(plaintextLength));
     }
+
+    /// <summary>
+    /// Validates AES-SIV key and nonce parameters (public for testing)
+    /// </summary>
+    public static void ValidateParameters(ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce)
+    {
+        if (!SupportedKeySizes.Contains(key.Length))
+            throw new ArgumentException($"Key must be 32, 48, or 64 bytes (AES-SIV-128/192/256)", nameof(key));
+
+        // Nonce can be any length in AES-SIV (it's flexible)
+        // No specific validation needed for nonce
+    }
 }

@@ -76,8 +76,8 @@ jobs:
         # Get short commit hash
         COMMIT_HASH=$(git rev-parse --short=7 HEAD)
 
-        # Build number format: branch-date-run-commit
-        BUILD_NUMBER="${BRANCH_SAFE}-${BUILD_DATE}-${RUN_NUMBER}-${COMMIT_HASH}"
+        # Build number format: branch-YYYYMMDD.run.commit
+        BUILD_NUMBER="${BRANCH_SAFE}-${BUILD_DATE}.${RUN_NUMBER}.${COMMIT_HASH}"
 
         echo "build-number=${BUILD_NUMBER}" >> $GITHUB_OUTPUT
         echo "branch-safe=${BRANCH_SAFE}" >> $GITHUB_OUTPUT
@@ -150,7 +150,7 @@ jobs:
         BUILD_DATE=$(date -u +%Y%m%d)
         RUN_NUMBER="${{ github.run_number }}"
         COMMIT_HASH=$(git rev-parse --short=7 HEAD)
-        BUILD_NUMBER="${BRANCH_SAFE}-${BUILD_DATE}-${RUN_NUMBER}-${COMMIT_HASH}"
+        BUILD_NUMBER="${BRANCH_SAFE}-${BUILD_DATE}.${RUN_NUMBER}.${COMMIT_HASH}"
 
         echo "build-number=${BUILD_NUMBER}" >> $GITHUB_OUTPUT
         echo "Build Number: ${BUILD_NUMBER}"

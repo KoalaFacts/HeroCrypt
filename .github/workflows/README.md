@@ -44,11 +44,12 @@ Builds and tests the codebase on every commit across multiple .NET frameworks an
 
 ### Build Number Format
 ```
-{branch-name}-{date}-{run-number}-{commit-hash}
+{branch-name}-{date}.{run-number}.{commit-hash}
 
 Examples:
-  main-20241025-123-abc1234
-  feature-auth-20241025-45-def5678
+  main-20241025.123.abc1234
+  develop-20241025.45.def5678
+  feature-auth-20241025.12.ghi9012
 ```
 
 ### Build Matrix
@@ -94,7 +95,7 @@ Manual workflow dispatch only
 | Input | Description | Example |
 |-------|-------------|---------|
 | `version` | Semantic version number | `1.0.0` or `1.0.0-beta.1` |
-| `build-number` | Build artifacts to use | `main-20241025-123-abc1234` |
+| `build-number` | Build artifacts to use | `main-20241025.123.abc1234` |
 | `prerelease` | Mark as pre-release | `true` / `false` |
 | `release-notes` | Additional notes (optional) | Feature description |
 
@@ -122,7 +123,7 @@ Manual workflow dispatch only
 2. Click **Run workflow**
 3. Fill in:
    - Version: `1.0.0`
-   - Build number: `main-20241025-123-abc1234`
+   - Build number: `main-20241025.123.abc1234`
    - Pre-release: `false`
    - Release notes: Optional description
 4. Click **Run workflow**
@@ -131,7 +132,7 @@ Manual workflow dispatch only
 ```bash
 gh workflow run create-release.yml \
   -f version=1.0.0 \
-  -f build-number=main-20241025-123-abc1234 \
+  -f build-number=main-20241025.123.abc1234 \
   -f prerelease=false \
   -f release-notes="Initial stable release"
 ```
@@ -222,14 +223,27 @@ gh workflow run publish-nuget.yml \
 
 ## 🔒 Security Workflows
 
+### GitHub Default CodeQL
+**Configuration:** GitHub's default CodeQL setup (automatic)
+
+GitHub's default CodeQL setup provides:
+- Automatic security scanning
+- Always up-to-date with latest security rules
+- Integrated into GitHub Security tab
+- No workflow configuration needed
+
+**To enable:**
+1. Go to repository **Settings** → **Code security and analysis**
+2. Enable **CodeQL analysis** (default setup)
+3. Select languages to scan (C#)
+
 ### Security Scan Workflow
 **File:** `security-scan.yml`
 
-Runs automated security checks:
-- **CodeQL Analysis:** Security and quality scanning
-- **Dependency Review:** Vulnerability detection
+Provides additional security checks beyond CodeQL:
+- **Dependency Review:** Vulnerability detection in dependencies
 - **Secrets Scanning:** TruffleHog for exposed credentials
-- **Cryptographic Validation:** RFC compliance tests
+- **Cryptographic Validation:** RFC compliance and test vector verification
 
 **Triggers:**
 - Push to main/develop
@@ -263,14 +277,14 @@ Automatically approves and merges:
 #### Step 2: Prepare for Release
 1. Merge feature branch to `main`
 2. **Build and Test workflow** runs on main
-3. Note the build number (e.g., `main-20241025-123-abc1234`)
+3. Note the build number (e.g., `main-20241025.123.abc1234`)
 4. Download and manually test artifacts (optional)
 
 #### Step 3: Create Release
 1. Go to **Actions** → **Create Release**
 2. Run workflow with:
    - Version: `1.0.0`
-   - Build number: `main-20241025-123-abc1234`
+   - Build number: `main-20241025.123.abc1234`
    - Pre-release: `false`
 3. Wait for completion
 4. Verify GitHub release is created
@@ -305,7 +319,7 @@ dotnet build
 ```bash
 gh workflow run create-release.yml \
   -f version=1.0.0-rc.1 \
-  -f build-number=main-20241025-123-abc1234 \
+  -f build-number=main-20241025.123.abc1234 \
   -f prerelease=true
 ```
 

@@ -217,24 +217,22 @@ public class RabbitTests
 
     /// <summary>
     /// RFC 4503 Appendix A.2 - Test Vector 2
-    /// Testing without IV Setup (key-only mode)
+    /// Testing without IV Setup
     /// </summary>
     [Fact]
     [Trait("Category", "Compliance")]
-    public void Rfc4503_TestVector2_SequentialKey_Success()
+    public void Rfc4503_TestVector2_SpecificKey_Success()
     {
-        // Arrange - Sequential key: 0x00, 0x01, 0x02, ..., 0x0F, NO IV
-        var key = new byte[16];
-        for (var i = 0; i < 16; i++)
-            key[i] = (byte)i;
+        // Arrange - Key: 0x912813292E3D36FE3BFC62F1DC51C3AC (little-endian), NO IV
+        var key = HexToBytes("ACC351DCF162FC3BFE363D2E29132891");
+        var iv = Array.Empty<byte>(); // Empty IV = key-only mode per RFC 4503 Appendix A.1
 
-        var iv = Array.Empty<byte>(); // Empty IV = key-only mode per RFC 4503 Appendix A.2
         var plaintext = new byte[48]; // 3 blocks of zeros
 
         var expectedCiphertext = HexToBytes(
             "9C51E28784C37FE9A127F63EC8F32D3D" +
             "19FC5485AA53BF96885B40F461CD76F5" +
-            "5E4C4D20203BE58A5043DBFB5A087C0D");
+            "5E4C4D20203BE58A5043DBFB737454E5");
 
         var ciphertext = new byte[plaintext.Length];
 
@@ -273,88 +271,79 @@ public class RabbitTests
     }
 
     /// <summary>
-    /// RFC 4503 Appendix A.4 - Test Vector 4
-    /// IV setup with sequential key and IV
+    /// RFC 4503 Appendix A - Test Vector 4
+    /// Testing with IV Setup
     /// </summary>
     [Fact]
     [Trait("Category", "Compliance")]
-    public void Rfc4503_TestVector4_SequentialKeyAndIv_Success()
+    public void Rfc4503_TestVector4_ZeroKeyIv1_Success()
     {
-        // Arrange - Sequential key and IV
-        var key = new byte[16];
-        for (var i = 0; i < 16; i++)
-            key[i] = (byte)i;
-
-        var iv = new byte[8];
-        for (var i = 0; i < 8; i++)
-            iv[i] = (byte)(7 - i); // 0x07, 0x06, ..., 0x00
-
-        var plaintext = new byte[48]; // 3 blocks of zeros
-
-        var expectedCiphertext = HexToBytes(
-            "E8 1B 26 F3 70 99 C6 1C 7C 24 D3 1E 98 2D F2 FE" +
-            "72 07 1F A8 B4 81 9F 82 4C 70 FB 4E 90 5D 6C 6C" +
-            "F4 F9 60 DD 61 DD 27 6D 86 6D 9E 49 51 D1 89 C2");
-
-        var ciphertext = new byte[plaintext.Length];
-
-        // Act
-        RabbitCore.Transform(ciphertext, plaintext, key, iv);
-
-        // Assert
-        Assert.Equal(expectedCiphertext, ciphertext);
-    }
-
-    /// <summary>
-    /// RFC 4503 Appendix A.5 - Test Vector 5
-    /// Testing without IV Setup (key-only mode with alternating pattern)
-    /// </summary>
-    [Fact]
-    [Trait("Category", "Compliance")]
-    public void Rfc4503_TestVector5_AlternatingKey_Success()
-    {
-        // Arrange - Alternating 0xAA pattern, NO IV
-        var key = new byte[16];
-        for (var i = 0; i < 16; i++)
-            key[i] = 0xAA;
-
-        var iv = Array.Empty<byte>(); // Empty IV = key-only mode
-        var plaintext = new byte[48]; // 3 blocks of zeros
-
-        var expectedCiphertext = HexToBytes(
-            "E5 04 0C B4 0C B4 5D 7C 2D 99 24 08 33 E7 13 2C" +
-            "35 58 EE 45 41 5D 7E 6B 2B 38 9B 3C 38 92 ED E8" +
-            "F7 81 1A A4 E5 FE 5D 88 5B 02 69 B0 DA F1 B8 8B");
-
-        var ciphertext = new byte[plaintext.Length];
-
-        // Act
-        RabbitCore.Transform(ciphertext, plaintext, key, iv);
-
-        // Assert
-        Assert.Equal(expectedCiphertext, ciphertext);
-    }
-
-    /// <summary>
-    /// RFC 4503 Appendix A.6 - Test Vector 6
-    /// IV setup with alternating pattern
-    /// </summary>
-    [Fact]
-    [Trait("Category", "Compliance")]
-    public void Rfc4503_TestVector6_AlternatingIv_Success()
-    {
-        // Arrange - Zero key, alternating 0x55 IV
+        // Arrange - Zero key, IV = 0xC373F575C1267E59 (little-endian)
         var key = new byte[16]; // All zeros
-        var iv = new byte[8];
-        for (var i = 0; i < 8; i++)
-            iv[i] = 0x55;
+        var iv = HexToBytes("597E26C175F573C3");
 
         var plaintext = new byte[48]; // 3 blocks of zeros
 
         var expectedCiphertext = HexToBytes(
-            "F0 53 12 95 AB F9 C8 82 6F 41 7E 98 12 BA C5 A2" +
-            "2E B5 FF 96 77 D2 40 E9 25 90 A9 F0 E7 C6 3F 3A" +
-            "B6 71 58 EE 1C 8F 6F 27 DE 48 C4 0D CB F9 F5 A0");
+            "6D7D012292CCDCE0E2120058B94ECD1F" +
+            "2E6F93EDFF99247B012521D1104E5FA7" +
+            "A79B0212D0BD56233938E793C312C1EB");
+
+        var ciphertext = new byte[plaintext.Length];
+
+        // Act
+        RabbitCore.Transform(ciphertext, plaintext, key, iv);
+
+        // Assert
+        Assert.Equal(expectedCiphertext, ciphertext);
+    }
+
+    /// <summary>
+    /// RFC 4503 Appendix A - Test Vector 5
+    /// Testing with IV Setup
+    /// </summary>
+    [Fact]
+    [Trait("Category", "Compliance")]
+    public void Rfc4503_TestVector5_ZeroKeyIv2_Success()
+    {
+        // Arrange - Zero key, IV = 0xA6EB561AD2F41727 (little-endian)
+        var key = new byte[16]; // All zeros
+        var iv = HexToBytes("2717F4D21A56EBA6");
+
+        var plaintext = new byte[48]; // 3 blocks of zeros
+
+        var expectedCiphertext = HexToBytes(
+            "4D1051A123AFB670BF8D8505C8D85A44" +
+            "035BC3ACC667AEAE5B2CF44779F2C896" +
+            "CB5115F034F03D31171CA75F89FCCB9F");
+
+        var ciphertext = new byte[plaintext.Length];
+
+        // Act
+        RabbitCore.Transform(ciphertext, plaintext, key, iv);
+
+        // Assert
+        Assert.Equal(expectedCiphertext, ciphertext);
+    }
+
+    /// <summary>
+    /// RFC 4503 Appendix A - Test Vector 6
+    /// Testing without IV Setup
+    /// </summary>
+    [Fact]
+    [Trait("Category", "Compliance")]
+    public void Rfc4503_TestVector6_SpecificKey2_Success()
+    {
+        // Arrange - Key: 0x8395741587E0C733E9E9AB01C09B0043 (little-endian), NO IV
+        var key = HexToBytes("43009BC001ABE9E933C7E08715749583");
+        var iv = Array.Empty<byte>(); // Empty IV = key-only mode
+
+        var plaintext = new byte[48]; // 3 blocks of zeros
+
+        var expectedCiphertext = HexToBytes(
+            "9B60D002FD5CEB32ACCD41A0CD0DB10C" +
+            "AD3EFF4C1192707B5A01170FCA9FFC95" +
+            "2874943AAD4741923F7FFC8BDEE54996");
 
         var ciphertext = new byte[plaintext.Length];
 

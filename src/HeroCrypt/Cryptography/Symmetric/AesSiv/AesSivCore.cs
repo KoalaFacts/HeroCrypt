@@ -118,7 +118,7 @@ internal static class AesSivCore
         S2V(expectedSiv, k1, associatedData, plaintext.Slice(0, plaintextLength), nonce);
 
         // Verify SIV in constant time
-        var sivMatch = ConstantTimeOperations.ConstantTimeEquals(receivedSiv, expectedSiv);
+        var sivMatch = SecureMemoryOperations.ConstantTimeEquals(receivedSiv, expectedSiv);
 
         // Clear sensitive data
         SecureMemoryOperations.SecureClear(expectedSiv);

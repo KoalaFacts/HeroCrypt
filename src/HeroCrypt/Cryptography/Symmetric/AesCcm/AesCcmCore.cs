@@ -145,7 +145,7 @@ internal static class AesCcmCore
         ComputeTag(expectedTag, plaintext.Slice(0, plaintextLength), associatedData, nonce, encryptor, tagSize);
 
         // Verify tag in constant time
-        var tagMatch = ConstantTimeOperations.ConstantTimeEquals(
+        var tagMatch = SecureMemoryOperations.ConstantTimeEquals(
             decryptedTag,
             expectedTag.Slice(0, tagSize));
 

@@ -204,7 +204,7 @@ internal static class AesCmacCore
         Span<byte> computedTag = stackalloc byte[BlockSize];
         ComputeTag(computedTag, data, key);
 
-        var result = ConstantTimeOperations.ConstantTimeEquals(tag, computedTag);
+        var result = SecureMemoryOperations.ConstantTimeEquals(tag, computedTag);
 
         // Clear computed tag
         SecureMemoryOperations.SecureClear(computedTag);

@@ -148,7 +148,7 @@ public class AesSivTests
     public void Transform_InvalidKeySize_ThrowsException()
     {
         // Arrange
-        var invalidKey = new byte[32]; // Should be 64 bytes for AES-256-SIV
+        var invalidKey = new byte[16]; // Invalid - must be 32, 48, or 64 bytes
         var plaintext = _testPlaintext;
         var ciphertext = new byte[plaintext.Length + AesSivCore.SivSize];
 
@@ -305,7 +305,7 @@ public class AesSivTests
     public void ValidateParameters_InvalidKey_ThrowsException()
     {
         // Arrange
-        var invalidKey = new byte[32];
+        var invalidKey = new byte[16]; // Invalid - must be 32, 48, or 64 bytes
 
         // Act & Assert
         Assert.Throws<ArgumentException>(() =>

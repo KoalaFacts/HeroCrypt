@@ -91,7 +91,7 @@ public class KeyDerivationService : IKeyDerivationService
         byte[]? info = null,
         HeroCryptHashAlgorithmName hashAlgorithm = default)
     {
-        InputValidator.ValidateHkdfParameters(ikm, salt, info, keyLength);
+        InputValidator.ValidateHkdfParameters(ikm, salt ?? Array.Empty<byte>(), info ?? Array.Empty<byte>(), keyLength);
 
         var algorithm = hashAlgorithm == default ? HeroCryptHashAlgorithmName.SHA256 : hashAlgorithm;
         _logger?.LogDebug("Deriving HKDF key with {Algorithm}, {KeyLength} bytes", algorithm.Name, keyLength);

@@ -42,20 +42,71 @@ public static class Blake2bCore
     /// <summary>
     /// Blake2b parameter block structure.
     /// </summary>
+    /// <summary>
+    /// Blake2b parameter block structure containing algorithm configuration
+    /// </summary>
     public struct Blake2bParams
     {
-        public byte DigestSize;      // 0: digest length (1-64)
-        public byte KeyLength;        // 1: key length (0-64)
-        public byte FanOut;          // 2: fanout
-        public byte Depth;           // 3: depth
-        public uint LeafLength;      // 4-7: leaf length
-        public ulong NodeOffset;     // 8-15: node offset
-        public byte NodeDepth;       // 16: node depth
-        public byte InnerLength;     // 17: inner length
-        public byte[] Reserved;      // 18-31: reserved
-        public byte[] Salt;          // 32-47: salt
-        public byte[] Personalization; // 48-63: personalization
+        /// <summary>
+        /// Digest length in bytes (1-64)
+        /// </summary>
+        public byte DigestSize;
 
+        /// <summary>
+        /// Key length in bytes (0-64, 0 for no key)
+        /// </summary>
+        public byte KeyLength;
+
+        /// <summary>
+        /// Fanout (0-255, 1 for sequential hashing)
+        /// </summary>
+        public byte FanOut;
+
+        /// <summary>
+        /// Depth (0-255, 1 for sequential hashing)
+        /// </summary>
+        public byte Depth;
+
+        /// <summary>
+        /// Leaf length (0 means unlimited)
+        /// </summary>
+        public uint LeafLength;
+
+        /// <summary>
+        /// Node offset for tree hashing
+        /// </summary>
+        public ulong NodeOffset;
+
+        /// <summary>
+        /// Node depth for tree hashing
+        /// </summary>
+        public byte NodeDepth;
+
+        /// <summary>
+        /// Inner hash length for tree hashing
+        /// </summary>
+        public byte InnerLength;
+
+        /// <summary>
+        /// Reserved bytes (must be zero)
+        /// </summary>
+        public byte[] Reserved;
+
+        /// <summary>
+        /// Salt value (16 bytes)
+        /// </summary>
+        public byte[] Salt;
+
+        /// <summary>
+        /// Personalization value (16 bytes)
+        /// </summary>
+        public byte[] Personalization;
+
+        /// <summary>
+        /// Creates default Blake2b parameters for sequential hashing
+        /// </summary>
+        /// <param name="outputLength">Output hash length in bytes (default: 64)</param>
+        /// <returns>Default Blake2b parameters</returns>
         public static Blake2bParams Default(int outputLength = 64)
         {
             return new Blake2bParams
@@ -74,6 +125,10 @@ public static class Blake2bCore
             };
         }
 
+        /// <summary>
+        /// Converts the parameter block to an array of 64-bit words
+        /// </summary>
+        /// <returns>Parameter block as 8 x 64-bit words</returns>
         public ulong[] ToWords()
         {
             var words = new ulong[8];
@@ -116,8 +171,15 @@ public static class Blake2bCore
     }
 
     /// <summary>
-    /// Computes a Blake2b hash with the specified parameters.
+    /// Computes a Blake2b hash with the specified parameters
     /// </summary>
+    /// <param name="input">Input data to hash</param>
+    /// <param name="outputLength">Output hash length in bytes (1-64, default: 64)</param>
+    /// <param name="key">Optional key for keyed hashing (max 64 bytes)</param>
+    /// <param name="salt">Optional salt value (must be exactly 16 bytes)</param>
+    /// <param name="personalization">Optional personalization value (must be exactly 16 bytes)</param>
+    /// <returns>Blake2b hash as byte array</returns>
+    /// <exception cref="ArgumentException">Thrown when parameters are invalid</exception>
     public static byte[] ComputeHash(
         byte[] input,
         int outputLength = 64,
@@ -152,8 +214,13 @@ public static class Blake2bCore
     }
 
     /// <summary>
-    /// Variable-length hash function (H' as per Argon2 specification).
+    /// Computes a Blake2b hash with arbitrary output length using the long hash construction
+    /// Used for Argon2 where hash outputs can exceed 64 bytes (H' as per Argon2 specification)
     /// </summary>
+    /// <param name="input">Input data to hash</param>
+    /// <param name="outputLength">Desired output length in bytes</param>
+    /// <returns>Blake2b long hash as byte array</returns>
+    /// <exception cref="ArgumentException">Thrown when output length is not positive</exception>
     public static byte[] ComputeLongHash(byte[] input, int outputLength)
     {
         if (outputLength < 1)

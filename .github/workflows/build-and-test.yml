@@ -109,7 +109,7 @@ jobs:
         BUILD_NUMBER: ${{ steps.build-number.outputs.run-number }}
 
     - name: Upload test results
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       if: always() && matrix.run-tests == true
       with:
         name: test-results-${{ matrix.os }}-${{ matrix.framework }}-${{ steps.build-number.outputs.build-number }}
@@ -117,7 +117,7 @@ jobs:
         retention-days: 30
 
     - name: Upload code coverage
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       if: always() && matrix.run-tests == true
       with:
         name: code-coverage-${{ matrix.os }}-${{ matrix.framework }}-${{ steps.build-number.outputs.build-number }}
@@ -202,7 +202,7 @@ jobs:
         cat ./artifacts/build-manifest.json
 
     - name: Upload build artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: herocrypt-${{ steps.build-number.outputs.build-number }}
         path: |

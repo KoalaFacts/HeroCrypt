@@ -103,8 +103,19 @@ public class ValidationMessage
 /// </summary>
 public enum ValidationSeverity
 {
+    /// <summary>
+    /// Informational message that does not indicate a problem
+    /// </summary>
     Info,
+
+    /// <summary>
+    /// Warning message indicating a potential issue that should be reviewed
+    /// </summary>
     Warning,
+
+    /// <summary>
+    /// Error message indicating a critical problem that must be addressed
+    /// </summary>
     Error
 }
 

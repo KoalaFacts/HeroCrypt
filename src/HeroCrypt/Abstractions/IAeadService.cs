@@ -212,6 +212,14 @@ public readonly struct AeadResult
     /// </summary>
     public double DurationMs { get; }
 
+    /// <summary>
+    /// Initializes a new instance of the AeadResult struct
+    /// </summary>
+    /// <param name="data">The encrypted or decrypted data</param>
+    /// <param name="algorithm">Algorithm used for the operation</param>
+    /// <param name="originalSize">Size of the original data before encryption/decryption</param>
+    /// <param name="hardwareAccelerated">Whether hardware acceleration was used</param>
+    /// <param name="durationMs">Operation duration in milliseconds</param>
     public AeadResult(byte[] data, AeadAlgorithm algorithm, int originalSize, bool hardwareAccelerated, double durationMs)
     {
         Data = data;

@@ -150,7 +150,21 @@ public enum AeadAlgorithm
     /// XChaCha20-Poly1305 - Extended nonce variant of ChaCha20-Poly1305
     /// Key: 32 bytes, Nonce: 24 bytes, Tag: 16 bytes
     /// </summary>
-    XChaCha20Poly1305 = 4
+    XChaCha20Poly1305 = 4,
+
+    /// <summary>
+    /// AES-128-CCM (Counter with CBC-MAC) - RFC 3610, IoT/Embedded optimized
+    /// Key: 16 bytes, Nonce: 7-13 bytes (typically 13), Tag: 4-16 bytes (even)
+    /// Used in: Bluetooth LE, Zigbee, Thread, 802.15.4
+    /// </summary>
+    Aes128Ccm = 5,
+
+    /// <summary>
+    /// AES-256-CCM (Counter with CBC-MAC) - RFC 3610, higher security variant
+    /// Key: 32 bytes, Nonce: 7-13 bytes (typically 13), Tag: 4-16 bytes (even)
+    /// Used in: Bluetooth LE, Zigbee, Thread, 802.15.4
+    /// </summary>
+    Aes256Ccm = 6
 }
 
 /// <summary>

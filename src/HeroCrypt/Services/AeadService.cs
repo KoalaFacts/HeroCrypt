@@ -1,6 +1,7 @@
 using HeroCrypt.Abstractions;
 using HeroCrypt.Cryptography.Symmetric.ChaCha20Poly1305;
 using HeroCrypt.Cryptography.Symmetric.XChaCha20Poly1305;
+using HeroCrypt.Cryptography.Symmetric.AesCcm;
 using HeroCrypt.Security;
 using Microsoft.Extensions.Logging;
 using System.Diagnostics;
@@ -366,6 +367,8 @@ public class AeadService : IAeadService
             AeadAlgorithm.XChaCha20Poly1305 => XChaCha20Poly1305Core.KeySize,
             AeadAlgorithm.Aes128Gcm => 16, // AES-128 key size
             AeadAlgorithm.Aes256Gcm => 32, // AES-256 key size
+            AeadAlgorithm.Aes128Ccm => 16, // AES-128 key size
+            AeadAlgorithm.Aes256Ccm => 32, // AES-256 key size
             _ => throw new NotSupportedException($"Algorithm {algorithm} is not supported")
         };
     }
@@ -379,6 +382,8 @@ public class AeadService : IAeadService
             AeadAlgorithm.XChaCha20Poly1305 => XChaCha20Poly1305Core.NonceSize,
             AeadAlgorithm.Aes128Gcm => 12, // AES-GCM nonce size
             AeadAlgorithm.Aes256Gcm => 12, // AES-GCM nonce size
+            AeadAlgorithm.Aes128Ccm => AesCcmCore.DefaultNonceSize, // AES-CCM default nonce size
+            AeadAlgorithm.Aes256Ccm => AesCcmCore.DefaultNonceSize, // AES-CCM default nonce size
             _ => throw new NotSupportedException($"Algorithm {algorithm} is not supported")
         };
     }
@@ -392,6 +397,8 @@ public class AeadService : IAeadService
             AeadAlgorithm.XChaCha20Poly1305 => XChaCha20Poly1305Core.TagSize,
             AeadAlgorithm.Aes128Gcm => 16, // AES-GCM tag size
             AeadAlgorithm.Aes256Gcm => 16, // AES-GCM tag size
+            AeadAlgorithm.Aes128Ccm => AesCcmCore.DefaultTagSize, // AES-CCM default tag size
+            AeadAlgorithm.Aes256Ccm => AesCcmCore.DefaultTagSize, // AES-CCM default tag size
             _ => throw new NotSupportedException($"Algorithm {algorithm} is not supported")
         };
     }
@@ -408,6 +415,8 @@ public class AeadService : IAeadService
             AeadAlgorithm.XChaCha20Poly1305 => XChaCha20Poly1305Core.Encrypt(ciphertext, plaintext, key, nonce, associatedData),
             AeadAlgorithm.Aes128Gcm => EncryptAesGcm(ciphertext, plaintext, key, nonce, associatedData),
             AeadAlgorithm.Aes256Gcm => EncryptAesGcm(ciphertext, plaintext, key, nonce, associatedData),
+            AeadAlgorithm.Aes128Ccm => AesCcmCore.Encrypt(ciphertext, plaintext, key, nonce, associatedData),
+            AeadAlgorithm.Aes256Ccm => AesCcmCore.Encrypt(ciphertext, plaintext, key, nonce, associatedData),
             _ => throw new NotSupportedException($"Algorithm {algorithm} is not supported")
         };
     }
@@ -424,6 +433,8 @@ public class AeadService : IAeadService
             AeadAlgorithm.XChaCha20Poly1305 => XChaCha20Poly1305Core.Decrypt(plaintext, ciphertext, key, nonce, associatedData),
             AeadAlgorithm.Aes128Gcm => DecryptAesGcm(plaintext, ciphertext, key, nonce, associatedData),
             AeadAlgorithm.Aes256Gcm => DecryptAesGcm(plaintext, ciphertext, key, nonce, associatedData),
+            AeadAlgorithm.Aes128Ccm => AesCcmCore.Decrypt(plaintext, ciphertext, key, nonce, associatedData),
+            AeadAlgorithm.Aes256Ccm => AesCcmCore.Decrypt(plaintext, ciphertext, key, nonce, associatedData),
             _ => throw new NotSupportedException($"Algorithm {algorithm} is not supported")
         };
     }

@@ -8,12 +8,29 @@ using HeroCrypt.Cryptography.Blake2b;
 
 namespace HeroCrypt.Cryptography.Argon2;
 
+/// <summary>
+/// Core implementation of the Argon2 password hashing algorithm
+/// Implements RFC 9106 specification for Argon2d, Argon2i, and Argon2id variants
+/// </summary>
 public static class Argon2Core
 {
     private const int BlockSize = 1024;
     private const int Version = 0x13; // Argon2 version 19
 
-
+    /// <summary>
+    /// Computes an Argon2 hash using the specified parameters
+    /// </summary>
+    /// <param name="password">Password to hash</param>
+    /// <param name="salt">Salt value (should be at least 8 bytes)</param>
+    /// <param name="iterations">Number of iterations (time cost)</param>
+    /// <param name="memorySize">Memory usage in KB (must be at least 8 * parallelism)</param>
+    /// <param name="parallelism">Parallelism level (number of lanes)</param>
+    /// <param name="hashLength">Output hash length in bytes</param>
+    /// <param name="type">Argon2 variant to use</param>
+    /// <param name="associatedData">Optional associated data</param>
+    /// <param name="secret">Optional secret key</param>
+    /// <returns>Computed hash as byte array</returns>
+    /// <exception cref="ArgumentException">Thrown when parameters are invalid</exception>
     public static byte[] Hash(
         byte[] password,
         byte[] salt,

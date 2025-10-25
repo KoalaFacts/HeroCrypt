@@ -47,26 +47,16 @@ public class AeadBenchmark
             var xchachaResult = await BenchmarkXChaCha20Poly1305Async(data);
             results.XChaCha20Poly1305Results.Add(size, xchachaResult);
 
-            // Benchmark AES-GCM (if hardware acceleration is available)
+            // Benchmark AES-GCM (if available)
 #if NET6_0_OR_GREATER
-            if (true) // AES-GCM available in .NET 6+
+            var aes128Result = await BenchmarkAes128GcmAsync(data);
+            results.Aes128GcmResults.Add(size, aes128Result);
+
+            var aes256Result = await BenchmarkAes256GcmAsync(data);
+            results.Aes256GcmResults.Add(size, aes256Result);
 #else
-        if (false)
+            _logger?.LogWarning("AES-GCM not available in this .NET version");
 #endif
-            {
-                var aes128Result = await BenchmarkAes128GcmAsync(data);
-                results.Aes128GcmResults.Add(size, aes128Result);
-
-                var aes256Result = await BenchmarkAes256GcmAsync(data);
-                results.Aes256GcmResults.Add(size, aes256Result);
-            }
-            else
-            {
-                _logger?.LogWarning("AES hardware acceleration not available, using software fallback");
-
-                var aes128Result = await BenchmarkAes128GcmAsync(data);
-                results.Aes128GcmResults.Add(size, aes128Result);
-            }
         }
 
         _logger?.LogInformation("AEAD benchmarks completed");
@@ -78,7 +68,7 @@ public class AeadBenchmark
     /// <summary>
     /// Benchmarks ChaCha20-Poly1305 performance
     /// </summary>
-    private async Task<AlgorithmBenchmarkResult> BenchmarkChaCha20Poly1305Async(byte[] data)
+    private Task<AlgorithmBenchmarkResult> BenchmarkChaCha20Poly1305Async(byte[] data)
     {
         var key = new byte[ChaCha20Poly1305Core.KeySize];
         var nonce = new byte[ChaCha20Poly1305Core.NonceSize];
@@ -117,20 +107,20 @@ public class AeadBenchmark
             decryptTimes[i] = stopwatch.Elapsed.TotalMilliseconds * 1000;
         }
 
-        return new AlgorithmBenchmarkResult
+        return Task.FromResult(new AlgorithmBenchmarkResult
         {
             Algorithm = "ChaCha20-Poly1305",
             DataSize = data.Length,
             EncryptionTimes = encryptTimes,
             DecryptionTimes = decryptTimes,
             HardwareAccelerated = false // ChaCha20 is always software in our implementation
-        };
+        });
     }
 
     /// <summary>
     /// Benchmarks XChaCha20-Poly1305 performance
     /// </summary>
-    private async Task<AlgorithmBenchmarkResult> BenchmarkXChaCha20Poly1305Async(byte[] data)
+    private Task<AlgorithmBenchmarkResult> BenchmarkXChaCha20Poly1305Async(byte[] data)
     {
         var key = new byte[XChaCha20Poly1305Core.KeySize];
         var nonce = new byte[XChaCha20Poly1305Core.NonceSize];
@@ -169,20 +159,20 @@ public class AeadBenchmark
             decryptTimes[i] = stopwatch.Elapsed.TotalMilliseconds * 1000;
         }
 
-        return new AlgorithmBenchmarkResult
+        return Task.FromResult(new AlgorithmBenchmarkResult
         {
             Algorithm = "XChaCha20-Poly1305",
             DataSize = data.Length,
             EncryptionTimes = encryptTimes,
             DecryptionTimes = decryptTimes,
             HardwareAccelerated = false
-        };
+        });
     }
 
     /// <summary>
     /// Benchmarks AES-128-GCM performance
     /// </summary>
-    private async Task<AlgorithmBenchmarkResult> BenchmarkAes128GcmAsync(byte[] data)
+    private Task<AlgorithmBenchmarkResult> BenchmarkAes128GcmAsync(byte[] data)
     {
 #if NET6_0_OR_GREATER
         var key = new byte[16]; // AES-128 key size
@@ -230,24 +220,23 @@ public class AeadBenchmark
             decryptTimes[i] = stopwatch.Elapsed.TotalMilliseconds * 1000;
         }
 
-        return new AlgorithmBenchmarkResult
+        return Task.FromResult(new AlgorithmBenchmarkResult
         {
             Algorithm = "AES-128-GCM",
             DataSize = data.Length,
             EncryptionTimes = encryptTimes,
             DecryptionTimes = decryptTimes,
             HardwareAccelerated = true // AES-GCM hardware acceleration in .NET 6+
-        };
+        });
 #else
-        await Task.CompletedTask;
-        throw new NotSupportedException("AES-GCM requires .NET 6 or higher");
+        return Task.FromException<AlgorithmBenchmarkResult>(new NotSupportedException("AES-GCM requires .NET 6 or higher"));
 #endif
     }
 
     /// <summary>
     /// Benchmarks AES-256-GCM performance
     /// </summary>
-    private async Task<AlgorithmBenchmarkResult> BenchmarkAes256GcmAsync(byte[] data)
+    private Task<AlgorithmBenchmarkResult> BenchmarkAes256GcmAsync(byte[] data)
     {
 #if NET6_0_OR_GREATER
         var key = new byte[32]; // AES-256 key size
@@ -295,17 +284,16 @@ public class AeadBenchmark
             decryptTimes[i] = stopwatch.Elapsed.TotalMilliseconds * 1000;
         }
 
-        return new AlgorithmBenchmarkResult
+        return Task.FromResult(new AlgorithmBenchmarkResult
         {
             Algorithm = "AES-256-GCM",
             DataSize = data.Length,
             EncryptionTimes = encryptTimes,
             DecryptionTimes = decryptTimes,
             HardwareAccelerated = true // AES-GCM hardware acceleration in .NET 6+
-        };
+        });
 #else
-        await Task.CompletedTask;
-        throw new NotSupportedException("AES-GCM requires .NET 6 or higher");
+        return Task.FromException<AlgorithmBenchmarkResult>(new NotSupportedException("AES-GCM requires .NET 6 or higher"));
 #endif
     }
 

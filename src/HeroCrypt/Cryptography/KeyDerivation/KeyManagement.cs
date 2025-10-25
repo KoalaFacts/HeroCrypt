@@ -349,6 +349,9 @@ public class KeyRotationManager : IDisposable
         }
     }
 
+    /// <summary>
+    /// Disposes the key rotation manager and securely clears all keys
+    /// </summary>
     public void Dispose()
     {
         lock (_lock)
@@ -462,6 +465,9 @@ public class KeyDerivationTree : IDisposable
         }
     }
 
+    /// <summary>
+    /// Disposes the key derivation tree and securely clears all keys
+    /// </summary>
     public void Dispose()
     {
         lock (_lock)

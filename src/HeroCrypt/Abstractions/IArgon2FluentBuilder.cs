@@ -132,13 +132,25 @@ public interface IArgon2FluentBuilder
 /// </summary>
 public readonly struct MemorySize
 {
+    /// <summary>
+    /// Memory size value in kilobytes
+    /// </summary>
     public int ValueInKb { get; }
 
+    /// <summary>
+    /// Initializes a new instance of the MemorySize struct
+    /// </summary>
+    /// <param name="valueInKb">Memory size value in kilobytes</param>
     public MemorySize(int valueInKb)
     {
         ValueInKb = valueInKb;
     }
 
+    /// <summary>
+    /// Implicit conversion from MemorySize to int
+    /// </summary>
+    /// <param name="size">The MemorySize to convert</param>
+    /// <returns>The memory size value in kilobytes</returns>
     public static implicit operator int(MemorySize size) => size.ValueInKb;
 }
 
@@ -150,15 +162,21 @@ public static class MemorySizeExtensions
     /// <summary>
     /// Creates a memory size in kilobytes
     /// </summary>
+    /// <param name="value">The value in kilobytes</param>
+    /// <returns>A MemorySize representing the specified kilobytes</returns>
     public static MemorySize KB(this int value) => new(value);
 
     /// <summary>
     /// Creates a memory size in megabytes
     /// </summary>
+    /// <param name="value">The value in megabytes</param>
+    /// <returns>A MemorySize representing the specified megabytes</returns>
     public static MemorySize MB(this int value) => new(value * 1024);
 
     /// <summary>
     /// Creates a memory size in gigabytes
     /// </summary>
+    /// <param name="value">The value in gigabytes</param>
+    /// <returns>A MemorySize representing the specified gigabytes</returns>
     public static MemorySize GB(this int value) => new(value * 1024 * 1024);
 }

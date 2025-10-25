@@ -26,6 +26,13 @@ public class Argon2FluentBuilder : IArgon2FluentBuilder, IDisposable
     private bool _useHardwareAcceleration;
     private bool _disposed;
 
+    /// <summary>
+    /// Initializes a new instance of the Argon2FluentBuilder class
+    /// </summary>
+    /// <param name="options">HeroCrypt configuration options</param>
+    /// <param name="hardwareAccelerator">Hardware acceleration service</param>
+    /// <param name="telemetry">Cryptographic telemetry service</param>
+    /// <param name="memoryManager">Secure memory manager</param>
     public Argon2FluentBuilder(IOptions<HeroCryptOptions> options, IHardwareAccelerator hardwareAccelerator, ICryptoTelemetry telemetry, ISecureMemoryManager memoryManager)
     {
         _options = options.Value;
@@ -342,6 +349,9 @@ public class Argon2FluentBuilder : IArgon2FluentBuilder, IDisposable
         return result == 0;
     }
 
+    /// <summary>
+    /// Disposes the Argon2 fluent builder and securely clears all sensitive data
+    /// </summary>
     public void Dispose()
     {
         if (!_disposed)

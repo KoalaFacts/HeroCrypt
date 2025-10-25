@@ -4,6 +4,8 @@ This directory contains the GitHub Actions workflows for building, testing, rele
 
 ## 📋 Workflow Overview
 
+**Simple and Clean:** Only 4 active workflows - no archived clutter, no legacy code.
+
 The CI/CD pipeline consists of three main workflows:
 
 ```
@@ -460,17 +462,20 @@ dotnet nuget push *.nupkg \
 
 ---
 
-## 📜 Archived Workflows
+## 🎯 Workflow Summary
 
-Old workflows have been moved to `archive/` for reference:
-- `archive/build.yml` - Old build pipeline
-- `archive/release.yml` - Old release pipeline (included version updates and test re-runs)
-- `archive/nightly.yml` - Nightly test suite
-- `archive/hotfix-release.yml` - Hotfix workflow
-- `archive/rollback.yml` - Rollback workflow
-- `archive/security-scan.yml` - Custom security scanning (replaced by GitHub's built-in features)
+**Total Active Workflows:** 4
 
-These workflows are kept for reference but are no longer active.
+| Workflow | Purpose | Trigger | Lines |
+|----------|---------|---------|-------|
+| `build-and-test.yml` | Multi-framework build & validation | Every commit | 232 |
+| `create-release.yml` | Create GitHub Release | Manual | 194 |
+| `publish-nuget.yml` | Publish to NuGet.org | On release | 230 |
+| `dependabot-automerge.yml` | Auto-merge dependencies | Dependabot PR | 33 |
+
+**Total:** 689 lines of clean, focused workflow code.
+
+**Philosophy:** Simple, essential, maintainable. No archived workflows, no legacy code, no clutter.
 
 ---
 

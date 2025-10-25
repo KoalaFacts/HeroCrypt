@@ -150,7 +150,36 @@ public enum AeadAlgorithm
     /// XChaCha20-Poly1305 - Extended nonce variant of ChaCha20-Poly1305
     /// Key: 32 bytes, Nonce: 24 bytes, Tag: 16 bytes
     /// </summary>
-    XChaCha20Poly1305 = 4
+    XChaCha20Poly1305 = 4,
+
+    /// <summary>
+    /// AES-128-CCM (Counter with CBC-MAC) - RFC 3610, IoT/Embedded optimized
+    /// Key: 16 bytes, Nonce: 7-13 bytes (typically 13), Tag: 4-16 bytes (even)
+    /// Used in: Bluetooth LE, Zigbee, Thread, 802.15.4
+    /// </summary>
+    Aes128Ccm = 5,
+
+    /// <summary>
+    /// AES-256-CCM (Counter with CBC-MAC) - RFC 3610, higher security variant
+    /// Key: 32 bytes, Nonce: 7-13 bytes (typically 13), Tag: 4-16 bytes (even)
+    /// Used in: Bluetooth LE, Zigbee, Thread, 802.15.4
+    /// </summary>
+    Aes256Ccm = 6,
+
+    /// <summary>
+    /// AES-SIV-256 (Synthetic IV) - RFC 5297, nonce-misuse resistant
+    /// Key: 64 bytes (32+32 for MAC+CTR), Nonce: any length, SIV: 16 bytes
+    /// Deterministic AEAD, safe with nonce reuse
+    /// Used in: Key wrapping, deduplication, high-security scenarios
+    /// </summary>
+    Aes256Siv = 7,
+
+    /// <summary>
+    /// AES-SIV-512 (Synthetic IV with AES-256) - RFC 5297, maximum security
+    /// Key: 128 bytes (64+64 for MAC+CTR), Nonce: any length, SIV: 16 bytes
+    /// Nonce-misuse resistant with AES-256 strength
+    /// </summary>
+    Aes512Siv = 8
 }
 
 /// <summary>

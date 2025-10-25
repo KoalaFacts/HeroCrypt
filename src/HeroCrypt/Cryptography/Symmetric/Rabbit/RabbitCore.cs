@@ -1,5 +1,6 @@
 using HeroCrypt.Security;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace HeroCrypt.Cryptography.Symmetric.Rabbit;
 
@@ -149,7 +150,7 @@ internal static class RabbitCore
         }
         finally
         {
-            SecureMemoryOperations.SecureClear(k);
+            SecureMemoryOperations.SecureClear(MemoryMarshal.AsBytes(k));
         }
     }
 
@@ -265,7 +266,7 @@ internal static class RabbitCore
             output[i * 2 + 1] = (byte)(s[i] >> 8);
         }
 
-        SecureMemoryOperations.SecureClear(s);
+        SecureMemoryOperations.SecureClear(MemoryMarshal.AsBytes(s));
     }
 
     /// <summary>

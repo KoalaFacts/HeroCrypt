@@ -1,5 +1,6 @@
 using HeroCrypt.Security;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace HeroCrypt.Cryptography.Symmetric.Hc128;
 
@@ -139,7 +140,7 @@ internal static class Hc128Core
         }
         finally
         {
-            SecureMemoryOperations.SecureClear(w);
+            SecureMemoryOperations.SecureClear(MemoryMarshal.AsBytes(w));
         }
     }
 

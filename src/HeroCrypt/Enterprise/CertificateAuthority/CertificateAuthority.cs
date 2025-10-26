@@ -232,7 +232,7 @@ public class CertificateAuthority
             SerialNumber = certificate.SerialNumber,
             RevocationDate = revocationDate.Value,
             Reason = reason,
-            Invalidity Date = revocationDate.Value
+            InvalidityDate = revocationDate.Value
         };
 
         _config.RevokedCertificates.Add(entry);

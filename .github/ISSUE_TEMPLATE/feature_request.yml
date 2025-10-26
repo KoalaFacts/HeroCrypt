@@ -1,0 +1,171 @@
+name: Feature Request
+description: Suggest a new feature or enhancement for HeroCrypt
+title: "[Feature]: "
+labels: ["enhancement", "needs-triage"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a new feature! Please fill out the form below to help us understand your request.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: Is your feature request related to a problem? Please describe.
+      placeholder: I'm frustrated when... / I need to... / It would be helpful if...
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: Describe the solution you'd like to see
+      placeholder: I would like HeroCrypt to support... / Add a new method that...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Feature Category
+      description: What category does this feature fall into?
+      options:
+        - New cryptographic algorithm
+        - Performance improvement
+        - New API / helper method
+        - Documentation improvement
+        - Developer experience
+        - Security enhancement
+        - Compliance / standards support
+        - Hardware acceleration
+        - Platform support
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: How important is this feature to you?
+      options:
+        - Critical (blocking my project)
+        - High (important for my use case)
+        - Medium (would be nice to have)
+        - Low (minor improvement)
+    validations:
+      required: true
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use Case
+      description: Describe your specific use case for this feature
+      placeholder: |
+        I'm building an application that... and I need...
+        This would help with...
+    validations:
+      required: true
+
+  - type: textarea
+    id: api-design
+    attributes:
+      label: Proposed API Design
+      description: If applicable, suggest an API design for this feature
+      placeholder: |
+        ```csharp
+        // Example usage
+        var result = NewFeature.DoSomething(parameters);
+        ```
+      render: csharp
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Describe any alternative solutions or features you've considered
+      placeholder: |
+        I considered using... but...
+        Alternatively, we could...
+    validations:
+      required: false
+
+  - type: textarea
+    id: implementation
+    attributes:
+      label: Implementation Ideas
+      description: If you have ideas on how to implement this, please share
+      placeholder: |
+        This could be implemented by...
+        We would need to...
+        Potential challenges: ...
+    validations:
+      required: false
+
+  - type: dropdown
+    id: breaking-change
+    attributes:
+      label: Breaking Change
+      description: Would this feature require breaking changes to existing APIs?
+      options:
+        - "No - This is backward compatible"
+        - "Yes - This requires breaking changes"
+        - "Unsure"
+    validations:
+      required: true
+
+  - type: textarea
+    id: standards
+    attributes:
+      label: Standards / References
+      description: Are there any RFCs, NIST standards, or academic papers related to this feature?
+      placeholder: |
+        RFC XXXX - ...
+        NIST SP 800-XXX - ...
+        Academic paper: ...
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Add any other context, screenshots, or examples about the feature request
+      placeholder: |
+        - Similar features in other libraries
+        - Performance considerations
+        - Security implications
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      description: Are you willing to help implement this feature?
+      options:
+        - label: I am willing to submit a pull request for this feature
+          required: false
+        - label: I can help with testing this feature
+          required: false
+        - label: I can help with documentation for this feature
+          required: false
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      description: Please confirm the following
+      options:
+        - label: I have searched existing issues and feature requests
+          required: true
+        - label: This feature aligns with HeroCrypt's goals (cryptographic library for .NET)
+          required: true
+        - label: I have described a clear use case for this feature
+          required: true

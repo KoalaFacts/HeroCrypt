@@ -374,7 +374,7 @@ public class PerformanceTests
         // Act
         var results = await ParallelCryptoOperations.ProcessBatchAsync<ReadOnlyMemory<byte>, byte>(
             inputs,
-            async input => await Task.FromResult(input.Span[0] * 2));
+            async input => await Task.FromResult((byte)(input.Span[0] * 2)));
 
         // Assert
         Assert.Equal(100, results.Length);

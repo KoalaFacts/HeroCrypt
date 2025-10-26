@@ -102,6 +102,12 @@ A fully RFC-compliant cryptographic library for .NET featuring high-performance,
   - OPAQUE PAKE - RFC 9497 password-authenticated key exchange
   - TLS 1.3 - Custom cipher suites, 0-RTT resumption, certificate pinning
 
+- **🏢 Enterprise Features**
+  - Certificate Authority - X.509 certificate generation, CRL, OCSP responder
+  - Compliance Framework - FIPS 140-2, Common Criteria, SOC 2, PCI-DSS validation
+  - Key Management Service - Centralized KMS with lifecycle management and RBAC
+  - Audit Logging - Comprehensive security event tracking and compliance reporting
+
 ## 📦 Installation
 
 ```bash

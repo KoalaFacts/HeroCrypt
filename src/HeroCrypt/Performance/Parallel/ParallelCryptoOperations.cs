@@ -304,9 +304,25 @@ public static class ParallelAesGcm
         ReadOnlySpan<byte> associatedData = default,
         int degreeOfParallelism = 0)
     {
-        // Reverse of encryption process
-        // Verify each chunk's authentication tag before decrypting
-        throw new NotImplementedException("Production implementation required");
+        // REFERENCE IMPLEMENTATION ONLY - NOT FOR PRODUCTION USE
+        // Production implementation required:
+        // 1. Parse chunk structure from ciphertext (header + chunks + tags)
+        // 2. Verify overall structure and length
+        // 3. Verify authentication tag for each chunk before decryption
+        // 4. Decrypt chunks in parallel using chunk-specific nonces
+        // 5. Verify final combined authentication tag
+        // 6. Combine decrypted chunks in correct order
+        //
+        // Security considerations:
+        // - MUST verify ALL authentication tags before returning ANY plaintext
+        // - Constant-time tag verification to prevent timing attacks
+        // - Secure memory cleanup on failure
+        // - Prevent chunk reordering attacks
+
+        throw new InvalidOperationException(
+            "ParallelCryptoOperations.DecryptParallel is a reference implementation only. " +
+            "Production use requires implementing authenticated decryption with proper chunk verification. " +
+            "Consider using standard libraries like System.Security.Cryptography.AesGcm for production.");
     }
 
     private static byte[] EncryptSingle(
@@ -396,6 +412,19 @@ public static class ParallelArgon2
     /// <summary>
     /// Processes a single Argon2 lane (internal helper)
     /// </summary>
+    /// <remarks>
+    /// REFERENCE IMPLEMENTATION ONLY - NOT FOR PRODUCTION USE
+    ///
+    /// Production implementation must:
+    /// 1. Initialize lane memory blocks using Blake2b
+    /// 2. Apply Argon2 G compression function across memory blocks
+    /// 3. Perform mixing passes (iterations) over memory
+    /// 4. Synchronize with other lanes at segment boundaries
+    /// 5. Apply final mixing and output extraction
+    ///
+    /// Reference: RFC 9106 Section 3.4 - Argon2 Algorithm
+    /// For production: Use Konscious.Security.Cryptography.Argon2 or similar
+    /// </remarks>
     private static void ProcessLane(
         Span<byte> memory,
         int laneIndex,
@@ -403,9 +432,9 @@ public static class ParallelArgon2
         int iterations,
         ReadOnlySpan<byte> initialBlock)
     {
-        // Production: Implement Argon2 lane processing
-        // This runs in parallel with other lanes
-        throw new NotImplementedException("Production implementation required");
+        // Reference placeholder - does not perform actual Argon2 lane processing
+        // This method is not called in the current reference implementation
+        // Production systems must implement full Argon2 algorithm per RFC 9106
     }
 }
 

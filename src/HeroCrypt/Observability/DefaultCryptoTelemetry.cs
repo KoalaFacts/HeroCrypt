@@ -276,9 +276,15 @@ public sealed class DefaultCryptoTelemetry : ICryptoTelemetry
             {
                 WriteIndented = true
             }),
-            TelemetryExportFormat.Csv => throw new NotImplementedException("CSV export not yet implemented"),
-            TelemetryExportFormat.Xml => throw new NotImplementedException("XML export not yet implemented"),
-            TelemetryExportFormat.Binary => throw new NotImplementedException("Binary export not yet implemented"),
+            TelemetryExportFormat.Csv => throw new NotSupportedException(
+                "CSV export format is not yet implemented. Use TelemetryExportFormat.Json for now. " +
+                "Future implementation will provide comma-separated values with headers for metrics data."),
+            TelemetryExportFormat.Xml => throw new NotSupportedException(
+                "XML export format is not yet implemented. Use TelemetryExportFormat.Json for now. " +
+                "Future implementation will provide XML serialization of telemetry data."),
+            TelemetryExportFormat.Binary => throw new NotSupportedException(
+                "Binary export format is not yet implemented. Use TelemetryExportFormat.Json for now. " +
+                "Future implementation will provide compact binary serialization using MessagePack or Protocol Buffers."),
             _ => throw new ArgumentException($"Unsupported export format: {format}")
         };
     }

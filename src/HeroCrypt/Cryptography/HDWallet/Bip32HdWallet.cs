@@ -214,8 +214,23 @@ public static class Bip32HdWallet
             }
             else
             {
-                // Public key derivation (would need full ECC point addition)
-                throw new NotImplementedException("Public key derivation requires full ECC implementation");
+                // REFERENCE IMPLEMENTATION LIMITATION
+                // Public key derivation requires full ECC point addition (secp256k1)
+                // Production implementation needs:
+                // 1. Parse parent public key as EC point (33 or 65 bytes)
+                // 2. Parse IL as scalar value
+                // 3. Compute point(IL) + parent_public_key using EC point addition
+                // 4. Serialize resulting point as compressed public key
+                //
+                // For production, use established libraries like:
+                // - NBitcoin (Bitcoin-specific HD wallet implementation)
+                // - BouncyCastle (full ECC implementation)
+                // - libsecp256k1 wrapper
+
+                throw new InvalidOperationException(
+                    "BIP32 public key derivation is not supported in this reference implementation. " +
+                    "This requires full secp256k1 elliptic curve point addition. " +
+                    "For production use, consider libraries like NBitcoin or BouncyCastle that provide complete BIP32 support.");
             }
 
             // Calculate parent fingerprint (first 4 bytes of HASH160(parent_public_key))

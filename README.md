@@ -61,6 +61,13 @@ A fully RFC-compliant cryptographic library for .NET featuring high-performance,
   - Shamir's Secret Sharing (SSS)
   - Key rotation and hierarchical key management
 
+- **🔮 Post-Quantum Cryptography (Reference Implementations)**
+  - CRYSTALS-Kyber (ML-KEM, FIPS 203) - Key encapsulation
+  - CRYSTALS-Dilithium (ML-DSA, FIPS 204) - Digital signatures
+  - SPHINCS+ (SLH-DSA, FIPS 205) - Stateless signatures
+  - Security levels: 128-bit, 192-bit, 256-bit post-quantum
+  - ⚠️ Simplified reference implementations for API design
+
 ## 📦 Installation
 
 ```bash

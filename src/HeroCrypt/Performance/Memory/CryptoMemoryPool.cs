@@ -1,7 +1,6 @@
 using System;
 using System.Buffers;
 using System.Runtime.CompilerServices;
-using HeroCrypt.Utilities;
 
 namespace HeroCrypt.Performance.Memory;
 
@@ -96,14 +95,14 @@ public ref struct PooledBuffer
     }
 
     /// <summary>
-    /// Gets the underlying buffer
+    /// Gets the underlying buffer as a span
     /// </summary>
     public Span<byte> Span => _buffer.AsSpan();
 
     /// <summary>
     /// Gets a span of the specified length
     /// </summary>
-    public Span<byte> Span(int length)
+    public Span<byte> GetSpan(int length)
     {
         if (_buffer == null)
             throw new ObjectDisposedException(nameof(PooledBuffer));

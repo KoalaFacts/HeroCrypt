@@ -2,7 +2,6 @@ using System;
 using System.Linq;
 using System.Security.Cryptography;
 using HeroCrypt.Cryptography.SecretSharing;
-using HeroCrypt.Utilities;
 
 namespace HeroCrypt.Cryptography.MultiParty;
 

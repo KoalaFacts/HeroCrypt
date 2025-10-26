@@ -246,7 +246,7 @@ public class PerformanceTests
         using var pooled = CryptoMemoryPool.RentScoped(1024);
 
         // Act
-        var span = pooled.Span(512);
+        var span = pooled.GetSpan(512);
 
         // Assert
         Assert.Equal(512, span.Length);

@@ -1,6 +1,5 @@
 using System;
 using System.Security.Cryptography;
-using HeroCrypt.Utilities;
 
 namespace HeroCrypt.Cryptography.ZeroKnowledge.Groth16;
 

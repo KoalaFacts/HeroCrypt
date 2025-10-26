@@ -1,7 +1,6 @@
 using System;
 using System.Linq;
 using System.Security.Cryptography;
-using HeroCrypt.Utilities;
 
 namespace HeroCrypt.Cryptography.ZeroKnowledge.RingSignatures;
 

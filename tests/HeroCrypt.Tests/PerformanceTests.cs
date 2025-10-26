@@ -4,7 +4,6 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Threading.Tasks;
 using Xunit;
-using Xunit.Abstractions;
 using HeroCrypt.Performance.Simd;
 using HeroCrypt.Performance.Memory;
 using HeroCrypt.Performance.Parallel;

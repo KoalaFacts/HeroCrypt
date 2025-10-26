@@ -2,7 +2,6 @@ using System;
 using System.Linq;
 using System.Security.Cryptography.X509Certificates;
 using Xunit;
-using Xunit.Abstractions;
 using HeroCrypt.Protocols.Noise;
 using HeroCrypt.Protocols.Signal;
 using HeroCrypt.Protocols.Otr;

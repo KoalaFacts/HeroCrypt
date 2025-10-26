@@ -77,6 +77,15 @@ A fully RFC-compliant cryptographic library for .NET featuring high-performance,
   - Beaver Triples - Preprocessing for secure multiplication
   - ⚠️ Educational implementations demonstrating API design and workflow
 
+- **🔒 Hardware Security Integration (Abstraction Layer)**
+  - PKCS#11 HSM integration - Industry-standard hardware security module API
+  - Azure Key Vault connector - Cloud HSM integration with Azure
+  - TPM 2.0 support - Trusted Platform Module for platform integrity
+  - TEE abstractions - Intel SGX and ARM TrustZone trusted execution
+  - Hardware RNG - Intel RDRAND/RDSEED optimizations with automatic fallback
+  - Sealed storage, remote attestation, and secure key management
+  - ⚠️ Abstraction layers requiring vendor SDK and hardware/cloud access
+
 ## 📦 Installation
 
 ```bash

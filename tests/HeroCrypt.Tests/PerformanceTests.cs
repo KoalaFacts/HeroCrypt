@@ -125,17 +125,17 @@ public class PerformanceTests
     public void SimdCapabilities_ReportsCorrectly()
     {
         // Act
-        var caps = SimdCapabilities.Capabilities;
+        var caps = SimdAccelerator.Capabilities;
 
         // Assert
         _output.WriteLine($"SIMD Capabilities:");
-        _output.WriteLine($"  AVX-512: {caps.HasFlag(SimdCapability.Avx512)}");
-        _output.WriteLine($"  AVX2: {caps.HasFlag(SimdCapability.Avx2)}");
-        _output.WriteLine($"  SSE2: {caps.HasFlag(SimdCapability.Sse2)}");
-        _output.WriteLine($"  ARM NEON: {caps.HasFlag(SimdCapability.ArmNeon)}");
+        _output.WriteLine($"  AVX-512: {caps.HasAvx512}");
+        _output.WriteLine($"  AVX2: {caps.HasAvx2}");
+        _output.WriteLine($"  SSE2: {caps.HasSse2}");
+        _output.WriteLine($"  ARM NEON: {caps.HasNeon}");
 
         // At least one capability should be present on modern hardware
-        Assert.NotEqual(SimdCapability.None, caps);
+        Assert.True(caps.HasSse2 || caps.HasNeon || caps.HasAvx2 || caps.HasAvx512);
     }
 
     [Fact]
@@ -372,7 +372,7 @@ public class PerformanceTests
             .ToArray();
 
         // Act
-        var results = await ParallelCryptoOperations.ProcessBatchAsync(
+        var results = await ParallelCryptoOperations.ProcessBatchAsync<ReadOnlyMemory<byte>, byte>(
             inputs,
             async input => await Task.FromResult(input.Span[0] * 2));
 
@@ -651,14 +651,16 @@ public class PerformanceTests
             "password2"u8.ToArray()
         };
 
+        var salt1 = new byte[16];
+        var salt2 = new byte[16];
+        RandomNumberGenerator.Fill(salt1);
+        RandomNumberGenerator.Fill(salt2);
+
         var salts = new ReadOnlyMemory<byte>[]
         {
-            new byte[16],
-            new byte[16]
+            salt1,
+            salt2
         };
-
-        RandomNumberGenerator.Fill(salts[0].Span);
-        RandomNumberGenerator.Fill(salts[1].Span);
 
         // Act
         var results = await BatchKeyDerivationOperations.Pbkdf2BatchAsync(

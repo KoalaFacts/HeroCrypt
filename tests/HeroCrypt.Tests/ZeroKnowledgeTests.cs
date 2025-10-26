@@ -436,9 +436,9 @@ public class ZeroKnowledgeTests
             .Split(yValue, threshold, numParties);
 
         var xShares = xShamirShares.Select((s, i) =>
-            new SecureMpc.Share(i, s.Value, s.Index)).ToArray();
+            new SecureMpc.Share(i, s.Data, s.Index)).ToArray();
         var yShares = yShamirShares.Select((s, i) =>
-            new SecureMpc.Share(i, s.Value, s.Index)).ToArray();
+            new SecureMpc.Share(i, s.Data, s.Index)).ToArray();
 
         var beaverTriples = SecureMpc.GenerateBeaverTriples(numParties, threshold, valueLength);
 

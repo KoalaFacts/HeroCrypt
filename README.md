@@ -95,6 +95,13 @@ A fully RFC-compliant cryptographic library for .NET featuring high-performance,
   - Cache-line alignment - Optimized memory layout for better cache performance
   - Hardware capability detection - Automatic fallback for maximum compatibility
 
+- **🔗 Cryptographic Protocols**
+  - Noise Protocol Framework - Modern secure transport with multiple handshake patterns
+  - Signal Protocol - End-to-end encryption with Double Ratchet and X3DH
+  - OTR Messaging - Off-the-Record messaging with deniable authentication
+  - OPAQUE PAKE - RFC 9497 password-authenticated key exchange
+  - TLS 1.3 - Custom cipher suites, 0-RTT resumption, certificate pinning
+
 ## 📦 Installation
 
 ```bash

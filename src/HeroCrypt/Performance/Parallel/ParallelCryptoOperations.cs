@@ -271,20 +271,26 @@ public static class ParallelAesGcm
         var chunkCount = (plaintext.Length + ChunkSize - 1) / ChunkSize;
         var ciphertext = new byte[plaintext.Length + (chunkCount * TagSize)];
 
+        // Copy to arrays to avoid capturing Span in lambda
+        var plaintextArray = plaintext.ToArray();
+        var keyArray = key.ToArray();
+        var nonceArray = nonce.ToArray();
+        var associatedDataArray = associatedData.IsEmpty ? Array.Empty<byte>() : associatedData.ToArray();
+
         ParallelCryptoOperations.ProcessInParallel(
-            plaintext.Length,
+            plaintextArray.Length,
             (offset, length) =>
             {
                 var chunkIndex = (int)(offset / ChunkSize);
-                var chunkNonce = DeriveChunkNonce(nonce, chunkIndex);
+                var chunkNonce = DeriveChunkNonce(nonceArray, chunkIndex);
 
-                var plaintextChunk = plaintext.Slice((int)offset, length);
+                var plaintextChunk = new ReadOnlySpan<byte>(plaintextArray, (int)offset, length);
                 var ciphertextOffset = (int)offset + (chunkIndex * TagSize);
                 var ciphertextChunk = ciphertext.AsSpan(ciphertextOffset, length);
                 var tag = ciphertext.AsSpan(ciphertextOffset + length, TagSize);
 
                 // Production: Use System.Security.Cryptography.AesGcm
-                // new AesGcm(key).Encrypt(chunkNonce, plaintextChunk, ciphertextChunk, tag, associatedData);
+                // new AesGcm(keyArray).Encrypt(chunkNonce, plaintextChunk, ciphertextChunk, tag, associatedDataArray);
 
                 // Reference implementation placeholder
                 plaintextChunk.CopyTo(ciphertextChunk);

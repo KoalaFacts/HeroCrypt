@@ -37,8 +37,10 @@ public static class HardwareRandomGenerator
     static HardwareRandomGenerator()
     {
         // Detect hardware RNG capabilities
-        _hasRdrand = X86Base.IsSupported && Rdrand.IsSupported;
-        _hasRdseed = X86Base.IsSupported && Rdrand.X64.IsSupported;
+        // Note: .NET doesn't expose Rdrand/Rdseed intrinsics directly yet
+        // This is a placeholder for hardware detection
+        _hasRdrand = false; // X86Base.IsSupported check would go here
+        _hasRdseed = false; // When intrinsics are available
 
         _capabilities = DetectCapabilities();
     }
@@ -169,13 +171,10 @@ public static class HardwareRandomGenerator
 
                     while (retries < maxRetries)
                     {
-                        if (Rdrand.X64.IsSupported)
-                        {
-                            // RDRAND instruction
-                            value = (ulong)System.Runtime.Intrinsics.X86.Rdrand.X64.RdRand();
-                            break;
-                        }
-                        retries++;
+                        // Note: .NET doesn't expose RDRAND intrinsics yet
+                        // This would use the intrinsic when available
+                        // For now, fall back to system RNG
+                        return false;
                     }
 
                     if (retries >= maxRetries)
@@ -194,12 +193,10 @@ public static class HardwareRandomGenerator
 
                     while (retries < maxRetries)
                     {
-                        if (Rdrand.X64.IsSupported)
-                        {
-                            value = (ulong)System.Runtime.Intrinsics.X86.Rdrand.X64.RdRand();
-                            break;
-                        }
-                        retries++;
+                        // Note: .NET doesn't expose RDRAND intrinsics yet
+                        // This would use the intrinsic when available
+                        // For now, fall back to system RNG
+                        return false;
                     }
 
                     if (retries >= maxRetries)

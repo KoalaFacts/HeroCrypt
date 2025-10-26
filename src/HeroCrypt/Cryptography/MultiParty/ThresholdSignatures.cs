@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Security.Cryptography;
 using HeroCrypt.Cryptography.SecretSharing;
+using HeroCrypt.Security;
 
 namespace HeroCrypt.Cryptography.MultiParty;
 
@@ -239,7 +240,7 @@ public static class ThresholdSignatures
                 keyShares[i] = new KeyShare(
                     i,
                     shares[i].Index,
-                    shares[i].Value,
+                    shares[i].Data,
                     publicKey,
                     publicCommitments,
                     threshold,

@@ -62,13 +62,16 @@ public class SignalProtocol
         var state = new DoubleRatchetState();
 
         // Derive root key and chain key from shared secret
+        byte[] selfPublicKey;
+        var selfPrivateKey = GenerateKeyPair(out selfPublicKey);
         var (rootKey, chainKey) = KdfRootKey(sharedSecret, DiffieHellman(
-            GenerateKeyPair(out state.DhSelfPublicKey),
+            selfPrivateKey,
             remotePublicKey));
 
         state.RootKey = rootKey;
         state.SendingChainKey = chainKey;
-        state.DhSelfPrivateKey = GenerateKeyPair(out state.DhSelfPublicKey);
+        state.DhSelfPrivateKey = GenerateKeyPair(out selfPublicKey);
+        state.DhSelfPublicKey = selfPublicKey;
         state.DhRemotePublicKey = remotePublicKey;
         state.SendingChainN = 0;
         state.ReceivingChainN = 0;
@@ -175,7 +178,9 @@ public class SignalProtocol
         state.ReceivingChainN = 0;
 
         // Update sending chain
-        state.DhSelfPrivateKey = GenerateKeyPair(out state.DhSelfPublicKey);
+        byte[] newSelfPublicKey;
+        state.DhSelfPrivateKey = GenerateKeyPair(out newSelfPublicKey);
+        state.DhSelfPublicKey = newSelfPublicKey;
         var (newRootKey2, sendingChainKey) = KdfRootKey(
             state.RootKey,
             DiffieHellman(state.DhSelfPrivateKey, state.DhRemotePublicKey));

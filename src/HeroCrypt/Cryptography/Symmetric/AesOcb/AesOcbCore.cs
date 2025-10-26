@@ -86,9 +86,6 @@ internal static class AesOcbCore
             var fullBlocks = plaintext.Length / BlockSize;
             var ciphertextOnly = ciphertext.Slice(0, plaintext.Length);
 
-            Span<byte> offsetXor = stackalloc byte[BlockSize];
-            Span<byte> tempBlock = stackalloc byte[BlockSize];
-
             for (var i = 0; i < fullBlocks; i++)
             {
                 var plaintextBlock = plaintext.Slice(i * BlockSize, BlockSize);
@@ -102,11 +99,15 @@ internal static class AesOcbCore
                 XorBlock(checksum, checksum, plaintextBlock);
 
                 // C_i = Offset xor ENCIPHER(K, Plaintext_i xor Offset)
+                Span<byte> tempBlock = stackalloc byte[BlockSize];
+                Span<byte> offsetXor = stackalloc byte[BlockSize];
                 XorBlock(tempBlock, plaintextBlock, offset);
                 EncryptBlock(encryptor, offsetXor, tempBlock);
                 XorBlock(ciphertextBlock, offsetXor, offset);
 
                 SecureMemoryOperations.SecureClear(l_i);
+                SecureMemoryOperations.SecureClear(tempBlock);
+                SecureMemoryOperations.SecureClear(offsetXor);
             }
 
             // Process final partial block if any
@@ -146,8 +147,6 @@ internal static class AesOcbCore
             SecureMemoryOperations.SecureClear(l_dollar);
             SecureMemoryOperations.SecureClear(offset);
             SecureMemoryOperations.SecureClear(checksum);
-            SecureMemoryOperations.SecureClear(offsetXor);
-            SecureMemoryOperations.SecureClear(tempBlock);
         }
     }
 
@@ -206,9 +205,6 @@ internal static class AesOcbCore
             var ciphertextOnly = ciphertext.Slice(0, plaintextLength);
             var fullBlocks = plaintextLength / BlockSize;
 
-            Span<byte> offsetXor = stackalloc byte[BlockSize];
-            Span<byte> tempBlock = stackalloc byte[BlockSize];
-
             for (var i = 0; i < fullBlocks; i++)
             {
                 var ciphertextBlock = ciphertextOnly.Slice(i * BlockSize, BlockSize);
@@ -219,6 +215,8 @@ internal static class AesOcbCore
                 XorBlock(offset, offset, l_i);
 
                 // P_i = Offset xor DECIPHER(K, C_i xor Offset)
+                Span<byte> tempBlock = stackalloc byte[BlockSize];
+                Span<byte> offsetXor = stackalloc byte[BlockSize];
                 XorBlock(tempBlock, ciphertextBlock, offset);
                 EncryptBlock(encryptor, offsetXor, tempBlock);
                 XorBlock(plaintextBlock, offsetXor, offset);
@@ -227,6 +225,8 @@ internal static class AesOcbCore
                 XorBlock(checksum, checksum, plaintextBlock);
 
                 SecureMemoryOperations.SecureClear(l_i);
+                SecureMemoryOperations.SecureClear(tempBlock);
+                SecureMemoryOperations.SecureClear(offsetXor);
             }
 
             // Process final partial block if any
@@ -276,8 +276,6 @@ internal static class AesOcbCore
             SecureMemoryOperations.SecureClear(l_dollar);
             SecureMemoryOperations.SecureClear(offset);
             SecureMemoryOperations.SecureClear(checksum);
-            SecureMemoryOperations.SecureClear(offsetXor);
-            SecureMemoryOperations.SecureClear(tempBlock);
         }
     }
 
@@ -432,7 +430,6 @@ internal static class AesOcbCore
             SecureMemoryOperations.SecureClear(offset);
             SecureMemoryOperations.SecureClear(sum);
             SecureMemoryOperations.SecureClear(l_star);
-            SecureMemoryOperations.SecureClear(tempBlock);
         }
     }
 

@@ -46,7 +46,7 @@ public static class BatchHashOperations
         if (inputs == null || inputs.Length == 0)
             throw new ArgumentException("Inputs cannot be null or empty", nameof(inputs));
 
-        return await ParallelCryptoOperations.ProcessBatchAsync(
+        return await ParallelCryptoOperations.ProcessBatchAsync<ReadOnlyMemory<byte>, byte[]>(
             inputs,
             async input =>
             {
@@ -69,7 +69,7 @@ public static class BatchHashOperations
         if (inputs == null || inputs.Length == 0)
             throw new ArgumentException("Inputs cannot be null or empty", nameof(inputs));
 
-        return ParallelCryptoOperations.ProcessBatch(
+        return ParallelCryptoOperations.ProcessBatch<ReadOnlyMemory<byte>, byte[]>(
             inputs.AsSpan(),
             input =>
             {
@@ -91,7 +91,7 @@ public static class BatchHashOperations
         if (inputs == null || inputs.Length == 0)
             throw new ArgumentException("Inputs cannot be null or empty", nameof(inputs));
 
-        return await ParallelCryptoOperations.ProcessBatchAsync(
+        return await ParallelCryptoOperations.ProcessBatchAsync<ReadOnlyMemory<byte>, byte[]>(
             inputs,
             async input =>
             {
@@ -125,7 +125,7 @@ public static class BatchHashOperations
         // Capture key for closure
         var keyCopy = key.IsEmpty ? Array.Empty<byte>() : key.ToArray();
 
-        return ParallelCryptoOperations.ProcessBatch(
+        return ParallelCryptoOperations.ProcessBatch<ReadOnlyMemory<byte>, byte[]>(
             inputs.AsSpan(),
             input =>
             {
@@ -158,7 +158,7 @@ public static class BatchHashOperations
         if (expectedHashes == null || expectedHashes.Length != inputs.Length)
             throw new ArgumentException("Expected hashes must match input count", nameof(expectedHashes));
 
-        return ParallelCryptoOperations.ProcessBatch(
+        return ParallelCryptoOperations.ProcessBatch<ReadOnlyMemory<byte>, bool>(
             inputs.AsSpan(),
             (input) =>
             {
@@ -208,7 +208,7 @@ public static class BatchHmacOperations
 
         var keyArray = key.ToArray(); // Capture for parallel operations
 
-        return ParallelCryptoOperations.ProcessBatch(
+        return ParallelCryptoOperations.ProcessBatch<ReadOnlyMemory<byte>, byte[]>(
             messages.AsSpan(),
             message =>
             {
@@ -236,7 +236,7 @@ public static class BatchHmacOperations
 
         var computedTags = HmacSha256Batch(key, messages, degreeOfParallelism, cancellationToken);
 
-        return ParallelCryptoOperations.ProcessBatch(
+        return ParallelCryptoOperations.ProcessBatch<byte[], bool>(
             computedTags.AsSpan(),
             (computed) =>
             {
@@ -278,7 +278,7 @@ public static class BatchEncryptionOperations
         if (plaintexts == null || plaintexts.Length == 0)
             throw new ArgumentException("Plaintexts cannot be null or empty", nameof(plaintexts));
 
-        return ParallelCryptoOperations.ProcessBatchAsync(
+        return ParallelCryptoOperations.ProcessBatchAsync<ReadOnlyMemory<byte>, EncryptionResult>(
             plaintexts,
             async (plaintext) =>
             {
@@ -318,7 +318,7 @@ public static class BatchEncryptionOperations
         if (ciphertexts == null || ciphertexts.Length == 0)
             throw new ArgumentException("Ciphertexts cannot be null or empty", nameof(ciphertexts));
 
-        return ParallelCryptoOperations.ProcessBatchAsync(
+        return ParallelCryptoOperations.ProcessBatchAsync<EncryptionResult, byte[]>(
             ciphertexts,
             async (ct) =>
             {
@@ -356,7 +356,7 @@ public static class BatchEncryptionOperations
         if (masterNonce.Length != 12)
             throw new ArgumentException("Nonce must be 96 bits (12 bytes)", nameof(masterNonce));
 
-        return ParallelCryptoOperations.ProcessBatchAsync(
+        return ParallelCryptoOperations.ProcessBatchAsync<ReadOnlyMemory<byte>, EncryptionResult>(
             plaintexts,
             async (plaintext) =>
             {
@@ -438,7 +438,7 @@ public static class BatchSignatureOperations
         if (messages == null || messages.Length == 0)
             throw new ArgumentException("Messages cannot be null or empty", nameof(messages));
 
-        return ParallelCryptoOperations.ProcessBatchAsync(
+        return ParallelCryptoOperations.ProcessBatchAsync<ReadOnlyMemory<byte>, byte[]>(
             messages,
             async message =>
             {
@@ -476,7 +476,7 @@ public static class BatchSignatureOperations
         if (signatures == null || signatures.Length != messages.Length)
             throw new ArgumentException("Signatures must match message count", nameof(signatures));
 
-        return ParallelCryptoOperations.ProcessBatchAsync(
+        return ParallelCryptoOperations.ProcessBatchAsync<ReadOnlyMemory<byte>, bool>(
             messages,
             async message =>
             {
@@ -519,7 +519,7 @@ public static class BatchSignatureOperations
         if (signatures == null || signatures.Length != publicKeys.Length)
             throw new ArgumentException("Signatures must match key count", nameof(signatures));
 
-        return ParallelCryptoOperations.ProcessBatch(
+        return ParallelCryptoOperations.ProcessBatch<ReadOnlyMemory<byte>, bool>(
             messages.AsSpan(),
             message =>
             {
@@ -563,7 +563,7 @@ public static class BatchKeyDerivationOperations
         if (salts == null || salts.Length != passwords.Length)
             throw new ArgumentException("Salts must match password count", nameof(salts));
 
-        return ParallelCryptoOperations.ProcessBatchAsync(
+        return ParallelCryptoOperations.ProcessBatchAsync<ReadOnlyMemory<byte>, byte[]>(
             passwords,
             async password =>
             {
@@ -609,7 +609,7 @@ public static class BatchKeyDerivationOperations
 
         var masterKeyCopy = masterKey.ToArray(); // Capture for parallel operations
 
-        return ParallelCryptoOperations.ProcessBatch(
+        return ParallelCryptoOperations.ProcessBatch<ReadOnlyMemory<byte>, byte[]>(
             salts.AsSpan(),
             salt =>
             {

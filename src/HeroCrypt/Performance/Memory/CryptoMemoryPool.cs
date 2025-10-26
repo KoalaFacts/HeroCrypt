@@ -1,6 +1,7 @@
 using System;
 using System.Buffers;
 using System.Runtime.CompilerServices;
+using HeroCrypt.Security;
 
 namespace HeroCrypt.Performance.Memory;
 
@@ -150,23 +151,19 @@ public ref struct StackBuffer
     /// <summary>
     /// Creates a stack buffer (stack-allocated if <= 1KB, otherwise heap)
     /// </summary>
+    /// <remarks>
+    /// Note: Stack allocation is limited due to ref struct constraints.
+    /// For production use, consider using PooledBuffer for all sizes.
+    /// </remarks>
     public static StackBuffer Create(int size)
     {
         if (size <= 0)
             throw new ArgumentOutOfRangeException(nameof(size));
 
-        if (size <= 1024)
-        {
-            // Stack allocate for small buffers
-            Span<byte> buffer = stackalloc byte[size];
-            return new StackBuffer(buffer, true);
-        }
-        else
-        {
-            // Use pooled buffer for large sizes
-            var buffer = CryptoMemoryPool.Rent(size, clearBuffer: true);
-            return new StackBuffer(buffer, false);
-        }
+        // Due to ref struct scoping rules, always use pooled buffer
+        // Stack allocation would require the buffer to be used in the same method scope
+        var buffer = CryptoMemoryPool.Rent(size, clearBuffer: true);
+        return new StackBuffer(buffer, false);
     }
 
     /// <summary>

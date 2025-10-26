@@ -330,12 +330,12 @@ public class CertificateAuthority
         // Extended Key Usage
         if (profile.ExtendedKeyUsage != null && profile.ExtendedKeyUsage.Any())
         {
-            var ekuExtension = new X509EnhancedKeyUsageExtension(
-                new OidCollection
-                {
-                    profile.ExtendedKeyUsage.Select(oid => new Oid(oid)).ToArray()
-                },
-                critical: false);
+            var oidCollection = new OidCollection();
+            foreach (var oid in profile.ExtendedKeyUsage)
+            {
+                oidCollection.Add(new Oid(oid));
+            }
+            var ekuExtension = new X509EnhancedKeyUsageExtension(oidCollection, critical: false);
             request.CertificateExtensions.Add(ekuExtension);
         }
 

@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Security.Cryptography;
 using HeroCrypt.Cryptography.SecretSharing;
+using HeroCrypt.Security;
 
 namespace HeroCrypt.Cryptography.MultiParty;
 
@@ -174,7 +175,7 @@ public static class SecureMpc
                     // Add shares in GF(256)
                     for (int byteIdx = 0; byteIdx < localSum.Length; byteIdx++)
                     {
-                        localSum[byteIdx] ^= share.Value[byteIdx];
+                        localSum[byteIdx] ^= share.Data[byteIdx];
                     }
                 }
 
@@ -341,9 +342,9 @@ public static class SecureMpc
         for (int i = 0; i < numParties; i++)
         {
             triples[i] = new BeaverTriple(
-                new Share(i, aShares[i].Value, aShares[i].Index),
-                new Share(i, bShares[i].Value, bShares[i].Index),
-                new Share(i, cShares[i].Value, cShares[i].Index)
+                new Share(i, aShares[i].Data, aShares[i].Index),
+                new Share(i, bShares[i].Data, bShares[i].Index),
+                new Share(i, cShares[i].Data, cShares[i].Index)
             );
         }
 

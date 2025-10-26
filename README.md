@@ -14,7 +14,7 @@ A fully RFC-compliant cryptographic library for .NET featuring high-performance,
   - Argon2d, Argon2i, and Argon2id variants
   - Configurable memory, iterations, and parallelism
   - Secure salt generation and constant-time comparison
-  
+
 - **#️⃣ Blake2b Hashing** - Full RFC 7693 compliance
   - Variable output sizes (1-64 bytes)
   - Keyed hashing (MAC) support
@@ -29,6 +29,33 @@ A fully RFC-compliant cryptographic library for .NET featuring high-performance,
   - Hybrid encryption with AES session keys
   - RSA key pair support
   - Passphrase protection for private keys
+
+- **🔒 Modern Symmetric Encryption (AEAD)**
+  - ChaCha20-Poly1305 (RFC 8439) with SIMD optimizations
+  - XChaCha20-Poly1305 (extended 24-byte nonce)
+  - AES-GCM with hardware acceleration
+  - AES-CCM (RFC 3610)
+  - AES-SIV (RFC 5297) - nonce-misuse resistant
+  - AES-OCB (RFC 7253) - high-performance AEAD
+
+- **🌊 Stream Ciphers**
+  - ChaCha8/ChaCha12/ChaCha20 variants
+  - XSalsa20
+  - Rabbit cipher (RFC 4503)
+  - HC-128 and HC-256 (eSTREAM portfolio)
+  - RC4 (legacy compatibility with security warnings)
+
+- **📐 Elliptic Curve Cryptography**
+  - Curve25519 (X25519 key exchange)
+  - Ed25519 (digital signatures)
+  - Secp256k1 (Bitcoin-compatible)
+  - Hardware-accelerated field arithmetic
+
+- **🔑 Key Derivation Functions**
+  - PBKDF2 (with SHA256/SHA384/SHA512)
+  - HKDF (RFC 5869)
+  - Scrypt
+  - Key rotation and hierarchical key management
 
 ## 📦 Installation
 

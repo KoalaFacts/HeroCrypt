@@ -51,10 +51,14 @@ A fully RFC-compliant cryptographic library for .NET featuring high-performance,
   - Secp256k1 (Bitcoin-compatible)
   - Hardware-accelerated field arithmetic
 
-- **🔑 Key Derivation Functions**
+- **🔑 Key Derivation & Management**
   - PBKDF2 (with SHA256/SHA384/SHA512)
   - HKDF (RFC 5869)
-  - Scrypt
+  - Scrypt (memory-hard KDF)
+  - Balloon Hashing (cache-timing resistant)
+  - BIP32 Hierarchical Deterministic Wallets
+  - BIP39 Mnemonic Codes (12/15/18/21/24 words)
+  - Shamir's Secret Sharing (SSS)
   - Key rotation and hierarchical key management
 
 ## 📦 Installation

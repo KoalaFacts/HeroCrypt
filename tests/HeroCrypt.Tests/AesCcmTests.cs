@@ -96,7 +96,7 @@ public class AesCcmTests
 
     /// <summary>
     /// RFC 3610 Test Vector #3
-    /// Packet Vector #3 - Longer associated data
+    /// Packet Vector #3 - 25-byte plaintext, 8-byte AD
     /// </summary>
     [Fact]
     [Trait("Category", TestCategories.Compliance)]
@@ -106,7 +106,7 @@ public class AesCcmTests
         var key = Convert.FromHexString("C0C1C2C3C4C5C6C7C8C9CACBCCCDCECF");
         var nonce = Convert.FromHexString("00000005040302A0A1A2A3A4A5");
         var plaintext = Convert.FromHexString("08090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F20");
-        var associatedData = Convert.FromHexString("000102030405060708090A0B");
+        var associatedData = Convert.FromHexString("0001020304050607"); // 8 bytes, not 12!
 
         var expectedCiphertext = Convert.FromHexString("51B1E5F44A197D1DA46B0F8E2D282AE871E838BB64DA8596574ADAA76FBD9FB0C5");
 

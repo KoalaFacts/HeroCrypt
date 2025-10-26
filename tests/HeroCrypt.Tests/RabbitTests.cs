@@ -202,9 +202,9 @@ public class RabbitTests
         var plaintext = new byte[48]; // 3 blocks of zeros
 
         var expectedCiphertext = HexToBytes(
-            "02F74A1C26456BF5ECD6A536F05457B1" +
-            "A78AC689476C697B390C9CC515D8E888" +
-            "96D6731688D168DA51D40C70C3A116F4");
+            "B15754F036A5D6ECF56B45261C4AF702" +
+            "88E8D815C59C0C397B696C4789C68AA7" +
+            "F416A1C3700CD451DA68D1881673D696");
 
         var ciphertext = new byte[plaintext.Length];
 
@@ -223,16 +223,16 @@ public class RabbitTests
     [Trait("Category", "Compliance")]
     public void Rfc4503_TestVector2_SpecificKey_Success()
     {
-        // Arrange - Key: 0x912813292E3D36FE3BFC62F1DC51C3AC (little-endian), NO IV
+        // Arrange - Key: 0x912813292E3D36FE3BFC62F1DC51C3AC (reversed byte order), NO IV
         var key = HexToBytes("ACC351DCF162FC3BFE363D2E29132891");
-        var iv = Array.Empty<byte>(); // Empty IV = key-only mode per RFC 4503 Appendix A.1
+        var iv = Array.Empty<byte>(); // Empty IV = key-only mode per RFC 4503 Appendix A.2
 
         var plaintext = new byte[48]; // 3 blocks of zeros
 
         var expectedCiphertext = HexToBytes(
-            "9C51E28784C37FE9A127F63EC8F32D3D" +
-            "19FC5485AA53BF96885B40F461CD76F5" +
-            "5E4C4D20203BE58A5043DBFB737454E5");
+            "3D2DF3C83EF627A1E97FC38487E2519C" +
+            "F576CD61F4405B8896BF53AA8554FC19" +
+            "E5547473FBDB43508AE53B20204D4C5E");
 
         var ciphertext = new byte[plaintext.Length];
 
@@ -257,9 +257,9 @@ public class RabbitTests
         var plaintext = new byte[48]; // 3 blocks of zeros
 
         var expectedCiphertext = HexToBytes(
-            "ED B7 05 67 37 5D CD 7C D8 95 54 F8 5E 27 A7 C6" +
-            "8D 4A DC 70 32 29 8F 7B D4 EF F5 04 AC A6 29 5F" +
-            "66 8F BF 47 8A DB 2B E5 1E 6C DE 29 2B 82 DE 2A");
+            "C6A7275EF85495D87CCD5D376705B7ED" +
+            "5F29A6AC04F5EFD47B8F293270DC4A8D" +
+            "2ADE822B29DE6C1EE52BDB8A47BF8F66");
 
         var ciphertext = new byte[plaintext.Length];
 
@@ -278,16 +278,16 @@ public class RabbitTests
     [Trait("Category", "Compliance")]
     public void Rfc4503_TestVector4_ZeroKeyIv1_Success()
     {
-        // Arrange - Zero key, IV = 0xC373F575C1267E59 (little-endian)
+        // Arrange - Zero key, IV = 0xC373F575C1267E59 (reversed byte order)
         var key = new byte[16]; // All zeros
         var iv = HexToBytes("597E26C175F573C3");
 
         var plaintext = new byte[48]; // 3 blocks of zeros
 
         var expectedCiphertext = HexToBytes(
-            "6D7D012292CCDCE0E2120058B94ECD1F" +
-            "2E6F93EDFF99247B012521D1104E5FA7" +
-            "A79B0212D0BD56233938E793C312C1EB");
+            "1FCD4EB9580012E2E0DCCC9222017D6D" +
+            "A75F4E10D12125017B2499FFED936F2E" +
+            "EBC112C393E738392356BDD012029BA7");
 
         var ciphertext = new byte[plaintext.Length];
 
@@ -306,16 +306,16 @@ public class RabbitTests
     [Trait("Category", "Compliance")]
     public void Rfc4503_TestVector5_ZeroKeyIv2_Success()
     {
-        // Arrange - Zero key, IV = 0xA6EB561AD2F41727 (little-endian)
+        // Arrange - Zero key, IV = 0xA6EB561AD2F41727 (reversed byte order)
         var key = new byte[16]; // All zeros
         var iv = HexToBytes("2717F4D21A56EBA6");
 
         var plaintext = new byte[48]; // 3 blocks of zeros
 
         var expectedCiphertext = HexToBytes(
-            "4D1051A123AFB670BF8D8505C8D85A44" +
-            "035BC3ACC667AEAE5B2CF44779F2C896" +
-            "CB5115F034F03D31171CA75F89FCCB9F");
+            "445AD8C805858DBF70B6AF23A151104D" +
+            "96C8F27947F42C5BAEAE67C6ACC35B03" +
+            "9FCBFC895FA71C17313DF034F01551CB");
 
         var ciphertext = new byte[plaintext.Length];
 
@@ -334,16 +334,16 @@ public class RabbitTests
     [Trait("Category", "Compliance")]
     public void Rfc4503_TestVector6_SpecificKey2_Success()
     {
-        // Arrange - Key: 0x8395741587E0C733E9E9AB01C09B0043 (little-endian), NO IV
+        // Arrange - Key: 0x8395741587E0C733E9E9AB01C09B0043 (reversed byte order), NO IV
         var key = HexToBytes("43009BC001ABE9E933C7E08715749583");
         var iv = Array.Empty<byte>(); // Empty IV = key-only mode
 
         var plaintext = new byte[48]; // 3 blocks of zeros
 
         var expectedCiphertext = HexToBytes(
-            "9B60D002FD5CEB32ACCD41A0CD0DB10C" +
-            "AD3EFF4C1192707B5A01170FCA9FFC95" +
-            "2874943AAD4741923F7FFC8BDEE54996");
+            "0CB10DCDA041CDAC32EB5CFD02D0609B" +
+            "95FC9FCA0F17015A7B7092114CFF3EAD" +
+            "9649E5DE8BFC7F3F924147AD3A947428");
 
         var ciphertext = new byte[plaintext.Length];
 

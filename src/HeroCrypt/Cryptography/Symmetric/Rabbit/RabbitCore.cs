@@ -113,31 +113,28 @@ internal static class RabbitCore
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void KeySetup(ref RabbitState state, ReadOnlySpan<byte> key)
     {
-        // Convert key to 16-bit words (RFC 4503 / Mozilla implementation)
-        // Read bytes in reverse order: k[0] from bytes 14-15, k[1] from bytes 12-13, etc.
+        // Convert key to 16-bit words (little-endian to match Java implementation)
         Span<ushort> k = stackalloc ushort[8];
-        for (var j = 0; j < 8; j++)
+        for (var i = 0; i < 8; i++)
         {
-            var i = 14 - (j * 2);  // 14, 12, 10, 8, 6, 4, 2, 0
-            k[j] = (ushort)(key[i + 1] | (key[i] << 8));
+            k[i] = (ushort)((key[i * 2 + 1] << 8) | (key[i * 2] & 0xFF));
         }
 
         try
         {
             // Initialize state variables (RFC 4503 Section 2.3)
-            // Even j: Xj = K(j+1 mod 8) || Kj, Cj = K(j+4 mod 8) || K(j+5 mod 8)
-            // Odd j:  Xj = K(j+5 mod 8) || K(j+4 mod 8), Cj = Kj || K(j+1 mod 8)
-            for (var j = 0; j < 8; j++)
+            // Match Java implementation exactly
+            for (var i = 0; i < 8; i++)
             {
-                if (j % 2 == 0)
+                if (i % 2 == 0)
                 {
-                    state.X[j] = (uint)((k[(j + 1) % 8] << 16) | k[j]);
-                    state.C[j] = (uint)((k[(j + 4) % 8] << 16) | k[(j + 5) % 8]);
+                    state.X[i] = (uint)((k[(i + 1) % 8] << 16) | k[i]);
+                    state.C[i] = (uint)((k[(i + 4) % 8] << 16) | k[(i + 5) % 8]);
                 }
                 else
                 {
-                    state.X[j] = (uint)((k[(j + 5) % 8] << 16) | k[(j + 4) % 8]);
-                    state.C[j] = (uint)((k[j] << 16) | k[(j + 1) % 8]);
+                    state.X[i] = (uint)((k[(i + 5) % 8] << 16) | k[(i + 4) % 8]);
+                    state.C[i] = (uint)((k[i] << 16) | k[(i + 1) % 8]);
                 }
             }
 
@@ -167,24 +164,28 @@ internal static class RabbitCore
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void IvSetup(ref RabbitState state, ReadOnlySpan<byte> iv)
     {
-        // Convert IV to 32-bit words (RFC 4503 / Mozilla implementation)
-        // i0 = lower 32 bits, i2 = upper 32 bits (little-endian)
-        var i0 = (uint)(iv[0] | (iv[1] << 8) | (iv[2] << 16) | (iv[3] << 24));
-        var i2 = (uint)(iv[4] | (iv[5] << 8) | (iv[6] << 16) | (iv[7] << 24));
+        // Convert IV to 32-bit words (little-endian to match key format)
+        // iv0 = IV[31..0], iv1 = IV[63..32]
+        var iv0 = (uint)(iv[0] | (iv[1] << 8) | (iv[2] << 16) | (iv[3] << 24));
+        var iv1 = (uint)(iv[4] | (iv[5] << 8) | (iv[6] << 16) | (iv[7] << 24));
 
-        // Derive intermediate values
-        var i1 = (i0 >> 16) | (i2 & 0xFFFF0000);
-        var i3 = ((i2 & 0xFFFF) << 16) | (i0 & 0xFFFF);
-
-        // Modify counters with IV (RFC 4503 Section 2.4)
-        state.C[0] ^= i0;
-        state.C[1] ^= i1;
-        state.C[2] ^= i2;
-        state.C[3] ^= i3;
-        state.C[4] ^= i0;
-        state.C[5] ^= i1;
-        state.C[6] ^= i2;
-        state.C[7] ^= i3;
+        // Modify counters based on IV (RFC 4503 Section 2.4)
+        // C0 = C0 ^ IV[31..0]
+        state.C[0] ^= iv0;
+        // C1 = C1 ^ (IV[63..48] || IV[31..16])
+        state.C[1] ^= (iv1 & 0xFFFF0000) | (iv0 >> 16);
+        // C2 = C2 ^ IV[63..32]
+        state.C[2] ^= iv1;
+        // C3 = C3 ^ (IV[47..32] || IV[15..0])
+        state.C[3] ^= ((iv1 & 0xFFFF) << 16) | (iv0 & 0xFFFF);
+        // C4 = C4 ^ IV[31..0]
+        state.C[4] ^= iv0;
+        // C5 = C5 ^ (IV[63..48] || IV[31..16])
+        state.C[5] ^= (iv1 & 0xFFFF0000) | (iv0 >> 16);
+        // C6 = C6 ^ IV[63..32]
+        state.C[6] ^= iv1;
+        // C7 = C7 ^ (IV[47..32] || IV[15..0])
+        state.C[7] ^= ((iv1 & 0xFFFF) << 16) | (iv0 & 0xFFFF);
 
         // Iterate system 4 times
         for (var i = 0; i < 4; i++)
@@ -242,12 +243,12 @@ internal static class RabbitCore
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static uint GFunc(uint x, uint c)
     {
-        // Square the sum
-        var sum = (ulong)x + c;
+        // Square the sum (mask to 32-bit to match Java implementation)
+        var sum = ((ulong)x + c) & 0xFFFFFFFFul;
         var square = sum * sum;
 
-        // XOR high and low parts
-        return (uint)(square ^ (square >> 32));
+        // XOR high and low parts (cast each part separately)
+        return (uint)square ^ (uint)(square >> 32);
     }
 
     /// <summary>
@@ -271,12 +272,15 @@ internal static class RabbitCore
         s[6] = (ushort)(state.X[6] ^ (state.X[3] >> 16));
         s[7] = (ushort)((state.X[6] >> 16) ^ (state.X[1] & 0xFFFF));
 
-        // Convert to bytes (little-endian)
+        // Convert to bytes (little-endian - low byte first, high byte second)
         for (var i = 0; i < 8; i++)
         {
-            output[i * 2] = (byte)s[i];
-            output[i * 2 + 1] = (byte)(s[i] >> 8);
+            output[i * 2] = (byte)s[i];             // low byte first
+            output[i * 2 + 1] = (byte)(s[i] >> 8);  // high byte second
         }
+
+        // Reverse the entire block to match RFC 4503 byte order
+        output.Reverse();
 
         SecureMemoryOperations.SecureClear(MemoryMarshal.AsBytes(s));
     }

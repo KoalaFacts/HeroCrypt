@@ -68,6 +68,15 @@ A fully RFC-compliant cryptographic library for .NET featuring high-performance,
   - Security levels: 128-bit, 192-bit, 256-bit post-quantum
   - ⚠️ Simplified reference implementations for API design
 
+- **🎭 Zero-Knowledge & Advanced Protocols (Reference Implementations)**
+  - zk-SNARKs (Groth16-style) - Zero-knowledge succinct proofs
+  - Ring Signatures - Anonymous group signatures (basic, linkable, traceable)
+  - Threshold Signatures - Distributed multi-party signing (Schnorr, ECDSA, EdDSA, BLS)
+  - Multi-Party Computation - Secure computation without revealing inputs
+  - Private Set Intersection - Find common elements privately
+  - Beaver Triples - Preprocessing for secure multiplication
+  - ⚠️ Educational implementations demonstrating API design and workflow
+
 ## 📦 Installation
 
 ```bash

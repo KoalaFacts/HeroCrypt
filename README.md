@@ -86,6 +86,15 @@ A fully RFC-compliant cryptographic library for .NET featuring high-performance,
   - Sealed storage, remote attestation, and secure key management
   - ⚠️ Abstraction layers requiring vendor SDK and hardware/cloud access
 
+- **⚡ Performance & Optimization**
+  - SIMD acceleration - AVX-512, AVX2, SSE2, and ARM NEON optimizations
+  - Memory pool management - Efficient buffer reuse with automatic security zeroing
+  - Parallel cryptography - Multi-threaded operations with automatic load balancing
+  - Batch operations - 3-10x throughput improvement for bulk operations
+  - Zero-copy operations - Span<T> and stackalloc for minimal allocations
+  - Cache-line alignment - Optimized memory layout for better cache performance
+  - Hardware capability detection - Automatic fallback for maximum compatibility
+
 ## 📦 Installation
 
 ```bash

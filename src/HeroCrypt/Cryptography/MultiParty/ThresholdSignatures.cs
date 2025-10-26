@@ -250,7 +250,7 @@ public static class ThresholdSignatures
             }
 
             // Securely erase master secret key
-            SecureMemoryOperations.ZeroMemory(masterSecretKey);
+            SecureMemoryOperations.SecureClear(masterSecretKey);
 
             return new KeyGenerationResult(keyShares, publicKey, true);
         }
@@ -344,7 +344,7 @@ public static class ThresholdSignatures
         finally
         {
             if (nonce == null) // Only zero if we generated it
-                SecureMemoryOperations.ZeroMemory(nonceValue);
+                SecureMemoryOperations.SecureClear(nonceValue);
         }
     }
 

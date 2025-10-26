@@ -445,8 +445,12 @@ public class OtrProtocol
         ciphertext.CopyTo(data, 0);
         BitConverter.GetBytes(counter).CopyTo(data, ciphertext.Length);
 
+        // HMACSHA1 is required by the OTR protocol specification for compatibility
+        // This is a reference implementation of the OTR messaging protocol
+#pragma warning disable CA5350 // Do Not Use Weak Cryptographic Algorithms
         using var hmac = new HMACSHA1(macKey);
         return hmac.ComputeHash(data);
+#pragma warning restore CA5350
     }
 
     private byte[] EncryptAesCtr(byte[] plaintext, byte[] key, ulong counter)

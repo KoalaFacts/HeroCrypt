@@ -474,11 +474,11 @@ public static class SimdAccelerator
             HasAvx = Avx.IsSupported,
             HasAvx2 = Avx2.IsSupported,
             HasAvx512 = Avx512F.IsSupported,
-            HasAesNi = X86.Aes.IsSupported,
+            HasAesNi = System.Runtime.Intrinsics.X86.Aes.IsSupported,
 
             // ARM
             HasNeon = AdvSimd.IsSupported,
-            HasArmAes = AdvSimd.Arm64.IsSupported && Arm.Aes.Arm64.IsSupported,
+            HasArmAes = AdvSimd.Arm64.IsSupported && System.Runtime.Intrinsics.Arm.Aes.Arm64.IsSupported,
 
             // Vector sizes
             Vector128Supported = Vector128.IsHardwareAccelerated,

@@ -570,11 +570,14 @@ public static class BatchKeyDerivationOperations
                 var index = Array.IndexOf(passwords, password);
                 return await Task.Run(() =>
                 {
+                    // Hash algorithm is explicitly specified via parameter - safe
+#pragma warning disable CA5379 // Do Not Use Weak Key Derivation Function Algorithm
                     using var pbkdf2 = new Rfc2898DeriveBytes(
                         password.ToArray(),
                         salts[index].ToArray(),
                         iterations,
                         hashAlgorithm);
+#pragma warning restore CA5379
                     return pbkdf2.GetBytes(outputLength);
                 }, cancellationToken);
             },

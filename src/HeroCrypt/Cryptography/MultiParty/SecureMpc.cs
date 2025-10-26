@@ -333,9 +333,9 @@ public static class SecureMpc
         var cShares = ShamirSecretSharing.Split(c, threshold, numParties);
 
         // Clean up secrets
-        SecureMemoryOperations.ZeroMemory(a);
-        SecureMemoryOperations.ZeroMemory(b);
-        SecureMemoryOperations.ZeroMemory(c);
+        SecureMemoryOperations.SecureClear(a);
+        SecureMemoryOperations.SecureClear(b);
+        SecureMemoryOperations.SecureClear(c);
 
         // Create Beaver triples for each party
         var triples = new BeaverTriple[numParties];

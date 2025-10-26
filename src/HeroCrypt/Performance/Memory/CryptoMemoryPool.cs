@@ -66,7 +66,7 @@ public static class CryptoMemoryPool
 
         if (clearBuffer)
         {
-            SecureMemoryOperations.ZeroMemory(buffer);
+            SecureMemoryOperations.SecureClear(buffer);
         }
 
         _pool.Return(buffer, clearArray: false); // We already cleared it
@@ -183,7 +183,7 @@ public ref struct StackBuffer
     {
         if (!_buffer.IsEmpty)
         {
-            SecureMemoryOperations.ZeroMemory(_buffer);
+            SecureMemoryOperations.SecureClear(_buffer);
 
             if (!_isStackAllocated)
             {
@@ -321,7 +321,7 @@ public sealed class PinnedBuffer : IDisposable
     {
         if (!_disposed)
         {
-            SecureMemoryOperations.ZeroMemory(_buffer);
+            SecureMemoryOperations.SecureClear(_buffer);
             _handle.Free();
             _disposed = true;
         }

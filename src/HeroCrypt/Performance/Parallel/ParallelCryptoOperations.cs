@@ -207,11 +207,13 @@ public static class ParallelCryptoOperations
         if (degreeOfParallelism <= 0)
             degreeOfParallelism = OptimalDegreeOfParallelism;
 
-        var results = new TResult[inputs.Length];
+        // Convert span to array to avoid capturing ref-like type in lambda
+        var inputsArray = inputs.ToArray();
+        var results = new TResult[inputsArray.Length];
 
         System.Threading.Tasks.Parallel.For(
             0,
-            inputs.Length,
+            inputsArray.Length,
             new ParallelOptions
             {
                 MaxDegreeOfParallelism = degreeOfParallelism,
@@ -219,7 +221,7 @@ public static class ParallelCryptoOperations
             },
             i =>
             {
-                results[i] = operation(inputs[i]);
+                results[i] = operation(inputsArray[i]);
             });
 
         return results;

@@ -297,7 +297,7 @@ public static class Groth16ZkSnark
         var proofB = ComputeProofComponent(provingKey.Beta_G2, publicInputs, privateWitness, zkRandomness, 1, g2Size);
         var proofC = ComputeProofComponent(provingKey.Delta_G1, publicInputs, privateWitness, zkRandomness, 2, g1Size);
 
-        SecureMemoryOperations.ZeroMemory(zkRandomness);
+        SecureMemoryOperations.SecureClear(zkRandomness);
 
         return new Proof(proofA, proofB, proofC);
     }

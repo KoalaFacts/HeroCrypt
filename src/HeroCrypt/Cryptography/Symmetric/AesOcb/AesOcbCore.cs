@@ -56,8 +56,11 @@ internal static class AesOcbCore
         if (ciphertext.Length < plaintext.Length + TagSize)
             throw new ArgumentException("Ciphertext buffer too small", nameof(ciphertext));
 
+        // Create key array once and clear it in finally block (avoid repeated allocations)
+        var keyArray = key.ToArray();
+
         using var aes = Aes.Create();
-        aes.Key = key.ToArray();
+        aes.Key = keyArray;
         aes.Mode = CipherMode.ECB;
         aes.Padding = PaddingMode.None;
 
@@ -154,6 +157,7 @@ internal static class AesOcbCore
             SecureMemoryOperations.SecureClear(checksum);
             Array.Clear(inputBuffer, 0, inputBuffer.Length);
             Array.Clear(outputBuffer, 0, outputBuffer.Length);
+            Array.Clear(keyArray, 0, keyArray.Length);
         }
     }
 
@@ -182,8 +186,11 @@ internal static class AesOcbCore
         if (plaintext.Length < plaintextLength)
             throw new ArgumentException("Plaintext buffer too small", nameof(plaintext));
 
+        // Create key array once and clear it in finally block (avoid repeated allocations)
+        var keyArray = key.ToArray();
+
         using var aes = Aes.Create();
-        aes.Key = key.ToArray();
+        aes.Key = keyArray;
         aes.Mode = CipherMode.ECB;
         aes.Padding = PaddingMode.None;
 
@@ -291,6 +298,7 @@ internal static class AesOcbCore
             SecureMemoryOperations.SecureClear(checksum);
             Array.Clear(inputBuffer, 0, inputBuffer.Length);
             Array.Clear(outputBuffer, 0, outputBuffer.Length);
+            Array.Clear(keyArray, 0, keyArray.Length);
         }
     }
 

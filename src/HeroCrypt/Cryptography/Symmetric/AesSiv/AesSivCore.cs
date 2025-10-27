@@ -226,8 +226,11 @@ internal static class AesSivCore
     private static void EncryptCtr(Span<byte> ciphertext, ReadOnlySpan<byte> plaintext,
         ReadOnlySpan<byte> key, ReadOnlySpan<byte> iv)
     {
+        // Create key array once and clear it in finally block
+        var keyArray = key.ToArray();
+
         using var aes = Aes.Create();
-        aes.Key = key.ToArray();
+        aes.Key = keyArray;
         aes.Mode = CipherMode.ECB;
         aes.Padding = PaddingMode.None;
 
@@ -268,6 +271,7 @@ internal static class AesSivCore
         finally
         {
             // Clear sensitive data
+            Array.Clear(keyArray, 0, keyArray.Length);
             Array.Clear(counterArray, 0, counterArray.Length);
             Array.Clear(keystreamArray, 0, keystreamArray.Length);
         }

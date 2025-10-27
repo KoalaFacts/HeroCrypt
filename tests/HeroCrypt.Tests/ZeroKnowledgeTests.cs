@@ -423,7 +423,7 @@ public class ZeroKnowledgeTests
     {
         // Arrange
         const int numParties = 3;
-        const int threshold = 1;
+        const int threshold = 2; // Shamir requires threshold >= 2
         const int valueLength = 8;
 
         // Create shares for two values

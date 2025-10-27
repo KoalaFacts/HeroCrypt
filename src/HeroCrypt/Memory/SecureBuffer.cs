@@ -63,6 +63,8 @@ public sealed class SecureBuffer : IDisposable
         ThrowIfDisposed();
         lock (_lock)
         {
+            if (_handle == IntPtr.Zero)
+                throw new InvalidOperationException("Buffer handle is null");
             return new Span<byte>(_handle.ToPointer(), _size);
         }
     }
@@ -77,6 +79,8 @@ public sealed class SecureBuffer : IDisposable
         ThrowIfDisposed();
         lock (_lock)
         {
+            if (_handle == IntPtr.Zero)
+                throw new InvalidOperationException("Buffer handle is null");
             return new ReadOnlySpan<byte>(_handle.ToPointer(), _size);
         }
     }

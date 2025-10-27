@@ -11,11 +11,6 @@ using HeroCrypt.HardwareSecurity.HardwareRng;
 
 namespace HeroCrypt.Tests;
 
-// DISABLED: Part of Group B - multiple culprits causing platform-specific hangs
-#if FALSE
-
-
-
 /// <summary>
 /// Tests for Hardware Security Module integration
 ///
@@ -550,4 +545,3 @@ public class HardwareSecurityTests
 
 
 
-#endif

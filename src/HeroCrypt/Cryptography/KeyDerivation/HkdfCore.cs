@@ -62,17 +62,25 @@ internal static class HkdfCore
 
         // If salt is empty, use zero-filled salt of hash length
         var actualSalt = salt.IsEmpty ? new byte[GetHashLength(hashAlgorithm)] : salt.ToArray();
+        var ikmArray = ikm.ToArray();
 
         try
         {
             using var hmac = CreateHmac(hashAlgorithm, actualSalt);
-            return hmac.ComputeHash(ikm.ToArray());
+            return hmac.ComputeHash(ikmArray);
         }
         finally
         {
+            // Clear sensitive key material
+            Array.Clear(ikmArray, 0, ikmArray.Length);
+
             if (salt.IsEmpty)
             {
                 SecureMemoryOperations.SecureClear(actualSalt);
+            }
+            else
+            {
+                Array.Clear(actualSalt, 0, actualSalt.Length);
             }
         }
     }
@@ -100,9 +108,13 @@ internal static class HkdfCore
         var okm = new byte[length];
         var t = new byte[0]; // T(0) = empty string
 
+        // Create arrays once to avoid memory leaks in loop
+        var prkArray = prk.ToArray();
+        var infoArray = info.IsEmpty ? null : info.ToArray();
+
         try
         {
-            using var hmac = CreateHmac(hashAlgorithm, prk.ToArray());
+            using var hmac = CreateHmac(hashAlgorithm, prkArray);
 
             for (var i = 1; i <= n; i++)
             {
@@ -112,8 +124,8 @@ internal static class HkdfCore
                 if (t.Length > 0)
                     hmac.TransformBlock(t, 0, t.Length, null, 0);
 
-                if (!info.IsEmpty)
-                    hmac.TransformBlock(info.ToArray(), 0, info.Length, null, 0);
+                if (infoArray != null)
+                    hmac.TransformBlock(infoArray, 0, infoArray.Length, null, 0);
 
                 hmac.TransformFinalBlock(new[] { (byte)i }, 0, 1);
                 t = hmac.Hash ?? throw new InvalidOperationException("HMAC computation failed");
@@ -127,6 +139,10 @@ internal static class HkdfCore
         }
         finally
         {
+            // Clear sensitive key material
+            Array.Clear(prkArray, 0, prkArray.Length);
+            if (infoArray != null)
+                Array.Clear(infoArray, 0, infoArray.Length);
             SecureMemoryOperations.SecureClear(t);
         }
     }

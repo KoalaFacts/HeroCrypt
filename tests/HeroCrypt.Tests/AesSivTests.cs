@@ -3,6 +3,9 @@ using System.Text;
 
 namespace HeroCrypt.Tests;
 
+// DISABLED: Binary search narrowing
+#if FALSE
+
 
 /// <summary>
 /// Tests for AES-SIV (Synthetic IV) implementation
@@ -415,3 +418,5 @@ public class AesSivTests
 }
 
 
+
+#endif

@@ -50,7 +50,7 @@ public static class BatchHashOperations
 
         return await ParallelCryptoOperations.ProcessBatchAsync<ReadOnlyMemory<byte>, byte[]>(
             inputs,
-            async input =>
+            async (input, _) =>
             {
                 // Use incremental API for large inputs
                 using var sha256 = SHA256.Create();
@@ -73,7 +73,7 @@ public static class BatchHashOperations
 
         return ParallelCryptoOperations.ProcessBatch<ReadOnlyMemory<byte>, byte[]>(
             inputs.AsSpan(),
-            input =>
+            (input, _) =>
             {
                 using var sha256 = SHA256.Create();
                 return sha256.ComputeHash(input.ToArray());
@@ -95,7 +95,7 @@ public static class BatchHashOperations
 
         return await ParallelCryptoOperations.ProcessBatchAsync<ReadOnlyMemory<byte>, byte[]>(
             inputs,
-            async input =>
+            async (input, _) =>
             {
                 using var sha512 = SHA512.Create();
                 return await Task.Run(() => sha512.ComputeHash(input.ToArray()), cancellationToken);
@@ -129,7 +129,7 @@ public static class BatchHashOperations
 
         return ParallelCryptoOperations.ProcessBatch<ReadOnlyMemory<byte>, byte[]>(
             inputs.AsSpan(),
-            input =>
+            (input, _) =>
             {
                 // Production: Use actual BLAKE2b implementation
                 // return Blake2b.ComputeHash(input.Span, outputSize, keyCopy);
@@ -211,7 +211,7 @@ public static class BatchHmacOperations
 
         return ParallelCryptoOperations.ProcessBatch<ReadOnlyMemory<byte>, byte[]>(
             messages.AsSpan(),
-            message =>
+            (message, _) =>
             {
                 using var hmac = new HMACSHA256(keyArray);
                 return hmac.ComputeHash(message.ToArray());
@@ -319,7 +319,7 @@ public static class BatchEncryptionOperations
 
         return ParallelCryptoOperations.ProcessBatchAsync<EncryptionResult, byte[]>(
             ciphertexts,
-            async (ct) =>
+            async (ct, _) =>
             {
                 var plaintext = new byte[ct.Ciphertext.Length];
 

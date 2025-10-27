@@ -8,14 +8,8 @@ using HeroCrypt.Cryptography.MultiParty;
 
 namespace HeroCrypt.Tests;
 
-// DISABLED: These tests cause platform-specific crashes on Windows (exit -1073741571)
-// and Mac (exit 134/SIGABRT) but work fine on Linux. The crashes occur around 60 seconds
-// into test execution and appear to be related to stack overflow or memory corruption in
-// the reference implementations.
-//
-// These are educational/reference implementations. Re-enable after fixing or skip on
-// Windows/Mac specifically if platform-conditional compilation is needed.
-#if FALSE && !NETSTANDARD2_0
+// These tests use advanced cryptographic features not available in .NET Standard 2.0
+#if !NETSTANDARD2_0
 
 /// <summary>
 /// Tests for Zero-Knowledge and Advanced Cryptographic Protocols

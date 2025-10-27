@@ -11,8 +11,7 @@ using HeroCrypt.Performance.Batch;
 
 namespace HeroCrypt.Tests;
 
-// DISABLED: Systematically disabling all advanced tests to isolate crash
-#if FALSE && !NETSTANDARD2_0
+#if !NETSTANDARD2_0
 
 /// <summary>
 /// Performance tests for SIMD, memory pooling, parallel, and batch operations

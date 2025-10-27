@@ -392,7 +392,7 @@ public class ZeroKnowledgeTests
         Assert.Equal(party1Input.Length, result.Result.Length);
     }
 
-    [Fact(Skip = "MPC depends on Shamir Secret Sharing which has implementation issues - reference implementation only")]
+    [Fact]
     public void MPC_GenerateBeaverTriples_CreatesValidTriples()
     {
         // Arrange

@@ -181,6 +181,7 @@ internal static class AesOcbCore
         aes.Padding = PaddingMode.None;
 
         using var encryptor = aes.CreateEncryptor();
+        using var decryptor = aes.CreateDecryptor();
 
         // Generate OCB state
         Span<byte> l_star = stackalloc byte[BlockSize];
@@ -218,7 +219,7 @@ internal static class AesOcbCore
                 Span<byte> tempBlock = stackalloc byte[BlockSize];
                 Span<byte> offsetXor = stackalloc byte[BlockSize];
                 XorBlock(tempBlock, ciphertextBlock, offset);
-                EncryptBlock(encryptor, offsetXor, tempBlock);
+                DecryptBlock(decryptor, offsetXor, tempBlock);
                 XorBlock(plaintextBlock, offsetXor, offset);
 
                 // Checksum = Checksum xor Plaintext_i
@@ -502,6 +503,20 @@ internal static class AesOcbCore
         var inputArray = input.ToArray();
         var outputArray = new byte[BlockSize];
         encryptor.TransformBlock(inputArray, 0, BlockSize, outputArray, 0);
+        outputArray.CopyTo(output);
+        Array.Clear(inputArray, 0, inputArray.Length);
+        Array.Clear(outputArray, 0, outputArray.Length);
+    }
+
+    /// <summary>
+    /// Decrypts a single block using AES-ECB
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void DecryptBlock(ICryptoTransform decryptor, Span<byte> output, ReadOnlySpan<byte> input)
+    {
+        var inputArray = input.ToArray();
+        var outputArray = new byte[BlockSize];
+        decryptor.TransformBlock(inputArray, 0, BlockSize, outputArray, 0);
         outputArray.CopyTo(output);
         Array.Clear(inputArray, 0, inputArray.Length);
         Array.Clear(outputArray, 0, outputArray.Length);

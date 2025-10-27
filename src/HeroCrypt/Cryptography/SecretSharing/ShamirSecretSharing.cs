@@ -261,7 +261,7 @@ public static class ShamirSecretSharing
     }
 
     /// <summary>
-    /// Multiplicative inverse in GF(256) using Extended Euclidean Algorithm
+    /// Multiplicative inverse in GF(256) using Fermat's Little Theorem
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static byte GF256Invert(byte a)
@@ -269,19 +269,21 @@ public static class ShamirSecretSharing
         if (a == 0)
             throw new DivideByZeroException("Cannot invert zero in GF(256)");
 
-        // Use lookup table for performance (could be optimized with pre-computed table)
-        // For now, use Extended Euclidean Algorithm
-
-        // Special case: a^254 = a^(-1) in GF(256) (Fermat's little theorem)
+        // Fermat's Little Theorem: a^254 = a^(-1) in GF(256)
+        // Use binary exponentiation to compute a^254
         byte result = 1;
         byte power = a;
+        int exponent = 254;
 
-        // Compute a^254 by binary exponentiation
-        for (var i = 0; i < 254; i++)
+        // Binary exponentiation
+        while (exponent > 0)
         {
-            result = GF256Multiply(result, power);
-            if (i < 253)
-                power = GF256Multiply(power, a);
+            if ((exponent & 1) == 1)
+            {
+                result = GF256Multiply(result, power);
+            }
+            power = GF256Multiply(power, power);
+            exponent >>= 1;
         }
 
         return result;

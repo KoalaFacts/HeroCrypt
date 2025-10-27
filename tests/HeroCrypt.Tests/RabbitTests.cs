@@ -7,8 +7,6 @@ namespace HeroCrypt.Tests;
 /// Tests for Rabbit stream cipher implementation
 /// Based on RFC 4503 test vectors
 /// </summary>
-// DISABLED: Systematically disabling to isolate crash
-#if FALSE
 public class RabbitTests
 {
     private readonly byte[] _testKey = new byte[16];
@@ -368,4 +366,3 @@ public class RabbitTests
     }
 }
 
-#endif

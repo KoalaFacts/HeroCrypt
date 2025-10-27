@@ -7,8 +7,6 @@ namespace HeroCrypt.Tests;
 /// Tests for RC4 stream cipher (legacy compatibility only)
 /// </summary>
 #pragma warning disable CS0618 // Type or member is obsolete
-// DISABLED: Systematically disabling to isolate crash
-#if FALSE
 public class Rc4Tests
 {
     private readonly byte[] _testKey = Encoding.UTF8.GetBytes("TestKey12345678"); // 16 bytes
@@ -341,4 +339,3 @@ public class Rc4Tests
 }
 #pragma warning restore CS0618 // Type or member is obsolete
 
-#endif

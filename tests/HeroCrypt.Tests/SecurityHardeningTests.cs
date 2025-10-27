@@ -7,8 +7,6 @@ namespace HeroCrypt.Tests;
 /// <summary>
 /// Comprehensive security hardening tests
 /// </summary>
-// DISABLED: Systematically disabling to isolate crash
-#if FALSE
 public class SecurityHardeningTests
 {
     private readonly ILogger<SecurityHardeningTests> _logger;
@@ -612,4 +610,3 @@ public class SecurityHardeningTests
 
     #endregion
 }
-#endif

@@ -7,8 +7,6 @@ namespace HeroCrypt.Tests;
 /// Tests for HC-128 stream cipher implementation
 /// HC-128 is part of the eSTREAM portfolio (Profile 1: Software)
 /// </summary>
-// DISABLED: Systematically disabling to isolate crash
-#if FALSE
 public class Hc128Tests
 {
     private readonly byte[] _testKey = new byte[16];
@@ -381,4 +379,3 @@ public class Hc128Tests
     }
 }
 
-#endif

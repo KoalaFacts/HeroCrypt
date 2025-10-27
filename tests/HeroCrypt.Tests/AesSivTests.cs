@@ -7,8 +7,6 @@ namespace HeroCrypt.Tests;
 /// Tests for AES-SIV (Synthetic IV) implementation
 /// Based on RFC 5297 test vectors
 /// </summary>
-// DISABLED: Systematically disabling to isolate crash
-#if FALSE
 public class AesSivTests
 {
     private readonly byte[] _testKey256 = new byte[64]; // 32+32 for MAC+CTR
@@ -415,4 +413,3 @@ public class AesSivTests
     }
 }
 
-#endif

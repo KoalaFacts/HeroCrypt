@@ -6,8 +6,6 @@ namespace HeroCrypt.Tests;
 /// <summary>
 /// Tests for XSalsa20 stream cipher implementation
 /// </summary>
-// DISABLED: Systematically disabling to isolate crash
-#if FALSE
 public class XSalsa20Tests
 {
     private readonly byte[] _testKey = new byte[32];
@@ -189,4 +187,3 @@ public class XSalsa20Tests
         Assert.True(maxLength > 1024 * 1024 * 1024); // Should be very large
     }
 }
-#endif

@@ -3,8 +3,6 @@ using HeroCrypt.Services;
 
 namespace HeroCrypt.Tests;
 
-// DISABLED: Systematically disabling to isolate crash
-#if FALSE
 
 [Trait("Category", TestCategories.Fast)]
 [Trait("Category", TestCategories.Unit)]
@@ -134,4 +132,3 @@ public class Argon2HashingServiceTests
         Assert.False(result);
     }
 }
-#endif

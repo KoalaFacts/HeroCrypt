@@ -6,8 +6,6 @@ namespace HeroCrypt.Tests;
 /// <summary>
 /// Tests for elliptic curve cryptographic operations
 /// </summary>
-// DISABLED: Systematically disabling to isolate crash
-#if FALSE
 public class EllipticCurveServiceTests
 {
     private readonly IEllipticCurveService _eccService;
@@ -416,4 +414,3 @@ public class EllipticCurveServiceTests
         }
     }
 }
-#endif

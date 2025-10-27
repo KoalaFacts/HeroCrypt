@@ -6,8 +6,6 @@ namespace HeroCrypt.Tests;
 /// <summary>
 /// Unit tests for RSA Digital Signature Service functionality
 /// </summary>
-// DISABLED: Systematically disabling to isolate crash
-#if FALSE
 public class RsaDigitalSignatureServiceTests
 {
     [Fact]
@@ -356,4 +354,3 @@ public class RsaDigitalSignatureServiceTests
     }
 }
 
-#endif

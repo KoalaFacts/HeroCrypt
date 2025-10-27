@@ -7,8 +7,6 @@ namespace HeroCrypt.Tests;
 /// <summary>
 /// Tests for ChaCha20 variants (ChaCha8, ChaCha12, ChaCha20)
 /// </summary>
-// DISABLED: Systematically disabling to isolate crash
-#if FALSE
 public class ChaChaVariantsTests
 {
     private readonly byte[] _testKey = new byte[32];
@@ -229,4 +227,3 @@ public class ChaChaVariantsTests
             ChaChaVariants.ValidateParameters(invalidKey, _testNonce, ChaChaVariant.ChaCha20));
     }
 }
-#endif

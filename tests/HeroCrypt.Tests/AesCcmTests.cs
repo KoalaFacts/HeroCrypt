@@ -9,8 +9,6 @@ namespace HeroCrypt.Tests;
 /// Tests for AES-CCM (Counter with CBC-MAC) implementation
 /// Includes RFC 3610 test vectors for compliance verification
 /// </summary>
-// DISABLED: Systematically disabling to isolate crash
-#if FALSE
 public class AesCcmTests
 {
     private readonly AeadService _aeadService;
@@ -483,4 +481,3 @@ public class AesCcmTests
     #endregion
 }
 
-#endif

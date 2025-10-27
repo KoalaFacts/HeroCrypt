@@ -12,7 +12,6 @@ using HeroCrypt.HardwareSecurity.HardwareRng;
 namespace HeroCrypt.Tests;
 
 // DISABLED: This test file appears in logs just before crash. Testing if it's the culprit.
-#if FALSE
 
 /// <summary>
 /// Tests for Hardware Security Module integration
@@ -546,4 +545,3 @@ public class HardwareSecurityTests
     }
 }
 
-#endif

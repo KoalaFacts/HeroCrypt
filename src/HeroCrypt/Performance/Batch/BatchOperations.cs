@@ -458,7 +458,7 @@ public static class BatchSignatureOperations
     /// <param name="hashAlgorithm">Hash algorithm used</param>
     /// <param name="degreeOfParallelism">Parallel tasks (0 = auto)</param>
     /// <returns>Array of verification results</returns>
-    public static Task<bool[]> VerifyBatchAsync(
+    public static async Task<bool[]> VerifyBatchAsync(
         RSA publicKey,
         ReadOnlyMemory<byte>[] messages,
         ReadOnlyMemory<byte>[] signatures,
@@ -474,28 +474,46 @@ public static class BatchSignatureOperations
         if (signatures == null || signatures.Length != messages.Length)
             throw new ArgumentException("Signatures must match message count", nameof(signatures));
 
-        return ParallelCryptoOperations.ProcessBatchAsync<ReadOnlyMemory<byte>, bool>(
-            messages,
-            async (ReadOnlyMemory<byte> message, int index) =>
+        if (degreeOfParallelism <= 0)
+            degreeOfParallelism = ParallelCryptoOperations.OptimalDegreeOfParallelism;
+
+        var results = new bool[messages.Length];
+        var semaphore = new SemaphoreSlim(degreeOfParallelism);
+        var tasks = new Task[messages.Length];
+
+        for (int i = 0; i < messages.Length; i++)
+        {
+            var index = i; // Capture for closure
+            tasks[i] = Task.Run(async () =>
             {
-                return await Task.Run(() =>
+                await semaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
+                try
                 {
-                    try
+                    results[index] = await Task.Run(() =>
                     {
-                        return publicKey.VerifyData(
-                            message.ToArray(),
-                            signatures[index].ToArray(),
-                            hashAlgorithm,
-                            padding);
-                    }
-                    catch
-                    {
-                        return false;
-                    }
-                }, cancellationToken);
-            },
-            degreeOfParallelism,
-            cancellationToken);
+                        try
+                        {
+                            return publicKey.VerifyData(
+                                messages[index].ToArray(),
+                                signatures[index].ToArray(),
+                                hashAlgorithm,
+                                padding);
+                        }
+                        catch
+                        {
+                            return false;
+                        }
+                    }, cancellationToken);
+                }
+                finally
+                {
+                    semaphore.Release();
+                }
+            }, cancellationToken);
+        }
+
+        await Task.WhenAll(tasks).ConfigureAwait(false);
+        return results;
     }
 
     /// <summary>

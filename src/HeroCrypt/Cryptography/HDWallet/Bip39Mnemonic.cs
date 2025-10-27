@@ -5,6 +5,8 @@ using System.Text;
 
 namespace HeroCrypt.Cryptography.HDWallet;
 
+#if !NETSTANDARD2_0
+
 /// <summary>
 /// BIP39 Mnemonic Code implementation
 /// Generates mnemonic phrases from entropy for HD wallet seed generation
@@ -377,3 +379,4 @@ public static class Bip39Mnemonic
                $"Uses PBKDF2-HMAC-SHA512 with {Pbkdf2Iterations} iterations for seed generation.";
     }
 }
+#endif

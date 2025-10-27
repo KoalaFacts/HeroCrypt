@@ -6,6 +6,8 @@ using HeroCrypt.Security;
 
 namespace HeroCrypt.Cryptography.MultiParty;
 
+#if !NETSTANDARD2_0
+
 /// <summary>
 /// Threshold Signature Schemes (TSS)
 ///
@@ -526,3 +528,4 @@ public static class ThresholdSignatures
         return r.Length > 0 && s.Length > 0 && publicKey.Length > 0 && challenge.Length > 0;
     }
 }
+#endif

@@ -6,6 +6,8 @@ using System.Text.Json;
 
 namespace HeroCrypt.Enterprise.KeyManagement;
 
+#if !NETSTANDARD2_0
+
 /// <summary>
 /// Enterprise Key Management Service (KMS)
 ///
@@ -777,3 +779,4 @@ public class SimpleAccessControlService : IAccessControlService
     public bool CanDestroyKey(string userId, string keyId) => _adminUsers.Contains(userId);
     public bool CanViewKey(string userId, string keyId) => true;
 }
+#endif

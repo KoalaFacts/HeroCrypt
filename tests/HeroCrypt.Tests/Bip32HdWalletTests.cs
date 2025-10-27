@@ -3,6 +3,8 @@ using System.Text;
 
 namespace HeroCrypt.Tests;
 
+#if !NETSTANDARD2_0
+
 /// <summary>
 /// Tests for BIP32 Hierarchical Deterministic Wallets
 /// </summary>
@@ -334,3 +336,4 @@ public class Bip32HdWalletTests
         Assert.Equal(master1.ChainCode, master2.ChainCode);
     }
 }
+#endif

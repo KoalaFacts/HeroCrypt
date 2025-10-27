@@ -6,6 +6,8 @@ using System.Security.Cryptography;
 
 namespace HeroCrypt.Enterprise.Compliance;
 
+#if !NETSTANDARD2_0
+
 /// <summary>
 /// Compliance and Auditing Framework
 ///
@@ -697,3 +699,4 @@ public class InMemoryAuditLogger : IAuditLogger
         }
     }
 }
+#endif

@@ -4,6 +4,8 @@ using HeroCrypt.Security;
 
 namespace HeroCrypt.Cryptography.ZeroKnowledge.Groth16;
 
+#if !NETSTANDARD2_0
+
 /// <summary>
 /// Groth16 zk-SNARK (Zero-Knowledge Succinct Non-Interactive Argument of Knowledge)
 /// Reference implementation for educational and API design purposes.
@@ -453,3 +455,4 @@ public static class Groth16ZkSnark
                alpha.Length > 0 && beta.Length > 0;
     }
 }
+#endif

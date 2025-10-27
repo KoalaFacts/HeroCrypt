@@ -8,6 +8,8 @@ using HeroCrypt.Cryptography.MultiParty;
 
 namespace HeroCrypt.Tests;
 
+#if !NETSTANDARD2_0
+
 /// <summary>
 /// Tests for Zero-Knowledge and Advanced Cryptographic Protocols
 ///
@@ -692,3 +694,4 @@ public class ZeroKnowledgeTests
 
     #endregion
 }
+#endif

@@ -4,6 +4,8 @@ using System.Security.Cryptography;
 
 namespace HeroCrypt.Cryptography.SecretSharing;
 
+#if !NETSTANDARD2_0
+
 /// <summary>
 /// Shamir's Secret Sharing (SSS) implementation
 /// Allows splitting a secret into N shares where any K shares can reconstruct the secret
@@ -340,3 +342,4 @@ public static class ShamirSecretSharing
                $"Uses GF(256) arithmetic with AES reduction polynomial.";
     }
 }
+#endif

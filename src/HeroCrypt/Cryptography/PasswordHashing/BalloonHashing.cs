@@ -3,6 +3,8 @@ using System.Security.Cryptography;
 
 namespace HeroCrypt.Cryptography.PasswordHashing;
 
+#if !NETSTANDARD2_0
+
 /// <summary>
 /// Balloon Hashing implementation
 /// A memory-hard password hashing function resistant to cache-timing attacks
@@ -356,3 +358,4 @@ public static class BalloonHashing
         };
     }
 }
+#endif

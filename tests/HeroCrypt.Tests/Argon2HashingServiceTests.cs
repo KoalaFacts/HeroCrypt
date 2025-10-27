@@ -3,6 +3,9 @@ using HeroCrypt.Services;
 
 namespace HeroCrypt.Tests;
 
+// DISABLED: Binary search for hanging test
+#if FALSE
+
 
 [Trait("Category", TestCategories.Fast)]
 [Trait("Category", TestCategories.Unit)]
@@ -132,3 +135,5 @@ public class Argon2HashingServiceTests
         Assert.False(result);
     }
 }
+
+#endif

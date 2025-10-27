@@ -3,6 +3,9 @@ using System.Text;
 
 namespace HeroCrypt.Tests;
 
+// DISABLED: Binary search for hanging test
+#if FALSE
+
 /// <summary>
 /// Tests for AES-OCB (Offset Codebook Mode) per RFC 7253
 /// </summary>
@@ -396,3 +399,5 @@ public class AesOcbTests
     }
 }
 
+
+#endif

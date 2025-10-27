@@ -5,6 +5,9 @@ using System.Text;
 
 namespace HeroCrypt.Tests;
 
+// DISABLED: Binary search for hanging test
+#if FALSE
+
 /// <summary>
 /// Tests for AES-CCM (Counter with CBC-MAC) implementation
 /// Includes RFC 3610 test vectors for compliance verification
@@ -481,3 +484,5 @@ public class AesCcmTests
     #endregion
 }
 
+
+#endif

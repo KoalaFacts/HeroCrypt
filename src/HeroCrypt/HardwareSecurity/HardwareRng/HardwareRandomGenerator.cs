@@ -163,120 +163,18 @@ public static class HardwareRandomGenerator
 
     private static bool TryFillWithRdrand(Span<byte> buffer)
     {
-        const int maxRetries = 10;
-
-        unsafe
-        {
-            fixed (byte* ptr = buffer)
-            {
-                int offset = 0;
-                int remaining = buffer.Length;
-
-                // Fill 8 bytes at a time (64-bit)
-                while (remaining >= 8)
-                {
-                    ulong value = 0;
-                    int retries = 0;
-
-                    while (retries < maxRetries)
-                    {
-                        // Note: .NET doesn't expose RDRAND intrinsics yet
-                        // This would use the intrinsic when available
-                        // For now, fall back to system RNG
-                        return false;
-                    }
-
-                    if (retries >= maxRetries)
-                        return false; // Hardware RNG failed
-
-                    *(ulong*)(ptr + offset) = value;
-                    offset += 8;
-                    remaining -= 8;
-                }
-
-                // Fill remaining bytes
-                if (remaining > 0)
-                {
-                    ulong value = 0;
-                    int retries = 0;
-
-                    while (retries < maxRetries)
-                    {
-                        // Note: .NET doesn't expose RDRAND intrinsics yet
-                        // This would use the intrinsic when available
-                        // For now, fall back to system RNG
-                        return false;
-                    }
-
-                    if (retries >= maxRetries)
-                        return false;
-
-                    byte* valuePtr = (byte*)&value;
-                    for (int i = 0; i < remaining; i++)
-                    {
-                        ptr[offset + i] = valuePtr[i];
-                    }
-                }
-            }
-        }
-
-        return true;
+        // Note: .NET doesn't expose RDRAND intrinsics yet
+        // This is a placeholder for future hardware RNG support
+        // For now, always fall back to secure system RNG
+        return false;
     }
 
     private static bool TryFillWithRdseed(Span<byte> buffer)
     {
-        const int maxRetries = 100; // RDSEED can take longer
-
-        unsafe
-        {
-            fixed (byte* ptr = buffer)
-            {
-                int offset = 0;
-                int remaining = buffer.Length;
-
-                // RDSEED is slower than RDRAND, use for seeding only
-                // For large buffers, use RDSEED for seed then expand with RDRAND
-                if (remaining > 32)
-                {
-                    // Get 32 bytes of seed
-                    if (!TryFillWithRdseed(buffer.Slice(0, 32)))
-                        return false;
-
-                    // Use seed to fill rest with RDRAND
-                    return TryFillWithRdrand(buffer.Slice(32));
-                }
-
-                // For small buffers, use pure RDSEED
-                while (remaining >= 8)
-                {
-                    ulong value = 0;
-                    int retries = 0;
-
-                    // Note: Actual RDSEED intrinsic would be used here
-                    // System.Runtime.Intrinsics doesn't expose RDSEED yet
-                    // This is a placeholder for the concept
-
-                    if (retries >= maxRetries)
-                        return false;
-
-                    *(ulong*)(ptr + offset) = value;
-                    offset += 8;
-                    remaining -= 8;
-                }
-
-                if (remaining > 0)
-                {
-                    ulong value = 0;
-                    byte* valuePtr = (byte*)&value;
-                    for (int i = 0; i < remaining; i++)
-                    {
-                        ptr[offset + i] = valuePtr[i];
-                    }
-                }
-            }
-        }
-
-        return true;
+        // Note: .NET doesn't expose RDSEED intrinsics yet
+        // This is a placeholder for future hardware RNG support
+        // For now, always fall back to secure system RNG
+        return false;
     }
 
     private static HardwareRngCapabilities DetectCapabilities()

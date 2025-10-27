@@ -3,11 +3,6 @@ using System.Text;
 
 namespace HeroCrypt.Tests;
 
-// DISABLED: This test file hangs on Windows/Mac after ~60 seconds
-// Culprit identified through systematic binary search
-// Issue is in AesOcbCore implementation - needs investigation
-#if FALSE
-
 /// <summary>
 /// Tests for AES-OCB (Offset Codebook Mode) per RFC 7253
 /// </summary>
@@ -404,4 +399,3 @@ public class AesOcbTests
 
 
 
-#endif

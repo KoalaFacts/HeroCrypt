@@ -35,24 +35,34 @@ internal static class AesCmacCore
         if (!SupportedKeySizes.Contains(key.Length))
             throw new ArgumentException($"Key must be 16, 24, or 32 bytes (AES-128/192/256)", nameof(key));
 
-        using var aes = Aes.Create();
-        aes.Key = key.ToArray();
-        aes.Mode = CipherMode.ECB;
-        aes.Padding = PaddingMode.None;
+        // Create key array once and clear it at end (avoid memory leak)
+        var keyArray = key.ToArray();
 
-        using var encryptor = aes.CreateEncryptor();
+        try
+        {
+            using var aes = Aes.Create();
+            aes.Key = keyArray;
+            aes.Mode = CipherMode.ECB;
+            aes.Padding = PaddingMode.None;
 
-        // Generate subkeys K1 and K2
-        Span<byte> k1 = stackalloc byte[BlockSize];
-        Span<byte> k2 = stackalloc byte[BlockSize];
-        GenerateSubkeys(k1, k2, encryptor);
+            using var encryptor = aes.CreateEncryptor();
 
-        // Compute CMAC
-        ComputeCmac(tag, data, k1, k2, encryptor);
+            // Generate subkeys K1 and K2
+            Span<byte> k1 = stackalloc byte[BlockSize];
+            Span<byte> k2 = stackalloc byte[BlockSize];
+            GenerateSubkeys(k1, k2, encryptor);
 
-        // Clear sensitive data
-        SecureMemoryOperations.SecureClear(k1);
-        SecureMemoryOperations.SecureClear(k2);
+            // Compute CMAC
+            ComputeCmac(tag, data, k1, k2, encryptor);
+
+            // Clear sensitive data
+            SecureMemoryOperations.SecureClear(k1);
+            SecureMemoryOperations.SecureClear(k2);
+        }
+        finally
+        {
+            Array.Clear(keyArray, 0, keyArray.Length);
+        }
     }
 
     /// <summary>
@@ -63,11 +73,10 @@ internal static class AesCmacCore
     {
         // Step 1: L := AES-128(K, 0^128)
         Span<byte> l = stackalloc byte[BlockSize];
-        Span<byte> zero = stackalloc byte[BlockSize];
-        zero.Clear();
-
+        var zeroArray = new byte[BlockSize];  // All zeros by default
         var lArray = new byte[BlockSize];
-        aes.TransformBlock(zero.ToArray(), 0, BlockSize, lArray, 0);
+
+        aes.TransformBlock(zeroArray, 0, BlockSize, lArray, 0);
         lArray.CopyTo(l);
 
         // Step 2: K1 := L << 1 (if MSB(L) = 0) or (L << 1) XOR Rb (if MSB(L) = 1)

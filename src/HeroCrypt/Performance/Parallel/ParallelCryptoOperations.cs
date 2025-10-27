@@ -195,6 +195,47 @@ public static class ParallelCryptoOperations
     }
 
     /// <summary>
+    /// Executes multiple independent operations in parallel with index support
+    /// Useful for batch operations where the operation needs to know its index
+    /// </summary>
+    public static async Task<TResult[]> ProcessBatchAsync<TInput, TResult>(
+        ReadOnlyMemory<TInput> inputs,
+        Func<TInput, int, Task<TResult>> operation,
+        int degreeOfParallelism = 0,
+        CancellationToken cancellationToken = default)
+    {
+        if (operation == null)
+            throw new ArgumentNullException(nameof(operation));
+
+        if (degreeOfParallelism <= 0)
+            degreeOfParallelism = OptimalDegreeOfParallelism;
+
+        var results = new TResult[inputs.Length];
+        var semaphore = new SemaphoreSlim(degreeOfParallelism);
+
+        var tasks = new Task[inputs.Length];
+        for (int i = 0; i < inputs.Length; i++)
+        {
+            var index = i; // Capture for closure
+            tasks[i] = Task.Run(async () =>
+            {
+                await semaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
+                try
+                {
+                    results[index] = await operation(inputs.Span[index], index).ConfigureAwait(false);
+                }
+                finally
+                {
+                    semaphore.Release();
+                }
+            }, cancellationToken);
+        }
+
+        await Task.WhenAll(tasks).ConfigureAwait(false);
+        return results;
+    }
+
+    /// <summary>
     /// Synchronous batch processing
     /// </summary>
     public static TResult[] ProcessBatch<TInput, TResult>(
@@ -224,6 +265,41 @@ public static class ParallelCryptoOperations
             i =>
             {
                 results[i] = operation(inputsArray[i]);
+            });
+
+        return results;
+    }
+
+    /// <summary>
+    /// Synchronous batch processing with index support
+    /// </summary>
+    public static TResult[] ProcessBatch<TInput, TResult>(
+        ReadOnlySpan<TInput> inputs,
+        Func<TInput, int, TResult> operation,
+        int degreeOfParallelism = 0,
+        CancellationToken cancellationToken = default)
+    {
+        if (operation == null)
+            throw new ArgumentNullException(nameof(operation));
+
+        if (degreeOfParallelism <= 0)
+            degreeOfParallelism = OptimalDegreeOfParallelism;
+
+        // Convert span to array to avoid capturing ref-like type in lambda
+        var inputsArray = inputs.ToArray();
+        var results = new TResult[inputsArray.Length];
+
+        System.Threading.Tasks.Parallel.For(
+            0,
+            inputsArray.Length,
+            new ParallelOptions
+            {
+                MaxDegreeOfParallelism = degreeOfParallelism,
+                CancellationToken = cancellationToken
+            },
+            i =>
+            {
+                results[i] = operation(inputsArray[i], i);
             });
 
         return results;

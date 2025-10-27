@@ -176,6 +176,12 @@ internal static class Poly1305Core
         // Move stackalloc outside the loop to prevent stack overflow
         Span<byte> temp = stackalloc byte[8];
 
+#if !NET5_0_OR_GREATER
+        // Create reusable arrays for .NET Standard 2.0 (avoid memory leaks in loop)
+        var byteArray = new byte[8];
+        var tempArray = new byte[8];
+#endif
+
         for (var i = 0; i < numbers.Length; i++)
         {
             var offset = i * 8;
@@ -184,8 +190,8 @@ internal static class Poly1305Core
 #if NET5_0_OR_GREATER
                 numbers[i] = BitConverter.ToUInt64(bytes.Slice(offset, 8));
 #else
-                var byteSlice = bytes.Slice(offset, 8).ToArray();
-                numbers[i] = BitConverter.ToUInt64(byteSlice, 0);
+                bytes.Slice(offset, 8).CopyTo(byteArray);
+                numbers[i] = BitConverter.ToUInt64(byteArray, 0);
 #endif
             }
             else
@@ -197,7 +203,7 @@ internal static class Poly1305Core
 #if NET5_0_OR_GREATER
                 numbers[i] = BitConverter.ToUInt64(temp);
 #else
-                var tempArray = temp.ToArray();
+                temp.CopyTo(tempArray);
                 numbers[i] = BitConverter.ToUInt64(tempArray, 0);
 #endif
             }

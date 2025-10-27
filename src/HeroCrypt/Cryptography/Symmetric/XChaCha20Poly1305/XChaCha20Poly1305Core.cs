@@ -201,13 +201,19 @@ internal static class XChaCha20Poly1305Core
         state[2] = HChaCha20Constants[2];
         state[3] = HChaCha20Constants[3];
 
+#if !NET5_0_OR_GREATER
+        // Create reusable arrays for .NET Standard 2.0 (avoid memory leaks in loops)
+        var keyBytes = new byte[4];
+        var nonceBytes = new byte[4];
+#endif
+
         // Key
         for (var i = 0; i < 8; i++)
         {
 #if NET5_0_OR_GREATER
             state[4 + i] = BitConverter.ToUInt32(key.Slice(i * 4, 4));
 #else
-            var keyBytes = key.Slice(i * 4, 4).ToArray();
+            key.Slice(i * 4, 4).CopyTo(keyBytes);
             state[4 + i] = BitConverter.ToUInt32(keyBytes, 0);
 #endif
         }
@@ -218,7 +224,7 @@ internal static class XChaCha20Poly1305Core
 #if NET5_0_OR_GREATER
             state[12 + i] = BitConverter.ToUInt32(nonce.Slice(i * 4, 4));
 #else
-            var nonceBytes = nonce.Slice(i * 4, 4).ToArray();
+            nonce.Slice(i * 4, 4).CopyTo(nonceBytes);
             state[12 + i] = BitConverter.ToUInt32(nonceBytes, 0);
 #endif
         }

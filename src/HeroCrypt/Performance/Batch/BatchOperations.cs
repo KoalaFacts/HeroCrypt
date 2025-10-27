@@ -476,7 +476,7 @@ public static class BatchSignatureOperations
 
         return ParallelCryptoOperations.ProcessBatchAsync<ReadOnlyMemory<byte>, bool>(
             messages,
-            async (message, index) =>
+            async (ReadOnlyMemory<byte> message, int index) =>
             {
                 return await Task.Run(() =>
                 {

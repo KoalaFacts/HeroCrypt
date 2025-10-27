@@ -93,7 +93,11 @@ internal static class AesOcbCore
             var fullBlocks = plaintext.Length / BlockSize;
             var ciphertextOnly = ciphertext.Slice(0, plaintext.Length);
 
+            // Move stackalloc outside loop to avoid stack overflow with large data
             Span<byte> l_i = stackalloc byte[BlockSize];
+            Span<byte> tempBlock = stackalloc byte[BlockSize];
+            Span<byte> offsetXor = stackalloc byte[BlockSize];
+
             for (var i = 0; i < fullBlocks; i++)
             {
                 var plaintextBlock = plaintext.Slice(i * BlockSize, BlockSize);
@@ -107,16 +111,15 @@ internal static class AesOcbCore
                 XorBlock(checksum, checksum, plaintextBlock);
 
                 // C_i = Offset xor ENCIPHER(K, Plaintext_i xor Offset)
-                Span<byte> tempBlock = stackalloc byte[BlockSize];
-                Span<byte> offsetXor = stackalloc byte[BlockSize];
                 XorBlock(tempBlock, plaintextBlock, offset);
                 EncryptBlock(encryptor, offsetXor, tempBlock, inputBuffer, outputBuffer);
                 XorBlock(ciphertextBlock, offsetXor, offset);
-
-                SecureMemoryOperations.SecureClear(tempBlock);
-                SecureMemoryOperations.SecureClear(offsetXor);
             }
+
+            // Clear reused buffers
             SecureMemoryOperations.SecureClear(l_i);
+            SecureMemoryOperations.SecureClear(tempBlock);
+            SecureMemoryOperations.SecureClear(offsetXor);
 
             // Process final partial block if any
             var remaining = plaintext.Length - (fullBlocks * BlockSize);
@@ -224,7 +227,11 @@ internal static class AesOcbCore
             var ciphertextOnly = ciphertext.Slice(0, plaintextLength);
             var fullBlocks = plaintextLength / BlockSize;
 
+            // Move stackalloc outside loop to avoid stack overflow with large data
             Span<byte> l_i = stackalloc byte[BlockSize];
+            Span<byte> tempBlock = stackalloc byte[BlockSize];
+            Span<byte> offsetXor = stackalloc byte[BlockSize];
+
             for (var i = 0; i < fullBlocks; i++)
             {
                 var ciphertextBlock = ciphertextOnly.Slice(i * BlockSize, BlockSize);
@@ -235,19 +242,18 @@ internal static class AesOcbCore
                 XorBlock(offset, offset, l_i);
 
                 // P_i = Offset xor DECIPHER(K, C_i xor Offset)
-                Span<byte> tempBlock = stackalloc byte[BlockSize];
-                Span<byte> offsetXor = stackalloc byte[BlockSize];
                 XorBlock(tempBlock, ciphertextBlock, offset);
                 DecryptBlock(decryptor, offsetXor, tempBlock, inputBuffer, outputBuffer);
                 XorBlock(plaintextBlock, offsetXor, offset);
 
                 // Checksum = Checksum xor Plaintext_i
                 XorBlock(checksum, checksum, plaintextBlock);
-
-                SecureMemoryOperations.SecureClear(tempBlock);
-                SecureMemoryOperations.SecureClear(offsetXor);
             }
+
+            // Clear reused buffers
             SecureMemoryOperations.SecureClear(l_i);
+            SecureMemoryOperations.SecureClear(tempBlock);
+            SecureMemoryOperations.SecureClear(offsetXor);
 
             // Process final partial block if any
             var remaining = plaintextLength - (fullBlocks * BlockSize);

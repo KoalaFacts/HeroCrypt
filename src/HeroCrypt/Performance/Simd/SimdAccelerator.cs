@@ -1,8 +1,10 @@
 using System;
 using System.Runtime.CompilerServices;
+#if !NETSTANDARD2_0
 using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.X86;
 using System.Runtime.Intrinsics.Arm;
+#endif
 
 namespace HeroCrypt.Performance.Simd;
 
@@ -153,7 +155,8 @@ public static class SimdAccelerator
 
     // AVX-512 implementations
 
-    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+#if !NETSTANDARD2_0
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void XorAvx512(ReadOnlySpan<byte> source, ReadOnlySpan<byte> key, Span<byte> destination)
     {
         int length = source.Length;
@@ -183,10 +186,12 @@ public static class SimdAccelerator
             XorScalar(source.Slice(i), key.Slice(i), destination.Slice(i));
         }
     }
+#endif
 
-    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void XorAvx2(ReadOnlySpan<byte> source, ReadOnlySpan<byte> key, Span<byte> destination)
     {
+#if !NETSTANDARD2_0
         if (!Avx2.IsSupported)
         {
             XorSse2(source, key, destination);
@@ -219,11 +224,15 @@ public static class SimdAccelerator
         {
             XorScalar(source.Slice(i), key.Slice(i), destination.Slice(i));
         }
+#else
+        XorScalar(source, key, destination);
+#endif
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void XorSse2(ReadOnlySpan<byte> source, ReadOnlySpan<byte> key, Span<byte> destination)
     {
+#if !NETSTANDARD2_0
         if (!Sse2.IsSupported)
         {
             XorScalar(source, key, destination);
@@ -256,11 +265,15 @@ public static class SimdAccelerator
         {
             XorScalar(source.Slice(i), key.Slice(i), destination.Slice(i));
         }
+#else
+        XorScalar(source, key, destination);
+#endif
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void XorNeon(ReadOnlySpan<byte> source, ReadOnlySpan<byte> key, Span<byte> destination)
     {
+#if !NETSTANDARD2_0
         if (!AdvSimd.IsSupported)
         {
             XorScalar(source, key, destination);
@@ -293,6 +306,9 @@ public static class SimdAccelerator
         {
             XorScalar(source.Slice(i), key.Slice(i), destination.Slice(i));
         }
+#else
+        XorScalar(source, key, destination);
+#endif
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -305,15 +321,16 @@ public static class SimdAccelerator
     }
 
     // Copy implementations
+#if !NETSTANDARD2_0
 
-    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void CopyAvx512(ReadOnlySpan<byte> source, Span<byte> destination)
     {
         // AVX-512 structure (would use Vector512 in production)
         CopyAvx2(source, destination);
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void CopyAvx2(ReadOnlySpan<byte> source, Span<byte> destination)
     {
         if (!Avx2.IsSupported)
@@ -344,10 +361,12 @@ public static class SimdAccelerator
             source.Slice(i).CopyTo(destination.Slice(i));
         }
     }
+#endif
 
-    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void CopySse2(ReadOnlySpan<byte> source, Span<byte> destination)
     {
+#if !NETSTANDARD2_0
         if (!Sse2.IsSupported)
         {
             source.CopyTo(destination);
@@ -375,11 +394,15 @@ public static class SimdAccelerator
         {
             source.Slice(i).CopyTo(destination.Slice(i));
         }
+#else
+        source.CopyTo(destination);
+#endif
     }
 
     // Constant-time comparison implementations
+#if !NETSTANDARD2_0
 
-    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool ConstantTimeEqualsAvx2(ReadOnlySpan<byte> a, ReadOnlySpan<byte> b)
     {
         if (!Avx2.IsSupported)
@@ -414,10 +437,12 @@ public static class SimdAccelerator
 
         return differences == 0;
     }
+#endif
 
-    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool ConstantTimeEqualsSse2(ReadOnlySpan<byte> a, ReadOnlySpan<byte> b)
     {
+#if !NETSTANDARD2_0
         if (!Sse2.IsSupported)
             return ConstantTimeEqualsScalar(a, b);
 
@@ -449,6 +474,9 @@ public static class SimdAccelerator
         }
 
         return differences == 0;
+#else
+        return ConstantTimeEqualsScalar(a, b);
+#endif
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -466,6 +494,23 @@ public static class SimdAccelerator
 
     private static SimdCapabilities DetectCapabilities()
     {
+#if NETSTANDARD2_0
+        // .NET Standard 2.0 doesn't have intrinsics support
+        return new SimdCapabilities
+        {
+            HasSse2 = false,
+            HasSse41 = false,
+            HasAvx = false,
+            HasAvx2 = false,
+            HasAvx512 = false,
+            HasAesNi = false,
+            HasNeon = false,
+            HasArmAes = false,
+            Vector128Supported = false,
+            Vector256Supported = false,
+            Vector512Supported = false
+        };
+#else
         return new SimdCapabilities
         {
             // x86/x64
@@ -498,6 +543,7 @@ public static class SimdAccelerator
             Vector512Supported = false
 #endif
         };
+#endif
     }
 }
 

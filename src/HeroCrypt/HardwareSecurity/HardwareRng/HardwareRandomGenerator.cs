@@ -1,6 +1,8 @@
 using System;
-using System.Runtime.Intrinsics.X86;
 using System.Security.Cryptography;
+#if !NETSTANDARD2_0
+using System.Runtime.Intrinsics.X86;
+#endif
 
 namespace HeroCrypt.HardwareSecurity.HardwareRng;
 
@@ -282,6 +284,7 @@ public static class HardwareRandomGenerator
         };
 
         // Detect processor
+#if !NETSTANDARD2_0
         if (X86Base.IsSupported)
         {
             caps.ProcessorType = "x86/x64";
@@ -290,6 +293,7 @@ public static class HardwareRandomGenerator
                 caps.Instructions.Add("RDSEED");
         }
         else
+#endif
         {
             caps.ProcessorType = "Unknown";
         }

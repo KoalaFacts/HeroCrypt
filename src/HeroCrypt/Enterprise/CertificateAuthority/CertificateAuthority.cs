@@ -7,6 +7,7 @@ using System.Numerics;
 
 namespace HeroCrypt.Enterprise.CertificateAuthority;
 
+#if !NETSTANDARD2_0
 /// <summary>
 /// Certificate Authority (CA) implementation for X.509 certificate management
 ///
@@ -601,3 +602,50 @@ public enum OcspCertificateStatus
     Revoked,
     Unknown
 }
+#else
+// .NET Standard 2.0 stub - CertificateRequest not available
+
+/// <summary>
+/// Certificate Authority (CA) - Not available in .NET Standard 2.0
+/// </summary>
+/// <remarks>
+/// CertificateRequest class is not available in .NET Standard 2.0.
+/// This functionality requires .NET Core 3.0+ or .NET 5+.
+/// </remarks>
+public class CertificateAuthority
+{
+    public CertificateAuthority(CertificateAuthorityConfig config, X509Certificate2 caCertificate)
+    {
+        throw new PlatformNotSupportedException("CertificateAuthority is not supported in .NET Standard 2.0. Requires .NET Core 3.0+ or .NET 5+.");
+    }
+}
+
+/// <summary>
+/// Certificate Authority Configuration - Not available in .NET Standard 2.0
+/// </summary>
+public class CertificateAuthorityConfig
+{
+    public string Name { get; set; } = string.Empty;
+    public string Organization { get; set; } = string.Empty;
+    public string Country { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Certificate Profile - Not available in .NET Standard 2.0
+/// </summary>
+public class CertificateProfile
+{
+    public int ValidityDays { get; set; }
+    public bool IncludePrivateKey { get; set; }
+}
+
+/// <summary>
+/// OCSP certificate status
+/// </summary>
+public enum OcspCertificateStatus
+{
+    Good,
+    Revoked,
+    Unknown
+}
+#endif

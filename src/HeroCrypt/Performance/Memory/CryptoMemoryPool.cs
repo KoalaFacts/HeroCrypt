@@ -5,6 +5,8 @@ using HeroCrypt.Security;
 
 namespace HeroCrypt.Performance.Memory;
 
+#if !NETSTANDARD2_0
+
 /// <summary>
 /// High-performance memory pool for cryptographic operations
 ///
@@ -327,3 +329,4 @@ public sealed class PinnedBuffer : IDisposable
         }
     }
 }
+#endif

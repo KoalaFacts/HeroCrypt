@@ -123,6 +123,22 @@ namespace System.Security.Cryptography
             bytesWritten = 0;
             return false;
         }
+
+        /// <summary>
+        /// Extension TryComputeHash for SHA512
+        /// </summary>
+        public static bool TryComputeHash(this SHA512 sha512, ReadOnlySpan<byte> source, Span<byte> destination, out int bytesWritten)
+        {
+            var hash = sha512.ComputeHash(source.ToArray());
+            if (hash.Length <= destination.Length)
+            {
+                hash.AsSpan().CopyTo(destination);
+                bytesWritten = hash.Length;
+                return true;
+            }
+            bytesWritten = 0;
+            return false;
+        }
     }
 }
 

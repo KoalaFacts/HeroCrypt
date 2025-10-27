@@ -11,6 +11,8 @@ using HeroCrypt.Performance.Batch;
 
 namespace HeroCrypt.Tests;
 
+#if !NETSTANDARD2_0
+
 /// <summary>
 /// Performance tests for SIMD, memory pooling, parallel, and batch operations
 ///
@@ -787,3 +789,4 @@ public class PerformanceTests
 
     #endregion
 }
+#endif

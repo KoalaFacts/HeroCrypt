@@ -6,6 +6,8 @@ using System.Runtime.CompilerServices;
 
 namespace HeroCrypt.Performance.Parallel;
 
+#if !NETSTANDARD2_0
+
 /// <summary>
 /// Parallel processing infrastructure for cryptographic operations
 ///
@@ -513,3 +515,4 @@ public class CryptoTaskScheduler : TaskScheduler
         _tasks.Dispose();
     }
 }
+#endif

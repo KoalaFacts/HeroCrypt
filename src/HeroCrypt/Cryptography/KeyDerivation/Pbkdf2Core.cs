@@ -46,6 +46,9 @@ internal static class Pbkdf2Core
 
 #if NET6_0_OR_GREATER
         // Use .NET 6+ optimized implementation
+#if NETSTANDARD2_0
+#pragma warning disable CA5379 // Rfc2898DeriveBytes constructor with HashAlgorithmName not available in .NET Standard 2.0
+#endif
         return Rfc2898DeriveBytes.Pbkdf2(password, salt, iterations, hashAlgorithm, outputLength);
 #else
         // Custom implementation for older frameworks

@@ -3,6 +3,8 @@ using System.Security.Cryptography;
 
 namespace HeroCrypt.Cryptography.PostQuantum.Dilithium;
 
+#if !NETSTANDARD2_0
+
 /// <summary>
 /// CRYSTALS-Dilithium (ML-DSA) - Post-Quantum Digital Signature Algorithm
 /// NIST FIPS 204 standard for quantum-resistant digital signatures
@@ -391,3 +393,4 @@ public static class DilithiumDsa
                keyPair.SecretKey.Length == parameters.SecretKeyBytes;
     }
 }
+#endif

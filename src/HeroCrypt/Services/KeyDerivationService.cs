@@ -46,6 +46,9 @@ public class KeyDerivationService : IKeyDerivationService
         try
         {
 #if NETSTANDARD2_0
+#if NETSTANDARD2_0
+#pragma warning disable CA5379 // Rfc2898DeriveBytes constructor with HashAlgorithmName not available in .NET Standard 2.0
+#endif
             // For .NET Standard 2.0, use Rfc2898DeriveBytes
             using var pbkdf2 = new Rfc2898DeriveBytes(password, salt, iterations);
             var result = pbkdf2.GetBytes(keyLength);

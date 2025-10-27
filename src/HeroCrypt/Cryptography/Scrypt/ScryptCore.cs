@@ -33,6 +33,9 @@ internal static class ScryptCore
         var b = new byte[p * blockSize];
 
 #if NETSTANDARD2_0
+#if NETSTANDARD2_0
+#pragma warning disable CA5379 // Rfc2898DeriveBytes constructor with HashAlgorithmName not available in .NET Standard 2.0
+#endif
         using (var pbkdf2 = new Rfc2898DeriveBytes(password, salt, 1))
         {
             b = pbkdf2.GetBytes(p * blockSize);

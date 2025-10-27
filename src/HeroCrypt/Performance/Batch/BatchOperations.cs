@@ -7,6 +7,8 @@ using HeroCrypt.Performance.Memory;
 
 namespace HeroCrypt.Performance.Batch;
 
+#if !NETSTANDARD2_0
+
 /// <summary>
 /// High-performance batch cryptographic operations
 ///
@@ -628,3 +630,4 @@ public static class BatchKeyDerivationOperations
             cancellationToken);
     }
 }
+#endif

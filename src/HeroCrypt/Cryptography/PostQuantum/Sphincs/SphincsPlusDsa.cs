@@ -3,6 +3,8 @@ using System.Security.Cryptography;
 
 namespace HeroCrypt.Cryptography.PostQuantum.Sphincs;
 
+#if !NETSTANDARD2_0
+
 /// <summary>
 /// SPHINCS+ - Stateless Hash-Based Post-Quantum Digital Signature Algorithm
 /// NIST FIPS 205 standard for quantum-resistant stateless signatures
@@ -407,3 +409,4 @@ public static class SphincsPlusDsa
         return parameters.SignatureBytes;
     }
 }
+#endif

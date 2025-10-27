@@ -251,7 +251,9 @@ internal static class Pbkdf2Core
     {
 #if NETSTANDARD2_0
         // .NET Standard 2.0 doesn't support HashAlgorithmName parameter
+#pragma warning disable CA5379 // Rfc2898DeriveBytes with HashAlgorithmName not available in .NET Standard 2.0
         using var deriveBytes = new Rfc2898DeriveBytes(password.ToArray(), salt.ToArray(), iterations);
+#pragma warning restore CA5379
         return deriveBytes.GetBytes(outputLength);
 #else
         using var deriveBytes = new Rfc2898DeriveBytes(password.ToArray(), salt.ToArray(), iterations, hashAlgorithm);

@@ -473,7 +473,11 @@ public static class SimdAccelerator
             HasSse41 = Sse41.IsSupported,
             HasAvx = Avx.IsSupported,
             HasAvx2 = Avx2.IsSupported,
+#if NET8_0_OR_GREATER
             HasAvx512 = Avx512F.IsSupported,
+#else
+            HasAvx512 = false,
+#endif
             HasAesNi = System.Runtime.Intrinsics.X86.Aes.IsSupported,
 
             // ARM
@@ -483,7 +487,11 @@ public static class SimdAccelerator
             // Vector sizes
             Vector128Supported = Vector128.IsHardwareAccelerated,
             Vector256Supported = Vector256.IsHardwareAccelerated,
+#if NET8_0_OR_GREATER
             Vector512Supported = Vector512.IsHardwareAccelerated
+#else
+            Vector512Supported = false
+#endif
         };
     }
 }

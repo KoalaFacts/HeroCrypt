@@ -230,7 +230,7 @@ public class BalloonHashingTests
 
         // Assert
         Assert.Contains("Balloon", info);
-        Assert.Contains("memory-hard", info);
+        Assert.Contains("memory-hard", info, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

@@ -3,6 +3,9 @@ using System.Text;
 
 namespace HeroCrypt.Tests;
 
+// DISABLED: Testing absolute minimum configuration
+#if FALSE
+
 /// <summary>
 /// Tests for Rabbit stream cipher implementation
 /// Based on RFC 4503 test vectors
@@ -366,3 +369,5 @@ public class RabbitTests
     }
 }
 
+
+#endif

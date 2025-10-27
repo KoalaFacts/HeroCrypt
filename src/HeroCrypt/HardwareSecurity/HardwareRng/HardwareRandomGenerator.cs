@@ -3,9 +3,6 @@ using System.Security.Cryptography;
 #if !NETSTANDARD2_0
 using System.Runtime.Intrinsics.X86;
 #endif
-#if NETSTANDARD2_0
-using HeroCrypt.Polyfills;
-#endif
 
 namespace HeroCrypt.HardwareSecurity.HardwareRng;
 

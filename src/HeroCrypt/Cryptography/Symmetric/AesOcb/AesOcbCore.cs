@@ -86,13 +86,14 @@ internal static class AesOcbCore
             var fullBlocks = plaintext.Length / BlockSize;
             var ciphertextOnly = ciphertext.Slice(0, plaintext.Length);
 
+            Span<byte> l_i = stackalloc byte[BlockSize];
             for (var i = 0; i < fullBlocks; i++)
             {
                 var plaintextBlock = plaintext.Slice(i * BlockSize, BlockSize);
                 var ciphertextBlock = ciphertextOnly.Slice(i * BlockSize, BlockSize);
 
                 // Offset = Offset xor L_i
-                var l_i = GetL(encryptor, l_star, i + 1);
+                GetL(l_i, l_star, i + 1);
                 XorBlock(offset, offset, l_i);
 
                 // Checksum = Checksum xor Plaintext_i
@@ -105,10 +106,10 @@ internal static class AesOcbCore
                 EncryptBlock(encryptor, offsetXor, tempBlock);
                 XorBlock(ciphertextBlock, offsetXor, offset);
 
-                SecureMemoryOperations.SecureClear(l_i);
                 SecureMemoryOperations.SecureClear(tempBlock);
                 SecureMemoryOperations.SecureClear(offsetXor);
             }
+            SecureMemoryOperations.SecureClear(l_i);
 
             // Process final partial block if any
             var remaining = plaintext.Length - (fullBlocks * BlockSize);
@@ -206,13 +207,14 @@ internal static class AesOcbCore
             var ciphertextOnly = ciphertext.Slice(0, plaintextLength);
             var fullBlocks = plaintextLength / BlockSize;
 
+            Span<byte> l_i = stackalloc byte[BlockSize];
             for (var i = 0; i < fullBlocks; i++)
             {
                 var ciphertextBlock = ciphertextOnly.Slice(i * BlockSize, BlockSize);
                 var plaintextBlock = plaintext.Slice(i * BlockSize, BlockSize);
 
                 // Offset = Offset xor L_i
-                var l_i = GetL(encryptor, l_star, i + 1);
+                GetL(l_i, l_star, i + 1);
                 XorBlock(offset, offset, l_i);
 
                 // P_i = Offset xor DECIPHER(K, C_i xor Offset)
@@ -225,10 +227,10 @@ internal static class AesOcbCore
                 // Checksum = Checksum xor Plaintext_i
                 XorBlock(checksum, checksum, plaintextBlock);
 
-                SecureMemoryOperations.SecureClear(l_i);
                 SecureMemoryOperations.SecureClear(tempBlock);
                 SecureMemoryOperations.SecureClear(offsetXor);
             }
+            SecureMemoryOperations.SecureClear(l_i);
 
             // Process final partial block if any
             var remaining = plaintextLength - (fullBlocks * BlockSize);
@@ -383,13 +385,14 @@ internal static class AesOcbCore
 
             var fullBlocks = associatedData.Length / BlockSize;
             Span<byte> tempBlock = stackalloc byte[BlockSize];
+            Span<byte> l_i = stackalloc byte[BlockSize];
 
             for (var i = 0; i < fullBlocks; i++)
             {
                 var adBlock = associatedData.Slice(i * BlockSize, BlockSize);
 
                 // Offset = Offset xor L_i
-                var l_i = GetL(encryptor, l_star, i + 1);
+                GetL(l_i, l_star, i + 1);
                 XorBlock(offset, offset, l_i);
 
                 // Sum = Sum xor ENCIPHER(K, A_i xor Offset)
@@ -398,9 +401,9 @@ internal static class AesOcbCore
                 EncryptBlock(encryptor, encrypted, tempBlock);
                 XorBlock(sum, sum, encrypted);
 
-                SecureMemoryOperations.SecureClear(l_i);
                 SecureMemoryOperations.SecureClear(encrypted);
             }
+            SecureMemoryOperations.SecureClear(l_i);
 
             // Process final partial block if any
             var remaining = associatedData.Length - (fullBlocks * BlockSize);
@@ -438,7 +441,7 @@ internal static class AesOcbCore
     /// Gets L_i value per RFC 7253
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static Span<byte> GetL(ICryptoTransform encryptor, ReadOnlySpan<byte> l_star, int i)
+    private static void GetL(Span<byte> l_i, ReadOnlySpan<byte> l_star, int i)
     {
         // ntz(i) = number of trailing zeros in binary representation of i
         var ntz = 0;
@@ -450,15 +453,12 @@ internal static class AesOcbCore
         }
 
         // L_i = double^ntz(L_*)
-        var l_i = new byte[BlockSize];
         l_star.CopyTo(l_i);
 
         for (var j = 0; j < ntz; j++)
         {
             Double(l_i, l_i);
         }
-
-        return l_i;
     }
 
     /// <summary>

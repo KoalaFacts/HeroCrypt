@@ -3,12 +3,6 @@ using HeroCrypt.Services;
 
 namespace HeroCrypt.Tests;
 
-// DISABLED: Part of Group B - multiple culprits causing platform-specific hangs
-#if FALSE
-
-
-
-
 [Trait("Category", TestCategories.Fast)]
 [Trait("Category", TestCategories.Unit)]
 public class Argon2HashingServiceTests
@@ -140,4 +134,3 @@ public class Argon2HashingServiceTests
 
 
 
-#endif

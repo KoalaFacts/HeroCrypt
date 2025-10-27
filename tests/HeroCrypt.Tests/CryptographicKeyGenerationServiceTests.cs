@@ -3,10 +3,6 @@ using HeroCrypt.Services;
 
 namespace HeroCrypt.Tests;
 
-// DISABLED: Part of Group B - multiple culprits causing platform-specific hangs
-#if FALSE
-
-
 /// <summary>
 /// Unit tests for Cryptographic Key Generation Service functionality
 /// </summary>
@@ -615,4 +611,3 @@ public class CryptographicKeyGenerationServiceTests
 
 
 
-#endif

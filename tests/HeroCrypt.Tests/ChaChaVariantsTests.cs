@@ -4,10 +4,6 @@ using static HeroCrypt.Cryptography.Symmetric.ChaCha.ChaChaVariants;
 
 namespace HeroCrypt.Tests;
 
-// DISABLED: Part of Group B - multiple culprits causing platform-specific hangs
-#if FALSE
-
-
 /// <summary>
 /// Tests for ChaCha20 variants (ChaCha8, ChaCha12, ChaCha20)
 /// </summary>
@@ -233,4 +229,3 @@ public class ChaChaVariantsTests
 }
 
 
-#endif

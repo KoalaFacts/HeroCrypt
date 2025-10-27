@@ -150,12 +150,16 @@ public static class Bip39Mnemonic
         try
         {
             // Generate seed using PBKDF2-HMAC-SHA512
+            // NOTE: BIP-39 standard specifies 2048 iterations and "mnemonic" + passphrase as salt.
+            // These parameters are below our normal security recommendations but are required for
+            // standards compliance. This is intentional per BIP-39 specification.
             return Pbkdf2Core.DeriveKey(
                 mnemonicBytes,
                 salt,
                 Pbkdf2Iterations,
                 SeedLength,
-                HashAlgorithmName.SHA512
+                HashAlgorithmName.SHA512,
+                allowWeakParameters: true  // BIP-39 compliance requires non-standard parameters
             );
         }
         finally

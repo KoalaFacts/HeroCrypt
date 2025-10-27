@@ -37,11 +37,12 @@ internal static class Pbkdf2Core
     /// <param name="iterations">Number of iterations</param>
     /// <param name="outputLength">Desired output length in bytes</param>
     /// <param name="hashAlgorithm">Hash algorithm to use</param>
+    /// <param name="allowWeakParameters">Allow parameters below security recommendations for standards compliance (e.g., BIP-39). Use with caution.</param>
     /// <returns>Derived key</returns>
     public static byte[] DeriveKey(ReadOnlySpan<byte> password, ReadOnlySpan<byte> salt,
-        int iterations, int outputLength, HashAlgorithmName hashAlgorithm)
+        int iterations, int outputLength, HashAlgorithmName hashAlgorithm, bool allowWeakParameters = false)
     {
-        ValidateParameters(password, salt, iterations, outputLength, hashAlgorithm);
+        ValidateParameters(password, salt, iterations, outputLength, hashAlgorithm, allowWeakParameters);
 
 #if NET6_0_OR_GREATER
         // Use .NET 6+ optimized implementation
@@ -87,19 +88,20 @@ internal static class Pbkdf2Core
     /// <param name="iterations">Number of iterations</param>
     /// <param name="outputLength">Output length</param>
     /// <param name="hashAlgorithm">Hash algorithm</param>
+    /// <param name="allowWeakParameters">Allow parameters below security recommendations</param>
     public static void ValidateParameters(ReadOnlySpan<byte> password, ReadOnlySpan<byte> salt,
-        int iterations, int outputLength, HashAlgorithmName hashAlgorithm)
+        int iterations, int outputLength, HashAlgorithmName hashAlgorithm, bool allowWeakParameters = false)
     {
         if (password.IsEmpty)
             throw new ArgumentException("Password cannot be empty", nameof(password));
 
-        if (salt.Length < MinSaltLength)
+        if (!allowWeakParameters && salt.Length < MinSaltLength)
             throw new ArgumentException($"Salt must be at least {MinSaltLength} bytes", nameof(salt));
 
         if (iterations < 1)
             throw new ArgumentException("Iterations must be positive", nameof(iterations));
 
-        if (iterations < MinRecommendedIterations)
+        if (!allowWeakParameters && iterations < MinRecommendedIterations)
             throw new ArgumentException($"Iterations should be at least {MinRecommendedIterations} for security", nameof(iterations));
 
         if (outputLength <= 0)

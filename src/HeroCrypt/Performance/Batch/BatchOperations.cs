@@ -423,7 +423,7 @@ public static class BatchSignatureOperations
     /// <param name="messages">Messages to sign</param>
     /// <param name="hashAlgorithm">Hash algorithm to use</param>
     /// <param name="degreeOfParallelism">Parallel tasks (0 = auto)</param>
-    public static Task<byte[][]> SignBatchAsync(
+    public static async Task<byte[][]> SignBatchAsync(
         RSA privateKey,
         ReadOnlyMemory<byte>[] messages,
         HashAlgorithmName hashAlgorithm,
@@ -436,17 +436,35 @@ public static class BatchSignatureOperations
         if (messages == null || messages.Length == 0)
             throw new ArgumentException("Messages cannot be null or empty", nameof(messages));
 
-        return ParallelCryptoOperations.ProcessBatchAsync<ReadOnlyMemory<byte>, byte[]>(
-            messages,
-            async message =>
+        if (degreeOfParallelism <= 0)
+            degreeOfParallelism = ParallelCryptoOperations.OptimalDegreeOfParallelism;
+
+        var results = new byte[messages.Length][];
+        var semaphore = new SemaphoreSlim(degreeOfParallelism);
+        var tasks = new Task[messages.Length];
+
+        for (int i = 0; i < messages.Length; i++)
+        {
+            var index = i; // Capture for closure
+            tasks[i] = Task.Run(async () =>
             {
-                return await Task.Run(() =>
+                await semaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
+                try
                 {
-                    return privateKey.SignData(message.ToArray(), hashAlgorithm, padding);
-                }, cancellationToken);
-            },
-            degreeOfParallelism,
-            cancellationToken);
+                    results[index] = await Task.Run(() =>
+                    {
+                        return privateKey.SignData(messages[index].ToArray(), hashAlgorithm, padding);
+                    }, cancellationToken);
+                }
+                finally
+                {
+                    semaphore.Release();
+                }
+            }, cancellationToken);
+        }
+
+        await Task.WhenAll(tasks).ConfigureAwait(false);
+        return results;
     }
 
     /// <summary>

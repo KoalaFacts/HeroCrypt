@@ -15,7 +15,7 @@ namespace HeroCrypt.Tests;
 //
 // These are educational/reference implementations. Re-enable after fixing or skip on
 // Windows/Mac specifically if platform-conditional compilation is needed.
-#if FALSE && !NETSTANDARD2_0
+#if !NETSTANDARD2_0
 
 /// <summary>
 /// Tests for Zero-Knowledge and Advanced Cryptographic Protocols

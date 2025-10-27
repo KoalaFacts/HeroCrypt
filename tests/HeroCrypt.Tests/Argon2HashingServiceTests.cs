@@ -3,8 +3,6 @@ using HeroCrypt.Services;
 
 namespace HeroCrypt.Tests;
 
-// DISABLED: Binary search narrowing
-#if FALSE
 
 
 
@@ -138,4 +136,3 @@ public class Argon2HashingServiceTests
 }
 
 
-#endif

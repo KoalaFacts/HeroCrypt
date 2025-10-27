@@ -11,10 +11,7 @@ using HeroCrypt.HardwareSecurity.HardwareRng;
 
 namespace HeroCrypt.Tests;
 
-// DISABLED: Binary search for hanging test
-#if FALSE
 
-// DISABLED: This test file appears in logs just before crash. Testing if it's the culprit.
 
 /// <summary>
 /// Tests for Hardware Security Module integration
@@ -549,4 +546,3 @@ public class HardwareSecurityTests
 }
 
 
-#endif

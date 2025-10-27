@@ -4,7 +4,7 @@ using System.Text;
 namespace HeroCrypt.Tests;
 
 // DISABLED: Systematically disabling all advanced tests to isolate crash
-#if FALSE && !NETSTANDARD2_0
+#if !NETSTANDARD2_0
 
 /// <summary>
 /// Tests for BIP32 Hierarchical Deterministic Wallets

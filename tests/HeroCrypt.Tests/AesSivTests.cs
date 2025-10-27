@@ -3,8 +3,6 @@ using System.Text;
 
 namespace HeroCrypt.Tests;
 
-// DISABLED: Final binary search step
-#if FALSE
 
 
 
@@ -421,4 +419,3 @@ public class AesSivTests
 
 
 
-#endif

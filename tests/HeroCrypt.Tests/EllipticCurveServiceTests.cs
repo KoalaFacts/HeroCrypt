@@ -3,8 +3,6 @@ using HeroCrypt.Services;
 
 namespace HeroCrypt.Tests;
 
-// DISABLED: Binary search for hanging test
-#if FALSE
 
 /// <summary>
 /// Tests for elliptic curve cryptographic operations
@@ -418,4 +416,3 @@ public class EllipticCurveServiceTests
     }
 }
 
-#endif

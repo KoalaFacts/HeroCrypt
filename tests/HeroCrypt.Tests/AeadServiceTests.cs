@@ -3,8 +3,6 @@ using HeroCrypt.Services;
 
 namespace HeroCrypt.Tests;
 
-// DISABLED: Binary search for hanging test
-#if FALSE
 
 public class AeadServiceTests
 {
@@ -463,4 +461,3 @@ public class AeadServiceTests
 }
 
 
-#endif

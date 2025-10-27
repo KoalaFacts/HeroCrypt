@@ -3,9 +3,6 @@ using System.Text;
 
 namespace HeroCrypt.Tests;
 
-// DISABLED: Testing absolute minimum configuration
-#if FALSE
-
 /// <summary>
 /// Tests for HC-256 stream cipher
 /// </summary>
@@ -318,4 +315,3 @@ public class Hc256Tests
 }
 
 
-#endif

@@ -3,9 +3,6 @@ using System.Text;
 
 namespace HeroCrypt.Tests;
 
-// DISABLED: Testing absolute minimum configuration
-#if FALSE
-
 /// <summary>
 /// Tests for XSalsa20 stream cipher implementation
 /// </summary>
@@ -191,4 +188,3 @@ public class XSalsa20Tests
     }
 }
 
-#endif

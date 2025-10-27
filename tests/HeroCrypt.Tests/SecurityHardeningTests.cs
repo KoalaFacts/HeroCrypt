@@ -4,9 +4,6 @@ using Microsoft.Extensions.Logging;
 
 namespace HeroCrypt.Tests;
 
-// DISABLED: Testing absolute minimum configuration
-#if FALSE
-
 /// <summary>
 /// Comprehensive security hardening tests
 /// </summary>
@@ -614,4 +611,3 @@ public class SecurityHardeningTests
     #endregion
 }
 
-#endif

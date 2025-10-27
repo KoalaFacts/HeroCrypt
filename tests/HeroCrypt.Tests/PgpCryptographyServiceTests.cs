@@ -4,9 +4,6 @@ using System.Text;
 
 namespace HeroCrypt.Tests;
 
-// DISABLED: Part of Group C - systematically disabled to isolate platform-specific crashes
-#if FALSE
-
 public class PgpCryptographyServiceTests
 {
     private readonly PgpCryptographyService _service;
@@ -241,4 +238,3 @@ public class PgpCryptographyServiceTests
 
 
 
-#endif

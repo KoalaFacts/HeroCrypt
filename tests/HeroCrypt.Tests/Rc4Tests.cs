@@ -3,9 +3,6 @@ using System.Text;
 
 namespace HeroCrypt.Tests;
 
-// DISABLED: Testing absolute minimum configuration
-#if FALSE
-
 /// <summary>
 /// Tests for RC4 stream cipher (legacy compatibility only)
 /// </summary>
@@ -343,4 +340,3 @@ public class Rc4Tests
 #pragma warning restore CS0618 // Type or member is obsolete
 
 
-#endif

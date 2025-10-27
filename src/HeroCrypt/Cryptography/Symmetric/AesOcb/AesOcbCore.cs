@@ -63,6 +63,10 @@ internal static class AesOcbCore
 
         using var encryptor = aes.CreateEncryptor();
 
+        // Reusable buffers for EncryptBlock (avoid allocations in loops)
+        var inputBuffer = new byte[BlockSize];
+        var outputBuffer = new byte[BlockSize];
+
         // Generate OCB state
         Span<byte> l_star = stackalloc byte[BlockSize];
         Span<byte> l_dollar = stackalloc byte[BlockSize];
@@ -74,13 +78,13 @@ internal static class AesOcbCore
             // Initialize L_* = ENCIPHER(K, zeros(128))
             Span<byte> zeros = stackalloc byte[BlockSize];
             zeros.Clear();
-            EncryptBlock(encryptor, l_star, zeros);
+            EncryptBlock(encryptor, l_star, zeros, inputBuffer, outputBuffer);
 
             // Compute L_$ = double(L_*)
             Double(l_dollar, l_star);
 
             // Initialize offset from nonce
-            InitializeOffset(encryptor, offset, nonce, l_dollar);
+            InitializeOffset(encryptor, offset, nonce, l_dollar, inputBuffer, outputBuffer);
 
             // Process plaintext blocks
             var fullBlocks = plaintext.Length / BlockSize;
@@ -103,7 +107,7 @@ internal static class AesOcbCore
                 Span<byte> tempBlock = stackalloc byte[BlockSize];
                 Span<byte> offsetXor = stackalloc byte[BlockSize];
                 XorBlock(tempBlock, plaintextBlock, offset);
-                EncryptBlock(encryptor, offsetXor, tempBlock);
+                EncryptBlock(encryptor, offsetXor, tempBlock, inputBuffer, outputBuffer);
                 XorBlock(ciphertextBlock, offsetXor, offset);
 
                 SecureMemoryOperations.SecureClear(tempBlock);
@@ -123,7 +127,7 @@ internal static class AesOcbCore
 
                 // Pad = ENCIPHER(K, Offset)
                 Span<byte> pad = stackalloc byte[BlockSize];
-                EncryptBlock(encryptor, pad, offset);
+                EncryptBlock(encryptor, pad, offset, inputBuffer, outputBuffer);
 
                 // C_* = Plaintext_* xor Pad[1..bitlen(Plaintext_*)]
                 for (var i = 0; i < remaining; i++)
@@ -138,7 +142,7 @@ internal static class AesOcbCore
 
             // Compute authentication tag
             Span<byte> tag = ciphertext.Slice(plaintext.Length, TagSize);
-            ComputeTag(encryptor, tag, offset, checksum, l_dollar, associatedData);
+            ComputeTag(encryptor, tag, offset, checksum, l_dollar, associatedData, inputBuffer, outputBuffer);
 
             return plaintext.Length + TagSize;
         }
@@ -148,6 +152,8 @@ internal static class AesOcbCore
             SecureMemoryOperations.SecureClear(l_dollar);
             SecureMemoryOperations.SecureClear(offset);
             SecureMemoryOperations.SecureClear(checksum);
+            Array.Clear(inputBuffer, 0, inputBuffer.Length);
+            Array.Clear(outputBuffer, 0, outputBuffer.Length);
         }
     }
 
@@ -184,6 +190,10 @@ internal static class AesOcbCore
         using var encryptor = aes.CreateEncryptor();
         using var decryptor = aes.CreateDecryptor();
 
+        // Reusable buffers for EncryptBlock/DecryptBlock (avoid allocations in loops)
+        var inputBuffer = new byte[BlockSize];
+        var outputBuffer = new byte[BlockSize];
+
         // Generate OCB state
         Span<byte> l_star = stackalloc byte[BlockSize];
         Span<byte> l_dollar = stackalloc byte[BlockSize];
@@ -195,13 +205,13 @@ internal static class AesOcbCore
             // Initialize L_* = ENCIPHER(K, zeros(128))
             Span<byte> zeros = stackalloc byte[BlockSize];
             zeros.Clear();
-            EncryptBlock(encryptor, l_star, zeros);
+            EncryptBlock(encryptor, l_star, zeros, inputBuffer, outputBuffer);
 
             // Compute L_$ = double(L_*)
             Double(l_dollar, l_star);
 
             // Initialize offset from nonce
-            InitializeOffset(encryptor, offset, nonce, l_dollar);
+            InitializeOffset(encryptor, offset, nonce, l_dollar, inputBuffer, outputBuffer);
 
             // Process ciphertext blocks
             var ciphertextOnly = ciphertext.Slice(0, plaintextLength);
@@ -221,7 +231,7 @@ internal static class AesOcbCore
                 Span<byte> tempBlock = stackalloc byte[BlockSize];
                 Span<byte> offsetXor = stackalloc byte[BlockSize];
                 XorBlock(tempBlock, ciphertextBlock, offset);
-                DecryptBlock(decryptor, offsetXor, tempBlock);
+                DecryptBlock(decryptor, offsetXor, tempBlock, inputBuffer, outputBuffer);
                 XorBlock(plaintextBlock, offsetXor, offset);
 
                 // Checksum = Checksum xor Plaintext_i
@@ -244,7 +254,7 @@ internal static class AesOcbCore
 
                 // Pad = ENCIPHER(K, Offset)
                 Span<byte> pad = stackalloc byte[BlockSize];
-                EncryptBlock(encryptor, pad, offset);
+                EncryptBlock(encryptor, pad, offset, inputBuffer, outputBuffer);
 
                 // P_* = C_* xor Pad[1..bitlen(C_*)]
                 for (var i = 0; i < remaining; i++)
@@ -259,7 +269,7 @@ internal static class AesOcbCore
 
             // Verify authentication tag
             Span<byte> expectedTag = stackalloc byte[TagSize];
-            ComputeTag(encryptor, expectedTag, offset, checksum, l_dollar, associatedData);
+            ComputeTag(encryptor, expectedTag, offset, checksum, l_dollar, associatedData, inputBuffer, outputBuffer);
 
             var receivedTag = ciphertext.Slice(plaintextLength, TagSize);
             if (!SecureMemoryOperations.ConstantTimeEquals(expectedTag, receivedTag))
@@ -279,6 +289,8 @@ internal static class AesOcbCore
             SecureMemoryOperations.SecureClear(l_dollar);
             SecureMemoryOperations.SecureClear(offset);
             SecureMemoryOperations.SecureClear(checksum);
+            Array.Clear(inputBuffer, 0, inputBuffer.Length);
+            Array.Clear(outputBuffer, 0, outputBuffer.Length);
         }
     }
 
@@ -286,7 +298,7 @@ internal static class AesOcbCore
     /// Initializes the offset from nonce per RFC 7253
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void InitializeOffset(ICryptoTransform encryptor, Span<byte> offset, ReadOnlySpan<byte> nonce, ReadOnlySpan<byte> l_dollar)
+    private static void InitializeOffset(ICryptoTransform encryptor, Span<byte> offset, ReadOnlySpan<byte> nonce, ReadOnlySpan<byte> l_dollar, byte[] inputBuffer, byte[] outputBuffer)
     {
         // Nonce = num2str(TAGLEN mod 128, 7) || zeros(120 - bitlen(N)) || 1 || N
         Span<byte> nonceBlock = stackalloc byte[BlockSize];
@@ -309,7 +321,7 @@ internal static class AesOcbCore
 
         // Ktop = ENCIPHER(K, Nonce with bottom bits cleared)
         Span<byte> ktop = stackalloc byte[BlockSize];
-        EncryptBlock(encryptor, ktop, nonceBlock);
+        EncryptBlock(encryptor, ktop, nonceBlock, inputBuffer, outputBuffer);
 
         // Stretch = Ktop || (Ktop[1..64] xor Ktop[9..72])
         Span<byte> stretch = stackalloc byte[24];
@@ -342,18 +354,18 @@ internal static class AesOcbCore
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void ComputeTag(ICryptoTransform encryptor, Span<byte> tag, ReadOnlySpan<byte> offset,
-        ReadOnlySpan<byte> checksum, ReadOnlySpan<byte> l_dollar, ReadOnlySpan<byte> associatedData)
+        ReadOnlySpan<byte> checksum, ReadOnlySpan<byte> l_dollar, ReadOnlySpan<byte> associatedData, byte[] inputBuffer, byte[] outputBuffer)
     {
         // Process associated data
         Span<byte> auth = stackalloc byte[BlockSize];
-        ProcessAssociatedData(encryptor, auth, associatedData, l_dollar);
+        ProcessAssociatedData(encryptor, auth, associatedData, l_dollar, inputBuffer, outputBuffer);
 
         // Tag = ENCIPHER(K, Checksum xor Offset xor L_$) xor Auth
         Span<byte> temp = stackalloc byte[BlockSize];
         XorBlock(temp, checksum, offset);
         XorBlock(temp, temp, l_dollar);
 
-        EncryptBlock(encryptor, tag, temp);
+        EncryptBlock(encryptor, tag, temp, inputBuffer, outputBuffer);
         XorBlock(tag, tag, auth);
 
         SecureMemoryOperations.SecureClear(auth);
@@ -364,7 +376,7 @@ internal static class AesOcbCore
     /// Process associated data for authentication
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void ProcessAssociatedData(ICryptoTransform encryptor, Span<byte> auth, ReadOnlySpan<byte> associatedData, ReadOnlySpan<byte> l_dollar)
+    private static void ProcessAssociatedData(ICryptoTransform encryptor, Span<byte> auth, ReadOnlySpan<byte> associatedData, ReadOnlySpan<byte> l_dollar, byte[] inputBuffer, byte[] outputBuffer)
     {
         if (associatedData.IsEmpty)
         {
@@ -381,7 +393,7 @@ internal static class AesOcbCore
             // Compute L_* for associated data
             Span<byte> zeros = stackalloc byte[BlockSize];
             zeros.Clear();
-            EncryptBlock(encryptor, l_star, zeros);
+            EncryptBlock(encryptor, l_star, zeros, inputBuffer, outputBuffer);
 
             var fullBlocks = associatedData.Length / BlockSize;
             Span<byte> tempBlock = stackalloc byte[BlockSize];
@@ -398,7 +410,7 @@ internal static class AesOcbCore
                 // Sum = Sum xor ENCIPHER(K, A_i xor Offset)
                 XorBlock(tempBlock, adBlock, offset);
                 Span<byte> encrypted = stackalloc byte[BlockSize];
-                EncryptBlock(encryptor, encrypted, tempBlock);
+                EncryptBlock(encryptor, encrypted, tempBlock, inputBuffer, outputBuffer);
                 XorBlock(sum, sum, encrypted);
 
                 SecureMemoryOperations.SecureClear(encrypted);
@@ -421,7 +433,7 @@ internal static class AesOcbCore
                 XorBlock(tempBlock, tempBlock, offset);
 
                 Span<byte> encrypted = stackalloc byte[BlockSize];
-                EncryptBlock(encryptor, encrypted, tempBlock);
+                EncryptBlock(encryptor, encrypted, tempBlock, inputBuffer, outputBuffer);
                 XorBlock(sum, sum, encrypted);
 
                 SecureMemoryOperations.SecureClear(encrypted);
@@ -498,28 +510,22 @@ internal static class AesOcbCore
     /// Encrypts a single block using AES-ECB
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void EncryptBlock(ICryptoTransform encryptor, Span<byte> output, ReadOnlySpan<byte> input)
+    private static void EncryptBlock(ICryptoTransform encryptor, Span<byte> output, ReadOnlySpan<byte> input, byte[] inputBuffer, byte[] outputBuffer)
     {
-        var inputArray = input.ToArray();
-        var outputArray = new byte[BlockSize];
-        encryptor.TransformBlock(inputArray, 0, BlockSize, outputArray, 0);
-        outputArray.CopyTo(output);
-        Array.Clear(inputArray, 0, inputArray.Length);
-        Array.Clear(outputArray, 0, outputArray.Length);
+        input.CopyTo(inputBuffer);
+        encryptor.TransformBlock(inputBuffer, 0, BlockSize, outputBuffer, 0);
+        outputBuffer.AsSpan(0, BlockSize).CopyTo(output);
     }
 
     /// <summary>
     /// Decrypts a single block using AES-ECB
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void DecryptBlock(ICryptoTransform decryptor, Span<byte> output, ReadOnlySpan<byte> input)
+    private static void DecryptBlock(ICryptoTransform decryptor, Span<byte> output, ReadOnlySpan<byte> input, byte[] inputBuffer, byte[] outputBuffer)
     {
-        var inputArray = input.ToArray();
-        var outputArray = new byte[BlockSize];
-        decryptor.TransformBlock(inputArray, 0, BlockSize, outputArray, 0);
-        outputArray.CopyTo(output);
-        Array.Clear(inputArray, 0, inputArray.Length);
-        Array.Clear(outputArray, 0, outputArray.Length);
+        input.CopyTo(inputBuffer);
+        decryptor.TransformBlock(inputBuffer, 0, BlockSize, outputBuffer, 0);
+        outputBuffer.AsSpan(0, BlockSize).CopyTo(output);
     }
 
     /// <summary>

@@ -3,8 +3,6 @@ using System.Text;
 
 namespace HeroCrypt.Tests;
 
-// DISABLED: Binary search narrowing
-#if FALSE
 
 
 /// <summary>
@@ -402,4 +400,3 @@ public class AesOcbTests
 
 
 
-#endif

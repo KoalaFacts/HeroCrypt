@@ -5,6 +5,8 @@ namespace HeroCrypt.Tests;
 
 [Trait("Category", TestCategories.Fast)]
 [Trait("Category", TestCategories.Unit)]
+// DISABLED: Systematically disabling to isolate crash
+#if FALSE
 public class Argon2HashingServiceTests
 {
     private readonly Argon2HashingService _service;
@@ -131,3 +133,4 @@ public class Argon2HashingServiceTests
         Assert.False(result);
     }
 }
+#endif

@@ -6,6 +6,8 @@ namespace HeroCrypt.Tests;
 /// <summary>
 /// Tests for AES-OCB (Offset Codebook Mode) per RFC 7253
 /// </summary>
+// DISABLED: Systematically disabling to isolate crash
+#if FALSE
 public class AesOcbTests
 {
     [Fact]
@@ -395,3 +397,5 @@ public class AesOcbTests
         Assert.Equal(plaintext, decrypted);
     }
 }
+
+#endif

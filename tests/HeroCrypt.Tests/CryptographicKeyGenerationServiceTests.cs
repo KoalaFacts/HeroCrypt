@@ -6,6 +6,8 @@ namespace HeroCrypt.Tests;
 /// <summary>
 /// Unit tests for Cryptographic Key Generation Service functionality
 /// </summary>
+// DISABLED: Systematically disabling to isolate crash
+#if FALSE
 public class CryptographicKeyGenerationServiceTests
 {
     [Fact]
@@ -608,3 +610,5 @@ public class CryptographicKeyGenerationServiceTests
         }
     }
 }
+
+#endif

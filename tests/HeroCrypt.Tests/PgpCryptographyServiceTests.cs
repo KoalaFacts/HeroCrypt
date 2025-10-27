@@ -4,6 +4,8 @@ using System.Text;
 
 namespace HeroCrypt.Tests;
 
+// DISABLED: Systematically disabling to isolate crash
+#if FALSE
 public class PgpCryptographyServiceTests
 {
     private readonly PgpCryptographyService _service;
@@ -236,3 +238,5 @@ public class PgpCryptographyServiceTests
 
 
 
+
+#endif

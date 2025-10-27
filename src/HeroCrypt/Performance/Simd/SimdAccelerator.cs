@@ -485,8 +485,13 @@ public static class SimdAccelerator
             HasArmAes = AdvSimd.Arm64.IsSupported && System.Runtime.Intrinsics.Arm.Aes.Arm64.IsSupported,
 
             // Vector sizes
+#if NET7_0_OR_GREATER
             Vector128Supported = Vector128.IsHardwareAccelerated,
             Vector256Supported = Vector256.IsHardwareAccelerated,
+#else
+            Vector128Supported = true, // Assume available on .NET 6.0+ (conservative default)
+            Vector256Supported = Avx2.IsSupported, // Use AVX2 as proxy for 256-bit support
+#endif
 #if NET8_0_OR_GREATER
             Vector512Supported = Vector512.IsHardwareAccelerated
 #else

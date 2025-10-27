@@ -136,8 +136,12 @@ internal static class HkdfCore
     /// </summary>
     private static HMAC CreateHmac(HashAlgorithmName hashAlgorithm, byte[] key)
     {
+        // SHA1 support is intentional for RFC 5869 HKDF compatibility
+        // Users should prefer SHA256 or higher, but SHA1 is allowed per the standard
+#pragma warning disable CA5350 // Do Not Use Weak Cryptographic Algorithms
         if (hashAlgorithm == HashAlgorithmName.SHA1)
             return new HMACSHA1(key);
+#pragma warning restore CA5350
         if (hashAlgorithm == HashAlgorithmName.SHA256)
             return new HMACSHA256(key);
         if (hashAlgorithm == HashAlgorithmName.SHA384)

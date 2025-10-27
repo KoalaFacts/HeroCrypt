@@ -254,23 +254,22 @@ public sealed class HardwareRandomNumberGenerator : IDisposable
     /// </summary>
     /// <param name="value">Generated value</param>
     /// <returns>True if successful</returns>
+    /// <remarks>
+    /// SECURITY NOTE: This is a reference implementation placeholder.
+    /// Production systems must implement actual RDRAND intrinsics using unsafe code or P/Invoke.
+    /// Currently returns false to force secure fallback to System.Security.Cryptography.RandomNumberGenerator.
+    ///
+    /// To implement production RDRAND:
+    /// 1. Use inline assembly or System.Runtime.Intrinsics.X86.Rdrand (if available)
+    /// 2. Check carry flag for instruction success
+    /// 3. Implement retry logic (Intel recommends up to 10 attempts)
+    /// 4. Validate output entropy
+    /// </remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool TryGetHardwareUInt32(out uint value)
     {
-        // Retry up to 10 times as recommended by Intel
-        for (var i = 0; i < 10; i++)
-        {
-            // Note: In a real implementation, you'd use inline assembly or intrinsics
-            // For now, we'll simulate the behavior
-            if (X86Base.IsSupported)
-            {
-                // This is a placeholder - real implementation would use RDRAND instruction
-                // Intel recommends checking the carry flag for success
-                value = (uint)Environment.TickCount ^ (uint)Environment.CurrentManagedThreadId;
-                return true;
-            }
-        }
-
+        // SECURITY: Reference implementation only - forces secure fallback to RandomNumberGenerator
+        // Real implementation requires RDRAND CPU instruction via intrinsics or inline assembly
         value = 0;
         return false;
     }
@@ -280,22 +279,22 @@ public sealed class HardwareRandomNumberGenerator : IDisposable
     /// </summary>
     /// <param name="value">Generated value</param>
     /// <returns>True if successful</returns>
+    /// <remarks>
+    /// SECURITY NOTE: This is a reference implementation placeholder.
+    /// Production systems must implement actual RDRAND intrinsics using unsafe code or P/Invoke.
+    /// Currently returns false to force secure fallback to System.Security.Cryptography.RandomNumberGenerator.
+    ///
+    /// To implement production RDRAND:
+    /// 1. Use inline assembly or System.Runtime.Intrinsics.X86.Rdrand (if available)
+    /// 2. Check carry flag for instruction success
+    /// 3. Implement retry logic (Intel recommends up to 10 attempts)
+    /// 4. Validate output entropy
+    /// </remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool TryGetHardwareUInt64(out ulong value)
     {
-        // Retry up to 10 times as recommended by Intel
-        for (var i = 0; i < 10; i++)
-        {
-            // Note: In a real implementation, you'd use inline assembly or intrinsics
-            // For now, we'll simulate the behavior
-            if (X86Base.IsSupported)
-            {
-                // This is a placeholder - real implementation would use RDRAND instruction
-                value = ((ulong)Environment.TickCount64 << 32) ^ (ulong)Environment.CurrentManagedThreadId;
-                return true;
-            }
-        }
-
+        // SECURITY: Reference implementation only - forces secure fallback to RandomNumberGenerator
+        // Real implementation requires RDRAND CPU instruction via intrinsics or inline assembly
         value = 0;
         return false;
     }

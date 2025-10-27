@@ -14,7 +14,7 @@ A fully RFC-compliant cryptographic library for .NET featuring high-performance,
   - Argon2d, Argon2i, and Argon2id variants
   - Configurable memory, iterations, and parallelism
   - Secure salt generation and constant-time comparison
-  
+
 - **#️⃣ Blake2b Hashing** - Full RFC 7693 compliance
   - Variable output sizes (1-64 bytes)
   - Keyed hashing (MAC) support
@@ -29,6 +29,84 @@ A fully RFC-compliant cryptographic library for .NET featuring high-performance,
   - Hybrid encryption with AES session keys
   - RSA key pair support
   - Passphrase protection for private keys
+
+- **🔒 Modern Symmetric Encryption (AEAD)**
+  - ChaCha20-Poly1305 (RFC 8439) with SIMD optimizations
+  - XChaCha20-Poly1305 (extended 24-byte nonce)
+  - AES-GCM with hardware acceleration
+  - AES-CCM (RFC 3610)
+  - AES-SIV (RFC 5297) - nonce-misuse resistant
+  - AES-OCB (RFC 7253) - high-performance AEAD
+
+- **🌊 Stream Ciphers**
+  - ChaCha8/ChaCha12/ChaCha20 variants
+  - XSalsa20
+  - Rabbit cipher (RFC 4503)
+  - HC-128 and HC-256 (eSTREAM portfolio)
+  - RC4 (legacy compatibility with security warnings)
+
+- **📐 Elliptic Curve Cryptography**
+  - Curve25519 (X25519 key exchange)
+  - Ed25519 (digital signatures)
+  - Secp256k1 (Bitcoin-compatible)
+  - Hardware-accelerated field arithmetic
+
+- **🔑 Key Derivation & Management**
+  - PBKDF2 (with SHA256/SHA384/SHA512)
+  - HKDF (RFC 5869)
+  - Scrypt (memory-hard KDF)
+  - Balloon Hashing (cache-timing resistant)
+  - BIP32 Hierarchical Deterministic Wallets
+  - BIP39 Mnemonic Codes (12/15/18/21/24 words)
+  - Shamir's Secret Sharing (SSS)
+  - Key rotation and hierarchical key management
+
+- **🔮 Post-Quantum Cryptography (Reference Implementations)**
+  - CRYSTALS-Kyber (ML-KEM, FIPS 203) - Key encapsulation
+  - CRYSTALS-Dilithium (ML-DSA, FIPS 204) - Digital signatures
+  - SPHINCS+ (SLH-DSA, FIPS 205) - Stateless signatures
+  - Security levels: 128-bit, 192-bit, 256-bit post-quantum
+  - ⚠️ Simplified reference implementations for API design
+
+- **🎭 Zero-Knowledge & Advanced Protocols (Reference Implementations)**
+  - zk-SNARKs (Groth16-style) - Zero-knowledge succinct proofs
+  - Ring Signatures - Anonymous group signatures (basic, linkable, traceable)
+  - Threshold Signatures - Distributed multi-party signing (Schnorr, ECDSA, EdDSA, BLS)
+  - Multi-Party Computation - Secure computation without revealing inputs
+  - Private Set Intersection - Find common elements privately
+  - Beaver Triples - Preprocessing for secure multiplication
+  - ⚠️ Educational implementations demonstrating API design and workflow
+
+- **🔒 Hardware Security Integration (Abstraction Layer)**
+  - PKCS#11 HSM integration - Industry-standard hardware security module API
+  - Azure Key Vault connector - Cloud HSM integration with Azure
+  - TPM 2.0 support - Trusted Platform Module for platform integrity
+  - TEE abstractions - Intel SGX and ARM TrustZone trusted execution
+  - Hardware RNG - Intel RDRAND/RDSEED optimizations with automatic fallback
+  - Sealed storage, remote attestation, and secure key management
+  - ⚠️ Abstraction layers requiring vendor SDK and hardware/cloud access
+
+- **⚡ Performance & Optimization**
+  - SIMD acceleration - AVX-512, AVX2, SSE2, and ARM NEON optimizations
+  - Memory pool management - Efficient buffer reuse with automatic security zeroing
+  - Parallel cryptography - Multi-threaded operations with automatic load balancing
+  - Batch operations - 3-10x throughput improvement for bulk operations
+  - Zero-copy operations - Span<T> and stackalloc for minimal allocations
+  - Cache-line alignment - Optimized memory layout for better cache performance
+  - Hardware capability detection - Automatic fallback for maximum compatibility
+
+- **🔗 Cryptographic Protocols**
+  - Noise Protocol Framework - Modern secure transport with multiple handshake patterns
+  - Signal Protocol - End-to-end encryption with Double Ratchet and X3DH
+  - OTR Messaging - Off-the-Record messaging with deniable authentication
+  - OPAQUE PAKE - RFC 9497 password-authenticated key exchange
+  - TLS 1.3 - Custom cipher suites, 0-RTT resumption, certificate pinning
+
+- **🏢 Enterprise Features**
+  - Certificate Authority - X.509 certificate generation, CRL, OCSP responder
+  - Compliance Framework - FIPS 140-2, Common Criteria, SOC 2, PCI-DSS validation
+  - Key Management Service - Centralized KMS with lifecycle management and RBAC
+  - Audit Logging - Comprehensive security event tracking and compliance reporting
 
 ## 📦 Installation
 

@@ -268,9 +268,8 @@ public sealed class SecureBuffer : IDisposable
         }
 
         // Initialize with random data first, then clear
-        var random = new Random();
         var randomBytes = new byte[size];
-        random.NextBytes(randomBytes);
+        System.Security.Cryptography.RandomNumberGenerator.Fill(randomBytes);
         Marshal.Copy(randomBytes, 0, ptr, size);
 
         // Clear the random data

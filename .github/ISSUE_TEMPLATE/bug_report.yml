@@ -1,0 +1,166 @@
+name: Bug Report
+description: Report a bug or unexpected behavior in HeroCrypt
+title: "[Bug]: "
+labels: ["bug", "needs-triage"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! Please fill out the form below with as much detail as possible.
+
+        **Note**: For security vulnerabilities, please DO NOT create a public issue. Instead, email security@herocrypt.dev (or repository maintainer).
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is.
+      placeholder: When I try to..., I expect... but instead...
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: Step-by-step instructions to reproduce the issue
+      placeholder: |
+        1. Create an instance of...
+        2. Call method... with parameters...
+        3. Observe the error...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+      placeholder: I expected the method to return...
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happened?
+      placeholder: Instead, it threw an exception / returned incorrect value...
+    validations:
+      required: true
+
+  - type: textarea
+    id: code
+    attributes:
+      label: Code Sample
+      description: Please provide a minimal code sample that reproduces the issue
+      placeholder: |
+        ```csharp
+        var options = new Argon2Options { /* ... */ };
+        var result = Argon2.Hash("password", salt, options);
+        // Bug occurs here...
+        ```
+      render: csharp
+    validations:
+      required: false
+
+  - type: textarea
+    id: stacktrace
+    attributes:
+      label: Stack Trace / Error Message
+      description: If applicable, include the full stack trace or error message
+      placeholder: |
+        System.ArgumentException: Invalid parameter
+          at HeroCrypt.Cryptography...
+      render: text
+    validations:
+      required: false
+
+  - type: dropdown
+    id: dotnet-version
+    attributes:
+      label: .NET Version
+      description: Which .NET version are you using?
+      options:
+        - .NET 9.0
+        - .NET 8.0
+        - .NET 7.0
+        - .NET 6.0
+        - .NET Standard 2.0
+        - Other (please specify in Additional Context)
+    validations:
+      required: true
+
+  - type: input
+    id: herocrypt-version
+    attributes:
+      label: HeroCrypt Version
+      description: Which version of HeroCrypt are you using?
+      placeholder: e.g., 1.0.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating System
+      description: Which operating system are you using?
+      options:
+        - Windows
+        - Linux
+        - macOS
+        - Other (please specify in Additional Context)
+    validations:
+      required: true
+
+  - type: input
+    id: os-version
+    attributes:
+      label: OS Version
+      description: What version of the OS?
+      placeholder: e.g., Windows 11, Ubuntu 22.04, macOS 14
+    validations:
+      required: false
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      description: How severe is this bug?
+      options:
+        - Critical (security issue, data loss, crash)
+        - High (major functionality broken)
+        - Medium (functionality impaired)
+        - Low (cosmetic, minor inconvenience)
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Add any other context about the problem here
+      placeholder: |
+        - Hardware details (CPU, available memory)
+        - Specific configurations
+        - Related issues
+        - Workarounds you've tried
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      description: Please confirm the following
+      options:
+        - label: I have searched existing issues to ensure this is not a duplicate
+          required: true
+        - label: I have provided a minimal code sample that reproduces the issue
+          required: false
+        - label: I have included relevant error messages or stack traces
+          required: false
+        - label: This is not a security vulnerability (if it is, I will email security@herocrypt.dev instead)
+          required: true

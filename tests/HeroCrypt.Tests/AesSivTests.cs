@@ -3,10 +3,6 @@ using System.Text;
 
 namespace HeroCrypt.Tests;
 
-// DISABLED: This test file may also hang on Windows/Mac
-// Disabling as a precaution since it was in the same suspect group as AesOcbTests
-#if FALSE
-
 /// <summary>
 /// Tests for AES-SIV (Synthetic IV) implementation
 /// Based on RFC 5297 test vectors
@@ -421,4 +417,3 @@ public class AesSivTests
 
 
 
-#endif

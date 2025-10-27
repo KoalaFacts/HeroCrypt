@@ -1,4 +1,13 @@
-#if NET5_0_OR_GREATER
+// DISABLED: This file contains critical bugs with out-of-bounds array access
+// that cause platform-specific crashes on Windows and Mac.
+//
+// Bugs include:
+// - Line 39/68: LoadVector256(a + 8) reads beyond 8-element array bounds
+// - Line 179: result[i + j + 16] writes beyond 16-element array when i=7, j=7
+//
+// This code is not currently used in the codebase. Re-enable only after fixing bugs.
+
+#if FALSE && NET5_0_OR_GREATER
 using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.Intrinsics;
@@ -15,7 +24,7 @@ internal static class FieldArithmetic
     /// <summary>
     /// Checks if hardware acceleration is available
     /// </summary>
-    public static bool IsAvailable => Avx2.IsSupported && Bmi2.IsSupported;
+    public static bool IsAvailable => false; // DISABLED DUE TO BUGS
 
     /// <summary>
     /// Performs modular multiplication using SIMD instructions

@@ -3,6 +3,9 @@ using System.Security.Cryptography;
 #if !NETSTANDARD2_0
 using System.Runtime.Intrinsics.X86;
 #endif
+#if NETSTANDARD2_0
+using HeroCrypt.Polyfills;
+#endif
 
 namespace HeroCrypt.HardwareSecurity.HardwareRng;
 
@@ -76,7 +79,14 @@ public static class HardwareRandomGenerator
         }
 
         // Fallback to system RNG
+#if NETSTANDARD2_0
+        using (var rng = RandomNumberGenerator.Create())
+        {
+            rng.Fill(buffer);
+        }
+#else
         RandomNumberGenerator.Fill(buffer);
+#endif
     }
 
     /// <summary>

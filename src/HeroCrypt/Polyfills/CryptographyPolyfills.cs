@@ -1,0 +1,270 @@
+using System;
+using System.Security.Cryptography;
+
+#if NETSTANDARD2_0
+namespace System.Security.Cryptography;
+
+/// <summary>
+/// Polyfills for SHA256.HashData (not available in .NET Standard 2.0)
+/// </summary>
+internal static class Sha256Extensions
+{
+    public static byte[] HashData(byte[] source)
+    {
+        using var sha256 = SHA256.Create();
+        return sha256.ComputeHash(source);
+    }
+
+    public static byte[] HashData(ReadOnlySpan<byte> source)
+    {
+        using var sha256 = SHA256.Create();
+        return sha256.ComputeHash(source.ToArray());
+    }
+}
+
+/// <summary>
+/// Polyfills for SHA512.HashData (not available in .NET Standard 2.0)
+/// </summary>
+internal static class Sha512Extensions
+{
+    public static byte[] HashData(byte[] source)
+    {
+        using var sha512 = SHA512.Create();
+        return sha512.ComputeHash(source);
+    }
+
+    public static byte[] HashData(ReadOnlySpan<byte> source)
+    {
+        using var sha512 = SHA512.Create();
+        return sha512.ComputeHash(source.ToArray());
+    }
+}
+
+/// <summary>
+/// Polyfill for CryptographicOperations class (not available in .NET Standard 2.0)
+/// </summary>
+internal static class CryptographicOperations
+{
+    /// <summary>
+    /// Constant-time equality comparison
+    /// </summary>
+    public static bool FixedTimeEquals(ReadOnlySpan<byte> left, ReadOnlySpan<byte> right)
+    {
+        if (left.Length != right.Length)
+            return false;
+
+        int result = 0;
+        for (int i = 0; i < left.Length; i++)
+        {
+            result |= left[i] ^ right[i];
+        }
+        return result == 0;
+    }
+}
+
+/// <summary>
+/// Extension methods for RandomNumberGenerator to provide .NET Core 3.0+ APIs
+/// </summary>
+internal static class RandomNumberGeneratorExtensions
+{
+    private static readonly RandomNumberGenerator _globalRng = RandomNumberGenerator.Create();
+
+    /// <summary>
+    /// Static Fill method like .NET Core 3.0+
+    /// </summary>
+    public static void Fill(Span<byte> data)
+    {
+        var array = new byte[data.Length];
+        _globalRng.GetBytes(array);
+        array.AsSpan().CopyTo(data);
+    }
+
+    /// <summary>
+    /// Extension method for RandomNumberGenerator instances
+    /// </summary>
+    public static void Fill(this RandomNumberGenerator rng, Span<byte> data)
+    {
+        var array = new byte[data.Length];
+        rng.GetBytes(array);
+        array.AsSpan().CopyTo(data);
+    }
+
+    /// <summary>
+    /// Extension TryComputeHash for HMACSHA512
+    /// </summary>
+    public static bool TryComputeHash(this HMACSHA512 hmac, ReadOnlySpan<byte> source, Span<byte> destination, out int bytesWritten)
+    {
+        var hash = hmac.ComputeHash(source.ToArray());
+        if (hash.Length <= destination.Length)
+        {
+            hash.AsSpan().CopyTo(destination);
+            bytesWritten = hash.Length;
+            return true;
+        }
+        bytesWritten = 0;
+        return false;
+    }
+
+    /// <summary>
+    /// Extension TryComputeHash for SHA256
+    /// </summary>
+    public static bool TryComputeHash(this SHA256 sha256, ReadOnlySpan<byte> source, Span<byte> destination, out int bytesWritten)
+    {
+        var hash = sha256.ComputeHash(source.ToArray());
+        if (hash.Length <= destination.Length)
+        {
+            hash.AsSpan().CopyTo(destination);
+            bytesWritten = hash.Length;
+            return true;
+        }
+        bytesWritten = 0;
+        return false;
+    }
+}
+
+namespace System;
+
+/// <summary>
+/// Polyfills for BitConverter extensions not available in .NET Standard 2.0
+/// </summary>
+internal static class BitConverterExtensions
+{
+    public static bool TryWriteBytes(Span<byte> destination, ulong value)
+    {
+        if (destination.Length < sizeof(ulong))
+            return false;
+
+        var bytes = BitConverter.GetBytes(value);
+        bytes.AsSpan().CopyTo(destination);
+        return true;
+    }
+
+    public static bool TryWriteBytes(Span<byte> destination, uint value)
+    {
+        if (destination.Length < sizeof(uint))
+            return false;
+
+        var bytes = BitConverter.GetBytes(value);
+        bytes.AsSpan().CopyTo(destination);
+        return true;
+    }
+}
+#endif
+
+namespace HeroCrypt.Polyfills;
+
+/// <summary>
+/// Polyfills for cryptographic APIs not available in .NET Standard 2.0
+/// </summary>
+internal static class CryptographyPolyfills
+{
+#if NETSTANDARD2_0
+    /// <summary>
+    /// Polyfill for RandomNumberGenerator.Fill (not available in .NET Standard 2.0 as extension)
+    /// </summary>
+    public static void Fill(this RandomNumberGenerator rng, Span<byte> data)
+    {
+        var array = new byte[data.Length];
+        rng.GetBytes(array);
+        array.AsSpan().CopyTo(data);
+    }
+
+    /// <summary>
+    /// Provides static API similar to .NET Core 3.0+ for filling random bytes
+    /// </summary>
+    public static class RandomNumberGeneratorHelper
+    {
+        private static readonly RandomNumberGenerator _rng = RandomNumberGenerator.Create();
+
+        /// <summary>
+        /// Fills a span with cryptographically strong random bytes
+        /// </summary>
+        public static void Fill(Span<byte> data)
+        {
+            var array = new byte[data.Length];
+            _rng.GetBytes(array);
+            array.AsSpan().CopyTo(data);
+        }
+    }
+#endif
+
+    /// <summary>
+    /// Polyfill for SHA256.HashData (not available in .NET Standard 2.0)
+    /// </summary>
+    public static byte[] HashData(ReadOnlySpan<byte> source)
+    {
+        using var sha256 = SHA256.Create();
+        return sha256.ComputeHash(source.ToArray());
+    }
+
+    /// <summary>
+    /// Polyfill for SHA512.HashData (not available in .NET Standard 2.0)
+    /// </summary>
+    public static byte[] HashDataSha512(ReadOnlySpan<byte> source)
+    {
+        using var sha512 = SHA512.Create();
+        return sha512.ComputeHash(source.ToArray());
+    }
+
+    /// <summary>
+    /// Polyfill for HMACSHA512.TryComputeHash (not available in .NET Standard 2.0)
+    /// </summary>
+    public static bool TryComputeHash(this HMACSHA512 hmac, ReadOnlySpan<byte> source, Span<byte> destination, out int bytesWritten)
+    {
+        var hash = hmac.ComputeHash(source.ToArray());
+        if (hash.Length <= destination.Length)
+        {
+            hash.AsSpan().CopyTo(destination);
+            bytesWritten = hash.Length;
+            return true;
+        }
+        bytesWritten = 0;
+        return false;
+    }
+
+    /// <summary>
+    /// Polyfill for SHA256.TryComputeHash (not available in .NET Standard 2.0)
+    /// </summary>
+    public static bool TryComputeHash(this SHA256 sha256, ReadOnlySpan<byte> source, Span<byte> destination, out int bytesWritten)
+    {
+        var hash = sha256.ComputeHash(source.ToArray());
+        if (hash.Length <= destination.Length)
+        {
+            hash.AsSpan().CopyTo(destination);
+            bytesWritten = hash.Length;
+            return true;
+        }
+        bytesWritten = 0;
+        return false;
+    }
+
+    /// <summary>
+    /// Polyfill for CryptographicOperations.FixedTimeEquals (not available in .NET Standard 2.0)
+    /// </summary>
+    public static bool FixedTimeEquals(ReadOnlySpan<byte> left, ReadOnlySpan<byte> right)
+    {
+        if (left.Length != right.Length)
+            return false;
+
+        int result = 0;
+        for (int i = 0; i < left.Length; i++)
+        {
+            result |= left[i] ^ right[i];
+        }
+        return result == 0;
+    }
+
+    /// <summary>
+    /// Polyfill for BitConverter.TryWriteBytes (not available in .NET Standard 2.0)
+    /// </summary>
+    public static bool TryWriteBytes(Span<byte> destination, ulong value)
+    {
+        if (destination.Length < sizeof(ulong))
+            return false;
+
+        var bytes = BitConverter.GetBytes(value);
+        bytes.AsSpan().CopyTo(destination);
+        return true;
+    }
+#endif
+}

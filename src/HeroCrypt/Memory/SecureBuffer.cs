@@ -269,7 +269,14 @@ public sealed class SecureBuffer : IDisposable
 
         // Initialize with random data first, then clear
         var randomBytes = new byte[size];
+#if NETSTANDARD2_0
+        using (var rng = System.Security.Cryptography.RandomNumberGenerator.Create())
+        {
+            rng.GetBytes(randomBytes);
+        }
+#else
         System.Security.Cryptography.RandomNumberGenerator.Fill(randomBytes);
+#endif
         Marshal.Copy(randomBytes, 0, ptr, size);
 
         // Clear the random data

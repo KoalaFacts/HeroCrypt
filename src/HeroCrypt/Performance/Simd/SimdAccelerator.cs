@@ -52,6 +52,7 @@ public static class SimdAccelerator
 
         int length = source.Length;
 
+#if !NETSTANDARD2_0
         // Try AVX-512 first (64 bytes at a time)
         if (Capabilities.HasAvx512 && length >= 64)
         {
@@ -79,6 +80,7 @@ public static class SimdAccelerator
             XorNeon(source, key, destination);
             return;
         }
+#endif
 
         // Fallback to scalar
         XorScalar(source, key, destination);
@@ -102,6 +104,7 @@ public static class SimdAccelerator
             return;
         }
 
+#if !NETSTANDARD2_0
         // AVX-512 (64 bytes)
         if (Capabilities.HasAvx512 && length >= 64)
         {
@@ -122,6 +125,7 @@ public static class SimdAccelerator
             CopySse2(source, destination);
             return;
         }
+#endif
 
         source.CopyTo(destination);
     }
@@ -137,6 +141,7 @@ public static class SimdAccelerator
 
         int length = a.Length;
 
+#if !NETSTANDARD2_0
         // AVX2 comparison (32 bytes at a time)
         if (Capabilities.HasAvx2 && length >= 32)
         {
@@ -148,6 +153,7 @@ public static class SimdAccelerator
         {
             return ConstantTimeEqualsSse2(a, b);
         }
+#endif
 
         // Scalar constant-time
         return ConstantTimeEqualsScalar(a, b);

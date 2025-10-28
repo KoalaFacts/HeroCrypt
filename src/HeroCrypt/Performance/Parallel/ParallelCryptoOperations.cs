@@ -282,15 +282,22 @@ public static class ParallelAesGcm
         var nonceArray = nonce.ToArray();
         var associatedDataArray = associatedData.IsEmpty ? Array.Empty<byte>() : associatedData.ToArray();
 
-        ParallelCryptoOperations.ProcessInParallel(
-            plaintextArray.Length,
-            (offset, length) =>
+        // Process each chunk in parallel with fixed ChunkSize boundaries
+        System.Threading.Tasks.Parallel.For(
+            0,
+            chunkCount,
+            new System.Threading.Tasks.ParallelOptions
             {
-                var chunkIndex = (int)(offset / ChunkSize);
+                MaxDegreeOfParallelism = degreeOfParallelism,
+            },
+            chunkIndex =>
+            {
+                var offset = chunkIndex * ChunkSize;
+                var length = Math.Min(ChunkSize, plaintextArray.Length - offset);
                 var chunkNonce = DeriveChunkNonce(nonceArray, chunkIndex);
 
-                var plaintextChunk = new ReadOnlySpan<byte>(plaintextArray, (int)offset, length);
-                var ciphertextOffset = (int)offset + (chunkIndex * TagSize);
+                var plaintextChunk = new ReadOnlySpan<byte>(plaintextArray, offset, length);
+                var ciphertextOffset = offset + (chunkIndex * TagSize);
                 var ciphertextChunk = ciphertext.AsSpan(ciphertextOffset, length);
                 var tag = ciphertext.AsSpan(ciphertextOffset + length, TagSize);
 
@@ -302,8 +309,7 @@ public static class ParallelAesGcm
                 using var aes = new System.Security.Cryptography.AesGcm(keyArray);
                 aes.Encrypt(chunkNonce, plaintextChunk, ciphertextChunk, tag, associatedDataArray);
 #endif
-            },
-            degreeOfParallelism);
+            });
 
         return ciphertext;
     }
@@ -374,16 +380,23 @@ public static class ParallelAesGcm
 
         try
         {
-            ParallelCryptoOperations.ProcessInParallel(
-                plaintextLength,
-                (offset, length) =>
+            // PHASE 1: Verify all chunks in parallel with fixed ChunkSize boundaries
+            System.Threading.Tasks.Parallel.For(
+                0,
+                chunkCount,
+                new System.Threading.Tasks.ParallelOptions
+                {
+                    MaxDegreeOfParallelism = degreeOfParallelism,
+                },
+                chunkIndex =>
                 {
                     if (verificationFailed) return; // Short-circuit if any verification failed
 
-                    var chunkIndex = (int)(offset / ChunkSize);
+                    var offset = chunkIndex * ChunkSize;
+                    var length = Math.Min(ChunkSize, plaintextLength - offset);
                     var chunkNonce = DeriveChunkNonce(nonceArray, chunkIndex);
 
-                    var ciphertextOffset = (int)offset + (chunkIndex * TagSize);
+                    var ciphertextOffset = offset + (chunkIndex * TagSize);
                     var ciphertextChunk = new ReadOnlySpan<byte>(ciphertextArray, ciphertextOffset, length);
                     var tag = new ReadOnlySpan<byte>(ciphertextArray, ciphertextOffset + length, TagSize);
 
@@ -409,8 +422,7 @@ public static class ParallelAesGcm
                         // Clear temp buffer on failure
                         System.Security.Cryptography.CryptographicOperations.ZeroMemory(tempPlaintext);
                     }
-                },
-                degreeOfParallelism);
+                });
 
             // If any verification failed, throw exception without returning any plaintext
             if (verificationFailed)
@@ -423,17 +435,23 @@ public static class ParallelAesGcm
             // PHASE 2: ALL TAGS VERIFIED - NOW DECRYPT
             var plaintext = new byte[plaintextLength];
 
-            ParallelCryptoOperations.ProcessInParallel(
-                plaintextLength,
-                (offset, length) =>
+            System.Threading.Tasks.Parallel.For(
+                0,
+                chunkCount,
+                new System.Threading.Tasks.ParallelOptions
                 {
-                    var chunkIndex = (int)(offset / ChunkSize);
+                    MaxDegreeOfParallelism = degreeOfParallelism,
+                },
+                chunkIndex =>
+                {
+                    var offset = chunkIndex * ChunkSize;
+                    var length = Math.Min(ChunkSize, plaintextLength - offset);
                     var chunkNonce = DeriveChunkNonce(nonceArray, chunkIndex);
 
-                    var ciphertextOffset = (int)offset + (chunkIndex * TagSize);
+                    var ciphertextOffset = offset + (chunkIndex * TagSize);
                     var ciphertextChunk = new ReadOnlySpan<byte>(ciphertextArray, ciphertextOffset, length);
                     var tag = new ReadOnlySpan<byte>(ciphertextArray, ciphertextOffset + length, TagSize);
-                    var plaintextChunk = plaintext.AsSpan((int)offset, length);
+                    var plaintextChunk = plaintext.AsSpan(offset, length);
 
                     // Decrypt - we know tags are valid from phase 1
 #if NET6_0_OR_GREATER
@@ -443,8 +461,7 @@ public static class ParallelAesGcm
                     using var aes = new System.Security.Cryptography.AesGcm(keyArray);
                     aes.Decrypt(chunkNonce, ciphertextChunk, tag, plaintextChunk, associatedDataArray);
 #endif
-                },
-                degreeOfParallelism);
+                });
 
             return plaintext;
         }

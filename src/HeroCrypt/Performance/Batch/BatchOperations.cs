@@ -4,6 +4,8 @@ using System.Threading.Tasks;
 using System.Security.Cryptography;
 using HeroCrypt.Performance.Parallel;
 using HeroCrypt.Performance.Memory;
+using HeroCrypt.Cryptography.Blake2b;
+using HeroCrypt.Cryptography.ECC.Ed25519;
 
 namespace HeroCrypt.Performance.Batch;
 
@@ -131,9 +133,9 @@ public static class BatchHashOperations
             inputs.AsSpan(),
             (input, _) =>
             {
-                // Production: Use actual BLAKE2b implementation
-                // return Blake2b.ComputeHash(input.Span, outputSize, keyCopy);
-                return new byte[outputSize]; // Placeholder
+                // Use actual BLAKE2b implementation
+                var inputArray = input.Span.ToArray();
+                return Blake2bCore.ComputeHash(inputArray, outputSize, keyCopy.Length > 0 ? keyCopy : null);
             },
             degreeOfParallelism,
             cancellationToken);
@@ -288,12 +290,14 @@ public static class BatchEncryptionOperations
 
                 await Task.Run(() =>
                 {
-                    // Production: Use AesGcm
-                    // using var aes = new AesGcm(key.Span);
-                    // aes.Encrypt(nonce, plaintext.Span, ciphertext, tag, associatedData.Span);
-
-                    // Placeholder
-                    plaintext.Span.CopyTo(ciphertext);
+                    // Use AesGcm for authenticated encryption
+#if NET6_0_OR_GREATER
+                    using var aes = new AesGcm(key.Span);
+                    aes.Encrypt(nonce, plaintext.Span, ciphertext, tag, associatedData.Span);
+#else
+                    using var aes = new AesGcm(key.Span.ToArray());
+                    aes.Encrypt(nonce, plaintext.Span, ciphertext, tag, associatedData.Span);
+#endif
                 }, cancellationToken);
 
                 return new EncryptionResult(ciphertext, nonce, tag);
@@ -325,12 +329,14 @@ public static class BatchEncryptionOperations
 
                 await Task.Run(() =>
                 {
-                    // Production: Use AesGcm
-                    // using var aes = new AesGcm(key.Span);
-                    // aes.Decrypt(ct.Nonce, ct.Ciphertext, ct.Tag, plaintext, associatedData.Span);
-
-                    // Placeholder
-                    ct.Ciphertext.CopyTo(plaintext, 0);
+                    // Use AesGcm for authenticated decryption
+#if NET6_0_OR_GREATER
+                    using var aes = new AesGcm(key.Span);
+                    aes.Decrypt(ct.Nonce, ct.Ciphertext, ct.Tag, plaintext, associatedData.Span);
+#else
+                    using var aes = new AesGcm(key.Span.ToArray());
+                    aes.Decrypt(ct.Nonce, ct.Ciphertext, ct.Tag, plaintext, associatedData.Span);
+#endif
                 }, cancellationToken);
 
                 return plaintext;
@@ -549,10 +555,11 @@ public static class BatchSignatureOperations
             messages.AsSpan(),
             (message, index) =>
             {
-                // Production: Use Ed25519 implementation
-                // return Ed25519.Verify(signatures[index].Span, message.Span, publicKeys[index].Span);
-
-                return true; // Placeholder
+                // Use Ed25519 for signature verification
+                return Ed25519Core.Verify(
+                    message.Span.ToArray(),
+                    signatures[index].Span.ToArray(),
+                    publicKeys[index].Span.ToArray());
             },
             degreeOfParallelism,
             cancellationToken);

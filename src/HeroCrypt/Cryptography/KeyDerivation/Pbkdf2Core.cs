@@ -95,7 +95,8 @@ internal static class Pbkdf2Core
     public static void ValidateParameters(ReadOnlySpan<byte> password, ReadOnlySpan<byte> salt,
         int iterations, int outputLength, HashAlgorithmName hashAlgorithm, bool allowWeakParameters = false)
     {
-        if (password.IsEmpty)
+        // Allow empty passwords only for test vectors and standards compliance (e.g., RFC test vectors)
+        if (!allowWeakParameters && password.IsEmpty)
             throw new ArgumentException("Password cannot be empty", nameof(password));
 
         if (!allowWeakParameters && salt.Length < MinSaltLength)

@@ -12,7 +12,6 @@ namespace HeroCrypt.Services;
 public sealed class RsaDigitalSignatureService : IDigitalSignatureService
 {
     private readonly ILogger<RsaDigitalSignatureService>? _logger;
-    private readonly ISecureMemoryManager? _memoryManager;
     private readonly int _keySize;
 
     /// <summary>
@@ -20,17 +19,14 @@ public sealed class RsaDigitalSignatureService : IDigitalSignatureService
     /// </summary>
     /// <param name="keySize">RSA key size in bits (default: 2048)</param>
     /// <param name="logger">Optional logger instance</param>
-    /// <param name="memoryManager">Optional secure memory manager</param>
     public RsaDigitalSignatureService(
         int keySize = 2048,
-        ILogger<RsaDigitalSignatureService>? logger = null,
-        ISecureMemoryManager? memoryManager = null)
+        ILogger<RsaDigitalSignatureService>? logger = null)
     {
         InputValidator.ValidateRsaKeySize(keySize, nameof(keySize));
 
         _keySize = keySize;
         _logger = logger;
-        _memoryManager = memoryManager;
 
         _logger?.LogDebug("RSA Digital Signature Service initialized with {KeySize}-bit keys", keySize);
     }

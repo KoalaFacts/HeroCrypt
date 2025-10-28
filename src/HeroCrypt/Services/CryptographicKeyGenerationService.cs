@@ -13,20 +13,16 @@ namespace HeroCrypt.Services;
 public sealed class CryptographicKeyGenerationService : ICryptographicKeyGenerationService
 {
     private readonly ILogger<CryptographicKeyGenerationService>? _logger;
-    private readonly ISecureMemoryManager? _memoryManager;
     private readonly RandomNumberGenerator _rng;
 
     /// <summary>
     /// Initializes a new instance of the cryptographic key generation service
     /// </summary>
     /// <param name="logger">Optional logger instance</param>
-    /// <param name="memoryManager">Optional secure memory manager</param>
     public CryptographicKeyGenerationService(
-        ILogger<CryptographicKeyGenerationService>? logger = null,
-        ISecureMemoryManager? memoryManager = null)
+        ILogger<CryptographicKeyGenerationService>? logger = null)
     {
         _logger = logger;
-        _memoryManager = memoryManager;
         _rng = RandomNumberGenerator.Create();
 
         _logger?.LogDebug("Cryptographic Key Generation Service initialized");

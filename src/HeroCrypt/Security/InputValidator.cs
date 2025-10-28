@@ -16,9 +16,9 @@ public static class InputValidator
     public const int MaxKeySizeBits = 16384; // 16KB keys
 
     /// <summary>
-    /// Minimum secure key size in bits
+    /// Minimum secure key size in bits (2048 bits per NIST recommendations)
     /// </summary>
-    public const int MinSecureKeySizeBits = 1024;
+    public const int MinSecureKeySizeBits = 2048;
 
     /// <summary>
     /// Maximum allowed iteration count for key derivation
@@ -69,12 +69,12 @@ public static class InputValidator
             throw new ArgumentException($"RSA key size {keySizeBits} must be a multiple of 8", parameterName);
 
         // Ensure key size is reasonable (power of 2 or common sizes)
-        var commonSizes = new[] { 1024, 2048, 3072, 4096, 8192, 16384 };
+        var commonSizes = new[] { 2048, 3072, 4096, 8192, 16384 };
         if (!commonSizes.Contains(keySizeBits))
         {
             // Allow other sizes but warn if they're not common
             if (!IsPowerOfTwo(keySizeBits) && keySizeBits % 1024 != 0)
-                throw new ArgumentException($"RSA key size {keySizeBits} is not a standard size. Use 1024, 2048, 3072, 4096, 8192, or 16384", parameterName);
+                throw new ArgumentException($"RSA key size {keySizeBits} is not a standard size. Use 2048, 3072, 4096, 8192, or 16384", parameterName);
         }
     }
 

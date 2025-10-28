@@ -295,8 +295,8 @@ public class SecurityHardeningTests
     }
 
     [Theory]
-    [InlineData(1024)]
     [InlineData(2048)]
+    [InlineData(3072)]
     [InlineData(4096)]
     public void ValidateRsaKeySize_ValidSizes_DoesNotThrow(int keySize)
     {
@@ -307,6 +307,7 @@ public class SecurityHardeningTests
 
     [Theory]
     [InlineData(512)]
+    [InlineData(1024)]
     [InlineData(1023)]
     [InlineData(20000)]
     public void ValidateRsaKeySize_InvalidSizes_ThrowsArgumentException(int keySize)

@@ -255,11 +255,11 @@ public class CryptographicKeyGenerationServiceTests
 
     [Fact]
     [Trait("Category", TestCategories.Unit)]
-    public void GenerateRsaKeyPair_1024Bits_ReturnsValidKeyPair()
+    public void GenerateRsaKeyPair_2048Bits_ReturnsValidKeyPair()
     {
         var service = new CryptographicKeyGenerationService();
 
-        var (privateKey, publicKey) = service.GenerateRsaKeyPair(1024);
+        var (privateKey, publicKey) = service.GenerateRsaKeyPair(2048);
 
         Assert.NotNull(privateKey);
         Assert.NotNull(publicKey);
@@ -273,8 +273,8 @@ public class CryptographicKeyGenerationServiceTests
     {
         var service = new CryptographicKeyGenerationService();
 
-        var ex = Assert.Throws<ArgumentException>(() => service.GenerateRsaKeyPair(512));
-        Assert.Contains("RSA key size must be at least 1024 bits", ex.Message);
+        var ex = Assert.Throws<ArgumentException>(() => service.GenerateRsaKeyPair(1024));
+        Assert.Contains("RSA key size must be at least 2048 bits", ex.Message);
     }
 
     [Fact]
@@ -293,7 +293,7 @@ public class CryptographicKeyGenerationServiceTests
     {
         var service = new CryptographicKeyGenerationService();
 
-        var (privateKey, publicKey) = await service.GenerateRsaKeyPairAsync(1024);
+        var (privateKey, publicKey) = await service.GenerateRsaKeyPairAsync(2048);
 
         Assert.NotNull(privateKey);
         Assert.NotNull(publicKey);

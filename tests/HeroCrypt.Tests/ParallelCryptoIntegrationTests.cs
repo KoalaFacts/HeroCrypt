@@ -574,11 +574,19 @@ public class ParallelCryptoIntegrationTests
         var masterKey = new byte[32];
         RandomNumberGenerator.Fill(masterKey);
 
+        // Create and fill salt arrays
+        var salt1 = new byte[16];
+        var salt2 = new byte[16];
+        var salt3 = new byte[16];
+        RandomNumberGenerator.Fill(salt1);
+        RandomNumberGenerator.Fill(salt2);
+        RandomNumberGenerator.Fill(salt3);
+
         var salts = new ReadOnlyMemory<byte>[]
         {
-            new byte[16],
-            new byte[16],
-            new byte[16],
+            salt1,
+            salt2,
+            salt3,
         };
 
         var infos = new ReadOnlyMemory<byte>[]
@@ -589,11 +597,6 @@ public class ParallelCryptoIntegrationTests
         };
 
         var outputLengths = new int[] { 32, 32, 32 };
-
-        foreach (var salt in salts)
-        {
-            RandomNumberGenerator.Fill(salt.Span);
-        }
 
         // Act
         var derivedKeys = BatchKeyDerivationOperations.HkdfBatch(
@@ -724,14 +727,17 @@ public class ParallelCryptoIntegrationTests
             Encoding.UTF8.GetBytes("user_password_2"),
         };
 
+        // Create and fill salt arrays
+        var salt1 = new byte[16];
+        var salt2 = new byte[16];
+        RandomNumberGenerator.Fill(salt1);
+        RandomNumberGenerator.Fill(salt2);
+
         var salts = new ReadOnlyMemory<byte>[]
         {
-            new byte[16],
-            new byte[16],
+            salt1,
+            salt2,
         };
-
-        RandomNumberGenerator.Fill(salts[0].Span);
-        RandomNumberGenerator.Fill(salts[1].Span);
 
         var messages = new ReadOnlyMemory<byte>[]
         {

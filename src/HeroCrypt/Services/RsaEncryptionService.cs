@@ -1,4 +1,3 @@
-using HeroCrypt.Abstractions;
 using HeroCrypt.Cryptography.RSA;
 using HeroCrypt.Security;
 using Microsoft.Extensions.Logging;
@@ -14,7 +13,6 @@ namespace HeroCrypt.Services;
 public sealed class RsaEncryptionService
 {
     private readonly ILogger<RsaEncryptionService>? _logger;
-    private readonly ISecureMemoryManager? _memoryManager;
     private readonly int _keySize;
     private readonly RsaPaddingMode _defaultPadding;
     private readonly SystemHashAlgorithmName _defaultHashAlgorithm;
@@ -26,13 +24,11 @@ public sealed class RsaEncryptionService
     /// <param name="defaultPadding">Default padding mode (default: OAEP for better security)</param>
     /// <param name="defaultHashAlgorithm">Default hash algorithm for OAEP (default: SHA256)</param>
     /// <param name="logger">Optional logger instance</param>
-    /// <param name="memoryManager">Optional secure memory manager</param>
     public RsaEncryptionService(
         int keySize = 2048,
         RsaPaddingMode defaultPadding = RsaPaddingMode.Oaep,
         SystemHashAlgorithmName? defaultHashAlgorithm = null,
-        ILogger<RsaEncryptionService>? logger = null,
-        ISecureMemoryManager? memoryManager = null)
+        ILogger<RsaEncryptionService>? logger = null)
     {
         InputValidator.ValidateRsaKeySize(keySize, nameof(keySize));
 
@@ -40,7 +36,6 @@ public sealed class RsaEncryptionService
         _defaultPadding = defaultPadding;
         _defaultHashAlgorithm = defaultHashAlgorithm ?? SystemHashAlgorithmName.SHA256;
         _logger = logger;
-        _memoryManager = memoryManager;
 
         _logger?.LogDebug("RSA Encryption Service initialized with {KeySize}-bit keys, {Padding} padding, {HashAlgorithm} hash",
             keySize, defaultPadding, _defaultHashAlgorithm.Name);

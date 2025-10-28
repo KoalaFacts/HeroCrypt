@@ -282,32 +282,48 @@ public static class ParallelAesGcm
         var nonceArray = nonce.ToArray();
         var associatedDataArray = associatedData.IsEmpty ? Array.Empty<byte>() : associatedData.ToArray();
 
-        ParallelCryptoOperations.ProcessInParallel(
-            plaintextArray.Length,
-            (offset, length) =>
+        // Process each chunk in parallel with fixed ChunkSize boundaries
+        System.Threading.Tasks.Parallel.For(
+            0,
+            chunkCount,
+            new System.Threading.Tasks.ParallelOptions
             {
-                var chunkIndex = (int)(offset / ChunkSize);
+                MaxDegreeOfParallelism = degreeOfParallelism,
+            },
+            chunkIndex =>
+            {
+                var offset = chunkIndex * ChunkSize;
+                var length = Math.Min(ChunkSize, plaintextArray.Length - offset);
                 var chunkNonce = DeriveChunkNonce(nonceArray, chunkIndex);
 
-                var plaintextChunk = new ReadOnlySpan<byte>(plaintextArray, (int)offset, length);
-                var ciphertextOffset = (int)offset + (chunkIndex * TagSize);
+                var plaintextChunk = new ReadOnlySpan<byte>(plaintextArray, offset, length);
+                var ciphertextOffset = offset + (chunkIndex * TagSize);
                 var ciphertextChunk = ciphertext.AsSpan(ciphertextOffset, length);
                 var tag = ciphertext.AsSpan(ciphertextOffset + length, TagSize);
 
-                // Production: Use System.Security.Cryptography.AesGcm
-                // new AesGcm(keyArray).Encrypt(chunkNonce, plaintextChunk, ciphertextChunk, tag, associatedDataArray);
-
-                // Reference implementation placeholder
-                plaintextChunk.CopyTo(ciphertextChunk);
-            },
-            degreeOfParallelism);
+                // Use AES-GCM for authenticated encryption
+#if NET6_0_OR_GREATER
+                using var aes = new System.Security.Cryptography.AesGcm(keyArray);
+                aes.Encrypt(chunkNonce, plaintextChunk, ciphertextChunk, tag, associatedDataArray);
+#else
+                using var aes = new System.Security.Cryptography.AesGcm(keyArray);
+                aes.Encrypt(chunkNonce, plaintextChunk, ciphertextChunk, tag, associatedDataArray);
+#endif
+            });
 
         return ciphertext;
     }
 
     /// <summary>
-    /// Decrypts parallel-encrypted data
+    /// Decrypts parallel-encrypted data with authenticated chunk verification
     /// </summary>
+    /// <param name="ciphertext">Encrypted data with interleaved authentication tags</param>
+    /// <param name="key">256-bit AES key (must match encryption key)</param>
+    /// <param name="nonce">Master nonce (must match encryption nonce)</param>
+    /// <param name="associatedData">Additional authenticated data (must match encryption AAD)</param>
+    /// <param name="degreeOfParallelism">Parallel tasks (0 = auto)</param>
+    /// <returns>Decrypted plaintext</returns>
+    /// <exception cref="System.Security.Cryptography.CryptographicException">Thrown if authentication fails</exception>
     public static byte[] DecryptParallel(
         ReadOnlySpan<byte> ciphertext,
         ReadOnlySpan<byte> key,
@@ -315,25 +331,176 @@ public static class ParallelAesGcm
         ReadOnlySpan<byte> associatedData = default,
         int degreeOfParallelism = 0)
     {
-        // REFERENCE IMPLEMENTATION ONLY - NOT FOR PRODUCTION USE
-        // Production implementation required:
-        // 1. Parse chunk structure from ciphertext (header + chunks + tags)
-        // 2. Verify overall structure and length
-        // 3. Verify authentication tag for each chunk before decryption
-        // 4. Decrypt chunks in parallel using chunk-specific nonces
-        // 5. Verify final combined authentication tag
-        // 6. Combine decrypted chunks in correct order
-        //
-        // Security considerations:
-        // - MUST verify ALL authentication tags before returning ANY plaintext
-        // - Constant-time tag verification to prevent timing attacks
-        // - Secure memory cleanup on failure
-        // - Prevent chunk reordering attacks
+        if (key.Length != 32)
+            throw new ArgumentException("Key must be 256 bits (32 bytes)", nameof(key));
+        if (nonce.Length != NonceSize)
+            throw new ArgumentException($"Nonce must be {NonceSize} bytes", nameof(nonce));
 
-        throw new InvalidOperationException(
-            "ParallelCryptoOperations.DecryptParallel is a reference implementation only. " +
-            "Production use requires implementing authenticated decryption with proper chunk verification. " +
-            "Consider using standard libraries like System.Security.Cryptography.AesGcm for production.");
+        // Calculate plaintext length from ciphertext
+        // Format: [chunk0_ct][tag0][chunk1_ct][tag1]...
+        // If data was encrypted with EncryptSingle, handle that case
+        if (ciphertext.Length <= ChunkSize * 2 + TagSize)
+        {
+            // Small data - single chunk
+            return DecryptSingle(ciphertext, key, nonce, associatedData);
+        }
+
+        // Calculate number of chunks and validate structure
+        // Each chunk adds TagSize bytes, so: ciphertext_length = plaintext_length + (chunk_count * TagSize)
+        // We need to determine chunk_count from ciphertext_length
+        // chunk_count = ceiling(plaintext_length / ChunkSize)
+        // ciphertext_length = plaintext_length + ceiling(plaintext_length / ChunkSize) * TagSize
+
+        // Iteratively solve for plaintextLength
+        // Start with approximation assuming average chunk size (ChunkSize + TagSize)
+        var avgChunkSize = ChunkSize + TagSize;
+        var approxChunkCount = (ciphertext.Length + avgChunkSize - 1) / avgChunkSize;
+        var plaintextLength = ciphertext.Length - (approxChunkCount * TagSize);
+        int chunkCount;
+        int expectedCiphertextLength;
+
+        // Iterate to converge (usually converges in 1-2 iterations)
+        for (int iteration = 0; iteration < 10; iteration++)
+        {
+            chunkCount = (plaintextLength + ChunkSize - 1) / ChunkSize;
+            expectedCiphertextLength = plaintextLength + (chunkCount * TagSize);
+
+            if (expectedCiphertextLength == ciphertext.Length)
+            {
+                // Found correct plaintextLength and chunkCount
+                break;
+            }
+
+            // Adjust plaintextLength based on the difference
+            plaintextLength = ciphertext.Length - (chunkCount * TagSize);
+
+            // Convergence check
+            if (iteration > 0 && plaintextLength + (chunkCount * TagSize) == ciphertext.Length)
+            {
+                break;
+            }
+        }
+
+        chunkCount = (plaintextLength + ChunkSize - 1) / ChunkSize;
+
+        // Final validation
+        expectedCiphertextLength = plaintextLength + (chunkCount * TagSize);
+        if (expectedCiphertextLength != ciphertext.Length || plaintextLength < 0)
+        {
+            throw new System.Security.Cryptography.CryptographicException(
+                $"Ciphertext length does not match expected format. " +
+                $"Ciphertext: {ciphertext.Length}, Expected: {expectedCiphertextLength}, " +
+                $"Plaintext: {plaintextLength}, Chunks: {chunkCount}");
+        }
+
+        if (degreeOfParallelism <= 0)
+            degreeOfParallelism = ParallelCryptoOperations.OptimalDegreeOfParallelism;
+
+        // Copy to arrays for parallel processing
+        var ciphertextArray = ciphertext.ToArray();
+        var keyArray = key.ToArray();
+        var nonceArray = nonce.ToArray();
+        var associatedDataArray = associatedData.IsEmpty ? Array.Empty<byte>() : associatedData.ToArray();
+
+        // PHASE 1: VERIFY ALL AUTHENTICATION TAGS BEFORE DECRYPTING ANYTHING
+        // This is critical for security - we must not return any plaintext if authentication fails
+        var verificationFailed = false;
+        var verificationException = default(Exception);
+
+        try
+        {
+            // PHASE 1: Verify all chunks in parallel with fixed ChunkSize boundaries
+            System.Threading.Tasks.Parallel.For(
+                0,
+                chunkCount,
+                new System.Threading.Tasks.ParallelOptions
+                {
+                    MaxDegreeOfParallelism = degreeOfParallelism,
+                },
+                chunkIndex =>
+                {
+                    if (verificationFailed) return; // Short-circuit if any verification failed
+
+                    var offset = chunkIndex * ChunkSize;
+                    var length = Math.Min(ChunkSize, plaintextLength - offset);
+                    var chunkNonce = DeriveChunkNonce(nonceArray, chunkIndex);
+
+                    var ciphertextOffset = offset + (chunkIndex * TagSize);
+                    var ciphertextChunk = new ReadOnlySpan<byte>(ciphertextArray, ciphertextOffset, length);
+                    var tag = new ReadOnlySpan<byte>(ciphertextArray, ciphertextOffset + length, TagSize);
+
+                    // Verify authentication tag without decrypting
+                    // We create a temporary buffer for verification
+                    var tempPlaintext = new byte[length];
+                    try
+                    {
+#if NET6_0_OR_GREATER
+                        using var aes = new System.Security.Cryptography.AesGcm(keyArray);
+                        aes.Decrypt(chunkNonce, ciphertextChunk, tag, tempPlaintext, associatedDataArray);
+#else
+                        using var aes = new System.Security.Cryptography.AesGcm(keyArray);
+                        aes.Decrypt(chunkNonce, ciphertextChunk, tag, tempPlaintext, associatedDataArray);
+#endif
+                        // Immediately clear the temporary plaintext - we're only verifying tags
+                        System.Security.Cryptography.CryptographicOperations.ZeroMemory(tempPlaintext);
+                    }
+                    catch (System.Security.Cryptography.CryptographicException ex)
+                    {
+                        verificationFailed = true;
+                        verificationException = ex;
+                        // Clear temp buffer on failure
+                        System.Security.Cryptography.CryptographicOperations.ZeroMemory(tempPlaintext);
+                    }
+                });
+
+            // If any verification failed, throw exception without returning any plaintext
+            if (verificationFailed)
+            {
+                throw new System.Security.Cryptography.CryptographicException(
+                    "Authentication tag verification failed for one or more chunks",
+                    verificationException);
+            }
+
+            // PHASE 2: ALL TAGS VERIFIED - NOW DECRYPT
+            var plaintext = new byte[plaintextLength];
+
+            System.Threading.Tasks.Parallel.For(
+                0,
+                chunkCount,
+                new System.Threading.Tasks.ParallelOptions
+                {
+                    MaxDegreeOfParallelism = degreeOfParallelism,
+                },
+                chunkIndex =>
+                {
+                    var offset = chunkIndex * ChunkSize;
+                    var length = Math.Min(ChunkSize, plaintextLength - offset);
+                    var chunkNonce = DeriveChunkNonce(nonceArray, chunkIndex);
+
+                    var ciphertextOffset = offset + (chunkIndex * TagSize);
+                    var ciphertextChunk = new ReadOnlySpan<byte>(ciphertextArray, ciphertextOffset, length);
+                    var tag = new ReadOnlySpan<byte>(ciphertextArray, ciphertextOffset + length, TagSize);
+                    var plaintextChunk = plaintext.AsSpan(offset, length);
+
+                    // Decrypt - we know tags are valid from phase 1
+#if NET6_0_OR_GREATER
+                    using var aes = new System.Security.Cryptography.AesGcm(keyArray);
+                    aes.Decrypt(chunkNonce, ciphertextChunk, tag, plaintextChunk, associatedDataArray);
+#else
+                    using var aes = new System.Security.Cryptography.AesGcm(keyArray);
+                    aes.Decrypt(chunkNonce, ciphertextChunk, tag, plaintextChunk, associatedDataArray);
+#endif
+                });
+
+            return plaintext;
+        }
+        catch
+        {
+            // Ensure secure cleanup of key material on failure
+            System.Security.Cryptography.CryptographicOperations.ZeroMemory(keyArray);
+            System.Security.Cryptography.CryptographicOperations.ZeroMemory(nonceArray);
+            throw;
+        }
     }
 
     private static byte[] EncryptSingle(
@@ -344,18 +511,57 @@ public static class ParallelAesGcm
     {
         // Single-threaded encryption for small data
         var ciphertext = new byte[plaintext.Length + TagSize];
-        // Production: Use AesGcm
+        var ciphertextData = ciphertext.AsSpan(0, plaintext.Length);
+        var tag = ciphertext.AsSpan(plaintext.Length, TagSize);
+
+#if NET6_0_OR_GREATER
+        using var aes = new System.Security.Cryptography.AesGcm(key);
+        aes.Encrypt(nonce, plaintext, ciphertextData, tag, associatedData);
+#else
+        using var aes = new System.Security.Cryptography.AesGcm(key.ToArray());
+        aes.Encrypt(nonce, plaintext, ciphertextData, tag, associatedData);
+#endif
+
         return ciphertext;
+    }
+
+    private static byte[] DecryptSingle(
+        ReadOnlySpan<byte> ciphertext,
+        ReadOnlySpan<byte> key,
+        ReadOnlySpan<byte> nonce,
+        ReadOnlySpan<byte> associatedData)
+    {
+        // Single-threaded decryption for small data
+        if (ciphertext.Length < TagSize)
+        {
+            throw new System.Security.Cryptography.CryptographicException(
+                "Ciphertext too short to contain authentication tag");
+        }
+
+        var plaintextLength = ciphertext.Length - TagSize;
+        var plaintext = new byte[plaintextLength];
+        var ciphertextData = ciphertext.Slice(0, plaintextLength);
+        var tag = ciphertext.Slice(plaintextLength, TagSize);
+
+#if NET6_0_OR_GREATER
+        using var aes = new System.Security.Cryptography.AesGcm(key);
+        aes.Decrypt(nonce, ciphertextData, tag, plaintext, associatedData);
+#else
+        using var aes = new System.Security.Cryptography.AesGcm(key.ToArray());
+        aes.Decrypt(nonce, ciphertextData, tag, plaintext, associatedData);
+#endif
+
+        return plaintext;
     }
 
     private static byte[] DeriveChunkNonce(ReadOnlySpan<byte> masterNonce, int chunkIndex)
     {
-        // Derive unique nonce for each chunk
-        // Production: Use HKDF or simple XOR with chunk index
+        // Derive unique nonce for each chunk using XOR with chunk index
+        // This ensures each chunk has a unique nonce while being deterministic
         var chunkNonce = new byte[NonceSize];
         masterNonce.CopyTo(chunkNonce);
 
-        // XOR last 4 bytes with chunk index
+        // XOR last 4 bytes with chunk index (prevents nonce reuse across chunks)
         var indexBytes = BitConverter.GetBytes(chunkIndex);
         for (int i = 0; i < 4; i++)
         {

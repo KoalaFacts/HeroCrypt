@@ -22,7 +22,7 @@ These features have been thoroughly tested, security-audited, and are ready for 
 | **AES-GCM** | ✅ Production Ready | NIST-approved, hardware-accelerated |
 | **HKDF** | ✅ Production Ready | RFC 5869 compliant key derivation |
 | **RSA (Sign/Verify)** | ✅ Production Ready | PSS padding, 2048-4096 bit keys |
-| **RSA (Encrypt/Decrypt)** | ✅ Production Ready | OAEP padding with SHA-256 |
+| **RSA (Encrypt/Decrypt)** | ✅ Production Ready | OAEP padding with SHA-256, PKCS#8 & X.509 support |
 | **ECC (P-256, P-384, P-521)** | ✅ Production Ready | NIST curves, ECDSA signatures |
 
 ### Memory Management
@@ -93,7 +93,8 @@ These features are **NOT production-ready**. They are educational implementation
 
 | Feature | Status | Reason |
 |---------|--------|--------|
-| **Parallel Encryption** | 📚 Reference Only | Incomplete authenticated encryption, no decryption |
+| **Batch ChaCha20-Poly1305** | ✅ Production Ready | Fully implemented authenticated encryption |
+| **Parallel AES-GCM Encryption** | ✅ Production Ready | Two-phase authenticated decryption, secure chunk verification |
 | **Parallel Argon2** | 📚 Reference Only | Reference framework, not full RFC 9106 implementation |
 
 ### Enterprise Features
@@ -191,6 +192,38 @@ bool isValid = EccOperations.Verify(
 );
 ```
 
+### Safe Pattern - RSA with Standard Key Formats (PKCS#8 & X.509)
+
+```csharp
+using HeroCrypt.Services;
+using System.IO;
+
+// Production-ready: RSA with interoperable key formats
+var rsaService = new RsaEncryptionService(2048);
+
+// Generate keys
+var (privateKey, publicKey) = rsaService.GenerateKeyPair();
+
+// Export to standard formats for interoperability
+var pkcs8PrivateKey = rsaService.ExportPkcs8PrivateKey(privateKey);
+var x509PublicKey = rsaService.ExportSubjectPublicKeyInfo(publicKey);
+
+// Save to files (compatible with OpenSSL, Java, Python, etc.)
+File.WriteAllBytes("private_key.pkcs8", pkcs8PrivateKey);
+File.WriteAllBytes("public_key.x509", x509PublicKey);
+
+// Import from standard formats
+var importedPrivateKey = rsaService.ImportPkcs8PrivateKey(
+    File.ReadAllBytes("private_key.pkcs8"));
+var importedPublicKey = rsaService.ImportSubjectPublicKeyInfo(
+    File.ReadAllBytes("public_key.x509"));
+
+// Use imported keys
+var plaintext = "Sensitive data"u8.ToArray();
+var ciphertext = rsaService.Encrypt(plaintext, importedPublicKey);
+var decrypted = rsaService.Decrypt(ciphertext, importedPrivateKey);
+```
+
 ## Unsafe Patterns - Reference Only ⚠️
 
 ### DO NOT Use in Production
@@ -208,9 +241,9 @@ var hwRng = new HardwareRandomNumberGenerator();
 var signalSession = new SignalSession();
 // Incomplete implementation, lacks session management
 
-// ❌ UNSAFE: Parallel decryption not implemented
-var decrypted = ParallelAeadOperations.DecryptParallel(...);
-// Will throw InvalidOperationException
+// ✅ SAFE: Parallel AES-GCM now production ready
+var decrypted = ParallelAesGcm.DecryptParallel(ciphertext, key, nonce);
+// Two-phase authentication ensures security
 ```
 
 ## Migration Path for Reference Implementations

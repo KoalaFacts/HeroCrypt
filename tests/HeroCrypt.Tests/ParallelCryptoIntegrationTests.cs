@@ -980,6 +980,278 @@ public class ParallelCryptoIntegrationTests
     }
 
     #endregion
+
+    #region Parallel AES-GCM Tests
+
+    [Fact]
+    [Trait("Category", TestCategories.Integration)]
+    public void ParallelAesGcm_EncryptDecrypt_RoundtripSuccess()
+    {
+        // Arrange - Large data that will be chunked (> 2MB)
+        var plaintext = new byte[3 * 1024 * 1024]; // 3 MB
+        RandomNumberGenerator.Fill(plaintext);
+
+        var key = new byte[32];
+        var nonce = new byte[12];
+        RandomNumberGenerator.Fill(key);
+        RandomNumberGenerator.Fill(nonce);
+
+        // Act
+        var sw = Stopwatch.StartNew();
+        var ciphertext = ParallelAesGcm.EncryptParallel(plaintext, key, nonce);
+        sw.Stop();
+        _output.WriteLine($"Parallel encryption of {plaintext.Length / 1024}KB: {sw.ElapsedMilliseconds}ms");
+
+        sw.Restart();
+        var decrypted = ParallelAesGcm.DecryptParallel(ciphertext, key, nonce);
+        sw.Stop();
+        _output.WriteLine($"Parallel decryption of {ciphertext.Length / 1024}KB: {sw.ElapsedMilliseconds}ms");
+
+        // Assert
+        Assert.Equal(plaintext, decrypted);
+        Assert.True(ciphertext.Length > plaintext.Length, "Ciphertext should include authentication tags");
+    }
+
+    [Theory]
+    [InlineData(500 * 1024)]    // 500 KB - small data (single chunk)
+    [InlineData(2048 * 1024)]   // 2 MB - multiple chunks
+    [InlineData(5 * 1024 * 1024)] // 5 MB - many chunks
+    [Trait("Category", TestCategories.Integration)]
+    public void ParallelAesGcm_VariousSizes_MaintainCorrectness(int size)
+    {
+        // Arrange
+        var plaintext = new byte[size];
+        for (int i = 0; i < size; i++)
+        {
+            plaintext[i] = (byte)(i % 256); // Deterministic pattern
+        }
+
+        var key = new byte[32];
+        var nonce = new byte[12];
+        RandomNumberGenerator.Fill(key);
+        RandomNumberGenerator.Fill(nonce);
+
+        // Act
+        var ciphertext = ParallelAesGcm.EncryptParallel(plaintext, key, nonce);
+        var decrypted = ParallelAesGcm.DecryptParallel(ciphertext, key, nonce);
+
+        // Assert
+        Assert.Equal(plaintext, decrypted);
+        _output.WriteLine($"Size: {size / 1024}KB - Roundtrip successful");
+    }
+
+    [Fact]
+    [Trait("Category", TestCategories.Integration)]
+    public void ParallelAesGcm_WithAssociatedData_AuthenticatesCorrectly()
+    {
+        // Arrange
+        var plaintext = new byte[3 * 1024 * 1024]; // 3 MB
+        RandomNumberGenerator.Fill(plaintext);
+
+        var key = new byte[32];
+        var nonce = new byte[12];
+        var aad = Encoding.UTF8.GetBytes("metadata: user=alice, timestamp=2025-10-28");
+        RandomNumberGenerator.Fill(key);
+        RandomNumberGenerator.Fill(nonce);
+
+        // Act
+        var ciphertext = ParallelAesGcm.EncryptParallel(plaintext, key, nonce, aad);
+        var decrypted = ParallelAesGcm.DecryptParallel(ciphertext, key, nonce, aad);
+
+        // Assert
+        Assert.Equal(plaintext, decrypted);
+    }
+
+    [Fact]
+    [Trait("Category", TestCategories.Integration)]
+    public void ParallelAesGcm_WithWrongKey_ThrowsCryptographicException()
+    {
+        // Arrange
+        var plaintext = new byte[3 * 1024 * 1024];
+        RandomNumberGenerator.Fill(plaintext);
+
+        var key = new byte[32];
+        var wrongKey = new byte[32];
+        var nonce = new byte[12];
+        RandomNumberGenerator.Fill(key);
+        RandomNumberGenerator.Fill(wrongKey);
+        RandomNumberGenerator.Fill(nonce);
+
+        var ciphertext = ParallelAesGcm.EncryptParallel(plaintext, key, nonce);
+
+        // Act & Assert
+        var ex = Assert.Throws<System.Security.Cryptography.CryptographicException>(
+            () => ParallelAesGcm.DecryptParallel(ciphertext, wrongKey, nonce));
+
+        Assert.Contains("Authentication tag verification failed", ex.Message);
+        _output.WriteLine($"Correctly rejected wrong key: {ex.Message}");
+    }
+
+    [Fact]
+    [Trait("Category", TestCategories.Integration)]
+    public void ParallelAesGcm_WithWrongNonce_ThrowsCryptographicException()
+    {
+        // Arrange
+        var plaintext = new byte[3 * 1024 * 1024];
+        RandomNumberGenerator.Fill(plaintext);
+
+        var key = new byte[32];
+        var nonce = new byte[12];
+        var wrongNonce = new byte[12];
+        RandomNumberGenerator.Fill(key);
+        RandomNumberGenerator.Fill(nonce);
+        RandomNumberGenerator.Fill(wrongNonce);
+
+        var ciphertext = ParallelAesGcm.EncryptParallel(plaintext, key, nonce);
+
+        // Act & Assert
+        Assert.Throws<System.Security.Cryptography.CryptographicException>(
+            () => ParallelAesGcm.DecryptParallel(ciphertext, key, wrongNonce));
+    }
+
+    [Fact]
+    [Trait("Category", TestCategories.Integration)]
+    public void ParallelAesGcm_WithWrongAad_ThrowsCryptographicException()
+    {
+        // Arrange
+        var plaintext = new byte[3 * 1024 * 1024];
+        RandomNumberGenerator.Fill(plaintext);
+
+        var key = new byte[32];
+        var nonce = new byte[12];
+        var aad = Encoding.UTF8.GetBytes("correct metadata");
+        var wrongAad = Encoding.UTF8.GetBytes("wrong metadata");
+        RandomNumberGenerator.Fill(key);
+        RandomNumberGenerator.Fill(nonce);
+
+        var ciphertext = ParallelAesGcm.EncryptParallel(plaintext, key, nonce, aad);
+
+        // Act & Assert
+        Assert.Throws<System.Security.Cryptography.CryptographicException>(
+            () => ParallelAesGcm.DecryptParallel(ciphertext, key, nonce, wrongAad));
+    }
+
+    [Fact]
+    [Trait("Category", TestCategories.Integration)]
+    public void ParallelAesGcm_WithTamperedCiphertext_ThrowsCryptographicException()
+    {
+        // Arrange
+        var plaintext = new byte[3 * 1024 * 1024];
+        RandomNumberGenerator.Fill(plaintext);
+
+        var key = new byte[32];
+        var nonce = new byte[12];
+        RandomNumberGenerator.Fill(key);
+        RandomNumberGenerator.Fill(nonce);
+
+        var ciphertext = ParallelAesGcm.EncryptParallel(plaintext, key, nonce);
+
+        // Tamper with ciphertext (flip a bit in the middle)
+        ciphertext[ciphertext.Length / 2] ^= 0xFF;
+
+        // Act & Assert
+        var ex = Assert.Throws<System.Security.Cryptography.CryptographicException>(
+            () => ParallelAesGcm.DecryptParallel(ciphertext, key, nonce));
+
+        Assert.Contains("Authentication tag verification failed", ex.Message);
+        _output.WriteLine("Correctly detected ciphertext tampering");
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(4)]
+    [InlineData(8)]
+    [Trait("Category", TestCategories.Integration)]
+    public void ParallelAesGcm_WithDifferentParallelism_ProducesConsistentResults(int parallelism)
+    {
+        // Arrange
+        var plaintext = new byte[3 * 1024 * 1024];
+        RandomNumberGenerator.Fill(plaintext);
+
+        var key = new byte[32];
+        var nonce = new byte[12];
+        RandomNumberGenerator.Fill(key);
+        RandomNumberGenerator.Fill(nonce);
+
+        // Act
+        var ciphertext = ParallelAesGcm.EncryptParallel(plaintext, key, nonce, degreeOfParallelism: parallelism);
+        var decrypted = ParallelAesGcm.DecryptParallel(ciphertext, key, nonce, degreeOfParallelism: parallelism);
+
+        // Assert
+        Assert.Equal(plaintext, decrypted);
+        _output.WriteLine($"Parallelism {parallelism}: Success");
+    }
+
+    [Fact]
+    [Trait("Category", TestCategories.Integration)]
+    public void ParallelAesGcm_SecurityTest_NoPlaintextLeakageOnAuthFailure()
+    {
+        // Critical security test: Ensure no plaintext is returned if authentication fails
+        // This tests the two-phase verification approach
+
+        // Arrange
+        var plaintext = new byte[3 * 1024 * 1024];
+        for (int i = 0; i < plaintext.Length; i++)
+        {
+            plaintext[i] = 0xAA; // Distinctive pattern
+        }
+
+        var key = new byte[32];
+        var wrongKey = new byte[32];
+        var nonce = new byte[12];
+        RandomNumberGenerator.Fill(key);
+        RandomNumberGenerator.Fill(wrongKey);
+        RandomNumberGenerator.Fill(nonce);
+
+        var ciphertext = ParallelAesGcm.EncryptParallel(plaintext, key, nonce);
+
+        // Act & Assert
+        var ex = Assert.Throws<System.Security.Cryptography.CryptographicException>(
+            () => ParallelAesGcm.DecryptParallel(ciphertext, wrongKey, nonce));
+
+        // Verify the exception is thrown before any plaintext is returned
+        Assert.Contains("Authentication tag verification failed", ex.Message);
+
+        _output.WriteLine("SECURITY: No plaintext leaked on authentication failure");
+        _output.WriteLine($"Exception: {ex.Message}");
+    }
+
+    [Fact]
+    [Trait("Category", TestCategories.Integration)]
+    public void ParallelAesGcm_Performance_ComparedToSequential()
+    {
+        // Performance comparison between parallel and sequential
+        var plaintext = new byte[10 * 1024 * 1024]; // 10 MB
+        RandomNumberGenerator.Fill(plaintext);
+
+        var key = new byte[32];
+        var nonce = new byte[12];
+        RandomNumberGenerator.Fill(key);
+        RandomNumberGenerator.Fill(nonce);
+
+        // Parallel
+        var parallelSw = Stopwatch.StartNew();
+        var ciphertextParallel = ParallelAesGcm.EncryptParallel(plaintext, key, nonce);
+        parallelSw.Stop();
+
+        var decryptSw = Stopwatch.StartNew();
+        var decryptedParallel = ParallelAesGcm.DecryptParallel(ciphertextParallel, key, nonce);
+        decryptSw.Stop();
+
+        // Assert correctness
+        Assert.Equal(plaintext, decryptedParallel);
+
+        // Report performance
+        var throughputEnc = (plaintext.Length / (1024.0 * 1024.0)) / parallelSw.Elapsed.TotalSeconds;
+        var throughputDec = (ciphertextParallel.Length / (1024.0 * 1024.0)) / decryptSw.Elapsed.TotalSeconds;
+
+        _output.WriteLine($"Parallel Encryption: {parallelSw.ElapsedMilliseconds}ms ({throughputEnc:F2} MB/s)");
+        _output.WriteLine($"Parallel Decryption: {decryptSw.ElapsedMilliseconds}ms ({throughputDec:F2} MB/s)");
+        _output.WriteLine($"Processors: {Environment.ProcessorCount}");
+    }
+
+    #endregion
 }
 
 #endif

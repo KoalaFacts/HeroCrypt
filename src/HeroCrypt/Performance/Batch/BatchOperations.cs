@@ -371,11 +371,14 @@ public static class BatchEncryptionOperations
 
                 await Task.Run(() =>
                 {
-                    // Production: Use ChaCha20Poly1305
-                    // using var cipher = new ChaCha20Poly1305(key.Span);
-                    // cipher.Encrypt(nonce, plaintext.Span, ciphertext, tag, associatedData.Span);
-
-                    plaintext.Span.CopyTo(ciphertext);
+                    // Use ChaCha20-Poly1305 for authenticated encryption
+#if NET6_0_OR_GREATER
+                    using var cipher = new System.Security.Cryptography.ChaCha20Poly1305(key.Span);
+                    cipher.Encrypt(nonce, plaintext.Span, ciphertext, tag, associatedData.Span);
+#else
+                    using var cipher = new System.Security.Cryptography.ChaCha20Poly1305(key.Span.ToArray());
+                    cipher.Encrypt(nonce, plaintext.Span, ciphertext, tag, associatedData.Span);
+#endif
                 }, cancellationToken);
 
                 return new EncryptionResult(ciphertext, nonce, tag);

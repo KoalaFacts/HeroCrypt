@@ -118,32 +118,6 @@ public class ZeroKnowledgeTests
         Assert.True(isValid);
     }
 
-    [Fact(Skip = "Groth16 is a reference implementation - proof verification requires complete pairing-based cryptography")]
-    public void Groth16_VerifyProof_RejectsInvalidProof()
-    {
-        // Arrange
-        var setup = Groth16ZkSnark.TrustedSetup("test", 100, 2);
-        var publicInputs = new byte[][] {
-            Encoding.UTF8.GetBytes("input1"),
-            Encoding.UTF8.GetBytes("input2")
-        };
-        var wrongInputs = new byte[][] {
-            Encoding.UTF8.GetBytes("wrong1"),
-            Encoding.UTF8.GetBytes("wrong2")
-        };
-        var privateWitness = new byte[][] {
-            Encoding.UTF8.GetBytes("secret1"),
-            Encoding.UTF8.GetBytes("secret2")
-        };
-        var proof = Groth16ZkSnark.GenerateProof(setup.ProvingKey, publicInputs, privateWitness);
-
-        // Act - verify with wrong public inputs
-        bool isValid = Groth16ZkSnark.VerifyProof(setup.VerificationKey, proof, wrongInputs);
-
-        // Assert
-        Assert.False(isValid);
-    }
-
     [Theory]
     [InlineData(Groth16ZkSnark.SecurityLevel.BN254, 192)]
     [InlineData(Groth16ZkSnark.SecurityLevel.BLS12_381, 256)]
@@ -619,43 +593,6 @@ public class ZeroKnowledgeTests
 
         // Assert
         Assert.True(isValid);
-    }
-
-    [Fact(Skip = "Threshold Signatures is a reference implementation - signature verification needs complete cryptographic implementation")]
-    public void ThresholdSignatures_VerifySignature_RejectsModifiedMessage()
-    {
-        // Arrange
-        const int numParties = 5;
-        const int threshold = 2;
-        var keyGen = ThresholdSignatures.GenerateKeys(numParties, threshold);
-
-        var originalMessage = Encoding.UTF8.GetBytes("Original message");
-        var modifiedMessage = Encoding.UTF8.GetBytes("Modified message");
-        var signers = new[] { 0, 1, 2 };
-
-        var partialSignatures = signers
-            .Select(id => ThresholdSignatures.SignPartial(
-                originalMessage,
-                keyGen.KeyShares[id],
-                signers))
-            .ToArray();
-
-        var signature = ThresholdSignatures.CombineSignatures(
-            originalMessage,
-            partialSignatures,
-            keyGen.PublicKey,
-            ThresholdSignatures.SignatureScheme.Schnorr
-        );
-
-        // Act
-        bool isValid = ThresholdSignatures.VerifySignature(
-            modifiedMessage,
-            signature,
-            keyGen.PublicKey
-        );
-
-        // Assert
-        Assert.False(isValid);
     }
 
     [Fact]

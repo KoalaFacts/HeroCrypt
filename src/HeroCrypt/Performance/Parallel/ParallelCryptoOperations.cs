@@ -6,6 +6,8 @@ using System.Runtime.CompilerServices;
 
 namespace HeroCrypt.Performance.Parallel;
 
+#if !NETSTANDARD2_0
+
 /// <summary>
 /// Parallel processing infrastructure for cryptographic operations
 ///
@@ -152,12 +154,12 @@ public static class ParallelCryptoOperations
     }
 
     /// <summary>
-    /// Executes multiple independent operations in parallel
-    /// Useful for batch operations where order doesn't matter
+    /// Executes multiple independent operations in parallel with index support
+    /// The operation receives both the input and its index in the array
     /// </summary>
     public static async Task<TResult[]> ProcessBatchAsync<TInput, TResult>(
         ReadOnlyMemory<TInput> inputs,
-        Func<TInput, Task<TResult>> operation,
+        Func<TInput, int, Task<TResult>> operation,
         int degreeOfParallelism = 0,
         CancellationToken cancellationToken = default)
     {
@@ -179,7 +181,7 @@ public static class ParallelCryptoOperations
                 await semaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
                 try
                 {
-                    results[index] = await operation(inputs.Span[index]).ConfigureAwait(false);
+                    results[index] = await operation(inputs.Span[index], index).ConfigureAwait(false);
                 }
                 finally
                 {
@@ -193,11 +195,12 @@ public static class ParallelCryptoOperations
     }
 
     /// <summary>
-    /// Synchronous batch processing
+    /// Synchronous batch processing with index support
+    /// The operation receives both the input and its index in the array
     /// </summary>
     public static TResult[] ProcessBatch<TInput, TResult>(
         ReadOnlySpan<TInput> inputs,
-        Func<TInput, TResult> operation,
+        Func<TInput, int, TResult> operation,
         int degreeOfParallelism = 0,
         CancellationToken cancellationToken = default)
     {
@@ -221,7 +224,7 @@ public static class ParallelCryptoOperations
             },
             i =>
             {
-                results[i] = operation(inputsArray[i]);
+                results[i] = operation(inputsArray[i], i);
             });
 
         return results;
@@ -513,3 +516,4 @@ public class CryptoTaskScheduler : TaskScheduler
         _tasks.Dispose();
     }
 }
+#endif

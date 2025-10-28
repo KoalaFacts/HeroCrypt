@@ -5,6 +5,8 @@ using System.Text;
 
 namespace HeroCrypt.Tests;
 
+#if !NETSTANDARD2_0
+
 /// <summary>
 /// Tests for Post-Quantum Cryptography implementations
 /// NOTE: These are simplified reference implementations for structure/API validation
@@ -331,3 +333,4 @@ public class PostQuantumTests
 
     #endregion
 }
+#endif

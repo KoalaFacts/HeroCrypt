@@ -3,6 +3,8 @@ using System.Text;
 
 namespace HeroCrypt.Tests;
 
+#if !NETSTANDARD2_0
+
 /// <summary>
 /// Tests for Shamir's Secret Sharing
 /// </summary>
@@ -463,3 +465,4 @@ public class ShamirSecretSharingTests
         Assert.NotEqual(secret2, partial2);
     }
 }
+#endif

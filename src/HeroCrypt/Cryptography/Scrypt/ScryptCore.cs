@@ -33,10 +33,12 @@ internal static class ScryptCore
         var b = new byte[p * blockSize];
 
 #if NETSTANDARD2_0
+#pragma warning disable CA5379 // Rfc2898DeriveBytes with HashAlgorithmName not available in .NET Standard 2.0
         using (var pbkdf2 = new Rfc2898DeriveBytes(password, salt, 1))
         {
             b = pbkdf2.GetBytes(p * blockSize);
         }
+#pragma warning restore CA5379
 #else
         using (var pbkdf2 = new Rfc2898DeriveBytes(password, salt, 1, HashAlgorithmName.SHA256))
         {
@@ -54,10 +56,12 @@ internal static class ScryptCore
 
         // Step 3: Final PBKDF2 to produce output
 #if NETSTANDARD2_0
+#pragma warning disable CA5379 // Rfc2898DeriveBytes with HashAlgorithmName not available in .NET Standard 2.0
         using (var pbkdf2 = new Rfc2898DeriveBytes(password, b, 1))
         {
             return pbkdf2.GetBytes(keyLength);
         }
+#pragma warning restore CA5379
 #else
         using (var pbkdf2 = new Rfc2898DeriveBytes(password, b, 1, HashAlgorithmName.SHA256))
         {

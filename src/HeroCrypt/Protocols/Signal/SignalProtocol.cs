@@ -4,6 +4,8 @@ using System.Security.Cryptography;
 
 namespace HeroCrypt.Protocols.Signal;
 
+#if !NETSTANDARD2_0
+
 /// <summary>
 /// Signal Protocol (Double Ratchet Algorithm) implementation
 ///
@@ -565,3 +567,4 @@ public class X3dhOneTimePreKey
     public byte[] PrivateKey { get; set; } = null!;
     public byte[] PublicKey { get; set; } = null!;
 }
+#endif

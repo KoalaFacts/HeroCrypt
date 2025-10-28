@@ -10,6 +10,8 @@ using HeroCrypt.Protocols.Tls;
 
 namespace HeroCrypt.Tests;
 
+#if !NETSTANDARD2_0
+
 /// <summary>
 /// Tests for cryptographic protocol implementations
 /// </summary>
@@ -604,3 +606,4 @@ public class ProtocolTests
 
     #endregion
 }
+#endif

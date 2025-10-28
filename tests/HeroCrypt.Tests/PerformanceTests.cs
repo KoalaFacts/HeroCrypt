@@ -11,6 +11,8 @@ using HeroCrypt.Performance.Batch;
 
 namespace HeroCrypt.Tests;
 
+#if !NETSTANDARD2_0
+
 /// <summary>
 /// Performance tests for SIMD, memory pooling, parallel, and batch operations
 ///
@@ -378,7 +380,7 @@ public class PerformanceTests
         // Act
         var results = await ParallelCryptoOperations.ProcessBatchAsync<ReadOnlyMemory<byte>, byte>(
             inputs,
-            async input => await Task.FromResult((byte)(input.Span[0] * 2)));
+            async (input, _) => await Task.FromResult((byte)(input.Span[0] * 2)));
 
         // Assert
         Assert.Equal(100, results.Length);
@@ -397,7 +399,7 @@ public class PerformanceTests
         // Act
         var results = ParallelCryptoOperations.ProcessBatch<int, int>(
             inputs,
-            x => x * 2);
+            (x, _) => x * 2);
 
         // Assert
         Assert.Equal(100, results.Length);
@@ -787,3 +789,4 @@ public class PerformanceTests
 
     #endregion
 }
+#endif

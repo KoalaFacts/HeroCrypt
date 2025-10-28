@@ -74,28 +74,38 @@ internal static class AesCcmCore
         if (ciphertext.Length < plaintext.Length + tagSize)
             throw new ArgumentException("Ciphertext buffer too small", nameof(ciphertext));
 
-        using var aes = Aes.Create();
-        aes.Key = key.ToArray();
-        aes.Mode = CipherMode.ECB;
-        aes.Padding = PaddingMode.None;
+        // Create key array once and clear it in finally block (avoid memory leak)
+        var keyArray = key.ToArray();
 
-        using var encryptor = aes.CreateEncryptor();
+        try
+        {
+            using var aes = Aes.Create();
+            aes.Key = keyArray;
+            aes.Mode = CipherMode.ECB;
+            aes.Padding = PaddingMode.None;
 
-        // Split output: ciphertext | tag
-        var ciphertextOnly = ciphertext.Slice(0, plaintext.Length);
-        var tag = ciphertext.Slice(plaintext.Length, tagSize);
+            using var encryptor = aes.CreateEncryptor();
 
-        // Compute authentication tag using CBC-MAC
-        Span<byte> fullTag = stackalloc byte[BlockSize];
-        ComputeTag(fullTag, plaintext, associatedData, nonce, encryptor, tagSize);
+            // Split output: ciphertext | tag
+            var ciphertextOnly = ciphertext.Slice(0, plaintext.Length);
+            var tag = ciphertext.Slice(plaintext.Length, tagSize);
 
-        // Encrypt plaintext using CTR mode and encrypt tag
-        EncryptCtr(ciphertextOnly, tag, plaintext, fullTag.Slice(0, tagSize), nonce, encryptor);
+            // Compute authentication tag using CBC-MAC
+            Span<byte> fullTag = stackalloc byte[BlockSize];
+            ComputeTag(fullTag, plaintext, associatedData, nonce, encryptor, tagSize);
 
-        // Clear sensitive data
-        SecureMemoryOperations.SecureClear(fullTag);
+            // Encrypt plaintext using CTR mode and encrypt tag
+            EncryptCtr(ciphertextOnly, tag, plaintext, fullTag.Slice(0, tagSize), nonce, encryptor);
 
-        return plaintext.Length + tagSize;
+            // Clear sensitive data
+            SecureMemoryOperations.SecureClear(fullTag);
+
+            return plaintext.Length + tagSize;
+        }
+        finally
+        {
+            Array.Clear(keyArray, 0, keyArray.Length);
+        }
     }
 
     /// <summary>
@@ -125,42 +135,52 @@ internal static class AesCcmCore
         if (plaintext.Length < plaintextLength)
             throw new ArgumentException("Plaintext buffer too small", nameof(plaintext));
 
-        using var aes = Aes.Create();
-        aes.Key = key.ToArray();
-        aes.Mode = CipherMode.ECB;
-        aes.Padding = PaddingMode.None;
+        // Create key array once and clear it in finally block (avoid memory leak)
+        var keyArray = key.ToArray();
 
-        using var encryptor = aes.CreateEncryptor();
-
-        // Split input: ciphertext | tag
-        var ciphertextOnly = ciphertext.Slice(0, plaintextLength);
-        var receivedTag = ciphertext.Slice(plaintextLength, tagSize);
-
-        // Decrypt ciphertext using CTR mode
-        Span<byte> decryptedTag = stackalloc byte[tagSize];
-        DecryptCtr(plaintext.Slice(0, plaintextLength), decryptedTag, ciphertextOnly, receivedTag, nonce, encryptor);
-
-        // Compute expected tag
-        Span<byte> expectedTag = stackalloc byte[BlockSize];
-        ComputeTag(expectedTag, plaintext.Slice(0, plaintextLength), associatedData, nonce, encryptor, tagSize);
-
-        // Verify tag in constant time
-        var tagMatch = SecureMemoryOperations.ConstantTimeEquals(
-            decryptedTag,
-            expectedTag.Slice(0, tagSize));
-
-        // Clear sensitive data
-        SecureMemoryOperations.SecureClear(expectedTag);
-        SecureMemoryOperations.SecureClear(decryptedTag);
-
-        if (!tagMatch)
+        try
         {
-            // Clear plaintext on authentication failure
-            SecureMemoryOperations.SecureClear(plaintext.Slice(0, plaintextLength));
-            return -1;
-        }
+            using var aes = Aes.Create();
+            aes.Key = keyArray;
+            aes.Mode = CipherMode.ECB;
+            aes.Padding = PaddingMode.None;
 
-        return plaintextLength;
+            using var encryptor = aes.CreateEncryptor();
+
+            // Split input: ciphertext | tag
+            var ciphertextOnly = ciphertext.Slice(0, plaintextLength);
+            var receivedTag = ciphertext.Slice(plaintextLength, tagSize);
+
+            // Decrypt ciphertext using CTR mode
+            Span<byte> decryptedTag = stackalloc byte[tagSize];
+            DecryptCtr(plaintext.Slice(0, plaintextLength), decryptedTag, ciphertextOnly, receivedTag, nonce, encryptor);
+
+            // Compute expected tag
+            Span<byte> expectedTag = stackalloc byte[BlockSize];
+            ComputeTag(expectedTag, plaintext.Slice(0, plaintextLength), associatedData, nonce, encryptor, tagSize);
+
+            // Verify tag in constant time
+            var tagMatch = SecureMemoryOperations.ConstantTimeEquals(
+                decryptedTag,
+                expectedTag.Slice(0, tagSize));
+
+            // Clear sensitive data
+            SecureMemoryOperations.SecureClear(expectedTag);
+            SecureMemoryOperations.SecureClear(decryptedTag);
+
+            if (!tagMatch)
+            {
+                // Clear plaintext on authentication failure
+                SecureMemoryOperations.SecureClear(plaintext.Slice(0, plaintextLength));
+                return -1;
+            }
+
+            return plaintextLength;
+        }
+        finally
+        {
+            Array.Clear(keyArray, 0, keyArray.Length);
+        }
     }
 
     /// <summary>
@@ -197,7 +217,9 @@ internal static class AesCcmCore
         // Initialize CBC-MAC with B_0
         Span<byte> mac = stackalloc byte[BlockSize];
         var macArray = new byte[BlockSize];
-        aes.TransformBlock(block.ToArray(), 0, BlockSize, macArray, 0);
+        var blockArray = new byte[BlockSize];
+        block.CopyTo(blockArray);
+        aes.TransformBlock(blockArray, 0, BlockSize, macArray, 0);
         macArray.CopyTo(mac);
 
         // Process associated data if present
@@ -303,13 +325,17 @@ internal static class AesCcmCore
         // Flags for CTR mode: L' = L - 1
         var flags = (byte)(L - 1);
 
+        // Reusable arrays for AES transform (avoid memory leaks in loops)
+        var keystreamArray = new byte[BlockSize];
+        var counterArray = new byte[BlockSize];
+
         // Encrypt tag with A_0 (counter = 0)
         counter.Clear();
         counter[0] = flags;
         nonce.CopyTo(counter.Slice(1, nonce.Length));
         // Counter bytes already 0
-        var keystreamArray = new byte[BlockSize];
-        aes.TransformBlock(counter.ToArray(), 0, BlockSize, keystreamArray, 0);
+        counter.CopyTo(counterArray);
+        aes.TransformBlock(counterArray, 0, BlockSize, keystreamArray, 0);
         keystreamArray.CopyTo(keystream);
 
         for (var i = 0; i < tag.Length; i++)
@@ -331,7 +357,8 @@ internal static class AesCcmCore
             WriteLength(counter.Slice(BlockSize - L, L), ctrValue);
 
             // Generate keystream
-            aes.TransformBlock(counter.ToArray(), 0, BlockSize, keystreamArray, 0);
+            counter.CopyTo(counterArray);
+            aes.TransformBlock(counterArray, 0, BlockSize, keystreamArray, 0);
             keystreamArray.CopyTo(keystream);
 
             // XOR with plaintext
@@ -372,12 +399,16 @@ internal static class AesCcmCore
         // Flags for CTR mode: L' = L - 1
         var flags = (byte)(L - 1);
 
+        // Reusable arrays for AES transform (avoid memory leaks in loops)
+        var keystreamArray = new byte[BlockSize];
+        var counterArray = new byte[BlockSize];
+
         // Decrypt tag with A_0 (counter = 0)
         counter.Clear();
         counter[0] = flags;
         nonce.CopyTo(counter.Slice(1, nonce.Length));
-        var keystreamArray = new byte[BlockSize];
-        aes.TransformBlock(counter.ToArray(), 0, BlockSize, keystreamArray, 0);
+        counter.CopyTo(counterArray);
+        aes.TransformBlock(counterArray, 0, BlockSize, keystreamArray, 0);
         keystreamArray.CopyTo(keystream);
 
         for (var i = 0; i < encryptedTag.Length; i++)
@@ -399,7 +430,8 @@ internal static class AesCcmCore
             WriteLength(counter.Slice(BlockSize - L, L), ctrValue);
 
             // Generate keystream
-            aes.TransformBlock(counter.ToArray(), 0, BlockSize, keystreamArray, 0);
+            counter.CopyTo(counterArray);
+            aes.TransformBlock(counterArray, 0, BlockSize, keystreamArray, 0);
             keystreamArray.CopyTo(keystream);
 
             // XOR with ciphertext

@@ -3,6 +3,8 @@ using System.Security.Cryptography;
 
 namespace HeroCrypt.Cryptography.PostQuantum.Kyber;
 
+#if !NETSTANDARD2_0
+
 /// <summary>
 /// CRYSTALS-Kyber (ML-KEM) - Post-Quantum Key Encapsulation Mechanism
 /// NIST FIPS 203 standard for quantum-resistant key exchange
@@ -361,3 +363,4 @@ public static class KyberKem
                keyPair.SecretKey.Length == parameters.SecretKeyBytes;
     }
 }
+#endif

@@ -187,3 +187,4 @@ public class XSalsa20Tests
         Assert.True(maxLength > 1024 * 1024 * 1024); // Should be very large
     }
 }
+

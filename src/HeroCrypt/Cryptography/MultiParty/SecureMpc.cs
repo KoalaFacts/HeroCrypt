@@ -6,6 +6,8 @@ using HeroCrypt.Security;
 
 namespace HeroCrypt.Cryptography.MultiParty;
 
+#if !NETSTANDARD2_0
+
 /// <summary>
 /// Secure Multi-Party Computation (MPC) protocols
 ///
@@ -433,3 +435,4 @@ public static class SecureMpc
         return p;
     }
 }
+#endif

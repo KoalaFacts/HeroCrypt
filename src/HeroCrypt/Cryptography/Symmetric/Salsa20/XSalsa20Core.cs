@@ -135,13 +135,19 @@ public static class XSalsa20Core
         state[2] = Constants[2];
         state[3] = Constants[3];
 
+#if !NET5_0_OR_GREATER
+        // Create reusable arrays for .NET Standard 2.0 (avoid memory leaks in loops)
+        var keySlice = new byte[4];
+        var nonceSlice = new byte[4];
+#endif
+
         // Key
         for (var i = 0; i < 8; i++)
         {
 #if NET5_0_OR_GREATER
             state[4 + i] = System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(key.Slice(i * 4, 4));
 #else
-            var keySlice = key.Slice(i * 4, 4).ToArray();
+            key.Slice(i * 4, 4).CopyTo(keySlice);
             state[4 + i] = BitConverter.ToUInt32(keySlice, 0);
 #endif
         }
@@ -152,7 +158,7 @@ public static class XSalsa20Core
 #if NET5_0_OR_GREATER
             state[12 + i] = System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(nonce.Slice(i * 4, 4));
 #else
-            var nonceSlice = nonce.Slice(i * 4, 4).ToArray();
+            nonce.Slice(i * 4, 4).CopyTo(nonceSlice);
             state[12 + i] = BitConverter.ToUInt32(nonceSlice, 0);
 #endif
         }
@@ -199,13 +205,19 @@ public static class XSalsa20Core
         state[2] = Constants[2];
         state[3] = Constants[3];
 
+#if !NET5_0_OR_GREATER
+        // Create reusable arrays for .NET Standard 2.0 (avoid memory leaks in loops)
+        var keySlice = new byte[4];
+        var nonceSlice = new byte[4];
+#endif
+
         // Key (first half)
         for (var i = 0; i < 4; i++)
         {
 #if NET5_0_OR_GREATER
             state[4 + i] = System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(key.Slice(i * 4, 4));
 #else
-            var keySlice = key.Slice(i * 4, 4).ToArray();
+            key.Slice(i * 4, 4).CopyTo(keySlice);
             state[4 + i] = BitConverter.ToUInt32(keySlice, 0);
 #endif
         }
@@ -218,10 +230,10 @@ public static class XSalsa20Core
         state[10] = System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(nonce.Slice(0, 4));
         state[11] = System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(nonce.Slice(4, 4));
 #else
-        var nonce1 = nonce.Slice(0, 4).ToArray();
-        var nonce2 = nonce.Slice(4, 4).ToArray();
-        state[10] = BitConverter.ToUInt32(nonce1, 0);
-        state[11] = BitConverter.ToUInt32(nonce2, 0);
+        nonce.Slice(0, 4).CopyTo(nonceSlice);
+        state[10] = BitConverter.ToUInt32(nonceSlice, 0);
+        nonce.Slice(4, 4).CopyTo(nonceSlice);
+        state[11] = BitConverter.ToUInt32(nonceSlice, 0);
 #endif
 
         // Key (second half)
@@ -230,7 +242,7 @@ public static class XSalsa20Core
 #if NET5_0_OR_GREATER
             state[12 + i] = System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(key.Slice((i + 4) * 4, 4));
 #else
-            var keySlice = key.Slice((i + 4) * 4, 4).ToArray();
+            key.Slice((i + 4) * 4, 4).CopyTo(keySlice);
             state[12 + i] = BitConverter.ToUInt32(keySlice, 0);
 #endif
         }

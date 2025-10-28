@@ -1,5 +1,6 @@
 using HeroCrypt.Cryptography.Symmetric.AesCmac;
 using HeroCrypt.Security;
+using System.Buffers;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 
@@ -179,13 +180,21 @@ internal static class AesSivCore
             d.CopyTo(t);
             XorBlock(t, lastBlock);
 
-            // Create combined input
-            var combined = new byte[xorLen + BlockSize];
-            plaintext.Slice(0, xorLen).CopyTo(combined);
-            t.CopyTo(combined.AsSpan(xorLen));
+            // Create combined input using ArrayPool to avoid heap allocation
+            var combinedLength = xorLen + BlockSize;
+            var combined = ArrayPool<byte>.Shared.Rent(combinedLength);
+            try
+            {
+                plaintext.Slice(0, xorLen).CopyTo(combined);
+                t.CopyTo(combined.AsSpan(xorLen, BlockSize));
 
-            AesCmacCore.ComputeTag(output, combined, key);
-            Array.Clear(combined, 0, combined.Length);
+                AesCmacCore.ComputeTag(output, combined.AsSpan(0, combinedLength), key);
+            }
+            finally
+            {
+                Array.Clear(combined, 0, combinedLength);
+                ArrayPool<byte>.Shared.Return(combined);
+            }
         }
         else
         {
@@ -217,48 +226,55 @@ internal static class AesSivCore
     private static void EncryptCtr(Span<byte> ciphertext, ReadOnlySpan<byte> plaintext,
         ReadOnlySpan<byte> key, ReadOnlySpan<byte> iv)
     {
+        // Create key array once and clear it in finally block
+        var keyArray = key.ToArray();
+
         using var aes = Aes.Create();
-        aes.Key = key.ToArray();
+        aes.Key = keyArray;
         aes.Mode = CipherMode.ECB;
         aes.Padding = PaddingMode.None;
 
         using var encryptor = aes.CreateEncryptor();
 
         // Clear bit 63 and bit 31 of IV for CTR mode (RFC 5297 Section 2.6)
-        Span<byte> counter = stackalloc byte[BlockSize];
-        iv.CopyTo(counter);
-        counter[8] &= 0x7F;  // Clear bit 63
-        counter[12] &= 0x7F; // Clear bit 31
+        var counterArray = new byte[BlockSize];
+        iv.CopyTo(counterArray);
+        counterArray[8] &= 0x7F;  // Clear bit 63
+        counterArray[12] &= 0x7F; // Clear bit 31
 
         var remaining = plaintext;
         var outputOffset = 0;
 
-        Span<byte> keystream = stackalloc byte[BlockSize];
         var keystreamArray = new byte[BlockSize];
 
-        while (remaining.Length > 0)
+        try
         {
-            // Generate keystream block
-            encryptor.TransformBlock(counter.ToArray(), 0, BlockSize, keystreamArray, 0);
-            keystreamArray.CopyTo(keystream);
-
-            // XOR with plaintext
-            var blockSize = Math.Min(BlockSize, remaining.Length);
-            for (var i = 0; i < blockSize; i++)
+            while (remaining.Length > 0)
             {
-                ciphertext[outputOffset + i] = (byte)(remaining[i] ^ keystream[i]);
+                // Generate keystream block
+                encryptor.TransformBlock(counterArray, 0, BlockSize, keystreamArray, 0);
+
+                // XOR with plaintext
+                var blockSize = Math.Min(BlockSize, remaining.Length);
+                for (var i = 0; i < blockSize; i++)
+                {
+                    ciphertext[outputOffset + i] = (byte)(remaining[i] ^ keystreamArray[i]);
+                }
+
+                // Increment counter (big-endian)
+                IncrementCounter(counterArray);
+
+                remaining = remaining.Slice(blockSize);
+                outputOffset += blockSize;
             }
-
-            // Increment counter (big-endian)
-            IncrementCounter(counter);
-
-            remaining = remaining.Slice(blockSize);
-            outputOffset += blockSize;
         }
-
-        // Clear sensitive data
-        SecureMemoryOperations.SecureClear(counter);
-        SecureMemoryOperations.SecureClear(keystream);
+        finally
+        {
+            // Clear sensitive data
+            Array.Clear(keyArray, 0, keyArray.Length);
+            Array.Clear(counterArray, 0, counterArray.Length);
+            Array.Clear(keystreamArray, 0, keystreamArray.Length);
+        }
     }
 
     /// <summary>
@@ -310,7 +326,7 @@ internal static class AesSivCore
     /// Increments counter in big-endian format
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void IncrementCounter(Span<byte> counter)
+    private static void IncrementCounter(byte[] counter)
     {
         for (var i = BlockSize - 1; i >= 0; i--)
         {

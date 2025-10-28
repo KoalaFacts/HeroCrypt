@@ -2,6 +2,8 @@ using HeroCrypt.Cryptography.HDWallet;
 
 namespace HeroCrypt.Tests;
 
+#if !NETSTANDARD2_0
+
 /// <summary>
 /// Tests for BIP39 Mnemonic Codes
 /// </summary>
@@ -316,3 +318,4 @@ public class Bip39MnemonicTests
         Assert.True(isValid);
     }
 }
+#endif

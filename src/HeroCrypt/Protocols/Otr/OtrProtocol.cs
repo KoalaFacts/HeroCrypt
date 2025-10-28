@@ -4,6 +4,8 @@ using System.Text;
 
 namespace HeroCrypt.Protocols.Otr;
 
+#if !NETSTANDARD2_0
+
 /// <summary>
 /// Off-the-Record (OTR) Messaging Protocol implementation
 ///
@@ -677,3 +679,4 @@ public class SmpMessage
     public byte[]? Proof2 { get; set; }
     public byte[]? Proof3 { get; set; }
 }
+#endif

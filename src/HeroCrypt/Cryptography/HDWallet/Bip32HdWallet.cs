@@ -6,6 +6,8 @@ using System.Text;
 
 namespace HeroCrypt.Cryptography.HDWallet;
 
+#if !NETSTANDARD2_0
+
 /// <summary>
 /// BIP32 Hierarchical Deterministic Wallet implementation
 /// Implements BIP-0032 specification for deriving child keys from master keys
@@ -441,3 +443,4 @@ public static class Bip32HdWallet
         }
     }
 }
+#endif

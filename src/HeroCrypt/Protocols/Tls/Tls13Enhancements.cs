@@ -5,6 +5,8 @@ using System.Security.Cryptography.X509Certificates;
 
 namespace HeroCrypt.Protocols.Tls;
 
+#if !NETSTANDARD2_0
+
 /// <summary>
 /// TLS 1.3 Protocol Enhancements
 ///
@@ -651,3 +653,4 @@ public class Tls13NewSessionTicket
     public byte[] Ticket { get; set; } = null!;
     public uint MaxEarlyDataSize { get; set; }
 }
+#endif

@@ -227,3 +227,5 @@ public class ChaChaVariantsTests
             ChaChaVariants.ValidateParameters(invalidKey, _testNonce, ChaChaVariant.ChaCha20));
     }
 }
+
+

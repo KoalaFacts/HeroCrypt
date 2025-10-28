@@ -3,6 +3,8 @@ using System.Security.Cryptography;
 
 namespace HeroCrypt.Protocols.Opaque;
 
+#if !NETSTANDARD2_0
+
 /// <summary>
 /// OPAQUE (Oblivious Pseudorandom Functions with Application to Key Exchange)
 ///
@@ -547,3 +549,4 @@ public class OpaqueClientFinalization
     public byte[] ClientMac { get; set; } = null!;
     public byte[] ClientPublicKey { get; set; } = null!;
 }
+#endif

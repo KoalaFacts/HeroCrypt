@@ -4,6 +4,8 @@ using System.Text;
 
 namespace HeroCrypt.Tests;
 
+#if !NETSTANDARD2_0
+
 /// <summary>
 /// Tests for Balloon Hashing
 /// </summary>
@@ -353,3 +355,4 @@ public class BalloonHashingTests
         Assert.Equal(BalloonHashing.DefaultOutputLength, hash.Length);
     }
 }
+#endif

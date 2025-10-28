@@ -7,6 +7,8 @@ using HeroCrypt.Performance.Memory;
 
 namespace HeroCrypt.Performance.Batch;
 
+#if !NETSTANDARD2_0
+
 /// <summary>
 /// High-performance batch cryptographic operations
 ///
@@ -48,7 +50,7 @@ public static class BatchHashOperations
 
         return await ParallelCryptoOperations.ProcessBatchAsync<ReadOnlyMemory<byte>, byte[]>(
             inputs,
-            async input =>
+            async (input, _) =>
             {
                 // Use incremental API for large inputs
                 using var sha256 = SHA256.Create();
@@ -71,7 +73,7 @@ public static class BatchHashOperations
 
         return ParallelCryptoOperations.ProcessBatch<ReadOnlyMemory<byte>, byte[]>(
             inputs.AsSpan(),
-            input =>
+            (input, _) =>
             {
                 using var sha256 = SHA256.Create();
                 return sha256.ComputeHash(input.ToArray());
@@ -93,7 +95,7 @@ public static class BatchHashOperations
 
         return await ParallelCryptoOperations.ProcessBatchAsync<ReadOnlyMemory<byte>, byte[]>(
             inputs,
-            async input =>
+            async (input, _) =>
             {
                 using var sha512 = SHA512.Create();
                 return await Task.Run(() => sha512.ComputeHash(input.ToArray()), cancellationToken);
@@ -127,7 +129,7 @@ public static class BatchHashOperations
 
         return ParallelCryptoOperations.ProcessBatch<ReadOnlyMemory<byte>, byte[]>(
             inputs.AsSpan(),
-            input =>
+            (input, _) =>
             {
                 // Production: Use actual BLAKE2b implementation
                 // return Blake2b.ComputeHash(input.Span, outputSize, keyCopy);
@@ -160,9 +162,8 @@ public static class BatchHashOperations
 
         return ParallelCryptoOperations.ProcessBatch<ReadOnlyMemory<byte>, bool>(
             inputs.AsSpan(),
-            (input) =>
+            (input, index) =>
             {
-                var index = Array.IndexOf(inputs, input);
                 var computed = ComputeHash(input.Span, hashAlgorithm);
                 return CryptographicOperations.FixedTimeEquals(computed, expectedHashes[index].Span);
             },
@@ -210,7 +211,7 @@ public static class BatchHmacOperations
 
         return ParallelCryptoOperations.ProcessBatch<ReadOnlyMemory<byte>, byte[]>(
             messages.AsSpan(),
-            message =>
+            (message, _) =>
             {
                 using var hmac = new HMACSHA256(keyArray);
                 return hmac.ComputeHash(message.ToArray());
@@ -238,9 +239,8 @@ public static class BatchHmacOperations
 
         return ParallelCryptoOperations.ProcessBatch<byte[], bool>(
             computedTags.AsSpan(),
-            (computed) =>
+            (computed, index) =>
             {
-                var index = Array.IndexOf(computedTags, computed);
                 return CryptographicOperations.FixedTimeEquals(computed, expectedTags[index].Span);
             },
             degreeOfParallelism,
@@ -280,9 +280,8 @@ public static class BatchEncryptionOperations
 
         return ParallelCryptoOperations.ProcessBatchAsync<ReadOnlyMemory<byte>, EncryptionResult>(
             plaintexts,
-            async (plaintext) =>
+            async (plaintext, index) =>
             {
-                var index = Array.IndexOf(plaintexts, plaintext);
                 var nonce = DeriveNonce(masterNonce.Span, index);
                 var ciphertext = new byte[plaintext.Length];
                 var tag = new byte[16];
@@ -320,7 +319,7 @@ public static class BatchEncryptionOperations
 
         return ParallelCryptoOperations.ProcessBatchAsync<EncryptionResult, byte[]>(
             ciphertexts,
-            async (ct) =>
+            async (ct, _) =>
             {
                 var plaintext = new byte[ct.Ciphertext.Length];
 
@@ -358,9 +357,8 @@ public static class BatchEncryptionOperations
 
         return ParallelCryptoOperations.ProcessBatchAsync<ReadOnlyMemory<byte>, EncryptionResult>(
             plaintexts,
-            async (plaintext) =>
+            async (plaintext, index) =>
             {
-                var index = Array.IndexOf(plaintexts, plaintext);
                 var nonce = DeriveNonce(masterNonce.Span, index);
                 var ciphertext = new byte[plaintext.Length];
                 var tag = new byte[16];
@@ -425,7 +423,7 @@ public static class BatchSignatureOperations
     /// <param name="messages">Messages to sign</param>
     /// <param name="hashAlgorithm">Hash algorithm to use</param>
     /// <param name="degreeOfParallelism">Parallel tasks (0 = auto)</param>
-    public static Task<byte[][]> SignBatchAsync(
+    public static async Task<byte[][]> SignBatchAsync(
         RSA privateKey,
         ReadOnlyMemory<byte>[] messages,
         HashAlgorithmName hashAlgorithm,
@@ -438,17 +436,33 @@ public static class BatchSignatureOperations
         if (messages == null || messages.Length == 0)
             throw new ArgumentException("Messages cannot be null or empty", nameof(messages));
 
-        return ParallelCryptoOperations.ProcessBatchAsync<ReadOnlyMemory<byte>, byte[]>(
-            messages,
-            async message =>
+        if (degreeOfParallelism <= 0)
+            degreeOfParallelism = ParallelCryptoOperations.OptimalDegreeOfParallelism;
+
+        var results = new byte[messages.Length][];
+        // RSA is not thread-safe - use semaphore to serialize access
+        var rsaSemaphore = new SemaphoreSlim(1, 1);
+        var tasks = new Task[messages.Length];
+
+        for (int i = 0; i < messages.Length; i++)
+        {
+            var index = i; // Capture for closure
+            tasks[i] = Task.Run(async () =>
             {
-                return await Task.Run(() =>
+                await rsaSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
+                try
                 {
-                    return privateKey.SignData(message.ToArray(), hashAlgorithm, padding);
-                }, cancellationToken);
-            },
-            degreeOfParallelism,
-            cancellationToken);
+                    results[index] = privateKey.SignData(messages[index].ToArray(), hashAlgorithm, padding);
+                }
+                finally
+                {
+                    rsaSemaphore.Release();
+                }
+            }, cancellationToken);
+        }
+
+        await Task.WhenAll(tasks).ConfigureAwait(false);
+        return results;
     }
 
     /// <summary>
@@ -460,7 +474,7 @@ public static class BatchSignatureOperations
     /// <param name="hashAlgorithm">Hash algorithm used</param>
     /// <param name="degreeOfParallelism">Parallel tasks (0 = auto)</param>
     /// <returns>Array of verification results</returns>
-    public static Task<bool[]> VerifyBatchAsync(
+    public static async Task<bool[]> VerifyBatchAsync(
         RSA publicKey,
         ReadOnlyMemory<byte>[] messages,
         ReadOnlyMemory<byte>[] signatures,
@@ -476,29 +490,41 @@ public static class BatchSignatureOperations
         if (signatures == null || signatures.Length != messages.Length)
             throw new ArgumentException("Signatures must match message count", nameof(signatures));
 
-        return ParallelCryptoOperations.ProcessBatchAsync<ReadOnlyMemory<byte>, bool>(
-            messages,
-            async message =>
+        if (degreeOfParallelism <= 0)
+            degreeOfParallelism = ParallelCryptoOperations.OptimalDegreeOfParallelism;
+
+        var results = new bool[messages.Length];
+        // RSA is not thread-safe - use semaphore to serialize access
+        var rsaSemaphore = new SemaphoreSlim(1, 1);
+        var tasks = new Task[messages.Length];
+
+        for (int i = 0; i < messages.Length; i++)
+        {
+            var index = i; // Capture for closure
+            tasks[i] = Task.Run(async () =>
             {
-                var index = Array.IndexOf(messages, message);
-                return await Task.Run(() =>
+                await rsaSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
+                try
                 {
-                    try
-                    {
-                        return publicKey.VerifyData(
-                            message.ToArray(),
-                            signatures[index].ToArray(),
-                            hashAlgorithm,
-                            padding);
-                    }
-                    catch
-                    {
-                        return false;
-                    }
-                }, cancellationToken);
-            },
-            degreeOfParallelism,
-            cancellationToken);
+                    results[index] = publicKey.VerifyData(
+                        messages[index].ToArray(),
+                        signatures[index].ToArray(),
+                        hashAlgorithm,
+                        padding);
+                }
+                catch
+                {
+                    results[index] = false;
+                }
+                finally
+                {
+                    rsaSemaphore.Release();
+                }
+            }, cancellationToken);
+        }
+
+        await Task.WhenAll(tasks).ConfigureAwait(false);
+        return results;
     }
 
     /// <summary>
@@ -521,10 +547,8 @@ public static class BatchSignatureOperations
 
         return ParallelCryptoOperations.ProcessBatch<ReadOnlyMemory<byte>, bool>(
             messages.AsSpan(),
-            message =>
+            (message, index) =>
             {
-                var index = Array.IndexOf(messages, message);
-
                 // Production: Use Ed25519 implementation
                 // return Ed25519.Verify(signatures[index].Span, message.Span, publicKeys[index].Span);
 
@@ -565,9 +589,8 @@ public static class BatchKeyDerivationOperations
 
         return ParallelCryptoOperations.ProcessBatchAsync<ReadOnlyMemory<byte>, byte[]>(
             passwords,
-            async password =>
+            async (password, index) =>
             {
-                var index = Array.IndexOf(passwords, password);
                 return await Task.Run(() =>
                 {
                     // Hash algorithm is explicitly specified via parameter - safe
@@ -614,9 +637,8 @@ public static class BatchKeyDerivationOperations
 
         return ParallelCryptoOperations.ProcessBatch<ReadOnlyMemory<byte>, byte[]>(
             salts.AsSpan(),
-            salt =>
+            (salt, index) =>
             {
-                var index = Array.IndexOf(salts, salt);
                 var output = new byte[outputLengths[index]];
 
                 // Production: Use HKDF implementation
@@ -628,3 +650,4 @@ public static class BatchKeyDerivationOperations
             cancellationToken);
     }
 }
+#endif

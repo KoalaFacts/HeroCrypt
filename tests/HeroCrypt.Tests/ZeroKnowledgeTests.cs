@@ -8,6 +8,9 @@ using HeroCrypt.Cryptography.MultiParty;
 
 namespace HeroCrypt.Tests;
 
+// These tests use advanced cryptographic features not available in .NET Standard 2.0
+#if !NETSTANDARD2_0
+
 /// <summary>
 /// Tests for Zero-Knowledge and Advanced Cryptographic Protocols
 ///
@@ -692,3 +695,4 @@ public class ZeroKnowledgeTests
 
     #endregion
 }
+#endif

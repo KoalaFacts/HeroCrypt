@@ -4,6 +4,8 @@ using System.Security.Cryptography;
 
 namespace HeroCrypt.Cryptography.ZeroKnowledge.RingSignatures;
 
+#if !NETSTANDARD2_0
+
 /// <summary>
 /// Ring Signatures - Anonymous digital signatures within a group
 ///
@@ -398,3 +400,4 @@ public static class RingSignature
         return keyImage != null && keyImage.Length == 32;
     }
 }
+#endif

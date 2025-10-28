@@ -9,6 +9,8 @@ using HeroCrypt.Enterprise.KeyManagement;
 
 namespace HeroCrypt.Tests;
 
+#if !NETSTANDARD2_0
+
 /// <summary>
 /// Tests for enterprise features (CA, Compliance, KMS)
 /// </summary>
@@ -648,3 +650,4 @@ public class EnterpriseTests
 
     #endregion
 }
+#endif

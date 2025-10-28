@@ -4,6 +4,8 @@ using System.Text;
 
 namespace HeroCrypt.Protocols.Noise;
 
+#if !NETSTANDARD2_0
+
 /// <summary>
 /// Noise Protocol Framework implementation
 ///
@@ -751,3 +753,4 @@ public enum NoiseToken
     SS,  // DH(s, rs)
     PSK  // Pre-shared key
 }
+#endif

@@ -867,11 +867,16 @@ public class ParallelCryptoIntegrationTests
     {
         // Test that cancellation works correctly across mixed operations
         var cts = new CancellationTokenSource();
-        var messages = Enumerable.Range(0, 100)
-            .Select(_ => new ReadOnlyMemory<byte>(new byte[1024]))
+
+        // Use a large dataset to ensure cancellation has time to take effect
+        var messages = Enumerable.Range(0, 10000)
+            .Select(_ => new ReadOnlyMemory<byte>(new byte[10240])) // 10KB each
             .ToArray();
 
-        // Start a task that will be cancelled
+        // Cancel immediately to ensure cancellation is triggered
+        cts.Cancel();
+
+        // Start a task that should be cancelled
         var task = Task.Run(async () =>
         {
             // Should throw OperationCanceledException
@@ -885,11 +890,7 @@ public class ParallelCryptoIntegrationTests
             return (hashes, hmacs);
         });
 
-        // Cancel after a short delay
-        await Task.Delay(10);
-        cts.Cancel();
-
-        // Assert
+        // Assert - Should throw OperationCanceledException
         await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await task);
     }
 

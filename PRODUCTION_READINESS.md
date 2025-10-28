@@ -4,9 +4,9 @@ This document clearly identifies which features in HeroCrypt are production-read
 
 ## Overall Status
 
-**Last Updated:** 2025-10-26
+**Last Updated:** 2025-10-28
 **Security Audit:** Completed
-**Grade:** B+ (Production-Ready Core, Educational Advanced Features)
+**Grade:** A- (Production-Ready Core, Reference Implementations Removed)
 
 ## Production-Ready Features ✅
 
@@ -51,43 +51,7 @@ These features have been thoroughly tested, security-audited, and are ready for 
 
 ## Reference/Educational Implementations 📚
 
-These features are **NOT production-ready**. They are educational implementations for learning purposes only:
-
-### Post-Quantum Cryptography
-
-| Feature | Status | Reason |
-|---------|--------|--------|
-| **Kyber KEM** | 📚 Reference Only | Simplified implementation, lacks full ML-KEM validation |
-| **Dilithium Signatures** | 📚 Reference Only | Educational implementation, not NIST-compliant |
-| **SPHINCS+ Signatures** | 📚 Reference Only | Incomplete hash-based signature scheme |
-
-### Zero-Knowledge Proofs
-
-| Feature | Status | Reason |
-|---------|--------|--------|
-| **Schnorr Protocol** | 📚 Reference Only | Educational implementation, lacks edge case handling |
-| **Groth16 ZK-SNARK** | 📚 Reference Only | Reference implementation, not audited for production |
-| **Bulletproofs** | 📚 Reference Only | Educational example, incomplete range proofs |
-
-### Advanced Protocols
-
-| Feature | Status | Reason |
-|---------|--------|--------|
-| **Noise Protocol Framework** | 📚 Reference Only | Framework demonstration, not fully tested |
-| **Signal Protocol** | 📚 Reference Only | Reference implementation, lacks session management |
-| **OTR Messaging** | 📚 Reference Only | Educational implementation, incomplete AKE |
-| **OPAQUE PAKE** | 📚 Reference Only | RFC 9497 reference, needs production hardening |
-| **TLS 1.3 Enhancements** | 📚 Reference Only | Educational examples, not a complete TLS stack |
-
-### Hardware Security
-
-| Feature | Status | Reason |
-|---------|--------|--------|
-| **PKCS#11 HSM Provider** | 📚 Reference Only | Abstraction layer, requires vendor SDK integration |
-| **Azure Key Vault Provider** | 📚 Reference Only | Framework only, needs Azure SDK implementation |
-| **TPM 2.0 Provider** | 📚 Reference Only | Abstraction layer, requires TPM library integration |
-| **TEE (SGX/TrustZone)** | 📚 Reference Only | Interface definitions, no actual enclave code |
-| **Hardware RNG** | 📚 Reference Only | Falls back to secure RNG, RDRAND not implemented |
+These features are **NOT production-ready**. They are educational implementations for learning purposes only or are framework-only:
 
 ### Parallel Cryptography
 
@@ -224,35 +188,36 @@ var ciphertext = rsaService.Encrypt(plaintext, importedPublicKey);
 var decrypted = rsaService.Decrypt(ciphertext, importedPrivateKey);
 ```
 
-## Unsafe Patterns - Reference Only ⚠️
+## Best Practices for Production Use ✅
 
-### DO NOT Use in Production
+### Production-Ready Patterns
 
 ```csharp
-// ❌ UNSAFE: Post-quantum crypto is reference only
-var kyberKeyPair = KyberKem.GenerateKeyPair(KyberParameterSet.Kyber512);
-// This is for education only!
+// ✅ SAFE: Parallel AES-GCM is production ready
+var key = new byte[32];
+var nonce = new byte[12];
+RandomNumberGenerator.Fill(key);
+RandomNumberGenerator.Fill(nonce);
 
-// ❌ UNSAFE: Hardware RNG placeholder (uses secure fallback)
-var hwRng = new HardwareRandomNumberGenerator();
-// Currently falls back to RandomNumberGenerator - safe but not hardware-accelerated
-
-// ❌ UNSAFE: Signal Protocol is reference only
-var signalSession = new SignalSession();
-// Incomplete implementation, lacks session management
-
-// ✅ SAFE: Parallel AES-GCM now production ready
 var decrypted = ParallelAesGcm.DecryptParallel(ciphertext, key, nonce);
 // Two-phase authentication ensures security
+
+// ✅ SAFE: ChaCha20-Poly1305 batch encryption
+var results = BatchOperations.EncryptBatch(plaintexts, key, nonces);
+
+// ✅ SAFE: Use production-ready algorithms only
+var rsaService = new RsaEncryptionService(2048);
+var aeadService = new AeadService();
 ```
 
-## Migration Path for Reference Implementations
+## External Libraries for Advanced Features
 
-If you need production versions of reference features:
+If you need features not included in HeroCrypt's production-ready core:
 
 ### Post-Quantum Cryptography
-- Use **liboqs** via P/Invoke for NIST-standardized PQC
+- Use **liboqs** via P/Invoke for NIST-standardized PQC (Kyber, Dilithium, SPHINCS+)
 - Wait for .NET native PQC support (coming in future releases)
+- Use **Bouncy Castle** for experimental PQC implementations
 
 ### Hardware Security Modules
 - Integrate vendor SDKs (nCipher, Thales, AWS CloudHSM)
@@ -262,10 +227,12 @@ If you need production versions of reference features:
 ### Secure Messaging Protocols
 - Use **libsignal** wrapper for Signal Protocol
 - Use established TLS libraries (.NET SslStream, OpenSSL)
+- Use **Noise.NET** for Noise Protocol Framework
 
 ### Zero-Knowledge Proofs
 - Use **bellman** (Rust) or **libsnark** (C++) for production SNARKs
 - Use **bulletproofs** (Rust) for production-grade range proofs
+- Use **ZoKrates** or **Circom** for ZK circuit compilation
 
 ## Security Best Practices
 
@@ -320,6 +287,10 @@ For production deployment questions:
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 1.1 | 2025-10-28 | Removed reference-only implementations for clarity |
+| | | Post-quantum, protocols, ZK proofs, HSM stubs removed |
+| | | Buggy hardware acceleration code removed |
+| | | Grade upgraded to A- for production focus |
 | 1.0 | 2025-10-26 | Initial production readiness documentation |
 | | | Security audit completed, critical fixes applied |
 

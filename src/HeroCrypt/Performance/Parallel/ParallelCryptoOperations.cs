@@ -351,17 +351,45 @@ public static class ParallelAesGcm
         // chunk_count = ceiling(plaintext_length / ChunkSize)
         // ciphertext_length = plaintext_length + ceiling(plaintext_length / ChunkSize) * TagSize
 
-        // Estimate plaintext length (this is approximate, we'll verify later)
-        long estimatedPlaintextLength = ciphertext.Length - TagSize;
-        var chunkCount = (int)((estimatedPlaintextLength + ChunkSize - 1) / ChunkSize);
-        var plaintextLength = ciphertext.Length - (chunkCount * TagSize);
+        // Iteratively solve for plaintextLength
+        // Start with approximation assuming average chunk size (ChunkSize + TagSize)
+        var avgChunkSize = ChunkSize + TagSize;
+        var approxChunkCount = (ciphertext.Length + avgChunkSize - 1) / avgChunkSize;
+        var plaintextLength = ciphertext.Length - (approxChunkCount * TagSize);
+        int chunkCount;
 
-        // Validate the structure makes sense
+        // Iterate to converge (usually converges in 1-2 iterations)
+        for (int iteration = 0; iteration < 10; iteration++)
+        {
+            chunkCount = (plaintextLength + ChunkSize - 1) / ChunkSize;
+            var expectedCiphertextLength = plaintextLength + (chunkCount * TagSize);
+
+            if (expectedCiphertextLength == ciphertext.Length)
+            {
+                // Found correct plaintextLength and chunkCount
+                break;
+            }
+
+            // Adjust plaintextLength based on the difference
+            plaintextLength = ciphertext.Length - (chunkCount * TagSize);
+
+            // Convergence check
+            if (iteration > 0 && plaintextLength + (chunkCount * TagSize) == ciphertext.Length)
+            {
+                break;
+            }
+        }
+
+        chunkCount = (plaintextLength + ChunkSize - 1) / ChunkSize;
+
+        // Final validation
         var expectedCiphertextLength = plaintextLength + (chunkCount * TagSize);
-        if (expectedCiphertextLength != ciphertext.Length)
+        if (expectedCiphertextLength != ciphertext.Length || plaintextLength < 0)
         {
             throw new System.Security.Cryptography.CryptographicException(
-                "Ciphertext length does not match expected format");
+                $"Ciphertext length does not match expected format. " +
+                $"Ciphertext: {ciphertext.Length}, Expected: {expectedCiphertextLength}, " +
+                $"Plaintext: {plaintextLength}, Chunks: {chunkCount}");
         }
 
         if (degreeOfParallelism <= 0)

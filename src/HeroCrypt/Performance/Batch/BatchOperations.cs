@@ -440,6 +440,7 @@ public static class BatchSignatureOperations
             degreeOfParallelism = ParallelCryptoOperations.OptimalDegreeOfParallelism;
 
         var results = new byte[messages.Length][];
+        var rsaLock = new object(); // RSA is not thread-safe, must lock
         var semaphore = new SemaphoreSlim(degreeOfParallelism);
         var tasks = new Task[messages.Length];
 
@@ -453,7 +454,10 @@ public static class BatchSignatureOperations
                 {
                     results[index] = await Task.Run(() =>
                     {
-                        return privateKey.SignData(messages[index].ToArray(), hashAlgorithm, padding);
+                        lock (rsaLock)
+                        {
+                            return privateKey.SignData(messages[index].ToArray(), hashAlgorithm, padding);
+                        }
                     }, cancellationToken);
                 }
                 finally
@@ -496,6 +500,7 @@ public static class BatchSignatureOperations
             degreeOfParallelism = ParallelCryptoOperations.OptimalDegreeOfParallelism;
 
         var results = new bool[messages.Length];
+        var rsaLock = new object(); // RSA is not thread-safe, must lock
         var semaphore = new SemaphoreSlim(degreeOfParallelism);
         var tasks = new Task[messages.Length];
 
@@ -509,17 +514,20 @@ public static class BatchSignatureOperations
                 {
                     results[index] = await Task.Run(() =>
                     {
-                        try
+                        lock (rsaLock)
                         {
-                            return publicKey.VerifyData(
-                                messages[index].ToArray(),
-                                signatures[index].ToArray(),
-                                hashAlgorithm,
-                                padding);
-                        }
-                        catch
-                        {
-                            return false;
+                            try
+                            {
+                                return publicKey.VerifyData(
+                                    messages[index].ToArray(),
+                                    signatures[index].ToArray(),
+                                    hashAlgorithm,
+                                    padding);
+                            }
+                            catch
+                            {
+                                return false;
+                            }
                         }
                     }, cancellationToken);
                 }

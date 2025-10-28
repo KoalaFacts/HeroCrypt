@@ -11,19 +11,15 @@ namespace HeroCrypt.Services;
 public class Blake2bHashingService : IBlake2bService
 {
     private readonly ILogger<Blake2bHashingService>? _logger;
-    private readonly ISecureMemoryManager? _memoryManager;
 
     /// <summary>
     /// Initializes a new instance of the Blake2bHashingService.
     /// </summary>
     /// <param name="logger">Optional logger for operation tracking.</param>
-    /// <param name="memoryManager">Optional secure memory manager for handling sensitive data.</param>
     public Blake2bHashingService(
-        ILogger<Blake2bHashingService>? logger = null,
-        ISecureMemoryManager? memoryManager = null)
+        ILogger<Blake2bHashingService>? logger = null)
     {
         _logger = logger;
-        _memoryManager = memoryManager;
     }
 
     /// <inheritdoc/>

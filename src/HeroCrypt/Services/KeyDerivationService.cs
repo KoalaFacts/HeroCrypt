@@ -1,5 +1,5 @@
 using HeroCrypt.Abstractions;
-using HeroCrypt.Cryptography.Scrypt;
+using HeroCrypt.Cryptography.KeyDerivation;
 using HeroCrypt.Security;
 using Microsoft.Extensions.Logging;
 using System.Security.Cryptography;
@@ -152,7 +152,8 @@ public class KeyDerivationService : IKeyDerivationService
 
         try
         {
-            var result = ScryptCore.DeriveKey(password, salt, n, r, p, keyLength);
+            // Use the full-featured ScryptCore from KeyDerivation namespace
+            var result = ScryptCore.DeriveKey(password.AsSpan(), salt.AsSpan(), n, r, p, keyLength);
 
             _logger?.LogDebug("Successfully derived scrypt key: {KeyLength} bytes", result.Length);
 

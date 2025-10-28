@@ -4,6 +4,7 @@ using HeroCrypt.Security;
 using Microsoft.Extensions.Logging;
 using System.Security.Cryptography;
 using BigInteger = HeroCrypt.Cryptography.RSA.BigInteger;
+using SystemHashAlgorithmName = System.Security.Cryptography.HashAlgorithmName;
 
 namespace HeroCrypt.Services;
 
@@ -16,7 +17,7 @@ public sealed class RsaEncryptionService
     private readonly ISecureMemoryManager? _memoryManager;
     private readonly int _keySize;
     private readonly RsaPaddingMode _defaultPadding;
-    private readonly HashAlgorithmName _defaultHashAlgorithm;
+    private readonly SystemHashAlgorithmName _defaultHashAlgorithm;
 
     /// <summary>
     /// Initializes a new instance of the RSA encryption service
@@ -29,7 +30,7 @@ public sealed class RsaEncryptionService
     public RsaEncryptionService(
         int keySize = 2048,
         RsaPaddingMode defaultPadding = RsaPaddingMode.Oaep,
-        HashAlgorithmName? defaultHashAlgorithm = null,
+        SystemHashAlgorithmName? defaultHashAlgorithm = null,
         ILogger<RsaEncryptionService>? logger = null,
         ISecureMemoryManager? memoryManager = null)
     {
@@ -37,7 +38,7 @@ public sealed class RsaEncryptionService
 
         _keySize = keySize;
         _defaultPadding = defaultPadding;
-        _defaultHashAlgorithm = defaultHashAlgorithm ?? HashAlgorithmName.SHA256;
+        _defaultHashAlgorithm = defaultHashAlgorithm ?? SystemHashAlgorithmName.SHA256;
         _logger = logger;
         _memoryManager = memoryManager;
 
@@ -142,7 +143,7 @@ public sealed class RsaEncryptionService
     /// <param name="padding">Padding mode (defaults to service default)</param>
     /// <param name="hashAlgorithm">Hash algorithm for OAEP padding (defaults to service default)</param>
     /// <returns>Encrypted data</returns>
-    public byte[] Encrypt(byte[] data, byte[] publicKey, RsaPaddingMode? padding = null, HashAlgorithmName? hashAlgorithm = null)
+    public byte[] Encrypt(byte[] data, byte[] publicKey, RsaPaddingMode? padding = null, SystemHashAlgorithmName? hashAlgorithm = null)
     {
 #if NET6_0_OR_GREATER
         ArgumentNullException.ThrowIfNull(data);
@@ -194,7 +195,7 @@ public sealed class RsaEncryptionService
     /// <param name="padding">Padding mode (defaults to service default)</param>
     /// <param name="hashAlgorithm">Hash algorithm for OAEP padding (defaults to service default)</param>
     /// <returns>Encrypted data</returns>
-    public async Task<byte[]> EncryptAsync(byte[] data, byte[] publicKey, RsaPaddingMode? padding = null, HashAlgorithmName? hashAlgorithm = null)
+    public async Task<byte[]> EncryptAsync(byte[] data, byte[] publicKey, RsaPaddingMode? padding = null, SystemHashAlgorithmName? hashAlgorithm = null)
     {
         // RSA encryption is CPU-bound, so we run it on a background thread
         return await Task.Run(() => Encrypt(data, publicKey, padding, hashAlgorithm)).ConfigureAwait(false);
@@ -208,7 +209,7 @@ public sealed class RsaEncryptionService
     /// <param name="padding">Padding mode (defaults to service default)</param>
     /// <param name="hashAlgorithm">Hash algorithm for OAEP padding (defaults to service default)</param>
     /// <returns>Decrypted data</returns>
-    public byte[] Decrypt(byte[] encryptedData, byte[] privateKey, RsaPaddingMode? padding = null, HashAlgorithmName? hashAlgorithm = null)
+    public byte[] Decrypt(byte[] encryptedData, byte[] privateKey, RsaPaddingMode? padding = null, SystemHashAlgorithmName? hashAlgorithm = null)
     {
 #if NET6_0_OR_GREATER
         ArgumentNullException.ThrowIfNull(encryptedData);
@@ -251,13 +252,13 @@ public sealed class RsaEncryptionService
     /// <param name="padding">Padding mode (defaults to service default)</param>
     /// <param name="hashAlgorithm">Hash algorithm for OAEP padding (defaults to service default)</param>
     /// <returns>Decrypted data</returns>
-    public async Task<byte[]> DecryptAsync(byte[] encryptedData, byte[] privateKey, RsaPaddingMode? padding = null, HashAlgorithmName? hashAlgorithm = null)
+    public async Task<byte[]> DecryptAsync(byte[] encryptedData, byte[] privateKey, RsaPaddingMode? padding = null, SystemHashAlgorithmName? hashAlgorithm = null)
     {
         // RSA decryption is CPU-bound, so we run it on a background thread
         return await Task.Run(() => Decrypt(encryptedData, privateKey, padding, hashAlgorithm)).ConfigureAwait(false);
     }
 
-    private int CalculateMaxMessageSize(RsaPaddingMode padding, HashAlgorithmName hashAlgorithm)
+    private int CalculateMaxMessageSize(RsaPaddingMode padding, SystemHashAlgorithmName hashAlgorithm)
     {
         var modulusSize = _keySize / 8;
         return padding switch
@@ -268,12 +269,12 @@ public sealed class RsaEncryptionService
         };
     }
 
-    private static int GetHashSize(HashAlgorithmName hashAlgorithm)
+    private static int GetHashSize(SystemHashAlgorithmName hashAlgorithm)
     {
-        if (hashAlgorithm == HashAlgorithmName.SHA256) return 256;
-        if (hashAlgorithm == HashAlgorithmName.SHA384) return 384;
-        if (hashAlgorithm == HashAlgorithmName.SHA512) return 512;
-        if (hashAlgorithm == HashAlgorithmName.SHA1) return 160;
+        if (hashAlgorithm == SystemHashAlgorithmName.SHA256) return 256;
+        if (hashAlgorithm == SystemHashAlgorithmName.SHA384) return 384;
+        if (hashAlgorithm == SystemHashAlgorithmName.SHA512) return 512;
+        if (hashAlgorithm == SystemHashAlgorithmName.SHA1) return 160;
 
         // Default to SHA256
         return 256;

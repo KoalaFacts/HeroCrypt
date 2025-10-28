@@ -1,3 +1,5 @@
+// Disabled: These tests reference implementations that have been removed
+#if FALSE
 using System;
 using System.Linq;
 using System.Security.Cryptography.X509Certificates;
@@ -9,8 +11,6 @@ using HeroCrypt.Protocols.Opaque;
 using HeroCrypt.Protocols.Tls;
 
 namespace HeroCrypt.Tests;
-
-#if !NETSTANDARD2_0
 
 /// <summary>
 /// Tests for cryptographic protocol implementations

@@ -1,11 +1,11 @@
+// Disabled: These tests reference implementations that have been removed
+#if FALSE
 using HeroCrypt.Cryptography.PostQuantum.Kyber;
 using HeroCrypt.Cryptography.PostQuantum.Dilithium;
 using HeroCrypt.Cryptography.PostQuantum.Sphincs;
 using System.Text;
 
 namespace HeroCrypt.Tests;
-
-#if !NETSTANDARD2_0
 
 /// <summary>
 /// Tests for Post-Quantum Cryptography implementations

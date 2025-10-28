@@ -1,3 +1,5 @@
+// Disabled: These tests reference implementations that have been removed
+#if FALSE
 using System;
 using System.Linq;
 using System.Text;
@@ -7,9 +9,6 @@ using HeroCrypt.Cryptography.ZeroKnowledge.RingSignatures;
 using HeroCrypt.Cryptography.MultiParty;
 
 namespace HeroCrypt.Tests;
-
-// These tests use advanced cryptographic features not available in .NET Standard 2.0
-#if !NETSTANDARD2_0
 
 /// <summary>
 /// Tests for Zero-Knowledge and Advanced Cryptographic Protocols

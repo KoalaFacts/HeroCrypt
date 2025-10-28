@@ -292,7 +292,7 @@ public static class BatchEncryptionOperations
                 {
                     // Use AesGcm for authenticated encryption
 #if NET6_0_OR_GREATER
-                    using var aes = new AesGcm(key.Span, tag.Length);
+                    using var aes = new AesGcm(key.Span);
                     aes.Encrypt(nonce, plaintext.Span, ciphertext, tag, associatedData.Span);
 #else
                     using var aes = new AesGcm(key.Span.ToArray());
@@ -331,7 +331,7 @@ public static class BatchEncryptionOperations
                 {
                     // Use AesGcm for authenticated decryption
 #if NET6_0_OR_GREATER
-                    using var aes = new AesGcm(key.Span, ct.Tag.Length);
+                    using var aes = new AesGcm(key.Span);
                     aes.Decrypt(ct.Nonce, ct.Ciphertext, ct.Tag, plaintext, associatedData.Span);
 #else
                     using var aes = new AesGcm(key.Span.ToArray());

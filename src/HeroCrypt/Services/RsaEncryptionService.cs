@@ -328,6 +328,195 @@ public sealed class RsaEncryptionService
         }
     }
 
+    #region PKCS#8 and X.509 Key Format Support
+
+    /// <summary>
+    /// Exports a private key in PKCS#8 format (RFC 5208)
+    /// </summary>
+    /// <param name="privateKey">Private key in internal format</param>
+    /// <returns>PKCS#8 encoded private key</returns>
+    /// <remarks>
+    /// PKCS#8 is the standard format for private keys, widely supported by OpenSSL,
+    /// Java, Python, and other cryptographic libraries. Use this for interoperability.
+    /// </remarks>
+    public byte[] ExportPkcs8PrivateKey(byte[] privateKey)
+    {
+#if NET6_0_OR_GREATER
+        ArgumentNullException.ThrowIfNull(privateKey);
+#else
+        if (privateKey == null) throw new ArgumentNullException(nameof(privateKey));
+#endif
+
+        InputValidator.ValidateByteArray(privateKey, nameof(privateKey));
+
+        _logger?.LogDebug("Exporting private key to PKCS#8 format");
+
+        try
+        {
+            var rsaPrivateKey = DeserializePrivateKey(privateKey);
+
+            using var rsa = System.Security.Cryptography.RSA.Create();
+            rsa.ImportParameters(RsaCore.ToRsaParameters(rsaPrivateKey));
+
+            var pkcs8Bytes = rsa.ExportPkcs8PrivateKey();
+
+            _logger?.LogDebug("Successfully exported private key to PKCS#8 format ({Size} bytes)", pkcs8Bytes.Length);
+
+            return pkcs8Bytes;
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Failed to export private key to PKCS#8 format");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Imports a private key from PKCS#8 format (RFC 5208)
+    /// </summary>
+    /// <param name="pkcs8Data">PKCS#8 encoded private key</param>
+    /// <returns>Private key in internal format</returns>
+    /// <remarks>
+    /// Supports standard PKCS#8 private keys from OpenSSL, Java, Python, etc.
+    /// Example OpenSSL command: openssl genpkey -algorithm RSA -out private.pem -pkeyopt rsa_keygen_bits:2048
+    /// </remarks>
+    public byte[] ImportPkcs8PrivateKey(byte[] pkcs8Data)
+    {
+#if NET6_0_OR_GREATER
+        ArgumentNullException.ThrowIfNull(pkcs8Data);
+#else
+        if (pkcs8Data == null) throw new ArgumentNullException(nameof(pkcs8Data));
+#endif
+
+        InputValidator.ValidateByteArray(pkcs8Data, nameof(pkcs8Data));
+
+        _logger?.LogDebug("Importing private key from PKCS#8 format ({Size} bytes)", pkcs8Data.Length);
+
+        try
+        {
+            using var rsa = System.Security.Cryptography.RSA.Create();
+            rsa.ImportPkcs8PrivateKey(pkcs8Data, out _);
+
+            // Validate key size
+            if (rsa.KeySize < 2048)
+            {
+                throw new ArgumentException(
+                    $"Imported RSA key size ({rsa.KeySize} bits) is too small. Minimum 2048 bits required.",
+                    nameof(pkcs8Data));
+            }
+
+            var parameters = rsa.ExportParameters(includePrivateParameters: true);
+
+            var rsaPrivateKey = new RsaPrivateKey(
+                new BigInteger(parameters.Modulus!),
+                new BigInteger(parameters.D!),
+                new BigInteger(parameters.P!),
+                new BigInteger(parameters.Q!),
+                new BigInteger(parameters.Exponent!)
+            );
+
+            var internalFormat = SerializePrivateKey(rsaPrivateKey);
+
+            _logger?.LogInformation("Successfully imported PKCS#8 private key ({KeySize}-bit)", rsa.KeySize);
+
+            return internalFormat;
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Failed to import private key from PKCS#8 format");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Exports a public key in X.509 SubjectPublicKeyInfo format (RFC 5280)
+    /// </summary>
+    /// <param name="publicKey">Public key in internal format</param>
+    /// <returns>X.509 SubjectPublicKeyInfo encoded public key</returns>
+    /// <remarks>
+    /// X.509 SubjectPublicKeyInfo is the standard format for public keys.
+    /// Compatible with OpenSSL, Java, Python, and other cryptographic libraries.
+    /// </remarks>
+    public byte[] ExportSubjectPublicKeyInfo(byte[] publicKey)
+    {
+#if NET6_0_OR_GREATER
+        ArgumentNullException.ThrowIfNull(publicKey);
+#else
+        if (publicKey == null) throw new ArgumentNullException(nameof(publicKey));
+#endif
+
+        InputValidator.ValidateByteArray(publicKey, nameof(publicKey));
+
+        _logger?.LogDebug("Exporting public key to X.509 SubjectPublicKeyInfo format");
+
+        try
+        {
+            var rsaPublicKey = DeserializePublicKey(publicKey);
+
+            using var rsa = System.Security.Cryptography.RSA.Create();
+            rsa.ImportParameters(RsaCore.ToRsaParameters(rsaPublicKey));
+
+            var spkiBytes = rsa.ExportSubjectPublicKeyInfo();
+
+            _logger?.LogDebug("Successfully exported public key to X.509 format ({Size} bytes)", spkiBytes.Length);
+
+            return spkiBytes;
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Failed to export public key to X.509 SubjectPublicKeyInfo format");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Imports a public key from X.509 SubjectPublicKeyInfo format (RFC 5280)
+    /// </summary>
+    /// <param name="subjectPublicKeyInfo">X.509 SubjectPublicKeyInfo encoded public key</param>
+    /// <returns>Public key in internal format</returns>
+    /// <remarks>
+    /// Supports standard X.509 public keys from OpenSSL, certificates, etc.
+    /// Example OpenSSL command: openssl rsa -in private.pem -pubout -out public.pem
+    /// </remarks>
+    public byte[] ImportSubjectPublicKeyInfo(byte[] subjectPublicKeyInfo)
+    {
+#if NET6_0_OR_GREATER
+        ArgumentNullException.ThrowIfNull(subjectPublicKeyInfo);
+#else
+        if (subjectPublicKeyInfo == null) throw new ArgumentNullException(nameof(subjectPublicKeyInfo));
+#endif
+
+        InputValidator.ValidateByteArray(subjectPublicKeyInfo, nameof(subjectPublicKeyInfo));
+
+        _logger?.LogDebug("Importing public key from X.509 SubjectPublicKeyInfo format ({Size} bytes)", subjectPublicKeyInfo.Length);
+
+        try
+        {
+            using var rsa = System.Security.Cryptography.RSA.Create();
+            rsa.ImportSubjectPublicKeyInfo(subjectPublicKeyInfo, out _);
+
+            var parameters = rsa.ExportParameters(includePrivateParameters: false);
+
+            var rsaPublicKey = new RsaPublicKey(
+                new BigInteger(parameters.Modulus!),
+                new BigInteger(parameters.Exponent!)
+            );
+
+            var internalFormat = SerializePublicKey(rsaPublicKey);
+
+            _logger?.LogDebug("Successfully imported X.509 public key ({KeySize}-bit)", rsa.KeySize);
+
+            return internalFormat;
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Failed to import public key from X.509 SubjectPublicKeyInfo format");
+            throw;
+        }
+    }
+
+    #endregion
+
     private static byte[] SerializePublicKey(RsaPublicKey publicKey)
     {
         // Simple serialization format: [modulus_length][modulus][exponent_length][exponent]

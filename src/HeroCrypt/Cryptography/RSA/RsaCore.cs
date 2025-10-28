@@ -56,7 +56,7 @@ internal static class RsaCore
         return rsa.VerifyData(data, signature, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
     }
 
-    private static RSAParameters ToRsaParameters(RsaPublicKey publicKey)
+    internal static RSAParameters ToRsaParameters(RsaPublicKey publicKey)
     {
         return new RSAParameters
         {
@@ -65,7 +65,7 @@ internal static class RsaCore
         };
     }
 
-    private static RSAParameters ToRsaParameters(RsaPrivateKey privateKey)
+    internal static RSAParameters ToRsaParameters(RsaPrivateKey privateKey)
     {
         var modulusBytes = ToUnsignedBigEndian(privateKey.Modulus);
         var exponentBytes = ToUnsignedBigEndian(privateKey.E);

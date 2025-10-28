@@ -496,4 +496,259 @@ public class RsaEncryptionServiceTests
         Assert.Equal("RSA-2048", service2048.AlgorithmName);
         Assert.Equal("RSA-4096", service4096.AlgorithmName);
     }
+
+    #region PKCS#8 and X.509 Key Format Tests
+
+    [Fact]
+    [Trait("Category", TestCategories.Unit)]
+    public void ExportPkcs8PrivateKey_WithValidKey_ReturnsValidPkcs8()
+    {
+        // Arrange
+        var service = new RsaEncryptionService(2048);
+        var (privateKey, _) = service.GenerateKeyPair();
+
+        // Act
+        var pkcs8Bytes = service.ExportPkcs8PrivateKey(privateKey);
+
+        // Assert
+        Assert.NotNull(pkcs8Bytes);
+        Assert.True(pkcs8Bytes.Length > 0);
+
+        // Verify it's valid PKCS#8 by trying to import it
+        using var rsa = RSA.Create();
+        var exception = Record.Exception(() => rsa.ImportPkcs8PrivateKey(pkcs8Bytes, out _));
+        Assert.Null(exception);
+    }
+
+    [Fact]
+    [Trait("Category", TestCategories.Unit)]
+    public void ImportPkcs8PrivateKey_WithValidPkcs8_ImportsSuccessfully()
+    {
+        // Arrange - Generate a standard PKCS#8 key
+        using var rsa = RSA.Create(2048);
+        var pkcs8Bytes = rsa.ExportPkcs8PrivateKey();
+
+        var service = new RsaEncryptionService(2048);
+
+        // Act
+        var importedKey = service.ImportPkcs8PrivateKey(pkcs8Bytes);
+
+        // Assert
+        Assert.NotNull(importedKey);
+        Assert.True(importedKey.Length > 0);
+
+        // Verify it works by encrypting/decrypting
+        var (_, publicKey) = service.GenerateKeyPair();
+        var publicKeyFromImported = service.DerivePublicKey(importedKey);
+
+        var testData = Encoding.UTF8.GetBytes("Test encryption with imported key");
+        var encrypted = service.Encrypt(testData, publicKeyFromImported);
+        var decrypted = service.Decrypt(encrypted, importedKey);
+
+        Assert.Equal(testData, decrypted);
+    }
+
+    [Fact]
+    [Trait("Category", TestCategories.Unit)]
+    public void Pkcs8_ExportImportRoundtrip_PreservesKey()
+    {
+        // Arrange
+        var service = new RsaEncryptionService(2048);
+        var (originalPrivateKey, publicKey) = service.GenerateKeyPair();
+
+        // Act - Export to PKCS#8 and import back
+        var pkcs8Bytes = service.ExportPkcs8PrivateKey(originalPrivateKey);
+        var importedPrivateKey = service.ImportPkcs8PrivateKey(pkcs8Bytes);
+
+        // Assert - Both keys should produce the same results
+        var testData = Encoding.UTF8.GetBytes("Test roundtrip");
+        var encrypted = service.Encrypt(testData, publicKey);
+
+        var decrypted1 = service.Decrypt(encrypted, originalPrivateKey);
+        var decrypted2 = service.Decrypt(encrypted, importedPrivateKey);
+
+        Assert.Equal(testData, decrypted1);
+        Assert.Equal(testData, decrypted2);
+        Assert.Equal(decrypted1, decrypted2);
+    }
+
+    [Fact]
+    [Trait("Category", TestCategories.Unit)]
+    public void ImportPkcs8PrivateKey_WithWeakKey_ThrowsException()
+    {
+        // Arrange - Generate a weak 1024-bit PKCS#8 key
+        using var rsa = RSA.Create(1024);
+        var pkcs8Bytes = rsa.ExportPkcs8PrivateKey();
+
+        var service = new RsaEncryptionService(2048);
+
+        // Act & Assert
+        var ex = Assert.Throws<ArgumentException>(() => service.ImportPkcs8PrivateKey(pkcs8Bytes));
+        Assert.Contains("too small", ex.Message);
+        Assert.Contains("2048", ex.Message);
+    }
+
+    [Fact]
+    [Trait("Category", TestCategories.Unit)]
+    public void ExportSubjectPublicKeyInfo_WithValidKey_ReturnsValidX509()
+    {
+        // Arrange
+        var service = new RsaEncryptionService(2048);
+        var (_, publicKey) = service.GenerateKeyPair();
+
+        // Act
+        var spkiBytes = service.ExportSubjectPublicKeyInfo(publicKey);
+
+        // Assert
+        Assert.NotNull(spkiBytes);
+        Assert.True(spkiBytes.Length > 0);
+
+        // Verify it's valid X.509 SubjectPublicKeyInfo by trying to import it
+        using var rsa = RSA.Create();
+        var exception = Record.Exception(() => rsa.ImportSubjectPublicKeyInfo(spkiBytes, out _));
+        Assert.Null(exception);
+    }
+
+    [Fact]
+    [Trait("Category", TestCategories.Unit)]
+    public void ImportSubjectPublicKeyInfo_WithValidX509_ImportsSuccessfully()
+    {
+        // Arrange - Generate a standard X.509 public key
+        using var rsa = RSA.Create(2048);
+        var spkiBytes = rsa.ExportSubjectPublicKeyInfo();
+
+        var service = new RsaEncryptionService(2048);
+
+        // Act
+        var importedPublicKey = service.ImportSubjectPublicKeyInfo(spkiBytes);
+
+        // Assert
+        Assert.NotNull(importedPublicKey);
+        Assert.True(importedPublicKey.Length > 0);
+
+        // Verify it works by encrypting with imported public key
+        var (privateKey, _) = service.GenerateKeyPair();
+        var testData = Encoding.UTF8.GetBytes("Test encryption with imported public key");
+
+        var encrypted = service.Encrypt(testData, importedPublicKey);
+
+        // Should be able to encrypt without errors
+        Assert.NotNull(encrypted);
+        Assert.True(encrypted.Length > 0);
+        Assert.NotEqual(testData, encrypted);
+    }
+
+    [Fact]
+    [Trait("Category", TestCategories.Unit)]
+    public void SubjectPublicKeyInfo_ExportImportRoundtrip_PreservesKey()
+    {
+        // Arrange
+        var service = new RsaEncryptionService(2048);
+        var (privateKey, originalPublicKey) = service.GenerateKeyPair();
+
+        // Act - Export to X.509 and import back
+        var spkiBytes = service.ExportSubjectPublicKeyInfo(originalPublicKey);
+        var importedPublicKey = service.ImportSubjectPublicKeyInfo(spkiBytes);
+
+        // Assert - Both public keys should work with the same private key
+        var testData = Encoding.UTF8.GetBytes("Test roundtrip");
+
+        var encrypted1 = service.Encrypt(testData, originalPublicKey);
+        var encrypted2 = service.Encrypt(testData, importedPublicKey);
+
+        // Both should decrypt to the same plaintext
+        var decrypted1 = service.Decrypt(encrypted1, privateKey);
+        var decrypted2 = service.Decrypt(encrypted2, privateKey);
+
+        Assert.Equal(testData, decrypted1);
+        Assert.Equal(testData, decrypted2);
+    }
+
+    [Fact]
+    [Trait("Category", TestCategories.Unit)]
+    public void Pkcs8AndX509_InteroperabilityTest()
+    {
+        // Arrange - Generate key pair with standard .NET RSA
+        using var rsa = RSA.Create(2048);
+        var pkcs8PrivateKey = rsa.ExportPkcs8PrivateKey();
+        var spkiPublicKey = rsa.ExportSubjectPublicKeyInfo();
+
+        var service = new RsaEncryptionService(2048);
+
+        // Act - Import both keys
+        var importedPrivateKey = service.ImportPkcs8PrivateKey(pkcs8PrivateKey);
+        var importedPublicKey = service.ImportSubjectPublicKeyInfo(spkiPublicKey);
+
+        // Assert - Keys should work together
+        var testData = Encoding.UTF8.GetBytes("Interoperability test");
+        var encrypted = service.Encrypt(testData, importedPublicKey);
+        var decrypted = service.Decrypt(encrypted, importedPrivateKey);
+
+        Assert.Equal(testData, decrypted);
+    }
+
+    [Theory]
+    [InlineData(2048)]
+    [InlineData(3072)]
+    [InlineData(4096)]
+    [Trait("Category", TestCategories.Unit)]
+    public void Pkcs8Export_WithDifferentKeySizes_WorksCorrectly(int keySize)
+    {
+        // Arrange
+        var service = new RsaEncryptionService(keySize);
+        var (privateKey, _) = service.GenerateKeyPair();
+
+        // Act
+        var pkcs8Bytes = service.ExportPkcs8PrivateKey(privateKey);
+
+        // Assert
+        Assert.NotNull(pkcs8Bytes);
+
+        // Verify key size is preserved
+        using var rsa = RSA.Create();
+        rsa.ImportPkcs8PrivateKey(pkcs8Bytes, out _);
+        Assert.Equal(keySize, rsa.KeySize);
+    }
+
+    [Fact]
+    [Trait("Category", TestCategories.Unit)]
+    public void ExportPkcs8PrivateKey_WithNullKey_ThrowsException()
+    {
+        var service = new RsaEncryptionService();
+
+        var ex = Assert.Throws<ArgumentNullException>(() => service.ExportPkcs8PrivateKey(null!));
+        Assert.Equal("privateKey", ex.ParamName);
+    }
+
+    [Fact]
+    [Trait("Category", TestCategories.Unit)]
+    public void ImportPkcs8PrivateKey_WithNullData_ThrowsException()
+    {
+        var service = new RsaEncryptionService();
+
+        var ex = Assert.Throws<ArgumentNullException>(() => service.ImportPkcs8PrivateKey(null!));
+        Assert.Equal("pkcs8Data", ex.ParamName);
+    }
+
+    [Fact]
+    [Trait("Category", TestCategories.Unit)]
+    public void ExportSubjectPublicKeyInfo_WithNullKey_ThrowsException()
+    {
+        var service = new RsaEncryptionService();
+
+        var ex = Assert.Throws<ArgumentNullException>(() => service.ExportSubjectPublicKeyInfo(null!));
+        Assert.Equal("publicKey", ex.ParamName);
+    }
+
+    [Fact]
+    [Trait("Category", TestCategories.Unit)]
+    public void ImportSubjectPublicKeyInfo_WithNullData_ThrowsException()
+    {
+        var service = new RsaEncryptionService();
+
+        var ex = Assert.Throws<ArgumentNullException>(() => service.ImportSubjectPublicKeyInfo(null!));
+        Assert.Equal("subjectPublicKeyInfo", ex.ParamName);
+    }
+
+    #endregion
 }

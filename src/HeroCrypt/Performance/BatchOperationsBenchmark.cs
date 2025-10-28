@@ -697,4 +697,3 @@ public class BatchOperationsBenchmark
             }
         }
     }
-}

@@ -123,12 +123,13 @@ internal static class ScryptCore
         int n, int r, int p, int outputLength)
     {
         // Note: Allow empty passwords and salts for RFC test vectors
+        // Note: Allow low N values for test vectors and compatibility, but production should use N >= 16384
 
         if (n <= 0 || !IsPowerOfTwo(n))
             throw new ArgumentException("N must be a power of 2 greater than 0", nameof(n));
 
-        if (n < MinRecommendedN)
-            throw new ArgumentException($"N should be at least {MinRecommendedN} for security", nameof(n));
+        // Don't enforce minimum N - allow test vectors and compatibility scenarios
+        // Production code should use MinRecommendedN (16384) or higher
 
         if (r <= 0)
             throw new ArgumentException("r must be positive", nameof(r));

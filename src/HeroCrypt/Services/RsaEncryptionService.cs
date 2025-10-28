@@ -338,9 +338,11 @@ public sealed class RsaEncryptionService
     /// <remarks>
     /// PKCS#8 is the standard format for private keys, widely supported by OpenSSL,
     /// Java, Python, and other cryptographic libraries. Use this for interoperability.
+    /// Note: This method requires .NET 5.0 or later. Not available in .NET Standard 2.0.
     /// </remarks>
     public byte[] ExportPkcs8PrivateKey(byte[] privateKey)
     {
+#if NET5_0_OR_GREATER
 #if NET6_0_OR_GREATER
         ArgumentNullException.ThrowIfNull(privateKey);
 #else
@@ -369,6 +371,11 @@ public sealed class RsaEncryptionService
             _logger?.LogError(ex, "Failed to export private key to PKCS#8 format");
             throw;
         }
+#else
+        throw new PlatformNotSupportedException(
+            "PKCS#8 export is only supported on .NET 5.0 or later. " +
+            "Please upgrade to .NET 5.0+ or use the internal key format.");
+#endif
     }
 
     /// <summary>
@@ -379,9 +386,11 @@ public sealed class RsaEncryptionService
     /// <remarks>
     /// Supports standard PKCS#8 private keys from OpenSSL, Java, Python, etc.
     /// Example OpenSSL command: openssl genpkey -algorithm RSA -out private.pem -pkeyopt rsa_keygen_bits:2048
+    /// Note: This method requires .NET 5.0 or later. Not available in .NET Standard 2.0.
     /// </remarks>
     public byte[] ImportPkcs8PrivateKey(byte[] pkcs8Data)
     {
+#if NET5_0_OR_GREATER
 #if NET6_0_OR_GREATER
         ArgumentNullException.ThrowIfNull(pkcs8Data);
 #else
@@ -426,6 +435,11 @@ public sealed class RsaEncryptionService
             _logger?.LogError(ex, "Failed to import private key from PKCS#8 format");
             throw;
         }
+#else
+        throw new PlatformNotSupportedException(
+            "PKCS#8 import is only supported on .NET 5.0 or later. " +
+            "Please upgrade to .NET 5.0+ or use the internal key format.");
+#endif
     }
 
     /// <summary>
@@ -436,9 +450,11 @@ public sealed class RsaEncryptionService
     /// <remarks>
     /// X.509 SubjectPublicKeyInfo is the standard format for public keys.
     /// Compatible with OpenSSL, Java, Python, and other cryptographic libraries.
+    /// Note: This method requires .NET 5.0 or later. Not available in .NET Standard 2.0.
     /// </remarks>
     public byte[] ExportSubjectPublicKeyInfo(byte[] publicKey)
     {
+#if NET5_0_OR_GREATER
 #if NET6_0_OR_GREATER
         ArgumentNullException.ThrowIfNull(publicKey);
 #else
@@ -467,6 +483,11 @@ public sealed class RsaEncryptionService
             _logger?.LogError(ex, "Failed to export public key to X.509 SubjectPublicKeyInfo format");
             throw;
         }
+#else
+        throw new PlatformNotSupportedException(
+            "X.509 SubjectPublicKeyInfo export is only supported on .NET 5.0 or later. " +
+            "Please upgrade to .NET 5.0+ or use the internal key format.");
+#endif
     }
 
     /// <summary>
@@ -477,9 +498,11 @@ public sealed class RsaEncryptionService
     /// <remarks>
     /// Supports standard X.509 public keys from OpenSSL, certificates, etc.
     /// Example OpenSSL command: openssl rsa -in private.pem -pubout -out public.pem
+    /// Note: This method requires .NET 5.0 or later. Not available in .NET Standard 2.0.
     /// </remarks>
     public byte[] ImportSubjectPublicKeyInfo(byte[] subjectPublicKeyInfo)
     {
+#if NET5_0_OR_GREATER
 #if NET6_0_OR_GREATER
         ArgumentNullException.ThrowIfNull(subjectPublicKeyInfo);
 #else
@@ -513,6 +536,11 @@ public sealed class RsaEncryptionService
             _logger?.LogError(ex, "Failed to import public key from X.509 SubjectPublicKeyInfo format");
             throw;
         }
+#else
+        throw new PlatformNotSupportedException(
+            "X.509 SubjectPublicKeyInfo import is only supported on .NET 5.0 or later. " +
+            "Please upgrade to .NET 5.0+ or use the internal key format.");
+#endif
     }
 
     #endregion

@@ -147,46 +147,14 @@ public class BatchOperationsBenchmark
                 .Select(_ => new ReadOnlyMemory<byte>(GetRandomBytes(dataSize)))
                 .ToArray();
 
-            // Warmup
-            for (int i = 0; i < WarmupIterations; i++)
-            {
-                await BatchHashOperations.Sha256BatchAsync(dataItems);
-            }
-
-            // Benchmark
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
-            GC.Collect();
-
-            var sw = Stopwatch.StartNew();
-            for (int i = 0; i < BenchmarkIterations; i++)
-            {
-                await BatchHashOperations.Sha256BatchAsync(dataItems);
-            }
-            sw.Stop();
-
-            double avgTimeMs = sw.Elapsed.TotalMilliseconds / BenchmarkIterations;
-            long totalBytes = (long)dataSize * batchSize;
-            double throughputMBps = (totalBytes / (1024.0 * 1024.0)) / (avgTimeMs / 1000.0);
-            double opsPerSec = batchSize / (avgTimeMs / 1000.0);
-            double latencyPerOpUs = (avgTimeMs * 1000.0) / batchSize;
+            // Measure batch operation
+            double avgTimeMs = await MeasureOperationAsync(() => BatchHashOperations.Sha256BatchAsync(dataItems));
 
             // Measure sequential for comparison
             double sequentialTimeMs = await MeasureSequentialHashAsync(dataItems);
             double speedup = sequentialTimeMs / avgTimeMs;
 
-            return new BatchBenchmarkResult
-            {
-                OperationName = "SHA-256 Batch",
-                DataSize = dataSize,
-                BatchSize = batchSize,
-                ParallelismDegree = 0, // Auto
-                AverageTimeMs = avgTimeMs,
-                ThroughputMBps = throughputMBps,
-                OperationsPerSecond = opsPerSec,
-                LatencyPerOperationUs = latencyPerOpUs,
-                SpeedupVsSequential = speedup
-            };
+            return CreateBenchmarkResult("SHA-256 Batch", dataSize, batchSize, avgTimeMs, speedup);
         }
 
         private static async Task<BatchBenchmarkResult> BenchmarkBlake2bBatchAsync(int dataSize, int batchSize)
@@ -195,46 +163,14 @@ public class BatchOperationsBenchmark
                 .Select(_ => new ReadOnlyMemory<byte>(GetRandomBytes(dataSize)))
                 .ToArray();
 
-            // Warmup
-            for (int i = 0; i < WarmupIterations; i++)
-            {
-                BatchHashOperations.Blake2bBatch(dataItems);
-            }
-
-            // Benchmark
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
-            GC.Collect();
-
-            var sw = Stopwatch.StartNew();
-            for (int i = 0; i < BenchmarkIterations; i++)
-            {
-                BatchHashOperations.Blake2bBatch(dataItems);
-            }
-            sw.Stop();
-
-            double avgTimeMs = sw.Elapsed.TotalMilliseconds / BenchmarkIterations;
-            long totalBytes = (long)dataSize * batchSize;
-            double throughputMBps = (totalBytes / (1024.0 * 1024.0)) / (avgTimeMs / 1000.0);
-            double opsPerSec = batchSize / (avgTimeMs / 1000.0);
-            double latencyPerOpUs = (avgTimeMs * 1000.0) / batchSize;
+            // Measure batch operation (sync operation, so use sync helper)
+            double avgTimeMs = MeasureOperation(() => BatchHashOperations.Blake2bBatch(dataItems));
 
             // Measure sequential for comparison
             double sequentialTimeMs = MeasureSequentialBlake2b(dataItems);
             double speedup = sequentialTimeMs / avgTimeMs;
 
-            return new BatchBenchmarkResult
-            {
-                OperationName = "BLAKE2b Batch",
-                DataSize = dataSize,
-                BatchSize = batchSize,
-                ParallelismDegree = 0, // Auto
-                AverageTimeMs = avgTimeMs,
-                ThroughputMBps = throughputMBps,
-                OperationsPerSecond = opsPerSec,
-                LatencyPerOperationUs = latencyPerOpUs,
-                SpeedupVsSequential = speedup
-            };
+            return CreateBenchmarkResult("BLAKE2b Batch", dataSize, batchSize, avgTimeMs, speedup);
         }
 
         private static async Task<double> MeasureSequentialHashAsync(ReadOnlyMemory<byte>[] dataItems)
@@ -289,46 +225,14 @@ public class BatchOperationsBenchmark
                 .Select(_ => new ReadOnlyMemory<byte>(GetRandomBytes(dataSize)))
                 .ToArray();
 
-            // Warmup
-            for (int i = 0; i < WarmupIterations; i++)
-            {
-                BatchHmacOperations.HmacSha256Batch(key, dataItems);
-            }
-
-            // Benchmark
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
-            GC.Collect();
-
-            var sw = Stopwatch.StartNew();
-            for (int i = 0; i < BenchmarkIterations; i++)
-            {
-                BatchHmacOperations.HmacSha256Batch(key, dataItems);
-            }
-            sw.Stop();
-
-            double avgTimeMs = sw.Elapsed.TotalMilliseconds / BenchmarkIterations;
-            long totalBytes = (long)dataSize * batchSize;
-            double throughputMBps = (totalBytes / (1024.0 * 1024.0)) / (avgTimeMs / 1000.0);
-            double opsPerSec = batchSize / (avgTimeMs / 1000.0);
-            double latencyPerOpUs = (avgTimeMs * 1000.0) / batchSize;
+            // Measure batch operation (sync operation)
+            double avgTimeMs = MeasureOperation(() => BatchHmacOperations.HmacSha256Batch(key, dataItems));
 
             // Measure sequential for comparison
             double sequentialTimeMs = MeasureSequentialHmac(dataItems, key);
             double speedup = sequentialTimeMs / avgTimeMs;
 
-            return new BatchBenchmarkResult
-            {
-                OperationName = "HMAC-SHA256 Batch",
-                DataSize = dataSize,
-                BatchSize = batchSize,
-                ParallelismDegree = 0,
-                AverageTimeMs = avgTimeMs,
-                ThroughputMBps = throughputMBps,
-                OperationsPerSecond = opsPerSec,
-                LatencyPerOperationUs = latencyPerOpUs,
-                SpeedupVsSequential = speedup
-            };
+            return CreateBenchmarkResult("HMAC-SHA256 Batch", dataSize, batchSize, avgTimeMs, speedup);
         }
 
         private static double MeasureSequentialHmac(ReadOnlyMemory<byte>[] dataItems, byte[] key)
@@ -380,42 +284,11 @@ public class BatchOperationsBenchmark
                 .ToArray();
             var aad = new ReadOnlyMemory<byte>(Array.Empty<byte>());
 
-            // Warmup
-            for (int i = 0; i < WarmupIterations; i++)
-            {
-                await BatchEncryptionOperations.AesGcmEncryptBatchAsync(masterKey, masterNonce, plaintexts, aad);
-            }
+            // Measure batch operation
+            double avgTimeMs = await MeasureOperationAsync(() =>
+                BatchEncryptionOperations.AesGcmEncryptBatchAsync(masterKey, masterNonce, plaintexts, aad));
 
-            // Benchmark
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
-            GC.Collect();
-
-            var sw = Stopwatch.StartNew();
-            for (int i = 0; i < BenchmarkIterations; i++)
-            {
-                await BatchEncryptionOperations.AesGcmEncryptBatchAsync(masterKey, masterNonce, plaintexts, aad);
-            }
-            sw.Stop();
-
-            double avgTimeMs = sw.Elapsed.TotalMilliseconds / BenchmarkIterations;
-            long totalBytes = (long)dataSize * batchSize;
-            double throughputMBps = (totalBytes / (1024.0 * 1024.0)) / (avgTimeMs / 1000.0);
-            double opsPerSec = batchSize / (avgTimeMs / 1000.0);
-            double latencyPerOpUs = (avgTimeMs * 1000.0) / batchSize;
-
-            return new BatchBenchmarkResult
-            {
-                OperationName = "AES-GCM Encrypt Batch",
-                DataSize = dataSize,
-                BatchSize = batchSize,
-                ParallelismDegree = 0,
-                AverageTimeMs = avgTimeMs,
-                ThroughputMBps = throughputMBps,
-                OperationsPerSecond = opsPerSec,
-                LatencyPerOperationUs = latencyPerOpUs,
-                SpeedupVsSequential = 1.0 // Comparison omitted for brevity
-            };
+            return CreateBenchmarkResult("AES-GCM Encrypt Batch", dataSize, batchSize, avgTimeMs);
         }
 
         private static async Task<BatchBenchmarkResult> BenchmarkChaCha20Poly1305EncryptBatchAsync(int dataSize, int batchSize)
@@ -427,42 +300,11 @@ public class BatchOperationsBenchmark
                 .ToArray();
             var aad = new ReadOnlyMemory<byte>(Array.Empty<byte>());
 
-            // Warmup
-            for (int i = 0; i < WarmupIterations; i++)
-            {
-                await BatchEncryptionOperations.ChaCha20Poly1305EncryptBatchAsync(masterKey, masterNonce, plaintexts, aad);
-            }
+            // Measure batch operation
+            double avgTimeMs = await MeasureOperationAsync(() =>
+                BatchEncryptionOperations.ChaCha20Poly1305EncryptBatchAsync(masterKey, masterNonce, plaintexts, aad));
 
-            // Benchmark
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
-            GC.Collect();
-
-            var sw = Stopwatch.StartNew();
-            for (int i = 0; i < BenchmarkIterations; i++)
-            {
-                await BatchEncryptionOperations.ChaCha20Poly1305EncryptBatchAsync(masterKey, masterNonce, plaintexts, aad);
-            }
-            sw.Stop();
-
-            double avgTimeMs = sw.Elapsed.TotalMilliseconds / BenchmarkIterations;
-            long totalBytes = (long)dataSize * batchSize;
-            double throughputMBps = (totalBytes / (1024.0 * 1024.0)) / (avgTimeMs / 1000.0);
-            double opsPerSec = batchSize / (avgTimeMs / 1000.0);
-            double latencyPerOpUs = (avgTimeMs * 1000.0) / batchSize;
-
-            return new BatchBenchmarkResult
-            {
-                OperationName = "ChaCha20-Poly1305 Encrypt Batch",
-                DataSize = dataSize,
-                BatchSize = batchSize,
-                ParallelismDegree = 0,
-                AverageTimeMs = avgTimeMs,
-                ThroughputMBps = throughputMBps,
-                OperationsPerSecond = opsPerSec,
-                LatencyPerOperationUs = latencyPerOpUs,
-                SpeedupVsSequential = 1.0 // Comparison omitted for brevity
-            };
+            return CreateBenchmarkResult("ChaCha20-Poly1305 Encrypt Batch", dataSize, batchSize, avgTimeMs);
         }
 
         #endregion
@@ -504,44 +346,14 @@ public class BatchOperationsBenchmark
                 .Select(_ => new ReadOnlyMemory<byte>(keyPair.publicKey))
                 .ToArray();
 
-            // Warmup
-            for (int i = 0; i < WarmupIterations; i++)
-            {
-                BatchSignatureOperations.VerifyEd25519Batch(publicKeys, messages, signatures);
-            }
-
-            // Benchmark
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
-            GC.Collect();
-
-            var sw = Stopwatch.StartNew();
-            for (int i = 0; i < BenchmarkIterations; i++)
-            {
-                BatchSignatureOperations.VerifyEd25519Batch(publicKeys, messages, signatures);
-            }
-            sw.Stop();
-
-            double avgTimeMs = sw.Elapsed.TotalMilliseconds / BenchmarkIterations;
-            double opsPerSec = batchSize / (avgTimeMs / 1000.0);
-            double latencyPerOpUs = (avgTimeMs * 1000.0) / batchSize;
+            // Measure batch operation (sync operation)
+            double avgTimeMs = MeasureOperation(() => BatchSignatureOperations.VerifyEd25519Batch(publicKeys, messages, signatures));
 
             // Measure sequential for comparison
             double sequentialTimeMs = MeasureSequentialEd25519Verify(messages, signatures, keyPair.publicKey);
             double speedup = sequentialTimeMs / avgTimeMs;
 
-            return new BatchBenchmarkResult
-            {
-                OperationName = "Ed25519 Verify Batch",
-                DataSize = dataSize,
-                BatchSize = batchSize,
-                ParallelismDegree = 0,
-                AverageTimeMs = avgTimeMs,
-                ThroughputMBps = 0, // Not applicable for signatures
-                OperationsPerSecond = opsPerSec,
-                LatencyPerOperationUs = latencyPerOpUs,
-                SpeedupVsSequential = speedup
-            };
+            return CreateBenchmarkResultNoThroughput("Ed25519 Verify Batch", dataSize, batchSize, avgTimeMs, speedup);
         }
 
         private static double MeasureSequentialEd25519Verify(ReadOnlyMemory<byte>[] messages, ReadOnlyMemory<byte>[] signatures, byte[] publicKey)
@@ -592,40 +404,11 @@ public class BatchOperationsBenchmark
             const int iterations = 10000; // Reduced for benchmarking
             const int keyLength = 32;
 
-            // Warmup
-            for (int i = 0; i < WarmupIterations; i++)
-            {
-                await BatchKeyDerivationOperations.Pbkdf2BatchAsync(passwords, salts, iterations, keyLength, HashAlgorithmName.SHA256);
-            }
+            // Measure batch operation
+            double avgTimeMs = await MeasureOperationAsync(() =>
+                BatchKeyDerivationOperations.Pbkdf2BatchAsync(passwords, salts, iterations, keyLength, HashAlgorithmName.SHA256));
 
-            // Benchmark
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
-            GC.Collect();
-
-            var sw = Stopwatch.StartNew();
-            for (int i = 0; i < BenchmarkIterations; i++)
-            {
-                await BatchKeyDerivationOperations.Pbkdf2BatchAsync(passwords, salts, iterations, keyLength, HashAlgorithmName.SHA256);
-            }
-            sw.Stop();
-
-            double avgTimeMs = sw.Elapsed.TotalMilliseconds / BenchmarkIterations;
-            double opsPerSec = batchSize / (avgTimeMs / 1000.0);
-            double latencyPerOpUs = (avgTimeMs * 1000.0) / batchSize;
-
-            return new BatchBenchmarkResult
-            {
-                OperationName = "PBKDF2 Batch",
-                DataSize = keyLength,
-                BatchSize = batchSize,
-                ParallelismDegree = 0,
-                AverageTimeMs = avgTimeMs,
-                ThroughputMBps = 0,
-                OperationsPerSecond = opsPerSec,
-                LatencyPerOperationUs = latencyPerOpUs,
-                SpeedupVsSequential = 1.0 // Comparison omitted for brevity
-            };
+            return CreateBenchmarkResultNoThroughput("PBKDF2 Batch", keyLength, batchSize, avgTimeMs);
         }
 
         private static async Task<BatchBenchmarkResult> BenchmarkHkdfBatchAsync(int batchSize)
@@ -639,40 +422,11 @@ public class BatchOperationsBenchmark
                 .ToArray();
             var outputLengths = Enumerable.Repeat(32, batchSize).ToArray();
 
-            // Warmup
-            for (int i = 0; i < WarmupIterations; i++)
-            {
-                BatchKeyDerivationOperations.HkdfBatch(masterKey, salts, infos, outputLengths, HashAlgorithmName.SHA256);
-            }
+            // Measure batch operation (sync operation)
+            double avgTimeMs = MeasureOperation(() =>
+                BatchKeyDerivationOperations.HkdfBatch(masterKey, salts, infos, outputLengths, HashAlgorithmName.SHA256));
 
-            // Benchmark
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
-            GC.Collect();
-
-            var sw = Stopwatch.StartNew();
-            for (int i = 0; i < BenchmarkIterations; i++)
-            {
-                BatchKeyDerivationOperations.HkdfBatch(masterKey, salts, infos, outputLengths, HashAlgorithmName.SHA256);
-            }
-            sw.Stop();
-
-            double avgTimeMs = sw.Elapsed.TotalMilliseconds / BenchmarkIterations;
-            double opsPerSec = batchSize / (avgTimeMs / 1000.0);
-            double latencyPerOpUs = (avgTimeMs * 1000.0) / batchSize;
-
-            return new BatchBenchmarkResult
-            {
-                OperationName = "HKDF Batch",
-                DataSize = outputLengths[0], // All outputs are same length (32)
-                BatchSize = batchSize,
-                ParallelismDegree = 0,
-                AverageTimeMs = avgTimeMs,
-                ThroughputMBps = 0,
-                OperationsPerSecond = opsPerSec,
-                LatencyPerOperationUs = latencyPerOpUs,
-                SpeedupVsSequential = 1.0 // Comparison omitted for brevity
-            };
+            return CreateBenchmarkResultNoThroughput("HKDF Batch", outputLengths[0], batchSize, avgTimeMs);
         }
 
         #endregion
@@ -684,6 +438,114 @@ public class BatchOperationsBenchmark
             var buffer = new byte[length];
             RandomNumberGenerator.Fill(buffer);
             return buffer;
+        }
+
+        /// <summary>
+        /// Generic benchmark helper that measures async operation with warmup and GC collection.
+        /// </summary>
+        private static async Task<double> MeasureOperationAsync(Func<Task> operation, int warmupIterations = WarmupIterations, int benchmarkIterations = BenchmarkIterations)
+        {
+            // Warmup
+            for (int i = 0; i < warmupIterations; i++)
+            {
+                await operation();
+            }
+
+            // Benchmark
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+
+            var sw = Stopwatch.StartNew();
+            for (int i = 0; i < benchmarkIterations; i++)
+            {
+                await operation();
+            }
+            sw.Stop();
+
+            return sw.Elapsed.TotalMilliseconds / benchmarkIterations;
+        }
+
+        /// <summary>
+        /// Generic benchmark helper that measures sync operation with warmup and GC collection.
+        /// </summary>
+        private static double MeasureOperation(Action operation, int warmupIterations = WarmupIterations, int benchmarkIterations = BenchmarkIterations)
+        {
+            // Warmup
+            for (int i = 0; i < warmupIterations; i++)
+            {
+                operation();
+            }
+
+            // Benchmark
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+
+            var sw = Stopwatch.StartNew();
+            for (int i = 0; i < benchmarkIterations; i++)
+            {
+                operation();
+            }
+            sw.Stop();
+
+            return sw.Elapsed.TotalMilliseconds / benchmarkIterations;
+        }
+
+        /// <summary>
+        /// Creates a benchmark result with calculated metrics.
+        /// </summary>
+        private static BatchBenchmarkResult CreateBenchmarkResult(
+            string operationName,
+            int dataSize,
+            int batchSize,
+            double avgTimeMs,
+            double speedup = 1.0)
+        {
+            long totalBytes = (long)dataSize * batchSize;
+            double throughputMBps = (totalBytes / (1024.0 * 1024.0)) / (avgTimeMs / 1000.0);
+            double opsPerSec = batchSize / (avgTimeMs / 1000.0);
+            double latencyPerOpUs = (avgTimeMs * 1000.0) / batchSize;
+
+            return new BatchBenchmarkResult
+            {
+                OperationName = operationName,
+                DataSize = dataSize,
+                BatchSize = batchSize,
+                ParallelismDegree = 0, // Auto
+                AverageTimeMs = avgTimeMs,
+                ThroughputMBps = throughputMBps,
+                OperationsPerSecond = opsPerSec,
+                LatencyPerOperationUs = latencyPerOpUs,
+                SpeedupVsSequential = speedup
+            };
+        }
+
+        /// <summary>
+        /// Creates a benchmark result without throughput calculation (for non-data operations).
+        /// </summary>
+        private static BatchBenchmarkResult CreateBenchmarkResultNoThroughput(
+            string operationName,
+            int dataSize,
+            int batchSize,
+            double avgTimeMs,
+            double speedup = 1.0)
+        {
+            double opsPerSec = batchSize / (avgTimeMs / 1000.0);
+            double latencyPerOpUs = (avgTimeMs * 1000.0) / batchSize;
+
+            return new BatchBenchmarkResult
+            {
+                OperationName = operationName,
+                DataSize = dataSize,
+                BatchSize = batchSize,
+                ParallelismDegree = 0,
+                AverageTimeMs = avgTimeMs,
+                ThroughputMBps = 0, // Not applicable
+                OperationsPerSecond = opsPerSec,
+                LatencyPerOperationUs = latencyPerOpUs,
+                SpeedupVsSequential = speedup
+            };
         }
 
         #endregion

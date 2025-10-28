@@ -284,7 +284,7 @@ public class BatchOperationsBenchmark
         private static async Task<BatchBenchmarkResult> BenchmarkHmacSha256BatchAsync(int dataSize, int batchSize, byte[] key)
         {
             var dataItems = Enumerable.Range(0, batchSize)
-                .Select(_ => GetRandomBytes(dataSize))
+                .Select(_ => new ReadOnlyMemory<byte>(GetRandomBytes(dataSize)))
                 .ToArray();
 
             // Warmup
@@ -329,13 +329,13 @@ public class BatchOperationsBenchmark
             };
         }
 
-        private static double MeasureSequentialHmac(byte[][] dataItems, byte[] key)
+        private static double MeasureSequentialHmac(ReadOnlyMemory<byte>[] dataItems, byte[] key)
         {
             using var hmac = new HMACSHA256(key);
             var sw = Stopwatch.StartNew();
             foreach (var data in dataItems)
             {
-                hmac.ComputeHash(data);
+                hmac.ComputeHash(data.ToArray());
             }
             sw.Stop();
             return sw.Elapsed.TotalMilliseconds;
@@ -371,16 +371,17 @@ public class BatchOperationsBenchmark
 
         private static async Task<BatchBenchmarkResult> BenchmarkAesGcmEncryptBatchAsync(int dataSize, int batchSize)
         {
-            var masterKey = GetRandomBytes(32);
+            var masterKey = new ReadOnlyMemory<byte>(GetRandomBytes(32));
+            var masterNonce = new ReadOnlyMemory<byte>(GetRandomBytes(12));
             var plaintexts = Enumerable.Range(0, batchSize)
-                .Select(_ => GetRandomBytes(dataSize))
+                .Select(_ => new ReadOnlyMemory<byte>(GetRandomBytes(dataSize)))
                 .ToArray();
-            var aad = new byte[0];
+            var aad = new ReadOnlyMemory<byte>(Array.Empty<byte>());
 
             // Warmup
             for (int i = 0; i < WarmupIterations; i++)
             {
-                await BatchEncryptionOperations.AesGcmEncryptBatchAsync(plaintexts, masterKey, aad);
+                await BatchEncryptionOperations.AesGcmEncryptBatchAsync(masterKey, masterNonce, plaintexts, aad);
             }
 
             // Benchmark
@@ -391,7 +392,7 @@ public class BatchOperationsBenchmark
             var sw = Stopwatch.StartNew();
             for (int i = 0; i < BenchmarkIterations; i++)
             {
-                await BatchEncryptionOperations.AesGcmEncryptBatchAsync(plaintexts, masterKey, aad);
+                await BatchEncryptionOperations.AesGcmEncryptBatchAsync(masterKey, masterNonce, plaintexts, aad);
             }
             sw.Stop();
 
@@ -417,16 +418,17 @@ public class BatchOperationsBenchmark
 
         private static async Task<BatchBenchmarkResult> BenchmarkChaCha20Poly1305EncryptBatchAsync(int dataSize, int batchSize)
         {
-            var masterKey = GetRandomBytes(32);
+            var masterKey = new ReadOnlyMemory<byte>(GetRandomBytes(32));
+            var masterNonce = new ReadOnlyMemory<byte>(GetRandomBytes(12));
             var plaintexts = Enumerable.Range(0, batchSize)
-                .Select(_ => GetRandomBytes(dataSize))
+                .Select(_ => new ReadOnlyMemory<byte>(GetRandomBytes(dataSize)))
                 .ToArray();
-            var aad = new byte[0];
+            var aad = new ReadOnlyMemory<byte>(Array.Empty<byte>());
 
             // Warmup
             for (int i = 0; i < WarmupIterations; i++)
             {
-                await BatchEncryptionOperations.ChaCha20Poly1305EncryptBatchAsync(plaintexts, masterKey, aad);
+                await BatchEncryptionOperations.ChaCha20Poly1305EncryptBatchAsync(masterKey, masterNonce, plaintexts, aad);
             }
 
             // Benchmark
@@ -437,7 +439,7 @@ public class BatchOperationsBenchmark
             var sw = Stopwatch.StartNew();
             for (int i = 0; i < BenchmarkIterations; i++)
             {
-                await BatchEncryptionOperations.ChaCha20Poly1305EncryptBatchAsync(plaintexts, masterKey, aad);
+                await BatchEncryptionOperations.ChaCha20Poly1305EncryptBatchAsync(masterKey, masterNonce, plaintexts, aad);
             }
             sw.Stop();
 

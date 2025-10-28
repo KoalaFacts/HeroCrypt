@@ -93,7 +93,8 @@ These features are **NOT production-ready**. They are educational implementation
 
 | Feature | Status | Reason |
 |---------|--------|--------|
-| **Parallel Encryption** | 📚 Reference Only | Incomplete authenticated encryption, no decryption |
+| **Batch ChaCha20-Poly1305** | ✅ Production Ready | Fully implemented authenticated encryption |
+| **Parallel Encryption** | 📚 Reference Only | Parallel AES-GCM framework, requires chunk authentication |
 | **Parallel Argon2** | 📚 Reference Only | Reference framework, not full RFC 9106 implementation |
 
 ### Enterprise Features

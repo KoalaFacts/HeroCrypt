@@ -618,17 +618,19 @@ public class BatchOperationsBenchmark
 
         private static async Task<BatchBenchmarkResult> BenchmarkHkdfBatchAsync(int batchSize)
         {
-            var ikms = Enumerable.Range(0, batchSize)
-                .Select(_ => GetRandomBytes(32))
+            var masterKey = GetRandomBytes(32);
+            var salts = Enumerable.Range(0, batchSize)
+                .Select(_ => new ReadOnlyMemory<byte>(GetRandomBytes(16)))
                 .ToArray();
-            var salt = GetRandomBytes(32);
-            var info = Encoding.UTF8.GetBytes("benchmark_info");
-            const int keyLength = 32;
+            var infos = Enumerable.Range(0, batchSize)
+                .Select(_ => new ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes($"benchmark_info_{_}")))
+                .ToArray();
+            var outputLengths = Enumerable.Repeat(32, batchSize).ToArray();
 
             // Warmup
             for (int i = 0; i < WarmupIterations; i++)
             {
-                BatchKeyDerivationOperations.HkdfBatch(ikms, salt, info, keyLength);
+                BatchKeyDerivationOperations.HkdfBatch(masterKey, salts, infos, outputLengths, HashAlgorithmName.SHA256);
             }
 
             // Benchmark
@@ -639,7 +641,7 @@ public class BatchOperationsBenchmark
             var sw = Stopwatch.StartNew();
             for (int i = 0; i < BenchmarkIterations; i++)
             {
-                BatchKeyDerivationOperations.HkdfBatch(ikms, salt, info, keyLength);
+                BatchKeyDerivationOperations.HkdfBatch(masterKey, salts, infos, outputLengths, HashAlgorithmName.SHA256);
             }
             sw.Stop();
 

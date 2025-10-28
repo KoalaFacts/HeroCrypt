@@ -142,7 +142,7 @@ public class BatchOperationsBenchmark
         private static async Task<BatchBenchmarkResult> BenchmarkSha256BatchAsync(int dataSize, int batchSize)
         {
             var dataItems = Enumerable.Range(0, batchSize)
-                .Select(_ => GetRandomBytes(dataSize))
+                .Select(_ => new ReadOnlyMemory<byte>(GetRandomBytes(dataSize)))
                 .ToArray();
 
             // Warmup
@@ -190,7 +190,7 @@ public class BatchOperationsBenchmark
         private static async Task<BatchBenchmarkResult> BenchmarkBlake2bBatchAsync(int dataSize, int batchSize)
         {
             var dataItems = Enumerable.Range(0, batchSize)
-                .Select(_ => GetRandomBytes(dataSize))
+                .Select(_ => new ReadOnlyMemory<byte>(GetRandomBytes(dataSize)))
                 .ToArray();
 
             // Warmup
@@ -235,24 +235,24 @@ public class BatchOperationsBenchmark
             };
         }
 
-        private static async Task<double> MeasureSequentialHashAsync(byte[][] dataItems)
+        private static async Task<double> MeasureSequentialHashAsync(ReadOnlyMemory<byte>[] dataItems)
         {
             using var sha256 = SHA256.Create();
             var sw = Stopwatch.StartNew();
             foreach (var data in dataItems)
             {
-                sha256.ComputeHash(data);
+                sha256.ComputeHash(data.ToArray());
             }
             sw.Stop();
             return sw.Elapsed.TotalMilliseconds;
         }
 
-        private static double MeasureSequentialBlake2b(byte[][] dataItems)
+        private static double MeasureSequentialBlake2b(ReadOnlyMemory<byte>[] dataItems)
         {
             var sw = Stopwatch.StartNew();
             foreach (var data in dataItems)
             {
-                Blake2bCore.ComputeHash(data);
+                Blake2bCore.ComputeHash(data.ToArray());
             }
             sw.Stop();
             return sw.Elapsed.TotalMilliseconds;
@@ -490,17 +490,22 @@ public class BatchOperationsBenchmark
             var keyPair = Ed25519Core.GenerateKeyPair();
 
             var messages = Enumerable.Range(0, batchSize)
-                .Select(_ => GetRandomBytes(dataSize))
+                .Select(_ => new ReadOnlyMemory<byte>(GetRandomBytes(dataSize)))
                 .ToArray();
 
             var signatures = messages
-                .Select(msg => Ed25519Core.Sign(msg, keyPair.privateKey))
+                .Select(msg => new ReadOnlyMemory<byte>(Ed25519Core.Sign(msg.ToArray(), keyPair.privateKey)))
+                .ToArray();
+
+            // Create array of public keys (same key repeated for each message)
+            var publicKeys = Enumerable.Range(0, batchSize)
+                .Select(_ => new ReadOnlyMemory<byte>(keyPair.publicKey))
                 .ToArray();
 
             // Warmup
             for (int i = 0; i < WarmupIterations; i++)
             {
-                BatchSignatureOperations.VerifyEd25519Batch(messages, signatures, keyPair.publicKey);
+                BatchSignatureOperations.VerifyEd25519Batch(publicKeys, messages, signatures);
             }
 
             // Benchmark
@@ -511,7 +516,7 @@ public class BatchOperationsBenchmark
             var sw = Stopwatch.StartNew();
             for (int i = 0; i < BenchmarkIterations; i++)
             {
-                BatchSignatureOperations.VerifyEd25519Batch(messages, signatures, keyPair.publicKey);
+                BatchSignatureOperations.VerifyEd25519Batch(publicKeys, messages, signatures);
             }
             sw.Stop();
 
@@ -537,12 +542,12 @@ public class BatchOperationsBenchmark
             };
         }
 
-        private static double MeasureSequentialEd25519Verify(byte[][] messages, byte[][] signatures, byte[] publicKey)
+        private static double MeasureSequentialEd25519Verify(ReadOnlyMemory<byte>[] messages, ReadOnlyMemory<byte>[] signatures, byte[] publicKey)
         {
             var sw = Stopwatch.StartNew();
             for (int i = 0; i < messages.Length; i++)
             {
-                Ed25519Core.Verify(messages[i], signatures[i], publicKey);
+                Ed25519Core.Verify(messages[i].ToArray(), signatures[i].ToArray(), publicKey);
             }
             sw.Stop();
             return sw.Elapsed.TotalMilliseconds;
@@ -575,9 +580,12 @@ public class BatchOperationsBenchmark
 
         private static async Task<BatchBenchmarkResult> BenchmarkPbkdf2BatchAsync(int batchSize)
         {
-            var password = Encoding.UTF8.GetBytes("benchmark_password");
+            var passwordBytes = Encoding.UTF8.GetBytes("benchmark_password");
+            var passwords = Enumerable.Range(0, batchSize)
+                .Select(_ => new ReadOnlyMemory<byte>(passwordBytes))
+                .ToArray();
             var salts = Enumerable.Range(0, batchSize)
-                .Select(_ => GetRandomBytes(16))
+                .Select(_ => new ReadOnlyMemory<byte>(GetRandomBytes(16)))
                 .ToArray();
             const int iterations = 10000; // Reduced for benchmarking
             const int keyLength = 32;
@@ -585,7 +593,7 @@ public class BatchOperationsBenchmark
             // Warmup
             for (int i = 0; i < WarmupIterations; i++)
             {
-                await BatchKeyDerivationOperations.Pbkdf2BatchAsync(password, salts, iterations, keyLength);
+                await BatchKeyDerivationOperations.Pbkdf2BatchAsync(passwords, salts, iterations, keyLength, HashAlgorithmName.SHA256);
             }
 
             // Benchmark
@@ -596,7 +604,7 @@ public class BatchOperationsBenchmark
             var sw = Stopwatch.StartNew();
             for (int i = 0; i < BenchmarkIterations; i++)
             {
-                await BatchKeyDerivationOperations.Pbkdf2BatchAsync(password, salts, iterations, keyLength);
+                await BatchKeyDerivationOperations.Pbkdf2BatchAsync(passwords, salts, iterations, keyLength, HashAlgorithmName.SHA256);
             }
             sw.Stop();
 
@@ -654,7 +662,7 @@ public class BatchOperationsBenchmark
             return new BatchBenchmarkResult
             {
                 OperationName = "HKDF Batch",
-                DataSize = keyLength,
+                DataSize = outputLengths[0], // All outputs are same length (32)
                 BatchSize = batchSize,
                 ParallelismDegree = 0,
                 AverageTimeMs = avgTimeMs,

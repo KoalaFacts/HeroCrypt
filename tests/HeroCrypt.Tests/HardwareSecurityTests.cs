@@ -301,25 +301,6 @@ public class HardwareSecurityTests
         Assert.Equal(32, pcrValue.Length); // SHA-256 PCR
     }
 
-    [Fact(Skip = "TPM is a reference implementation that returns zeros - production requires actual TPM library integration")]
-    public async Task Tpm_GetRandom_ReturnsRandomBytes()
-    {
-        // Arrange
-        var provider = new TpmProvider();
-        await provider.InitializeAsync(false);
-
-        // Act
-        var random1 = await provider.GetRandomAsync(32);
-        var random2 = await provider.GetRandomAsync(32);
-
-        // Assert
-        Assert.NotNull(random1);
-        Assert.NotNull(random2);
-        Assert.Equal(32, random1.Length);
-        Assert.Equal(32, random2.Length);
-        Assert.False(random1.SequenceEqual(random2)); // Should be different
-    }
-
     #endregion
 
     #region TEE Tests

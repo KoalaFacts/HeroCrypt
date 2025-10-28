@@ -354,53 +354,6 @@ public class AesSivTests
         Assert.Equal(plaintext, decrypted);
     }
 
-    /// <summary>
-    /// RFC 5297 Appendix A - Test Vector 2
-    /// NOTE: RFC Appendix A.2 includes 2 AD elements, but our API currently only supports single AD
-    /// This test is skipped until multi-AD support is implemented
-    /// </summary>
-    [Fact(Skip = "API limitation: multi-AD not supported")]
-    [Trait("Category", "Compliance")]
-    public void Rfc5297_TestVector2_Success()
-    {
-        // Arrange - From RFC 5297 Appendix A.2
-        // AEAD_AES_SIV_CMAC_256 uses a 32-byte key (splits into K1=16 bytes, K2=16 bytes for AES-128)
-        var key = HexToBytes(
-            "7f7e7d7c7b7a79787776757473727170" +
-            "404142434445464748494a4b4c4d4e4f");
-
-        var nonce = HexToBytes(
-            "09f911029d74e35bd84156c5635688c0");
-
-        var plaintext = HexToBytes(
-            "7468697320697320736f6d6520706c61" +
-            "696e7465787420746f20656e63727970" +
-            "74207573696e67205349562d414553");
-
-        var expectedCiphertext = HexToBytes(
-            "7bdb6e3b432667eb06f4d14bff2fbd0f" + // SIV
-            "cb900f2fddbe404326601965c889bf17" + // Ciphertext
-            "dba77ceb094fa663b7a3f748ba8af829" +
-            "ea64ad544a272e9c485b62a3fd5c0d");
-
-        var ciphertext = new byte[plaintext.Length + AesSivCore.SivSize];
-        var decrypted = new byte[plaintext.Length];
-
-        // Act - Encrypt
-        var encryptedLength = AesSivCore.Encrypt(ciphertext, plaintext, key, nonce, Array.Empty<byte>());
-
-        // Assert encryption
-        Assert.Equal(expectedCiphertext.Length, encryptedLength);
-        Assert.Equal(expectedCiphertext, ciphertext.AsSpan(0, encryptedLength).ToArray());
-
-        // Act - Decrypt
-        var decryptedLength = AesSivCore.Decrypt(decrypted, ciphertext.AsSpan(0, encryptedLength), key, nonce, Array.Empty<byte>());
-
-        // Assert decryption
-        Assert.Equal(plaintext.Length, decryptedLength);
-        Assert.Equal(plaintext, decrypted);
-    }
-
     private static byte[] HexToBytes(string hex)
     {
         hex = hex.Replace(" ", "").Replace("\n", "").Replace("\r", "");

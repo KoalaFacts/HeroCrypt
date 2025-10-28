@@ -11,6 +11,8 @@ using HeroCrypt.Cryptography.ECC.Ed25519;
 
 namespace HeroCrypt.Performance;
 
+#if !NETSTANDARD2_0
+
 /// <summary>
 /// Comprehensive benchmark suite for batch cryptographic operations.
 /// Measures throughput, latency, and scalability across different batch sizes and data sizes.
@@ -709,3 +711,5 @@ public class BatchOperationsBenchmark
             }
         }
     }
+
+#endif

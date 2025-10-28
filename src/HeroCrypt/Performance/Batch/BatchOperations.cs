@@ -440,8 +440,8 @@ public static class BatchSignatureOperations
             degreeOfParallelism = ParallelCryptoOperations.OptimalDegreeOfParallelism;
 
         var results = new byte[messages.Length][];
-        var rsaLock = new object(); // RSA is not thread-safe, must lock
-        var semaphore = new SemaphoreSlim(degreeOfParallelism);
+        // RSA is not thread-safe - use semaphore to serialize access
+        var rsaSemaphore = new SemaphoreSlim(1, 1);
         var tasks = new Task[messages.Length];
 
         for (int i = 0; i < messages.Length; i++)
@@ -449,20 +449,14 @@ public static class BatchSignatureOperations
             var index = i; // Capture for closure
             tasks[i] = Task.Run(async () =>
             {
-                await semaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
+                await rsaSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
                 try
                 {
-                    results[index] = await Task.Run(() =>
-                    {
-                        lock (rsaLock)
-                        {
-                            return privateKey.SignData(messages[index].ToArray(), hashAlgorithm, padding);
-                        }
-                    }, cancellationToken);
+                    results[index] = privateKey.SignData(messages[index].ToArray(), hashAlgorithm, padding);
                 }
                 finally
                 {
-                    semaphore.Release();
+                    rsaSemaphore.Release();
                 }
             }, cancellationToken);
         }
@@ -500,8 +494,8 @@ public static class BatchSignatureOperations
             degreeOfParallelism = ParallelCryptoOperations.OptimalDegreeOfParallelism;
 
         var results = new bool[messages.Length];
-        var rsaLock = new object(); // RSA is not thread-safe, must lock
-        var semaphore = new SemaphoreSlim(degreeOfParallelism);
+        // RSA is not thread-safe - use semaphore to serialize access
+        var rsaSemaphore = new SemaphoreSlim(1, 1);
         var tasks = new Task[messages.Length];
 
         for (int i = 0; i < messages.Length; i++)
@@ -509,31 +503,22 @@ public static class BatchSignatureOperations
             var index = i; // Capture for closure
             tasks[i] = Task.Run(async () =>
             {
-                await semaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
+                await rsaSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
                 try
                 {
-                    results[index] = await Task.Run(() =>
-                    {
-                        lock (rsaLock)
-                        {
-                            try
-                            {
-                                return publicKey.VerifyData(
-                                    messages[index].ToArray(),
-                                    signatures[index].ToArray(),
-                                    hashAlgorithm,
-                                    padding);
-                            }
-                            catch
-                            {
-                                return false;
-                            }
-                        }
-                    }, cancellationToken);
+                    results[index] = publicKey.VerifyData(
+                        messages[index].ToArray(),
+                        signatures[index].ToArray(),
+                        hashAlgorithm,
+                        padding);
+                }
+                catch
+                {
+                    results[index] = false;
                 }
                 finally
                 {
-                    semaphore.Release();
+                    rsaSemaphore.Release();
                 }
             }, cancellationToken);
         }

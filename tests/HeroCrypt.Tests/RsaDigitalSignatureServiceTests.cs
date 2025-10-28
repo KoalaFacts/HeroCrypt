@@ -23,8 +23,8 @@ public class RsaDigitalSignatureServiceTests
     [Trait("Category", TestCategories.Unit)]
     public void Constructor_WithInvalidKeySize_ThrowsException()
     {
-        var ex = Assert.Throws<ArgumentException>(() => new RsaDigitalSignatureService(512));
-        Assert.Contains("RSA key size must be at least 1024 bits", ex.Message);
+        var ex = Assert.Throws<ArgumentException>(() => new RsaDigitalSignatureService(1024));
+        Assert.Contains("RSA key size must be at least 2048 bits", ex.Message);
     }
 
     [Fact]
@@ -39,7 +39,7 @@ public class RsaDigitalSignatureServiceTests
     [Trait("Category", TestCategories.Unit)]
     public void GenerateKeyPair_ReturnsValidKeyPair()
     {
-        var service = new RsaDigitalSignatureService(1024); // Smaller key for faster tests
+        var service = new RsaDigitalSignatureService(2048);
 
         var (privateKey, publicKey) = service.GenerateKeyPair();
 
@@ -54,7 +54,7 @@ public class RsaDigitalSignatureServiceTests
     [Trait("Category", TestCategories.Unit)]
     public void DerivePublicKey_FromPrivateKey_ReturnsConsistentResult()
     {
-        var service = new RsaDigitalSignatureService(1024);
+        var service = new RsaDigitalSignatureService(2048);
         var (privateKey, originalPublicKey) = service.GenerateKeyPair();
 
         var derivedPublicKey = service.DerivePublicKey(privateKey);
@@ -76,15 +76,15 @@ public class RsaDigitalSignatureServiceTests
     [Trait("Category", TestCategories.Unit)]
     public void Sign_WithValidInputs_ReturnsSignature()
     {
-        var service = new RsaDigitalSignatureService(1024);
+        var service = new RsaDigitalSignatureService(2048);
         var (privateKey, _) = service.GenerateKeyPair();
         var data = Encoding.UTF8.GetBytes("Test message for signing");
 
         var signature = service.Sign(data, privateKey);
 
         Assert.NotNull(signature);
-        Assert.Equal(128, signature.Length); // 1024 bits = 128 bytes
-        Assert.NotEqual(new byte[128], signature);
+        Assert.Equal(256, signature.Length); // 2048 bits = 256 bytes
+        Assert.NotEqual(new byte[256], signature);
     }
 
     [Fact]
@@ -113,7 +113,7 @@ public class RsaDigitalSignatureServiceTests
     [Trait("Category", TestCategories.Unit)]
     public void Verify_WithValidSignature_ReturnsTrue()
     {
-        var service = new RsaDigitalSignatureService(1024);
+        var service = new RsaDigitalSignatureService(2048);
         var (privateKey, publicKey) = service.GenerateKeyPair();
         var data = Encoding.UTF8.GetBytes("Test message for verification");
 
@@ -127,7 +127,7 @@ public class RsaDigitalSignatureServiceTests
     [Trait("Category", TestCategories.Unit)]
     public void Verify_WithInvalidSignature_ReturnsFalse()
     {
-        var service = new RsaDigitalSignatureService(1024);
+        var service = new RsaDigitalSignatureService(2048);
         var (privateKey, publicKey) = service.GenerateKeyPair();
         var data = Encoding.UTF8.GetBytes("Test message");
         var wrongData = Encoding.UTF8.GetBytes("Different message");
@@ -142,7 +142,7 @@ public class RsaDigitalSignatureServiceTests
     [Trait("Category", TestCategories.Unit)]
     public void Verify_WithTamperedSignature_ReturnsFalse()
     {
-        var service = new RsaDigitalSignatureService(1024);
+        var service = new RsaDigitalSignatureService(2048);
         var (privateKey, publicKey) = service.GenerateKeyPair();
         var data = Encoding.UTF8.GetBytes("Test message");
 
@@ -158,7 +158,7 @@ public class RsaDigitalSignatureServiceTests
     [Trait("Category", TestCategories.Unit)]
     public void Verify_WithWrongPublicKey_ReturnsFalse()
     {
-        var service = new RsaDigitalSignatureService(1024);
+        var service = new RsaDigitalSignatureService(2048);
         var (privateKey1, _) = service.GenerateKeyPair();
         var (_, publicKey2) = service.GenerateKeyPair();
         var data = Encoding.UTF8.GetBytes("Test message");
@@ -187,7 +187,7 @@ public class RsaDigitalSignatureServiceTests
     [Trait("Category", TestCategories.Unit)]
     public void Sign_IsDeterministic_WithSameInputs()
     {
-        var service = new RsaDigitalSignatureService(1024);
+        var service = new RsaDigitalSignatureService(2048);
         var (privateKey, _) = service.GenerateKeyPair();
         var data = Encoding.UTF8.GetBytes("Deterministic test message");
 
@@ -202,7 +202,7 @@ public class RsaDigitalSignatureServiceTests
     [Trait("Category", TestCategories.Unit)]
     public void Sign_DifferentMessages_ProduceDifferentSignatures()
     {
-        var service = new RsaDigitalSignatureService(1024);
+        var service = new RsaDigitalSignatureService(2048);
         var (privateKey, _) = service.GenerateKeyPair();
         var message1 = Encoding.UTF8.GetBytes("First message");
         var message2 = Encoding.UTF8.GetBytes("Second message");
@@ -217,7 +217,7 @@ public class RsaDigitalSignatureServiceTests
     [Trait("Category", TestCategories.Unit)]
     public void KeyPairGeneration_ProducesUniqueKeys()
     {
-        var service = new RsaDigitalSignatureService(1024);
+        var service = new RsaDigitalSignatureService(2048);
 
         var (privateKey1, publicKey1) = service.GenerateKeyPair();
         var (privateKey2, publicKey2) = service.GenerateKeyPair();
@@ -230,7 +230,7 @@ public class RsaDigitalSignatureServiceTests
     [Trait("Category", TestCategories.Compliance)]
     public async Task SignAsync_WorksCorrectly()
     {
-        var service = new RsaDigitalSignatureService(1024);
+        var service = new RsaDigitalSignatureService(2048);
         var (privateKey, publicKey) = service.GenerateKeyPair();
         var data = Encoding.UTF8.GetBytes("Async signing test");
 
@@ -238,14 +238,14 @@ public class RsaDigitalSignatureServiceTests
         var isValid = service.Verify(signature, data, publicKey);
 
         Assert.True(isValid);
-        Assert.Equal(128, signature.Length);
+        Assert.Equal(256, signature.Length);
     }
 
     [Fact]
     [Trait("Category", TestCategories.Compliance)]
     public async Task VerifyAsync_WorksCorrectly()
     {
-        var service = new RsaDigitalSignatureService(1024);
+        var service = new RsaDigitalSignatureService(2048);
         var (privateKey, publicKey) = service.GenerateKeyPair();
         var data = Encoding.UTF8.GetBytes("Async verification test");
 
@@ -259,7 +259,7 @@ public class RsaDigitalSignatureServiceTests
     [Trait("Category", TestCategories.Compliance)]
     public async Task AsyncOperations_ProduceSameResultsAsSyncOperations()
     {
-        var service = new RsaDigitalSignatureService(1024);
+        var service = new RsaDigitalSignatureService(2048);
         var (privateKey, publicKey) = service.GenerateKeyPair();
         var data = Encoding.UTF8.GetBytes("Sync vs Async test");
 
@@ -279,7 +279,7 @@ public class RsaDigitalSignatureServiceTests
     [Trait("Category", TestCategories.Unit)]
     public void Service_HandlesLargeData()
     {
-        var service = new RsaDigitalSignatureService(1024);
+        var service = new RsaDigitalSignatureService(2048);
         var (privateKey, publicKey) = service.GenerateKeyPair();
 
         // Create 1MB of test data
@@ -296,7 +296,7 @@ public class RsaDigitalSignatureServiceTests
     [Trait("Category", TestCategories.Unit)]
     public void Service_HandlesEmptyData()
     {
-        var service = new RsaDigitalSignatureService(1024);
+        var service = new RsaDigitalSignatureService(2048);
         var (privateKey, publicKey) = service.GenerateKeyPair();
         var emptyData = Array.Empty<byte>();
 
@@ -310,7 +310,7 @@ public class RsaDigitalSignatureServiceTests
     [Trait("Category", TestCategories.Unit)]
     public void Service_PerformanceTest_MultipleOperations()
     {
-        var service = new RsaDigitalSignatureService(1024);
+        var service = new RsaDigitalSignatureService(2048);
         var (privateKey, publicKey) = service.GenerateKeyPair();
         var data = Encoding.UTF8.GetBytes("Performance test message");
 
@@ -327,7 +327,7 @@ public class RsaDigitalSignatureServiceTests
     [Trait("Category", TestCategories.Unit)]
     public void Service_SecurityTest_DifferentKeysDontWork()
     {
-        var service = new RsaDigitalSignatureService(1024);
+        var service = new RsaDigitalSignatureService(2048);
         var (privateKey1, _) = service.GenerateKeyPair();
         var (_, publicKey2) = service.GenerateKeyPair();
         var data = Encoding.UTF8.GetBytes("Security test message");
@@ -342,7 +342,7 @@ public class RsaDigitalSignatureServiceTests
     [Trait("Category", TestCategories.Unit)]
     public void Service_SecurityTest_ModifiedDataDetected()
     {
-        var service = new RsaDigitalSignatureService(1024);
+        var service = new RsaDigitalSignatureService(2048);
         var (privateKey, publicKey) = service.GenerateKeyPair();
         var originalData = Encoding.UTF8.GetBytes("Original message");
         var modifiedData = Encoding.UTF8.GetBytes("Modified message");

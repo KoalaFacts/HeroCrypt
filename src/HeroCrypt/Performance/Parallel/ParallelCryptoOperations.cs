@@ -357,12 +357,13 @@ public static class ParallelAesGcm
         var approxChunkCount = (ciphertext.Length + avgChunkSize - 1) / avgChunkSize;
         var plaintextLength = ciphertext.Length - (approxChunkCount * TagSize);
         int chunkCount;
+        int expectedCiphertextLength;
 
         // Iterate to converge (usually converges in 1-2 iterations)
         for (int iteration = 0; iteration < 10; iteration++)
         {
             chunkCount = (plaintextLength + ChunkSize - 1) / ChunkSize;
-            var expectedCiphertextLength = plaintextLength + (chunkCount * TagSize);
+            expectedCiphertextLength = plaintextLength + (chunkCount * TagSize);
 
             if (expectedCiphertextLength == ciphertext.Length)
             {
@@ -383,7 +384,7 @@ public static class ParallelAesGcm
         chunkCount = (plaintextLength + ChunkSize - 1) / ChunkSize;
 
         // Final validation
-        var expectedCiphertextLength = plaintextLength + (chunkCount * TagSize);
+        expectedCiphertextLength = plaintextLength + (chunkCount * TagSize);
         if (expectedCiphertextLength != ciphertext.Length || plaintextLength < 0)
         {
             throw new System.Security.Cryptography.CryptographicException(

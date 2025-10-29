@@ -178,16 +178,14 @@ public static class DataEncryptionExample
         Console.WriteLine($"Master key: {Convert.ToBase64String(masterKey)[..40]}...");
 
         // Derive separate keys for different purposes using HKDF
-        using HeroCrypt.Cryptography.KeyDerivation;
-
-        var encryptionKey = HkdfCore.DeriveKey(
+        var encryptionKey = HeroCrypt.Cryptography.KeyDerivation.HkdfCore.DeriveKey(
             masterKey,
             keyLength: 32,
             info: Encoding.UTF8.GetBytes("encryption-key-v1"),
             salt: null
         );
 
-        var authenticationKey = HkdfCore.DeriveKey(
+        var authenticationKey = HeroCrypt.Cryptography.KeyDerivation.HkdfCore.DeriveKey(
             masterKey,
             keyLength: 32,
             info: Encoding.UTF8.GetBytes("authentication-key-v1"),

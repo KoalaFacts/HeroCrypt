@@ -1,3 +1,4 @@
+using HeroCrypt.Cryptography.Argon2;
 using HeroCrypt.Cryptography.KeyDerivation;
 using System.Security.Cryptography;
 using System.Text;

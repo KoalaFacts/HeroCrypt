@@ -1,4 +1,5 @@
-using HeroCrypt.Cryptography.Symmetric;
+using HeroCrypt.Abstractions;
+using HeroCrypt.Services;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -50,10 +51,13 @@ public static class DataEncryptionExample
         Console.WriteLine(jsonData);
         Console.WriteLine();
 
+        // Create AEAD service
+        var aeadService = new AeadService();
+
         // Generate a data encryption key (DEK)
         var dek = new byte[32];  // 256-bit key
         RandomNumberGenerator.Fill(dek);
-        Console.WriteLine($"Generated DEK: {Convert.ToBase64String(dek)}");
+        Console.WriteLine($"Generated DEK: {Convert.ToBase64String(dek)[..40]}...");
 
         // Generate a unique nonce for this encryption
         var nonce = new byte[12];  // 96-bit nonce for ChaCha20-Poly1305
@@ -65,23 +69,25 @@ public static class DataEncryptionExample
 
         // Encrypt the data
         var plaintext = Encoding.UTF8.GetBytes(jsonData);
-        var ciphertext = ChaCha20Poly1305Cipher.Encrypt(
+        var ciphertext = await aeadService.EncryptAsync(
             plaintext,
             dek,
             nonce,
-            associatedData
+            associatedData,
+            AeadAlgorithm.ChaCha20Poly1305
         );
 
-        Console.WriteLine($"Encrypted data: {Convert.ToBase64String(ciphertext)}");
+        Console.WriteLine($"Encrypted data: {Convert.ToBase64String(ciphertext)[..60]}...");
         Console.WriteLine($"Ciphertext size: {ciphertext.Length} bytes (original: {plaintext.Length} bytes)");
         Console.WriteLine();
 
         // Decrypt the data
-        var decrypted = ChaCha20Poly1305Cipher.Decrypt(
+        var decrypted = await aeadService.DecryptAsync(
             ciphertext,
             dek,
             nonce,
-            associatedData
+            associatedData,
+            AeadAlgorithm.ChaCha20Poly1305
         );
 
         var decryptedJson = Encoding.UTF8.GetString(decrypted);
@@ -116,6 +122,9 @@ public static class DataEncryptionExample
         Console.WriteLine($"File size: {fileData.Length} bytes");
         Console.WriteLine();
 
+        // Create AEAD service
+        var aeadService = new AeadService();
+
         // Generate encryption key
         var key = new byte[32];
         RandomNumberGenerator.Fill(key);
@@ -129,11 +138,12 @@ public static class DataEncryptionExample
         var associatedData = Encoding.UTF8.GetBytes(filename);
 
         // Encrypt the file
-        var encryptedFile = ChaCha20Poly1305Cipher.Encrypt(
+        var encryptedFile = await aeadService.EncryptAsync(
             fileData,
             key,
             nonce,
-            associatedData
+            associatedData,
+            AeadAlgorithm.ChaCha20Poly1305
         );
 
         Console.WriteLine($"Encrypted file size: {encryptedFile.Length} bytes");
@@ -153,11 +163,12 @@ public static class DataEncryptionExample
         Console.WriteLine();
 
         // Decrypt the file
-        var decryptedFile = ChaCha20Poly1305Cipher.Decrypt(
+        var decryptedFile = await aeadService.DecryptAsync(
             filePackage.Ciphertext,
             key,
             filePackage.Nonce,
-            Encoding.UTF8.GetBytes(filePackage.Filename)
+            Encoding.UTF8.GetBytes(filePackage.Filename),
+            AeadAlgorithm.ChaCha20Poly1305
         );
 
         var decryptedContent = Encoding.UTF8.GetString(decryptedFile);
@@ -177,15 +188,18 @@ public static class DataEncryptionExample
         RandomNumberGenerator.Fill(masterKey);
         Console.WriteLine($"Master key: {Convert.ToBase64String(masterKey)[..40]}...");
 
+        // Create key derivation service
+        var keyDerivationService = new KeyDerivationService();
+
         // Derive separate keys for different purposes using HKDF
-        var encryptionKey = HeroCrypt.Cryptography.KeyDerivation.HkdfCore.DeriveKey(
+        var encryptionKey = keyDerivationService.DeriveHkdf(
             masterKey,
             keyLength: 32,
             info: Encoding.UTF8.GetBytes("encryption-key-v1"),
             salt: null
         );
 
-        var authenticationKey = HeroCrypt.Cryptography.KeyDerivation.HkdfCore.DeriveKey(
+        var authenticationKey = keyDerivationService.DeriveHkdf(
             masterKey,
             keyLength: 32,
             info: Encoding.UTF8.GetBytes("authentication-key-v1"),

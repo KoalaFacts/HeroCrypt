@@ -11,7 +11,7 @@ namespace HeroCrypt.Performance.Memory;
 /// High-performance memory pool for cryptographic operations
 ///
 /// Provides efficient memory allocation and reuse with:
-/// - ArrayPool<byte> integration for buffer reuse
+/// - ArrayPool&lt;byte&gt; integration for buffer reuse
 /// - Automatic buffer zeroing for security
 /// - Cache-line alignment for performance
 /// - Thread-safe operations

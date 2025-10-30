@@ -188,7 +188,13 @@ public class AeadBenchmark
         var decryptTimes = new double[iterations];
 
         const int tagSize = 16;
+#if NET7_0_OR_GREATER
         using var aes = new AesGcm(key, tagSize);
+#else
+#pragma warning disable SYSLIB0053 // AesGcm single-argument constructor is obsolete in .NET 7+
+        using var aes = new AesGcm(key);
+#pragma warning restore SYSLIB0053
+#endif
 
         // Warm up
         for (var i = 0; i < 10; i++)
@@ -253,7 +259,13 @@ public class AeadBenchmark
         var decryptTimes = new double[iterations];
 
         const int tagSize = 16;
+#if NET7_0_OR_GREATER
         using var aes = new AesGcm(key, tagSize);
+#else
+#pragma warning disable SYSLIB0053 // AesGcm single-argument constructor is obsolete in .NET 7+
+        using var aes = new AesGcm(key);
+#pragma warning restore SYSLIB0053
+#endif
 
         // Warm up
         for (var i = 0; i < 10; i++)

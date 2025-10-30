@@ -510,9 +510,20 @@ public class AeadService : IAeadService
     private static int EncryptAesGcm(Span<byte> ciphertext, ReadOnlySpan<byte> plaintext,
         ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce, ReadOnlySpan<byte> associatedData)
     {
-#if NET6_0_OR_GREATER
+#if NET7_0_OR_GREATER
         const int TagSizeInBytes = 16;
         using var aes = new AesGcm(key, TagSizeInBytes);
+        var tag = ciphertext.Slice(plaintext.Length, TagSizeInBytes);
+        var actualCiphertext = ciphertext.Slice(0, plaintext.Length);
+
+        aes.Encrypt(nonce, plaintext, actualCiphertext, tag, associatedData);
+
+        return plaintext.Length + 16; // Include tag length
+#elif NET6_0_OR_GREATER
+        const int TagSizeInBytes = 16;
+#pragma warning disable SYSLIB0053 // AesGcm single-argument constructor is obsolete in .NET 7+
+        using var aes = new AesGcm(key);
+#pragma warning restore SYSLIB0053
         var tag = ciphertext.Slice(plaintext.Length, TagSizeInBytes);
         var actualCiphertext = ciphertext.Slice(0, plaintext.Length);
 
@@ -527,9 +538,21 @@ public class AeadService : IAeadService
     private static int DecryptAesGcm(Span<byte> plaintext, ReadOnlySpan<byte> ciphertext,
         ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce, ReadOnlySpan<byte> associatedData)
     {
-#if NET6_0_OR_GREATER
+#if NET7_0_OR_GREATER
         const int TagSizeInBytes = 16;
         using var aes = new AesGcm(key, TagSizeInBytes);
+        var tag = ciphertext.Slice(ciphertext.Length - TagSizeInBytes, TagSizeInBytes);
+        var actualCiphertext = ciphertext.Slice(0, ciphertext.Length - 16);
+
+        try
+        {
+            aes.Decrypt(nonce, actualCiphertext, tag, plaintext, associatedData);
+        }
+#elif NET6_0_OR_GREATER
+        const int TagSizeInBytes = 16;
+#pragma warning disable SYSLIB0053 // AesGcm single-argument constructor is obsolete in .NET 7+
+        using var aes = new AesGcm(key);
+#pragma warning restore SYSLIB0053
         var tag = ciphertext.Slice(ciphertext.Length - TagSizeInBytes, TagSizeInBytes);
         var actualCiphertext = ciphertext.Slice(0, ciphertext.Length - 16);
 

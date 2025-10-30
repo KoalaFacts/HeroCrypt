@@ -301,13 +301,13 @@ public static class ParallelAesGcm
                 var tag = ciphertext.AsSpan(ciphertextOffset + length, TagSize);
 
                 // Use AES-GCM for authenticated encryption
-#if NET7_0_OR_GREATER
+#if NET8_0_OR_GREATER
                 const int tagSize = 16;
                 using var aes = new System.Security.Cryptography.AesGcm(keyArray, tagSize);
                 aes.Encrypt(chunkNonce, plaintextChunk, ciphertextChunk, tag, associatedDataArray);
 #elif NET6_0_OR_GREATER
                 const int tagSize = 16;
-#pragma warning disable SYSLIB0053 // AesGcm single-argument constructor is obsolete in .NET 7+
+#pragma warning disable SYSLIB0053 // AesGcm single-argument constructor is obsolete in .NET 8+
                 using var aes = new System.Security.Cryptography.AesGcm(keyArray);
 #pragma warning restore SYSLIB0053
                 aes.Encrypt(chunkNonce, plaintextChunk, ciphertextChunk, tag, associatedDataArray);
@@ -441,13 +441,13 @@ public static class ParallelAesGcm
                     var tempPlaintext = new byte[length];
                     try
                     {
-#if NET7_0_OR_GREATER
+#if NET8_0_OR_GREATER
                         const int tagSize = 16;
                 using var aes = new System.Security.Cryptography.AesGcm(keyArray, tagSize);
                         aes.Decrypt(chunkNonce, ciphertextChunk, tag, tempPlaintext, associatedDataArray);
 #elif NET6_0_OR_GREATER
                         const int tagSize = 16;
-#pragma warning disable SYSLIB0053 // AesGcm single-argument constructor is obsolete in .NET 7+
+#pragma warning disable SYSLIB0053 // AesGcm single-argument constructor is obsolete in .NET 8+
                 using var aes = new System.Security.Cryptography.AesGcm(keyArray);
 #pragma warning restore SYSLIB0053
                         aes.Decrypt(chunkNonce, ciphertextChunk, tag, tempPlaintext, associatedDataArray);
@@ -498,13 +498,13 @@ public static class ParallelAesGcm
                     var plaintextChunk = plaintext.AsSpan(offset, length);
 
                     // Decrypt - we know tags are valid from phase 1
-#if NET7_0_OR_GREATER
+#if NET8_0_OR_GREATER
                     const int tagSize = 16;
                 using var aes = new System.Security.Cryptography.AesGcm(keyArray, tagSize);
                     aes.Decrypt(chunkNonce, ciphertextChunk, tag, plaintextChunk, associatedDataArray);
 #elif NET6_0_OR_GREATER
                     const int tagSize = 16;
-#pragma warning disable SYSLIB0053 // AesGcm single-argument constructor is obsolete in .NET 7+
+#pragma warning disable SYSLIB0053 // AesGcm single-argument constructor is obsolete in .NET 8+
                 using var aes = new System.Security.Cryptography.AesGcm(keyArray);
 #pragma warning restore SYSLIB0053
                     aes.Decrypt(chunkNonce, ciphertextChunk, tag, plaintextChunk, associatedDataArray);
@@ -537,13 +537,13 @@ public static class ParallelAesGcm
         var ciphertextData = ciphertext.AsSpan(0, plaintext.Length);
         var tag = ciphertext.AsSpan(plaintext.Length, TagSize);
 
-#if NET7_0_OR_GREATER
+#if NET8_0_OR_GREATER
         const int tagSize = 16;
         using var aes = new System.Security.Cryptography.AesGcm(key, tagSize);
         aes.Encrypt(nonce, plaintext, ciphertextData, tag, associatedData);
 #elif NET6_0_OR_GREATER
         const int tagSize = 16;
-#pragma warning disable SYSLIB0053 // AesGcm single-argument constructor is obsolete in .NET 7+
+#pragma warning disable SYSLIB0053 // AesGcm single-argument constructor is obsolete in .NET 8+
         using var aes = new System.Security.Cryptography.AesGcm(key);
 #pragma warning restore SYSLIB0053
         aes.Encrypt(nonce, plaintext, ciphertextData, tag, associatedData);
@@ -574,13 +574,13 @@ public static class ParallelAesGcm
         var ciphertextData = ciphertext.Slice(0, plaintextLength);
         var tag = ciphertext.Slice(plaintextLength, TagSize);
 
-#if NET7_0_OR_GREATER
+#if NET8_0_OR_GREATER
         const int tagSize = 16;
         using var aes = new System.Security.Cryptography.AesGcm(key, tagSize);
         aes.Decrypt(nonce, ciphertextData, tag, plaintext, associatedData);
 #elif NET6_0_OR_GREATER
         const int tagSize = 16;
-#pragma warning disable SYSLIB0053 // AesGcm single-argument constructor is obsolete in .NET 7+
+#pragma warning disable SYSLIB0053 // AesGcm single-argument constructor is obsolete in .NET 8+
         using var aes = new System.Security.Cryptography.AesGcm(key);
 #pragma warning restore SYSLIB0053
         aes.Decrypt(nonce, ciphertextData, tag, plaintext, associatedData);

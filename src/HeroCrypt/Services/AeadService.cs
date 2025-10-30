@@ -510,7 +510,7 @@ public class AeadService : IAeadService
     private static int EncryptAesGcm(Span<byte> ciphertext, ReadOnlySpan<byte> plaintext,
         ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce, ReadOnlySpan<byte> associatedData)
     {
-#if NET7_0_OR_GREATER
+#if NET8_0_OR_GREATER
         const int TagSizeInBytes = 16;
         using var aes = new AesGcm(key, TagSizeInBytes);
         var tag = ciphertext.Slice(plaintext.Length, TagSizeInBytes);
@@ -521,7 +521,7 @@ public class AeadService : IAeadService
         return plaintext.Length + 16; // Include tag length
 #elif NET6_0_OR_GREATER
         const int TagSizeInBytes = 16;
-#pragma warning disable SYSLIB0053 // AesGcm single-argument constructor is obsolete in .NET 7+
+#pragma warning disable SYSLIB0053 // AesGcm single-argument constructor is obsolete in .NET 8+
         using var aes = new AesGcm(key);
 #pragma warning restore SYSLIB0053
         var tag = ciphertext.Slice(plaintext.Length, TagSizeInBytes);
@@ -538,7 +538,7 @@ public class AeadService : IAeadService
     private static int DecryptAesGcm(Span<byte> plaintext, ReadOnlySpan<byte> ciphertext,
         ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce, ReadOnlySpan<byte> associatedData)
     {
-#if NET7_0_OR_GREATER
+#if NET8_0_OR_GREATER
         const int TagSizeInBytes = 16;
         using var aes = new AesGcm(key, TagSizeInBytes);
         var tag = ciphertext.Slice(ciphertext.Length - TagSizeInBytes, TagSizeInBytes);
@@ -556,7 +556,7 @@ public class AeadService : IAeadService
         return actualCiphertext.Length;
 #elif NET6_0_OR_GREATER
         const int TagSizeInBytes = 16;
-#pragma warning disable SYSLIB0053 // AesGcm single-argument constructor is obsolete in .NET 7+
+#pragma warning disable SYSLIB0053 // AesGcm single-argument constructor is obsolete in .NET 8+
         using var aes = new AesGcm(key);
 #pragma warning restore SYSLIB0053
         var tag = ciphertext.Slice(ciphertext.Length - TagSizeInBytes, TagSizeInBytes);

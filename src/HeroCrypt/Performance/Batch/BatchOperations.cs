@@ -291,13 +291,13 @@ public static class BatchEncryptionOperations
                 await Task.Run(() =>
                 {
                     // Use AesGcm for authenticated encryption
-#if NET7_0_OR_GREATER
+#if NET8_0_OR_GREATER
                     const int tagSize = 16;
                     using var aes = new AesGcm(key.Span, tagSize);
                     aes.Encrypt(nonce, plaintext.Span, ciphertext, tag, associatedData.Span);
 #elif NET6_0_OR_GREATER
                     const int tagSize = 16;
-#pragma warning disable SYSLIB0053 // AesGcm single-argument constructor is obsolete in .NET 7+
+#pragma warning disable SYSLIB0053 // AesGcm single-argument constructor is obsolete in .NET 8+
                     using var aes = new AesGcm(key.Span);
 #pragma warning restore SYSLIB0053
                     aes.Encrypt(nonce, plaintext.Span, ciphertext, tag, associatedData.Span);
@@ -338,13 +338,13 @@ public static class BatchEncryptionOperations
                 await Task.Run(() =>
                 {
                     // Use AesGcm for authenticated decryption
-#if NET7_0_OR_GREATER
+#if NET8_0_OR_GREATER
                     const int tagSize = 16;
                     using var aes = new AesGcm(key.Span, tagSize);
                     aes.Decrypt(ct.Nonce, ct.Ciphertext, ct.Tag, plaintext, associatedData.Span);
 #elif NET6_0_OR_GREATER
                     const int tagSize = 16;
-#pragma warning disable SYSLIB0053 // AesGcm single-argument constructor is obsolete in .NET 7+
+#pragma warning disable SYSLIB0053 // AesGcm single-argument constructor is obsolete in .NET 8+
                     using var aes = new AesGcm(key.Span);
 #pragma warning restore SYSLIB0053
                     aes.Decrypt(ct.Nonce, ct.Ciphertext, ct.Tag, plaintext, associatedData.Span);

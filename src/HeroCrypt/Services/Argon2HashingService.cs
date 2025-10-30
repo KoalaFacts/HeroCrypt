@@ -219,12 +219,83 @@ public sealed class Argon2HashingService : IHashingService
     }
 }
 
+/// <summary>
+/// Configuration options for Argon2 password hashing.
+/// </summary>
+/// <remarks>
+/// These options control the computational cost and security level of Argon2 hashing.
+/// Higher values provide better security but require more resources.
+///
+/// <para>
+/// <strong>Recommended Settings:</strong>
+/// <list type="bullet">
+/// <item><strong>High Security (Production):</strong> 3 iterations, 64 MB memory, parallelism 4</item>
+/// <item><strong>Medium Security:</strong> 2 iterations, 19 MB memory, parallelism 1</item>
+/// <item><strong>Low Security (Testing):</strong> 1 iteration, 8 MB memory, parallelism 1</item>
+/// </list>
+/// </para>
+/// </remarks>
 public sealed class Argon2Options
 {
+    /// <summary>
+    /// Gets or sets the size of the salt in bytes.
+    /// Default is 16 bytes (128 bits).
+    /// </summary>
+    /// <value>
+    /// The salt size in bytes. Must be at least 8 bytes per RFC 9106.
+    /// </value>
     public int SaltSize { get; set; } = 16;
+
+    /// <summary>
+    /// Gets or sets the size of the output hash in bytes.
+    /// Default is 32 bytes (256 bits).
+    /// </summary>
+    /// <value>
+    /// The hash size in bytes. Must be at least 4 bytes.
+    /// </value>
     public int HashSize { get; set; } = 32;
+
+    /// <summary>
+    /// Gets or sets the number of parallel threads to use during hashing.
+    /// Default is 4.
+    /// </summary>
+    /// <value>
+    /// The number of parallel threads. Higher values use more CPU cores
+    /// but require more memory. Must be at least 1.
+    /// </value>
     public int Parallelism { get; set; } = 4;
+
+    /// <summary>
+    /// Gets or sets the amount of memory to use for hashing, in kilobytes.
+    /// Default is 65536 KB (64 MB).
+    /// </summary>
+    /// <value>
+    /// The memory size in kilobytes. Higher values provide better resistance
+    /// to GPU and ASIC attacks. Must be at least 8 KB per RFC 9106.
+    /// </value>
     public int MemorySize { get; set; } = 65536;
+
+    /// <summary>
+    /// Gets or sets the number of iterations (passes over memory).
+    /// Default is 3.
+    /// </summary>
+    /// <value>
+    /// The number of iterations. Higher values increase computational cost
+    /// and resistance to attacks. Must be at least 1 per RFC 9106.
+    /// </value>
     public int Iterations { get; set; } = 3;
+
+    /// <summary>
+    /// Gets or sets the Argon2 variant to use.
+    /// Default is Argon2id (recommended for password hashing).
+    /// </summary>
+    /// <value>
+    /// The Argon2 variant:
+    /// <list type="bullet">
+    /// <item><strong>Argon2id:</strong> Hybrid mode, recommended for most use cases (default)</item>
+    /// <item><strong>Argon2i:</strong> Optimized against side-channel attacks</item>
+    /// <item><strong>Argon2d:</strong> Optimized against GPU attacks (less side-channel resistant)</item>
+    /// </list>
+    /// </value>
     public Argon2Type Type { get; set; } = Argon2Type.Argon2id;
 }

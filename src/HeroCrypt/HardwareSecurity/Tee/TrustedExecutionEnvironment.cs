@@ -406,6 +406,12 @@ public class ArmTrustZoneProvider : ITeeProvider
 {
     private bool _initialized;
 
+    /// <summary>
+    /// Initializes the ARM TrustZone provider
+    /// </summary>
+    /// <param name="teeType">The TEE type (must be ARMTrustZone)</param>
+    /// <returns>A task representing the asynchronous operation</returns>
+    /// <exception cref="ArgumentException">Thrown when teeType is not ARMTrustZone</exception>
     public Task InitializeAsync(TeeType teeType)
     {
         if (teeType != TeeType.ARMTrustZone)
@@ -418,6 +424,12 @@ public class ArmTrustZoneProvider : ITeeProvider
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// Creates a new TrustZone Trusted Application (TA) session
+    /// </summary>
+    /// <param name="enclaveId">Unique identifier for the TA (typically a UUID)</param>
+    /// <param name="enclaveImage">Trusted Application binary</param>
+    /// <returns>A task that returns the created TA session</returns>
     public Task<TeeEnclave> CreateEnclaveAsync(string enclaveId, byte[] enclaveImage)
     {
         EnsureInitialized();
@@ -437,6 +449,13 @@ public class ArmTrustZoneProvider : ITeeProvider
         return Task.FromResult(enclave);
     }
 
+    /// <summary>
+    /// Invokes a command in the Trusted Application via secure world switch
+    /// </summary>
+    /// <param name="enclave">The TA session to invoke</param>
+    /// <param name="functionName">Name of the command to execute</param>
+    /// <param name="parameters">Optional parameters to pass to the command</param>
+    /// <returns>A task that returns the command result</returns>
     public Task<byte[]> InvokeEnclaveAsync(TeeEnclave enclave, string functionName, byte[]? parameters = null)
     {
         EnsureInitialized();
@@ -448,6 +467,12 @@ public class ArmTrustZoneProvider : ITeeProvider
         return Task.FromResult(new byte[32]);
     }
 
+    /// <summary>
+    /// Generates an attestation token for the Trusted Application
+    /// </summary>
+    /// <param name="enclave">The TA to attest</param>
+    /// <param name="challenge">Optional challenge nonce for freshness</param>
+    /// <returns>A task that returns the attestation data (ARM PSA token or vendor-specific)</returns>
     public Task<TeeAttestation> AttestEnclaveAsync(TeeEnclave enclave, byte[]? challenge = null)
     {
         EnsureInitialized();
@@ -464,6 +489,13 @@ public class ArmTrustZoneProvider : ITeeProvider
         return Task.FromResult(attestation);
     }
 
+    /// <summary>
+    /// Seals data to secure storage using TrustZone secure storage API
+    /// </summary>
+    /// <param name="enclave">The TA that will seal the data</param>
+    /// <param name="data">Data to seal</param>
+    /// <param name="policy">Sealing policy</param>
+    /// <returns>A task that returns the sealed (encrypted) data</returns>
     public Task<byte[]> SealDataAsync(TeeEnclave enclave, ReadOnlyMemory<byte> data, TeeSealPolicy policy)
     {
         EnsureInitialized();
@@ -474,6 +506,12 @@ public class ArmTrustZoneProvider : ITeeProvider
         return Task.FromResult(new byte[data.Length + 64]);
     }
 
+    /// <summary>
+    /// Unseals data from secure storage
+    /// </summary>
+    /// <param name="enclave">The TA that will unseal the data</param>
+    /// <param name="sealedData">Sealed data to decrypt</param>
+    /// <returns>A task that returns the unsealed (decrypted) data</returns>
     public Task<byte[]> UnsealDataAsync(TeeEnclave enclave, ReadOnlyMemory<byte> sealedData)
     {
         EnsureInitialized();
@@ -483,6 +521,11 @@ public class ArmTrustZoneProvider : ITeeProvider
         return Task.FromResult(new byte[sealedData.Length - 64]);
     }
 
+    /// <summary>
+    /// Destroys a Trusted Application session and cleans up resources
+    /// </summary>
+    /// <param name="enclave">The TA session to destroy</param>
+    /// <returns>A task representing the asynchronous operation</returns>
     public Task DestroyEnclaveAsync(TeeEnclave enclave)
     {
         EnsureInitialized();
@@ -493,6 +536,10 @@ public class ArmTrustZoneProvider : ITeeProvider
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// Gets the TrustZone capabilities of the current platform
+    /// </summary>
+    /// <returns>A task that returns the TEE capabilities including supported features</returns>
     public Task<TeeCapabilities> GetCapabilitiesAsync()
     {
         return Task.FromResult(new TeeCapabilities

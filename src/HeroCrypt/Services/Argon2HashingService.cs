@@ -102,6 +102,18 @@ public sealed class Argon2HashingService : IHashingService
         return await HashAsync(Encoding.UTF8.GetBytes(input), cancellationToken);
     }
 
+    /// <summary>
+    /// Hashes a byte array using Argon2.
+    /// </summary>
+    /// <param name="input">The data to hash.</param>
+    /// <param name="cancellationToken">Cancellation token for async operation.</param>
+    /// <returns>A Base64-encoded string containing the salt and hash.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="input"/> is null.</exception>
+    /// <remarks>
+    /// The returned string contains both the salt and hash in a format that can be directly
+    /// passed to <see cref="VerifyAsync(byte[], string, CancellationToken)"/> for verification.
+    /// A new random salt is generated for each call.
+    /// </remarks>
     public async Task<string> HashAsync(byte[] input, CancellationToken cancellationToken = default)
     {
 #if NET6_0_OR_GREATER
@@ -131,6 +143,17 @@ public sealed class Argon2HashingService : IHashingService
         }, cancellationToken);
     }
 
+    /// <summary>
+    /// Verifies a password string against an Argon2 hash.
+    /// </summary>
+    /// <param name="input">The password to verify.</param>
+    /// <param name="hash">The hash to verify against (from <see cref="HashAsync(string, CancellationToken)"/>).</param>
+    /// <param name="cancellationToken">Cancellation token for async operation.</param>
+    /// <returns>True if the password matches the hash, false otherwise.</returns>
+    /// <remarks>
+    /// Uses constant-time comparison to prevent timing attacks. Returns false for
+    /// invalid or malformed hashes instead of throwing exceptions.
+    /// </remarks>
     public async Task<bool> VerifyAsync(string input, string hash, CancellationToken cancellationToken = default)
     {
 #if NET8_0_OR_GREATER
@@ -141,6 +164,17 @@ public sealed class Argon2HashingService : IHashingService
         return await VerifyAsync(Encoding.UTF8.GetBytes(input), hash, cancellationToken);
     }
 
+    /// <summary>
+    /// Verifies a byte array against an Argon2 hash.
+    /// </summary>
+    /// <param name="input">The data to verify.</param>
+    /// <param name="hash">The hash to verify against (from <see cref="HashAsync(byte[], CancellationToken)"/>).</param>
+    /// <param name="cancellationToken">Cancellation token for async operation.</param>
+    /// <returns>True if the data matches the hash, false otherwise.</returns>
+    /// <remarks>
+    /// Uses constant-time comparison to prevent timing attacks. Returns false for
+    /// invalid, malformed, or null hashes instead of throwing exceptions.
+    /// </remarks>
     public async Task<bool> VerifyAsync(byte[] input, string hash, CancellationToken cancellationToken = default)
     {
 #if NET6_0_OR_GREATER

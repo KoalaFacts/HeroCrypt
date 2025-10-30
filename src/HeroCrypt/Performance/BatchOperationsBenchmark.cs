@@ -31,6 +31,9 @@ public class BatchOperationsBenchmark
         // Parallelism degrees to test
         private static readonly int[] ParallelismDegrees = { 1, 2, 4, 8, 0 }; // 0 = auto
 
+        /// <summary>
+        /// Represents the benchmark result for a single batch operation test.
+        /// </summary>
         public class BatchBenchmarkResult
         {
             public string OperationName { get; set; } = string.Empty;
@@ -44,6 +47,9 @@ public class BatchOperationsBenchmark
             public double SpeedupVsSequential { get; set; }
         }
 
+        /// <summary>
+        /// Contains comprehensive benchmark results for all tested batch operations.
+        /// </summary>
         public class BatchBenchmarkResults
         {
             public DateTime Timestamp { get; set; }
@@ -52,6 +58,13 @@ public class BatchOperationsBenchmark
             public string OperatingSystem { get; set; } = string.Empty;
             public List<BatchBenchmarkResult> Results { get; set; } = new List<BatchBenchmarkResult>();
 
+            /// <summary>
+            /// Prints a formatted summary of all benchmark results to the console.
+            /// </summary>
+            /// <remarks>
+            /// Displays results grouped by operation type with detailed metrics including
+            /// throughput, latency, and speedup compared to sequential execution.
+            /// </remarks>
             public void PrintSummary()
             {
                 Console.WriteLine("\n=== Batch Operations Benchmark Results ===");

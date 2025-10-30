@@ -319,6 +319,14 @@ public sealed class PinnedBuffer : IDisposable
     /// </summary>
     public int Length => _buffer.Length;
 
+    /// <summary>
+    /// Releases the pinned memory buffer and securely clears its contents.
+    /// </summary>
+    /// <remarks>
+    /// This method securely zeros the buffer memory before releasing it to prevent
+    /// sensitive data from remaining in memory. The buffer is pinned during its lifetime
+    /// to prevent garbage collection from moving it.
+    /// </remarks>
     public void Dispose()
     {
         if (!_disposed)

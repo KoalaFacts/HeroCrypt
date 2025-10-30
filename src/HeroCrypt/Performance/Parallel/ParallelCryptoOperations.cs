@@ -706,6 +706,13 @@ public class CryptoTaskScheduler : TaskScheduler
     private readonly Thread[] _threads;
     private readonly int _concurrencyLevel;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="CryptoTaskScheduler"/> class.
+    /// </summary>
+    /// <param name="concurrencyLevel">
+    /// Number of worker threads. Set to 0 or negative for automatic detection
+    /// based on optimal parallelism for cryptographic operations.
+    /// </param>
     public CryptoTaskScheduler(int concurrencyLevel = 0)
     {
         if (concurrencyLevel <= 0)
@@ -749,8 +756,14 @@ public class CryptoTaskScheduler : TaskScheduler
         return _tasks.ToArray();
     }
 
+    /// <summary>
+    /// Gets the maximum concurrency level for this scheduler.
+    /// </summary>
     public override int MaximumConcurrencyLevel => _concurrencyLevel;
 
+    /// <summary>
+    /// Releases all resources used by the scheduler and waits for worker threads to complete.
+    /// </summary>
     public void Dispose()
     {
         _tasks.CompleteAdding();

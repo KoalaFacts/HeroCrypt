@@ -10,9 +10,20 @@ internal sealed class BigInteger : IComparable<BigInteger>
     private uint[] _data;
     private int _sign;
 
+    /// <summary>
+    /// Represents the value zero.
+    /// </summary>
     public static readonly BigInteger Zero = new(0);
+
+    /// <summary>
+    /// Represents the value one.
+    /// </summary>
     public static readonly BigInteger One = new(1);
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="BigInteger"/> class from a 64-bit signed integer.
+    /// </summary>
+    /// <param name="value">The 64-bit signed integer value.</param>
     public BigInteger(long value)
     {
         if (value == 0)
@@ -35,6 +46,10 @@ internal sealed class BigInteger : IComparable<BigInteger>
         Normalize();
     }
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="BigInteger"/> class from a byte array in big-endian format.
+    /// </summary>
+    /// <param name="bytes">The byte array representing the value in big-endian format.</param>
     public BigInteger(byte[] bytes)
     {
         if (bytes == null || bytes.Length == 0)
@@ -63,10 +78,25 @@ internal sealed class BigInteger : IComparable<BigInteger>
         Normalize();
     }
 
+    /// <summary>
+    /// Gets a value indicating whether this instance represents zero.
+    /// </summary>
     public bool IsZero => _sign == 0;
+
+    /// <summary>
+    /// Gets a value indicating whether this instance represents one.
+    /// </summary>
     public bool IsOne => _sign == 1 && _data.Length == 1 && _data[0] == 1;
+
+    /// <summary>
+    /// Gets the sign of the value: -1 for negative, 0 for zero, 1 for positive.
+    /// </summary>
     public int Sign => _sign;
 
+    /// <summary>
+    /// Converts this <see cref="BigInteger"/> to a byte array in big-endian format.
+    /// </summary>
+    /// <returns>A byte array representing the value in big-endian format.</returns>
     public byte[] ToByteArray()
     {
         if (IsZero) return [0];
@@ -90,6 +120,12 @@ internal sealed class BigInteger : IComparable<BigInteger>
         return bytes.ToArray();
     }
 
+    /// <summary>
+    /// Adds two <see cref="BigInteger"/> values.
+    /// </summary>
+    /// <param name="left">The first value to add.</param>
+    /// <param name="right">The second value to add.</param>
+    /// <returns>The sum of the two values.</returns>
     public static BigInteger operator +(BigInteger left, BigInteger right)
     {
         if (left.IsZero) return right;
@@ -106,11 +142,23 @@ internal sealed class BigInteger : IComparable<BigInteger>
         return new BigInteger(Subtract(right._data, left._data), right._sign);
     }
 
+    /// <summary>
+    /// Subtracts one <see cref="BigInteger"/> value from another.
+    /// </summary>
+    /// <param name="left">The value to subtract from.</param>
+    /// <param name="right">The value to subtract.</param>
+    /// <returns>The result of the subtraction.</returns>
     public static BigInteger operator -(BigInteger left, BigInteger right)
     {
         return left + new BigInteger(right._data, -right._sign);
     }
 
+    /// <summary>
+    /// Multiplies two <see cref="BigInteger"/> values.
+    /// </summary>
+    /// <param name="left">The first value to multiply.</param>
+    /// <param name="right">The second value to multiply.</param>
+    /// <returns>The product of the two values.</returns>
     public static BigInteger operator *(BigInteger left, BigInteger right)
     {
         if (left.IsZero || right.IsZero) return Zero;
@@ -119,6 +167,13 @@ internal sealed class BigInteger : IComparable<BigInteger>
         return new BigInteger(result, left._sign * right._sign);
     }
 
+    /// <summary>
+    /// Divides one <see cref="BigInteger"/> value by another.
+    /// </summary>
+    /// <param name="dividend">The value to be divided.</param>
+    /// <param name="divisor">The value to divide by.</param>
+    /// <returns>The quotient of the division.</returns>
+    /// <exception cref="DivideByZeroException">Thrown when divisor is zero.</exception>
     public static BigInteger operator /(BigInteger dividend, BigInteger divisor)
     {
         if (divisor.IsZero) throw new DivideByZeroException();
@@ -128,6 +183,13 @@ internal sealed class BigInteger : IComparable<BigInteger>
         return new BigInteger(quotient, dividend._sign * divisor._sign);
     }
 
+    /// <summary>
+    /// Computes the remainder when dividing one <see cref="BigInteger"/> value by another.
+    /// </summary>
+    /// <param name="dividend">The value to be divided.</param>
+    /// <param name="divisor">The value to divide by.</param>
+    /// <returns>The remainder of the division.</returns>
+    /// <exception cref="DivideByZeroException">Thrown when divisor is zero.</exception>
     public static BigInteger operator %(BigInteger dividend, BigInteger divisor)
     {
         if (divisor.IsZero) throw new DivideByZeroException();
@@ -137,6 +199,12 @@ internal sealed class BigInteger : IComparable<BigInteger>
         return new BigInteger(remainder, dividend._sign);
     }
 
+    /// <summary>
+    /// Determines whether two <see cref="BigInteger"/> values are equal.
+    /// </summary>
+    /// <param name="left">The first value to compare.</param>
+    /// <param name="right">The second value to compare.</param>
+    /// <returns>true if the values are equal; otherwise, false.</returns>
     public static bool operator ==(BigInteger left, BigInteger right)
     {
         if (ReferenceEquals(left, right)) return true;
@@ -145,13 +213,51 @@ internal sealed class BigInteger : IComparable<BigInteger>
         return left._sign == right._sign && CompareAbs(left._data, right._data) == 0;
     }
 
+    /// <summary>
+    /// Determines whether two <see cref="BigInteger"/> values are not equal.
+    /// </summary>
+    /// <param name="left">The first value to compare.</param>
+    /// <param name="right">The second value to compare.</param>
+    /// <returns>true if the values are not equal; otherwise, false.</returns>
     public static bool operator !=(BigInteger left, BigInteger right) => !(left == right);
 
+    /// <summary>
+    /// Determines whether one <see cref="BigInteger"/> value is less than another.
+    /// </summary>
+    /// <param name="left">The first value to compare.</param>
+    /// <param name="right">The second value to compare.</param>
+    /// <returns>true if left is less than right; otherwise, false.</returns>
     public static bool operator <(BigInteger left, BigInteger right) => left.CompareTo(right) < 0;
+
+    /// <summary>
+    /// Determines whether one <see cref="BigInteger"/> value is greater than another.
+    /// </summary>
+    /// <param name="left">The first value to compare.</param>
+    /// <param name="right">The second value to compare.</param>
+    /// <returns>true if left is greater than right; otherwise, false.</returns>
     public static bool operator >(BigInteger left, BigInteger right) => left.CompareTo(right) > 0;
+
+    /// <summary>
+    /// Determines whether one <see cref="BigInteger"/> value is less than or equal to another.
+    /// </summary>
+    /// <param name="left">The first value to compare.</param>
+    /// <param name="right">The second value to compare.</param>
+    /// <returns>true if left is less than or equal to right; otherwise, false.</returns>
     public static bool operator <=(BigInteger left, BigInteger right) => left.CompareTo(right) <= 0;
+
+    /// <summary>
+    /// Determines whether one <see cref="BigInteger"/> value is greater than or equal to another.
+    /// </summary>
+    /// <param name="left">The first value to compare.</param>
+    /// <param name="right">The second value to compare.</param>
+    /// <returns>true if left is greater than or equal to right; otherwise, false.</returns>
     public static bool operator >=(BigInteger left, BigInteger right) => left.CompareTo(right) >= 0;
 
+    /// <summary>
+    /// Compares this instance to another <see cref="BigInteger"/> and returns an indication of their relative values.
+    /// </summary>
+    /// <param name="other">The value to compare to this instance.</param>
+    /// <returns>A value less than 0 if this instance is less than other; 0 if equal; greater than 0 if greater.</returns>
     public int CompareTo(BigInteger? other)
     {
         if (other is null) return 1;
@@ -162,6 +268,14 @@ internal sealed class BigInteger : IComparable<BigInteger>
         return _sign > 0 ? cmp : -cmp;
     }
 
+    /// <summary>
+    /// Performs modular exponentiation: (this ^ exponent) mod modulus.
+    /// </summary>
+    /// <param name="exponent">The exponent.</param>
+    /// <param name="modulus">The modulus.</param>
+    /// <returns>The result of the modular exponentiation.</returns>
+    /// <exception cref="DivideByZeroException">Thrown when modulus is zero.</exception>
+    /// <exception cref="ArgumentException">Thrown when exponent is negative.</exception>
     public BigInteger ModPow(BigInteger exponent, BigInteger modulus)
     {
         if (modulus.IsZero) throw new DivideByZeroException();
@@ -183,6 +297,13 @@ internal sealed class BigInteger : IComparable<BigInteger>
         return result;
     }
 
+    /// <summary>
+    /// Computes the modular multiplicative inverse of this value modulo the specified modulus using the extended Euclidean algorithm.
+    /// </summary>
+    /// <param name="modulus">The modulus.</param>
+    /// <returns>The modular multiplicative inverse.</returns>
+    /// <exception cref="DivideByZeroException">Thrown when modulus is zero.</exception>
+    /// <exception cref="ArgumentException">Thrown when the value and modulus are not coprime.</exception>
     public BigInteger ModInverse(BigInteger modulus)
     {
         if (modulus.IsZero)
@@ -218,6 +339,14 @@ internal sealed class BigInteger : IComparable<BigInteger>
 
         return x1;
     }
+
+    /// <summary>
+    /// Performs a left bit shift on a <see cref="BigInteger"/> value.
+    /// </summary>
+    /// <param name="value">The value to shift.</param>
+    /// <param name="shift">The number of bits to shift left.</param>
+    /// <returns>The result of shifting the value left by the specified number of bits.</returns>
+    /// <exception cref="ArgumentException">Thrown when shift is negative.</exception>
     public static BigInteger operator <<(BigInteger value, int shift)
     {
         if (shift < 0) throw new ArgumentException("Negative shift");
@@ -249,6 +378,13 @@ internal sealed class BigInteger : IComparable<BigInteger>
         return new BigInteger(result, value._sign);
     }
 
+    /// <summary>
+    /// Performs a right bit shift on a <see cref="BigInteger"/> value.
+    /// </summary>
+    /// <param name="value">The value to shift.</param>
+    /// <param name="shift">The number of bits to shift right.</param>
+    /// <returns>The result of shifting the value right by the specified number of bits.</returns>
+    /// <exception cref="ArgumentException">Thrown when shift is negative.</exception>
     public static BigInteger operator >>(BigInteger value, int shift)
     {
         if (shift < 0) throw new ArgumentException("Negative shift");
@@ -593,7 +729,17 @@ internal sealed class BigInteger : IComparable<BigInteger>
         }
     }
 
+    /// <summary>
+    /// Determines whether the specified object is equal to this instance.
+    /// </summary>
+    /// <param name="obj">The object to compare with this instance.</param>
+    /// <returns>true if the specified object is equal to this instance; otherwise, false.</returns>
     public override bool Equals(object? obj) => obj is BigInteger other && this == other;
+
+    /// <summary>
+    /// Returns a hash code for this instance.
+    /// </summary>
+    /// <returns>A hash code for this instance.</returns>
     public override int GetHashCode()
     {
         unchecked
@@ -606,6 +752,11 @@ internal sealed class BigInteger : IComparable<BigInteger>
             return hash;
         }
     }
+
+    /// <summary>
+    /// Converts this <see cref="BigInteger"/> to its hexadecimal string representation.
+    /// </summary>
+    /// <returns>A hexadecimal string representation of the value.</returns>
     public override string ToString() => _sign switch
     {
         0 => "0",

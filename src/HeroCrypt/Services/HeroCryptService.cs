@@ -8,7 +8,8 @@ using System.Text;
 namespace HeroCrypt.Services;
 
 /// <summary>
-/// Main implementation of the HeroCrypt cryptographic library facade
+/// Main implementation of the HeroCrypt cryptographic library facade.
+/// Provides unified access to all cryptographic services and capabilities.
 /// </summary>
 public class HeroCryptService : IHeroCrypt
 {
@@ -16,6 +17,14 @@ public class HeroCryptService : IHeroCrypt
     private readonly IServiceProvider _serviceProvider;
     private readonly Lazy<HardwareCapabilities> _hardwareCapabilities;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="HeroCryptService"/> class.
+    /// </summary>
+    /// <param name="options">Configuration options for HeroCrypt.</param>
+    /// <param name="serviceProvider">Service provider for dependency injection.</param>
+    /// <param name="hashingService">The hashing service implementation.</param>
+    /// <param name="cryptographyService">The cryptography service implementation.</param>
+    /// <param name="keyGenerationService">The key generation service implementation.</param>
     public HeroCryptService(
         IOptions<HeroCryptOptions> options,
         IServiceProvider serviceProvider,
@@ -33,9 +42,21 @@ public class HeroCryptService : IHeroCrypt
             HardwareAccelerationDetector.GetCapabilities());
     }
 
+    /// <summary>
+    /// Gets the fluent builder for Argon2 password hashing operations.
+    /// </summary>
+    /// <value>
+    /// A fluent interface for configuring and executing Argon2 operations.
+    /// </value>
     public IArgon2FluentBuilder Argon2 =>
         (IArgon2FluentBuilder)_serviceProvider.GetService(typeof(IArgon2FluentBuilder))!;
 
+    /// <summary>
+    /// Gets the fluent builder for PGP cryptographic operations.
+    /// </summary>
+    /// <value>
+    /// A fluent interface for configuring and executing PGP encryption/decryption.
+    /// </value>
     public IPgpFluentBuilder PGP =>
         (IPgpFluentBuilder)_serviceProvider.GetService(typeof(IPgpFluentBuilder))!;
 
@@ -45,8 +66,33 @@ public class HeroCryptService : IHeroCrypt
 
     public IKeyGenerationService KeyGenerationService { get; }
 
+    /// <summary>
+    /// Gets the hardware acceleration capabilities detected on the current system.
+    /// </summary>
+    /// <value>
+    /// Information about available hardware cryptographic acceleration features
+    /// such as AES-NI, AVX2, and other CPU instruction sets.
+    /// </value>
     public HardwareCapabilities HardwareCapabilities => _hardwareCapabilities.Value;
 
+    /// <summary>
+    /// Validates the HeroCrypt system configuration and capabilities.
+    /// </summary>
+    /// <returns>
+    /// A validation result containing system status, available algorithms,
+    /// hardware acceleration information, and any configuration warnings or errors.
+    /// </returns>
+    /// <remarks>
+    /// This method performs comprehensive validation including:
+    /// <list type="bullet">
+    /// <item>Hardware acceleration availability</item>
+    /// <item>Argon2 functionality test</item>
+    /// <item>PGP encryption/decryption test</item>
+    /// <item>Configuration parameter validation</item>
+    /// <item>Supported algorithm enumeration</item>
+    /// </list>
+    /// Use this method to verify the system is ready for production use.
+    /// </remarks>
     public async Task<ValidationResult> ValidateSystemAsync()
     {
         var result = new ValidationResult();
@@ -103,6 +149,24 @@ public class HeroCryptService : IHeroCrypt
         return result;
     }
 
+    /// <summary>
+    /// Runs performance benchmarks on cryptographic operations.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token to stop benchmarking.</param>
+    /// <returns>
+    /// Benchmark results including timing information for Argon2, PGP,
+    /// and hardware-accelerated operations.
+    /// </returns>
+    /// <remarks>
+    /// Benchmarks performed:
+    /// <list type="bullet">
+    /// <item>Argon2 hashing with various memory sizes (32MB, 64MB, 128MB)</item>
+    /// <item>PGP key generation (1024-bit for speed)</item>
+    /// <item>PGP encryption/decryption (1KB test data)</item>
+    /// <item>Hardware-accelerated SHA256 (if available)</item>
+    /// </list>
+    /// Results are useful for capacity planning and performance optimization.
+    /// </remarks>
     public async Task<BenchmarkResult> GetBenchmarksAsync(CancellationToken cancellationToken = default)
     {
         var result = new BenchmarkResult

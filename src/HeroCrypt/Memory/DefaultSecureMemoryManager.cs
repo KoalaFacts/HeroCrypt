@@ -23,6 +23,13 @@ public sealed class DefaultSecureMemoryManager : ISecureMemoryManager, IDisposab
     private readonly TimeSpan _bufferTimeout = TimeSpan.FromMinutes(5);
     private readonly int[] _commonSizes = { 16, 32, 64, 128, 256, 512, 1024, 2048, 4096 };
 
+    /// <summary>
+    /// Allocates a new secure buffer of the specified size.
+    /// </summary>
+    /// <param name="size">The size in bytes of the buffer to allocate.</param>
+    /// <returns>A new <see cref="SecureBuffer"/> instance.</returns>
+    /// <exception cref="ArgumentException">Thrown when size is not positive.</exception>
+    /// <exception cref="ObjectDisposedException">Thrown when the manager has been disposed.</exception>
     public SecureBuffer Allocate(int size)
     {
         ThrowIfDisposed();
@@ -35,6 +42,13 @@ public sealed class DefaultSecureMemoryManager : ISecureMemoryManager, IDisposab
         return buffer;
     }
 
+    /// <summary>
+    /// Allocates a new secure buffer and copies data from the source byte array.
+    /// </summary>
+    /// <param name="source">The source byte array to copy from.</param>
+    /// <returns>A new <see cref="SecureBuffer"/> containing a copy of the source data.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when source is null.</exception>
+    /// <exception cref="ObjectDisposedException">Thrown when the manager has been disposed.</exception>
     public SecureBuffer AllocateFrom(byte[] source)
     {
         if (source == null)
@@ -47,6 +61,12 @@ public sealed class DefaultSecureMemoryManager : ISecureMemoryManager, IDisposab
         return buffer;
     }
 
+    /// <summary>
+    /// Allocates a new secure buffer and copies data from the source span.
+    /// </summary>
+    /// <param name="source">The source span to copy from.</param>
+    /// <returns>A new <see cref="SecureBuffer"/> containing a copy of the source data.</returns>
+    /// <exception cref="ObjectDisposedException">Thrown when the manager has been disposed.</exception>
     public SecureBuffer AllocateFrom(ReadOnlySpan<byte> source)
     {
         ThrowIfDisposed();
@@ -56,6 +76,13 @@ public sealed class DefaultSecureMemoryManager : ISecureMemoryManager, IDisposab
         return buffer;
     }
 
+    /// <summary>
+    /// Gets a pooled secure buffer of at least the specified size. The buffer is automatically returned to the pool when disposed.
+    /// </summary>
+    /// <param name="size">The minimum size in bytes of the buffer to retrieve.</param>
+    /// <returns>A pooled <see cref="IPooledSecureBuffer"/> instance.</returns>
+    /// <exception cref="ArgumentException">Thrown when size is not positive.</exception>
+    /// <exception cref="ObjectDisposedException">Thrown when the manager has been disposed.</exception>
     public IPooledSecureBuffer GetPooled(int size)
     {
         ThrowIfDisposed();
@@ -78,6 +105,11 @@ public sealed class DefaultSecureMemoryManager : ISecureMemoryManager, IDisposab
         return new PooledSecureBufferWrapper(buffer, this);
     }
 
+    /// <summary>
+    /// Gets detailed information about current memory usage and buffer statistics.
+    /// </summary>
+    /// <returns>A <see cref="MemoryUsageInfo"/> instance containing usage statistics.</returns>
+    /// <exception cref="ObjectDisposedException">Thrown when the manager has been disposed.</exception>
     public MemoryUsageInfo GetMemoryUsage()
     {
         ThrowIfDisposed();
@@ -100,6 +132,10 @@ public sealed class DefaultSecureMemoryManager : ISecureMemoryManager, IDisposab
         }
     }
 
+    /// <summary>
+    /// Forces cleanup of timed-out buffers and excess pooled buffers, then triggers garbage collection.
+    /// </summary>
+    /// <exception cref="ObjectDisposedException">Thrown when the manager has been disposed.</exception>
     public void ForceCleanup()
     {
         ThrowIfDisposed();
@@ -199,6 +235,9 @@ public sealed class DefaultSecureMemoryManager : ISecureMemoryManager, IDisposab
             throw new ObjectDisposedException(nameof(DefaultSecureMemoryManager));
     }
 
+    /// <summary>
+    /// Releases all resources used by the <see cref="DefaultSecureMemoryManager"/> and securely disposes all managed buffers.
+    /// </summary>
     public void Dispose()
     {
         if (!_disposed)
@@ -245,26 +284,48 @@ internal sealed class PooledSecureBufferWrapper : IPooledSecureBuffer
     private readonly DefaultSecureMemoryManager _manager;
     private bool _disposed;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="PooledSecureBufferWrapper"/> class.
+    /// </summary>
+    /// <param name="buffer">The secure buffer to wrap.</param>
+    /// <param name="manager">The memory manager that owns the pool.</param>
     public PooledSecureBufferWrapper(SecureBuffer buffer, DefaultSecureMemoryManager manager)
     {
         _buffer = buffer;
         _manager = manager;
     }
 
+    /// <summary>
+    /// Returns a mutable span view of the buffer's contents.
+    /// </summary>
+    /// <returns>A <see cref="Span{T}"/> of bytes representing the buffer contents.</returns>
+    /// <exception cref="ObjectDisposedException">Thrown when the wrapper has been disposed.</exception>
     public Span<byte> AsSpan()
     {
         ThrowIfDisposed();
         return _buffer.AsSpan();
     }
 
+    /// <summary>
+    /// Returns a read-only span view of the buffer's contents.
+    /// </summary>
+    /// <returns>A <see cref="ReadOnlySpan{T}"/> of bytes representing the buffer contents.</returns>
+    /// <exception cref="ObjectDisposedException">Thrown when the wrapper has been disposed.</exception>
     public ReadOnlySpan<byte> AsReadOnlySpan()
     {
         ThrowIfDisposed();
         return _buffer.AsReadOnlySpan();
     }
 
+    /// <summary>
+    /// Gets the size of the buffer in bytes.
+    /// </summary>
     public int Size => _buffer.Size;
 
+    /// <summary>
+    /// Securely clears all data in the buffer by overwriting with zeros.
+    /// </summary>
+    /// <exception cref="ObjectDisposedException">Thrown when the wrapper has been disposed.</exception>
     public void Clear()
     {
         ThrowIfDisposed();
@@ -277,6 +338,9 @@ internal sealed class PooledSecureBufferWrapper : IPooledSecureBuffer
             throw new ObjectDisposedException(nameof(PooledSecureBufferWrapper));
     }
 
+    /// <summary>
+    /// Returns the buffer to the pool for reuse. After disposal, the wrapper cannot be used.
+    /// </summary>
     public void Dispose()
     {
         if (!_disposed)

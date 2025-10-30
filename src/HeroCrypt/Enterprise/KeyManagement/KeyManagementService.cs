@@ -58,6 +58,20 @@ public class KeyManagementService
     private readonly List<KeyEntry> _keyRegistry = new();
     private readonly object _lock = new();
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="KeyManagementService"/> class.
+    /// </summary>
+    /// <param name="config">Key management configuration.</param>
+    /// <param name="keyStore">Storage backend for cryptographic keys.</param>
+    /// <param name="accessControl">Access control service for authorization.</param>
+    /// <exception cref="ArgumentNullException">
+    /// Thrown when any parameter is null.
+    /// </exception>
+    /// <remarks>
+    /// The service provides enterprise key management with envelope encryption,
+    /// automated rotation, and comprehensive audit trails. All keys are encrypted
+    /// at rest using the configured master key.
+    /// </remarks>
     public KeyManagementService(
         KeyManagementConfig config,
         IKeyStore keyStore,
@@ -557,6 +571,16 @@ public class KeyEntry
     public KeyRotationPolicy? RotationPolicy { get; set; }
     public KeyAccessPolicy AccessPolicy { get; set; } = new();
 
+    /// <summary>
+    /// Converts this key entry to public metadata.
+    /// </summary>
+    /// <returns>
+    /// Key metadata without sensitive key material, suitable for external display.
+    /// </returns>
+    /// <remarks>
+    /// The returned metadata includes key properties and usage statistics
+    /// but excludes the actual cryptographic key material for security.
+    /// </remarks>
     public KeyMetadata ToMetadata()
     {
         return new KeyMetadata
@@ -704,13 +728,25 @@ public class KeyListFilter
 }
 
 /// <summary>
-/// In-memory key store implementation
+/// In-memory key store implementation for development and testing.
 /// </summary>
+/// <remarks>
+/// This implementation stores keys in memory and should not be used in production.
+/// Production deployments should use persistent storage with encryption at rest
+/// (database, HSM, or cloud KMS).
+/// </remarks>
 public class InMemoryKeyStore : IKeyStore
 {
     private readonly Dictionary<string, KeyEntry> _keys = new();
     private readonly object _lock = new();
 
+    /// <summary>
+    /// Stores a key entry in memory.
+    /// </summary>
+    /// <param name="keyEntry">The key entry to store.</param>
+    /// <remarks>
+    /// Thread-safe. Keys are indexed by keyId and version.
+    /// </remarks>
     public void Store(KeyEntry keyEntry)
     {
         lock (_lock)
@@ -720,6 +756,16 @@ public class InMemoryKeyStore : IKeyStore
         }
     }
 
+    /// <summary>
+    /// Retrieves the latest version of a key.
+    /// </summary>
+    /// <param name="keyId">The key identifier.</param>
+    /// <returns>
+    /// The latest version of the key, or null if not found.
+    /// </returns>
+    /// <remarks>
+    /// Thread-safe. Returns the highest version number for the specified keyId.
+    /// </remarks>
     public KeyEntry? Retrieve(string keyId)
     {
         lock (_lock)
@@ -734,6 +780,13 @@ public class InMemoryKeyStore : IKeyStore
         }
     }
 
+    /// <summary>
+    /// Updates an existing key entry.
+    /// </summary>
+    /// <param name="keyEntry">The key entry with updated data.</param>
+    /// <remarks>
+    /// Thread-safe. Only updates if the key exists.
+    /// </remarks>
     public void Update(KeyEntry keyEntry)
     {
         lock (_lock)
@@ -746,6 +799,13 @@ public class InMemoryKeyStore : IKeyStore
         }
     }
 
+    /// <summary>
+    /// Deletes all versions of a key.
+    /// </summary>
+    /// <param name="keyId">The key identifier.</param>
+    /// <remarks>
+    /// Thread-safe. Removes all version entries for the specified keyId.
+    /// </remarks>
     public void Delete(string keyId)
     {
         lock (_lock)
@@ -760,18 +820,34 @@ public class InMemoryKeyStore : IKeyStore
 }
 
 /// <summary>
-/// Simple access control service implementation
+/// Simple access control service implementation for development and testing.
 /// </summary>
+/// <remarks>
+/// This implementation provides basic access control where most operations are allowed,
+/// except backup/restore/destroy which require admin privileges. Production deployments
+/// should implement proper RBAC with granular permissions.
+/// </remarks>
 public class SimpleAccessControlService : IAccessControlService
 {
     private readonly Dictionary<string, List<string>> _userRoles = new();
     private readonly HashSet<string> _adminUsers = new();
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="SimpleAccessControlService"/> class.
+    /// </summary>
+    /// <remarks>
+    /// Pre-configures "admin" as an administrative user.
+    /// </remarks>
     public SimpleAccessControlService()
     {
         _adminUsers.Add("admin");
     }
 
+    /// <summary>
+    /// Adds a role to a user.
+    /// </summary>
+    /// <param name="userId">The user identifier.</param>
+    /// <param name="role">The role to add.</param>
     public void AddUserRole(string userId, string role)
     {
         if (!_userRoles.ContainsKey(userId))
@@ -780,12 +856,25 @@ public class SimpleAccessControlService : IAccessControlService
         _userRoles[userId].Add(role);
     }
 
+    /// <summary>Checks if a user can generate a key for the specified purpose.</summary>
     public bool CanGenerateKey(string userId, KeyPurpose purpose) => true;
+
+    /// <summary>Checks if a user can use a key for the specified operation.</summary>
     public bool CanUseKey(string userId, string keyId, string operation) => true;
+
+    /// <summary>Checks if a user can rotate a key.</summary>
     public bool CanRotateKey(string userId, string keyId) => true;
+
+    /// <summary>Checks if a user can backup a key. Requires admin privileges.</summary>
     public bool CanBackupKey(string userId, string keyId) => _adminUsers.Contains(userId);
+
+    /// <summary>Checks if a user can restore keys. Requires admin privileges.</summary>
     public bool CanRestoreKey(string userId) => _adminUsers.Contains(userId);
+
+    /// <summary>Checks if a user can destroy a key. Requires admin privileges.</summary>
     public bool CanDestroyKey(string userId, string keyId) => _adminUsers.Contains(userId);
+
+    /// <summary>Checks if a user can view key metadata.</summary>
     public bool CanViewKey(string userId, string keyId) => true;
 }
 #endif

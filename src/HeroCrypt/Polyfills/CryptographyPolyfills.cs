@@ -12,12 +12,22 @@ namespace System.Security.Cryptography
     /// </summary>
     internal static class Sha256Extensions
     {
+        /// <summary>
+        /// Computes the SHA256 hash of the specified data.
+        /// </summary>
+        /// <param name="source">The data to hash.</param>
+        /// <returns>The computed SHA256 hash.</returns>
         public static byte[] HashData(byte[] source)
         {
             using var sha256 = SHA256.Create();
             return sha256.ComputeHash(source);
         }
 
+        /// <summary>
+        /// Computes the SHA256 hash of the specified data span.
+        /// </summary>
+        /// <param name="source">The data span to hash.</param>
+        /// <returns>The computed SHA256 hash.</returns>
         public static byte[] HashData(ReadOnlySpan<byte> source)
         {
             using var sha256 = SHA256.Create();
@@ -30,12 +40,22 @@ namespace System.Security.Cryptography
     /// </summary>
     internal static class Sha512Extensions
     {
+        /// <summary>
+        /// Computes the SHA512 hash of the specified data.
+        /// </summary>
+        /// <param name="source">The data to hash.</param>
+        /// <returns>The computed SHA512 hash.</returns>
         public static byte[] HashData(byte[] source)
         {
             using var sha512 = SHA512.Create();
             return sha512.ComputeHash(source);
         }
 
+        /// <summary>
+        /// Computes the SHA512 hash of the specified data span.
+        /// </summary>
+        /// <param name="source">The data span to hash.</param>
+        /// <returns>The computed SHA512 hash.</returns>
         public static byte[] HashData(ReadOnlySpan<byte> source)
         {
             using var sha512 = SHA512.Create();
@@ -149,6 +169,12 @@ namespace System
     /// </summary>
     internal static class BitConverterExtensions
     {
+        /// <summary>
+        /// Tries to write a 64-bit unsigned integer into a byte span in little-endian format.
+        /// </summary>
+        /// <param name="destination">The destination span to write to.</param>
+        /// <param name="value">The unsigned long value to write.</param>
+        /// <returns>true if successful; otherwise, false if the destination is too small.</returns>
         public static bool TryWriteBytes(Span<byte> destination, ulong value)
         {
             if (destination.Length < sizeof(ulong))
@@ -159,6 +185,12 @@ namespace System
             return true;
         }
 
+        /// <summary>
+        /// Tries to write a 32-bit unsigned integer into a byte span in little-endian format.
+        /// </summary>
+        /// <param name="destination">The destination span to write to.</param>
+        /// <param name="value">The unsigned integer value to write.</param>
+        /// <returns>true if successful; otherwise, false if the destination is too small.</returns>
         public static bool TryWriteBytes(Span<byte> destination, uint value)
         {
             if (destination.Length < sizeof(uint))

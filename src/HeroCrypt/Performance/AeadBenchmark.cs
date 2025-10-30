@@ -15,6 +15,10 @@ public class AeadBenchmark
     private readonly ILogger<AeadBenchmark>? _logger;
     private readonly RandomNumberGenerator _rng;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="AeadBenchmark"/> class.
+    /// </summary>
+    /// <param name="logger">Optional logger for benchmark progress and results.</param>
     public AeadBenchmark(ILogger<AeadBenchmark>? logger = null)
     {
         _logger = logger;
@@ -400,8 +404,23 @@ public class AlgorithmBenchmarkResult
     public double[] DecryptionTimes { get; set; } = Array.Empty<double>();
     public bool HardwareAccelerated { get; set; }
 
+    /// <summary>
+    /// Gets the average encryption time in microseconds.
+    /// </summary>
     public double AverageEncryptionTime => EncryptionTimes.Length > 0 ? EncryptionTimes.Average() : 0;
+
+    /// <summary>
+    /// Gets the average decryption time in microseconds.
+    /// </summary>
     public double AverageDecryptionTime => DecryptionTimes.Length > 0 ? DecryptionTimes.Average() : 0;
+
+    /// <summary>
+    /// Gets the encryption throughput in megabytes per second.
+    /// </summary>
     public double EncryptionThroughputMBps => DataSize > 0 ? (DataSize / 1024.0 / 1024.0) / (AverageEncryptionTime / 1_000_000.0) : 0;
+
+    /// <summary>
+    /// Gets the decryption throughput in megabytes per second.
+    /// </summary>
     public double DecryptionThroughputMBps => DataSize > 0 ? (DataSize / 1024.0 / 1024.0) / (AverageDecryptionTime / 1_000_000.0) : 0;
 }

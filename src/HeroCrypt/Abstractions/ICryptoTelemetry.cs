@@ -196,7 +196,8 @@ public interface IOperationTracker : IDisposable
 }
 
 /// <summary>
-/// Internal implementation of operation tracker
+/// Internal implementation of operation tracker.
+/// Automatically tracks operation duration and completion status.
 /// </summary>
 internal sealed class OperationTracker : IOperationTracker
 {
@@ -207,6 +208,14 @@ internal sealed class OperationTracker : IOperationTracker
 
     public string OperationId { get; }
 
+    /// <summary>
+    /// Initializes a new operation tracker and starts tracking.
+    /// </summary>
+    /// <param name="telemetry">The telemetry service to report to.</param>
+    /// <param name="operationType">Type of cryptographic operation.</param>
+    /// <param name="algorithm">Algorithm being used.</param>
+    /// <param name="dataSize">Size of data being processed in bytes.</param>
+    /// <param name="hardwareAccelerated">Whether hardware acceleration is enabled.</param>
     public OperationTracker(
         ICryptoTelemetry telemetry,
         string operationType,
@@ -218,23 +227,50 @@ internal sealed class OperationTracker : IOperationTracker
         OperationId = telemetry.StartOperation(operationType, algorithm, dataSize, hardwareAccelerated);
     }
 
+    /// <summary>
+    /// Marks the operation as successful.
+    /// </summary>
+    /// <remarks>
+    /// This is the default state. Call this explicitly only if you need to
+    /// change from a previously marked failure state.
+    /// </remarks>
     public void MarkSuccess()
     {
         _success = true;
         _errorMessage = null;
     }
 
+    /// <summary>
+    /// Marks the operation as failed with an error message.
+    /// </summary>
+    /// <param name="errorMessage">Description of the failure.</param>
     public void MarkFailure(string errorMessage)
     {
         _success = false;
         _errorMessage = errorMessage;
     }
 
+    /// <summary>
+    /// Adds custom metadata to the operation.
+    /// </summary>
+    /// <param name="key">Metadata key.</param>
+    /// <param name="value">Metadata value.</param>
+    /// <remarks>
+    /// Metadata can be used to attach additional context to operations
+    /// for analysis and debugging.
+    /// </remarks>
     public void AddMetadata(string key, object value)
     {
         // Implementation would store metadata for later use
     }
 
+    /// <summary>
+    /// Completes the operation tracking and reports results to telemetry.
+    /// </summary>
+    /// <remarks>
+    /// Automatically called when the tracker is disposed. Reports the operation
+    /// as successful unless <see cref="MarkFailure"/> was called.
+    /// </remarks>
     public void Dispose()
     {
         if (!_completed)

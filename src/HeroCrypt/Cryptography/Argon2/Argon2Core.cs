@@ -618,8 +618,19 @@ public static class Argon2Core
         }
     }
 
+    /// <summary>
+    /// Represents a 1024-byte Argon2 memory block.
+    /// </summary>
+    /// <remarks>
+    /// Each block contains 128 64-bit words (1024 bytes total) and represents
+    /// the fundamental unit of memory manipulation in Argon2. Blocks are used
+    /// for mixing operations during the memory-hard hashing process.
+    /// </remarks>
     private sealed class Block
     {
+        /// <summary>
+        /// Block data as an array of 128 64-bit unsigned integers (1024 bytes total).
+        /// </summary>
         public readonly ulong[] Data = new ulong[128];
     }
 

@@ -428,6 +428,15 @@ public readonly struct EncryptionResult
     public byte[] Nonce { get; }
     public byte[] Tag { get; }
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="EncryptionResult"/> struct.
+    /// </summary>
+    /// <param name="ciphertext">The encrypted ciphertext.</param>
+    /// <param name="nonce">The nonce used for encryption.</param>
+    /// <param name="tag">The authentication tag.</param>
+    /// <exception cref="ArgumentNullException">
+    /// Thrown when any parameter is null.
+    /// </exception>
     public EncryptionResult(byte[] ciphertext, byte[] nonce, byte[] tag)
     {
         Ciphertext = ciphertext ?? throw new ArgumentNullException(nameof(ciphertext));

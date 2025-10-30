@@ -45,13 +45,24 @@ internal static class Rc4Core
     public const int RecommendedDropBytes = 3072;
 
     /// <summary>
-    /// RC4 cipher state
+    /// RC4 cipher state container.
     /// </summary>
     private class Rc4State
     {
-        public byte[] S = new byte[256];  // State array
-        public int I = 0;                 // Index i
-        public int J = 0;                 // Index j
+        /// <summary>
+        /// State permutation array (S-box). Contains a permutation of all 256 possible byte values.
+        /// </summary>
+        public byte[] S = new byte[256];
+
+        /// <summary>
+        /// First index pointer used during keystream generation.
+        /// </summary>
+        public int I = 0;
+
+        /// <summary>
+        /// Second index pointer used during keystream generation.
+        /// </summary>
+        public int J = 0;
     }
 
     /// <summary>

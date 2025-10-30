@@ -594,12 +594,23 @@ public class OcspResponse
 }
 
 /// <summary>
-/// OCSP certificate status
+/// OCSP (Online Certificate Status Protocol) certificate status
 /// </summary>
 public enum OcspCertificateStatus
 {
+    /// <summary>
+    /// Certificate is valid and not revoked
+    /// </summary>
     Good,
+
+    /// <summary>
+    /// Certificate has been revoked
+    /// </summary>
     Revoked,
+
+    /// <summary>
+    /// Certificate status is unknown
+    /// </summary>
     Unknown
 }
 #else
@@ -640,12 +651,23 @@ public class CertificateProfile
 }
 
 /// <summary>
-/// OCSP certificate status
+/// OCSP (Online Certificate Status Protocol) certificate status
 /// </summary>
 public enum OcspCertificateStatus
 {
+    /// <summary>
+    /// Certificate is valid and not revoked
+    /// </summary>
     Good,
+
+    /// <summary>
+    /// Certificate has been revoked
+    /// </summary>
     Revoked,
+
+    /// <summary>
+    /// Certificate status is unknown
+    /// </summary>
     Unknown
 }
 #endif

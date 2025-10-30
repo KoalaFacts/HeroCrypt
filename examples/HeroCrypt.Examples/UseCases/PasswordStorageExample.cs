@@ -26,7 +26,7 @@ public static class PasswordStorageExample
         Console.WriteLine($"User password: {userPassword}");
 
         // Create Argon2 hashing service with high security settings
-        var argon2Options = new HeroCrypt.Cryptography.Argon2.Argon2Options
+        var argon2Options = new Argon2Options
         {
             Type = HeroCrypt.Cryptography.Argon2.Argon2Type.Argon2id,
             Iterations = 3,

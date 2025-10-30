@@ -548,6 +548,12 @@ public class AeadService : IAeadService
         {
             aes.Decrypt(nonce, actualCiphertext, tag, plaintext, associatedData);
         }
+        catch (CryptographicException ex)
+        {
+            throw new UnauthorizedAccessException("Authentication failed: invalid ciphertext, key, nonce, or associated data", ex);
+        }
+
+        return actualCiphertext.Length;
 #elif NET6_0_OR_GREATER
         const int TagSizeInBytes = 16;
 #pragma warning disable SYSLIB0053 // AesGcm single-argument constructor is obsolete in .NET 7+

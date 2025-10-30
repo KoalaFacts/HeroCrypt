@@ -187,7 +187,8 @@ public class AeadBenchmark
         var encryptTimes = new double[iterations];
         var decryptTimes = new double[iterations];
 
-        using var aes = new AesGcm(key);
+        const int tagSize = 16;
+        using var aes = new AesGcm(key, tagSize);
 
         // Warm up
         for (var i = 0; i < 10; i++)
@@ -251,7 +252,8 @@ public class AeadBenchmark
         var encryptTimes = new double[iterations];
         var decryptTimes = new double[iterations];
 
-        using var aes = new AesGcm(key);
+        const int tagSize = 16;
+        using var aes = new AesGcm(key, tagSize);
 
         // Warm up
         for (var i = 0; i < 10; i++)

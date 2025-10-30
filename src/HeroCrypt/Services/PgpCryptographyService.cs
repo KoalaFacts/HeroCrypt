@@ -398,7 +398,8 @@ public sealed class PgpCryptographyService : ICryptographyService, IKeyGeneratio
             string decryptedContent;
             try
             {
-                decryptedContent = DecryptWithPassphrase(encryptedPayload, passphrase);
+                // encryptedPayload and passphrase are checked above, safe to use
+                decryptedContent = DecryptWithPassphrase(encryptedPayload!, passphrase!);
             }
             catch (ArgumentException)
             {

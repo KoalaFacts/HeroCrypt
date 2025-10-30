@@ -128,12 +128,9 @@ public class CertificateAuthority
             notAfter,
             serialNumber);
 
-        // Add private key if provided
-        if (profile.IncludePrivateKey && request.PublicKey.Key is RSA)
-        {
-            var certWithKey = certificate.CopyWithPrivateKey((RSA)request.PublicKey.Key);
-            return certWithKey;
-        }
+        // Note: profile.IncludePrivateKey requires the private key to be passed separately
+        // CertificateRequest does not store the private key used for signing
+        // To include a private key, use certificate.CopyWithPrivateKey() with the original key
 
         return certificate;
     }

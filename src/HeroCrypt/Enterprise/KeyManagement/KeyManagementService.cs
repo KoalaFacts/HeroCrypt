@@ -162,6 +162,9 @@ public class KeyManagementService
         }
 
         // Unwrap key
+        if (keyEntry.WrappedKeyMaterial == null)
+            throw new InvalidOperationException("Key material is null");
+
         var keyMaterial = UnwrapKey(keyEntry.WrappedKeyMaterial, _config.MasterKeyId);
 
         // Update usage statistics
@@ -271,6 +274,9 @@ public class KeyManagementService
         };
 
         // Additional encryption for backup (defense in depth)
+        if (backup.EncryptedKeyMaterial == null)
+            throw new InvalidOperationException("Cannot create backup: key material is null");
+
         backup.EncryptedKeyMaterial = EncryptForBackup(backup.EncryptedKeyMaterial);
 
         return backup;
@@ -286,6 +292,9 @@ public class KeyManagementService
             throw new UnauthorizedAccessException("User does not have permission to restore keys");
 
         // Decrypt backup
+        if (backup.EncryptedKeyMaterial == null)
+            throw new InvalidOperationException("Cannot restore: backup key material is null");
+
         var wrappedKeyMaterial = DecryptFromBackup(backup.EncryptedKeyMaterial);
 
         // Create restored key entry

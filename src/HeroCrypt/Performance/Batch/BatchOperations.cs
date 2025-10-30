@@ -292,10 +292,12 @@ public static class BatchEncryptionOperations
                 {
                     // Use AesGcm for authenticated encryption
 #if NET6_0_OR_GREATER
-                    using var aes = new AesGcm(key.Span);
+                    const int tagSize = 16;
+                    using var aes = new AesGcm(key.Span, tagSize);
                     aes.Encrypt(nonce, plaintext.Span, ciphertext, tag, associatedData.Span);
 #else
-                    using var aes = new AesGcm(key.Span.ToArray());
+                    const int tagSize = 16;
+                    using var aes = new AesGcm(key.Span.ToArray(), tagSize);
                     aes.Encrypt(nonce, plaintext.Span, ciphertext, tag, associatedData.Span);
 #endif
                 }, cancellationToken);
@@ -331,10 +333,12 @@ public static class BatchEncryptionOperations
                 {
                     // Use AesGcm for authenticated decryption
 #if NET6_0_OR_GREATER
-                    using var aes = new AesGcm(key.Span);
+                    const int tagSize = 16;
+                    using var aes = new AesGcm(key.Span, tagSize);
                     aes.Decrypt(ct.Nonce, ct.Ciphertext, ct.Tag, plaintext, associatedData.Span);
 #else
-                    using var aes = new AesGcm(key.Span.ToArray());
+                    const int tagSize = 16;
+                    using var aes = new AesGcm(key.Span.ToArray(), tagSize);
                     aes.Decrypt(ct.Nonce, ct.Ciphertext, ct.Tag, plaintext, associatedData.Span);
 #endif
                 }, cancellationToken);

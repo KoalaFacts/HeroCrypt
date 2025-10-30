@@ -53,7 +53,6 @@ public static class ParallelCryptoOperations
     {
         const int minChunkSize = 64 * 1024;      // 64 KB minimum
         const int maxChunkSize = 10 * 1024 * 1024; // 10 MB maximum
-        const int targetChunkSize = 1024 * 1024;   // 1 MB target
 
         if (totalSize <= minChunkSize)
             return (int)totalSize;
@@ -303,10 +302,12 @@ public static class ParallelAesGcm
 
                 // Use AES-GCM for authenticated encryption
 #if NET6_0_OR_GREATER
-                using var aes = new System.Security.Cryptography.AesGcm(keyArray);
+                const int tagSize = 16;
+                using var aes = new System.Security.Cryptography.AesGcm(keyArray, tagSize);
                 aes.Encrypt(chunkNonce, plaintextChunk, ciphertextChunk, tag, associatedDataArray);
 #else
-                using var aes = new System.Security.Cryptography.AesGcm(keyArray);
+                const int tagSize = 16;
+                using var aes = new System.Security.Cryptography.AesGcm(keyArray, tagSize);
                 aes.Encrypt(chunkNonce, plaintextChunk, ciphertextChunk, tag, associatedDataArray);
 #endif
             });
@@ -435,10 +436,12 @@ public static class ParallelAesGcm
                     try
                     {
 #if NET6_0_OR_GREATER
-                        using var aes = new System.Security.Cryptography.AesGcm(keyArray);
+                        const int tagSize = 16;
+                using var aes = new System.Security.Cryptography.AesGcm(keyArray, tagSize);
                         aes.Decrypt(chunkNonce, ciphertextChunk, tag, tempPlaintext, associatedDataArray);
 #else
-                        using var aes = new System.Security.Cryptography.AesGcm(keyArray);
+                        const int tagSize = 16;
+                using var aes = new System.Security.Cryptography.AesGcm(keyArray, tagSize);
                         aes.Decrypt(chunkNonce, ciphertextChunk, tag, tempPlaintext, associatedDataArray);
 #endif
                         // Immediately clear the temporary plaintext - we're only verifying tags
@@ -484,10 +487,12 @@ public static class ParallelAesGcm
 
                     // Decrypt - we know tags are valid from phase 1
 #if NET6_0_OR_GREATER
-                    using var aes = new System.Security.Cryptography.AesGcm(keyArray);
+                    const int tagSize = 16;
+                using var aes = new System.Security.Cryptography.AesGcm(keyArray, tagSize);
                     aes.Decrypt(chunkNonce, ciphertextChunk, tag, plaintextChunk, associatedDataArray);
 #else
-                    using var aes = new System.Security.Cryptography.AesGcm(keyArray);
+                    const int tagSize = 16;
+                using var aes = new System.Security.Cryptography.AesGcm(keyArray, tagSize);
                     aes.Decrypt(chunkNonce, ciphertextChunk, tag, plaintextChunk, associatedDataArray);
 #endif
                 });
@@ -515,10 +520,12 @@ public static class ParallelAesGcm
         var tag = ciphertext.AsSpan(plaintext.Length, TagSize);
 
 #if NET6_0_OR_GREATER
-        using var aes = new System.Security.Cryptography.AesGcm(key);
+        const int tagSize = 16;
+        using var aes = new System.Security.Cryptography.AesGcm(key, tagSize);
         aes.Encrypt(nonce, plaintext, ciphertextData, tag, associatedData);
 #else
-        using var aes = new System.Security.Cryptography.AesGcm(key.ToArray());
+        const int tagSize = 16;
+        using var aes = new System.Security.Cryptography.AesGcm(key.ToArray(), tagSize);
         aes.Encrypt(nonce, plaintext, ciphertextData, tag, associatedData);
 #endif
 
@@ -544,10 +551,12 @@ public static class ParallelAesGcm
         var tag = ciphertext.Slice(plaintextLength, TagSize);
 
 #if NET6_0_OR_GREATER
-        using var aes = new System.Security.Cryptography.AesGcm(key);
+        const int tagSize = 16;
+        using var aes = new System.Security.Cryptography.AesGcm(key, tagSize);
         aes.Decrypt(nonce, ciphertextData, tag, plaintext, associatedData);
 #else
-        using var aes = new System.Security.Cryptography.AesGcm(key.ToArray());
+        const int tagSize = 16;
+        using var aes = new System.Security.Cryptography.AesGcm(key.ToArray(), tagSize);
         aes.Decrypt(nonce, ciphertextData, tag, plaintext, associatedData);
 #endif
 

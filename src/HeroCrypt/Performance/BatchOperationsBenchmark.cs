@@ -157,7 +157,7 @@ public class BatchOperationsBenchmark
             return CreateBenchmarkResult("SHA-256 Batch", dataSize, batchSize, avgTimeMs, speedup);
         }
 
-        private static async Task<BatchBenchmarkResult> BenchmarkBlake2bBatchAsync(int dataSize, int batchSize)
+        private static Task<BatchBenchmarkResult> BenchmarkBlake2bBatchAsync(int dataSize, int batchSize)
         {
             var dataItems = Enumerable.Range(0, batchSize)
                 .Select(_ => new ReadOnlyMemory<byte>(GetRandomBytes(dataSize)))
@@ -170,10 +170,10 @@ public class BatchOperationsBenchmark
             double sequentialTimeMs = MeasureSequentialBlake2b(dataItems);
             double speedup = sequentialTimeMs / avgTimeMs;
 
-            return CreateBenchmarkResult("BLAKE2b Batch", dataSize, batchSize, avgTimeMs, speedup);
+            return Task.FromResult(CreateBenchmarkResult("BLAKE2b Batch", dataSize, batchSize, avgTimeMs, speedup));
         }
 
-        private static async Task<double> MeasureSequentialHashAsync(ReadOnlyMemory<byte>[] dataItems)
+        private static Task<double> MeasureSequentialHashAsync(ReadOnlyMemory<byte>[] dataItems)
         {
             using var sha256 = SHA256.Create();
             var sw = Stopwatch.StartNew();
@@ -182,7 +182,7 @@ public class BatchOperationsBenchmark
                 sha256.ComputeHash(data.ToArray());
             }
             sw.Stop();
-            return sw.Elapsed.TotalMilliseconds;
+            return Task.FromResult(sw.Elapsed.TotalMilliseconds);
         }
 
         private static double MeasureSequentialBlake2b(ReadOnlyMemory<byte>[] dataItems)
@@ -219,7 +219,7 @@ public class BatchOperationsBenchmark
             return results;
         }
 
-        private static async Task<BatchBenchmarkResult> BenchmarkHmacSha256BatchAsync(int dataSize, int batchSize, byte[] key)
+        private static Task<BatchBenchmarkResult> BenchmarkHmacSha256BatchAsync(int dataSize, int batchSize, byte[] key)
         {
             var dataItems = Enumerable.Range(0, batchSize)
                 .Select(_ => new ReadOnlyMemory<byte>(GetRandomBytes(dataSize)))
@@ -232,7 +232,7 @@ public class BatchOperationsBenchmark
             double sequentialTimeMs = MeasureSequentialHmac(dataItems, key);
             double speedup = sequentialTimeMs / avgTimeMs;
 
-            return CreateBenchmarkResult("HMAC-SHA256 Batch", dataSize, batchSize, avgTimeMs, speedup);
+            return Task.FromResult(CreateBenchmarkResult("HMAC-SHA256 Batch", dataSize, batchSize, avgTimeMs, speedup));
         }
 
         private static double MeasureSequentialHmac(ReadOnlyMemory<byte>[] dataItems, byte[] key)
@@ -328,7 +328,7 @@ public class BatchOperationsBenchmark
             return results;
         }
 
-        private static async Task<BatchBenchmarkResult> BenchmarkEd25519VerifyBatchAsync(int dataSize, int batchSize)
+        private static Task<BatchBenchmarkResult> BenchmarkEd25519VerifyBatchAsync(int dataSize, int batchSize)
         {
             // Generate key pair and signatures
             var keyPair = Ed25519Core.GenerateKeyPair();
@@ -353,7 +353,7 @@ public class BatchOperationsBenchmark
             double sequentialTimeMs = MeasureSequentialEd25519Verify(messages, signatures, keyPair.publicKey);
             double speedup = sequentialTimeMs / avgTimeMs;
 
-            return CreateBenchmarkResultNoThroughput("Ed25519 Verify Batch", dataSize, batchSize, avgTimeMs, speedup);
+            return Task.FromResult(CreateBenchmarkResultNoThroughput("Ed25519 Verify Batch", dataSize, batchSize, avgTimeMs, speedup));
         }
 
         private static double MeasureSequentialEd25519Verify(ReadOnlyMemory<byte>[] messages, ReadOnlyMemory<byte>[] signatures, byte[] publicKey)
@@ -411,7 +411,7 @@ public class BatchOperationsBenchmark
             return CreateBenchmarkResultNoThroughput("PBKDF2 Batch", keyLength, batchSize, avgTimeMs);
         }
 
-        private static async Task<BatchBenchmarkResult> BenchmarkHkdfBatchAsync(int batchSize)
+        private static Task<BatchBenchmarkResult> BenchmarkHkdfBatchAsync(int batchSize)
         {
             var masterKey = GetRandomBytes(32);
             var salts = Enumerable.Range(0, batchSize)
@@ -426,7 +426,7 @@ public class BatchOperationsBenchmark
             double avgTimeMs = MeasureOperation(() =>
                 BatchKeyDerivationOperations.HkdfBatch(masterKey, salts, infos, outputLengths, HashAlgorithmName.SHA256));
 
-            return CreateBenchmarkResultNoThroughput("HKDF Batch", outputLengths[0], batchSize, avgTimeMs);
+            return Task.FromResult(CreateBenchmarkResultNoThroughput("HKDF Batch", outputLengths[0], batchSize, avgTimeMs));
         }
 
         #endregion

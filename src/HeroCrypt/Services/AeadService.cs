@@ -511,8 +511,9 @@ public class AeadService : IAeadService
         ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce, ReadOnlySpan<byte> associatedData)
     {
 #if NET6_0_OR_GREATER
-        using var aes = new AesGcm(key);
-        var tag = ciphertext.Slice(plaintext.Length, 16);
+        const int TagSizeInBytes = 16;
+        using var aes = new AesGcm(key, TagSizeInBytes);
+        var tag = ciphertext.Slice(plaintext.Length, TagSizeInBytes);
         var actualCiphertext = ciphertext.Slice(0, plaintext.Length);
 
         aes.Encrypt(nonce, plaintext, actualCiphertext, tag, associatedData);
@@ -527,8 +528,9 @@ public class AeadService : IAeadService
         ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce, ReadOnlySpan<byte> associatedData)
     {
 #if NET6_0_OR_GREATER
-        using var aes = new AesGcm(key);
-        var tag = ciphertext.Slice(ciphertext.Length - 16, 16);
+        const int TagSizeInBytes = 16;
+        using var aes = new AesGcm(key, TagSizeInBytes);
+        var tag = ciphertext.Slice(ciphertext.Length - TagSizeInBytes, TagSizeInBytes);
         var actualCiphertext = ciphertext.Slice(0, ciphertext.Length - 16);
 
         try

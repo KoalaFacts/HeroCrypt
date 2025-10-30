@@ -136,7 +136,7 @@ public ref struct PooledBuffer
 /// <summary>
 /// Stack-allocated buffer for small, temporary cryptographic operations
 ///
-/// Uses stackalloc for buffers <= 1KB to avoid heap allocation entirely.
+/// Uses stackalloc for buffers &lt;= 1KB to avoid heap allocation entirely.
 /// Automatically zeros memory when disposed.
 /// </summary>
 public ref struct StackBuffer
@@ -151,7 +151,7 @@ public ref struct StackBuffer
     }
 
     /// <summary>
-    /// Creates a stack buffer (stack-allocated if <= 1KB, otherwise heap)
+    /// Creates a stack buffer (stack-allocated if &lt;= 1KB, otherwise heap)
     /// </summary>
     /// <remarks>
     /// Note: Stack allocation is limited due to ref struct constraints.

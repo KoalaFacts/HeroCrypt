@@ -3,7 +3,7 @@ using System.Security.Cryptography;
 using HeroCrypt.Hardware;
 using Microsoft.Extensions.Logging;
 
-#if NET5_0_OR_GREATER
+#if NET9_0_OR_GREATER
 using System.Runtime.Intrinsics.X86;
 #endif
 
@@ -198,7 +198,7 @@ public sealed class HardwareRandomNumberGenerator : IDisposable
         return result;
     }
 
-#if NET5_0_OR_GREATER
+#if NET9_0_OR_GREATER
     /// <summary>
     /// Attempts to generate random bytes using hardware RDRAND/RDSEED instructions
     /// </summary>
@@ -207,7 +207,7 @@ public sealed class HardwareRandomNumberGenerator : IDisposable
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private bool TryGetHardwareBytes(Span<byte> buffer)
     {
-        if (!System.Runtime.Intrinsics.X86.Rdrand.X64.IsSupported) return false;
+        if (!Rdrand.X64.IsSupported) return false;
 
         var offset = 0;
         var remaining = buffer.Length;
@@ -254,14 +254,14 @@ public sealed class HardwareRandomNumberGenerator : IDisposable
     /// <param name="value">Generated value</param>
     /// <returns>True if successful</returns>
     /// <remarks>
-    /// Uses the RDRAND CPU instruction via System.Runtime.Intrinsics.X86.Rdrand.
+    /// Uses the RDRAND CPU instruction via System.Runtime.Intrinsics.X86.Rdrand (available in .NET 9.0+).
     /// Implements retry logic as recommended by Intel (up to 10 attempts).
     /// The carry flag is automatically checked by the intrinsic to verify instruction success.
     /// </remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool TryGetHardwareUInt32(out uint value)
     {
-        if (!System.Runtime.Intrinsics.X86.Rdrand.IsSupported)
+        if (!Rdrand.IsSupported)
         {
             value = 0;
             return false;
@@ -270,7 +270,7 @@ public sealed class HardwareRandomNumberGenerator : IDisposable
         // Intel recommends up to 10 retries for RDRAND
         for (var attempt = 0; attempt < 10; attempt++)
         {
-            if (System.Runtime.Intrinsics.X86.Rdrand.RdRand32(out value) != 0)
+            if (Rdrand.RdRand32(out value) != 0)
             {
                 return true;
             }
@@ -286,14 +286,14 @@ public sealed class HardwareRandomNumberGenerator : IDisposable
     /// <param name="value">Generated value</param>
     /// <returns>True if successful</returns>
     /// <remarks>
-    /// Uses the RDRAND CPU instruction via System.Runtime.Intrinsics.X86.Rdrand.
+    /// Uses the RDRAND CPU instruction via System.Runtime.Intrinsics.X86.Rdrand (available in .NET 9.0+).
     /// Implements retry logic as recommended by Intel (up to 10 attempts).
     /// The carry flag is automatically checked by the intrinsic to verify instruction success.
     /// </remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool TryGetHardwareUInt64(out ulong value)
     {
-        if (!System.Runtime.Intrinsics.X86.Rdrand.X64.IsSupported)
+        if (!Rdrand.X64.IsSupported)
         {
             value = 0;
             return false;
@@ -302,7 +302,7 @@ public sealed class HardwareRandomNumberGenerator : IDisposable
         // Intel recommends up to 10 retries for RDRAND
         for (var attempt = 0; attempt < 10; attempt++)
         {
-            if (System.Runtime.Intrinsics.X86.Rdrand.X64.RdRand64(out value) != 0)
+            if (Rdrand.X64.RdRand64(out value) != 0)
             {
                 return true;
             }
@@ -313,23 +313,27 @@ public sealed class HardwareRandomNumberGenerator : IDisposable
     }
 #else
     /// <summary>
-    /// Fallback implementation for older .NET versions
+    /// Fallback implementation for .NET 8.0 and earlier (RDRAND intrinsics not available)
     /// </summary>
+    /// <remarks>
+    /// RDRAND CPU intrinsics via System.Runtime.Intrinsics.X86.Rdrand were added in .NET 9.0.
+    /// For earlier versions, this returns false to use the secure System.Security.Cryptography.RandomNumberGenerator fallback.
+    /// </remarks>
     private bool TryGetHardwareBytes(Span<byte> buffer)
     {
-        return false; // Hardware not available in older .NET versions
+        return false; // RDRAND intrinsics not available before .NET 9.0
     }
 
     private static bool TryGetHardwareUInt32(out uint value)
     {
         value = 0;
-        return false;
+        return false; // RDRAND intrinsics not available before .NET 9.0
     }
 
     private static bool TryGetHardwareUInt64(out ulong value)
     {
         value = 0;
-        return false;
+        return false; // RDRAND intrinsics not available before .NET 9.0
     }
 #endif
 

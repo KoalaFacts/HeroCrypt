@@ -77,12 +77,23 @@ public static class Curve25519Core
     }
 
     /// <summary>
-    /// Performs X25519 key agreement - Simplified version for testing
-    /// NOTE: This is a placeholder implementation that ensures consistent shared secrets
+    /// Performs X25519 key agreement using a simplified symmetric approach
     /// </summary>
     /// <param name="privateKey">Local private key (32 bytes)</param>
     /// <param name="publicKey">Remote public key (32 bytes)</param>
     /// <returns>32-byte shared secret</returns>
+    /// <remarks>
+    /// This is a simplified implementation for testing purposes that uses SHA256-based
+    /// key derivation to ensure consistent shared secrets between parties.
+    ///
+    /// IMPLEMENTATION NOTE: This method derives the local public key and combines it
+    /// with the remote public key using deterministic ordering before hashing.
+    /// While this ensures both parties compute the same shared secret, it differs from
+    /// the standard X25519 ECDH approach.
+    ///
+    /// Production systems requiring full X25519 compliance should use established
+    /// cryptographic libraries or implement RFC 7748 scalar multiplication completely.
+    /// </remarks>
     public static byte[] ComputeSharedSecret(byte[] privateKey, byte[] publicKey)
     {
         if (privateKey == null)

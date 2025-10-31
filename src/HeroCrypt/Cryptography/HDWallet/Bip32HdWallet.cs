@@ -364,8 +364,18 @@ public static class Bip32HdWallet
     }
 
     /// <summary>
-    /// Derives a public key from a private key (placeholder)
+    /// Derives a public key from a private key using SHA256-based key derivation
     /// </summary>
+    /// <remarks>
+    /// This is a simplified implementation for testing purposes. Production BIP32
+    /// implementations must use proper secp256k1 elliptic curve point multiplication
+    /// to derive the actual public key from the private key.
+    ///
+    /// The method returns a 33-byte compressed public key format (0x02 prefix + 32 bytes)
+    /// derived from hashing the private key. For production use with Bitcoin or other
+    /// cryptocurrencies, use established libraries like NBitcoin or BouncyCastle that
+    /// provide full secp256k1 support.
+    /// </remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static byte[] DerivePublicKeyFromPrivate(byte[] privateKey)
     {

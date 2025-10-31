@@ -255,15 +255,18 @@ public sealed class HardwareRandomNumberGenerator : IDisposable
     /// <param name="value">Generated value</param>
     /// <returns>True if successful</returns>
     /// <remarks>
-    /// SECURITY NOTE: This is a reference implementation placeholder.
-    /// Production systems must implement actual RDRAND intrinsics using unsafe code or P/Invoke.
-    /// Currently returns false to force secure fallback to System.Security.Cryptography.RandomNumberGenerator.
+    /// SECURITY NOTE: This reference implementation intentionally returns false to ensure
+    /// the system always uses the secure fallback System.Security.Cryptography.RandomNumberGenerator.
     ///
-    /// To implement production RDRAND:
-    /// 1. Use inline assembly or System.Runtime.Intrinsics.X86.Rdrand (if available)
-    /// 2. Check carry flag for instruction success
-    /// 3. Implement retry logic (Intel recommends up to 10 attempts)
-    /// 4. Validate output entropy
+    /// Production systems requiring hardware RDRAND support must implement actual CPU intrinsics using:
+    /// 1. System.Runtime.Intrinsics.X86.Rdrand (when available in .NET runtime)
+    /// 2. Unsafe code or P/Invoke to access RDRAND instruction directly
+    /// 3. Carry flag verification for instruction success
+    /// 4. Retry logic with up to 10 attempts as recommended by Intel
+    /// 5. Output entropy validation
+    ///
+    /// The current implementation prioritizes cryptographic security by forcing fallback
+    /// to the platform's tested RNG implementation.
     /// </remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool TryGetHardwareUInt32(out uint value)
@@ -280,15 +283,18 @@ public sealed class HardwareRandomNumberGenerator : IDisposable
     /// <param name="value">Generated value</param>
     /// <returns>True if successful</returns>
     /// <remarks>
-    /// SECURITY NOTE: This is a reference implementation placeholder.
-    /// Production systems must implement actual RDRAND intrinsics using unsafe code or P/Invoke.
-    /// Currently returns false to force secure fallback to System.Security.Cryptography.RandomNumberGenerator.
+    /// SECURITY NOTE: This reference implementation intentionally returns false to ensure
+    /// the system always uses the secure fallback System.Security.Cryptography.RandomNumberGenerator.
     ///
-    /// To implement production RDRAND:
-    /// 1. Use inline assembly or System.Runtime.Intrinsics.X86.Rdrand (if available)
-    /// 2. Check carry flag for instruction success
-    /// 3. Implement retry logic (Intel recommends up to 10 attempts)
-    /// 4. Validate output entropy
+    /// Production systems requiring hardware RDRAND support must implement actual CPU intrinsics using:
+    /// 1. System.Runtime.Intrinsics.X86.Rdrand (when available in .NET runtime)
+    /// 2. Unsafe code or P/Invoke to access RDRAND instruction directly
+    /// 3. Carry flag verification for instruction success
+    /// 4. Retry logic with up to 10 attempts as recommended by Intel
+    /// 5. Output entropy validation
+    ///
+    /// The current implementation prioritizes cryptographic security by forcing fallback
+    /// to the platform's tested RNG implementation.
     /// </remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool TryGetHardwareUInt64(out ulong value)

@@ -77,26 +77,16 @@ public static class Curve25519Core
     }
 
     /// <summary>
-    /// Performs X25519 key agreement using deterministic key derivation
+    /// Performs X25519 key agreement using Montgomery ladder scalar multiplication
     /// </summary>
     /// <param name="privateKey">Local private key (32 bytes)</param>
     /// <param name="publicKey">Remote public key (32 bytes)</param>
     /// <returns>32-byte shared secret</returns>
     /// <remarks>
-    /// IMPLEMENTATION NOTE: This is a working implementation that ensures both parties
-    /// compute the same shared secret through deterministic combination of derived public keys.
-    ///
-    /// The implementation:
-    /// 1. Derives the local public key from the private key using scalar multiplication
-    /// 2. Combines both public keys (local and remote) using deterministic ordering
-    /// 3. Hashes the combined keys to produce the shared secret
-    ///
-    /// While this differs from standard X25519 ECDH (which would use scalar multiplication
-    /// of private key with remote public key), it provides the essential security property:
-    /// both parties compute identical shared secrets from their key pairs.
-    ///
-    /// For full RFC 7748 X25519 compliance, the Montgomery ladder scalar multiplication
-    /// implementation would need additional verification and testing against official test vectors.
+    /// Implements X25519 ECDH as specified in RFC 7748.
+    /// Computes the shared secret as: scalar_multiply(privateKey, publicKey).
+    /// The private key is clamped according to RFC 7748 before use.
+    /// Uses constant-time Montgomery ladder to prevent timing attacks.
     /// </remarks>
     public static byte[] ComputeSharedSecret(byte[] privateKey, byte[] publicKey)
     {
@@ -109,32 +99,20 @@ public static class Curve25519Core
         if (publicKey.Length != 32)
             throw new ArgumentException("Public key must be 32 bytes", nameof(publicKey));
 
-        // Derive local public key
-        var derivedPublicKey = DerivePublicKey(privateKey);
+        // Clamp the private key according to RFC 7748
+        var clampedKey = new byte[32];
+        privateKey.CopyTo(clampedKey, 0);
+        ClampPrivateKey(clampedKey);
 
-        // Create shared secret by combining both public keys deterministically
-        using var sha256 = SHA256.Create();
-        var input = new byte[64];
-
-        // Sort public keys to ensure order independence (Alice->Bob == Bob->Alice)
-        if (derivedPublicKey.AsSpan().SequenceCompareTo(publicKey) < 0)
+        try
         {
-            derivedPublicKey.CopyTo(input, 0);
-            publicKey.CopyTo(input, 32);
+            // Perform scalar multiplication: sharedSecret = privateKey * publicKey
+            return ScalarMultiplication(clampedKey, publicKey);
         }
-        else
+        finally
         {
-            publicKey.CopyTo(input, 0);
-            derivedPublicKey.CopyTo(input, 32);
+            SecureMemoryOperations.SecureClear(clampedKey);
         }
-
-        var sharedSecret = sha256.ComputeHash(input);
-
-        // Clear sensitive data
-        Array.Clear(input, 0, input.Length);
-        Array.Clear(derivedPublicKey, 0, derivedPublicKey.Length);
-
-        return sharedSecret;
     }
 
     /// <summary>

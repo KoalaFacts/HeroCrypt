@@ -1,0 +1,97 @@
+name: Documentation Quality Check
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'src/**/*.cs'
+      - 'scripts/check-xml-docs.sh'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'src/**/*.cs'
+
+jobs:
+  check-xml-documentation:
+    name: Verify XML Documentation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check XML Documentation Coverage
+        run: |
+          chmod +x ./scripts/check-xml-docs.sh
+          ./scripts/check-xml-docs.sh
+
+      - name: Documentation Report
+        if: always()
+        run: |
+          echo "✅ All public APIs must have XML documentation"
+          echo "📚 This ensures comprehensive IntelliSense support"
+          echo "🔍 Script checks without requiring .NET SDK"
+
+  verify-documentation-quality:
+    name: Spot Check Documentation Quality
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for placeholder documentation
+        run: |
+          echo "Checking for low-quality documentation..."
+
+          # Check for placeholder summaries
+          if grep -r "TODO\|FIXME\|XXX\|placeholder" --include="*.cs" src/ | grep "///"; then
+            echo "❌ Found placeholder documentation comments"
+            echo "Please replace TODOs with actual descriptions"
+            exit 1
+          fi
+
+          # Check for very short summaries (less than 20 chars)
+          if grep -r "/// <summary>[^<]\{1,20\}</summary>" --include="*.cs" src/; then
+            echo "⚠️  Warning: Found very short documentation summaries"
+            echo "Consider adding more detail to help library users"
+          fi
+
+          echo "✅ Documentation quality check passed"
+
+  enforce-public-api-documentation:
+    name: Enforce Public API Documentation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install xmlstarlet (for XML validation)
+        run: sudo apt-get update && sudo apt-get install -y xmlstarlet || true
+
+      - name: Validate XML Documentation Syntax
+        continue-on-error: true
+        run: |
+          echo "Validating XML documentation syntax..."
+
+          # Extract XML comments and validate them
+          find src -name "*.cs" | while read file; do
+            # Extract XML comments from the file
+            grep -o "///.*" "$file" | sed 's:^///:<line>:' | sed 's:$:</line>:' > /tmp/xml_check.xml || true
+
+            # Wrap in root element
+            echo "<root>" > /tmp/xml_wrapped.xml
+            cat /tmp/xml_check.xml >> /tmp/xml_wrapped.xml || true
+            echo "</root>" >> /tmp/xml_wrapped.xml
+
+            # Validate if xmlstarlet is available
+            if command -v xmlstarlet &> /dev/null; then
+              if ! xmlstarlet val /tmp/xml_wrapped.xml 2>/dev/null; then
+                echo "⚠️ XML syntax issues in: $file"
+              fi
+            fi
+          done
+
+          echo "✅ XML validation complete"

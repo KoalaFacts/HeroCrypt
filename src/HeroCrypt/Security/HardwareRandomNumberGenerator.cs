@@ -130,6 +130,8 @@ public sealed class HardwareRandomNumberGenerator : IDisposable
     /// <returns>Random 32-bit unsigned integer</returns>
     public uint GetUInt32()
     {
+        ThrowIfDisposed();
+
         if (_hardwareAvailable)
         {
             try
@@ -167,6 +169,8 @@ public sealed class HardwareRandomNumberGenerator : IDisposable
     /// <returns>Random 64-bit unsigned integer</returns>
     public ulong GetUInt64()
     {
+        ThrowIfDisposed();
+
         if (_hardwareAvailable)
         {
             try

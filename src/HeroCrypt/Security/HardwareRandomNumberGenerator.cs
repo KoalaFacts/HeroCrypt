@@ -207,7 +207,7 @@ public sealed class HardwareRandomNumberGenerator : IDisposable
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private bool TryGetHardwareBytes(Span<byte> buffer)
     {
-        if (!Rdrand.X64.IsSupported) return false;
+        if (!System.Runtime.Intrinsics.X86.Rdrand.X64.IsSupported) return false;
 
         var offset = 0;
         var remaining = buffer.Length;
@@ -261,7 +261,7 @@ public sealed class HardwareRandomNumberGenerator : IDisposable
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool TryGetHardwareUInt32(out uint value)
     {
-        if (!Rdrand.IsSupported)
+        if (!System.Runtime.Intrinsics.X86.Rdrand.IsSupported)
         {
             value = 0;
             return false;
@@ -270,7 +270,7 @@ public sealed class HardwareRandomNumberGenerator : IDisposable
         // Intel recommends up to 10 retries for RDRAND
         for (var attempt = 0; attempt < 10; attempt++)
         {
-            if (Rdrand.RdRand32(out value) != 0)
+            if (System.Runtime.Intrinsics.X86.Rdrand.RdRand32(out value) != 0)
             {
                 return true;
             }
@@ -293,7 +293,7 @@ public sealed class HardwareRandomNumberGenerator : IDisposable
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool TryGetHardwareUInt64(out ulong value)
     {
-        if (!Rdrand.X64.IsSupported)
+        if (!System.Runtime.Intrinsics.X86.Rdrand.X64.IsSupported)
         {
             value = 0;
             return false;
@@ -302,7 +302,7 @@ public sealed class HardwareRandomNumberGenerator : IDisposable
         // Intel recommends up to 10 retries for RDRAND
         for (var attempt = 0; attempt < 10; attempt++)
         {
-            if (Rdrand.X64.RdRand64(out value) != 0)
+            if (System.Runtime.Intrinsics.X86.Rdrand.X64.RdRand64(out value) != 0)
             {
                 return true;
             }

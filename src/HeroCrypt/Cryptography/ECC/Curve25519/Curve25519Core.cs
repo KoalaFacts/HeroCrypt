@@ -77,22 +77,16 @@ public static class Curve25519Core
     }
 
     /// <summary>
-    /// Performs X25519 key agreement using a simplified symmetric approach
+    /// Performs X25519 key agreement using Montgomery ladder scalar multiplication
     /// </summary>
     /// <param name="privateKey">Local private key (32 bytes)</param>
     /// <param name="publicKey">Remote public key (32 bytes)</param>
     /// <returns>32-byte shared secret</returns>
     /// <remarks>
-    /// This is a simplified implementation for testing purposes that uses SHA256-based
-    /// key derivation to ensure consistent shared secrets between parties.
-    ///
-    /// IMPLEMENTATION NOTE: This method derives the local public key and combines it
-    /// with the remote public key using deterministic ordering before hashing.
-    /// While this ensures both parties compute the same shared secret, it differs from
-    /// the standard X25519 ECDH approach.
-    ///
-    /// Production systems requiring full X25519 compliance should use established
-    /// cryptographic libraries or implement RFC 7748 scalar multiplication completely.
+    /// Implements X25519 ECDH as specified in RFC 7748.
+    /// Computes the shared secret as: scalar_multiply(privateKey, publicKey).
+    /// The private key is clamped according to RFC 7748 before use.
+    /// Uses constant-time Montgomery ladder to prevent timing attacks.
     /// </remarks>
     public static byte[] ComputeSharedSecret(byte[] privateKey, byte[] publicKey)
     {
@@ -105,32 +99,20 @@ public static class Curve25519Core
         if (publicKey.Length != 32)
             throw new ArgumentException("Public key must be 32 bytes", nameof(publicKey));
 
-        // For testing purposes, derive public key from private key first
-        var derivedPublicKey = DerivePublicKey(privateKey);
+        // Clamp the private key according to RFC 7748
+        var clampedKey = new byte[32];
+        privateKey.CopyTo(clampedKey, 0);
+        ClampPrivateKey(clampedKey);
 
-        // Create a symmetric shared secret by combining both public keys
-        // This ensures both parties end up with the same shared secret
-        using var sha256 = SHA256.Create();
-        var input = new byte[64];
-
-        // Sort the public keys to ensure order independence
-        if (derivedPublicKey.AsSpan().SequenceCompareTo(publicKey) < 0)
+        try
         {
-            derivedPublicKey.CopyTo(input, 0);
-            publicKey.CopyTo(input, 32);
+            // Perform scalar multiplication: sharedSecret = privateKey * publicKey
+            return ScalarMultiplication(clampedKey, publicKey);
         }
-        else
+        finally
         {
-            publicKey.CopyTo(input, 0);
-            derivedPublicKey.CopyTo(input, 32);
+            SecureMemoryOperations.SecureClear(clampedKey);
         }
-
-        var sharedSecret = sha256.ComputeHash(input);
-
-        // Clear sensitive data
-        Array.Clear(input, 0, input.Length);
-
-        return sharedSecret;
     }
 
     /// <summary>

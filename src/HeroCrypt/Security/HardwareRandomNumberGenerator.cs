@@ -207,7 +207,7 @@ public sealed class HardwareRandomNumberGenerator : IDisposable
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private bool TryGetHardwareBytes(Span<byte> buffer)
     {
-        if (!X86Base.IsSupported) return false;
+        if (!Rdrand.X64.IsSupported) return false;
 
         var offset = 0;
         var remaining = buffer.Length;
@@ -218,8 +218,7 @@ public sealed class HardwareRandomNumberGenerator : IDisposable
             if (!TryGetHardwareUInt64(out var value))
                 return false;
 
-            var bytes = BitConverter.GetBytes(value);
-            bytes.CopyTo(buffer.Slice(offset, 8));
+            BitConverter.TryWriteBytes(buffer.Slice(offset, 8), value);
             offset += 8;
             remaining -= 8;
         }
@@ -230,8 +229,7 @@ public sealed class HardwareRandomNumberGenerator : IDisposable
             if (!TryGetHardwareUInt32(out var value))
                 return false;
 
-            var bytes = BitConverter.GetBytes(value);
-            bytes.CopyTo(buffer.Slice(offset, 4));
+            BitConverter.TryWriteBytes(buffer.Slice(offset, 4), value);
             offset += 4;
             remaining -= 4;
         }
@@ -242,8 +240,9 @@ public sealed class HardwareRandomNumberGenerator : IDisposable
             if (!TryGetHardwareUInt32(out var value))
                 return false;
 
-            var bytes = BitConverter.GetBytes(value);
-            bytes.AsSpan(0, remaining).CopyTo(buffer.Slice(offset));
+            Span<byte> temp = stackalloc byte[4];
+            BitConverter.TryWriteBytes(temp, value);
+            temp.Slice(0, remaining).CopyTo(buffer.Slice(offset));
         }
 
         return true;
@@ -255,24 +254,28 @@ public sealed class HardwareRandomNumberGenerator : IDisposable
     /// <param name="value">Generated value</param>
     /// <returns>True if successful</returns>
     /// <remarks>
-    /// SECURITY NOTE: This reference implementation intentionally returns false to ensure
-    /// the system always uses the secure fallback System.Security.Cryptography.RandomNumberGenerator.
-    ///
-    /// Production systems requiring hardware RDRAND support must implement actual CPU intrinsics using:
-    /// 1. System.Runtime.Intrinsics.X86.Rdrand (when available in .NET runtime)
-    /// 2. Unsafe code or P/Invoke to access RDRAND instruction directly
-    /// 3. Carry flag verification for instruction success
-    /// 4. Retry logic with up to 10 attempts as recommended by Intel
-    /// 5. Output entropy validation
-    ///
-    /// The current implementation prioritizes cryptographic security by forcing fallback
-    /// to the platform's tested RNG implementation.
+    /// Uses the RDRAND CPU instruction via System.Runtime.Intrinsics.X86.Rdrand.
+    /// Implements retry logic as recommended by Intel (up to 10 attempts).
+    /// The carry flag is automatically checked by the intrinsic to verify instruction success.
     /// </remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool TryGetHardwareUInt32(out uint value)
     {
-        // SECURITY: Reference implementation only - forces secure fallback to RandomNumberGenerator
-        // Real implementation requires RDRAND CPU instruction via intrinsics or inline assembly
+        if (!Rdrand.IsSupported)
+        {
+            value = 0;
+            return false;
+        }
+
+        // Intel recommends up to 10 retries for RDRAND
+        for (var attempt = 0; attempt < 10; attempt++)
+        {
+            if (Rdrand.RdRand32(out value) != 0)
+            {
+                return true;
+            }
+        }
+
         value = 0;
         return false;
     }
@@ -283,24 +286,28 @@ public sealed class HardwareRandomNumberGenerator : IDisposable
     /// <param name="value">Generated value</param>
     /// <returns>True if successful</returns>
     /// <remarks>
-    /// SECURITY NOTE: This reference implementation intentionally returns false to ensure
-    /// the system always uses the secure fallback System.Security.Cryptography.RandomNumberGenerator.
-    ///
-    /// Production systems requiring hardware RDRAND support must implement actual CPU intrinsics using:
-    /// 1. System.Runtime.Intrinsics.X86.Rdrand (when available in .NET runtime)
-    /// 2. Unsafe code or P/Invoke to access RDRAND instruction directly
-    /// 3. Carry flag verification for instruction success
-    /// 4. Retry logic with up to 10 attempts as recommended by Intel
-    /// 5. Output entropy validation
-    ///
-    /// The current implementation prioritizes cryptographic security by forcing fallback
-    /// to the platform's tested RNG implementation.
+    /// Uses the RDRAND CPU instruction via System.Runtime.Intrinsics.X86.Rdrand.
+    /// Implements retry logic as recommended by Intel (up to 10 attempts).
+    /// The carry flag is automatically checked by the intrinsic to verify instruction success.
     /// </remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool TryGetHardwareUInt64(out ulong value)
     {
-        // SECURITY: Reference implementation only - forces secure fallback to RandomNumberGenerator
-        // Real implementation requires RDRAND CPU instruction via intrinsics or inline assembly
+        if (!Rdrand.X64.IsSupported)
+        {
+            value = 0;
+            return false;
+        }
+
+        // Intel recommends up to 10 retries for RDRAND
+        for (var attempt = 0; attempt < 10; attempt++)
+        {
+            if (Rdrand.X64.RdRand64(out value) != 0)
+            {
+                return true;
+            }
+        }
+
         value = 0;
         return false;
     }

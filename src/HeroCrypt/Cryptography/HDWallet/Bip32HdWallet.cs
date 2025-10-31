@@ -1,4 +1,5 @@
 using HeroCrypt.Security;
+using HeroCrypt.Cryptography.ECC.Secp256k1;
 using System.Buffers.Binary;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
@@ -364,48 +365,71 @@ public static class Bip32HdWallet
     }
 
     /// <summary>
-    /// Derives a public key from a private key using SHA256-based key derivation
+    /// Derives a public key from a private key using secp256k1 elliptic curve operations
     /// </summary>
     /// <remarks>
-    /// This is a simplified implementation for testing purposes. Production BIP32
-    /// implementations must use proper secp256k1 elliptic curve point multiplication
-    /// to derive the actual public key from the private key.
-    ///
-    /// The method returns a 33-byte compressed public key format (0x02 prefix + 32 bytes)
-    /// derived from hashing the private key. For production use with Bitcoin or other
-    /// cryptocurrencies, use established libraries like NBitcoin or BouncyCastle that
-    /// provide full secp256k1 support.
+    /// Uses proper secp256k1 scalar multiplication to derive the public key.
+    /// Returns a 33-byte compressed public key in SEC format (0x02/0x03 prefix + x-coordinate).
     /// </remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static byte[] DerivePublicKeyFromPrivate(byte[] privateKey)
     {
-        // This is a placeholder. A full implementation would use secp256k1 curve
-        // For now, return a valid-length public key format (0x02/0x03 + 32 bytes)
-        var publicKey = new byte[33];
-        publicKey[0] = 0x02; // Compressed public key prefix
-
-        using (var sha = SHA256.Create())
-        {
-            var hash = sha.ComputeHash(privateKey);
-            Array.Copy(hash, 0, publicKey, 1, 32);
-        }
-
-        return publicKey;
+        // Use secp256k1 to derive the public key properly
+        return Secp256k1Core.DerivePublicKey(privateKey, compressed: true);
     }
 
     /// <summary>
-    /// Adds two 32-byte values modulo n (secp256k1 order) - simplified version
+    /// Adds two 32-byte values modulo n (secp256k1 group order)
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void AddModN(ReadOnlySpan<byte> a, ReadOnlySpan<byte> b, Span<byte> result)
     {
-        // Simplified addition - a full implementation would use secp256k1 curve order
+        // secp256k1 group order (n): FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
+        Span<byte> n = stackalloc byte[32] {
+            0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+            0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFE,
+            0xBA, 0xAE, 0xDC, 0xE6, 0xAF, 0x48, 0xA0, 0x3B,
+            0xBF, 0xD2, 0x5E, 0x8C, 0xD0, 0x36, 0x41, 0x41
+        };
+
+        // Perform addition: result = (a + b) mod n
         uint carry = 0;
         for (var i = 31; i >= 0; i--)
         {
             var sum = (uint)a[i] + b[i] + carry;
             result[i] = (byte)(sum & 0xFF);
             carry = sum >> 8;
+        }
+
+        // If carry or result >= n, subtract n
+        var needsReduction = carry > 0;
+        if (!needsReduction)
+        {
+            // Check if result >= n
+            for (var i = 0; i < 32; i++)
+            {
+                if (result[i] > n[i])
+                {
+                    needsReduction = true;
+                    break;
+                }
+                if (result[i] < n[i])
+                {
+                    break;
+                }
+            }
+        }
+
+        if (needsReduction)
+        {
+            // Subtract n
+            int borrow = 0;
+            for (var i = 31; i >= 0; i--)
+            {
+                var diff = result[i] - n[i] - borrow;
+                result[i] = (byte)(diff & 0xFF);
+                borrow = (diff < 0) ? 1 : 0;
+            }
         }
     }
 
@@ -416,14 +440,16 @@ public static class Bip32HdWallet
     private static byte[] CalculateFingerprint(ExtendedKey key)
     {
         // HASH160 = RIPEMD160(SHA256(public_key))
-        // Simplified: use SHA256 only for this implementation
+        // Note: RIPEMD160 is not available in all .NET versions, so we use double SHA256 as an alternative
         var publicKey = key.IsPrivate ? DerivePublicKeyFromPrivate(key.Key) : key.Key;
 
         using (var sha = SHA256.Create())
         {
-            var hash = sha.ComputeHash(publicKey);
+            // Double SHA256 to approximate HASH160 behavior
+            var hash1 = sha.ComputeHash(publicKey);
+            var hash2 = sha.ComputeHash(hash1);
             var fingerprint = new byte[4];
-            Array.Copy(hash, 0, fingerprint, 0, 4);
+            Array.Copy(hash2, 0, fingerprint, 0, 4);
             return fingerprint;
         }
     }

@@ -53,7 +53,6 @@ public static class ParallelCryptoOperations
     {
         const int minChunkSize = 64 * 1024;      // 64 KB minimum
         const int maxChunkSize = 10 * 1024 * 1024; // 10 MB maximum
-        const int targetChunkSize = 1024 * 1024;   // 1 MB target
 
         if (totalSize <= minChunkSize)
             return (int)totalSize;
@@ -302,10 +301,18 @@ public static class ParallelAesGcm
                 var tag = ciphertext.AsSpan(ciphertextOffset + length, TagSize);
 
                 // Use AES-GCM for authenticated encryption
-#if NET6_0_OR_GREATER
+#if NET8_0_OR_GREATER
+                const int tagSize = 16;
+                using var aes = new System.Security.Cryptography.AesGcm(keyArray, tagSize);
+                aes.Encrypt(chunkNonce, plaintextChunk, ciphertextChunk, tag, associatedDataArray);
+#elif NET6_0_OR_GREATER
+                const int tagSize = 16;
+#pragma warning disable SYSLIB0053 // AesGcm single-argument constructor is obsolete in .NET 8+
                 using var aes = new System.Security.Cryptography.AesGcm(keyArray);
+#pragma warning restore SYSLIB0053
                 aes.Encrypt(chunkNonce, plaintextChunk, ciphertextChunk, tag, associatedDataArray);
 #else
+                const int tagSize = 16;
                 using var aes = new System.Security.Cryptography.AesGcm(keyArray);
                 aes.Encrypt(chunkNonce, plaintextChunk, ciphertextChunk, tag, associatedDataArray);
 #endif
@@ -434,11 +441,19 @@ public static class ParallelAesGcm
                     var tempPlaintext = new byte[length];
                     try
                     {
-#if NET6_0_OR_GREATER
-                        using var aes = new System.Security.Cryptography.AesGcm(keyArray);
+#if NET8_0_OR_GREATER
+                        const int tagSize = 16;
+                using var aes = new System.Security.Cryptography.AesGcm(keyArray, tagSize);
+                        aes.Decrypt(chunkNonce, ciphertextChunk, tag, tempPlaintext, associatedDataArray);
+#elif NET6_0_OR_GREATER
+                        const int tagSize = 16;
+#pragma warning disable SYSLIB0053 // AesGcm single-argument constructor is obsolete in .NET 8+
+                using var aes = new System.Security.Cryptography.AesGcm(keyArray);
+#pragma warning restore SYSLIB0053
                         aes.Decrypt(chunkNonce, ciphertextChunk, tag, tempPlaintext, associatedDataArray);
 #else
-                        using var aes = new System.Security.Cryptography.AesGcm(keyArray);
+                        const int tagSize = 16;
+                using var aes = new System.Security.Cryptography.AesGcm(keyArray);
                         aes.Decrypt(chunkNonce, ciphertextChunk, tag, tempPlaintext, associatedDataArray);
 #endif
                         // Immediately clear the temporary plaintext - we're only verifying tags
@@ -483,11 +498,19 @@ public static class ParallelAesGcm
                     var plaintextChunk = plaintext.AsSpan(offset, length);
 
                     // Decrypt - we know tags are valid from phase 1
-#if NET6_0_OR_GREATER
-                    using var aes = new System.Security.Cryptography.AesGcm(keyArray);
+#if NET8_0_OR_GREATER
+                    const int tagSize = 16;
+                using var aes = new System.Security.Cryptography.AesGcm(keyArray, tagSize);
+                    aes.Decrypt(chunkNonce, ciphertextChunk, tag, plaintextChunk, associatedDataArray);
+#elif NET6_0_OR_GREATER
+                    const int tagSize = 16;
+#pragma warning disable SYSLIB0053 // AesGcm single-argument constructor is obsolete in .NET 8+
+                using var aes = new System.Security.Cryptography.AesGcm(keyArray);
+#pragma warning restore SYSLIB0053
                     aes.Decrypt(chunkNonce, ciphertextChunk, tag, plaintextChunk, associatedDataArray);
 #else
-                    using var aes = new System.Security.Cryptography.AesGcm(keyArray);
+                    const int tagSize = 16;
+                using var aes = new System.Security.Cryptography.AesGcm(keyArray);
                     aes.Decrypt(chunkNonce, ciphertextChunk, tag, plaintextChunk, associatedDataArray);
 #endif
                 });
@@ -514,10 +537,18 @@ public static class ParallelAesGcm
         var ciphertextData = ciphertext.AsSpan(0, plaintext.Length);
         var tag = ciphertext.AsSpan(plaintext.Length, TagSize);
 
-#if NET6_0_OR_GREATER
+#if NET8_0_OR_GREATER
+        const int tagSize = 16;
+        using var aes = new System.Security.Cryptography.AesGcm(key, tagSize);
+        aes.Encrypt(nonce, plaintext, ciphertextData, tag, associatedData);
+#elif NET6_0_OR_GREATER
+        const int tagSize = 16;
+#pragma warning disable SYSLIB0053 // AesGcm single-argument constructor is obsolete in .NET 8+
         using var aes = new System.Security.Cryptography.AesGcm(key);
+#pragma warning restore SYSLIB0053
         aes.Encrypt(nonce, plaintext, ciphertextData, tag, associatedData);
 #else
+        const int tagSize = 16;
         using var aes = new System.Security.Cryptography.AesGcm(key.ToArray());
         aes.Encrypt(nonce, plaintext, ciphertextData, tag, associatedData);
 #endif
@@ -543,10 +574,18 @@ public static class ParallelAesGcm
         var ciphertextData = ciphertext.Slice(0, plaintextLength);
         var tag = ciphertext.Slice(plaintextLength, TagSize);
 
-#if NET6_0_OR_GREATER
+#if NET8_0_OR_GREATER
+        const int tagSize = 16;
+        using var aes = new System.Security.Cryptography.AesGcm(key, tagSize);
+        aes.Decrypt(nonce, ciphertextData, tag, plaintext, associatedData);
+#elif NET6_0_OR_GREATER
+        const int tagSize = 16;
+#pragma warning disable SYSLIB0053 // AesGcm single-argument constructor is obsolete in .NET 8+
         using var aes = new System.Security.Cryptography.AesGcm(key);
+#pragma warning restore SYSLIB0053
         aes.Decrypt(nonce, ciphertextData, tag, plaintext, associatedData);
 #else
+        const int tagSize = 16;
         using var aes = new System.Security.Cryptography.AesGcm(key.ToArray());
         aes.Decrypt(nonce, ciphertextData, tag, plaintext, associatedData);
 #endif
@@ -667,6 +706,13 @@ public class CryptoTaskScheduler : TaskScheduler
     private readonly Thread[] _threads;
     private readonly int _concurrencyLevel;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="CryptoTaskScheduler"/> class.
+    /// </summary>
+    /// <param name="concurrencyLevel">
+    /// Number of worker threads. Set to 0 or negative for automatic detection
+    /// based on optimal parallelism for cryptographic operations.
+    /// </param>
     public CryptoTaskScheduler(int concurrencyLevel = 0)
     {
         if (concurrencyLevel <= 0)
@@ -710,8 +756,14 @@ public class CryptoTaskScheduler : TaskScheduler
         return _tasks.ToArray();
     }
 
+    /// <summary>
+    /// Gets the maximum concurrency level for this scheduler.
+    /// </summary>
     public override int MaximumConcurrencyLevel => _concurrencyLevel;
 
+    /// <summary>
+    /// Releases all resources used by the scheduler and waits for worker threads to complete.
+    /// </summary>
     public void Dispose()
     {
         _tasks.CompleteAdding();

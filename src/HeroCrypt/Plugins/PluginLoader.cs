@@ -5,12 +5,22 @@ using System.Runtime.Loader;
 
 namespace HeroCrypt.Plugins;
 
+/// <summary>
+/// Dynamically loads and manages algorithm plugins from assemblies or directories.
+/// </summary>
 public class PluginLoader
 {
     private readonly List<IAlgorithmPlugin> _plugins = new();
 
+    /// <summary>
+    /// Gets a read-only collection of all successfully loaded plugins.
+    /// </summary>
     public IReadOnlyList<IAlgorithmPlugin> LoadedPlugins => _plugins.AsReadOnly();
 
+    /// <summary>
+    /// Loads all plugins implementing <see cref="IAlgorithmPlugin"/> from the specified assembly.
+    /// </summary>
+    /// <param name="assembly">The assembly to scan for plugin types.</param>
     public void LoadFromAssembly(Assembly assembly)
     {
         var pluginTypes = assembly.GetTypes()
@@ -34,6 +44,10 @@ public class PluginLoader
         }
     }
 
+    /// <summary>
+    /// Loads all plugins from DLL files in the specified directory.
+    /// </summary>
+    /// <param name="directory">The directory path to scan for plugin DLL files.</param>
     public void LoadFromDirectory(string directory)
     {
         if (!Directory.Exists(directory))
@@ -65,11 +79,21 @@ public class PluginLoader
 #endif
     }
 
+    /// <summary>
+    /// Retrieves a loaded plugin by its name (case-insensitive).
+    /// </summary>
+    /// <param name="name">The name of the plugin to retrieve.</param>
+    /// <returns>The plugin with the specified name, or null if not found.</returns>
     public IAlgorithmPlugin? GetPlugin(string name)
     {
         return _plugins.FirstOrDefault(p => p.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
     }
 
+    /// <summary>
+    /// Retrieves all loaded plugins in the specified category.
+    /// </summary>
+    /// <param name="category">The category to filter plugins by.</param>
+    /// <returns>An enumerable of plugins in the specified category.</returns>
     public IEnumerable<IAlgorithmPlugin> GetPluginsByCategory(AlgorithmCategory category)
     {
         return _plugins.Where(p => p.Category == category);
@@ -81,6 +105,10 @@ internal sealed class PluginLoadContext : AssemblyLoadContext
 {
     private readonly AssemblyDependencyResolver _resolver;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="PluginLoadContext"/> class.
+    /// </summary>
+    /// <param name="pluginPath">The path to the plugin assembly.</param>
     public PluginLoadContext(string pluginPath)
     {
         _resolver = new AssemblyDependencyResolver(pluginPath);

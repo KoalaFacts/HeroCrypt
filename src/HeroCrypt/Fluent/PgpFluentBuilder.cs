@@ -23,6 +23,11 @@ public class PgpFluentBuilder : IPgpFluentBuilder
     private int _keySize;
     private bool _useHardwareAcceleration;
 
+    /// <summary>
+    /// Initializes a new instance of the PgpFluentBuilder class
+    /// </summary>
+    /// <param name="options">HeroCrypt configuration options</param>
+    /// <param name="hardwareAccelerator">Hardware acceleration service</param>
     public PgpFluentBuilder(IOptions<HeroCryptOptions> options, IHardwareAccelerator hardwareAccelerator)
     {
         _options = options.Value;
@@ -31,6 +36,12 @@ public class PgpFluentBuilder : IPgpFluentBuilder
         _useHardwareAcceleration = _options.EnableHardwareAcceleration;
     }
 
+    /// <summary>
+    /// Sets the plaintext data to be encrypted
+    /// </summary>
+    /// <param name="data">The plaintext string to encrypt</param>
+    /// <returns>The builder instance for method chaining</returns>
+    /// <exception cref="ArgumentException">Thrown when data is null or empty</exception>
     public IPgpFluentBuilder WithData(string data)
     {
         if (string.IsNullOrEmpty(data))
@@ -40,12 +51,24 @@ public class PgpFluentBuilder : IPgpFluentBuilder
         return this;
     }
 
+    /// <summary>
+    /// Sets the plaintext data to be encrypted
+    /// </summary>
+    /// <param name="data">The plaintext bytes to encrypt</param>
+    /// <returns>The builder instance for method chaining</returns>
+    /// <exception cref="ArgumentNullException">Thrown when data is null</exception>
     public IPgpFluentBuilder WithData(byte[] data)
     {
         _data = data ?? throw new ArgumentNullException(nameof(data));
         return this;
     }
 
+    /// <summary>
+    /// Sets the encrypted data to be decrypted
+    /// </summary>
+    /// <param name="encryptedData">The encrypted string to decrypt</param>
+    /// <returns>The builder instance for method chaining</returns>
+    /// <exception cref="ArgumentException">Thrown when encryptedData is null or empty</exception>
     public IPgpFluentBuilder WithEncryptedData(string encryptedData)
     {
         if (string.IsNullOrEmpty(encryptedData))
@@ -55,36 +78,72 @@ public class PgpFluentBuilder : IPgpFluentBuilder
         return this;
     }
 
+    /// <summary>
+    /// Sets the encrypted data to be decrypted
+    /// </summary>
+    /// <param name="encryptedData">The encrypted bytes to decrypt</param>
+    /// <returns>The builder instance for method chaining</returns>
+    /// <exception cref="ArgumentNullException">Thrown when encryptedData is null</exception>
     public IPgpFluentBuilder WithEncryptedData(byte[] encryptedData)
     {
         _encryptedData = encryptedData ?? throw new ArgumentNullException(nameof(encryptedData));
         return this;
     }
 
+    /// <summary>
+    /// Sets the PGP public key for encryption
+    /// </summary>
+    /// <param name="publicKey">The PGP public key in ASCII-armored format</param>
+    /// <returns>The builder instance for method chaining</returns>
+    /// <exception cref="ArgumentNullException">Thrown when publicKey is null</exception>
     public IPgpFluentBuilder WithPublicKey(string publicKey)
     {
         _publicKey = publicKey ?? throw new ArgumentNullException(nameof(publicKey));
         return this;
     }
 
+    /// <summary>
+    /// Sets the PGP private key for decryption
+    /// </summary>
+    /// <param name="privateKey">The PGP private key in ASCII-armored format</param>
+    /// <returns>The builder instance for method chaining</returns>
+    /// <exception cref="ArgumentNullException">Thrown when privateKey is null</exception>
     public IPgpFluentBuilder WithPrivateKey(string privateKey)
     {
         _privateKey = privateKey ?? throw new ArgumentNullException(nameof(privateKey));
         return this;
     }
 
+    /// <summary>
+    /// Sets the identity (email or name) for key pair generation
+    /// </summary>
+    /// <param name="identity">The identity to associate with the key pair (typically an email address)</param>
+    /// <returns>The builder instance for method chaining</returns>
+    /// <exception cref="ArgumentNullException">Thrown when identity is null</exception>
     public IPgpFluentBuilder WithIdentity(string identity)
     {
         _identity = identity ?? throw new ArgumentNullException(nameof(identity));
         return this;
     }
 
+    /// <summary>
+    /// Sets the passphrase for protecting the private key
+    /// </summary>
+    /// <param name="passphrase">The passphrase to protect the private key</param>
+    /// <returns>The builder instance for method chaining</returns>
+    /// <exception cref="ArgumentNullException">Thrown when passphrase is null</exception>
     public IPgpFluentBuilder WithPassphrase(string passphrase)
     {
         _passphrase = passphrase ?? throw new ArgumentNullException(nameof(passphrase));
         return this;
     }
 
+    /// <summary>
+    /// Sets the RSA key size for key pair generation
+    /// </summary>
+    /// <param name="keySize">The key size in bits (1024, 2048, 3072, 4096, or 8192)</param>
+    /// <returns>The builder instance for method chaining</returns>
+    /// <exception cref="ArgumentException">Thrown when keySize is invalid</exception>
     public IPgpFluentBuilder WithKeySize(int keySize)
     {
         if (keySize < 1024)
@@ -103,18 +162,33 @@ public class PgpFluentBuilder : IPgpFluentBuilder
         return this;
     }
 
+    /// <summary>
+    /// Configures the key size based on a predefined security level
+    /// </summary>
+    /// <param name="securityLevel">The security level (Low, Medium, High, or Military)</param>
+    /// <returns>The builder instance for method chaining</returns>
     public IPgpFluentBuilder WithSecurityLevel(SecurityLevel securityLevel)
     {
         _keySize = SecurityPolicies.GetRsaKeySize(securityLevel);
         return this;
     }
 
+    /// <summary>
+    /// Enables hardware acceleration for cryptographic operations when available
+    /// </summary>
+    /// <returns>The builder instance for method chaining</returns>
     public IPgpFluentBuilder WithHardwareAcceleration()
     {
         _useHardwareAcceleration = true;
         return this;
     }
 
+    /// <summary>
+    /// Encrypts the data using PGP and returns the result as a string
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Encrypted data as an ASCII-armored string or Base64 string</returns>
+    /// <exception cref="InvalidOperationException">Thrown when data or public key is not set</exception>
     public async Task<string> EncryptAsync(CancellationToken cancellationToken = default)
     {
         ValidateEncryption();
@@ -135,6 +209,12 @@ public class PgpFluentBuilder : IPgpFluentBuilder
         }
     }
 
+    /// <summary>
+    /// Encrypts the data using PGP and returns the result as raw bytes
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Encrypted data as bytes</returns>
+    /// <exception cref="InvalidOperationException">Thrown when data or public key is not set</exception>
     public async Task<byte[]> EncryptBytesAsync(CancellationToken cancellationToken = default)
     {
         ValidateEncryption();
@@ -143,6 +223,12 @@ public class PgpFluentBuilder : IPgpFluentBuilder
         return await service.EncryptAsync(_data!, _publicKey!, cancellationToken);
     }
 
+    /// <summary>
+    /// Decrypts PGP encrypted data and returns the result as a string
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Decrypted plaintext as a string</returns>
+    /// <exception cref="InvalidOperationException">Thrown when encrypted data or private key is not set</exception>
     public async Task<string> DecryptAsync(CancellationToken cancellationToken = default)
     {
         ValidateDecryption();
@@ -163,6 +249,12 @@ public class PgpFluentBuilder : IPgpFluentBuilder
         }
     }
 
+    /// <summary>
+    /// Decrypts PGP encrypted data and returns the result as raw bytes
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Decrypted plaintext as bytes</returns>
+    /// <exception cref="InvalidOperationException">Thrown when encrypted data or private key is not set</exception>
     public async Task<byte[]> DecryptBytesAsync(CancellationToken cancellationToken = default)
     {
         ValidateDecryption();
@@ -171,6 +263,11 @@ public class PgpFluentBuilder : IPgpFluentBuilder
         return await service.DecryptAsync(_encryptedData!, _privateKey!, _passphrase, cancellationToken);
     }
 
+    /// <summary>
+    /// Generates a new PGP key pair with the configured parameters
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Generated PGP key pair containing public and private keys</returns>
     public async Task<KeyPair> GenerateKeyPairAsync(CancellationToken cancellationToken = default)
     {
         ValidateKeyGeneration();

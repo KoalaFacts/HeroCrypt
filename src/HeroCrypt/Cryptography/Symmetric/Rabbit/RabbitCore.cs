@@ -27,14 +27,28 @@ internal static class RabbitCore
     public const int BlockSize = 16;
 
     /// <summary>
-    /// Rabbit cipher state
+    /// Rabbit cipher state container.
     /// </summary>
     private struct RabbitState
     {
-        public uint[] X;  // 8 state variables (32-bit each)
-        public uint[] C;  // 8 counter variables (32-bit each)
-        public uint Carry; // Carry bit for counter system
+        /// <summary>
+        /// State variables array containing 8 32-bit words that form the cipher's internal state.
+        /// </summary>
+        public uint[] X;
 
+        /// <summary>
+        /// Counter variables array containing 8 32-bit counter values.
+        /// </summary>
+        public uint[] C;
+
+        /// <summary>
+        /// Carry bit used by the counter system for propagating carries.
+        /// </summary>
+        public uint Carry;
+
+        /// <summary>
+        /// Initializes a new instance of the RabbitState struct.
+        /// </summary>
         public RabbitState()
         {
             X = new uint[8];

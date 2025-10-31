@@ -5,6 +5,11 @@ namespace HeroCrypt.Cryptography.RSA;
 
 internal static class RsaCore
 {
+    /// <summary>
+    /// Generates an RSA key pair with the specified key size.
+    /// </summary>
+    /// <param name="keySize">The size of the key in bits (typically 2048 or 4096).</param>
+    /// <returns>An <see cref="RsaKeyPair"/> containing the generated public and private keys.</returns>
     public static RsaKeyPair GenerateKeyPair(int keySize)
     {
         using var rsa = SystemSecurityRSA.Create();
@@ -28,6 +33,14 @@ internal static class RsaCore
         );
     }
 
+    /// <summary>
+    /// Encrypts data using RSA public key encryption.
+    /// </summary>
+    /// <param name="data">The data to encrypt.</param>
+    /// <param name="publicKey">The RSA public key.</param>
+    /// <param name="padding">The padding mode to use (default: PKCS1).</param>
+    /// <param name="hashAlgorithm">The hash algorithm for OAEP padding (default: SHA256).</param>
+    /// <returns>The encrypted data.</returns>
     public static byte[] Encrypt(byte[] data, RsaPublicKey publicKey, RsaPaddingMode padding = RsaPaddingMode.Pkcs1, HashAlgorithmName? hashAlgorithm = null)
     {
         using var rsa = SystemSecurityRSA.Create();
@@ -35,6 +48,14 @@ internal static class RsaCore
         return rsa.Encrypt(data, ResolveEncryptionPadding(padding, hashAlgorithm));
     }
 
+    /// <summary>
+    /// Decrypts data using RSA private key decryption.
+    /// </summary>
+    /// <param name="encryptedData">The encrypted data to decrypt.</param>
+    /// <param name="privateKey">The RSA private key.</param>
+    /// <param name="padding">The padding mode to use (default: PKCS1).</param>
+    /// <param name="hashAlgorithm">The hash algorithm for OAEP padding (default: SHA256).</param>
+    /// <returns>The decrypted data.</returns>
     public static byte[] Decrypt(byte[] encryptedData, RsaPrivateKey privateKey, RsaPaddingMode padding = RsaPaddingMode.Pkcs1, HashAlgorithmName? hashAlgorithm = null)
     {
         using var rsa = SystemSecurityRSA.Create();
@@ -42,6 +63,12 @@ internal static class RsaCore
         return rsa.Decrypt(encryptedData, ResolveEncryptionPadding(padding, hashAlgorithm));
     }
 
+    /// <summary>
+    /// Creates a digital signature for the specified data using RSA-SHA256.
+    /// </summary>
+    /// <param name="data">The data to sign.</param>
+    /// <param name="privateKey">The RSA private key.</param>
+    /// <returns>The digital signature.</returns>
     public static byte[] Sign(byte[] data, RsaPrivateKey privateKey)
     {
         using var rsa = SystemSecurityRSA.Create();
@@ -49,6 +76,13 @@ internal static class RsaCore
         return rsa.SignData(data, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
     }
 
+    /// <summary>
+    /// Verifies an RSA-SHA256 digital signature.
+    /// </summary>
+    /// <param name="data">The data that was signed.</param>
+    /// <param name="signature">The signature to verify.</param>
+    /// <param name="publicKey">The RSA public key.</param>
+    /// <returns>true if the signature is valid; otherwise, false.</returns>
     public static bool Verify(byte[] data, byte[] signature, RsaPublicKey publicKey)
     {
         using var rsa = SystemSecurityRSA.Create();
@@ -209,6 +243,11 @@ internal sealed class RsaKeyPair
     public RsaPublicKey PublicKey { get; }
     public RsaPrivateKey PrivateKey { get; }
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="RsaKeyPair"/> class.
+    /// </summary>
+    /// <param name="publicKey">The RSA public key.</param>
+    /// <param name="privateKey">The RSA private key.</param>
     public RsaKeyPair(RsaPublicKey publicKey, RsaPrivateKey privateKey)
     {
         PublicKey = publicKey;
@@ -221,6 +260,11 @@ internal sealed class RsaPublicKey
     public BigInteger Modulus { get; }
     public BigInteger Exponent { get; }
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="RsaPublicKey"/> class.
+    /// </summary>
+    /// <param name="modulus">The RSA modulus (n).</param>
+    /// <param name="exponent">The public exponent (e).</param>
     public RsaPublicKey(BigInteger modulus, BigInteger exponent)
     {
         Modulus = modulus;
@@ -236,6 +280,14 @@ internal sealed class RsaPrivateKey
     public BigInteger Q { get; }
     public BigInteger E { get; }
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="RsaPrivateKey"/> class.
+    /// </summary>
+    /// <param name="modulus">The RSA modulus (n).</param>
+    /// <param name="d">The private exponent (d).</param>
+    /// <param name="p">The first prime factor of n.</param>
+    /// <param name="q">The second prime factor of n.</param>
+    /// <param name="e">The public exponent (e).</param>
     public RsaPrivateKey(BigInteger modulus, BigInteger d, BigInteger p, BigInteger q, BigInteger e)
     {
         Modulus = modulus;

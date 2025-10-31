@@ -22,13 +22,24 @@ internal static class Hc128Core
     public const int IvSize = 16;
 
     /// <summary>
-    /// HC-128 cipher state
+    /// HC-128 cipher state container.
     /// </summary>
     private class Hc128State
     {
-        public uint[] P = new uint[512];  // P table
-        public uint[] Q = new uint[512];  // Q table
-        public uint Counter = 0;          // Step counter
+        /// <summary>
+        /// P-table containing 512 32-bit words used in keystream generation.
+        /// </summary>
+        public uint[] P = new uint[512];
+
+        /// <summary>
+        /// Q-table containing 512 32-bit words used in keystream generation.
+        /// </summary>
+        public uint[] Q = new uint[512];
+
+        /// <summary>
+        /// Step counter tracking the current position in the cipher's internal state.
+        /// </summary>
+        public uint Counter = 0;
     }
 
     /// <summary>

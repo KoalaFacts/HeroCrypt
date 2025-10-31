@@ -10,6 +10,10 @@ internal sealed class DefaultHardwareAccelerator : IHardwareAccelerator
 {
     private readonly HardwareAccelerationType _accelerationType;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="DefaultHardwareAccelerator"/> class.
+    /// </summary>
+    /// <param name="accelerationType">The type of hardware acceleration available.</param>
     public DefaultHardwareAccelerator(HardwareAccelerationType accelerationType)
     {
         _accelerationType = accelerationType;

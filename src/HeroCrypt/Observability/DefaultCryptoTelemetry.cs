@@ -22,10 +22,30 @@ public sealed class DefaultCryptoTelemetry : ICryptoTelemetry
     private readonly DateTime _startTime = DateTime.UtcNow;
 
     // Events
+    /// <summary>
+    /// Event raised when a cryptographic operation starts.
+    /// </summary>
     public event EventHandler<CryptoOperationEvent>? OperationStarted;
+
+    /// <summary>
+    /// Event raised when a cryptographic operation completes.
+    /// </summary>
     public event EventHandler<CryptoOperationEvent>? OperationCompleted;
+
+    /// <summary>
+    /// Event raised when a security-related event occurs.
+    /// </summary>
     public event EventHandler<SecurityAuditEvent>? SecurityEventOccurred;
 
+    /// <summary>
+    /// Starts tracking a new cryptographic operation.
+    /// </summary>
+    /// <param name="operationType">The type of operation (e.g., "Encrypt", "Decrypt", "Hash").</param>
+    /// <param name="algorithm">The algorithm being used.</param>
+    /// <param name="dataSize">The size of data being processed in bytes.</param>
+    /// <param name="hardwareAccelerated">Whether hardware acceleration is being used.</param>
+    /// <param name="metadata">Optional additional metadata about the operation.</param>
+    /// <returns>A unique operation ID for tracking this operation.</returns>
     public string StartOperation(
         string operationType,
         string algorithm,
@@ -56,6 +76,12 @@ public sealed class DefaultCryptoTelemetry : ICryptoTelemetry
         return operationId;
     }
 
+    /// <summary>
+    /// Marks a cryptographic operation as complete and records its results.
+    /// </summary>
+    /// <param name="operationId">The unique ID of the operation to complete.</param>
+    /// <param name="success">Whether the operation succeeded.</param>
+    /// <param name="errorMessage">Optional error message if the operation failed.</param>
     public void CompleteOperation(string operationId, bool success, string? errorMessage = null)
     {
         if (_activeOperations.TryRemove(operationId, out var operationEvent))
@@ -85,6 +111,15 @@ public sealed class DefaultCryptoTelemetry : ICryptoTelemetry
         }
     }
 
+    /// <summary>
+    /// Records a security-related event for auditing purposes.
+    /// </summary>
+    /// <param name="eventType">The type of security event.</param>
+    /// <param name="severity">The severity level of the event.</param>
+    /// <param name="component">The component where the event occurred.</param>
+    /// <param name="description">A description of the security event.</param>
+    /// <param name="relatedOperationId">Optional ID of a related cryptographic operation.</param>
+    /// <param name="data">Optional additional data about the security event.</param>
     public void RecordSecurityEvent(
         SecurityEventType eventType,
         SecuritySeverity severity,
@@ -115,6 +150,11 @@ public sealed class DefaultCryptoTelemetry : ICryptoTelemetry
         }
     }
 
+    /// <summary>
+    /// Retrieves overall health metrics for the cryptographic system.
+    /// </summary>
+    /// <param name="cancellationToken">Optional cancellation token.</param>
+    /// <returns>A <see cref="HealthMetrics"/> object containing system health information.</returns>
     public async Task<HealthMetrics> GetHealthMetricsAsync(CancellationToken cancellationToken = default)
     {
         await Task.CompletedTask; // Placeholder for any async operations
@@ -160,6 +200,13 @@ public sealed class DefaultCryptoTelemetry : ICryptoTelemetry
         };
     }
 
+    /// <summary>
+    /// Retrieves metrics for cryptographic operations, optionally filtered by type and time window.
+    /// </summary>
+    /// <param name="operationType">Optional filter for a specific operation type.</param>
+    /// <param name="timeWindow">Optional time window to filter operations.</param>
+    /// <param name="cancellationToken">Optional cancellation token.</param>
+    /// <returns>A collection of <see cref="OperationMetrics"/> objects.</returns>
     public async Task<IEnumerable<OperationMetrics>> GetOperationMetricsAsync(
         string? operationType = null,
         TimeSpan? timeWindow = null,
@@ -177,6 +224,13 @@ public sealed class DefaultCryptoTelemetry : ICryptoTelemetry
         return metrics;
     }
 
+    /// <summary>
+    /// Retrieves security audit events within a specified time window, optionally filtered by severity.
+    /// </summary>
+    /// <param name="timeWindow">The time window to retrieve events from.</param>
+    /// <param name="severityFilter">Optional minimum severity level to filter events.</param>
+    /// <param name="cancellationToken">Optional cancellation token.</param>
+    /// <returns>A collection of <see cref="SecurityAuditEvent"/> objects ordered by timestamp descending.</returns>
     public async Task<IEnumerable<SecurityAuditEvent>> GetSecurityEventsAsync(
         TimeSpan timeWindow,
         SecuritySeverity? severityFilter = null,
@@ -202,6 +256,12 @@ public sealed class DefaultCryptoTelemetry : ICryptoTelemetry
         return events.OrderByDescending(e => e.Timestamp);
     }
 
+    /// <summary>
+    /// Cleans up telemetry data older than the specified retention period.
+    /// </summary>
+    /// <param name="retentionPeriod">The retention period; data older than this will be removed.</param>
+    /// <param name="cancellationToken">Optional cancellation token.</param>
+    /// <returns>The number of items removed.</returns>
     public async Task<long> CleanupOldDataAsync(TimeSpan retentionPeriod, CancellationToken cancellationToken = default)
     {
         await Task.CompletedTask; // Placeholder for any async operations
@@ -252,6 +312,15 @@ public sealed class DefaultCryptoTelemetry : ICryptoTelemetry
         return cleanedCount;
     }
 
+    /// <summary>
+    /// Exports telemetry data in the specified format for analysis or archiving.
+    /// </summary>
+    /// <param name="format">The export format (currently only JSON is supported).</param>
+    /// <param name="timeWindow">The time window of data to export.</param>
+    /// <param name="cancellationToken">Optional cancellation token.</param>
+    /// <returns>The exported telemetry data as a byte array in the specified format.</returns>
+    /// <exception cref="NotSupportedException">Thrown when an unsupported export format is requested.</exception>
+    /// <exception cref="ArgumentException">Thrown when an invalid export format is provided.</exception>
     public async Task<byte[]> ExportTelemetryDataAsync(
         TelemetryExportFormat format,
         TimeSpan timeWindow,

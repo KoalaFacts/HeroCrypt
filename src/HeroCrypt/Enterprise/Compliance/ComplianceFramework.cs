@@ -49,6 +49,18 @@ public class ComplianceFramework
     private readonly IAuditLogger _auditLogger;
     private readonly List<CompliancePolicy> _policies = new();
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ComplianceFramework"/> class.
+    /// </summary>
+    /// <param name="config">Compliance configuration settings.</param>
+    /// <param name="auditLogger">Audit logger for compliance events.</param>
+    /// <exception cref="ArgumentNullException">
+    /// Thrown when <paramref name="config"/> or <paramref name="auditLogger"/> is null.
+    /// </exception>
+    /// <remarks>
+    /// Initializes default compliance policies including weak cryptography detection,
+    /// minimum key length enforcement, and failed authentication monitoring.
+    /// </remarks>
     public ComplianceFramework(ComplianceConfig config, IAuditLogger auditLogger)
     {
         _config = config ?? throw new ArgumentNullException(nameof(config));
@@ -658,13 +670,25 @@ public enum FindingSeverity
 }
 
 /// <summary>
-/// In-memory audit logger implementation
+/// In-memory audit logger implementation for development and testing.
 /// </summary>
+/// <remarks>
+/// This implementation stores events in memory and should not be used in production.
+/// For production use, implement IAuditLogger with persistent storage (database, file system,
+/// or external logging service) to ensure audit trails are not lost on application restart.
+/// </remarks>
 public class InMemoryAuditLogger : IAuditLogger
 {
     private readonly List<AuditEvent> _events = new();
     private readonly object _lock = new();
 
+    /// <summary>
+    /// Logs an audit event to the in-memory store.
+    /// </summary>
+    /// <param name="auditEvent">The event to log.</param>
+    /// <remarks>
+    /// Thread-safe. Events are stored in memory and lost on application restart.
+    /// </remarks>
     public void Log(AuditEvent auditEvent)
     {
         lock (_lock)
@@ -673,12 +697,30 @@ public class InMemoryAuditLogger : IAuditLogger
         }
     }
 
+    /// <summary>
+    /// Logs a high-priority alert event.
+    /// </summary>
+    /// <param name="auditEvent">The alert event to log.</param>
+    /// <remarks>
+    /// In this implementation, alerts are written to console.
+    /// Production implementations should integrate with alerting systems
+    /// (email, SMS, PagerDuty, etc.).
+    /// </remarks>
     public void LogAlert(AuditEvent auditEvent)
     {
         // Production: Send to alerting system
         Console.WriteLine($"[ALERT] {auditEvent.Severity}: {auditEvent.Description}");
     }
 
+    /// <summary>
+    /// Retrieves audit events within a specified time range.
+    /// </summary>
+    /// <param name="startDate">Start of the time range.</param>
+    /// <param name="endDate">End of the time range.</param>
+    /// <returns>List of events within the time range.</returns>
+    /// <remarks>
+    /// Thread-safe. Returns a copy of the filtered events.
+    /// </remarks>
     public List<AuditEvent> GetEvents(DateTimeOffset startDate, DateTimeOffset endDate)
     {
         lock (_lock)
@@ -689,8 +731,17 @@ public class InMemoryAuditLogger : IAuditLogger
         }
     }
 
+    /// <summary>
+    /// Gets the total number of events stored.
+    /// </summary>
     public int Count => _events.Count;
 
+    /// <summary>
+    /// Clears all stored audit events.
+    /// </summary>
+    /// <remarks>
+    /// Thread-safe. Use with caution as this permanently removes all audit data.
+    /// </remarks>
     public void Clear()
     {
         lock (_lock)

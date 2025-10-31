@@ -269,18 +269,29 @@ public class KeyDerivationService : IKeyDerivationService
 
     /// <summary>
     /// Blake2b wrapper for HashAlgorithm compatibility.
+    /// Enables Blake2b to be used with HKDF and other algorithms expecting HashAlgorithm.
     /// </summary>
     private sealed class Blake2bHashAlgorithm : HashAlgorithm
     {
         private readonly IBlake2bService _blake2bService;
         private readonly MemoryStream _buffer = new();
 
+        /// <summary>
+        /// Initializes a new instance of the Blake2bHashAlgorithm wrapper.
+        /// </summary>
+        /// <param name="blake2bService">The Blake2b service to use for hashing.</param>
         public Blake2bHashAlgorithm(IBlake2bService blake2bService)
         {
             _blake2bService = blake2bService;
             HashSizeValue = 512; // Blake2b default
         }
 
+        /// <summary>
+        /// Initializes or resets the hash algorithm state.
+        /// </summary>
+        /// <remarks>
+        /// Clears the internal buffer to prepare for a new hash computation.
+        /// </remarks>
         public override void Initialize()
         {
             _buffer.SetLength(0);

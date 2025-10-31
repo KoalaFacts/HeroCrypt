@@ -33,7 +33,7 @@ namespace HeroCrypt.Cryptography.MultiParty;
 ///
 /// Based on:
 /// - "Practical Threshold Signatures" by Shoup (2000)
-/// - "Fast Multiparty Threshold ECDSA" by Gennaro & Goldfeder (2018)
+/// - "Fast Multiparty Threshold ECDSA" by Gennaro &amp; Goldfeder (2018)
 /// - "GG20: One Round Threshold ECDSA" (2020)
 /// - FROST: Flexible Round-Optimized Schnorr Threshold Signatures (2020)
 ///

@@ -43,6 +43,13 @@ public class CertificateAuthority
     private readonly CertificateAuthorityConfig _config;
     private readonly X509Certificate2 _caCertificate;
 
+    /// <summary>
+    /// Initializes a new instance of the CertificateAuthority class
+    /// </summary>
+    /// <param name="config">Certificate Authority configuration</param>
+    /// <param name="caCertificate">CA certificate with private key</param>
+    /// <exception cref="ArgumentNullException">Thrown when config or caCertificate is null</exception>
+    /// <exception cref="ArgumentException">Thrown when caCertificate does not have a private key</exception>
     public CertificateAuthority(CertificateAuthorityConfig config, X509Certificate2 caCertificate)
     {
         _config = config ?? throw new ArgumentNullException(nameof(config));
@@ -121,12 +128,9 @@ public class CertificateAuthority
             notAfter,
             serialNumber);
 
-        // Add private key if provided
-        if (profile.IncludePrivateKey && request.PublicKey.Key is RSA)
-        {
-            var certWithKey = certificate.CopyWithPrivateKey((RSA)request.PublicKey.Key);
-            return certWithKey;
-        }
+        // Note: profile.IncludePrivateKey requires the private key to be passed separately
+        // CertificateRequest does not store the private key used for signing
+        // To include a private key, use certificate.CopyWithPrivateKey() with the original key
 
         return certificate;
     }
@@ -422,10 +426,29 @@ public class CertificateAuthority
 /// </summary>
 public class CertificateAuthorityConfig
 {
+    /// <summary>
+    /// Gets or sets the name of the Certificate Authority
+    /// </summary>
     public string CaName { get; set; } = "HeroCrypt CA";
+
+    /// <summary>
+    /// Gets or sets the list of revoked certificates
+    /// </summary>
     public List<CertificateRevocationEntry> RevokedCertificates { get; set; } = new();
+
+    /// <summary>
+    /// Gets or sets the current CRL (Certificate Revocation List) sequence number
+    /// </summary>
     public long CrlNumber { get; set; } = 1;
+
+    /// <summary>
+    /// Gets or sets the CRL distribution point URL
+    /// </summary>
     public string? CrlDistributionPoint { get; set; }
+
+    /// <summary>
+    /// Gets or sets the OCSP responder URL for certificate status checking
+    /// </summary>
     public string? OcspResponderUrl { get; set; }
 }
 
@@ -434,14 +457,44 @@ public class CertificateAuthorityConfig
 /// </summary>
 public class CertificateProfile
 {
+    /// <summary>
+    /// Gets or sets the validity period in days for the certificate
+    /// </summary>
     public int ValidityDays { get; set; } = 365;
+
+    /// <summary>
+    /// Gets or sets whether this certificate can act as a Certificate Authority
+    /// </summary>
     public bool IsCertificateAuthority { get; set; } = false;
+
+    /// <summary>
+    /// Gets or sets the maximum path length constraint for certificate chains (null for no constraint)
+    /// </summary>
     public int? PathLengthConstraint { get; set; }
+
+    /// <summary>
+    /// Gets or sets the key usage flags for the certificate
+    /// </summary>
     public X509KeyUsageFlags KeyUsage { get; set; } = X509KeyUsageFlags.DigitalSignature | X509KeyUsageFlags.KeyEncipherment;
+
+    /// <summary>
+    /// Gets or sets the extended key usage OIDs for the certificate
+    /// </summary>
     public List<string>? ExtendedKeyUsage { get; set; }
+
+    /// <summary>
+    /// Gets or sets the Subject Alternative Names for the certificate
+    /// </summary>
     public List<SubjectAlternativeName>? SubjectAlternativeNames { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether to include the private key in the issued certificate
+    /// </summary>
     public bool IncludePrivateKey { get; set; } = false;
 
+    /// <summary>
+    /// Gets a certificate profile for server authentication (TLS/SSL)
+    /// </summary>
     public static CertificateProfile ServerAuthentication => new()
     {
         ValidityDays = 365,
@@ -450,6 +503,9 @@ public class CertificateProfile
         IsCertificateAuthority = false
     };
 
+    /// <summary>
+    /// Gets a certificate profile for client authentication
+    /// </summary>
     public static CertificateProfile ClientAuthentication => new()
     {
         ValidityDays = 365,
@@ -458,6 +514,9 @@ public class CertificateProfile
         IsCertificateAuthority = false
     };
 
+    /// <summary>
+    /// Gets a certificate profile for code signing
+    /// </summary>
     public static CertificateProfile CodeSigning => new()
     {
         ValidityDays = 1095, // 3 years
@@ -466,6 +525,9 @@ public class CertificateProfile
         IsCertificateAuthority = false
     };
 
+    /// <summary>
+    /// Gets a certificate profile for an intermediate Certificate Authority
+    /// </summary>
     public static CertificateProfile IntermediateCA => new()
     {
         ValidityDays = 3650, // 10 years
@@ -480,7 +542,14 @@ public class CertificateProfile
 /// </summary>
 public class SubjectAlternativeName
 {
+    /// <summary>
+    /// Gets or sets the type of Subject Alternative Name
+    /// </summary>
     public SubjectAlternativeNameType Type { get; set; }
+
+    /// <summary>
+    /// Gets or sets the value of the Subject Alternative Name
+    /// </summary>
     public string Value { get; set; } = string.Empty;
 }
 
@@ -489,9 +558,24 @@ public class SubjectAlternativeName
 /// </summary>
 public enum SubjectAlternativeNameType
 {
+    /// <summary>
+    /// DNS name (e.g., example.com)
+    /// </summary>
     DnsName,
+
+    /// <summary>
+    /// IP address
+    /// </summary>
     IpAddress,
+
+    /// <summary>
+    /// Email address
+    /// </summary>
     Email,
+
+    /// <summary>
+    /// URI (Uniform Resource Identifier)
+    /// </summary>
     Uri
 }
 
@@ -500,10 +584,29 @@ public enum SubjectAlternativeNameType
 /// </summary>
 public class CertificateValidationResult
 {
+    /// <summary>
+    /// Gets or sets whether the certificate chain is valid
+    /// </summary>
     public bool IsValid { get; set; }
+
+    /// <summary>
+    /// Gets or sets the collection of chain elements (certificates in the chain)
+    /// </summary>
     public List<X509ChainElement> ChainElements { get; set; } = new();
+
+    /// <summary>
+    /// Gets or sets the collection of chain status information
+    /// </summary>
     public List<X509ChainStatus> ChainStatus { get; set; } = new();
+
+    /// <summary>
+    /// Gets or sets whether the key usage is valid
+    /// </summary>
     public bool KeyUsageValid { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets whether the extended key usage is valid
+    /// </summary>
     public bool ExtendedKeyUsageValid { get; set; } = true;
 }
 
@@ -512,12 +615,39 @@ public class CertificateValidationResult
 /// </summary>
 public class CertificateValidationOptions
 {
+    /// <summary>
+    /// Gets or sets whether to check certificate revocation status
+    /// </summary>
     public bool CheckRevocation { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets the verification flags for chain validation
+    /// </summary>
     public X509VerificationFlags VerificationFlags { get; set; } = X509VerificationFlags.NoFlag;
+
+    /// <summary>
+    /// Gets or sets the time to use for verification (null for current time)
+    /// </summary>
     public DateTime? VerificationTime { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether to validate key usage
+    /// </summary>
     public bool ValidateKeyUsage { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets the required key usage flags
+    /// </summary>
     public X509KeyUsageFlags RequiredKeyUsage { get; set; } = X509KeyUsageFlags.DigitalSignature;
+
+    /// <summary>
+    /// Gets or sets whether to validate extended key usage
+    /// </summary>
     public bool ValidateExtendedKeyUsage { get; set; } = false;
+
+    /// <summary>
+    /// Gets or sets the required extended key usage OIDs
+    /// </summary>
     public string[] RequiredExtendedKeyUsage { get; set; } = Array.Empty<string>();
 }
 
@@ -526,9 +656,24 @@ public class CertificateValidationOptions
 /// </summary>
 public class CertificateRevocationEntry
 {
+    /// <summary>
+    /// Gets or sets the serial number of the revoked certificate
+    /// </summary>
     public string SerialNumber { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the date and time when the certificate was revoked
+    /// </summary>
     public DateTimeOffset RevocationDate { get; set; }
+
+    /// <summary>
+    /// Gets or sets the reason for certificate revocation
+    /// </summary>
     public CertificateRevocationReason Reason { get; set; }
+
+    /// <summary>
+    /// Gets or sets the date when the certificate became invalid
+    /// </summary>
     public DateTimeOffset InvalidityDate { get; set; }
 }
 
@@ -537,15 +682,54 @@ public class CertificateRevocationEntry
 /// </summary>
 public enum CertificateRevocationReason
 {
+    /// <summary>
+    /// Unspecified reason for revocation
+    /// </summary>
     Unspecified = 0,
+
+    /// <summary>
+    /// Private key has been compromised
+    /// </summary>
     KeyCompromise = 1,
+
+    /// <summary>
+    /// CA private key has been compromised
+    /// </summary>
     CACompromise = 2,
+
+    /// <summary>
+    /// Subject's affiliation has changed
+    /// </summary>
     AffiliationChanged = 3,
+
+    /// <summary>
+    /// Certificate has been superseded by a new certificate
+    /// </summary>
     Superseded = 4,
+
+    /// <summary>
+    /// Certificate is no longer needed
+    /// </summary>
     CessationOfOperation = 5,
+
+    /// <summary>
+    /// Certificate is on hold (temporary suspension)
+    /// </summary>
     CertificateHold = 6,
+
+    /// <summary>
+    /// Remove certificate from CRL
+    /// </summary>
     RemoveFromCRL = 8,
+
+    /// <summary>
+    /// Privilege has been withdrawn
+    /// </summary>
     PrivilegeWithdrawn = 9,
+
+    /// <summary>
+    /// Attribute authority has been compromised
+    /// </summary>
     AACompromise = 10
 }
 
@@ -557,16 +741,36 @@ public class CrlBuilder
     private readonly X509Certificate2 _issuer;
     private readonly List<CertificateRevocationEntry> _revokedCertificates;
 
+    /// <summary>
+    /// Gets or sets the date and time when this CRL was published
+    /// </summary>
     public DateTimeOffset ThisUpdate { get; set; }
+
+    /// <summary>
+    /// Gets or sets the date and time when the next CRL will be published
+    /// </summary>
     public DateTimeOffset NextUpdate { get; set; }
+
+    /// <summary>
+    /// Gets or sets the CRL sequence number
+    /// </summary>
     public long CrlNumber { get; set; }
 
+    /// <summary>
+    /// Initializes a new instance of the CrlBuilder class
+    /// </summary>
+    /// <param name="issuer">The CA certificate that will sign the CRL</param>
+    /// <param name="revokedCertificates">The list of revoked certificates</param>
     public CrlBuilder(X509Certificate2 issuer, List<CertificateRevocationEntry> revokedCertificates)
     {
         _issuer = issuer;
         _revokedCertificates = revokedCertificates;
     }
 
+    /// <summary>
+    /// Builds the Certificate Revocation List in DER format
+    /// </summary>
+    /// <returns>The CRL as a byte array</returns>
     public byte[] Build()
     {
         // Production: Build proper DER-encoded CRL according to RFC 5280
@@ -586,20 +790,50 @@ public class CrlBuilder
 /// </summary>
 public class OcspResponse
 {
+    /// <summary>
+    /// Gets or sets the certificate status
+    /// </summary>
     public OcspCertificateStatus Status { get; set; }
+
+    /// <summary>
+    /// Gets or sets the time when the certificate was revoked (only for Revoked status)
+    /// </summary>
     public DateTimeOffset? RevocationTime { get; set; }
+
+    /// <summary>
+    /// Gets or sets the reason for revocation (only for Revoked status)
+    /// </summary>
     public CertificateRevocationReason? RevocationReason { get; set; }
+
+    /// <summary>
+    /// Gets or sets the time when this response was generated
+    /// </summary>
     public DateTimeOffset ThisUpdate { get; set; }
+
+    /// <summary>
+    /// Gets or sets the time when the next update will be available
+    /// </summary>
     public DateTimeOffset? NextUpdate { get; set; }
 }
 
 /// <summary>
-/// OCSP certificate status
+/// OCSP (Online Certificate Status Protocol) certificate status
 /// </summary>
 public enum OcspCertificateStatus
 {
+    /// <summary>
+    /// Certificate is valid and not revoked
+    /// </summary>
     Good,
+
+    /// <summary>
+    /// Certificate has been revoked
+    /// </summary>
     Revoked,
+
+    /// <summary>
+    /// Certificate status is unknown
+    /// </summary>
     Unknown
 }
 #else
@@ -614,6 +848,12 @@ public enum OcspCertificateStatus
 /// </remarks>
 public class CertificateAuthority
 {
+    /// <summary>
+    /// Initializes a new instance of the CertificateAuthority class
+    /// </summary>
+    /// <param name="config">Certificate Authority configuration</param>
+    /// <param name="caCertificate">CA certificate with private key</param>
+    /// <exception cref="PlatformNotSupportedException">Always thrown in .NET Standard 2.0</exception>
     public CertificateAuthority(CertificateAuthorityConfig config, X509Certificate2 caCertificate)
     {
         throw new PlatformNotSupportedException("CertificateAuthority is not supported in .NET Standard 2.0. Requires .NET Core 3.0+ or .NET 5+.");
@@ -625,8 +865,19 @@ public class CertificateAuthority
 /// </summary>
 public class CertificateAuthorityConfig
 {
+    /// <summary>
+    /// Gets or sets the name of the Certificate Authority
+    /// </summary>
     public string Name { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the organization name
+    /// </summary>
     public string Organization { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the country code
+    /// </summary>
     public string Country { get; set; } = string.Empty;
 }
 
@@ -635,17 +886,35 @@ public class CertificateAuthorityConfig
 /// </summary>
 public class CertificateProfile
 {
+    /// <summary>
+    /// Gets or sets the validity period in days for the certificate
+    /// </summary>
     public int ValidityDays { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether to include the private key in the issued certificate
+    /// </summary>
     public bool IncludePrivateKey { get; set; }
 }
 
 /// <summary>
-/// OCSP certificate status
+/// OCSP (Online Certificate Status Protocol) certificate status
 /// </summary>
 public enum OcspCertificateStatus
 {
+    /// <summary>
+    /// Certificate is valid and not revoked
+    /// </summary>
     Good,
+
+    /// <summary>
+    /// Certificate has been revoked
+    /// </summary>
     Revoked,
+
+    /// <summary>
+    /// Certificate status is unknown
+    /// </summary>
     Unknown
 }
 #endif

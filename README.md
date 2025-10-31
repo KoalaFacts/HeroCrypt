@@ -214,8 +214,28 @@ HeroCrypt is built with a modular architecture:
 
 ## 📖 Documentation
 
-- [STANDARDS_COMPLIANCE.md](STANDARDS_COMPLIANCE.md) - Detailed compliance information and test vectors
-- [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md) - Complete development roadmap and planned features
+### Getting Started
+
+- **[Getting Started Guide](docs/getting-started.md)** - Quick start guide with examples
+- **[API Patterns](docs/api-patterns.md)** - API design patterns and conventions
+- **[Examples](examples/)** - Practical code examples for common use cases
+
+### Production Use
+
+- **[Production Readiness](PRODUCTION_READINESS.md)** - Feature status and production guidelines
+- **[Best Practices](docs/best-practices.md)** - Security best practices
+- **[Performance Guide](docs/performance-guide.md)** - Optimization strategies
+
+### Support
+
+- **[Troubleshooting](docs/troubleshooting.md)** - Common issues and solutions
+- **[Migration Guide](docs/migration-guide.md)** - Migrating between versions
+
+### Technical Details
+
+- **[Standards Compliance](STANDARDS_COMPLIANCE.md)** - RFC compliance and test vectors
+- **[Development Roadmap](DEVELOPMENT_ROADMAP.md)** - Future features and roadmap
+- **[Test Status](TEST_STATUS.md)** - Test coverage and platform compatibility
 
 ## 🤝 Contributing
 

@@ -51,6 +51,13 @@ public class Tls13Protocol
 {
     private readonly Tls13Config _config;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="Tls13Protocol"/> class.
+    /// </summary>
+    /// <param name="config">TLS 1.3 protocol configuration.</param>
+    /// <exception cref="ArgumentNullException">
+    /// Thrown when <paramref name="config"/> is null.
+    /// </exception>
     public Tls13Protocol(Tls13Config config)
     {
         _config = config ?? throw new ArgumentNullException(nameof(config));

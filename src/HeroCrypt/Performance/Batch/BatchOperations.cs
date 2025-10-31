@@ -291,10 +291,18 @@ public static class BatchEncryptionOperations
                 await Task.Run(() =>
                 {
                     // Use AesGcm for authenticated encryption
-#if NET6_0_OR_GREATER
+#if NET8_0_OR_GREATER
+                    const int tagSize = 16;
+                    using var aes = new AesGcm(key.Span, tagSize);
+                    aes.Encrypt(nonce, plaintext.Span, ciphertext, tag, associatedData.Span);
+#elif NET6_0_OR_GREATER
+                    const int tagSize = 16;
+#pragma warning disable SYSLIB0053 // AesGcm single-argument constructor is obsolete in .NET 8+
                     using var aes = new AesGcm(key.Span);
+#pragma warning restore SYSLIB0053
                     aes.Encrypt(nonce, plaintext.Span, ciphertext, tag, associatedData.Span);
 #else
+                    const int tagSize = 16;
                     using var aes = new AesGcm(key.Span.ToArray());
                     aes.Encrypt(nonce, plaintext.Span, ciphertext, tag, associatedData.Span);
 #endif
@@ -330,10 +338,18 @@ public static class BatchEncryptionOperations
                 await Task.Run(() =>
                 {
                     // Use AesGcm for authenticated decryption
-#if NET6_0_OR_GREATER
+#if NET8_0_OR_GREATER
+                    const int tagSize = 16;
+                    using var aes = new AesGcm(key.Span, tagSize);
+                    aes.Decrypt(ct.Nonce, ct.Ciphertext, ct.Tag, plaintext, associatedData.Span);
+#elif NET6_0_OR_GREATER
+                    const int tagSize = 16;
+#pragma warning disable SYSLIB0053 // AesGcm single-argument constructor is obsolete in .NET 8+
                     using var aes = new AesGcm(key.Span);
+#pragma warning restore SYSLIB0053
                     aes.Decrypt(ct.Nonce, ct.Ciphertext, ct.Tag, plaintext, associatedData.Span);
 #else
+                    const int tagSize = 16;
                     using var aes = new AesGcm(key.Span.ToArray());
                     aes.Decrypt(ct.Nonce, ct.Ciphertext, ct.Tag, plaintext, associatedData.Span);
 #endif
@@ -412,6 +428,15 @@ public readonly struct EncryptionResult
     public byte[] Nonce { get; }
     public byte[] Tag { get; }
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="EncryptionResult"/> struct.
+    /// </summary>
+    /// <param name="ciphertext">The encrypted ciphertext.</param>
+    /// <param name="nonce">The nonce used for encryption.</param>
+    /// <param name="tag">The authentication tag.</param>
+    /// <exception cref="ArgumentNullException">
+    /// Thrown when any parameter is null.
+    /// </exception>
     public EncryptionResult(byte[] ciphertext, byte[] nonce, byte[] tag)
     {
         Ciphertext = ciphertext ?? throw new ArgumentNullException(nameof(ciphertext));

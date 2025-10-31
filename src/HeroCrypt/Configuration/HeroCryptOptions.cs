@@ -39,27 +39,36 @@ public class HeroCryptOptions
 }
 
 /// <summary>
-/// Security levels for cryptographic operations
+/// Security levels for cryptographic operations.
 /// </summary>
+/// <remarks>
+/// Higher security levels use stronger parameters (more iterations, more memory)
+/// but result in slower operations. Choose based on your security requirements
+/// and acceptable performance characteristics.
+/// </remarks>
 public enum SecurityLevel
 {
     /// <summary>
-    /// Low security - faster operations, less secure
+    /// Low security - Faster operations, minimal security (testing only).
+    /// Not recommended for production use.
     /// </summary>
     Low = 1,
 
     /// <summary>
-    /// Medium security - balanced performance and security
+    /// Medium security - Balanced performance and security.
+    /// Suitable for resource-constrained environments.
     /// </summary>
     Medium = 2,
 
     /// <summary>
-    /// High security - stronger security, slower operations
+    /// High security - Strong security with reasonable performance (recommended).
+    /// Recommended default for most production applications.
     /// </summary>
     High = 3,
 
     /// <summary>
-    /// Military grade security - maximum security
+    /// Military grade security - Maximum security at the cost of performance.
+    /// Very slow operations, use only for highest-value secrets.
     /// </summary>
     Military = 4
 }

@@ -11,7 +11,7 @@ namespace HeroCrypt.Performance.Memory;
 /// High-performance memory pool for cryptographic operations
 ///
 /// Provides efficient memory allocation and reuse with:
-/// - ArrayPool<byte> integration for buffer reuse
+/// - ArrayPool&lt;byte&gt; integration for buffer reuse
 /// - Automatic buffer zeroing for security
 /// - Cache-line alignment for performance
 /// - Thread-safe operations
@@ -136,7 +136,7 @@ public ref struct PooledBuffer
 /// <summary>
 /// Stack-allocated buffer for small, temporary cryptographic operations
 ///
-/// Uses stackalloc for buffers <= 1KB to avoid heap allocation entirely.
+/// Uses stackalloc for buffers &lt;= 1KB to avoid heap allocation entirely.
 /// Automatically zeros memory when disposed.
 /// </summary>
 public ref struct StackBuffer
@@ -151,7 +151,7 @@ public ref struct StackBuffer
     }
 
     /// <summary>
-    /// Creates a stack buffer (stack-allocated if <= 1KB, otherwise heap)
+    /// Creates a stack buffer (stack-allocated if &lt;= 1KB, otherwise heap)
     /// </summary>
     /// <remarks>
     /// Note: Stack allocation is limited due to ref struct constraints.
@@ -319,6 +319,14 @@ public sealed class PinnedBuffer : IDisposable
     /// </summary>
     public int Length => _buffer.Length;
 
+    /// <summary>
+    /// Releases the pinned memory buffer and securely clears its contents.
+    /// </summary>
+    /// <remarks>
+    /// This method securely zeros the buffer memory before releasing it to prevent
+    /// sensitive data from remaining in memory. The buffer is pinned during its lifetime
+    /// to prevent garbage collection from moving it.
+    /// </remarks>
     public void Dispose()
     {
         if (!_disposed)

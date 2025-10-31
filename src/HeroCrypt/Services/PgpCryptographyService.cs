@@ -31,6 +31,9 @@ internal sealed class PrivateKeyData
     public DateTime Created { get; set; }
 }
 
+/// <summary>
+/// PGP-compatible cryptography service that uses RSA for key encapsulation and AES for data encryption.
+/// </summary>
 public sealed class PgpCryptographyService : ICryptographyService, IKeyGenerationService
 {
     private const string PublicKeyHeader = "-----BEGIN PGP PUBLIC KEY BLOCK-----";
@@ -42,6 +45,15 @@ public sealed class PgpCryptographyService : ICryptographyService, IKeyGeneratio
 
     private static readonly char[] LineSeparators = { '\n' };
 
+    /// <summary>
+    /// Encrypts data using PGP-compatible encryption with RSA and AES.
+    /// </summary>
+    /// <param name="data">The data to encrypt.</param>
+    /// <param name="publicKey">The PGP public key in ASCII-armored format.</param>
+    /// <param name="cancellationToken">Optional cancellation token.</param>
+    /// <returns>The encrypted data in PGP message format.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when data is null.</exception>
+    /// <exception cref="ArgumentException">Thrown when publicKey is null or whitespace.</exception>
     public async Task<byte[]> EncryptAsync(byte[] data, string publicKey, CancellationToken cancellationToken = default)
     {
 #if NET6_0_OR_GREATER
@@ -112,11 +124,28 @@ public sealed class PgpCryptographyService : ICryptographyService, IKeyGeneratio
         return Encoding.UTF8.GetBytes(pgpMessage);
     }
 
+    /// <summary>
+    /// Decrypts PGP-encrypted data using the provided private key.
+    /// </summary>
+    /// <param name="encryptedData">The encrypted data in PGP message format.</param>
+    /// <param name="privateKey">The PGP private key in ASCII-armored format.</param>
+    /// <param name="cancellationToken">Optional cancellation token.</param>
+    /// <returns>The decrypted data.</returns>
     public Task<byte[]> DecryptAsync(byte[] encryptedData, string privateKey, CancellationToken cancellationToken = default)
     {
         return DecryptAsync(encryptedData, privateKey, passphrase: null, cancellationToken);
     }
 
+    /// <summary>
+    /// Decrypts PGP-encrypted data using the provided private key and optional passphrase.
+    /// </summary>
+    /// <param name="encryptedData">The encrypted data in PGP message format.</param>
+    /// <param name="privateKey">The PGP private key in ASCII-armored format.</param>
+    /// <param name="passphrase">Optional passphrase to decrypt the private key (not currently implemented).</param>
+    /// <param name="cancellationToken">Optional cancellation token.</param>
+    /// <returns>The decrypted data.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when encryptedData is null.</exception>
+    /// <exception cref="ArgumentException">Thrown when privateKey is null or whitespace.</exception>
     public async Task<byte[]> DecryptAsync(byte[] encryptedData, string privateKey, string? passphrase, CancellationToken cancellationToken = default)
     {
 #if NET6_0_OR_GREATER
@@ -169,6 +198,13 @@ public sealed class PgpCryptographyService : ICryptographyService, IKeyGeneratio
         }, cancellationToken);
     }
 
+    /// <summary>
+    /// Encrypts text using PGP-compatible encryption and returns ASCII-armored format.
+    /// </summary>
+    /// <param name="plainText">The plaintext to encrypt.</param>
+    /// <param name="publicKey">The PGP public key in ASCII-armored format.</param>
+    /// <param name="cancellationToken">Optional cancellation token.</param>
+    /// <returns>The encrypted text in ASCII-armored PGP message format.</returns>
     public async Task<string> EncryptTextAsync(string plainText, string publicKey, CancellationToken cancellationToken = default)
     {
 #if NET8_0_OR_GREATER
@@ -180,11 +216,26 @@ public sealed class PgpCryptographyService : ICryptographyService, IKeyGeneratio
         return Encoding.UTF8.GetString(encryptedBytes);
     }
 
+    /// <summary>
+    /// Decrypts PGP-encrypted text using the provided private key.
+    /// </summary>
+    /// <param name="encryptedText">The encrypted text in ASCII-armored PGP message format.</param>
+    /// <param name="privateKey">The PGP private key in ASCII-armored format.</param>
+    /// <param name="cancellationToken">Optional cancellation token.</param>
+    /// <returns>The decrypted plaintext.</returns>
     public Task<string> DecryptTextAsync(string encryptedText, string privateKey, CancellationToken cancellationToken = default)
     {
         return DecryptTextAsync(encryptedText, privateKey, passphrase: null, cancellationToken);
     }
 
+    /// <summary>
+    /// Decrypts PGP-encrypted text using the provided private key and optional passphrase.
+    /// </summary>
+    /// <param name="encryptedText">The encrypted text in ASCII-armored PGP message format.</param>
+    /// <param name="privateKey">The PGP private key in ASCII-armored format.</param>
+    /// <param name="passphrase">Optional passphrase to decrypt the private key (not currently implemented).</param>
+    /// <param name="cancellationToken">Optional cancellation token.</param>
+    /// <returns>The decrypted plaintext.</returns>
     public async Task<string> DecryptTextAsync(string encryptedText, string privateKey, string? passphrase, CancellationToken cancellationToken = default)
     {
 #if NET8_0_OR_GREATER
@@ -196,11 +247,26 @@ public sealed class PgpCryptographyService : ICryptographyService, IKeyGeneratio
         return Encoding.UTF8.GetString(decryptedBytes);
     }
 
+    /// <summary>
+    /// Generates a new PGP-compatible RSA key pair with a random user identity.
+    /// </summary>
+    /// <param name="keySize">The size of the RSA key in bits (default: 2048).</param>
+    /// <param name="cancellationToken">Optional cancellation token.</param>
+    /// <returns>A <see cref="KeyPair"/> containing the generated public and private keys in ASCII-armored format.</returns>
     public async Task<KeyPair> GenerateKeyPairAsync(int keySize = 2048, CancellationToken cancellationToken = default)
     {
         return await GenerateKeyPairAsync($"user_{Guid.NewGuid():N}", string.Empty, keySize, cancellationToken);
     }
 
+    /// <summary>
+    /// Generates a new PGP-compatible RSA key pair with identity and passphrase.
+    /// </summary>
+    /// <param name="identity">The user identity to associate with the key.</param>
+    /// <param name="passphrase">The passphrase to encrypt the private key (currently not used in key generation).</param>
+    /// <param name="keySize">The size of the RSA key in bits (default: 2048).</param>
+    /// <param name="cancellationToken">Optional cancellation token.</param>
+    /// <returns>A <see cref="KeyPair"/> containing the generated public and private keys in ASCII-armored format.</returns>
+    /// <exception cref="ArgumentException">Thrown when identity is null or whitespace.</exception>
     public async Task<KeyPair> GenerateKeyPairAsync(string identity, string passphrase, int keySize = 2048, CancellationToken cancellationToken = default)
     {
 #if NET8_0_OR_GREATER
@@ -398,7 +464,8 @@ public sealed class PgpCryptographyService : ICryptographyService, IKeyGeneratio
             string decryptedContent;
             try
             {
-                decryptedContent = DecryptWithPassphrase(encryptedPayload, passphrase);
+                // encryptedPayload and passphrase are checked above, safe to use
+                decryptedContent = DecryptWithPassphrase(encryptedPayload!, passphrase!);
             }
             catch (ArgumentException)
             {

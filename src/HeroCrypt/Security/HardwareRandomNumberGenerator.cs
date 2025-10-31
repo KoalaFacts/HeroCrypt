@@ -4,7 +4,7 @@ using HeroCrypt.Hardware;
 using Microsoft.Extensions.Logging;
 
 #if NET9_0_OR_GREATER
-using System.Runtime.Intrinsics.X86;
+using Rdrand = System.Runtime.Intrinsics.X86.Rdrand;
 #endif
 
 namespace HeroCrypt.Security;

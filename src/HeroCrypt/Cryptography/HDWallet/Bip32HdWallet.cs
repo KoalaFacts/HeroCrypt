@@ -405,19 +405,17 @@ public static class Bip32HdWallet
         var needsReduction = carry > 0;
         if (!needsReduction)
         {
-            // Check if result >= n
-            for (var i = 0; i < 32; i++)
+            // Check if result >= n (compare big-endian)
+            var comparison = 0; // 0 = equal, 1 = result > n, -1 = result < n
+            for (var i = 0; i < 32 && comparison == 0; i++)
             {
                 if (result[i] > n[i])
-                {
-                    needsReduction = true;
-                    break;
-                }
-                if (result[i] < n[i])
-                {
-                    break;
-                }
+                    comparison = 1;
+                else if (result[i] < n[i])
+                    comparison = -1;
             }
+            // Reduce if result >= n (comparison >= 0)
+            needsReduction = comparison >= 0;
         }
 
         if (needsReduction)

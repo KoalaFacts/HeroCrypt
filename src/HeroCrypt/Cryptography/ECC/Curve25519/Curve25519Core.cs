@@ -2,6 +2,10 @@ using HeroCrypt.Security;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 
+#if NET9_0_OR_GREATER
+using X25519 = System.Security.Cryptography.X25519;
+#endif
+
 namespace HeroCrypt.Cryptography.ECC.Curve25519;
 
 /// <summary>
@@ -62,6 +66,13 @@ public static class Curve25519Core
         if (privateKey.Length != 32)
             throw new ArgumentException("Private key must be 32 bytes", nameof(privateKey));
 
+#if NET9_0_OR_GREATER
+        // Use .NET 9.0's RFC 7748 compliant X25519 implementation
+        var publicKey = new byte[32];
+        X25519.DerivePublicKey(privateKey, publicKey);
+        return publicKey;
+#else
+        // Use custom Montgomery ladder for .NET 6-8
         var clampedKey = new byte[32];
         privateKey.CopyTo(clampedKey, 0);
         ClampPrivateKey(clampedKey);
@@ -74,6 +85,7 @@ public static class Curve25519Core
         {
             SecureMemoryOperations.SecureClear(clampedKey);
         }
+#endif
     }
 
     /// <summary>
@@ -84,9 +96,8 @@ public static class Curve25519Core
     /// <returns>32-byte shared secret</returns>
     /// <remarks>
     /// Implements X25519 ECDH as specified in RFC 7748.
-    /// Computes the shared secret as: scalar_multiply(privateKey, publicKey).
-    /// The private key is clamped according to RFC 7748 before use.
-    /// Uses constant-time Montgomery ladder to prevent timing attacks.
+    /// On .NET 9.0+, uses System.Security.Cryptography.X25519 (battle-tested, RFC compliant).
+    /// On .NET 6-8, uses custom Montgomery ladder implementation.
     /// </remarks>
     public static byte[] ComputeSharedSecret(byte[] privateKey, byte[] publicKey)
     {
@@ -99,6 +110,13 @@ public static class Curve25519Core
         if (publicKey.Length != 32)
             throw new ArgumentException("Public key must be 32 bytes", nameof(publicKey));
 
+#if NET9_0_OR_GREATER
+        // Use .NET 9.0's RFC 7748 compliant X25519 implementation
+        var sharedSecret = new byte[32];
+        X25519.DeriveSharedSecret(privateKey, publicKey, sharedSecret);
+        return sharedSecret;
+#else
+        // Use custom Montgomery ladder for .NET 6-8
         // Clamp the private key according to RFC 7748
         var clampedKey = new byte[32];
         privateKey.CopyTo(clampedKey, 0);
@@ -113,6 +131,7 @@ public static class Curve25519Core
         {
             SecureMemoryOperations.SecureClear(clampedKey);
         }
+#endif
     }
 
     /// <summary>
@@ -127,6 +146,10 @@ public static class Curve25519Core
         privateKey[31] &= 0x7f; // Clear bit 255
         privateKey[31] |= 0x40; // Set bit 254
     }
+
+#if !NET9_0_OR_GREATER
+    // Montgomery ladder implementation only needed for .NET 6-8
+    // .NET 9.0+ uses System.Security.Cryptography.X25519
 
     /// <summary>
     /// Performs scalar multiplication using Montgomery ladder

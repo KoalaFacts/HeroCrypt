@@ -140,6 +140,14 @@ public static class Bip32HdWallet
             var masterKey = hmacResult.Slice(0, 32).ToArray();
             var chainCode = hmacResult.Slice(32, 32).ToArray();
 
+            // BIP32 spec: In case parse256(IL) is 0 or parse256(IL) >= n, the master key is invalid
+            if (IsZero(masterKey) || IsGreaterThanOrEqualToN(masterKey))
+            {
+                throw new InvalidOperationException(
+                    "Invalid master key: IL is zero or >= n. " +
+                    "This is extremely rare (probability < 1 in 2^127). Try a different seed.");
+            }
+
             return new ExtendedKey(masterKey, chainCode, depth: 0);
         }
         finally
@@ -211,9 +219,26 @@ public static class Bip32HdWallet
 
             if (parent.IsPrivate)
             {
+                // BIP32 spec: In case parse256(IL) >= n or ki = 0, the resulting key is invalid
+                var IL = hmacResult.Slice(0, 32);
+
+                if (IsGreaterThanOrEqualToN(IL))
+                {
+                    throw new InvalidOperationException(
+                        $"Invalid child key at index {index}: IL >= n. " +
+                        "This is extremely rare. Increment index and try again.");
+                }
+
                 // child_key = (parse256(IL) + parent_key) mod n
-                // Simplified: just add for demonstration (would need full secp256k1 implementation)
-                AddModN(hmacResult.Slice(0, 32), parent.Key, childKey);
+                AddModN(IL, parent.Key, childKey);
+
+                // Check if resulting key is zero
+                if (IsZero(childKey))
+                {
+                    throw new InvalidOperationException(
+                        $"Invalid child key at index {index}: derived key is zero. " +
+                        "This is extremely rare. Increment index and try again.");
+                }
             }
             else
             {
@@ -475,6 +500,46 @@ public static class Bip32HdWallet
         {
             return false;
         }
+    }
+
+    /// <summary>
+    /// Checks if a 32-byte value is all zeros
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool IsZero(ReadOnlySpan<byte> value)
+    {
+        for (var i = 0; i < value.Length; i++)
+        {
+            if (value[i] != 0)
+                return false;
+        }
+        return true;
+    }
+
+    /// <summary>
+    /// Checks if a 32-byte value is >= secp256k1 group order n
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool IsGreaterThanOrEqualToN(ReadOnlySpan<byte> value)
+    {
+        // secp256k1 group order (n): FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
+        ReadOnlySpan<byte> n = stackalloc byte[32] {
+            0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+            0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFE,
+            0xBA, 0xAE, 0xDC, 0xE6, 0xAF, 0x48, 0xA0, 0x3B,
+            0xBF, 0xD2, 0x5E, 0x8C, 0xD0, 0x36, 0x41, 0x41
+        };
+
+        // Compare big-endian (most significant byte first)
+        for (var i = 0; i < 32; i++)
+        {
+            if (value[i] > n[i])
+                return true;
+            if (value[i] < n[i])
+                return false;
+        }
+        // Equal
+        return true;
     }
 }
 #endif

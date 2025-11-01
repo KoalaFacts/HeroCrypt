@@ -455,30 +455,93 @@ public static class Curve25519Core
 
     /// <summary>
     /// Modular inversion using Fermat's little theorem: a^(-1) = a^(p-2) mod p
+    /// Uses optimized addition chain to compute a^(2^255 - 21) for p = 2^255 - 19
+    /// Based on the curve25519-donna implementation by Adam Langley
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static void ModularInverse(uint[] result, uint[] a)
     {
-        // For p = 2^255 - 19, we compute a^(2^255 - 21)
-        var temp = new uint[8];
-        Array.Copy(a, result, 8);
+        // For p = 2^255 - 19, we compute a^(2^255 - 21) = a^(p - 2)
+        // This uses an optimized addition chain requiring 254 squarings and 11 multiplications
+
+        var z2 = new uint[8];
+        var z9 = new uint[8];
+        var z11 = new uint[8];
+        var z2_5_0 = new uint[8];
+        var z2_10_0 = new uint[8];
+        var z2_20_0 = new uint[8];
+        var z2_50_0 = new uint[8];
+        var z2_100_0 = new uint[8];
+        var t0 = new uint[8];
+        var t1 = new uint[8];
 
         try
         {
-            // Simplified exponentiation by squaring
-            // This is a placeholder - full implementation would be more optimized
-            for (var i = 0; i < 253; i++)
-            {
-                FieldSquare(result, result);
-            }
+            // z2 = a^2
+            FieldSquare(z2, a);
 
-            // Multiply by a^(-21) = a^(-16) * a^(-4) * a^(-1)
-            // This is highly simplified - real implementation needs proper exponent
-            FieldMultiply(result, result, a);
+            // z9 = a^9 = a^8 * a
+            FieldSquare(t0, z2);
+            FieldSquare(t1, t0);
+            FieldMultiply(z9, t1, a);
+
+            // z11 = a^11 = a^9 * a^2
+            FieldMultiply(z11, z9, z2);
+
+            // z2_5_0 = a^(2^5 - 1) = a^31
+            FieldSquare(t0, z11);
+            FieldMultiply(z2_5_0, t0, z9);
+
+            // z2_10_0 = a^(2^10 - 1)
+            FieldSquare(t0, z2_5_0);
+            for (var i = 1; i < 5; i++) FieldSquare(t0, t0);
+            FieldMultiply(z2_10_0, t0, z2_5_0);
+
+            // z2_20_0 = a^(2^20 - 1)
+            FieldSquare(t0, z2_10_0);
+            for (var i = 1; i < 10; i++) FieldSquare(t0, t0);
+            FieldMultiply(z2_20_0, t0, z2_10_0);
+
+            // z2_50_0 = a^(2^50 - 1)
+            FieldSquare(t0, z2_20_0);
+            for (var i = 1; i < 20; i++) FieldSquare(t0, t0);
+            FieldMultiply(t1, t0, z2_20_0);
+            FieldSquare(t0, t1);
+            for (var i = 1; i < 10; i++) FieldSquare(t0, t0);
+            FieldMultiply(z2_50_0, t0, z2_10_0);
+
+            // z2_100_0 = a^(2^100 - 1)
+            FieldSquare(t0, z2_50_0);
+            for (var i = 1; i < 50; i++) FieldSquare(t0, t0);
+            FieldMultiply(z2_100_0, t0, z2_50_0);
+
+            // t1 = a^(2^200 - 1)
+            FieldSquare(t0, z2_100_0);
+            for (var i = 1; i < 100; i++) FieldSquare(t0, t0);
+            FieldMultiply(t1, t0, z2_100_0);
+
+            // t1 = a^(2^250 - 1)
+            FieldSquare(t0, t1);
+            for (var i = 1; i < 50; i++) FieldSquare(t0, t0);
+            FieldMultiply(t1, t0, z2_50_0);
+
+            // result = a^(2^255 - 21)
+            FieldSquare(t0, t1);
+            for (var i = 1; i < 5; i++) FieldSquare(t0, t0);
+            FieldMultiply(result, t0, z11);
         }
         finally
         {
-            Array.Clear(temp, 0, temp.Length);
+            Array.Clear(z2, 0, z2.Length);
+            Array.Clear(z9, 0, z9.Length);
+            Array.Clear(z11, 0, z11.Length);
+            Array.Clear(z2_5_0, 0, z2_5_0.Length);
+            Array.Clear(z2_10_0, 0, z2_10_0.Length);
+            Array.Clear(z2_20_0, 0, z2_20_0.Length);
+            Array.Clear(z2_50_0, 0, z2_50_0.Length);
+            Array.Clear(z2_100_0, 0, z2_100_0.Length);
+            Array.Clear(t0, 0, t0.Length);
+            Array.Clear(t1, 0, t1.Length);
         }
     }
 

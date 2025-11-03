@@ -521,7 +521,7 @@ public static class Curve25519Core
 
         /* 2^41 - 2^1 */ Square(t1, t0);
         /* 2^42 - 2^2 */ Square(t0, t1);
-        /* 2^50 - 2^10 */ for (var i = 2; i < 10; i += 2) { Square(t1, t0); Square(t0, t1); }
+        /* 2^50 - 2^10 */ for (var i = 0; i < 10; i += 2) { Square(t1, t0); Square(t0, t1); }
         /* 2^50 - 2^0 */ Multiply(z2_50_0, t0, z2_10_0);
 
         /* 2^51 - 2^1 */ Square(t0, z2_50_0);
@@ -536,7 +536,7 @@ public static class Curve25519Core
 
         /* 2^201 - 2^1 */ Square(t0, t1);
         /* 2^202 - 2^2 */ Square(t1, t0);
-        /* 2^250 - 2^50 */ for (var i = 2; i < 50; i += 2) { Square(t0, t1); Square(t1, t0); }
+        /* 2^250 - 2^50 */ for (var i = 0; i < 50; i += 2) { Square(t0, t1); Square(t1, t0); }
         /* 2^250 - 2^0 */ Multiply(t0, t1, z2_50_0);
 
         /* 2^251 - 2^1 */ Square(t1, t0);

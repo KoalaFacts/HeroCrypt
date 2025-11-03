@@ -118,39 +118,56 @@ public static class Curve25519Core
 
         try
         {
-            // Unpack point
-            var x1 = new Long10();
-            Unpack(x1, point);
+            var dx = new Long10();
+            var t1 = new Long10();
+            var t2 = new Long10();
+            var t3 = new Long10();
+            var t4 = new Long10();
+            var x = new Long10[2];
+            var z = new Long10[2];
+            x[0] = new Long10();
+            x[1] = new Long10();
+            z[0] = new Long10();
+            z[1] = new Long10();
 
-            // Montgomery ladder variables
-            var x2 = new Long10 { N0 = 1 };  // Point at infinity
-            var z2 = new Long10();
-            var x3 = new Long10(x1);
-            var z3 = new Long10 { N0 = 1 };
+            // Unpack the base point
+            Unpack(dx, point);
 
-            // Montgomery ladder
-            var swap = 0;
-            for (var pos = 254; pos >= 0; pos--)
+            // 0G = point-at-infinity
+            x[0].N0 = 1;
+            // z[0] is already zero
+
+            // 1G = G
+            Copy(x[1], dx);
+            z[1].N0 = 1;
+
+            // Montgomery ladder - process all 256 bits
+            for (var i = 32; i-- != 0;)
             {
-                var b = (clampedScalar[pos >> 3] >> (pos & 7)) & 1;
-                swap ^= b;
-                ConditionalSwap(x2, x3, swap);
-                ConditionalSwap(z2, z3, swap);
-                swap = b;
+                for (var j = 8; j-- != 0;)
+                {
+                    // Swap arguments depending on bit
+                    var bit1 = (clampedScalar[i] & 0xFF) >> j & 1;
+                    var bit0 = ~(clampedScalar[i] & 0xFF) >> j & 1;
+                    var ax = x[bit0];
+                    var az = z[bit0];
+                    var bx = x[bit1];
+                    var bz = z[bit1];
 
-                MontgomeryLadder(x2, z2, x3, z3, x1);
+                    // a' = a + b
+                    // b' = 2 * b
+                    MontPrep(t1, t2, ax, az);
+                    MontPrep(t3, t4, bx, bz);
+                    MontAdd(t1, t2, t3, t4, ax, az, dx);
+                    MontDbl(t1, t2, t3, t4, bx, bz);
+                }
             }
 
-            ConditionalSwap(x2, x3, swap);
-            ConditionalSwap(z2, z3, swap);
+            Recip(t1, z[0]);
+            Multiply(dx, x[0], t1);
 
-            // Compute x2 * z2^(p-2) mod p
-            Recip(z2, z2);
-            Multiply(x2, x2, z2);
-
-            // Pack result
             var result = new byte[KeySize];
-            Pack(x2, result);
+            Pack(dx, result);
             return result;
         }
         finally
@@ -160,56 +177,65 @@ public static class Curve25519Core
     }
 
     /// <summary>
-    /// Montgomery ladder step
+    /// Prepare for Montgomery operations: t1 = a+b, t2 = a-b
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static void MontgomeryLadder(Long10 x2, Long10 z2, Long10 x3, Long10 z3, Long10 x1)
+    private static void MontPrep(Long10 t1, Long10 t2, Long10 ax, Long10 az)
     {
-        var a = new Long10();
-        var aa = new Long10();
-        var b = new Long10();
-        var bb = new Long10();
-        var e = new Long10();
-        var c = new Long10();
-        var d = new Long10();
-        var da = new Long10();
-        var cb = new Long10();
+        Add(t1, ax, az);
+        Sub(t2, ax, az);
+    }
 
-        // A = x2 + z2
-        Add(a, x2, z2);
-        // AA = A^2
-        Square(aa, a);
-        // B = x2 - z2
-        Sub(b, x2, z2);
-        // BB = B^2
-        Square(bb, b);
-        // E = AA - BB
-        Sub(e, aa, bb);
-        // C = x3 + z3
-        Add(c, x3, z3);
-        // D = x3 - z3
-        Sub(d, x3, z3);
-        // DA = D * A
-        Multiply(da, d, a);
-        // CB = C * B
-        Multiply(cb, c, b);
+    /// <summary>
+    /// Montgomery point addition: A = P + Q
+    /// where X(A) = ax/az, X(P) = (t1+t2)/(t1-t2), X(Q) = (t3+t4)/(t3-t4), X(P-Q) = dx
+    /// Clobbers t1 and t2, preserves t3 and t4
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static void MontAdd(Long10 t1, Long10 t2, Long10 t3, Long10 t4, Long10 ax, Long10 az, Long10 dx)
+    {
+        Multiply(ax, t2, t3);
+        Multiply(az, t1, t4);
+        Add(t1, ax, az);
+        Sub(t2, ax, az);
+        Square(ax, t1);
+        Square(t1, t2);
+        Multiply(az, t1, dx);
+    }
 
-        // x3 = (DA + CB)^2
-        Add(x3, da, cb);
-        Square(x3, x3);
+    /// <summary>
+    /// Montgomery point doubling: B = 2 * Q
+    /// where X(B) = bx/bz, X(Q) = (t3+t4)/(t3-t4)
+    /// Clobbers t1 and t2, preserves t3 and t4
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static void MontDbl(Long10 t1, Long10 t2, Long10 t3, Long10 t4, Long10 bx, Long10 bz)
+    {
+        Square(t1, t3);
+        Square(t2, t4);
+        Multiply(bx, t1, t2);
+        Sub(t2, t1, t2);
+        MultiplySmall(bz, t2, 121665);
+        Add(t1, t1, bz);
+        Multiply(bz, t1, t2);
+    }
 
-        // z3 = x1 * (DA - CB)^2
-        Sub(z3, da, cb);
-        Square(z3, z3);
-        Multiply(z3, x1, z3);
-
-        // x2 = AA * BB
-        Multiply(x2, aa, bb);
-
-        // z2 = E * (AA + a24 * E)
-        MultiplySmall(z2, e, 121665);
-        Add(z2, aa, z2);
-        Multiply(z2, e, z2);
+    /// <summary>
+    /// Copy a Long10
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static void Copy(Long10 output, Long10 input)
+    {
+        output.N0 = input.N0;
+        output.N1 = input.N1;
+        output.N2 = input.N2;
+        output.N3 = input.N3;
+        output.N4 = input.N4;
+        output.N5 = input.N5;
+        output.N6 = input.N6;
+        output.N7 = input.N7;
+        output.N8 = input.N8;
+        output.N9 = input.N9;
     }
 
     /// <summary>

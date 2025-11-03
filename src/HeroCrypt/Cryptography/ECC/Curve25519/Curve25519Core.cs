@@ -26,6 +26,10 @@ public static class Curve25519Core
 
         public Long10() { }
 
+        /// <summary>
+        /// Creates a copy of an existing Long10 field element
+        /// </summary>
+        /// <param name="source">The source field element to copy from</param>
         public Long10(Long10 source)
         {
             N0 = source.N0;

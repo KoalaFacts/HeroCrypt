@@ -386,35 +386,35 @@ public static class Curve25519Core
     /// Field squaring
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static void Square(Long10 x2, Long10 x)
+    private static void Square(Long10 xsq, Long10 x)
     {
         var x0 = x.N0; var x1 = x.N1; var x2 = x.N2; var x3 = x.N3; var x4 = x.N4;
         var x5 = x.N5; var x6 = x.N6; var x7 = x.N7; var x8 = x.N8; var x9 = x.N9;
         long t;
 
         t = (x4 * x4) + 2 * ((x0 * x8) + (x2 * x6)) + 38 * (x9 * x9) + 4 * ((x1 * x7) + (x3 * x5));
-        x2.N8 = t & P26; var c = t >> 26;
+        xsq.N8 = t & P26; var c = t >> 26;
         t = 2 * ((x0 * x9) + (x1 * x8) + (x2 * x7) + (x3 * x6) + (x4 * x5)) + c;
-        x2.N9 = t & P25; c = t >> 25;
+        xsq.N9 = t & P25; c = t >> 25;
         t = (x0 * x0) + 19 * (2 * ((x1 * x9) + (x2 * x8) + (x3 * x7) + (x4 * x6)) + (x5 * x5)) + c;
-        x2.N0 = t & P26; c = t >> 26;
+        xsq.N0 = t & P26; c = t >> 26;
         t = 2 * ((x0 * x1) + 19 * ((x2 * x9) + (x3 * x8) + (x4 * x7) + (x5 * x6))) + c;
-        x2.N1 = t & P25; c = t >> 25;
+        xsq.N1 = t & P25; c = t >> 25;
         t = 2 * ((x0 * x2) + (x1 * x1)) + 19 * (2 * ((x3 * x9) + (x4 * x8) + (x5 * x7)) + (x6 * x6)) + c;
-        x2.N2 = t & P26; c = t >> 26;
+        xsq.N2 = t & P26; c = t >> 26;
         t = 2 * ((x0 * x3) + (x1 * x2) + 19 * ((x4 * x9) + (x5 * x8) + (x6 * x7))) + c;
-        x2.N3 = t & P25; c = t >> 25;
+        xsq.N3 = t & P25; c = t >> 25;
         t = 2 * ((x0 * x4) + (x1 * x3)) + (x2 * x2) + 19 * (2 * ((x5 * x9) + (x6 * x8)) + (x7 * x7)) + c;
-        x2.N4 = t & P26; c = t >> 26;
+        xsq.N4 = t & P26; c = t >> 26;
         t = 2 * ((x0 * x5) + (x1 * x4) + (x2 * x3) + 19 * ((x6 * x9) + (x7 * x8))) + c;
-        x2.N5 = t & P25; c = t >> 25;
+        xsq.N5 = t & P25; c = t >> 25;
         t = 2 * ((x0 * x6) + (x1 * x5) + (x2 * x4)) + (x3 * x3) + 19 * (2 * (x7 * x9) + (x8 * x8)) + c;
-        x2.N6 = t & P26; c = t >> 26;
+        xsq.N6 = t & P26; c = t >> 26;
         t = 2 * ((x0 * x7) + (x1 * x6) + (x2 * x5) + (x3 * x4) + 19 * (x8 * x9)) + c;
-        x2.N7 = t & P25; c = t >> 25;
+        xsq.N7 = t & P25; c = t >> 25;
         t = 2 * ((x0 * x8) + (x1 * x7) + (x2 * x6) + (x3 * x5)) + (x4 * x4) + 19 * (x9 * x9) + c;
-        x2.N8 = t & P26; c = t >> 26;
-        x2.N9 += c;
+        xsq.N8 = t & P26; c = t >> 26;
+        xsq.N9 += c;
     }
 
     /// <summary>

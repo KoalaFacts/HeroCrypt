@@ -207,7 +207,7 @@ public static class Curve25519Core
         Multiply(x2, aa, bb);
 
         // z2 = E * (AA + a24 * E)
-        MultiplySmall(z2, e, 121666);
+        MultiplySmall(z2, e, 121665);
         Add(z2, aa, z2);
         Multiply(z2, e, z2);
     }

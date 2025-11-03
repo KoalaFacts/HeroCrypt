@@ -6,33 +6,40 @@ namespace HeroCrypt.Cryptography.ECC.Curve25519;
 
 /// <summary>
 /// Core Curve25519 implementation for X25519 key agreement
-/// Based on RFC 7748 specification with constant-time operations
+/// Based on RFC 7748 specification using radix-2^25.5 representation
+/// Ported from curve25519-donna and other reference implementations
 /// </summary>
 public static class Curve25519Core
 {
-    /// <summary>
-    /// Prime modulus: 2^255 - 19
-    /// </summary>
-    private static readonly uint[] Prime = {
-        0xffffffed, 0xffffffff, 0xffffffff, 0xffffffff,
-        0xffffffff, 0xffffffff, 0xffffffff, 0x7fffffff
-    };
+    private const int KeySize = 32;
+
+    // Radix-2^25.5 constants
+    private const long P25 = 33554431;  // 2^25 - 1
+    private const long P26 = 67108863;  // 2^26 - 1
 
     /// <summary>
-    /// Montgomery ladder coefficient A24 = (A + 2) / 4 = 121666
-    /// where A = 486662 for Curve25519
+    /// Field element using radix-2^25.5 representation (10 limbs, alternating 26 and 25 bits)
     /// </summary>
-    private const uint A24 = 121666;
+    private sealed class Long10
+    {
+        public long N0, N1, N2, N3, N4, N5, N6, N7, N8, N9;
 
-    /// <summary>
-    /// Base point for Curve25519 (u-coordinate only)
-    /// </summary>
-    private static readonly byte[] BasePoint = {
-        0x09, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-    };
+        public Long10() { }
+
+        public Long10(Long10 source)
+        {
+            N0 = source.N0;
+            N1 = source.N1;
+            N2 = source.N2;
+            N3 = source.N3;
+            N4 = source.N4;
+            N5 = source.N5;
+            N6 = source.N6;
+            N7 = source.N7;
+            N8 = source.N8;
+            N9 = source.N9;
+        }
+    }
 
     /// <summary>
     /// Generates a random private key for Curve25519
@@ -40,7 +47,7 @@ public static class Curve25519Core
     /// <returns>32-byte private key</returns>
     public static byte[] GeneratePrivateKey()
     {
-        var privateKey = new byte[32];
+        var privateKey = new byte[KeySize];
         using var rng = RandomNumberGenerator.Create();
         rng.GetBytes(privateKey);
 
@@ -59,557 +66,458 @@ public static class Curve25519Core
     {
         if (privateKey == null)
             throw new ArgumentNullException(nameof(privateKey));
-        if (privateKey.Length != 32)
-            throw new ArgumentException("Private key must be 32 bytes", nameof(privateKey));
+        if (privateKey.Length != KeySize)
+            throw new ArgumentException($"Private key must be {KeySize} bytes", nameof(privateKey));
 
-        // Clamp the private key according to RFC 7748
-        var clampedKey = new byte[32];
-        privateKey.CopyTo(clampedKey, 0);
-        ClampPrivateKey(clampedKey);
+        var basePoint = new byte[KeySize];
+        basePoint[0] = 9;
 
-        try
-        {
-            return ScalarMultiplication(clampedKey, BasePoint);
-        }
-        finally
-        {
-            SecureMemoryOperations.SecureClear(clampedKey);
-        }
+        return ScalarMult(privateKey, basePoint);
     }
 
     /// <summary>
-    /// Performs X25519 key agreement using Montgomery ladder scalar multiplication
+    /// Performs X25519 key agreement
     /// </summary>
     /// <param name="privateKey">Local private key (32 bytes)</param>
     /// <param name="publicKey">Remote public key (32 bytes)</param>
     /// <returns>32-byte shared secret</returns>
-    /// <remarks>
-    /// Implements X25519 ECDH as specified in RFC 7748 using Montgomery ladder scalar multiplication.
-    /// </remarks>
     public static byte[] ComputeSharedSecret(byte[] privateKey, byte[] publicKey)
     {
         if (privateKey == null)
             throw new ArgumentNullException(nameof(privateKey));
         if (publicKey == null)
             throw new ArgumentNullException(nameof(publicKey));
-        if (privateKey.Length != 32)
-            throw new ArgumentException("Private key must be 32 bytes", nameof(privateKey));
-        if (publicKey.Length != 32)
-            throw new ArgumentException("Public key must be 32 bytes", nameof(publicKey));
+        if (privateKey.Length != KeySize)
+            throw new ArgumentException($"Private key must be {KeySize} bytes", nameof(privateKey));
+        if (publicKey.Length != KeySize)
+            throw new ArgumentException($"Public key must be {KeySize} bytes", nameof(publicKey));
 
-        // Clamp the private key according to RFC 7748
-        var clampedKey = new byte[32];
-        privateKey.CopyTo(clampedKey, 0);
-        ClampPrivateKey(clampedKey);
-
-        try
-        {
-            // Perform scalar multiplication: sharedSecret = privateKey * publicKey
-            return ScalarMultiplication(clampedKey, publicKey);
-        }
-        finally
-        {
-            SecureMemoryOperations.SecureClear(clampedKey);
-        }
+        return ScalarMult(privateKey, publicKey);
     }
 
     /// <summary>
     /// Clamps a private key according to RFC 7748
-    /// Sets the three LSBs of the first byte to zero, bit 254 to 1, and bit 255 to zero
     /// </summary>
-    /// <param name="privateKey">Private key to clamp (modified in place)</param>
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static void ClampPrivateKey(byte[] privateKey)
     {
-        privateKey[0] &= 0xf8;  // Clear bits 0, 1, 2
-        privateKey[31] &= 0x7f; // Clear bit 255
-        privateKey[31] |= 0x40; // Set bit 254
+        privateKey[0] &= 248;   // Clear bits 0, 1, 2
+        privateKey[31] &= 127;  // Clear bit 255
+        privateKey[31] |= 64;   // Set bit 254
     }
 
     /// <summary>
-    /// Performs scalar multiplication using Montgomery ladder
-    /// Implements the X25519 function from RFC 7748
-    /// </summary>
-    /// <param name="scalar">32-byte scalar (private key)</param>
-    /// <param name="point">32-byte point (u-coordinate)</param>
-    /// <returns>32-byte result point</returns>
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static byte[] ScalarMultiplication(byte[] scalar, byte[] point)
-    {
-        // Convert inputs to field elements
-        var u = new uint[8];
-        LoadBytes(u, point);
-
-        // Montgomery ladder variables
-        var x1 = new uint[8];
-        var x2 = new uint[8] { 1, 0, 0, 0, 0, 0, 0, 0 }; // Point at infinity
-        var z2 = new uint[8];
-        var x3 = new uint[8];
-        var z3 = new uint[8] { 1, 0, 0, 0, 0, 0, 0, 0 };
-
-        Array.Copy(u, x1, 8);
-        Array.Copy(u, x3, 8);
-
-        // Montgomery ladder
-        for (var t = 254; t >= 0; t--)
-        {
-            var bit = (scalar[t >> 3] >> (t & 7)) & 1;
-
-            // Conditional swap based on bit
-            ConstantTimeConditionalSwap(bit, x2, x3);
-            ConstantTimeConditionalSwap(bit, z2, z3);
-
-            // Montgomery ladder step
-            MontgomeryLadderStep(x2, z2, x3, z3, x1);
-
-            // Conditional swap back
-            ConstantTimeConditionalSwap(bit, x2, x3);
-            ConstantTimeConditionalSwap(bit, z2, z3);
-        }
-
-        // Convert result back to bytes
-        var result = new byte[32];
-
-        // Compute x2 * z2^(-1) mod p
-        var zinv = new uint[8];
-        ModularInverse(zinv, z2);
-
-        var finalResult = new uint[8];
-        FieldMultiply(finalResult, x2, zinv);
-
-        StoreBytes(result, finalResult);
-
-        // Clear intermediate values
-        Array.Clear(u, 0, u.Length);
-        Array.Clear(x1, 0, x1.Length);
-        Array.Clear(x2, 0, x2.Length);
-        Array.Clear(z2, 0, z2.Length);
-        Array.Clear(x3, 0, x3.Length);
-        Array.Clear(z3, 0, z3.Length);
-        Array.Clear(zinv, 0, zinv.Length);
-        Array.Clear(finalResult, 0, finalResult.Length);
-
-        return result;
-    }
-
-    /// <summary>
-    /// Montgomery ladder step for Curve25519
+    /// Scalar multiplication: result = scalar * point
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static void MontgomeryLadderStep(uint[] x2, uint[] z2, uint[] x3, uint[] z3, uint[] x1)
+    private static byte[] ScalarMult(byte[] scalar, byte[] point)
     {
-        var a = new uint[8];
-        var aa = new uint[8];
-        var b = new uint[8];
-        var bb = new uint[8];
-        var e = new uint[8];
-        var c = new uint[8];
-        var d = new uint[8];
-        var da = new uint[8];
-        var cb = new uint[8];
+        var clampedScalar = new byte[KeySize];
+        Array.Copy(scalar, clampedScalar, KeySize);
+        ClampPrivateKey(clampedScalar);
 
         try
         {
-            // A = x2 + z2
-            FieldAdd(a, x2, z2);
+            // Unpack point
+            var x1 = new Long10();
+            Unpack(x1, point);
 
-            // AA = A^2
-            FieldSquare(aa, a);
+            // Montgomery ladder variables
+            var x2 = new Long10 { N0 = 1 };  // Point at infinity
+            var z2 = new Long10();
+            var x3 = new Long10(x1);
+            var z3 = new Long10 { N0 = 1 };
 
-            // B = x2 - z2
-            FieldSubtract(b, x2, z2);
+            // Montgomery ladder
+            var swap = 0;
+            for (var pos = 254; pos >= 0; pos--)
+            {
+                var b = (clampedScalar[pos >> 3] >> (pos & 7)) & 1;
+                swap ^= b;
+                ConditionalSwap(x2, x3, swap);
+                ConditionalSwap(z2, z3, swap);
+                swap = b;
 
-            // BB = B^2
-            FieldSquare(bb, b);
+                MontgomeryLadder(x2, z2, x3, z3, x1);
+            }
 
-            // E = AA - BB
-            FieldSubtract(e, aa, bb);
+            ConditionalSwap(x2, x3, swap);
+            ConditionalSwap(z2, z3, swap);
 
-            // C = x3 + z3
-            FieldAdd(c, x3, z3);
+            // Compute x2 * z2^(p-2) mod p
+            Recip(z2, z2);
+            Multiply(x2, x2, z2);
 
-            // D = x3 - z3
-            FieldSubtract(d, x3, z3);
-
-            // DA = D * A
-            FieldMultiply(da, d, a);
-
-            // CB = C * B
-            FieldMultiply(cb, c, b);
-
-            // x3 = (DA + CB)^2
-            FieldAdd(x3, da, cb);
-            FieldSquare(x3, x3);
-
-            // z3 = x1 * (DA - CB)^2
-            FieldSubtract(z3, da, cb);
-            FieldSquare(z3, z3);
-            FieldMultiply(z3, x1, z3);
-
-            // x2 = AA * BB
-            FieldMultiply(x2, aa, bb);
-
-            // z2 = E * (AA + a24 * E)
-            FieldMultiplySmall(z2, e, A24);
-            FieldAdd(z2, aa, z2);
-            FieldMultiply(z2, e, z2);
+            // Pack result
+            var result = new byte[KeySize];
+            Pack(x2, result);
+            return result;
         }
         finally
         {
-            Array.Clear(a, 0, a.Length);
-            Array.Clear(aa, 0, aa.Length);
-            Array.Clear(b, 0, b.Length);
-            Array.Clear(bb, 0, bb.Length);
-            Array.Clear(e, 0, e.Length);
-            Array.Clear(c, 0, c.Length);
-            Array.Clear(d, 0, d.Length);
-            Array.Clear(da, 0, da.Length);
-            Array.Clear(cb, 0, cb.Length);
+            SecureMemoryOperations.SecureClear(clampedScalar);
         }
     }
 
     /// <summary>
-    /// Constant-time conditional swap of two field elements
+    /// Montgomery ladder step
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static void ConstantTimeConditionalSwap(int condition, uint[] a, uint[] b)
+    private static void MontgomeryLadder(Long10 x2, Long10 z2, Long10 x3, Long10 z3, Long10 x1)
     {
-        var mask = (uint)(-(condition & 1));
+        var a = new Long10();
+        var aa = new Long10();
+        var b = new Long10();
+        var bb = new Long10();
+        var e = new Long10();
+        var c = new Long10();
+        var d = new Long10();
+        var da = new Long10();
+        var cb = new Long10();
 
-        for (var i = 0; i < 8; i++)
-        {
-            var t = mask & (a[i] ^ b[i]);
-            a[i] ^= t;
-            b[i] ^= t;
-        }
+        // A = x2 + z2
+        Add(a, x2, z2);
+        // AA = A^2
+        Square(aa, a);
+        // B = x2 - z2
+        Sub(b, x2, z2);
+        // BB = B^2
+        Square(bb, b);
+        // E = AA - BB
+        Sub(e, aa, bb);
+        // C = x3 + z3
+        Add(c, x3, z3);
+        // D = x3 - z3
+        Sub(d, x3, z3);
+        // DA = D * A
+        Multiply(da, d, a);
+        // CB = C * B
+        Multiply(cb, c, b);
+
+        // x3 = (DA + CB)^2
+        Add(x3, da, cb);
+        Square(x3, x3);
+
+        // z3 = x1 * (DA - CB)^2
+        Sub(z3, da, cb);
+        Square(z3, z3);
+        Multiply(z3, x1, z3);
+
+        // x2 = AA * BB
+        Multiply(x2, aa, bb);
+
+        // z2 = E * (AA + a24 * E)
+        MultiplySmall(z2, e, 121666);
+        Add(z2, aa, z2);
+        Multiply(z2, e, z2);
     }
 
     /// <summary>
-    /// Field addition modulo 2^255 - 19
+    /// Conditional swap in constant time
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static void FieldAdd(uint[] result, uint[] a, uint[] b)
+    private static void ConditionalSwap(Long10 a, Long10 b, int iswap)
     {
-        ulong carry = 0;
-
-        for (var i = 0; i < 8; i++)
-        {
-            carry += (ulong)a[i] + b[i];
-            result[i] = (uint)carry;
-            carry >>= 32;
-        }
-
-        FieldReduce(result);
+        var swap = -iswap;
+        var t = swap & (a.N0 ^ b.N0); a.N0 ^= t; b.N0 ^= t;
+        t = swap & (a.N1 ^ b.N1); a.N1 ^= t; b.N1 ^= t;
+        t = swap & (a.N2 ^ b.N2); a.N2 ^= t; b.N2 ^= t;
+        t = swap & (a.N3 ^ b.N3); a.N3 ^= t; b.N3 ^= t;
+        t = swap & (a.N4 ^ b.N4); a.N4 ^= t; b.N4 ^= t;
+        t = swap & (a.N5 ^ b.N5); a.N5 ^= t; b.N5 ^= t;
+        t = swap & (a.N6 ^ b.N6); a.N6 ^= t; b.N6 ^= t;
+        t = swap & (a.N7 ^ b.N7); a.N7 ^= t; b.N7 ^= t;
+        t = swap & (a.N8 ^ b.N8); a.N8 ^= t; b.N8 ^= t;
+        t = swap & (a.N9 ^ b.N9); a.N9 ^= t; b.N9 ^= t;
     }
 
     /// <summary>
-    /// Field subtraction modulo 2^255 - 19
+    /// Unpacks 32 bytes (little-endian) into Long10 radix-2^25.5 representation
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static void FieldSubtract(uint[] result, uint[] a, uint[] b)
+    private static void Unpack(Long10 x, byte[] m)
     {
-        long borrow = 0;
-
-        for (var i = 0; i < 8; i++)
-        {
-            borrow += (long)a[i] - b[i];
-            result[i] = (uint)borrow;
-            borrow >>= 32;
-        }
-
-        // Add p if result is negative
-        if (borrow < 0)
-        {
-            ulong carry = 0;
-            for (var i = 0; i < 8; i++)
-            {
-                carry += (ulong)result[i] + Prime[i];
-                result[i] = (uint)carry;
-                carry >>= 32;
-            }
-        }
+        x.N0 = ((m[0] & 0xFF)) | ((m[1] & 0xFF)) << 8 | (m[2] & 0xFF) << 16 | ((m[3] & 0xFF) & 3) << 24;
+        x.N1 = (((m[3] & 0xFF) & ~3) >> 2) | (m[4] & 0xFF) << 6 | (m[5] & 0xFF) << 14 | ((m[6] & 0xFF) & 7) << 22;
+        x.N2 = (((m[6] & 0xFF) & ~7) >> 3) | (m[7] & 0xFF) << 5 | (m[8] & 0xFF) << 13 | ((m[9] & 0xFF) & 31) << 21;
+        x.N3 = (((m[9] & 0xFF) & ~31) >> 5) | (m[10] & 0xFF) << 3 | (m[11] & 0xFF) << 11 | ((m[12] & 0xFF) & 63) << 19;
+        x.N4 = (((m[12] & 0xFF) & ~63) >> 6) | (m[13] & 0xFF) << 2 | (m[14] & 0xFF) << 10 | (m[15] & 0xFF) << 18;
+        x.N5 = (m[16] & 0xFF) | (m[17] & 0xFF) << 8 | (m[18] & 0xFF) << 16 | ((m[19] & 0xFF) & 1) << 24;
+        x.N6 = (((m[19] & 0xFF) & ~1) >> 1) | (m[20] & 0xFF) << 7 | (m[21] & 0xFF) << 15 | ((m[22] & 0xFF) & 7) << 23;
+        x.N7 = (((m[22] & 0xFF) & ~7) >> 3) | (m[23] & 0xFF) << 5 | (m[24] & 0xFF) << 13 | ((m[25] & 0xFF) & 15) << 21;
+        x.N8 = (((m[25] & 0xFF) & ~15) >> 4) | (m[26] & 0xFF) << 4 | (m[27] & 0xFF) << 12 | ((m[28] & 0xFF) & 63) << 20;
+        x.N9 = (((m[28] & 0xFF) & ~63) >> 6) | (m[29] & 0xFF) << 2 | (m[30] & 0xFF) << 10 | (m[31] & 0xFF) << 18;
     }
 
     /// <summary>
-    /// Field multiplication modulo 2^255 - 19
+    /// Packs Long10 radix-2^25.5 representation into 32 bytes (little-endian)
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static void FieldMultiply(uint[] result, uint[] a, uint[] b)
+    private static void Pack(Long10 x, byte[] m)
     {
-        var temp = new ulong[16];
-
-        try
-        {
-            // Schoolbook multiplication
-            for (var i = 0; i < 8; i++)
-            {
-                for (var j = 0; j < 8; j++)
-                {
-                    temp[i + j] += (ulong)a[i] * b[j];
-                }
-            }
-
-            // Reduce modulo 2^255 - 19
-            FieldReduceWide(result, temp);
-        }
-        finally
-        {
-            Array.Clear(temp, 0, temp.Length);
-        }
+        var ld = (IsOverflow(x) ? 1 : 0) - (x.N9 < 0 ? 1 : 0);
+        var ud = ld * -(P25 + 1);
+        ld *= 19;
+        var t = ld + x.N0 + (x.N1 << 26);
+        m[0] = (byte)t; m[1] = (byte)(t >> 8); m[2] = (byte)(t >> 16); m[3] = (byte)(t >> 24);
+        t = (t >> 32) + (x.N2 << 19);
+        m[4] = (byte)t; m[5] = (byte)(t >> 8); m[6] = (byte)(t >> 16); m[7] = (byte)(t >> 24);
+        t = (t >> 32) + (x.N3 << 13);
+        m[8] = (byte)t; m[9] = (byte)(t >> 8); m[10] = (byte)(t >> 16); m[11] = (byte)(t >> 24);
+        t = (t >> 32) + (x.N4 << 6);
+        m[12] = (byte)t; m[13] = (byte)(t >> 8); m[14] = (byte)(t >> 16); m[15] = (byte)(t >> 24);
+        t = (t >> 32) + x.N5 + (x.N6 << 25);
+        m[16] = (byte)t; m[17] = (byte)(t >> 8); m[18] = (byte)(t >> 16); m[19] = (byte)(t >> 24);
+        t = (t >> 32) + (x.N7 << 19);
+        m[20] = (byte)t; m[21] = (byte)(t >> 8); m[22] = (byte)(t >> 16); m[23] = (byte)(t >> 24);
+        t = (t >> 32) + (x.N8 << 12);
+        m[24] = (byte)t; m[25] = (byte)(t >> 8); m[26] = (byte)(t >> 16); m[27] = (byte)(t >> 24);
+        t = (t >> 32) + ((x.N9 + ud) << 6);
+        m[28] = (byte)t; m[29] = (byte)(t >> 8); m[30] = (byte)(t >> 16); m[31] = (byte)(t >> 24);
     }
 
     /// <summary>
-    /// Field squaring modulo 2^255 - 19
+    /// Checks if reduced form >= 2^255-19
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static void FieldSquare(uint[] result, uint[] a)
+    private static bool IsOverflow(Long10 x)
     {
-        FieldMultiply(result, a, a);
+        return (
+            ((x.N0 > P26 - 19)) &&
+            ((x.N1 & x.N3 & x.N5 & x.N7 & x.N9) == P25) &&
+            ((x.N2 & x.N4 & x.N6 & x.N8) == P26)
+        ) || (x.N9 > P25);
     }
 
     /// <summary>
-    /// Field multiplication by small constant
+    /// Carry/reduce values
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static void FieldMultiplySmall(uint[] result, uint[] a, uint multiplier)
+    private static void Carry(Long10 x)
     {
-        ulong carry = 0;
-
-        for (var i = 0; i < 8; i++)
-        {
-            carry += (ulong)a[i] * multiplier;
-            result[i] = (uint)carry;
-            carry >>= 32;
-        }
-
-        // Reduce overflow
-        while (carry > 0)
-        {
-            var temp = carry * 19;
-            carry = temp >> 32;
-
-            ulong add = (uint)temp;
-            for (var i = 0; i < 8 && add > 0; i++)
-            {
-                add += result[i];
-                result[i] = (uint)add;
-                add >>= 32;
-            }
-            carry += add;
-        }
-
-        FieldReduce(result);
+        long c;
+        c = x.N0 >> 26; x.N0 &= P26; x.N1 += c;
+        c = x.N1 >> 25; x.N1 &= P25; x.N2 += c;
+        c = x.N2 >> 26; x.N2 &= P26; x.N3 += c;
+        c = x.N3 >> 25; x.N3 &= P25; x.N4 += c;
+        c = x.N4 >> 26; x.N4 &= P26; x.N5 += c;
+        c = x.N5 >> 25; x.N5 &= P25; x.N6 += c;
+        c = x.N6 >> 26; x.N6 &= P26; x.N7 += c;
+        c = x.N7 >> 25; x.N7 &= P25; x.N8 += c;
+        c = x.N8 >> 26; x.N8 &= P26; x.N9 += c;
+        c = x.N9 >> 25; x.N9 &= P25; x.N0 += 19 * c;
+        c = x.N0 >> 26; x.N0 &= P26; x.N1 += c;
     }
 
     /// <summary>
-    /// Modular reduction for standard field elements
+    /// Field addition
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static void FieldReduce(uint[] a)
+    private static void Add(Long10 xy, Long10 x, Long10 y)
     {
-        // Simple reduction - can be optimized further
-        while (IsGreaterOrEqual(a, Prime))
-        {
-            SubtractModulus(a);
-        }
+        xy.N0 = x.N0 + y.N0;
+        xy.N1 = x.N1 + y.N1;
+        xy.N2 = x.N2 + y.N2;
+        xy.N3 = x.N3 + y.N3;
+        xy.N4 = x.N4 + y.N4;
+        xy.N5 = x.N5 + y.N5;
+        xy.N6 = x.N6 + y.N6;
+        xy.N7 = x.N7 + y.N7;
+        xy.N8 = x.N8 + y.N8;
+        xy.N9 = x.N9 + y.N9;
     }
 
     /// <summary>
-    /// Modular reduction for wide (double-width) intermediate results
+    /// Field subtraction
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static void FieldReduceWide(uint[] result, ulong[] wide)
+    private static void Sub(Long10 xy, Long10 x, Long10 y)
     {
-        // Reduce 512-bit value to 256-bit using properties of 2^255 - 19
-        ulong carry = 0;
-
-        // Low half
-        for (var i = 0; i < 8; i++)
-        {
-            carry += wide[i];
-            result[i] = (uint)carry;
-            carry >>= 32;
-        }
-
-        // High half * 19 (since 2^256 ≡ 38 mod (2^255 - 19))
-        for (var i = 8; i < 16; i++)
-        {
-            carry += wide[i] * 38;
-            var idx = i - 8;
-            carry += result[idx];
-            result[idx] = (uint)carry;
-            carry >>= 32;
-        }
-
-        // Final carry propagation
-        carry *= 38;
-        for (var i = 0; i < 8 && carry > 0; i++)
-        {
-            carry += result[i];
-            result[i] = (uint)carry;
-            carry >>= 32;
-        }
-
-        FieldReduce(result);
+        xy.N0 = x.N0 - y.N0;
+        xy.N1 = x.N1 - y.N1;
+        xy.N2 = x.N2 - y.N2;
+        xy.N3 = x.N3 - y.N3;
+        xy.N4 = x.N4 - y.N4;
+        xy.N5 = x.N5 - y.N5;
+        xy.N6 = x.N6 - y.N6;
+        xy.N7 = x.N7 - y.N7;
+        xy.N8 = x.N8 - y.N8;
+        xy.N9 = x.N9 - y.N9;
     }
 
     /// <summary>
-    /// Modular inversion using Fermat's little theorem: a^(-1) = a^(p-2) mod p
-    /// Uses optimized addition chain to compute a^(2^255 - 21) for p = 2^255 - 19
-    /// Based on the curve25519-donna implementation by Adam Langley
+    /// Field multiplication
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static void ModularInverse(uint[] result, uint[] a)
+    private static void Multiply(Long10 xy, Long10 x, Long10 y)
     {
-        // For p = 2^255 - 19, we compute a^(2^255 - 21) = a^(p - 2)
-        // This uses an optimized addition chain requiring 254 squarings and 11 multiplications
+        var x0 = x.N0; var x1 = x.N1; var x2 = x.N2; var x3 = x.N3; var x4 = x.N4;
+        var x5 = x.N5; var x6 = x.N6; var x7 = x.N7; var x8 = x.N8; var x9 = x.N9;
+        var y0 = y.N0; var y1 = y.N1; var y2 = y.N2; var y3 = y.N3; var y4 = y.N4;
+        var y5 = y.N5; var y6 = y.N6; var y7 = y.N7; var y8 = y.N8; var y9 = y.N9;
+        long t;
 
-        var z2 = new uint[8];
-        var z9 = new uint[8];
-        var z11 = new uint[8];
-        var z2_5_0 = new uint[8];
-        var z2_10_0 = new uint[8];
-        var z2_20_0 = new uint[8];
-        var z2_50_0 = new uint[8];
-        var z2_100_0 = new uint[8];
-        var t0 = new uint[8];
-        var t1 = new uint[8];
-
-        try
-        {
-            // z2 = a^2
-            FieldSquare(z2, a);
-
-            // z9 = a^9 = a^8 * a
-            FieldSquare(t0, z2);
-            FieldSquare(t1, t0);
-            FieldMultiply(z9, t1, a);
-
-            // z11 = a^11 = a^9 * a^2
-            FieldMultiply(z11, z9, z2);
-
-            // z2_5_0 = a^(2^5 - 1) = a^31
-            FieldSquare(t0, z11);
-            FieldMultiply(z2_5_0, t0, z9);
-
-            // z2_10_0 = a^(2^10 - 1)
-            FieldSquare(t0, z2_5_0);
-            for (var i = 1; i < 5; i++) FieldSquare(t0, t0);
-            FieldMultiply(z2_10_0, t0, z2_5_0);
-
-            // z2_20_0 = a^(2^20 - 1)
-            FieldSquare(t0, z2_10_0);
-            for (var i = 1; i < 10; i++) FieldSquare(t0, t0);
-            FieldMultiply(z2_20_0, t0, z2_10_0);
-
-            // z2_50_0 = a^(2^50 - 1)
-            FieldSquare(t0, z2_20_0);
-            for (var i = 1; i < 20; i++) FieldSquare(t0, t0);
-            FieldMultiply(t1, t0, z2_20_0);
-            FieldSquare(t0, t1);
-            for (var i = 1; i < 10; i++) FieldSquare(t0, t0);
-            FieldMultiply(z2_50_0, t0, z2_10_0);
-
-            // z2_100_0 = a^(2^100 - 1)
-            FieldSquare(t0, z2_50_0);
-            for (var i = 1; i < 50; i++) FieldSquare(t0, t0);
-            FieldMultiply(z2_100_0, t0, z2_50_0);
-
-            // t1 = a^(2^200 - 1)
-            FieldSquare(t0, z2_100_0);
-            for (var i = 1; i < 100; i++) FieldSquare(t0, t0);
-            FieldMultiply(t1, t0, z2_100_0);
-
-            // t1 = a^(2^250 - 1)
-            FieldSquare(t0, t1);
-            for (var i = 1; i < 50; i++) FieldSquare(t0, t0);
-            FieldMultiply(t1, t0, z2_50_0);
-
-            // result = a^(2^255 - 21)
-            FieldSquare(t0, t1);
-            for (var i = 1; i < 5; i++) FieldSquare(t0, t0);
-            FieldMultiply(result, t0, z11);
-        }
-        finally
-        {
-            Array.Clear(z2, 0, z2.Length);
-            Array.Clear(z9, 0, z9.Length);
-            Array.Clear(z11, 0, z11.Length);
-            Array.Clear(z2_5_0, 0, z2_5_0.Length);
-            Array.Clear(z2_10_0, 0, z2_10_0.Length);
-            Array.Clear(z2_20_0, 0, z2_20_0.Length);
-            Array.Clear(z2_50_0, 0, z2_50_0.Length);
-            Array.Clear(z2_100_0, 0, z2_100_0.Length);
-            Array.Clear(t0, 0, t0.Length);
-            Array.Clear(t1, 0, t1.Length);
-        }
+        t = (x0 * y8) + (x2 * y6) + (x4 * y4) + (x6 * y2) + (x8 * y0) + 2 * ((x1 * y7) + (x3 * y5) + (x5 * y3) + (x7 * y1)) + 38 * (x9 * y9);
+        xy.N8 = t & P26; var c = t >> 26;
+        t = (x0 * y9) + (x1 * y8) + (x2 * y7) + (x3 * y6) + (x4 * y5) + (x5 * y4) + (x6 * y3) + (x7 * y2) + (x8 * y1) + (x9 * y0) + c;
+        xy.N9 = t & P25; c = t >> 25;
+        t = (x0 * y0) + 19 * ((x1 * y9) + (x2 * y8) + (x3 * y7) + (x4 * y6) + (x5 * y5) + (x6 * y4) + (x7 * y3) + (x8 * y2) + (x9 * y1)) + c;
+        xy.N0 = t & P26; c = t >> 26;
+        t = (x0 * y1) + (x1 * y0) + 19 * ((x2 * y9) + (x3 * y8) + (x4 * y7) + (x5 * y6) + (x6 * y5) + (x7 * y4) + (x8 * y3) + (x9 * y2)) + c;
+        xy.N1 = t & P25; c = t >> 25;
+        t = (x0 * y2) + (x2 * y0) + 19 * ((x3 * y9) + (x4 * y8) + (x5 * y7) + (x6 * y6) + (x7 * y5) + (x8 * y4) + (x9 * y3)) + 2 * (x1 * y1) + c;
+        xy.N2 = t & P26; c = t >> 26;
+        t = (x0 * y3) + (x1 * y2) + (x2 * y1) + (x3 * y0) + 19 * ((x4 * y9) + (x5 * y8) + (x6 * y7) + (x7 * y6) + (x8 * y5) + (x9 * y4)) + c;
+        xy.N3 = t & P25; c = t >> 25;
+        t = (x0 * y4) + (x2 * y2) + (x4 * y0) + 19 * ((x5 * y9) + (x6 * y8) + (x7 * y7) + (x8 * y6) + (x9 * y5)) + 2 * ((x1 * y3) + (x3 * y1)) + c;
+        xy.N4 = t & P26; c = t >> 26;
+        t = (x0 * y5) + (x1 * y4) + (x2 * y3) + (x3 * y2) + (x4 * y1) + (x5 * y0) + 19 * ((x6 * y9) + (x7 * y8) + (x8 * y7) + (x9 * y6)) + c;
+        xy.N5 = t & P25; c = t >> 25;
+        t = (x0 * y6) + (x2 * y4) + (x4 * y2) + (x6 * y0) + 19 * ((x7 * y9) + (x8 * y8) + (x9 * y7)) + 2 * ((x1 * y5) + (x3 * y3) + (x5 * y1)) + c;
+        xy.N6 = t & P26; c = t >> 26;
+        t = (x0 * y7) + (x1 * y6) + (x2 * y5) + (x3 * y4) + (x4 * y3) + (x5 * y2) + (x6 * y1) + (x7 * y0) + 19 * ((x8 * y9) + (x9 * y8)) + c;
+        xy.N7 = t & P25; c = t >> 25;
+        t = (x0 * y8) + (x2 * y6) + (x4 * y4) + (x6 * y2) + (x8 * y0) + 19 * (x9 * y9) + 2 * ((x1 * y7) + (x3 * y5) + (x5 * y3) + (x7 * y1)) + c;
+        xy.N8 = t & P26; c = t >> 26;
+        xy.N9 += c;
     }
 
     /// <summary>
-    /// Checks if field element a >= modulus
+    /// Field squaring
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static bool IsGreaterOrEqual(uint[] a, uint[] modulus)
+    private static void Square(Long10 x2, Long10 x)
     {
-        for (var i = 7; i >= 0; i--)
-        {
-            if (a[i] > modulus[i]) return true;
-            if (a[i] < modulus[i]) return false;
-        }
-        return true; // Equal
+        var x0 = x.N0; var x1 = x.N1; var x2 = x.N2; var x3 = x.N3; var x4 = x.N4;
+        var x5 = x.N5; var x6 = x.N6; var x7 = x.N7; var x8 = x.N8; var x9 = x.N9;
+        long t;
+
+        t = (x4 * x4) + 2 * ((x0 * x8) + (x2 * x6)) + 38 * (x9 * x9) + 4 * ((x1 * x7) + (x3 * x5));
+        x2.N8 = t & P26; var c = t >> 26;
+        t = 2 * ((x0 * x9) + (x1 * x8) + (x2 * x7) + (x3 * x6) + (x4 * x5)) + c;
+        x2.N9 = t & P25; c = t >> 25;
+        t = (x0 * x0) + 19 * (2 * ((x1 * x9) + (x2 * x8) + (x3 * x7) + (x4 * x6)) + (x5 * x5)) + c;
+        x2.N0 = t & P26; c = t >> 26;
+        t = 2 * ((x0 * x1) + 19 * ((x2 * x9) + (x3 * x8) + (x4 * x7) + (x5 * x6))) + c;
+        x2.N1 = t & P25; c = t >> 25;
+        t = 2 * ((x0 * x2) + (x1 * x1)) + 19 * (2 * ((x3 * x9) + (x4 * x8) + (x5 * x7)) + (x6 * x6)) + c;
+        x2.N2 = t & P26; c = t >> 26;
+        t = 2 * ((x0 * x3) + (x1 * x2) + 19 * ((x4 * x9) + (x5 * x8) + (x6 * x7))) + c;
+        x2.N3 = t & P25; c = t >> 25;
+        t = 2 * ((x0 * x4) + (x1 * x3)) + (x2 * x2) + 19 * (2 * ((x5 * x9) + (x6 * x8)) + (x7 * x7)) + c;
+        x2.N4 = t & P26; c = t >> 26;
+        t = 2 * ((x0 * x5) + (x1 * x4) + (x2 * x3) + 19 * ((x6 * x9) + (x7 * x8))) + c;
+        x2.N5 = t & P25; c = t >> 25;
+        t = 2 * ((x0 * x6) + (x1 * x5) + (x2 * x4)) + (x3 * x3) + 19 * (2 * (x7 * x9) + (x8 * x8)) + c;
+        x2.N6 = t & P26; c = t >> 26;
+        t = 2 * ((x0 * x7) + (x1 * x6) + (x2 * x5) + (x3 * x4) + 19 * (x8 * x9)) + c;
+        x2.N7 = t & P25; c = t >> 25;
+        t = 2 * ((x0 * x8) + (x1 * x7) + (x2 * x6) + (x3 * x5)) + (x4 * x4) + 19 * (x9 * x9) + c;
+        x2.N8 = t & P26; c = t >> 26;
+        x2.N9 += c;
     }
 
     /// <summary>
-    /// Subtracts modulus from field element
+    /// Multiply by small constant
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static void SubtractModulus(uint[] a)
+    private static void MultiplySmall(Long10 xy, Long10 x, long y)
     {
-        long borrow = 0;
-        for (var i = 0; i < 8; i++)
-        {
-            borrow += (long)a[i] - Prime[i];
-            a[i] = (uint)borrow;
-            borrow >>= 32;
-        }
+        long t;
+        t = x.N8 * y;
+        xy.N8 = t & P26; var c = t >> 26;
+        t = x.N9 * y + c;
+        xy.N9 = t & P25; c = t >> 25;
+        t = x.N0 * y + 19 * c;
+        xy.N0 = t & P26; c = t >> 26;
+        t = x.N1 * y + c;
+        xy.N1 = t & P25; c = t >> 25;
+        t = x.N2 * y + c;
+        xy.N2 = t & P26; c = t >> 26;
+        t = x.N3 * y + c;
+        xy.N3 = t & P25; c = t >> 25;
+        t = x.N4 * y + c;
+        xy.N4 = t & P26; c = t >> 26;
+        t = x.N5 * y + c;
+        xy.N5 = t & P25; c = t >> 25;
+        t = x.N6 * y + c;
+        xy.N6 = t & P26; c = t >> 26;
+        t = x.N7 * y + c;
+        xy.N7 = t & P25; c = t >> 25;
+        t = x.N8 * y + c;
+        xy.N8 = t & P26; c = t >> 26;
+        xy.N9 += c;
     }
 
     /// <summary>
-    /// Loads 32 bytes into a field element
+    /// Modular inverse using Fermat's little theorem
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static void LoadBytes(uint[] element, byte[] bytes)
+    private static void Recip(Long10 y, Long10 x)
     {
-        for (var i = 0; i < 8; i++)
-        {
-            element[i] = BitConverter.ToUInt32(bytes, i * 4);
-        }
-    }
+        var z0 = new Long10();
+        var z1 = new Long10();
+        var z2 = new Long10();
+        var z9 = new Long10();
+        var z11 = new Long10();
+        var z2_5_0 = new Long10();
+        var z2_10_0 = new Long10();
+        var z2_20_0 = new Long10();
+        var z2_50_0 = new Long10();
+        var z2_100_0 = new Long10();
+        var t0 = new Long10();
+        var t1 = new Long10();
 
-    /// <summary>
-    /// Stores a field element as 32 bytes
-    /// </summary>
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static void StoreBytes(byte[] bytes, uint[] element)
-    {
-        for (var i = 0; i < 8; i++)
-        {
-            var elementBytes = BitConverter.GetBytes(element[i]);
-            elementBytes.CopyTo(bytes, i * 4);
-        }
-    }
+        /* 2 */ Square(z2, x);
+        /* 4 */ Square(t1, z2);
+        /* 8 */ Square(t0, t1);
+        /* 9 */ Multiply(z9, t0, x);
+        /* 11 */ Multiply(z11, z9, z2);
+        /* 22 */ Square(t0, z11);
+        /* 2^5 - 2^0 = 31 */ Multiply(z2_5_0, t0, z9);
 
-    /// <summary>
-    /// Checks if byte array is all zeros
-    /// </summary>
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static bool IsAllZero(byte[] data)
-    {
-        byte result = 0;
-        for (var i = 0; i < data.Length; i++)
-        {
-            result |= data[i];
-        }
-        return result == 0;
+        /* 2^6 - 2^1 */ Square(t0, z2_5_0);
+        /* 2^7 - 2^2 */ Square(t1, t0);
+        /* 2^8 - 2^3 */ Square(t0, t1);
+        /* 2^9 - 2^4 */ Square(t1, t0);
+        /* 2^10 - 2^5 */ Square(t0, t1);
+        /* 2^10 - 2^0 */ Multiply(z2_10_0, t0, z2_5_0);
+
+        /* 2^11 - 2^1 */ Square(t0, z2_10_0);
+        /* 2^12 - 2^2 */ Square(t1, t0);
+        /* 2^20 - 2^10 */ for (var i = 2; i < 10; i += 2) { Square(t0, t1); Square(t1, t0); }
+        /* 2^20 - 2^0 */ Multiply(z2_20_0, t1, z2_10_0);
+
+        /* 2^21 - 2^1 */ Square(t0, z2_20_0);
+        /* 2^22 - 2^2 */ Square(t1, t0);
+        /* 2^40 - 2^20 */ for (var i = 2; i < 20; i += 2) { Square(t0, t1); Square(t1, t0); }
+        /* 2^40 - 2^0 */ Multiply(t0, t1, z2_20_0);
+
+        /* 2^41 - 2^1 */ Square(t1, t0);
+        /* 2^42 - 2^2 */ Square(t0, t1);
+        /* 2^50 - 2^10 */ for (var i = 2; i < 10; i += 2) { Square(t1, t0); Square(t0, t1); }
+        /* 2^50 - 2^0 */ Multiply(z2_50_0, t0, z2_10_0);
+
+        /* 2^51 - 2^1 */ Square(t0, z2_50_0);
+        /* 2^52 - 2^2 */ Square(t1, t0);
+        /* 2^100 - 2^50 */ for (var i = 2; i < 50; i += 2) { Square(t0, t1); Square(t1, t0); }
+        /* 2^100 - 2^0 */ Multiply(z2_100_0, t1, z2_50_0);
+
+        /* 2^101 - 2^1 */ Square(t1, z2_100_0);
+        /* 2^102 - 2^2 */ Square(t0, t1);
+        /* 2^200 - 2^100 */ for (var i = 2; i < 100; i += 2) { Square(t1, t0); Square(t0, t1); }
+        /* 2^200 - 2^0 */ Multiply(t1, t0, z2_100_0);
+
+        /* 2^201 - 2^1 */ Square(t0, t1);
+        /* 2^202 - 2^2 */ Square(t1, t0);
+        /* 2^250 - 2^50 */ for (var i = 2; i < 50; i += 2) { Square(t0, t1); Square(t1, t0); }
+        /* 2^250 - 2^0 */ Multiply(t0, t1, z2_50_0);
+
+        /* 2^251 - 2^1 */ Square(t1, t0);
+        /* 2^252 - 2^2 */ Square(t0, t1);
+        /* 2^253 - 2^3 */ Square(t1, t0);
+        /* 2^254 - 2^4 */ Square(t0, t1);
+        /* 2^255 - 2^5 */ Square(t1, t0);
+        /* 2^255 - 21 */ Multiply(y, t1, z11);
     }
 }

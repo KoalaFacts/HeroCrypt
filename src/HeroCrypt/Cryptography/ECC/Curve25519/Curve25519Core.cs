@@ -451,28 +451,28 @@ public static class Curve25519Core
     {
         long t;
         t = x.N8 * y;
-        xy.N8 = t & P26; var c = t >> 26;
-        t = x.N9 * y + c;
-        xy.N9 = t & P25; c = t >> 25;
-        t = x.N0 * y + 19 * c;
-        xy.N0 = t & P26; c = t >> 26;
-        t = x.N1 * y + c;
-        xy.N1 = t & P25; c = t >> 25;
-        t = x.N2 * y + c;
-        xy.N2 = t & P26; c = t >> 26;
-        t = x.N3 * y + c;
-        xy.N3 = t & P25; c = t >> 25;
-        t = x.N4 * y + c;
-        xy.N4 = t & P26; c = t >> 26;
-        t = x.N5 * y + c;
-        xy.N5 = t & P25; c = t >> 25;
-        t = x.N6 * y + c;
-        xy.N6 = t & P26; c = t >> 26;
-        t = x.N7 * y + c;
-        xy.N7 = t & P25; c = t >> 25;
-        t = x.N8 * y + c;
-        xy.N8 = t & P26; c = t >> 26;
-        xy.N9 += c;
+        xy.N8 = t & P26;
+        t = (t >> 26) + x.N9 * y;
+        xy.N9 = t & P25;
+        t = 19 * (t >> 25) + x.N0 * y;
+        xy.N0 = t & P26;
+        t = (t >> 26) + x.N1 * y;
+        xy.N1 = t & P25;
+        t = (t >> 25) + x.N2 * y;
+        xy.N2 = t & P26;
+        t = (t >> 26) + x.N3 * y;
+        xy.N3 = t & P25;
+        t = (t >> 25) + x.N4 * y;
+        xy.N4 = t & P26;
+        t = (t >> 26) + x.N5 * y;
+        xy.N5 = t & P25;
+        t = (t >> 25) + x.N6 * y;
+        xy.N6 = t & P26;
+        t = (t >> 26) + x.N7 * y;
+        xy.N7 = t & P25;
+        t = (t >> 25) + xy.N8;
+        xy.N8 = t & P26;
+        xy.N9 += (t >> 26);
     }
 
     /// <summary>

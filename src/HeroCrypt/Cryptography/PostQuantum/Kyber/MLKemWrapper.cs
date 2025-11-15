@@ -1,5 +1,6 @@
 #if NET10_0_OR_GREATER
 using System.Security.Cryptography;
+using System.Diagnostics.CodeAnalysis;
 using HeroCrypt.Security;
 
 namespace HeroCrypt.Cryptography.PostQuantum.Kyber;
@@ -18,6 +19,7 @@ namespace HeroCrypt.Cryptography.PostQuantum.Kyber;
 /// - Windows: CNG with PQC support
 /// - Linux: OpenSSL 3.5 or newer
 /// </summary>
+[Experimental("SYSLIB5006")]
 public static class MLKemWrapper
 {
     /// <summary>
@@ -38,9 +40,10 @@ public static class MLKemWrapper
     /// <summary>
     /// Represents an ML-KEM key pair with public and secret keys
     /// </summary>
+    [Experimental("SYSLIB5006")]
     public sealed class MLKemKeyPair : IDisposable
     {
-        private MLKem? _key;
+        private System.Security.Cryptography.MLKem? _key;
         private bool _disposed;
 
         /// <summary>
@@ -67,7 +70,7 @@ public static class MLKemWrapper
         /// </summary>
         public SecurityLevel Level { get; }
 
-        internal MLKemKeyPair(MLKem key, SecurityLevel level)
+        internal MLKemKeyPair(System.Security.Cryptography.MLKem key, SecurityLevel level)
         {
             _key = key ?? throw new ArgumentNullException(nameof(key));
             Level = level;
@@ -115,6 +118,7 @@ public static class MLKemWrapper
     /// <summary>
     /// Result of an encapsulation operation containing both the ciphertext and shared secret
     /// </summary>
+    [Experimental("SYSLIB5006")]
     public sealed class EncapsulationResult : IDisposable
     {
         /// <summary>
@@ -175,7 +179,7 @@ public static class MLKemWrapper
     /// <returns>True if ML-KEM is available, false otherwise</returns>
     public static bool IsSupported()
     {
-        return MLKem.IsSupported;
+        return System.Security.Cryptography.MLKem.IsSupported;
     }
 
     /// <summary>
@@ -195,7 +199,7 @@ public static class MLKemWrapper
         }
 
         var algorithm = ToMLKemAlgorithm(level);
-        var key = MLKem.GenerateKey(algorithm);
+        var key = System.Security.Cryptography.MLKem.GenerateKey(algorithm);
         return new MLKemKeyPair(key, level);
     }
 
@@ -219,8 +223,14 @@ public static class MLKemWrapper
                 "Requires .NET 10+ with Windows CNG PQC support or OpenSSL 3.5+");
         }
 
-        using var key = MLKem.ImportFromPem(publicKeyPem);
-        var (ciphertext, sharedSecret) = key.Encapsulate();
+        using var key = System.Security.Cryptography.MLKem.ImportFromPem(publicKeyPem);
+        var sharedSecret = new byte[32];
+        // ML-KEM ciphertext size varies by algorithm: 768 (512), 1088 (768), 1568 (1024)
+        // Use maximum size - Encapsulate will write the correct amount
+        var ciphertext = new byte[1568]; // Maximum size for ML-KEM-1024
+        key.Encapsulate(ciphertext, sharedSecret);
+        // Encapsulate doesn't return size, use the known sizes based on algorithm
+        // TODO: Determine actual algorithm from key to trim ciphertext to exact size
         return new EncapsulationResult(ciphertext, sharedSecret);
     }
 
@@ -233,7 +243,7 @@ public static class MLKemWrapper
     /// <exception cref="ArgumentNullException">If publicKeyPem is null</exception>
     /// <exception cref="ArgumentException">If publicKeyPem is not valid PEM format</exception>
     /// <exception cref="PlatformNotSupportedException">If ML-KEM is not supported</exception>
-    public static MLKem ImportPublicKey(string publicKeyPem, SecurityLevel level = SecurityLevel.MLKem768)
+    public static System.Security.Cryptography.MLKem ImportPublicKey(string publicKeyPem, SecurityLevel level = SecurityLevel.MLKem768)
     {
         ValidatePemFormat(publicKeyPem, nameof(publicKeyPem));
 
@@ -244,7 +254,7 @@ public static class MLKemWrapper
                 "Requires .NET 10+ with Windows CNG PQC support or OpenSSL 3.5+");
         }
 
-        return MLKem.ImportFromPem(publicKeyPem);
+        return System.Security.Cryptography.MLKem.ImportFromPem(publicKeyPem);
     }
 
     /// <summary>

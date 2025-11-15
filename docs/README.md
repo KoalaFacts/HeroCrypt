@@ -125,7 +125,7 @@ HeroCrypt contains both **production-ready** and **educational/reference** imple
 
 ### Community Support
 
-- **GitHub Issues**: [Report bugs or request features](https://github.com/BeingCiteable/HeroCrypt/issues)
+- **GitHub Issues**: [Report bugs or request features](https://github.com/KoalaFacts/HeroCrypt/issues)
 - **GitHub Discussions**: Ask questions and share knowledge
 - **Stack Overflow**: Tag questions with `herocrypt`
 
@@ -218,7 +218,7 @@ For older versions, please refer to the documentation in the corresponding git t
 
 Found an issue with the documentation? Please:
 
-1. Check if it's already reported in [GitHub Issues](https://github.com/BeingCiteable/HeroCrypt/issues)
+1. Check if it's already reported in [GitHub Issues](https://github.com/KoalaFacts/HeroCrypt/issues)
 2. If not, create a new issue with the `documentation` label
 3. Provide suggestions for improvement
 

@@ -1,5 +1,6 @@
 #if NET10_0_OR_GREATER
 using System.Security.Cryptography;
+using System.Diagnostics.CodeAnalysis;
 using HeroCrypt.Security;
 
 namespace HeroCrypt.Cryptography.PostQuantum.Dilithium;
@@ -18,6 +19,7 @@ namespace HeroCrypt.Cryptography.PostQuantum.Dilithium;
 /// - Windows: CNG with PQC support
 /// - Linux: OpenSSL 3.5 or newer
 /// </summary>
+[Experimental("SYSLIB5006")]
 public static class MLDsaWrapper
 {
     /// <summary>
@@ -38,9 +40,10 @@ public static class MLDsaWrapper
     /// <summary>
     /// Represents an ML-DSA key pair for signing and verification
     /// </summary>
+    [Experimental("SYSLIB5006")]
     public sealed class MLDsaKeyPair : IDisposable
     {
-        private MLDsa? _key;
+        private System.Security.Cryptography.MLDsa? _key;
         private bool _disposed;
 
         /// <summary>
@@ -67,7 +70,7 @@ public static class MLDsaWrapper
         /// </summary>
         public SecurityLevel Level { get; }
 
-        internal MLDsaKeyPair(MLDsa key, SecurityLevel level)
+        internal MLDsaKeyPair(System.Security.Cryptography.MLDsa key, SecurityLevel level)
         {
             _key = key ?? throw new ArgumentNullException(nameof(key));
             Level = level;
@@ -109,14 +112,12 @@ public static class MLDsaWrapper
         }
 
         /// <summary>
-        /// Tries to sign data and write the signature to a destination span
+        /// Signs data and returns the signature as a byte array (span-based version)
         /// </summary>
         /// <param name="data">The data to sign</param>
-        /// <param name="destination">The destination for the signature</param>
-        /// <param name="bytesWritten">The number of bytes written</param>
         /// <param name="context">Optional context string for domain separation</param>
-        /// <returns>True if successful, false if destination is too small</returns>
-        public bool TrySign(ReadOnlySpan<byte> data, Span<byte> destination, out int bytesWritten, ReadOnlySpan<byte> context = default)
+        /// <returns>The signature</returns>
+        public byte[] Sign(ReadOnlySpan<byte> data, ReadOnlySpan<byte> context = default)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
 
@@ -126,7 +127,9 @@ public static class MLDsaWrapper
             if (context.Length > 255)
                 throw new ArgumentException("Context must be 255 bytes or less");
 
-            return _key.TrySignData(data, destination, out bytesWritten, context);
+            return context.Length == 0
+                ? _key.SignData(data.ToArray())
+                : _key.SignData(data.ToArray(), context.ToArray());
         }
 
         /// <summary>
@@ -149,7 +152,7 @@ public static class MLDsaWrapper
     /// <returns>True if ML-DSA is available, false otherwise</returns>
     public static bool IsSupported()
     {
-        return MLDsa.IsSupported;
+        return System.Security.Cryptography.MLDsa.IsSupported;
     }
 
     /// <summary>
@@ -169,8 +172,39 @@ public static class MLDsaWrapper
         }
 
         var algorithm = ToMLDsaAlgorithm(level);
-        var key = MLDsa.GenerateKey(algorithm);
+        var key = System.Security.Cryptography.MLDsa.GenerateKey(algorithm);
         return new MLDsaKeyPair(key, level);
+    }
+
+    /// <summary>
+    /// Signs data using a private key
+    /// </summary>
+    /// <param name="privateKeyPem">The private key in PEM format</param>
+    /// <param name="data">The data to sign</param>
+    /// <param name="securityBits">The security level in bits (192 for ML-DSA-65, 256 for ML-DSA-87)</param>
+    /// <param name="context">Optional context string for domain separation</param>
+    /// <returns>The signature</returns>
+    /// <exception cref="ArgumentNullException">If privateKeyPem or data is null</exception>
+    /// <exception cref="ArgumentException">If privateKeyPem is not valid PEM format or context exceeds 255 bytes</exception>
+    /// <exception cref="PlatformNotSupportedException">If ML-DSA is not supported</exception>
+    public static byte[] Sign(string privateKeyPem, byte[] data, int securityBits, byte[]? context = null)
+    {
+        ValidatePemFormat(privateKeyPem, nameof(privateKeyPem));
+
+        if (data == null)
+            throw new ArgumentNullException(nameof(data));
+
+        if (!IsSupported())
+        {
+            throw new PlatformNotSupportedException(
+                "ML-DSA is not supported on this platform. " +
+                "Requires .NET 10+ with Windows CNG PQC support or OpenSSL 3.5+");
+        }
+
+        using var key = System.Security.Cryptography.MLDsa.ImportFromPem(privateKeyPem);
+        return context == null || context.Length == 0
+            ? key.SignData(data)
+            : key.SignData(data, context);
     }
 
     /// <summary>
@@ -203,7 +237,7 @@ public static class MLDsaWrapper
         if (context != null && context.Length > 255)
             throw new ArgumentException("Context must be 255 bytes or less", nameof(context));
 
-        using var key = MLDsa.ImportFromPem(publicKeyPem);
+        using var key = System.Security.Cryptography.MLDsa.ImportFromPem(publicKeyPem);
 
         if (context == null || context.Length == 0)
         {
@@ -240,7 +274,7 @@ public static class MLDsaWrapper
         if (context.Length > 255)
             throw new ArgumentException("Context must be 255 bytes or less");
 
-        using var key = MLDsa.ImportFromPem(publicKeyPem);
+        using var key = System.Security.Cryptography.MLDsa.ImportFromPem(publicKeyPem);
         return key.VerifyData(data, signature, context);
     }
 
@@ -252,7 +286,7 @@ public static class MLDsaWrapper
     /// <exception cref="ArgumentNullException">If publicKeyPem is null</exception>
     /// <exception cref="ArgumentException">If publicKeyPem is not valid PEM format</exception>
     /// <exception cref="PlatformNotSupportedException">If ML-DSA is not supported</exception>
-    public static MLDsa ImportPublicKey(string publicKeyPem)
+    public static System.Security.Cryptography.MLDsa ImportPublicKey(string publicKeyPem)
     {
         ValidatePemFormat(publicKeyPem, nameof(publicKeyPem));
 
@@ -263,7 +297,7 @@ public static class MLDsaWrapper
                 "Requires .NET 10+ with Windows CNG PQC support or OpenSSL 3.5+");
         }
 
-        return MLDsa.ImportFromPem(publicKeyPem);
+        return System.Security.Cryptography.MLDsa.ImportFromPem(publicKeyPem);
     }
 
     /// <summary>

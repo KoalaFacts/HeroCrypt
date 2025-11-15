@@ -59,7 +59,7 @@ public static class SlhDsaWrapper
     [Experimental("SYSLIB5006")]
     public sealed class SlhDsaKeyPair : IDisposable
     {
-        private SlhDsa? _key;
+        private System.Security.Cryptography.SlhDsa? _key;
         private bool _disposed;
 
         /// <summary>
@@ -86,7 +86,7 @@ public static class SlhDsaWrapper
         /// </summary>
         public SecurityLevel Level { get; }
 
-        internal SlhDsaKeyPair(SlhDsa key, SecurityLevel level)
+        internal SlhDsaKeyPair(System.Security.Cryptography.SlhDsa key, SecurityLevel level)
         {
             _key = key ?? throw new ArgumentNullException(nameof(key));
             Level = level;
@@ -126,14 +126,12 @@ public static class SlhDsaWrapper
         }
 
         /// <summary>
-        /// Tries to sign data and write the signature to a destination span
+        /// Signs data and returns the signature as a byte array (span-based version)
         /// </summary>
         /// <param name="data">The data to sign</param>
-        /// <param name="destination">The destination for the signature</param>
-        /// <param name="bytesWritten">The number of bytes written</param>
         /// <param name="context">Optional context string for domain separation</param>
-        /// <returns>True if successful, false if destination is too small</returns>
-        public bool TrySign(ReadOnlySpan<byte> data, Span<byte> destination, out int bytesWritten, ReadOnlySpan<byte> context = default)
+        /// <returns>The signature</returns>
+        public byte[] Sign(ReadOnlySpan<byte> data, ReadOnlySpan<byte> context = default)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
 
@@ -143,7 +141,9 @@ public static class SlhDsaWrapper
             if (context.Length > 255)
                 throw new ArgumentException("Context must be 255 bytes or less");
 
-            return _key.TrySignData(data, destination, out bytesWritten, context);
+            return context.Length == 0
+                ? _key.SignData(data.ToArray())
+                : _key.SignData(data.ToArray(), context.ToArray());
         }
 
         /// <summary>
@@ -166,7 +166,7 @@ public static class SlhDsaWrapper
     /// <returns>True if SLH-DSA is available, false otherwise</returns>
     public static bool IsSupported()
     {
-        return SlhDsa.IsSupported;
+        return System.Security.Cryptography.SlhDsa.IsSupported;
     }
 
     /// <summary>
@@ -187,7 +187,7 @@ public static class SlhDsaWrapper
         }
 
         var algorithm = ToSlhDsaAlgorithm(level);
-        var key = SlhDsa.GenerateKey(algorithm);
+        var key = System.Security.Cryptography.SlhDsa.GenerateKey(algorithm);
         return new SlhDsaKeyPair(key, level);
     }
 
@@ -221,7 +221,7 @@ public static class SlhDsaWrapper
         if (context != null && context.Length > 255)
             throw new ArgumentException("Context must be 255 bytes or less", nameof(context));
 
-        using var key = SlhDsa.ImportFromPem(publicKeyPem);
+        using var key = System.Security.Cryptography.SlhDsa.ImportFromPem(publicKeyPem);
 
         if (context == null || context.Length == 0)
         {
@@ -256,7 +256,7 @@ public static class SlhDsaWrapper
         if (context.Length > 255)
             throw new ArgumentException("Context must be 255 bytes or less");
 
-        using var key = SlhDsa.ImportFromPem(publicKeyPem);
+        using var key = System.Security.Cryptography.SlhDsa.ImportFromPem(publicKeyPem);
         return key.VerifyData(data, signature, context);
     }
 
@@ -268,7 +268,7 @@ public static class SlhDsaWrapper
     /// <exception cref="ArgumentNullException">If publicKeyPem is null</exception>
     /// <exception cref="PlatformNotSupportedException">If SLH-DSA is not supported</exception>
     [Experimental("SYSLIB5006")]
-    public static SlhDsa ImportPublicKey(string publicKeyPem)
+    public static System.Security.Cryptography.SlhDsa ImportPublicKey(string publicKeyPem)
     {
         if (publicKeyPem == null)
             throw new ArgumentNullException(nameof(publicKeyPem));
@@ -280,7 +280,7 @@ public static class SlhDsaWrapper
                 "Requires .NET 10+ with Windows CNG PQC support or OpenSSL 3.5+");
         }
 
-        return SlhDsa.ImportFromPem(publicKeyPem);
+        return System.Security.Cryptography.SlhDsa.ImportFromPem(publicKeyPem);
     }
 
     /// <summary>
@@ -321,18 +321,10 @@ public static class SlhDsaWrapper
         };
     }
 
-    private static SlhDsaAlgorithm ToSlhDsaAlgorithm(SecurityLevel level)
+    private static System.Security.Cryptography.SlhDsaAlgorithm ToSlhDsaAlgorithm(SecurityLevel level)
     {
-        return level switch
-        {
-            SecurityLevel.SlhDsa128s => SlhDsaAlgorithm.SlhDsa128s,
-            SecurityLevel.SlhDsa128f => SlhDsaAlgorithm.SlhDsa128f,
-            SecurityLevel.SlhDsa192s => SlhDsaAlgorithm.SlhDsa192s,
-            SecurityLevel.SlhDsa192f => SlhDsaAlgorithm.SlhDsa192f,
-            SecurityLevel.SlhDsa256s => SlhDsaAlgorithm.SlhDsa256s,
-            SecurityLevel.SlhDsa256f => SlhDsaAlgorithm.SlhDsa256f,
-            _ => throw new ArgumentException($"Unknown security level: {level}", nameof(level))
-        };
+        // SLH-DSA enum values don't exist yet in .NET 10 - will be added in future release
+        throw new NotSupportedException("SLH-DSA is not yet available in .NET 10. The enum values are not defined in the current SDK.");
     }
 
     /// <summary>

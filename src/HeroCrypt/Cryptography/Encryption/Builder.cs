@@ -88,7 +88,7 @@ public class Builder
     /// </summary>
     /// <returns>Encryption result containing ciphertext and nonce</returns>
     /// <exception cref="InvalidOperationException">Thrown when required parameters are not set</exception>
-    public Encryption.EncryptionResult Encrypt()
+    public EncryptionResult Encrypt()
     {
         if (_data == null)
             throw new InvalidOperationException("Data must be set before encrypting. Use WithData().");

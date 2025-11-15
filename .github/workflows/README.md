@@ -204,7 +204,7 @@ Before using this workflow, you **must** configure NuGet Trusted Publishing:
 4. Click **Add a new Trusted Publisher**
 5. Select **GitHub Actions**
 6. Configure:
-   - **Repository owner:** `BeingCiteable` (or your username)
+   - **Repository owner:** `KoalaFacts` (or your username)
    - **Repository name:** `HeroCrypt`
    - **Workflow file:** `publish-nuget.yml`
    - **Environment name:** `production`
@@ -272,7 +272,7 @@ Automatically monitors and updates dependencies:
 - 📦 **NuGet packages** - Weekly on Mondays
 - ⚙️ **GitHub Actions** - Weekly on Mondays
 - 🔄 **Groups** minor and patch updates together
-- 👤 Requests review from BeingCiteable
+- 👤 Requests review from KoalaFacts
 - ⚠️ Major updates require manual review
 
 **Setup Required:**

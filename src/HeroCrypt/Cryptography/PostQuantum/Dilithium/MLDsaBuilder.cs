@@ -1,6 +1,8 @@
 #if NET10_0_OR_GREATER
 using System.Security.Cryptography;
+using System.Diagnostics.CodeAnalysis;
 
+#pragma warning disable SYSLIB5006 // Experimental feature warnings
 namespace HeroCrypt.Cryptography.PostQuantum.Dilithium;
 
 /// <summary>
@@ -26,6 +28,7 @@ namespace HeroCrypt.Cryptography.PostQuantum.Dilithium;
 ///     .Verify(signature);
 /// </code>
 /// </example>
+[Experimental("SYSLIB5006")]
 public class MLDsaBuilder : IDisposable
 {
     private MLDsaWrapper.SecurityLevel _securityLevel = MLDsaWrapper.SecurityLevel.MLDsa65;

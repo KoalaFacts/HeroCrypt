@@ -281,7 +281,7 @@ var derivedKey = HkdfCore.DeriveKey(
 
 - **Documentation**: Check the `/docs` folder
 - **Examples**: See the `/examples` folder
-- **Issues**: [GitHub Issues](https://github.com/BeingCiteable/HeroCrypt/issues)
+- **Issues**: [GitHub Issues](https://github.com/KoalaFacts/HeroCrypt/issues)
 - **Security**: See [SECURITY.md](../SECURITY.md) for vulnerability reporting
 
 ## Contributing

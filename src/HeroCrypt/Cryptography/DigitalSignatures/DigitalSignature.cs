@@ -91,7 +91,7 @@ internal static class DigitalSignature
 
     private static byte[] SignHmac(byte[] data, byte[] key, HashAlgorithmName hashAlgorithm)
     {
-        using var hmac = hashAlgorithm.Name switch
+        using HMAC hmac = hashAlgorithm.Name switch
         {
             "SHA256" => new HMACSHA256(key),
             "SHA384" => new HMACSHA384(key),
@@ -112,9 +112,10 @@ internal static class DigitalSignature
 
     #region RSA Algorithms
 
+#if NET6_0_OR_GREATER
     private static byte[] SignRsa(byte[] data, byte[] privateKey, HashAlgorithmName hashAlgorithm, RSASignaturePadding padding)
     {
-        using var rsa = RSA.Create();
+        using var rsa = System.Security.Cryptography.RSA.Create();
         rsa.ImportPkcs8PrivateKey(privateKey, out _);
         return rsa.SignData(data, hashAlgorithm, padding);
     }
@@ -123,7 +124,7 @@ internal static class DigitalSignature
     {
         try
         {
-            using var rsa = RSA.Create();
+            using var rsa = System.Security.Cryptography.RSA.Create();
             rsa.ImportSubjectPublicKeyInfo(publicKey, out _);
             return rsa.VerifyData(data, signature, hashAlgorithm, padding);
         }
@@ -132,11 +133,23 @@ internal static class DigitalSignature
             return false;
         }
     }
+#else
+    private static byte[] SignRsa(byte[] data, byte[] privateKey, HashAlgorithmName hashAlgorithm, RSASignaturePadding padding)
+    {
+        throw new NotSupportedException("RSA signing is not supported on .NET Standard 2.0. Requires .NET 6.0 or greater.");
+    }
+
+    private static bool VerifyRsa(byte[] data, byte[] signature, byte[] publicKey, HashAlgorithmName hashAlgorithm, RSASignaturePadding padding)
+    {
+        throw new NotSupportedException("RSA signature verification is not supported on .NET Standard 2.0. Requires .NET 6.0 or greater.");
+    }
+#endif
 
     #endregion
 
     #region ECDSA Algorithms
 
+#if NET6_0_OR_GREATER
     private static byte[] SignEcdsa(byte[] data, byte[] privateKey, HashAlgorithmName hashAlgorithm, int curveSizeBits)
     {
         using var ecdsa = ECDsa.Create(GetECCurve(curveSizeBits));
@@ -157,6 +170,17 @@ internal static class DigitalSignature
             return false;
         }
     }
+#else
+    private static byte[] SignEcdsa(byte[] data, byte[] privateKey, HashAlgorithmName hashAlgorithm, int curveSizeBits)
+    {
+        throw new NotSupportedException("ECDSA signing is not supported on .NET Standard 2.0. Requires .NET 6.0 or greater.");
+    }
+
+    private static bool VerifyEcdsa(byte[] data, byte[] signature, byte[] publicKey, HashAlgorithmName hashAlgorithm, int curveSizeBits)
+    {
+        throw new NotSupportedException("ECDSA signature verification is not supported on .NET Standard 2.0. Requires .NET 6.0 or greater.");
+    }
+#endif
 
     private static ECCurve GetECCurve(int curveSizeBits)
     {
@@ -175,70 +199,22 @@ internal static class DigitalSignature
 
     private static byte[] SignEdDsa(byte[] data, byte[] privateKey)
     {
-#if NET7_0_OR_GREATER
-        if (privateKey.Length != 32)
-            throw new ArgumentException("Ed25519 private key must be 32 bytes", nameof(privateKey));
-
-        using var ed25519 = System.Security.Cryptography.Ed25519.Create();
-        var keyData = new byte[32];
-        Array.Copy(privateKey, keyData, 32);
-        ed25519.ImportPkcs8PrivateKey(CreateEd25519Pkcs8(keyData), out _);
-        return ed25519.SignData(data);
-#else
-        throw new NotSupportedException("EdDSA (Ed25519) requires .NET 7 or greater. For older frameworks, use the Ed25519Core implementation.");
-#endif
+        // Using HeroCrypt's custom Ed25519Core implementation
+        return ECC.Ed25519.Ed25519Core.Sign(data, privateKey);
     }
 
     private static bool VerifyEdDsa(byte[] data, byte[] signature, byte[] publicKey)
     {
-#if NET7_0_OR_GREATER
-        try
-        {
-            if (publicKey.Length != 32)
-                throw new ArgumentException("Ed25519 public key must be 32 bytes", nameof(publicKey));
-
-            using var ed25519 = System.Security.Cryptography.Ed25519.Create();
-            ed25519.ImportSubjectPublicKeyInfo(CreateEd25519Spki(publicKey), out _);
-            return ed25519.VerifyData(data, signature);
-        }
-        catch (CryptographicException)
-        {
-            return false;
-        }
-#else
-        throw new NotSupportedException("EdDSA (Ed25519) requires .NET 7 or greater. For older frameworks, use the Ed25519Core implementation.");
-#endif
+        // Using HeroCrypt's custom Ed25519Core implementation
+        return ECC.Ed25519.Ed25519Core.Verify(data, signature, publicKey);
     }
-
-#if NET7_0_OR_GREATER
-    private static byte[] CreateEd25519Pkcs8(byte[] privateKey)
-    {
-        // PKCS#8 format for Ed25519: Fixed header + 32-byte private key
-        var pkcs8 = new byte[48];
-        // ASN.1 header for Ed25519 PKCS#8
-        byte[] header = { 0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x04, 0x22, 0x04, 0x20 };
-        Array.Copy(header, 0, pkcs8, 0, header.Length);
-        Array.Copy(privateKey, 0, pkcs8, header.Length, 32);
-        return pkcs8;
-    }
-
-    private static byte[] CreateEd25519Spki(byte[] publicKey)
-    {
-        // SubjectPublicKeyInfo format for Ed25519: Fixed header + 32-byte public key
-        var spki = new byte[44];
-        // ASN.1 header for Ed25519 SPKI
-        byte[] header = { 0x30, 0x2a, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x03, 0x21, 0x00 };
-        Array.Copy(header, 0, spki, 0, header.Length);
-        Array.Copy(publicKey, 0, spki, header.Length, 32);
-        return spki;
-    }
-#endif
 
     #endregion
 
     #region ML-DSA Algorithms (Post-Quantum)
 
 #if NET10_0_OR_GREATER
+#pragma warning disable SYSLIB5006 // Experimental feature warnings
     private static byte[] SignMLDsa(byte[] data, byte[] privateKeyPem, int parameterSet)
     {
         var pem = Encoding.UTF8.GetString(privateKeyPem);
@@ -269,6 +245,7 @@ internal static class DigitalSignature
             return false;
         }
     }
+#pragma warning restore SYSLIB5006
 #endif
 
     #endregion

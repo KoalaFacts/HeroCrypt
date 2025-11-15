@@ -5,30 +5,39 @@ using HeroCrypt.Cryptography.Symmetric.XChaCha20Poly1305;
 namespace HeroCrypt.Cryptography.Encryption;
 
 /// <summary>
+/// Result of an encryption operation
+/// </summary>
+public readonly struct EncryptionResult
+{
+    /// <summary>
+    /// The ciphertext (encrypted data)
+    /// </summary>
+    public byte[] Ciphertext { get; init; }
+
+    /// <summary>
+    /// The nonce/IV used for encryption (needed for decryption)
+    /// </summary>
+    public byte[] Nonce { get; init; }
+
+    /// <summary>
+    /// Optional: Ciphertext for the encapsulated key (for hybrid encryption)
+    /// </summary>
+    public byte[]? KeyCiphertext { get; init; }
+}
+
+/// <summary>
 /// Unified encryption and decryption operations for various algorithms
 /// </summary>
 internal static class Encryption
 {
-    /// <summary>
-    /// Result of an encryption operation
-    /// </summary>
-    public readonly struct EncryptionResult
+#if !NET6_0_OR_GREATER
+    // Polyfill for RandomNumberGenerator.Fill on .NET Standard 2.0
+    private static void FillRandomBytes(byte[] buffer)
     {
-        /// <summary>
-        /// The ciphertext (encrypted data)
-        /// </summary>
-        public byte[] Ciphertext { get; init; }
-
-        /// <summary>
-        /// The nonce/IV used for encryption (needed for decryption)
-        /// </summary>
-        public byte[] Nonce { get; init; }
-
-        /// <summary>
-        /// Optional: Ciphertext for the encapsulated key (for hybrid encryption)
-        /// </summary>
-        public byte[]? KeyCiphertext { get; init; }
+        using var rng = RandomNumberGenerator.Create();
+        rng.GetBytes(buffer);
     }
+#endif
 
     /// <summary>
     /// Encrypts data using the specified algorithm
@@ -108,6 +117,7 @@ internal static class Encryption
 
     #region AES-GCM
 
+#if NET6_0_OR_GREATER
     private static EncryptionResult EncryptAesGcm(byte[] plaintext, byte[] key, byte[] associatedData)
     {
         const int nonceSize = 12;
@@ -119,7 +129,7 @@ internal static class Encryption
         var ciphertext = new byte[plaintext.Length + tagSize];
         var tag = ciphertext.AsSpan(plaintext.Length, tagSize);
 
-        using var aes = new AesGcm(key, tagSize);
+        using var aes = new AesGcm(key);
         aes.Encrypt(nonce, plaintext, ciphertext.AsSpan(0, plaintext.Length), tag, associatedData);
 
         return new EncryptionResult
@@ -140,16 +150,28 @@ internal static class Encryption
         var plaintext = new byte[plaintextLength];
         var tag = ciphertext.AsSpan(plaintextLength, tagSize);
 
-        using var aes = new AesGcm(key, tagSize);
+        using var aes = new AesGcm(key);
         aes.Decrypt(nonce, ciphertext.AsSpan(0, plaintextLength), tag, plaintext, associatedData);
 
         return plaintext;
     }
+#else
+    private static EncryptionResult EncryptAesGcm(byte[] plaintext, byte[] key, byte[] associatedData)
+    {
+        throw new NotSupportedException("AES-GCM is not supported on .NET Standard 2.0. Requires .NET 6.0 or greater.");
+    }
+
+    private static byte[] DecryptAesGcm(byte[] ciphertext, byte[] key, byte[] nonce, byte[] associatedData)
+    {
+        throw new NotSupportedException("AES-GCM is not supported on .NET Standard 2.0. Requires .NET 6.0 or greater.");
+    }
+#endif
 
     #endregion
 
     #region AES-CCM
 
+#if NET6_0_OR_GREATER
     private static EncryptionResult EncryptAesCcm(byte[] plaintext, byte[] key, byte[] associatedData)
     {
         const int nonceSize = 13;
@@ -187,6 +209,17 @@ internal static class Encryption
 
         return plaintext;
     }
+#else
+    private static EncryptionResult EncryptAesCcm(byte[] plaintext, byte[] key, byte[] associatedData)
+    {
+        throw new NotSupportedException("AES-CCM is not supported on .NET Standard 2.0. Requires .NET 6.0 or greater.");
+    }
+
+    private static byte[] DecryptAesCcm(byte[] ciphertext, byte[] key, byte[] nonce, byte[] associatedData)
+    {
+        throw new NotSupportedException("AES-CCM is not supported on .NET Standard 2.0. Requires .NET 6.0 or greater.");
+    }
+#endif
 
     #endregion
 
@@ -198,7 +231,11 @@ internal static class Encryption
         const int tagSize = 16;
 
         var nonce = new byte[nonceSize];
+#if NET6_0_OR_GREATER
         RandomNumberGenerator.Fill(nonce);
+#else
+        FillRandomBytes(nonce);
+#endif
 
         var ciphertext = new byte[plaintext.Length + tagSize];
 
@@ -237,7 +274,11 @@ internal static class Encryption
         const int tagSize = 16;
 
         var nonce = new byte[nonceSize];
+#if NET6_0_OR_GREATER
         RandomNumberGenerator.Fill(nonce);
+#else
+        FillRandomBytes(nonce);
+#endif
 
         var ciphertext = new byte[plaintext.Length + tagSize];
 
@@ -270,9 +311,10 @@ internal static class Encryption
 
     #region RSA-OAEP
 
+#if NET6_0_OR_GREATER
     private static EncryptionResult EncryptRsaOaep(byte[] plaintext, byte[] publicKey)
     {
-        using var rsa = RSA.Create();
+        using var rsa = System.Security.Cryptography.RSA.Create();
         rsa.ImportSubjectPublicKeyInfo(publicKey, out _);
 
         var ciphertext = rsa.Encrypt(plaintext, RSAEncryptionPadding.OaepSHA256);
@@ -286,23 +328,35 @@ internal static class Encryption
 
     private static byte[] DecryptRsaOaep(byte[] ciphertext, byte[] privateKey)
     {
-        using var rsa = RSA.Create();
+        using var rsa = System.Security.Cryptography.RSA.Create();
         rsa.ImportPkcs8PrivateKey(privateKey, out _);
 
         return rsa.Decrypt(ciphertext, RSAEncryptionPadding.OaepSHA256);
     }
+#else
+    private static EncryptionResult EncryptRsaOaep(byte[] plaintext, byte[] publicKey)
+    {
+        throw new NotSupportedException("RSA-OAEP encryption is not supported on .NET Standard 2.0. Requires .NET 6.0 or greater.");
+    }
+
+    private static byte[] DecryptRsaOaep(byte[] ciphertext, byte[] privateKey)
+    {
+        throw new NotSupportedException("RSA-OAEP decryption is not supported on .NET Standard 2.0. Requires .NET 6.0 or greater.");
+    }
+#endif
 
     #endregion
 
     #region ML-KEM Hybrid Encryption
 
 #if NET10_0_OR_GREATER
+#pragma warning disable SYSLIB5006 // Experimental feature warnings
     private static EncryptionResult EncryptMLKemHybrid(byte[] plaintext, byte[] publicKeyPem, int securityBits, byte[] associatedData)
     {
         var pem = System.Text.Encoding.UTF8.GetString(publicKeyPem);
 
         // Encapsulate shared secret using ML-KEM
-        using var encapsulation = PostQuantum.Kyber.MLKemWrapper.Encapsulate(pem, securityBits);
+        using var encapsulation = PostQuantum.Kyber.MLKemWrapper.Encapsulate(pem);
         var sharedSecret = encapsulation.SharedSecret;
 
         // Use first 32 bytes of shared secret as AES-GCM key
@@ -328,9 +382,9 @@ internal static class Encryption
 
         var pem = System.Text.Encoding.UTF8.GetString(privateKeyPem);
 
-        // Decapsulate shared secret using ML-KEM
-        using var decapsulation = PostQuantum.Kyber.MLKemWrapper.Decapsulate(pem, keyCiphertext, securityBits);
-        var sharedSecret = decapsulation.SharedSecret;
+        // Import private key and decapsulate shared secret
+        using var key = System.Security.Cryptography.MLKem.ImportFromPem(pem);
+        var sharedSecret = key.Decapsulate(keyCiphertext);
 
         // Use first 32 bytes of shared secret as AES-GCM key
         var aesKey = new byte[32];

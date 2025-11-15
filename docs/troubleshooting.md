@@ -622,7 +622,7 @@ Debug.Assert(actualCiphertext.SequenceEqual(expectedCiphertext));
 
 ### Support Channels
 
-1. **GitHub Issues**: [Report issues](https://github.com/BeingCiteable/HeroCrypt/issues)
+1. **GitHub Issues**: [Report issues](https://github.com/KoalaFacts/HeroCrypt/issues)
 2. **Stack Overflow**: Tag questions with `herocrypt`
 3. **Security Issues**: See [SECURITY.md](../SECURITY.md)
 
@@ -679,7 +679,7 @@ catch (Exception ex)
 
 If your issue isn't covered here:
 
-1. Check [GitHub Issues](https://github.com/BeingCiteable/HeroCrypt/issues) for similar problems
+1. Check [GitHub Issues](https://github.com/KoalaFacts/HeroCrypt/issues) for similar problems
 2. Review [TEST_STATUS.md](../TEST_STATUS.md) for known platform issues
 3. Check [PRODUCTION_READINESS.md](../PRODUCTION_READINESS.md) for feature status
 4. Create a new issue with all relevant details

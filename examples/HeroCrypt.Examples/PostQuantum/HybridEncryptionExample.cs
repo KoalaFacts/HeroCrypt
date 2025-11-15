@@ -28,7 +28,7 @@ public static class HybridEncryptionExample
 
         // Step 1: Bob generates a key pair and shares his public key
         Console.WriteLine("1️⃣  Bob generates ML-KEM key pair...");
-        using var bobKeyPair = HeroCrypt.Create()
+        using var bobKeyPair = HeroCryptBuilder.Create()
             .PostQuantum()
             .MLKem()
             .WithSecurityBits(256)  // High security (ML-KEM-1024)
@@ -48,7 +48,7 @@ public static class HybridEncryptionExample
 
         // Step 3: Alice encapsulates a shared secret using Bob's public key
         Console.WriteLine("3️⃣  Alice encapsulates shared secret using Bob's public key...");
-        using var encapsulation = HeroCrypt.Create()
+        using var encapsulation = HeroCryptBuilder.Create()
             .PostQuantum()
             .MLKem()
             .WithPublicKey(bobPublicKey)
@@ -137,7 +137,7 @@ public static class HybridEncryptionExample
             return;
 
         // Recipient generates key pair once
-        using var recipientKey = HeroCrypt.PostQuantum.MLKem.GenerateKeyPair();
+        using var recipientKey = HeroCryptBuilder.PostQuantum.MLKem.GenerateKeyPair();
 
         var messages = new[]
         {
@@ -154,7 +154,7 @@ public static class HybridEncryptionExample
         foreach (var message in messages)
         {
             // New key exchange for each message
-            using var enc = MLKem.Create()
+            using var enc = HeroCrypt.Cryptography.PostQuantum.Kyber.MLKem.Create()
                 .WithPublicKey(recipientKey.PublicKeyPem)
                 .Encapsulate();
 

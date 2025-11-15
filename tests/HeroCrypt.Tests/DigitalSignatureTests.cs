@@ -184,14 +184,11 @@ public class DigitalSignatureTests
 
     #region EdDSA Tests
 
-#if NET7_0_OR_GREATER
     [Fact]
     public void Ed25519_Sign_And_Verify_Success()
     {
-        // Arrange
-        using var ed25519 = System.Security.Cryptography.Ed25519.Create();
-        var privateKey = ed25519.ExportPkcs8PrivateKey();
-        var publicKey = ed25519.ExportSubjectPublicKeyInfo();
+        // Arrange - Using HeroCrypt's custom Ed25519Core implementation
+        var (privateKey, publicKey) = HeroCrypt.Cryptography.ECC.Ed25519.Ed25519Core.GenerateKeyPair();
 
         // Act
         var signature = DigitalSignature.Sign(_testData, privateKey, SignatureAlgorithm.Ed25519);
@@ -206,11 +203,9 @@ public class DigitalSignatureTests
     [Fact]
     public void Ed25519_Verify_With_Wrong_PublicKey_Returns_False()
     {
-        // Arrange
-        using var ed1 = System.Security.Cryptography.Ed25519.Create();
-        using var ed2 = System.Security.Cryptography.Ed25519.Create();
-        var privateKey1 = ed1.ExportPkcs8PrivateKey();
-        var publicKey2 = ed2.ExportSubjectPublicKeyInfo();
+        // Arrange - Using HeroCrypt's custom Ed25519Core implementation
+        var (privateKey1, _) = HeroCrypt.Cryptography.ECC.Ed25519.Ed25519Core.GenerateKeyPair();
+        var (_, publicKey2) = HeroCrypt.Cryptography.ECC.Ed25519.Ed25519Core.GenerateKeyPair();
 
         // Act
         var signature = DigitalSignature.Sign(_testData, privateKey1, SignatureAlgorithm.Ed25519);
@@ -219,7 +214,6 @@ public class DigitalSignatureTests
         // Assert
         Assert.False(isValid);
     }
-#endif
 
     #endregion
 
@@ -227,12 +221,12 @@ public class DigitalSignatureTests
 
 #if NET10_0_OR_GREATER
     [Theory]
-    [InlineData(SignatureAlgorithm.MLDsa65, 192)]
-    [InlineData(SignatureAlgorithm.MLDsa87, 256)]
-    public void MLDsa_Sign_And_Verify_Success(SignatureAlgorithm algorithm, int securityBits)
+    [InlineData(SignatureAlgorithm.MLDsa65, HeroCrypt.Cryptography.PostQuantum.Dilithium.MLDsaWrapper.SecurityLevel.MLDsa65)]
+    [InlineData(SignatureAlgorithm.MLDsa87, HeroCrypt.Cryptography.PostQuantum.Dilithium.MLDsaWrapper.SecurityLevel.MLDsa87)]
+    public void MLDsa_Sign_And_Verify_Success(SignatureAlgorithm algorithm, HeroCrypt.Cryptography.PostQuantum.Dilithium.MLDsaWrapper.SecurityLevel securityLevel)
     {
         // Arrange
-        using var keyPair = HeroCrypt.Cryptography.PostQuantum.Dilithium.MLDsaWrapper.GenerateKeyPair(securityBits);
+        using var keyPair = HeroCrypt.Cryptography.PostQuantum.Dilithium.MLDsaWrapper.GenerateKeyPair(securityLevel);
         var privateKey = Encoding.UTF8.GetBytes(keyPair.SecretKeyPem);
         var publicKey = Encoding.UTF8.GetBytes(keyPair.PublicKeyPem);
 
@@ -249,8 +243,8 @@ public class DigitalSignatureTests
     public void MLDsa65_Verify_With_Wrong_PublicKey_Returns_False()
     {
         // Arrange
-        using var keyPair1 = HeroCrypt.Cryptography.PostQuantum.Dilithium.MLDsaWrapper.GenerateKeyPair(192);
-        using var keyPair2 = HeroCrypt.Cryptography.PostQuantum.Dilithium.MLDsaWrapper.GenerateKeyPair(192);
+        using var keyPair1 = HeroCrypt.Cryptography.PostQuantum.Dilithium.MLDsaWrapper.GenerateKeyPair(HeroCrypt.Cryptography.PostQuantum.Dilithium.MLDsaWrapper.SecurityLevel.MLDsa65);
+        using var keyPair2 = HeroCrypt.Cryptography.PostQuantum.Dilithium.MLDsaWrapper.GenerateKeyPair(HeroCrypt.Cryptography.PostQuantum.Dilithium.MLDsaWrapper.SecurityLevel.MLDsa65);
         var privateKey1 = Encoding.UTF8.GetBytes(keyPair1.SecretKeyPem);
         var publicKey2 = Encoding.UTF8.GetBytes(keyPair2.PublicKeyPem);
 

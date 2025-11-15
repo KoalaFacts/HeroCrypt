@@ -25,14 +25,14 @@ public class PostQuantumIntegrationTests
         // Scenario: Alice wants to send encrypted message to Bob using hybrid PQC encryption
 
         // Step 1: Bob generates ML-KEM key pair and shares public key
-        using var bobKeyPair = HeroCrypt.Create()
+        using var bobKeyPair = HeroCryptBuilder.Create()
             .PostQuantum()
             .MLKem()
             .WithSecurityBits(256) // High security
             .GenerateKeyPair();
 
         // Step 2: Alice encapsulates a shared secret using Bob's public key
-        using var encapsulation = HeroCrypt.Create()
+        using var encapsulation = HeroCryptBuilder.Create()
             .PostQuantum()
             .MLKem()
             .WithPublicKey(bobKeyPair.PublicKeyPem)
@@ -91,9 +91,9 @@ public class PostQuantumIntegrationTests
         // Generate key pairs for 3 recipients
         var recipients = new[]
         {
-            HeroCrypt.PostQuantum.MLKem.GenerateKeyPair(),
-            HeroCrypt.PostQuantum.MLKem.GenerateKeyPair(),
-            HeroCrypt.PostQuantum.MLKem.GenerateKeyPair()
+            HeroCryptBuilder.PostQuantum.MLKem.GenerateKeyPair(),
+            HeroCryptBuilder.PostQuantum.MLKem.GenerateKeyPair(),
+            HeroCryptBuilder.PostQuantum.MLKem.GenerateKeyPair()
         };
 
         try
@@ -160,14 +160,14 @@ public class PostQuantumIntegrationTests
             $"{documentId}|{documentContent}|{signedBy}|{timestamp:O}");
 
         // Generate signing key
-        using var signingKey = HeroCrypt.Create()
+        using var signingKey = HeroCryptBuilder.Create()
             .PostQuantum()
             .MLDsa()
             .WithSecurityLevel(MLDsaWrapper.SecurityLevel.MLDsa65)
             .GenerateKeyPair();
 
         // Sign with context for domain separation
-        var signature = HeroCrypt.Create()
+        var signature = HeroCryptBuilder.Create()
             .PostQuantum()
             .MLDsa()
             .WithKeyPair(signingKey)
@@ -179,7 +179,7 @@ public class PostQuantumIntegrationTests
         Assert.True(signature.Length > 0);
 
         // Verify signature (could be done by different party)
-        var isValid = HeroCrypt.Create()
+        var isValid = HeroCryptBuilder.Create()
             .PostQuantum()
             .MLDsa()
             .WithPublicKey(signingKey.PublicKeyPem)
@@ -193,7 +193,7 @@ public class PostQuantumIntegrationTests
         var tamperedData = Encoding.UTF8.GetBytes(
             $"{documentId}|{documentContent} [MODIFIED]|{signedBy}|{timestamp:O}");
 
-        var isTamperedValid = HeroCrypt.Create()
+        var isTamperedValid = HeroCryptBuilder.Create()
             .PostQuantum()
             .MLDsa()
             .WithPublicKey(signingKey.PublicKeyPem)
@@ -268,14 +268,14 @@ public class PostQuantumIntegrationTests
             $"{softwareVersion}|{buildHash}|{releaseNotes}");
 
         // Use small variant for smaller signature files
-        using var signingKey = HeroCrypt.Create()
+        using var signingKey = HeroCryptBuilder.Create()
             .PostQuantum()
             .SlhDsa()
             .WithSmallVariant(192) // 192-bit security
             .GenerateKeyPair();
 
         // Sign the release
-        var signature = HeroCrypt.Create()
+        var signature = HeroCryptBuilder.Create()
             .PostQuantum()
             .SlhDsa()
             .WithKeyPair(signingKey)
@@ -286,7 +286,7 @@ public class PostQuantumIntegrationTests
         Assert.NotNull(signature);
 
         // Users verify the signature
-        var isAuthentic = HeroCrypt.Create()
+        var isAuthentic = HeroCryptBuilder.Create()
             .PostQuantum()
             .SlhDsa()
             .WithPublicKey(signingKey.PublicKeyPem)

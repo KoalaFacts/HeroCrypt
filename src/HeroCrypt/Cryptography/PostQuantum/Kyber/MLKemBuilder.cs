@@ -1,6 +1,8 @@
 #if NET10_0_OR_GREATER
 using System.Security.Cryptography;
+using System.Diagnostics.CodeAnalysis;
 
+#pragma warning disable SYSLIB5006 // Experimental feature warnings
 namespace HeroCrypt.Cryptography.PostQuantum.Kyber;
 
 /// <summary>
@@ -25,6 +27,7 @@ namespace HeroCrypt.Cryptography.PostQuantum.Kyber;
 ///     .Decapsulate(ciphertext);
 /// </code>
 /// </example>
+[Experimental("SYSLIB5006")]
 public class MLKemBuilder : IDisposable
 {
     private MLKemWrapper.SecurityLevel _securityLevel = MLKemWrapper.SecurityLevel.MLKem768;

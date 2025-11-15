@@ -46,7 +46,7 @@ public static class DigitalSignatureExample
 
         // Step 1: Generate signing key
         Console.WriteLine("1️⃣  Generating ML-DSA signing key...");
-        using var signingKey = HeroCrypt.Create()
+        using var signingKey = HeroCryptBuilder.Create()
             .PostQuantum()
             .MLDsa()
             .WithSecurityLevel(MLDsaWrapper.SecurityLevel.MLDsa87)  // Maximum security
@@ -61,7 +61,7 @@ public static class DigitalSignatureExample
         Console.WriteLine("2️⃣  Signing document...");
         var documentBytes = Encoding.UTF8.GetBytes(documentJson);
 
-        var signature = HeroCrypt.Create()
+        var signature = HeroCryptBuilder.Create()
             .PostQuantum()
             .MLDsa()
             .WithKeyPair(signingKey)
@@ -75,7 +75,7 @@ public static class DigitalSignatureExample
 
         // Step 3: Verify the signature
         Console.WriteLine("3️⃣  Verifying signature...");
-        var isValid = HeroCrypt.Create()
+        var isValid = HeroCryptBuilder.Create()
             .PostQuantum()
             .MLDsa()
             .WithPublicKey(signingKey.PublicKeyPem)
@@ -91,7 +91,7 @@ public static class DigitalSignatureExample
         var tamperedDoc = documentJson.Replace("Company A", "Company X");
         var tamperedBytes = Encoding.UTF8.GetBytes(tamperedDoc);
 
-        var isTamperedValid = HeroCrypt.Create()
+        var isTamperedValid = HeroCryptBuilder.Create()
             .PostQuantum()
             .MLDsa()
             .WithPublicKey(signingKey.PublicKeyPem)
@@ -136,7 +136,7 @@ public static class DigitalSignatureExample
 
         // Use hash-based signatures for conservative security
         Console.WriteLine("1️⃣  Generating SLH-DSA signing key (small variant)...");
-        using var signingKey = HeroCrypt.Create()
+        using var signingKey = HeroCryptBuilder.Create()
             .PostQuantum()
             .SlhDsa()
             .WithSmallVariant(192)  // 192-bit security, smaller signatures
@@ -151,7 +151,7 @@ public static class DigitalSignatureExample
         Console.WriteLine("2️⃣  Signing release...");
         var releaseData = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(release));
 
-        var signature = HeroCrypt.Create()
+        var signature = HeroCryptBuilder.Create()
             .PostQuantum()
             .SlhDsa()
             .WithKeyPair(signingKey)
@@ -164,7 +164,7 @@ public static class DigitalSignatureExample
 
         // Users verify the signature
         Console.WriteLine("3️⃣  End user verifying signature...");
-        var isAuthentic = HeroCrypt.Create()
+        var isAuthentic = HeroCryptBuilder.Create()
             .PostQuantum()
             .SlhDsa()
             .WithPublicKey(signingKey.PublicKeyPem)

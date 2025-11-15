@@ -29,14 +29,14 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        framework: [net6.0, net7.0, net8.0, net9.0, netstandard2.0]
+        framework: [netstandard2.0, net6.0, net7.0, net8.0, net9.0, net10.0]
         include:
-          # Full testing on latest frameworks
+          - framework: net10.0
+            run-tests: true
           - framework: net9.0
             run-tests: true
           - framework: net8.0
             run-tests: true
-          # Compilation verification only for older frameworks
           - framework: net7.0
             run-tests: false
           - framework: net6.0
@@ -58,6 +58,7 @@ jobs:
           7.0.x
           8.0.x
           9.0.x
+          10.0.x
 
     - name: Calculate build number
       id: build-number

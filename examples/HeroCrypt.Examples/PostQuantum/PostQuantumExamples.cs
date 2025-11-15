@@ -182,8 +182,8 @@ public static class PostQuantumExamples
         if (MLKemWrapper.IsSupported())
         {
             Console.WriteLine("1. ML-KEM (Key Encapsulation):");
-            using var kemKey = HeroCrypt.PostQuantum.MLKem.GenerateKeyPair();
-            using var enc = HeroCrypt.Create().PostQuantum().MLKem()
+            using var kemKey = HeroCryptBuilder.PostQuantum.MLKem.GenerateKeyPair();
+            using var enc = HeroCryptBuilder.Create().PostQuantum().MLKem()
                 .WithPublicKey(kemKey.PublicKeyPem).Encapsulate();
             var recovered = kemKey.Decapsulate(enc.Ciphertext);
             Console.WriteLine($"   ✓ Shared secret established ({enc.SharedSecret.Length} bytes)");
@@ -194,10 +194,10 @@ public static class PostQuantumExamples
         if (MLDsaWrapper.IsSupported())
         {
             Console.WriteLine("2. ML-DSA (Digital Signatures):");
-            using var dsaKey = HeroCrypt.PostQuantum.MLDsa.GenerateKeyPair();
+            using var dsaKey = HeroCryptBuilder.PostQuantum.MLDsa.GenerateKeyPair();
             var data = System.Text.Encoding.UTF8.GetBytes("Test message");
             var sig = dsaKey.Sign(data);
-            var valid = HeroCrypt.PostQuantum.MLDsa.Verify(dsaKey.PublicKeyPem, data, sig);
+            var valid = HeroCryptBuilder.PostQuantum.MLDsa.Verify(dsaKey.PublicKeyPem, data, sig);
             Console.WriteLine($"   ✓ Document signed ({sig.Length} bytes)");
             Console.WriteLine($"   ✓ Signature valid: {valid}");
             Console.WriteLine();
@@ -206,10 +206,10 @@ public static class PostQuantumExamples
         if (SlhDsaWrapper.IsSupported())
         {
             Console.WriteLine("3. SLH-DSA (Hash-Based Signatures):");
-            using var slhKey = HeroCrypt.PostQuantum.SlhDsa.GenerateKeyPair();
+            using var slhKey = HeroCryptBuilder.PostQuantum.SlhDsa.GenerateKeyPair();
             var data = System.Text.Encoding.UTF8.GetBytes("Code release v1.0");
             var sig = slhKey.Sign(data);
-            var valid = HeroCrypt.Create().PostQuantum().SlhDsa()
+            var valid = HeroCryptBuilder.Create().PostQuantum().SlhDsa()
                 .WithPublicKey(slhKey.PublicKeyPem)
                 .WithData(data)
                 .Verify(sig);

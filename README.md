@@ -1,7 +1,7 @@
 # HeroCrypt
 
 [![NuGet Version](https://img.shields.io/nuget/v/HeroCrypt.svg)](https://www.nuget.org/packages/HeroCrypt/)
-[![Build Status](https://github.com/BeingCiteable/HeroCrypt/workflows/Build%20Pipeline/badge.svg)](https://github.com/BeingCiteable/HeroCrypt/actions)
+[![Build Status](https://github.com/KoalaFacts/HeroCrypt/workflows/Build%20Pipeline/badge.svg)](https://github.com/KoalaFacts/HeroCrypt/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![.NET](https://img.shields.io/badge/.NET%20Standard-2.0-blue)](https://dotnet.microsoft.com/download)
 [![.NET](https://img.shields.io/badge/.NET-6.0%20|%207.0%20|%208.0%20|%209.0%20|%2010.0-blue)](https://dotnet.microsoft.com/download)
@@ -115,6 +115,47 @@ A fully RFC-compliant cryptographic library for .NET featuring high-performance,
   - Compliance Framework - FIPS 140-2, Common Criteria, SOC 2, PCI-DSS validation
   - Key Management Service - Centralized KMS with lifecycle management and RBAC
   - Audit Logging - Comprehensive security event tracking and compliance reporting
+
+## 🎯 Framework Support
+
+HeroCrypt supports a wide range of .NET platforms for maximum compatibility:
+
+| Framework | Version | Status | Notes |
+|-----------|---------|--------|-------|
+| .NET Standard | 2.0 | ✅ Full Support | Compatible with .NET Framework 4.6.1+, Unity, Xamarin |
+| .NET | 6.0 | ✅ Full Support | Long-term support (LTS) |
+| .NET | 7.0 | ✅ Full Support | Standard term support |
+| .NET | 8.0 | ✅ Full Support | Long-term support (LTS) |
+| .NET | 9.0 | ✅ Full Support | Standard term support |
+| .NET | 10.0 | ✅ Full Support | Includes native post-quantum cryptography |
+
+### Feature Availability by Framework
+
+#### Core Cryptography (All Frameworks)
+- ✅ Argon2, Blake2b, PBKDF2, HKDF, Scrypt
+- ✅ ChaCha20-Poly1305, XChaCha20-Poly1305
+- ✅ RSA, ECDSA, Ed25519
+- ✅ Stream ciphers (Rabbit, ChaCha, HC-128/256, etc.)
+- ✅ Hash functions (SHA-2, SHA-3, BLAKE2, etc.)
+
+#### .NET 6.0+ Only
+- ✅ AES-GCM (hardware-accelerated AEAD)
+- ✅ AES-CCM (authenticated encryption)
+- ✅ Ed25519 (built-in BCL implementation)
+
+#### .NET 10.0+ Only
+- ✅ **ML-KEM (FIPS 203)** - Post-quantum key encapsulation
+- ✅ **ML-DSA (FIPS 204)** - Post-quantum digital signatures
+- ✅ **SLH-DSA (FIPS 205)** - Stateless hash-based signatures
+- ⚠️ Requires Windows CNG with PQC support or OpenSSL 3.5+
+
+### .NET Standard 2.0 Compatibility
+
+When targeting .NET Standard 2.0, HeroCrypt automatically uses polyfills and fallback implementations:
+- Uses `RandomNumberGenerator.Create().GetBytes()` instead of `RandomNumberGenerator.Fill()`
+- AES-GCM/CCM operations throw `NotSupportedException` with clear upgrade guidance
+- Post-quantum cryptography is not available (compile-time excluded)
+- All other features work identically across all frameworks
 
 ## 📦 Installation
 

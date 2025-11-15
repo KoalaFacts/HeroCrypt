@@ -473,7 +473,7 @@ If you encounter issues during migration:
 1. Check [Troubleshooting Guide](troubleshooting.md)
 2. Review [API Patterns](api-patterns.md)
 3. See [Examples](../examples/)
-4. Open a [GitHub Issue](https://github.com/BeingCiteable/HeroCrypt/issues)
+4. Open a [GitHub Issue](https://github.com/KoalaFacts/HeroCrypt/issues)
 
 ## Version History
 

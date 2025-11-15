@@ -275,14 +275,14 @@ public class DigitalSignatureTests
         RandomNumberGenerator.Fill(key);
 
         // Act - Sign
-        var signature = SignatureBuilder.Create()
+        var signature = Builder.Create()
             .WithData(_testData)
             .WithKey(key)
             .WithAlgorithm(SignatureAlgorithm.HmacSha256)
             .Sign();
 
         // Act - Verify
-        var isValid = SignatureBuilder.Create()
+        var isValid = Builder.Create()
             .WithData(_testData)
             .WithSignature(signature)
             .WithKey(key)
@@ -301,7 +301,7 @@ public class DigitalSignatureTests
         RandomNumberGenerator.Fill(key);
 
         // Act
-        var signature = SignatureBuilder.Create()
+        var signature = Builder.Create()
             .WithData("test message")
             .WithKey(key)
             .WithAlgorithm(SignatureAlgorithm.HmacSha256)

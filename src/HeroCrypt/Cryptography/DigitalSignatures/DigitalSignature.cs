@@ -6,7 +6,7 @@ namespace HeroCrypt.Cryptography.DigitalSignatures;
 /// <summary>
 /// Provides digital signature and MAC operations for various algorithms
 /// </summary>
-public static class DigitalSignature
+internal static class DigitalSignature
 {
     /// <summary>
     /// Signs data using the specified algorithm

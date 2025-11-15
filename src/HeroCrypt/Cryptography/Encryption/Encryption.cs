@@ -7,7 +7,7 @@ namespace HeroCrypt.Cryptography.Encryption;
 /// <summary>
 /// Unified encryption and decryption operations for various algorithms
 /// </summary>
-public static class Encryption
+internal static class Encryption
 {
     /// <summary>
     /// Result of an encryption operation

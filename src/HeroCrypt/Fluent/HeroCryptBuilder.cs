@@ -53,19 +53,19 @@ public class HeroCryptBuilder
     /// Starts building digital signature operations
     /// </summary>
     /// <returns>Signature builder</returns>
-    public Cryptography.DigitalSignatures.SignatureBuilder Signature() => Cryptography.DigitalSignatures.SignatureBuilder.Create();
+    public Cryptography.DigitalSignatures.Builder Signature() => Cryptography.DigitalSignatures.Builder.Create();
 
     /// <summary>
     /// Starts building encryption/decryption operations
     /// </summary>
     /// <returns>Encryption builder</returns>
-    public Cryptography.Encryption.EncryptionBuilder Encryption() => Cryptography.Encryption.EncryptionBuilder.Create();
+    public Cryptography.Encryption.Builder Encryption() => Cryptography.Encryption.Builder.Create();
 
     /// <summary>
     /// Starts building hashing operations
     /// </summary>
     /// <returns>Hash builder</returns>
-    public Cryptography.Hashing.HashBuilder Hash() => Cryptography.Hashing.HashBuilder.Create();
+    public Cryptography.Hashing.Builder Hash() => Cryptography.Hashing.Builder.Create();
 
 #if NET10_0_OR_GREATER
     /// <summary>

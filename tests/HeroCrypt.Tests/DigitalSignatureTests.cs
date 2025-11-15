@@ -22,8 +22,18 @@ public class DigitalSignatureTests
         RandomNumberGenerator.Fill(key);
 
         // Act
-        var signature = DigitalSignature.Sign(_testData, key, algorithm);
-        var isValid = DigitalSignature.Verify(_testData, signature, key, algorithm);
+        var signature = Builder.Create()
+            .WithData(_testData)
+            .WithKey(key)
+            .WithAlgorithm(algorithm)
+            .Sign();
+
+        var isValid = Builder.Create()
+            .WithData(_testData)
+            .WithSignature(signature)
+            .WithKey(key)
+            .WithAlgorithm(algorithm)
+            .Verify();
 
         // Assert
         Assert.NotNull(signature);

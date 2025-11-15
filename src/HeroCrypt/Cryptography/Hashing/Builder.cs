@@ -3,7 +3,7 @@ namespace HeroCrypt.Cryptography.Hashing;
 /// <summary>
 /// Fluent builder for hashing operations
 /// </summary>
-public class HashBuilder
+public class Builder
 {
     private byte[]? _data;
     private byte[]? _key;
@@ -12,14 +12,14 @@ public class HashBuilder
     /// <summary>
     /// Creates a new hash builder instance
     /// </summary>
-    public static HashBuilder Create() => new HashBuilder();
+    public static Builder Create() => new Builder();
 
     /// <summary>
     /// Sets the data to hash
     /// </summary>
     /// <param name="data">The data bytes</param>
     /// <returns>The builder instance</returns>
-    public HashBuilder WithData(byte[] data)
+    public Builder WithData(byte[] data)
     {
         _data = data ?? throw new ArgumentNullException(nameof(data));
         return this;
@@ -30,7 +30,7 @@ public class HashBuilder
     /// </summary>
     /// <param name="data">The data string</param>
     /// <returns>The builder instance</returns>
-    public HashBuilder WithData(string data)
+    public Builder WithData(string data)
     {
         if (data == null)
             throw new ArgumentNullException(nameof(data));
@@ -44,7 +44,7 @@ public class HashBuilder
     /// </summary>
     /// <param name="key">The key bytes</param>
     /// <returns>The builder instance</returns>
-    public HashBuilder WithKey(byte[] key)
+    public Builder WithKey(byte[] key)
     {
         _key = key ?? throw new ArgumentNullException(nameof(key));
         return this;
@@ -55,7 +55,7 @@ public class HashBuilder
     /// </summary>
     /// <param name="algorithm">The hash algorithm</param>
     /// <returns>The builder instance</returns>
-    public HashBuilder WithAlgorithm(HashAlgorithm algorithm)
+    public Builder WithAlgorithm(HashAlgorithm algorithm)
     {
         _algorithm = algorithm;
         return this;

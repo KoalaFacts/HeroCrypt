@@ -3,7 +3,7 @@ namespace HeroCrypt.Cryptography.Encryption;
 /// <summary>
 /// Fluent builder for encryption and decryption operations
 /// </summary>
-public class EncryptionBuilder
+public class Builder
 {
     private byte[]? _data;
     private byte[]? _key;
@@ -15,14 +15,14 @@ public class EncryptionBuilder
     /// <summary>
     /// Creates a new encryption builder instance
     /// </summary>
-    public static EncryptionBuilder Create() => new EncryptionBuilder();
+    public static Builder Create() => new Builder();
 
     /// <summary>
     /// Sets the data to encrypt or the ciphertext to decrypt
     /// </summary>
     /// <param name="data">The data bytes</param>
     /// <returns>The builder instance</returns>
-    public EncryptionBuilder WithData(byte[] data)
+    public Builder WithData(byte[] data)
     {
         _data = data ?? throw new ArgumentNullException(nameof(data));
         return this;
@@ -33,7 +33,7 @@ public class EncryptionBuilder
     /// </summary>
     /// <param name="key">The key bytes (format and size depends on algorithm)</param>
     /// <returns>The builder instance</returns>
-    public EncryptionBuilder WithKey(byte[] key)
+    public Builder WithKey(byte[] key)
     {
         _key = key ?? throw new ArgumentNullException(nameof(key));
         return this;
@@ -44,7 +44,7 @@ public class EncryptionBuilder
     /// </summary>
     /// <param name="nonce">The nonce bytes</param>
     /// <returns>The builder instance</returns>
-    public EncryptionBuilder WithNonce(byte[] nonce)
+    public Builder WithNonce(byte[] nonce)
     {
         _nonce = nonce ?? throw new ArgumentNullException(nameof(nonce));
         return this;
@@ -55,7 +55,7 @@ public class EncryptionBuilder
     /// </summary>
     /// <param name="keyCiphertext">The encapsulated key ciphertext</param>
     /// <returns>The builder instance</returns>
-    public EncryptionBuilder WithKeyCiphertext(byte[] keyCiphertext)
+    public Builder WithKeyCiphertext(byte[] keyCiphertext)
     {
         _keyCiphertext = keyCiphertext ?? throw new ArgumentNullException(nameof(keyCiphertext));
         return this;
@@ -66,7 +66,7 @@ public class EncryptionBuilder
     /// </summary>
     /// <param name="associatedData">The associated data bytes</param>
     /// <returns>The builder instance</returns>
-    public EncryptionBuilder WithAssociatedData(byte[] associatedData)
+    public Builder WithAssociatedData(byte[] associatedData)
     {
         _associatedData = associatedData ?? throw new ArgumentNullException(nameof(associatedData));
         return this;
@@ -77,7 +77,7 @@ public class EncryptionBuilder
     /// </summary>
     /// <param name="algorithm">The encryption algorithm</param>
     /// <returns>The builder instance</returns>
-    public EncryptionBuilder WithAlgorithm(EncryptionAlgorithm algorithm)
+    public Builder WithAlgorithm(EncryptionAlgorithm algorithm)
     {
         _algorithm = algorithm;
         return this;

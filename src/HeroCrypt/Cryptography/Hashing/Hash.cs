@@ -6,7 +6,7 @@ namespace HeroCrypt.Cryptography.Hashing;
 /// <summary>
 /// Unified hashing operations for various algorithms
 /// </summary>
-public static class Hash
+internal static class Hash
 {
     /// <summary>
     /// Computes the hash of the input data using the specified algorithm

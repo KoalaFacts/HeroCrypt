@@ -3,7 +3,7 @@ namespace HeroCrypt.Cryptography.DigitalSignatures;
 /// <summary>
 /// Fluent builder for digital signature operations
 /// </summary>
-public class SignatureBuilder
+public class Builder
 {
     private byte[]? _data;
     private byte[]? _key;
@@ -13,14 +13,14 @@ public class SignatureBuilder
     /// <summary>
     /// Creates a new signature builder instance
     /// </summary>
-    public static SignatureBuilder Create() => new SignatureBuilder();
+    public static Builder Create() => new Builder();
 
     /// <summary>
     /// Sets the data to sign or verify
     /// </summary>
     /// <param name="data">The data bytes</param>
     /// <returns>The builder instance</returns>
-    public SignatureBuilder WithData(byte[] data)
+    public Builder WithData(byte[] data)
     {
         _data = data ?? throw new ArgumentNullException(nameof(data));
         return this;
@@ -31,7 +31,7 @@ public class SignatureBuilder
     /// </summary>
     /// <param name="data">The data string</param>
     /// <returns>The builder instance</returns>
-    public SignatureBuilder WithData(string data)
+    public Builder WithData(string data)
     {
         if (data == null)
             throw new ArgumentNullException(nameof(data));
@@ -45,7 +45,7 @@ public class SignatureBuilder
     /// </summary>
     /// <param name="key">The key bytes (format depends on algorithm)</param>
     /// <returns>The builder instance</returns>
-    public SignatureBuilder WithKey(byte[] key)
+    public Builder WithKey(byte[] key)
     {
         _key = key ?? throw new ArgumentNullException(nameof(key));
         return this;
@@ -56,7 +56,7 @@ public class SignatureBuilder
     /// </summary>
     /// <param name="signature">The signature bytes</param>
     /// <returns>The builder instance</returns>
-    public SignatureBuilder WithSignature(byte[] signature)
+    public Builder WithSignature(byte[] signature)
     {
         _signature = signature ?? throw new ArgumentNullException(nameof(signature));
         return this;
@@ -67,7 +67,7 @@ public class SignatureBuilder
     /// </summary>
     /// <param name="algorithm">The signature algorithm</param>
     /// <returns>The builder instance</returns>
-    public SignatureBuilder WithAlgorithm(SignatureAlgorithm algorithm)
+    public Builder WithAlgorithm(SignatureAlgorithm algorithm)
     {
         _algorithm = algorithm;
         return this;

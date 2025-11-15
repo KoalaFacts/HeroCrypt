@@ -49,8 +49,17 @@ public static class MLKemWrapper
         public string PublicKeyPem { get; }
 
         /// <summary>
-        /// Gets the secret key in PEM format (handle with care!)
+        /// Gets the secret key in PEM format
         /// </summary>
+        /// <remarks>
+        /// ⚠️ SECURITY WARNING: This property contains sensitive cryptographic key material.
+        /// The PEM string is stored in managed memory and cannot be securely cleared.
+        /// Best practices:
+        /// - Minimize the lifetime of this string in memory
+        /// - Do not log or persist this value in plain text
+        /// - Use secure storage (HSM, Key Vault) for production keys
+        /// - Consider this value compromised if a memory dump occurs
+        /// </remarks>
         public string SecretKeyPem { get; }
 
         /// <summary>
@@ -113,17 +122,34 @@ public static class MLKemWrapper
         /// </summary>
         public byte[] Ciphertext { get; }
 
+        private byte[] _sharedSecret;
+
         /// <summary>
-        /// Gets the shared secret (32 bytes) - handle with care!
+        /// Gets the shared secret (32 bytes)
         /// </summary>
-        public byte[] SharedSecret { get; private set; }
+        /// <remarks>
+        /// ⚠️ SECURITY WARNING: This property contains sensitive cryptographic material.
+        /// - Use immediately and dispose this object as soon as possible
+        /// - Do not store or log this value
+        /// - The shared secret is securely cleared when Dispose() is called
+        /// </remarks>
+        /// <exception cref="ObjectDisposedException">Thrown if accessed after disposal</exception>
+        public byte[] SharedSecret
+        {
+            get
+            {
+                ObjectDisposedException.ThrowIf(_disposed, this);
+                return _sharedSecret;
+            }
+            private set => _sharedSecret = value;
+        }
 
         private bool _disposed;
 
         internal EncapsulationResult(byte[] ciphertext, byte[] sharedSecret)
         {
             Ciphertext = ciphertext ?? throw new ArgumentNullException(nameof(ciphertext));
-            SharedSecret = sharedSecret ?? throw new ArgumentNullException(nameof(sharedSecret));
+            _sharedSecret = sharedSecret ?? throw new ArgumentNullException(nameof(sharedSecret));
         }
 
         /// <summary>
@@ -133,10 +159,10 @@ public static class MLKemWrapper
         {
             if (!_disposed)
             {
-                if (SharedSecret != null)
+                if (_sharedSecret != null)
                 {
-                    SecureMemory.Clear(SharedSecret);
-                    SharedSecret = Array.Empty<byte>();
+                    SecureMemoryOperations.SecureClear(_sharedSecret);
+                    _sharedSecret = Array.Empty<byte>();
                 }
                 _disposed = true;
             }
@@ -179,12 +205,12 @@ public static class MLKemWrapper
     /// <param name="publicKeyPem">The recipient's public key in PEM format</param>
     /// <returns>An encapsulation result containing the ciphertext and shared secret</returns>
     /// <exception cref="ArgumentNullException">If publicKeyPem is null</exception>
+    /// <exception cref="ArgumentException">If publicKeyPem is not valid PEM format</exception>
     /// <exception cref="PlatformNotSupportedException">If ML-KEM is not supported on this platform</exception>
     /// <exception cref="CryptographicException">If encapsulation fails</exception>
     public static EncapsulationResult Encapsulate(string publicKeyPem)
     {
-        if (publicKeyPem == null)
-            throw new ArgumentNullException(nameof(publicKeyPem));
+        ValidatePemFormat(publicKeyPem, nameof(publicKeyPem));
 
         if (!IsSupported())
         {
@@ -205,11 +231,11 @@ public static class MLKemWrapper
     /// <param name="level">The security level (for validation)</param>
     /// <returns>A disposable ML-KEM instance for encapsulation</returns>
     /// <exception cref="ArgumentNullException">If publicKeyPem is null</exception>
+    /// <exception cref="ArgumentException">If publicKeyPem is not valid PEM format</exception>
     /// <exception cref="PlatformNotSupportedException">If ML-KEM is not supported</exception>
     public static MLKem ImportPublicKey(string publicKeyPem, SecurityLevel level = SecurityLevel.MLKem768)
     {
-        if (publicKeyPem == null)
-            throw new ArgumentNullException(nameof(publicKeyPem));
+        ValidatePemFormat(publicKeyPem, nameof(publicKeyPem));
 
         if (!IsSupported())
         {
@@ -261,6 +287,27 @@ public static class MLKemWrapper
             SecurityLevel.MLKem1024 => MLKemAlgorithm.MLKem1024,
             _ => throw new ArgumentException($"Unknown security level: {level}", nameof(level))
         };
+    }
+
+    /// <summary>
+    /// Validates that a string is in valid PEM format
+    /// </summary>
+    /// <param name="pem">The PEM string to validate</param>
+    /// <param name="paramName">The parameter name for exception messages</param>
+    /// <exception cref="ArgumentNullException">If pem is null</exception>
+    /// <exception cref="ArgumentException">If pem is not valid PEM format</exception>
+    private static void ValidatePemFormat(string pem, string paramName)
+    {
+        if (pem == null)
+            throw new ArgumentNullException(paramName);
+
+        if (string.IsNullOrWhiteSpace(pem))
+            throw new ArgumentException("PEM string cannot be empty or whitespace", paramName);
+
+        if (!pem.Contains("-----BEGIN") || !pem.Contains("-----END"))
+            throw new ArgumentException(
+                "Invalid PEM format. Expected PEM-encoded key with BEGIN/END markers",
+                paramName);
     }
 }
 #endif

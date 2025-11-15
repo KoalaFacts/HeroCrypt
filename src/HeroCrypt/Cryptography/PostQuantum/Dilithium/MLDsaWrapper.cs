@@ -49,8 +49,17 @@ public static class MLDsaWrapper
         public string PublicKeyPem { get; }
 
         /// <summary>
-        /// Gets the secret key in PEM format (handle with care!)
+        /// Gets the secret key in PEM format
         /// </summary>
+        /// <remarks>
+        /// ⚠️ SECURITY WARNING: This property contains sensitive cryptographic key material.
+        /// The PEM string is stored in managed memory and cannot be securely cleared.
+        /// Best practices:
+        /// - Minimize the lifetime of this string in memory
+        /// - Do not log or persist this value in plain text
+        /// - Use secure storage (HSM, Key Vault) for production keys
+        /// - Consider this value compromised if a memory dump occurs
+        /// </remarks>
         public string SecretKeyPem { get; }
 
         /// <summary>
@@ -173,11 +182,12 @@ public static class MLDsaWrapper
     /// <param name="context">Optional context string used during signing</param>
     /// <returns>True if the signature is valid, false otherwise</returns>
     /// <exception cref="ArgumentNullException">If any required parameter is null</exception>
+    /// <exception cref="ArgumentException">If publicKeyPem is not valid PEM format or context exceeds 255 bytes</exception>
     /// <exception cref="PlatformNotSupportedException">If ML-DSA is not supported</exception>
     public static bool Verify(string publicKeyPem, byte[] data, byte[] signature, byte[]? context = null)
     {
-        if (publicKeyPem == null)
-            throw new ArgumentNullException(nameof(publicKeyPem));
+        ValidatePemFormat(publicKeyPem, nameof(publicKeyPem));
+
         if (data == null)
             throw new ArgumentNullException(nameof(data));
         if (signature == null)
@@ -213,10 +223,12 @@ public static class MLDsaWrapper
     /// <param name="signature">The signature to verify</param>
     /// <param name="context">Optional context string used during signing</param>
     /// <returns>True if the signature is valid, false otherwise</returns>
+    /// <exception cref="ArgumentNullException">If publicKeyPem is null</exception>
+    /// <exception cref="ArgumentException">If publicKeyPem is not valid PEM format or context exceeds 255 bytes</exception>
+    /// <exception cref="PlatformNotSupportedException">If ML-DSA is not supported</exception>
     public static bool Verify(string publicKeyPem, ReadOnlySpan<byte> data, ReadOnlySpan<byte> signature, ReadOnlySpan<byte> context = default)
     {
-        if (publicKeyPem == null)
-            throw new ArgumentNullException(nameof(publicKeyPem));
+        ValidatePemFormat(publicKeyPem, nameof(publicKeyPem));
 
         if (!IsSupported())
         {
@@ -238,11 +250,11 @@ public static class MLDsaWrapper
     /// <param name="publicKeyPem">The public key in PEM format</param>
     /// <returns>A disposable ML-DSA instance for verification</returns>
     /// <exception cref="ArgumentNullException">If publicKeyPem is null</exception>
+    /// <exception cref="ArgumentException">If publicKeyPem is not valid PEM format</exception>
     /// <exception cref="PlatformNotSupportedException">If ML-DSA is not supported</exception>
     public static MLDsa ImportPublicKey(string publicKeyPem)
     {
-        if (publicKeyPem == null)
-            throw new ArgumentNullException(nameof(publicKeyPem));
+        ValidatePemFormat(publicKeyPem, nameof(publicKeyPem));
 
         if (!IsSupported())
         {
@@ -294,6 +306,27 @@ public static class MLDsaWrapper
             SecurityLevel.MLDsa87 => MLDsaAlgorithm.MLDsa87,
             _ => throw new ArgumentException($"Unknown security level: {level}", nameof(level))
         };
+    }
+
+    /// <summary>
+    /// Validates that a string is in valid PEM format
+    /// </summary>
+    /// <param name="pem">The PEM string to validate</param>
+    /// <param name="paramName">The parameter name for exception messages</param>
+    /// <exception cref="ArgumentNullException">If pem is null</exception>
+    /// <exception cref="ArgumentException">If pem is not valid PEM format</exception>
+    private static void ValidatePemFormat(string pem, string paramName)
+    {
+        if (pem == null)
+            throw new ArgumentNullException(paramName);
+
+        if (string.IsNullOrWhiteSpace(pem))
+            throw new ArgumentException("PEM string cannot be empty or whitespace", paramName);
+
+        if (!pem.Contains("-----BEGIN") || !pem.Contains("-----END"))
+            throw new ArgumentException(
+                "Invalid PEM format. Expected PEM-encoded key with BEGIN/END markers",
+                paramName);
     }
 }
 #endif

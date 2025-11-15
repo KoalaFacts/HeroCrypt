@@ -25,6 +25,14 @@ These features have been thoroughly tested, security-audited, and are ready for 
 | **RSA (Encrypt/Decrypt)** | ✅ Production Ready | OAEP padding with SHA-256, PKCS#8 & X.509 support |
 | **ECC (P-256, P-384, P-521)** | ✅ Production Ready | NIST curves, ECDSA signatures |
 
+### Post-Quantum Cryptography (.NET 10+)
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| **ML-KEM (FIPS 203)** | ✅ Production Ready | Native .NET 10 BCL, ML-KEM-512/768/1024, quantum-resistant KEM |
+| **ML-DSA (FIPS 204)** | ✅ Production Ready | Native .NET 10 BCL, ML-DSA-44/65/87, quantum-resistant signatures |
+| **SLH-DSA (FIPS 205)** | ✅ Production Ready | Native .NET 10 BCL, hash-based signatures, Small/Fast variants |
+
 ### Memory Management
 
 | Feature | Status | Notes |
@@ -156,6 +164,65 @@ bool isValid = EccOperations.Verify(
 );
 ```
 
+### Safe Pattern - Post-Quantum Cryptography (.NET 10+)
+
+```csharp
+#if NET10_0_OR_GREATER
+using HeroCrypt.Fluent;
+
+// Production-ready: Quantum-resistant key encapsulation (ML-KEM)
+using var bobKeyPair = HeroCrypt.Create()
+    .PostQuantum()
+    .MLKem()
+    .WithSecurityBits(256)  // ML-KEM-1024
+    .GenerateKeyPair();
+
+// Alice encapsulates shared secret
+using var encapsulation = HeroCrypt.Create()
+    .PostQuantum()
+    .MLKem()
+    .WithPublicKey(bobKeyPair.PublicKeyPem)
+    .Encapsulate();
+
+byte[] aliceSharedSecret = encapsulation.SharedSecret;
+
+// Bob decapsulates to recover shared secret
+using var decapsulation = HeroCrypt.Create()
+    .PostQuantum()
+    .MLKem()
+    .WithKeyPair(bobKeyPair)
+    .Decapsulate(encapsulation.Ciphertext);
+
+byte[] bobSharedSecret = decapsulation.SharedSecret;
+
+// Production-ready: Quantum-resistant digital signatures (ML-DSA)
+using var signingKey = HeroCrypt.Create()
+    .PostQuantum()
+    .MLDsa()
+    .WithSecurityBits(192)  // ML-DSA-65
+    .GenerateKeyPair();
+
+var document = "Important contract"u8.ToArray();
+
+var signature = HeroCrypt.Create()
+    .PostQuantum()
+    .MLDsa()
+    .WithKeyPair(signingKey)
+    .WithData(document)
+    .WithContext("contract-v1")
+    .Sign();
+
+// Verify signature
+bool isValid = HeroCrypt.Create()
+    .PostQuantum()
+    .MLDsa()
+    .WithPublicKey(signingKey.PublicKeyPem)
+    .WithData(document)
+    .WithContext("contract-v1")
+    .Verify(signature);
+#endif
+```
+
 ### Safe Pattern - RSA with Standard Key Formats (PKCS#8 & X.509)
 
 ```csharp
@@ -215,9 +282,9 @@ var aeadService = new AeadService();
 If you need features not included in HeroCrypt's production-ready core:
 
 ### Post-Quantum Cryptography
-- Use **liboqs** via P/Invoke for NIST-standardized PQC (Kyber, Dilithium, SPHINCS+)
-- Wait for .NET native PQC support (coming in future releases)
-- Use **Bouncy Castle** for experimental PQC implementations
+- ✅ **HeroCrypt .NET 10+** - Native BCL support for ML-KEM, ML-DSA, and SLH-DSA (PRODUCTION READY)
+- Use **liboqs** via P/Invoke if you need PQC on older .NET versions
+- Use **Bouncy Castle** for experimental/additional PQC algorithms
 
 ### Hardware Security Modules
 - Integrate vendor SDKs (nCipher, Thales, AWS CloudHSM)

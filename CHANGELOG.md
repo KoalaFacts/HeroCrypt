@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Post-Quantum Cryptography - .NET 10+ Native Support ✅ **Production Ready**
+  - ML-KEM (FIPS 203) - Key encapsulation mechanism with ML-KEM-512/768/1024
+  - ML-DSA (FIPS 204) - Digital signatures with ML-DSA-44/65/87
+  - SLH-DSA (FIPS 205) - Stateless hash-based signatures (Small/Fast variants)
+  - Unified HeroCryptBuilder with fluent API for PQC operations
+  - Algorithm-specific builders (MLKemBuilder, MLDsaBuilder, SlhDsaBuilder)
+  - Comprehensive test suite with 45+ tests including integration and real-world examples
+  - Security hardening: PEM validation, secure memory operations, disposal safety
+  - Platform support: Windows CNG with PQC or OpenSSL 3.5+
 - Zero-Knowledge & Advanced Protocols (Phase 3F) - Reference implementations
   - zk-SNARKs (Groth16-style) with trusted setup, proof generation, and verification
   - Ring Signatures with basic, linkable, and traceable variants

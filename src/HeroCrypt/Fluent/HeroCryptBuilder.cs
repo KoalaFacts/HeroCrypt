@@ -49,6 +49,12 @@ public class HeroCryptBuilder
     /// <returns>PGP fluent builder</returns>
     public PgpBuilderContext Pgp() => new PgpBuilderContext();
 
+    /// <summary>
+    /// Starts building JSON Web Signature (JWS) operations
+    /// </summary>
+    /// <returns>JWS builder</returns>
+    public Cryptography.JWT.JwsBuilder Jws() => Cryptography.JWT.JwsBuilder.Create();
+
 #if NET10_0_OR_GREATER
     /// <summary>
     /// Starts building Post-Quantum Cryptography operations (.NET 10+ only)

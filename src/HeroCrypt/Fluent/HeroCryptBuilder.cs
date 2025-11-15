@@ -55,6 +55,18 @@ public class HeroCryptBuilder
     /// <returns>Signature builder</returns>
     public Cryptography.DigitalSignatures.SignatureBuilder Signature() => Cryptography.DigitalSignatures.SignatureBuilder.Create();
 
+    /// <summary>
+    /// Starts building encryption/decryption operations
+    /// </summary>
+    /// <returns>Encryption builder</returns>
+    public Cryptography.Encryption.EncryptionBuilder Encryption() => Cryptography.Encryption.EncryptionBuilder.Create();
+
+    /// <summary>
+    /// Starts building hashing operations
+    /// </summary>
+    /// <returns>Hash builder</returns>
+    public Cryptography.Hashing.HashBuilder Hash() => Cryptography.Hashing.HashBuilder.Create();
+
 #if NET10_0_OR_GREATER
     /// <summary>
     /// Starts building Post-Quantum Cryptography operations (.NET 10+ only)

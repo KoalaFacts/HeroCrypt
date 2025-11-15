@@ -22,18 +22,9 @@ public class DigitalSignatureTests
         RandomNumberGenerator.Fill(key);
 
         // Act
-        var signature = Builder.Create()
-            .WithData(_testData)
-            .WithKey(key)
-            .WithAlgorithm(algorithm)
-            .Sign();
+        var signature = DigitalSignature.Sign(_testData, key, algorithm);
 
-        var isValid = Builder.Create()
-            .WithData(_testData)
-            .WithSignature(signature)
-            .WithKey(key)
-            .WithAlgorithm(algorithm)
-            .Verify();
+        var isValid = DigitalSignature.Verify(_testData, signature, key, algorithm);
 
         // Assert
         Assert.NotNull(signature);
@@ -269,19 +260,10 @@ public class DigitalSignatureTests
         RandomNumberGenerator.Fill(key);
 
         // Act - Sign
-        var signature = Builder.Create()
-            .WithData(_testData)
-            .WithKey(key)
-            .WithAlgorithm(SignatureAlgorithm.HmacSha256)
-            .Sign();
+        var signature = DigitalSignature.Sign(_testData, key, SignatureAlgorithm.HmacSha256);
 
         // Act - Verify
-        var isValid = Builder.Create()
-            .WithData(_testData)
-            .WithSignature(signature)
-            .WithKey(key)
-            .WithAlgorithm(SignatureAlgorithm.HmacSha256)
-            .Verify();
+        var isValid = DigitalSignature.Verify(_testData, signature, key, SignatureAlgorithm.HmacSha256);
 
         // Assert
         Assert.True(isValid);
@@ -295,11 +277,8 @@ public class DigitalSignatureTests
         RandomNumberGenerator.Fill(key);
 
         // Act
-        var signature = Builder.Create()
-            .WithData("test message")
-            .WithKey(key)
-            .WithAlgorithm(SignatureAlgorithm.HmacSha256)
-            .Sign();
+        var testData = System.Text.Encoding.UTF8.GetBytes("test message");
+        var signature = DigitalSignature.Sign(testData, key, SignatureAlgorithm.HmacSha256);
 
         // Assert
         Assert.NotNull(signature);

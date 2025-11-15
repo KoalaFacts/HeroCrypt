@@ -17,7 +17,7 @@ public sealed class SecureRandomNumberGenerator : IDisposable
 
     // Entropy pool for additional randomness
     private readonly byte[] _entropyPool = new byte[4096];
-    private readonly object _entropyLock = new object();
+    private readonly object _entropyLock = new();
     private int _entropyIndex;
     private long _bytesGenerated;
     private DateTime _lastHealthCheck = DateTime.UtcNow;
@@ -44,7 +44,7 @@ public sealed class SecureRandomNumberGenerator : IDisposable
     /// <summary>
     /// Gets statistics about the random number generator
     /// </summary>
-    public RandomNumberGeneratorStats Statistics => new RandomNumberGeneratorStats(
+    public RandomNumberGeneratorStats Statistics => new(
         _bytesGenerated,
         _healthCheckPassed,
         _lastHealthCheck,

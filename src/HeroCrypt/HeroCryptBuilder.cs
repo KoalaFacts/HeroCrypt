@@ -1,7 +1,7 @@
 using HeroCrypt.Abstractions;
 using System.Diagnostics.CodeAnalysis;
 
-namespace HeroCrypt.Fluent
+namespace HeroCrypt
 {
 
 /// <summary>
@@ -31,85 +31,23 @@ namespace HeroCrypt.Fluent
 ///     .Sign();
 /// </code>
 /// </example>
-public class HeroCryptBuilder
+public sealed class HeroCryptFluentBuilder
 {
     /// <summary>
     /// Creates a new HeroCrypt builder instance
     /// </summary>
     /// <returns>A new builder instance</returns>
-    public static HeroCryptBuilder Create() => new HeroCryptBuilder();
+    public static HeroCryptFluentBuilder Create() => new();
 
-    private HeroCryptBuilder() { }
-
-    /// <summary>
-    /// Starts building an Argon2 hashing operation
-    /// </summary>
-    /// <returns>Argon2 fluent builder</returns>
-    public Argon2BuilderContext Argon2() => new Argon2BuilderContext();
-
-    /// <summary>
-    /// Starts building PGP encryption/decryption operations
-    /// </summary>
-    /// <returns>PGP fluent builder</returns>
-    public PgpBuilderContext Pgp() => new PgpBuilderContext();
-
-    /// <summary>
-    /// Starts building digital signature operations
-    /// </summary>
-    /// <returns>Signature builder</returns>
-    public Cryptography.DigitalSignatures.Builder Signature() => Cryptography.DigitalSignatures.Builder.Create();
-
-    /// <summary>
-    /// Starts building encryption/decryption operations
-    /// </summary>
-    /// <returns>Encryption builder</returns>
-    public Cryptography.Encryption.Builder Encryption() => Cryptography.Encryption.Builder.Create();
-
-    /// <summary>
-    /// Starts building hashing operations
-    /// </summary>
-    /// <returns>Hash builder</returns>
-    public Cryptography.Hashing.Builder Hash() => Cryptography.Hashing.Builder.Create();
+    private HeroCryptFluentBuilder() { }
 
 #if NET10_0_OR_GREATER
     /// <summary>
     /// Starts building Post-Quantum Cryptography operations (.NET 10+ only)
     /// </summary>
     /// <returns>Post-Quantum builder context</returns>
-    public PostQuantumBuilderContext PostQuantum() => new PostQuantumBuilderContext();
+    public PostQuantumBuilderContext PostQuantum() => new();
 #endif
-
-    /// <summary>
-    /// Context for building Argon2 operations
-    /// </summary>
-    public class Argon2BuilderContext
-    {
-        /// <summary>
-        /// Returns an Argon2 fluent builder instance
-        /// Note: Requires dependency injection setup for full functionality
-        /// </summary>
-        public IArgon2FluentBuilder WithDependencyInjection(IServiceProvider serviceProvider)
-        {
-            return serviceProvider.GetService(typeof(IArgon2FluentBuilder)) as IArgon2FluentBuilder
-                ?? throw new InvalidOperationException("IArgon2FluentBuilder not registered in DI container");
-        }
-    }
-
-    /// <summary>
-    /// Context for building PGP operations
-    /// </summary>
-    public class PgpBuilderContext
-    {
-        /// <summary>
-        /// Returns a PGP fluent builder instance
-        /// Note: Requires dependency injection setup for full functionality
-        /// </summary>
-        public IPgpFluentBuilder WithDependencyInjection(IServiceProvider serviceProvider)
-        {
-            return serviceProvider.GetService(typeof(IPgpFluentBuilder)) as IPgpFluentBuilder
-                ?? throw new InvalidOperationException("IPgpFluentBuilder not registered in DI container");
-        }
-    }
 
 #if NET10_0_OR_GREATER
     /// <summary>
@@ -145,10 +83,6 @@ public class HeroCryptBuilder
     }
 #endif
 }
-} // End namespace HeroCrypt.Fluent
-
-namespace HeroCrypt
-{
 
 /// <summary>
 /// Static entry point for HeroCrypt fluent builder API
@@ -159,7 +93,7 @@ public static class HeroCryptBuilder
     /// Creates a new unified HeroCrypt builder
     /// </summary>
     /// <returns>A new builder instance</returns>
-    public static Fluent.HeroCryptBuilder Create() => Fluent.HeroCryptBuilder.Create();
+    public static HeroCryptFluentBuilder Create() => HeroCryptFluentBuilder.Create();
 
 #if NET10_0_OR_GREATER
     /// <summary>

@@ -216,7 +216,7 @@ public sealed class SecureByteArray : IDisposable
 {
     private byte[] _data;
     private bool _disposed;
-    private readonly object _lock = new object();
+    private readonly object _lock = new();
 
     /// <summary>
     /// Initializes a new secure byte array with the specified length

@@ -3,7 +3,6 @@ using System.Text;
 using HeroCrypt.Cryptography.PostQuantum.Kyber;
 using HeroCrypt.Cryptography.PostQuantum.Dilithium;
 using HeroCrypt.Cryptography.PostQuantum.Sphincs;
-using HeroCrypt.Fluent;
 
 namespace HeroCrypt.Tests;
 

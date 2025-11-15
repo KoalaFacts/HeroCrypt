@@ -1,7 +1,6 @@
 #if NET10_0_OR_GREATER
 using System.Security.Cryptography;
 using System.Text;
-using HeroCrypt.Fluent;
 using HeroCrypt.Cryptography.PostQuantum.Kyber;
 
 namespace HeroCrypt.Examples.PostQuantum;

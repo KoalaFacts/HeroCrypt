@@ -1,6 +1,5 @@
 using HeroCrypt.Abstractions;
 using HeroCrypt.Configuration;
-using HeroCrypt.Fluent;
 using HeroCrypt.Hardware;
 using HeroCrypt.Memory;
 using HeroCrypt.Observability;
@@ -72,10 +71,6 @@ public static class ServiceCollectionExtensions
         // Register modern cryptography services
         services.TryAddScoped<IEllipticCurveService, EllipticCurveService>();
         services.TryAddScoped<IAeadService, AeadService>();
-
-        // Register fluent API builders
-        services.TryAddScoped<IArgon2FluentBuilder, Argon2FluentBuilder>();
-        services.TryAddScoped<IPgpFluentBuilder, PgpFluentBuilder>();
 
         // Register the main HeroCrypt facade
         services.TryAddScoped<IHeroCrypt, HeroCryptService>();

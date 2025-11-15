@@ -37,7 +37,7 @@ public sealed class HardwareRandomNumberGenerator : IDisposable
     /// <summary>
     /// Gets statistics about hardware vs fallback usage
     /// </summary>
-    public HardwareRngStatistics Statistics => new HardwareRngStatistics(
+    public HardwareRngStatistics Statistics => new(
         _hardwareAvailable,
         _hardwareGeneratedBytes,
         _fallbackGeneratedBytes,

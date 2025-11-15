@@ -1,23 +1,23 @@
 using System.Security.Cryptography;
 using System.Text;
 
-namespace HeroCrypt.Cryptography.JWT;
+namespace HeroCrypt.Cryptography.DigitalSignatures;
 
 /// <summary>
-/// Provides JSON Web Signature (JWS) signing and verification operations
+/// Provides digital signature and MAC operations for various algorithms
 /// </summary>
-public static class JwsSigner
+public static class DigitalSignature
 {
     /// <summary>
-    /// Signs data using the specified JWS algorithm
+    /// Signs data using the specified algorithm
     /// </summary>
     /// <param name="data">The data to sign</param>
     /// <param name="key">The signing key (format depends on algorithm)</param>
-    /// <param name="algorithm">The JWS algorithm to use</param>
+    /// <param name="algorithm">The signature algorithm to use</param>
     /// <returns>The signature bytes</returns>
     /// <exception cref="ArgumentNullException">Thrown when data or key is null</exception>
     /// <exception cref="NotSupportedException">Thrown when algorithm is not supported on this platform</exception>
-    public static byte[] Sign(byte[] data, byte[] key, JwsAlgorithm algorithm)
+    public static byte[] Sign(byte[] data, byte[] key, SignatureAlgorithm algorithm)
     {
         if (data == null)
             throw new ArgumentNullException(nameof(data));
@@ -26,20 +26,20 @@ public static class JwsSigner
 
         return algorithm switch
         {
-            JwsAlgorithm.HS256 => SignHmac(data, key, HashAlgorithmName.SHA256),
-            JwsAlgorithm.HS384 => SignHmac(data, key, HashAlgorithmName.SHA384),
-            JwsAlgorithm.HS512 => SignHmac(data, key, HashAlgorithmName.SHA512),
-            JwsAlgorithm.RS256 => SignRsa(data, key, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1),
-            JwsAlgorithm.PS256 => SignRsa(data, key, HashAlgorithmName.SHA256, RSASignaturePadding.Pss),
-            JwsAlgorithm.ES256 => SignEcdsa(data, key, HashAlgorithmName.SHA256, 256),
-            JwsAlgorithm.ES384 => SignEcdsa(data, key, HashAlgorithmName.SHA384, 384),
-            JwsAlgorithm.ES512 => SignEcdsa(data, key, HashAlgorithmName.SHA512, 521),
-            JwsAlgorithm.EdDSA => SignEdDsa(data, key),
+            SignatureAlgorithm.HmacSha256 => SignHmac(data, key, HashAlgorithmName.SHA256),
+            SignatureAlgorithm.HmacSha384 => SignHmac(data, key, HashAlgorithmName.SHA384),
+            SignatureAlgorithm.HmacSha512 => SignHmac(data, key, HashAlgorithmName.SHA512),
+            SignatureAlgorithm.RsaSha256 => SignRsa(data, key, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1),
+            SignatureAlgorithm.RsaPssSha256 => SignRsa(data, key, HashAlgorithmName.SHA256, RSASignaturePadding.Pss),
+            SignatureAlgorithm.EcdsaP256Sha256 => SignEcdsa(data, key, HashAlgorithmName.SHA256, 256),
+            SignatureAlgorithm.EcdsaP384Sha384 => SignEcdsa(data, key, HashAlgorithmName.SHA384, 384),
+            SignatureAlgorithm.EcdsaP521Sha512 => SignEcdsa(data, key, HashAlgorithmName.SHA512, 521),
+            SignatureAlgorithm.Ed25519 => SignEdDsa(data, key),
 #if NET10_0_OR_GREATER
-            JwsAlgorithm.MLDSA65 => SignMLDsa(data, key, 65),
-            JwsAlgorithm.MLDSA87 => SignMLDsa(data, key, 87),
+            SignatureAlgorithm.MLDsa65 => SignMLDsa(data, key, 65),
+            SignatureAlgorithm.MLDsa87 => SignMLDsa(data, key, 87),
 #else
-            JwsAlgorithm.MLDSA65 or JwsAlgorithm.MLDSA87 =>
+            SignatureAlgorithm.MLDsa65 or SignatureAlgorithm.MLDsa87 =>
                 throw new NotSupportedException("ML-DSA algorithms require .NET 10 or greater"),
 #endif
             _ => throw new NotSupportedException($"Algorithm {algorithm} is not supported")
@@ -47,16 +47,16 @@ public static class JwsSigner
     }
 
     /// <summary>
-    /// Verifies a signature using the specified JWS algorithm
+    /// Verifies a signature using the specified algorithm
     /// </summary>
     /// <param name="data">The data that was signed</param>
     /// <param name="signature">The signature to verify</param>
     /// <param name="key">The verification key (format depends on algorithm)</param>
-    /// <param name="algorithm">The JWS algorithm used</param>
+    /// <param name="algorithm">The signature algorithm used</param>
     /// <returns>True if the signature is valid; otherwise, false</returns>
     /// <exception cref="ArgumentNullException">Thrown when data, signature, or key is null</exception>
     /// <exception cref="NotSupportedException">Thrown when algorithm is not supported on this platform</exception>
-    public static bool Verify(byte[] data, byte[] signature, byte[] key, JwsAlgorithm algorithm)
+    public static bool Verify(byte[] data, byte[] signature, byte[] key, SignatureAlgorithm algorithm)
     {
         if (data == null)
             throw new ArgumentNullException(nameof(data));
@@ -67,20 +67,20 @@ public static class JwsSigner
 
         return algorithm switch
         {
-            JwsAlgorithm.HS256 => VerifyHmac(data, signature, key, HashAlgorithmName.SHA256),
-            JwsAlgorithm.HS384 => VerifyHmac(data, signature, key, HashAlgorithmName.SHA384),
-            JwsAlgorithm.HS512 => VerifyHmac(data, signature, key, HashAlgorithmName.SHA512),
-            JwsAlgorithm.RS256 => VerifyRsa(data, signature, key, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1),
-            JwsAlgorithm.PS256 => VerifyRsa(data, signature, key, HashAlgorithmName.SHA256, RSASignaturePadding.Pss),
-            JwsAlgorithm.ES256 => VerifyEcdsa(data, signature, key, HashAlgorithmName.SHA256, 256),
-            JwsAlgorithm.ES384 => VerifyEcdsa(data, signature, key, HashAlgorithmName.SHA384, 384),
-            JwsAlgorithm.ES512 => VerifyEcdsa(data, signature, key, HashAlgorithmName.SHA512, 521),
-            JwsAlgorithm.EdDSA => VerifyEdDsa(data, signature, key),
+            SignatureAlgorithm.HmacSha256 => VerifyHmac(data, signature, key, HashAlgorithmName.SHA256),
+            SignatureAlgorithm.HmacSha384 => VerifyHmac(data, signature, key, HashAlgorithmName.SHA384),
+            SignatureAlgorithm.HmacSha512 => VerifyHmac(data, signature, key, HashAlgorithmName.SHA512),
+            SignatureAlgorithm.RsaSha256 => VerifyRsa(data, signature, key, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1),
+            SignatureAlgorithm.RsaPssSha256 => VerifyRsa(data, signature, key, HashAlgorithmName.SHA256, RSASignaturePadding.Pss),
+            SignatureAlgorithm.EcdsaP256Sha256 => VerifyEcdsa(data, signature, key, HashAlgorithmName.SHA256, 256),
+            SignatureAlgorithm.EcdsaP384Sha384 => VerifyEcdsa(data, signature, key, HashAlgorithmName.SHA384, 384),
+            SignatureAlgorithm.EcdsaP521Sha512 => VerifyEcdsa(data, signature, key, HashAlgorithmName.SHA512, 521),
+            SignatureAlgorithm.Ed25519 => VerifyEdDsa(data, signature, key),
 #if NET10_0_OR_GREATER
-            JwsAlgorithm.MLDSA65 => VerifyMLDsa(data, signature, key, 65),
-            JwsAlgorithm.MLDSA87 => VerifyMLDsa(data, signature, key, 87),
+            SignatureAlgorithm.MLDsa65 => VerifyMLDsa(data, signature, key, 65),
+            SignatureAlgorithm.MLDsa87 => VerifyMLDsa(data, signature, key, 87),
 #else
-            JwsAlgorithm.MLDSA65 or JwsAlgorithm.MLDSA87 =>
+            SignatureAlgorithm.MLDsa65 or SignatureAlgorithm.MLDsa87 =>
                 throw new NotSupportedException("ML-DSA algorithms require .NET 10 or greater"),
 #endif
             _ => throw new NotSupportedException($"Algorithm {algorithm} is not supported")
@@ -176,20 +176,16 @@ public static class JwsSigner
     private static byte[] SignEdDsa(byte[] data, byte[] privateKey)
     {
 #if NET7_0_OR_GREATER
-        // Use .NET's built-in Ed25519 support (available in .NET 7+)
         if (privateKey.Length != 32)
             throw new ArgumentException("Ed25519 private key must be 32 bytes", nameof(privateKey));
 
-        // Ed25519 expects a 64-byte "expanded" private key or 32-byte seed
-        // We assume 32-byte seed format
         using var ed25519 = System.Security.Cryptography.Ed25519.Create();
-        // Create Ed25519 key from seed
         var keyData = new byte[32];
         Array.Copy(privateKey, keyData, 32);
         ed25519.ImportPkcs8PrivateKey(CreateEd25519Pkcs8(keyData), out _);
         return ed25519.SignData(data);
 #else
-        throw new NotSupportedException("EdDSA (Ed25519) requires .NET 7 or greater. For older frameworks, use the Ed25519Core reference implementation.");
+        throw new NotSupportedException("EdDSA (Ed25519) requires .NET 7 or greater. For older frameworks, use the Ed25519Core implementation.");
 #endif
     }
 
@@ -210,7 +206,7 @@ public static class JwsSigner
             return false;
         }
 #else
-        throw new NotSupportedException("EdDSA (Ed25519) requires .NET 7 or greater. For older frameworks, use the Ed25519Core reference implementation.");
+        throw new NotSupportedException("EdDSA (Ed25519) requires .NET 7 or greater. For older frameworks, use the Ed25519Core implementation.");
 #endif
     }
 

@@ -1,26 +1,26 @@
-namespace HeroCrypt.Cryptography.JWT;
+namespace HeroCrypt.Cryptography.DigitalSignatures;
 
 /// <summary>
-/// Fluent builder for JSON Web Signature (JWS) operations
+/// Fluent builder for digital signature operations
 /// </summary>
-public class JwsBuilder
+public class SignatureBuilder
 {
     private byte[]? _data;
     private byte[]? _key;
     private byte[]? _signature;
-    private JwsAlgorithm? _algorithm;
+    private SignatureAlgorithm? _algorithm;
 
     /// <summary>
-    /// Creates a new JWS builder instance
+    /// Creates a new signature builder instance
     /// </summary>
-    public static JwsBuilder Create() => new JwsBuilder();
+    public static SignatureBuilder Create() => new SignatureBuilder();
 
     /// <summary>
     /// Sets the data to sign or verify
     /// </summary>
     /// <param name="data">The data bytes</param>
     /// <returns>The builder instance</returns>
-    public JwsBuilder WithData(byte[] data)
+    public SignatureBuilder WithData(byte[] data)
     {
         _data = data ?? throw new ArgumentNullException(nameof(data));
         return this;
@@ -31,7 +31,7 @@ public class JwsBuilder
     /// </summary>
     /// <param name="data">The data string</param>
     /// <returns>The builder instance</returns>
-    public JwsBuilder WithData(string data)
+    public SignatureBuilder WithData(string data)
     {
         if (data == null)
             throw new ArgumentNullException(nameof(data));
@@ -45,7 +45,7 @@ public class JwsBuilder
     /// </summary>
     /// <param name="key">The key bytes (format depends on algorithm)</param>
     /// <returns>The builder instance</returns>
-    public JwsBuilder WithKey(byte[] key)
+    public SignatureBuilder WithKey(byte[] key)
     {
         _key = key ?? throw new ArgumentNullException(nameof(key));
         return this;
@@ -56,18 +56,18 @@ public class JwsBuilder
     /// </summary>
     /// <param name="signature">The signature bytes</param>
     /// <returns>The builder instance</returns>
-    public JwsBuilder WithSignature(byte[] signature)
+    public SignatureBuilder WithSignature(byte[] signature)
     {
         _signature = signature ?? throw new ArgumentNullException(nameof(signature));
         return this;
     }
 
     /// <summary>
-    /// Sets the JWS algorithm to use
+    /// Sets the signature algorithm to use
     /// </summary>
-    /// <param name="algorithm">The JWS algorithm</param>
+    /// <param name="algorithm">The signature algorithm</param>
     /// <returns>The builder instance</returns>
-    public JwsBuilder WithAlgorithm(JwsAlgorithm algorithm)
+    public SignatureBuilder WithAlgorithm(SignatureAlgorithm algorithm)
     {
         _algorithm = algorithm;
         return this;
@@ -87,7 +87,7 @@ public class JwsBuilder
         if (_algorithm == null)
             throw new InvalidOperationException("Algorithm must be set before signing. Use WithAlgorithm().");
 
-        return JwsSigner.Sign(_data, _key, _algorithm.Value);
+        return DigitalSignature.Sign(_data, _key, _algorithm.Value);
     }
 
     /// <summary>
@@ -106,6 +106,6 @@ public class JwsBuilder
         if (_algorithm == null)
             throw new InvalidOperationException("Algorithm must be set before verifying. Use WithAlgorithm().");
 
-        return JwsSigner.Verify(_data, _signature, _key, _algorithm.Value);
+        return DigitalSignature.Verify(_data, _signature, _key, _algorithm.Value);
     }
 }

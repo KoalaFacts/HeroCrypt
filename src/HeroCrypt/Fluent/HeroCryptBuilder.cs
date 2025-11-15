@@ -50,10 +50,10 @@ public class HeroCryptBuilder
     public PgpBuilderContext Pgp() => new PgpBuilderContext();
 
     /// <summary>
-    /// Starts building JSON Web Signature (JWS) operations
+    /// Starts building digital signature operations
     /// </summary>
-    /// <returns>JWS builder</returns>
-    public Cryptography.JWT.JwsBuilder Jws() => Cryptography.JWT.JwsBuilder.Create();
+    /// <returns>Signature builder</returns>
+    public Cryptography.DigitalSignatures.SignatureBuilder Signature() => Cryptography.DigitalSignatures.SignatureBuilder.Create();
 
 #if NET10_0_OR_GREATER
     /// <summary>

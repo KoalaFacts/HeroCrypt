@@ -3,6 +3,7 @@ using System.Text;
 using HeroCrypt.Cryptography.PostQuantum.Kyber;
 using HeroCrypt.Cryptography.PostQuantum.Dilithium;
 using HeroCrypt.Cryptography.PostQuantum.Sphincs;
+using HeroCrypt.Fluent;
 
 namespace HeroCrypt.Tests;
 
@@ -388,6 +389,152 @@ public class PostQuantumNet10Tests
 
         // Different algorithms produce different signatures
         Assert.NotEqual(mlDsaSignature.Length, slhDsaSignature.Length);
+    }
+
+    #endregion
+
+    #region Unified HeroCryptBuilder Tests
+
+    [Fact]
+    public void HeroCryptBuilder_PostQuantum_MLKem_Success()
+    {
+        if (!MLKemWrapper.IsSupported())
+            return;
+
+        // Use unified builder
+        using var keyPair = HeroCrypt.Create()
+            .PostQuantum()
+            .MLKem()
+            .WithSecurityBits(192)
+            .GenerateKeyPair();
+
+        Assert.NotNull(keyPair);
+        Assert.Equal(MLKemWrapper.SecurityLevel.MLKem768, keyPair.Level);
+
+        // Encapsulate
+        using var encResult = HeroCrypt.Create()
+            .PostQuantum()
+            .MLKem()
+            .WithPublicKey(keyPair.PublicKeyPem)
+            .Encapsulate();
+
+        Assert.NotNull(encResult.Ciphertext);
+        Assert.NotNull(encResult.SharedSecret);
+
+        // Decapsulate
+        var recovered = HeroCrypt.Create()
+            .PostQuantum()
+            .MLKem()
+            .WithKeyPair(keyPair)
+            .Decapsulate(encResult.Ciphertext);
+
+        Assert.Equal(encResult.SharedSecret, recovered);
+    }
+
+    [Fact]
+    public void HeroCryptBuilder_PostQuantum_MLDsa_Success()
+    {
+        if (!MLDsaWrapper.IsSupported())
+            return;
+
+        var message = "Test unified builder";
+
+        // Generate and sign
+        using var keyPair = HeroCrypt.Create()
+            .PostQuantum()
+            .MLDsa()
+            .WithSecurityLevel(MLDsaWrapper.SecurityLevel.MLDsa65)
+            .GenerateKeyPair();
+
+        var signature = HeroCrypt.Create()
+            .PostQuantum()
+            .MLDsa()
+            .WithKeyPair(keyPair)
+            .WithData(message)
+            .WithContext("unified-test")
+            .Sign();
+
+        Assert.NotNull(signature);
+
+        // Verify
+        var isValid = HeroCrypt.Create()
+            .PostQuantum()
+            .MLDsa()
+            .WithPublicKey(keyPair.PublicKeyPem)
+            .WithData(message)
+            .WithContext("unified-test")
+            .Verify(signature);
+
+        Assert.True(isValid);
+    }
+
+    [Fact]
+    public void HeroCryptBuilder_PostQuantum_SlhDsa_Success()
+    {
+        if (!SlhDsaWrapper.IsSupported())
+            return;
+
+        var message = Encoding.UTF8.GetBytes("Unified builder SLH-DSA test");
+
+        // Generate with unified builder
+        using var keyPair = HeroCrypt.Create()
+            .PostQuantum()
+            .SlhDsa()
+            .WithSmallVariant(128)
+            .GenerateKeyPair();
+
+        Assert.NotNull(keyPair);
+
+        // Sign and verify
+        var signature = HeroCrypt.Create()
+            .PostQuantum()
+            .SlhDsa()
+            .WithKeyPair(keyPair)
+            .WithData(message)
+            .Sign();
+
+        var isValid = HeroCrypt.Create()
+            .PostQuantum()
+            .SlhDsa()
+            .WithPublicKey(keyPair.PublicKeyPem)
+            .WithData(message)
+            .Verify(signature);
+
+        Assert.True(isValid);
+    }
+
+    [Fact]
+    public void HeroCrypt_PostQuantum_QuickAccess_MLKem_Success()
+    {
+        if (!MLKemWrapper.IsSupported())
+            return;
+
+        // Use quick access methods
+        using var keyPair = HeroCrypt.PostQuantum.MLKem.GenerateKeyPair();
+        Assert.NotNull(keyPair);
+
+        using var keyPair512 = HeroCrypt.PostQuantum.MLKem.GenerateKeyPair(
+            MLKemWrapper.SecurityLevel.MLKem512);
+        Assert.Equal(MLKemWrapper.SecurityLevel.MLKem512, keyPair512.Level);
+    }
+
+    [Fact]
+    public void HeroCrypt_PostQuantum_QuickAccess_MLDsa_Success()
+    {
+        if (!MLDsaWrapper.IsSupported())
+            return;
+
+        // Quick access generation
+        using var keyPair = HeroCrypt.PostQuantum.MLDsa.GenerateKeyPair();
+        Assert.NotNull(keyPair);
+
+        var data = Encoding.UTF8.GetBytes("Quick access test");
+        var signature = keyPair.Sign(data);
+
+        // Quick access verify
+        var isValid = HeroCrypt.PostQuantum.MLDsa.Verify(
+            keyPair.PublicKeyPem, data, signature);
+        Assert.True(isValid);
     }
 
     #endregion

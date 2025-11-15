@@ -190,48 +190,38 @@ byte[] decrypted = RsaCore.Decrypt(
 ### Post-Quantum Cryptography (.NET 10+)
 
 ```csharp
-using HeroCrypt.Cryptography.PostQuantum.Kyber;
-using HeroCrypt.Cryptography.PostQuantum.Dilithium;
+using HeroCrypt.Fluent;
 
-// Option 1: Using fluent builder pattern (recommended)
+// Option 1: Using unified HeroCryptBuilder (recommended)
 // ML-KEM: Quantum-resistant key encapsulation
-using var keyPair = MLKem.Create()
-    .WithSecurityBits(192)  // or .WithSecurityLevel(MLKemWrapper.SecurityLevel.MLKem768)
+using var keyPair = HeroCrypt.Create()
+    .PostQuantum()
+    .MLKem()
+    .WithSecurityBits(192)
     .GenerateKeyPair();
 
 // Sender: Encapsulate a shared secret
-var (ciphertext, sharedSecret) = MLKem.Create()
+var (ciphertext, sharedSecret) = HeroCrypt.Create()
+    .PostQuantum()
+    .MLKem()
     .WithPublicKey(keyPair.PublicKeyPem)
     .Encapsulate();
 
-// Receiver: Decapsulate to recover the shared secret
-var recoveredSecret = MLKem.Create()
-    .WithKeyPair(keyPair)
-    .Decapsulate(ciphertext);
-
 // ML-DSA: Quantum-resistant digital signatures
-using var signingKey = MLDsa.Create()
-    .WithSecurityLevel(MLDsaWrapper.SecurityLevel.MLDsa65)
-    .GenerateKeyPair();
-
-// Sign with optional context
-var signature = MLDsa.Create()
+var signature = HeroCrypt.Create()
+    .PostQuantum()
+    .MLDsa()
     .WithKeyPair(signingKey)
     .WithData("Important message")
     .WithContext("application-v1")
     .Sign();
 
-// Verify signature
-bool isValid = MLDsa.Create()
-    .WithPublicKey(signingKey.PublicKeyPem)
-    .WithData("Important message")
-    .WithContext("application-v1")
-    .Verify(signature);
+// Option 2: Quick access static methods
+using var quickKey = HeroCrypt.PostQuantum.MLKem.GenerateKeyPair();
+bool isValid = HeroCrypt.PostQuantum.MLDsa.Verify(publicKey, data, signature);
 
-// Option 2: Using wrapper classes directly
-using var keyPair2 = MLKemWrapper.GenerateKeyPair(MLKemWrapper.SecurityLevel.MLKem768);
-using var result = MLKemWrapper.Encapsulate(keyPair2.PublicKeyPem);
-byte[] recovered = keyPair2.Decapsulate(result.Ciphertext);
+// Option 3: Algorithm-specific builders
+using var mlKemKey = MLKem.Create().WithSecurityBits(256).GenerateKeyPair();
 ```
 
 ## 🏗️ Architecture

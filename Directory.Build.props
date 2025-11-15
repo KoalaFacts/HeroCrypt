@@ -2,10 +2,10 @@
   <!-- Centralized Framework Versions -->
   <PropertyGroup>
     <!-- Target Frameworks Definition -->
-    <SupportedTargetFrameworks>netstandard2.0;net6.0;net7.0;net8.0;net9.0</SupportedTargetFrameworks>
+    <SupportedTargetFrameworks>netstandard2.0;net6.0;net7.0;net8.0;net9.0;net10.0</SupportedTargetFrameworks>
 
     <!-- Framework Groups for Build + CI -->
-    <SupportedRuntimeTargetFrameworks>net8.0;net9.0</SupportedRuntimeTargetFrameworks>
+    <SupportedRuntimeTargetFrameworks>net8.0;net9.0;net10.0</SupportedRuntimeTargetFrameworks>
     <SupportedLibraryTargetFrameworks>$(SupportedTargetFrameworks)</SupportedLibraryTargetFrameworks>
     <SupportedApplicationTargetFrameworks>$(SupportedRuntimeTargetFrameworks)</SupportedApplicationTargetFrameworks>
     <SupportedTestTargetFrameworks>$(SupportedRuntimeTargetFrameworks)</SupportedTestTargetFrameworks>
@@ -65,6 +65,13 @@
   </PropertyGroup>
 
   <!-- Framework-specific optimizations -->
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0'">
+    <EnableAOTAnalyzer>true</EnableAOTAnalyzer>
+    <IsAotCompatible>true</IsAotCompatible>
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+    <IsTrimmable>true</IsTrimmable>
+  </PropertyGroup>
+
   <PropertyGroup Condition="'$(TargetFramework)' == 'net9.0'">
     <EnableAOTAnalyzer>true</EnableAOTAnalyzer>
     <IsAotCompatible>true</IsAotCompatible>

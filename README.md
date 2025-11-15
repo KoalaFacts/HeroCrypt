@@ -4,7 +4,7 @@
 [![Build Status](https://github.com/BeingCiteable/HeroCrypt/workflows/Build%20Pipeline/badge.svg)](https://github.com/BeingCiteable/HeroCrypt/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![.NET](https://img.shields.io/badge/.NET%20Standard-2.0-blue)](https://dotnet.microsoft.com/download)
-[![.NET](https://img.shields.io/badge/.NET-6.0%20|%207.0%20|%208.0%20|%209.0-blue)](https://dotnet.microsoft.com/download)
+[![.NET](https://img.shields.io/badge/.NET-6.0%20|%207.0%20|%208.0%20|%209.0%20|%2010.0-blue)](https://dotnet.microsoft.com/download)
 
 A fully RFC-compliant cryptographic library for .NET featuring high-performance, secure implementations of modern cryptographic algorithms with multi-framework support.
 
@@ -61,12 +61,20 @@ A fully RFC-compliant cryptographic library for .NET featuring high-performance,
   - Shamir's Secret Sharing (SSS)
   - Key rotation and hierarchical key management
 
-- **🔮 Post-Quantum Cryptography (Reference Implementations)**
-  - CRYSTALS-Kyber (ML-KEM, FIPS 203) - Key encapsulation
-  - CRYSTALS-Dilithium (ML-DSA, FIPS 204) - Digital signatures
-  - SPHINCS+ (SLH-DSA, FIPS 205) - Stateless signatures
-  - Security levels: 128-bit, 192-bit, 256-bit post-quantum
-  - ⚠️ Simplified reference implementations for API design
+- **🔮 Post-Quantum Cryptography**
+  - **ML-KEM (FIPS 203)** - Key encapsulation mechanism (formerly CRYSTALS-Kyber)
+    - ✅ Production-ready on .NET 10+ (native BCL implementation)
+    - ML-KEM-512, ML-KEM-768, ML-KEM-1024 parameter sets
+    - Protection against "harvest now, decrypt later" attacks
+  - **ML-DSA (FIPS 204)** - Digital signatures (formerly CRYSTALS-Dilithium)
+    - ✅ Production-ready on .NET 10+ (native BCL implementation)
+    - ML-DSA-44, ML-DSA-65, ML-DSA-87 parameter sets
+    - Lattice-based quantum-resistant signatures
+  - **SLH-DSA (FIPS 205)** - Stateless hash-based signatures (formerly SPHINCS+)
+    - ✅ Production-ready on .NET 10+ (native BCL implementation)
+    - "Small" and "Fast" variants at 128/192/256-bit security levels
+    - Conservative security based on hash functions only
+  - ⚠️ Requires .NET 10+ with Windows CNG PQC support or OpenSSL 3.5+
 
 - **🎭 Zero-Knowledge & Advanced Protocols (Reference Implementations)**
   - zk-SNARKs (Groth16-style) - Zero-knowledge succinct proofs
@@ -179,6 +187,33 @@ byte[] decrypted = RsaCore.Decrypt(
 );
 ```
 
+### Post-Quantum Cryptography (.NET 10+)
+
+```csharp
+using HeroCrypt.Cryptography.PostQuantum.Kyber;
+using HeroCrypt.Cryptography.PostQuantum.Dilithium;
+
+// ML-KEM: Quantum-resistant key encapsulation
+using var keyPair = MLKemWrapper.GenerateKeyPair(MLKemWrapper.SecurityLevel.MLKem768);
+
+// Sender: Encapsulate a shared secret
+using var result = MLKemWrapper.Encapsulate(keyPair.PublicKeyPem);
+byte[] ciphertext = result.Ciphertext;
+byte[] sharedSecret = result.SharedSecret;
+
+// Receiver: Decapsulate to recover the shared secret
+byte[] recoveredSecret = keyPair.Decapsulate(ciphertext);
+
+// ML-DSA: Quantum-resistant digital signatures
+using var signingKey = MLDsaWrapper.GenerateKeyPair(MLDsaWrapper.SecurityLevel.MLDsa65);
+
+// Sign data
+byte[] signature = signingKey.Sign(data);
+
+// Verify signature
+bool isValid = MLDsaWrapper.Verify(signingKey.PublicKeyPem, data, signature);
+```
+
 ## 🏗️ Architecture
 
 HeroCrypt is built with a modular architecture:
@@ -204,6 +239,7 @@ HeroCrypt is built with a modular architecture:
 - .NET 7.0
 - .NET 8.0
 - .NET 9.0
+- .NET 10.0 (with native Post-Quantum Cryptography support)
 
 ## 🔒 Security
 

@@ -193,25 +193,45 @@ byte[] decrypted = RsaCore.Decrypt(
 using HeroCrypt.Cryptography.PostQuantum.Kyber;
 using HeroCrypt.Cryptography.PostQuantum.Dilithium;
 
+// Option 1: Using fluent builder pattern (recommended)
 // ML-KEM: Quantum-resistant key encapsulation
-using var keyPair = MLKemWrapper.GenerateKeyPair(MLKemWrapper.SecurityLevel.MLKem768);
+using var keyPair = MLKem.Create()
+    .WithSecurityBits(192)  // or .WithSecurityLevel(MLKemWrapper.SecurityLevel.MLKem768)
+    .GenerateKeyPair();
 
 // Sender: Encapsulate a shared secret
-using var result = MLKemWrapper.Encapsulate(keyPair.PublicKeyPem);
-byte[] ciphertext = result.Ciphertext;
-byte[] sharedSecret = result.SharedSecret;
+var (ciphertext, sharedSecret) = MLKem.Create()
+    .WithPublicKey(keyPair.PublicKeyPem)
+    .Encapsulate();
 
 // Receiver: Decapsulate to recover the shared secret
-byte[] recoveredSecret = keyPair.Decapsulate(ciphertext);
+var recoveredSecret = MLKem.Create()
+    .WithKeyPair(keyPair)
+    .Decapsulate(ciphertext);
 
 // ML-DSA: Quantum-resistant digital signatures
-using var signingKey = MLDsaWrapper.GenerateKeyPair(MLDsaWrapper.SecurityLevel.MLDsa65);
+using var signingKey = MLDsa.Create()
+    .WithSecurityLevel(MLDsaWrapper.SecurityLevel.MLDsa65)
+    .GenerateKeyPair();
 
-// Sign data
-byte[] signature = signingKey.Sign(data);
+// Sign with optional context
+var signature = MLDsa.Create()
+    .WithKeyPair(signingKey)
+    .WithData("Important message")
+    .WithContext("application-v1")
+    .Sign();
 
 // Verify signature
-bool isValid = MLDsaWrapper.Verify(signingKey.PublicKeyPem, data, signature);
+bool isValid = MLDsa.Create()
+    .WithPublicKey(signingKey.PublicKeyPem)
+    .WithData("Important message")
+    .WithContext("application-v1")
+    .Verify(signature);
+
+// Option 2: Using wrapper classes directly
+using var keyPair2 = MLKemWrapper.GenerateKeyPair(MLKemWrapper.SecurityLevel.MLKem768);
+using var result = MLKemWrapper.Encapsulate(keyPair2.PublicKeyPem);
+byte[] recovered = keyPair2.Decapsulate(result.Ciphertext);
 ```
 
 ## 🏗️ Architecture

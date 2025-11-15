@@ -391,5 +391,131 @@ public class PostQuantumNet10Tests
     }
 
     #endregion
+
+    #region Builder Pattern Tests
+
+    [Fact]
+    public void MLKemBuilder_FluentAPI_Success()
+    {
+        if (!MLKemWrapper.IsSupported())
+            return;
+
+        // Generate key pair with builder
+        using var keyPair = MLKemBuilder.Create()
+            .WithSecurityBits(192)
+            .GenerateKeyPair();
+
+        Assert.NotNull(keyPair);
+        Assert.Equal(MLKemWrapper.SecurityLevel.MLKem768, keyPair.Level);
+
+        // Encapsulate with builder
+        using var encResult = MLKemBuilder.Create()
+            .WithPublicKey(keyPair.PublicKeyPem)
+            .Encapsulate();
+
+        Assert.NotNull(encResult.Ciphertext);
+        Assert.NotNull(encResult.SharedSecret);
+
+        // Decapsulate with builder
+        var recovered = MLKemBuilder.Create()
+            .WithKeyPair(keyPair)
+            .Decapsulate(encResult.Ciphertext);
+
+        Assert.Equal(encResult.SharedSecret, recovered);
+    }
+
+    [Fact]
+    public void MLDsaBuilder_FluentAPI_Success()
+    {
+        if (!MLDsaWrapper.IsSupported())
+            return;
+
+        var message = "Test message for builder";
+
+        // Generate key pair and sign with builder
+        using var keyPair = MLDsaBuilder.Create()
+            .WithSecurityLevel(MLDsaWrapper.SecurityLevel.MLDsa65)
+            .GenerateKeyPair();
+
+        var signature = MLDsaBuilder.Create()
+            .WithKeyPair(keyPair)
+            .WithData(message)
+            .WithContext("test-context")
+            .Sign();
+
+        Assert.NotNull(signature);
+
+        // Verify with builder
+        var isValid = MLDsaBuilder.Create()
+            .WithPublicKey(keyPair.PublicKeyPem)
+            .WithData(message)
+            .WithContext("test-context")
+            .Verify(signature);
+
+        Assert.True(isValid);
+    }
+
+    [Fact]
+    public void SlhDsaBuilder_FluentAPI_SmallVariant_Success()
+    {
+        if (!SlhDsaWrapper.IsSupported())
+            return;
+
+        var message = Encoding.UTF8.GetBytes("Test message for SLH-DSA builder");
+
+        // Generate key pair with small variant
+        using var keyPair = SlhDsaBuilder.Create()
+            .WithSmallVariant(128)
+            .GenerateKeyPair();
+
+        Assert.NotNull(keyPair);
+        Assert.Equal(SlhDsaWrapper.SecurityLevel.SlhDsa128s, keyPair.Level);
+
+        // Sign and verify
+        var signature = SlhDsaBuilder.Create()
+            .WithKeyPair(keyPair)
+            .WithData(message)
+            .Sign();
+
+        var isValid = SlhDsaBuilder.Create()
+            .WithPublicKey(keyPair.PublicKeyPem)
+            .WithData(message)
+            .Verify(signature);
+
+        Assert.True(isValid);
+    }
+
+    [Fact]
+    public void MLKem_ShorthandAPI_Success()
+    {
+        if (!MLKemWrapper.IsSupported())
+            return;
+
+        // Use shorthand static methods
+        using var keyPair = MLKem.GenerateKeyPair();
+        Assert.NotNull(keyPair);
+
+        using var keyPair512 = MLKem.GenerateKeyPair(MLKemWrapper.SecurityLevel.MLKem512);
+        Assert.Equal(MLKemWrapper.SecurityLevel.MLKem512, keyPair512.Level);
+    }
+
+    [Fact]
+    public void MLDsa_ShorthandAPI_Success()
+    {
+        if (!MLDsaWrapper.IsSupported())
+            return;
+
+        // Use shorthand static methods
+        using var keyPair = MLDsa.GenerateKeyPair();
+        Assert.NotNull(keyPair);
+
+        var data = Encoding.UTF8.GetBytes("Quick test");
+        var signature = keyPair.Sign(data);
+
+        var isValid = MLDsa.Verify(keyPair.PublicKeyPem, data, signature);
+        Assert.True(isValid);
+    }
+
+    #endregion
 }
 #endif

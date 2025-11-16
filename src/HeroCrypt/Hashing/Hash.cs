@@ -17,8 +17,12 @@ internal static class Hash
     /// <exception cref="ArgumentNullException">Thrown when data is null</exception>
     public static byte[] Compute(byte[] data, HashAlgorithm algorithm)
     {
+#if NET7_0_OR_GREATER
+        ArgumentNullException.ThrowIfNull(data);
+#else
         if (data == null)
             throw new ArgumentNullException(nameof(data));
+#endif
 
         return algorithm switch
         {
@@ -41,10 +45,15 @@ internal static class Hash
     /// <exception cref="ArgumentNullException">Thrown when data or key is null</exception>
     public static byte[] ComputeKeyed(byte[] data, byte[] key, HashAlgorithm algorithm)
     {
+#if NET7_0_OR_GREATER
+        ArgumentNullException.ThrowIfNull(data);
+        ArgumentNullException.ThrowIfNull(key);
+#else
         if (data == null)
             throw new ArgumentNullException(nameof(data));
         if (key == null)
             throw new ArgumentNullException(nameof(key));
+#endif
 
         return algorithm switch
         {

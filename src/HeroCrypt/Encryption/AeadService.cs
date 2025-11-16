@@ -30,12 +30,18 @@ public class AeadService : IAeadService
         AeadAlgorithm algorithm = AeadAlgorithm.ChaCha20Poly1305,
         CancellationToken cancellationToken = default)
     {
+#if NET7_0_OR_GREATER
+        ArgumentNullException.ThrowIfNull(plaintext);
+        ArgumentNullException.ThrowIfNull(key);
+        ArgumentNullException.ThrowIfNull(nonce);
+#else
         if (plaintext == null)
             throw new ArgumentNullException(nameof(plaintext));
         if (key == null)
             throw new ArgumentNullException(nameof(key));
         if (nonce == null)
             throw new ArgumentNullException(nameof(nonce));
+#endif
 
         InputValidator.ValidateByteArray(plaintext, nameof(plaintext), allowEmpty: true);
         InputValidator.ValidateByteArray(key, nameof(key));
@@ -224,12 +230,18 @@ public class AeadService : IAeadService
     {
         if (ciphertext == null)
             throw new ArgumentNullException(nameof(ciphertext));
+#if NET7_0_OR_GREATER
+        ArgumentNullException.ThrowIfNull(plaintext);
+        ArgumentNullException.ThrowIfNull(key);
+        ArgumentNullException.ThrowIfNull(nonce);
+#else
         if (plaintext == null)
             throw new ArgumentNullException(nameof(plaintext));
         if (key == null)
             throw new ArgumentNullException(nameof(key));
         if (nonce == null)
             throw new ArgumentNullException(nameof(nonce));
+#endif
 
         ValidateKeyAndNonceSize(key, nonce, algorithm);
 

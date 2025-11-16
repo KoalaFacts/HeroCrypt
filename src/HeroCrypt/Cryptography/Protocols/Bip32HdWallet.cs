@@ -85,6 +85,14 @@ public static class Bip32HdWallet
         /// </summary>
         public bool IsPrivate => Key.Length == 32;
 
+        /// <summary>
+        /// Initializes a new instance of the ExtendedKey class.
+        /// </summary>
+        /// <param name="key">The key bytes (32 bytes for private, 33 bytes for public)</param>
+        /// <param name="chainCode">The chain code (32 bytes)</param>
+        /// <param name="depth">The depth level in the key hierarchy</param>
+        /// <param name="parentFingerprint">The parent key fingerprint</param>
+        /// <param name="childIndex">The child key index</param>
         public ExtendedKey(byte[] key, byte[] chainCode, byte depth = 0,
             byte[]? parentFingerprint = null, uint childIndex = 0)
         {

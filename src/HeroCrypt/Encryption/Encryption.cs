@@ -51,10 +51,15 @@ internal static class Encryption
     /// <exception cref="NotSupportedException">Thrown when algorithm is not supported on this platform</exception>
     public static EncryptionResult Encrypt(byte[] plaintext, byte[] key, EncryptionAlgorithm algorithm, byte[]? associatedData = null)
     {
+#if NET7_0_OR_GREATER
+        ArgumentNullException.ThrowIfNull(plaintext);
+        ArgumentNullException.ThrowIfNull(key);
+#else
         if (plaintext == null)
             throw new ArgumentNullException(nameof(plaintext));
         if (key == null)
             throw new ArgumentNullException(nameof(key));
+#endif
 
         return algorithm switch
         {
@@ -90,12 +95,18 @@ internal static class Encryption
     public static byte[] Decrypt(byte[] ciphertext, byte[] key, byte[] nonce, EncryptionAlgorithm algorithm,
         byte[]? associatedData = null, byte[]? keyCiphertext = null)
     {
+#if NET7_0_OR_GREATER
+        ArgumentNullException.ThrowIfNull(ciphertext);
+        ArgumentNullException.ThrowIfNull(key);
+        ArgumentNullException.ThrowIfNull(nonce);
+#else
         if (ciphertext == null)
             throw new ArgumentNullException(nameof(ciphertext));
         if (key == null)
             throw new ArgumentNullException(nameof(key));
         if (nonce == null)
             throw new ArgumentNullException(nameof(nonce));
+#endif
 
         return algorithm switch
         {
@@ -129,7 +140,13 @@ internal static class Encryption
         var ciphertext = new byte[plaintext.Length + tagSize];
         var tag = ciphertext.AsSpan(plaintext.Length, tagSize);
 
+#if NET8_0_OR_GREATER
+        using var aes = new AesGcm(key, tagSize);
+#else
+#pragma warning disable SYSLIB0053 // AesGcm.AesGcm(byte[]) is obsolete
         using var aes = new AesGcm(key);
+#pragma warning restore SYSLIB0053
+#endif
         aes.Encrypt(nonce, plaintext, ciphertext.AsSpan(0, plaintext.Length), tag, associatedData);
 
         return new EncryptionResult
@@ -150,7 +167,13 @@ internal static class Encryption
         var plaintext = new byte[plaintextLength];
         var tag = ciphertext.AsSpan(plaintextLength, tagSize);
 
+#if NET8_0_OR_GREATER
+        using var aes = new AesGcm(key, tagSize);
+#else
+#pragma warning disable SYSLIB0053 // AesGcm.AesGcm(byte[]) is obsolete
         using var aes = new AesGcm(key);
+#pragma warning restore SYSLIB0053
+#endif
         aes.Decrypt(nonce, ciphertext.AsSpan(0, plaintextLength), tag, plaintext, associatedData);
 
         return plaintext;

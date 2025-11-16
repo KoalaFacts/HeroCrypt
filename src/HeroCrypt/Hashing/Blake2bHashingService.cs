@@ -23,8 +23,12 @@ public class Blake2bHashingService : IBlake2bService
         byte[]? salt = null,
         byte[]? personalization = null)
     {
+#if NET7_0_OR_GREATER
+        ArgumentNullException.ThrowIfNull(data);
+#else
         if (data == null)
             throw new ArgumentNullException(nameof(data));
+#endif
 
         try
         {
@@ -46,8 +50,12 @@ public class Blake2bHashingService : IBlake2bService
         byte[]? personalization = null,
         CancellationToken cancellationToken = default)
     {
+#if NET7_0_OR_GREATER
+        ArgumentNullException.ThrowIfNull(data);
+#else
         if (data == null)
             throw new ArgumentNullException(nameof(data));
+#endif
 
         return Task.Run(() => ComputeHash(data, outputLength, key, salt, personalization), cancellationToken);
     }
@@ -55,8 +63,12 @@ public class Blake2bHashingService : IBlake2bService
     /// <inheritdoc/>
     public byte[] ComputeLongHash(byte[] data, int outputLength)
     {
+#if NET7_0_OR_GREATER
+        ArgumentNullException.ThrowIfNull(data);
+#else
         if (data == null)
             throw new ArgumentNullException(nameof(data));
+#endif
 
         try
         {
@@ -72,10 +84,15 @@ public class Blake2bHashingService : IBlake2bService
     /// <inheritdoc/>
     public bool VerifyHash(byte[] data, byte[] expectedHash, byte[]? key = null)
     {
+#if NET7_0_OR_GREATER
+        ArgumentNullException.ThrowIfNull(data);
+        ArgumentNullException.ThrowIfNull(expectedHash);
+#else
         if (data == null)
             throw new ArgumentNullException(nameof(data));
         if (expectedHash == null)
             throw new ArgumentNullException(nameof(expectedHash));
+#endif
 
         var actualHash = ComputeHash(data, expectedHash.Length, key);
         var result = ConstantTimeEquals(actualHash, expectedHash);

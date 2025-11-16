@@ -120,7 +120,7 @@ public sealed class SecureRandomNumberGenerator : IDisposable
 
 
         }
-        catch (Exception ex)
+        catch
         {
 
             throw;
@@ -329,7 +329,7 @@ public sealed class SecureRandomNumberGenerator : IDisposable
             SecureMemoryOperations.SecureClear(testData1);
             SecureMemoryOperations.SecureClear(testData2);
         }
-        catch (Exception ex)
+        catch
         {
 
             _healthCheckPassed = false;

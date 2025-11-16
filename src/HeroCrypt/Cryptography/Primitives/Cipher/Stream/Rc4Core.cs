@@ -57,12 +57,12 @@ internal static class Rc4Core
         /// <summary>
         /// First index pointer used during keystream generation.
         /// </summary>
-        public int I = 0;
+        public int I;
 
         /// <summary>
         /// Second index pointer used during keystream generation.
         /// </summary>
-        public int J = 0;
+        public int J;
     }
 
     /// <summary>

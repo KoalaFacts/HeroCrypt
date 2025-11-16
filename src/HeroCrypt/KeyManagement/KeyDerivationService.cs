@@ -60,7 +60,7 @@ public class KeyDerivationService : IKeyDerivationService
 
             return result;
         }
-        catch (Exception ex)
+        catch
         {
 
             throw;
@@ -112,7 +112,7 @@ public class KeyDerivationService : IKeyDerivationService
 
             return result;
         }
-        catch (Exception ex)
+        catch
         {
 
             throw;
@@ -153,7 +153,7 @@ public class KeyDerivationService : IKeyDerivationService
 
             return result;
         }
-        catch (Exception ex)
+        catch
         {
 
             throw;

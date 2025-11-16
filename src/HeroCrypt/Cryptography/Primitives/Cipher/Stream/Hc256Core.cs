@@ -39,7 +39,7 @@ internal static class Hc256Core
         /// <summary>
         /// Step counter tracking the current position in the cipher's internal state.
         /// </summary>
-        public uint Counter = 0;
+        public uint Counter;
     }
 
     /// <summary>

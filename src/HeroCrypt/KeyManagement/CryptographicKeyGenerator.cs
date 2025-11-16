@@ -189,7 +189,7 @@ public sealed class CryptographicKeyGenerator : ICryptographicKeyGenerator
 
             return (privateKey, publicKey);
         }
-        catch (Exception ex)
+        catch
         {
 
             throw;
@@ -261,7 +261,7 @@ public sealed class CryptographicKeyGenerator : ICryptographicKeyGenerator
         {
             InputValidator.ValidateKeyEntropy(keyMaterial, nameof(keyMaterial));
         }
-        catch (ArgumentException ex)
+        catch (ArgumentException)
         {
 
             return false;

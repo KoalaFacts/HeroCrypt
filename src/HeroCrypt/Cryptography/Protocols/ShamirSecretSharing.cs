@@ -46,6 +46,11 @@ public static class ShamirSecretSharing
         /// </summary>
         public byte[] Data { get; }
 
+        /// <summary>
+        /// Initializes a new instance of the Share class.
+        /// </summary>
+        /// <param name="index">The share index (must be between 1 and 255)</param>
+        /// <param name="data">The share data bytes</param>
         public Share(byte index, byte[] data)
         {
             if (index == 0)

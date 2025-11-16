@@ -123,13 +123,13 @@ public struct HashAlgorithmName : IEquatable<HashAlgorithmName>
     public static HashAlgorithmName SHA512 => new("SHA512");
 
     /// <summary>Gets SHA3-256 hash algorithm.</summary>
-    public static HashAlgorithmName SHA3_256 => new("SHA3-256");
+    public static HashAlgorithmName SHA3256 => new("SHA3-256");
 
     /// <summary>Gets SHA3-384 hash algorithm.</summary>
-    public static HashAlgorithmName SHA3_384 => new("SHA3-384");
+    public static HashAlgorithmName SHA3384 => new("SHA3-384");
 
     /// <summary>Gets SHA3-512 hash algorithm.</summary>
-    public static HashAlgorithmName SHA3_512 => new("SHA3-512");
+    public static HashAlgorithmName SHA3512 => new("SHA3-512");
 
     /// <summary>Gets Blake2b hash algorithm.</summary>
     public static HashAlgorithmName Blake2b => new("Blake2b");

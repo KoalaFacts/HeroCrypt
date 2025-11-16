@@ -230,9 +230,21 @@ public class PostQuantumIntegrationTests
             .Sign();
 
         // Verify chain of trust (in reverse order)
-        Assert.True(MLDsa.Verify(cfoKey.PublicKeyPem, combinedData2, cfoSig));
-        Assert.True(MLDsa.Verify(directorKey.PublicKeyPem, combinedData1, directorSig));
-        Assert.True(MLDsa.Verify(managerKey.PublicKeyPem, docBytes, managerSig));
+        Assert.True(MLDsa.Create()
+            .WithPublicKey(cfoKey.PublicKeyPem)
+            .WithData(combinedData2)
+            .WithContext("approval:cfo")
+            .Verify(cfoSig));
+        Assert.True(MLDsa.Create()
+            .WithPublicKey(directorKey.PublicKeyPem)
+            .WithData(combinedData1)
+            .WithContext("approval:director")
+            .Verify(directorSig));
+        Assert.True(MLDsa.Create()
+            .WithPublicKey(managerKey.PublicKeyPem)
+            .WithData(docBytes)
+            .WithContext("approval:manager")
+            .Verify(managerSig));
     }
 
     #endregion

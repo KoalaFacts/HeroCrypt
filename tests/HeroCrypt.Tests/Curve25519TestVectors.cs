@@ -136,11 +136,13 @@ public class Curve25519TestVectors
         var expected = Convert.FromHexString("684cf59ba83309552800ef566f2f4d3c1c3887c49360e3875f2eb94d99532c51");
 
         // Act - Perform 1000 iterations
+        // RFC 7748: For each iteration, set k to be the result of calling the function
+        // and u to be the old value of k.
         for (var i = 0; i < 1000; i++)
         {
             var result = Curve25519Core.ComputeSharedSecret(k, u);
-            Array.Copy(result, u, 32);
-            Array.Copy(result, k, 32);
+            Array.Copy(k, u, 32);      // u = old k
+            Array.Copy(result, k, 32); // k = new result
         }
 
         // Assert

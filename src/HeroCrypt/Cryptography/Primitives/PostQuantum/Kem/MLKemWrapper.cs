@@ -225,12 +225,19 @@ public static class MLKemWrapper
 
         using var key = System.Security.Cryptography.MLKem.ImportFromPem(publicKeyPem);
         var sharedSecret = new byte[32];
-        // ML-KEM ciphertext size varies by algorithm: 768 (512), 1088 (768), 1568 (1024)
-        // Use maximum size - Encapsulate will write the correct amount
-        var ciphertext = new byte[1568]; // Maximum size for ML-KEM-1024
+
+        // ML-KEM ciphertext size varies by algorithm - must be exact size
+        // ML-KEM-512: 768 bytes, ML-KEM-768: 1088 bytes, ML-KEM-1024: 1568 bytes
+        var ciphertextSize = key.Algorithm.Name switch
+        {
+            "ML-KEM-512" => 768,
+            "ML-KEM-768" => 1088,
+            "ML-KEM-1024" => 1568,
+            _ => throw new NotSupportedException($"Unsupported ML-KEM algorithm: {key.Algorithm.Name}")
+        };
+
+        var ciphertext = new byte[ciphertextSize];
         key.Encapsulate(ciphertext, sharedSecret);
-        // Encapsulate doesn't return size, use the known sizes based on algorithm
-        // TODO: Determine actual algorithm from key to trim ciphertext to exact size
         return new EncapsulationResult(ciphertext, sharedSecret);
     }
 

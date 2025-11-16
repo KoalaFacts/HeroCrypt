@@ -2,6 +2,7 @@ using HeroCrypt.Encryption;
 using HeroCrypt.Hashing;
 using HeroCrypt.KeyManagement;
 using HeroCrypt.Signatures;
+using HeroCrypt.Security;
 using HeroCrypt.Cryptography.Primitives.Kdf;
 using System.Diagnostics.CodeAnalysis;
 
@@ -107,8 +108,13 @@ public class HashBuilder
     /// </summary>
     public byte[] Compute(byte[] data)
     {
+        InputValidator.ValidateByteArray(data, nameof(data));
+
         if (_key != null)
+        {
+            InputValidator.ValidateByteArray(_key, nameof(_key));
             return Hashing.Hash.ComputeKeyed(data, _key, _algorithm);
+        }
         return Hashing.Hash.Compute(data, _algorithm);
     }
 }
@@ -156,6 +162,11 @@ public class EncryptionBuilder
     {
         if (_key == null)
             throw new InvalidOperationException("Encryption key must be set using WithKey()");
+
+        InputValidator.ValidateByteArray(plaintext, nameof(plaintext));
+        InputValidator.ValidateByteArray(_key, nameof(_key));
+        if (_associatedData != null)
+            InputValidator.ValidateByteArray(_associatedData, nameof(_associatedData), allowEmpty: true);
 
         return Encryption.Encryption.Encrypt(
             plaintext,
@@ -231,6 +242,14 @@ public class DecryptionBuilder
         if (_nonce == null)
             throw new InvalidOperationException("Nonce must be set using WithNonce()");
 
+        InputValidator.ValidateByteArray(ciphertext, nameof(ciphertext));
+        InputValidator.ValidateByteArray(_key, nameof(_key));
+        InputValidator.ValidateByteArray(_nonce, nameof(_nonce));
+        if (_associatedData != null)
+            InputValidator.ValidateByteArray(_associatedData, nameof(_associatedData), allowEmpty: true);
+        if (_keyCiphertext != null)
+            InputValidator.ValidateByteArray(_keyCiphertext, nameof(_keyCiphertext));
+
         return Encryption.Encryption.Decrypt(
             ciphertext,
             _key,
@@ -274,6 +293,9 @@ public class SignatureBuilder
     {
         if (_key == null)
             throw new InvalidOperationException("Private key must be set using WithKey()");
+
+        InputValidator.ValidateByteArray(data, nameof(data));
+        InputValidator.ValidateByteArray(_key, nameof(_key));
 
         return Signatures.DigitalSignature.Sign(data, _key, _algorithm);
     }
@@ -324,6 +346,10 @@ public class VerificationBuilder
             throw new InvalidOperationException("Public key must be set using WithKey()");
         if (_signature == null)
             throw new InvalidOperationException("Signature must be set using WithSignature()");
+
+        InputValidator.ValidateByteArray(data, nameof(data));
+        InputValidator.ValidateByteArray(_signature, nameof(_signature));
+        InputValidator.ValidateByteArray(_key, nameof(_key));
 
         return Signatures.DigitalSignature.Verify(data, _signature, _key, _algorithm);
     }
@@ -492,6 +518,9 @@ public class KeyDerivationBuilder
         if (_salt == null)
             throw new InvalidOperationException("Salt must be set using WithSalt()");
 
+        // Validate parameters
+        InputValidator.ValidatePbkdf2Parameters(_password, _salt, _iterations, _keyLength);
+
         // Call PBKDF2 primitive directly
         var hashName = _hashAlgorithm.Name switch
         {
@@ -514,6 +543,9 @@ public class KeyDerivationBuilder
     {
         if (_ikm == null)
             throw new InvalidOperationException("Input keying material must be set using WithInputKeyingMaterial()");
+
+        // Validate parameters
+        InputValidator.ValidateHkdfParameters(_ikm, _salt ?? Array.Empty<byte>(), _info ?? Array.Empty<byte>(), _keyLength);
 
         var hashName = _hashAlgorithm.Name switch
         {
@@ -538,6 +570,9 @@ public class KeyDerivationBuilder
         if (_salt == null)
             throw new InvalidOperationException("Salt must be set using WithSalt()");
 
+        // Validate parameters
+        InputValidator.ValidateScryptParameters(_password, _salt, _iterations, _blockSize, _parallelism, _keyLength);
+
         // Use HeroCrypt's Scrypt implementation
         return Cryptography.Primitives.Kdf.ScryptCore.DeriveKey(_password, _salt, _iterations, _blockSize, _parallelism, _keyLength);
     }
@@ -548,6 +583,16 @@ public class KeyDerivationBuilder
             throw new InvalidOperationException("Password must be set using WithPassword()");
         if (_salt == null)
             throw new InvalidOperationException("Salt must be set using WithSalt()");
+
+        // Validate parameters (use PBKDF2 validator as baseline for password/salt/iterations)
+        InputValidator.ValidateByteArray(_password, nameof(_password), allowEmpty: true);
+        InputValidator.ValidateByteArray(_salt, nameof(_salt), allowEmpty: false);
+        InputValidator.ValidateArraySize(_keyLength, "Argon2 key derivation");
+
+        if (_iterations < 1)
+            throw new ArgumentException("Iterations must be at least 1", nameof(_iterations));
+        if (_iterations > InputValidator.MaxIterationCount)
+            throw new ArgumentException($"Iterations {_iterations} exceeds maximum {InputValidator.MaxIterationCount}", nameof(_iterations));
 
         // Call Argon2 primitive directly
         return Cryptography.Primitives.Kdf.Argon2Core.Hash(

@@ -1,5 +1,4 @@
 using HeroCrypt.Security;
-using HeroCrypt.Cryptography.Primitives.Signature.Ecc;
 using System.Buffers.Binary;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
@@ -393,14 +392,35 @@ public static class Bip32HdWallet
     /// Derives a public key from a private key using secp256k1 elliptic curve operations
     /// </summary>
     /// <remarks>
-    /// Uses proper secp256k1 scalar multiplication to derive the public key.
+    /// Uses .NET's built-in ECDsa with secp256k1 curve to derive the public key.
     /// Returns a 33-byte compressed public key in SEC format (0x02/0x03 prefix + x-coordinate).
     /// </remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static byte[] DerivePublicKeyFromPrivate(byte[] privateKey)
     {
-        // Use secp256k1 to derive the public key properly
-        return Secp256k1Core.DerivePublicKey(privateKey, compressed: true);
+        // Use .NET's built-in ECDsa with secp256k1 curve
+        var curve = ECCurve.CreateFromFriendlyName("secp256k1");
+        using var ecdsa = ECDsa.Create(curve);
+
+        var ecParams = new ECParameters
+        {
+            Curve = curve,
+            D = privateKey
+        };
+
+        ecdsa.ImportParameters(ecParams);
+
+        var pubParams = ecdsa.ExportParameters(false);
+        if (pubParams.Q.X == null || pubParams.Q.Y == null)
+            throw new InvalidOperationException("Failed to derive public key from private key");
+
+        // Compress the public key (0x02/0x03 prefix + x coordinate)
+        var yIsEven = (pubParams.Q.Y[pubParams.Q.Y.Length - 1] & 1) == 0;
+        var compressedPubKey = new byte[33];
+        compressedPubKey[0] = yIsEven ? (byte)0x02 : (byte)0x03;
+        Array.Copy(pubParams.Q.X, 0, compressedPubKey, 1, 32);
+
+        return compressedPubKey;
     }
 
     /// <summary>

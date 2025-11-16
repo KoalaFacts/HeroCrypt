@@ -1,6 +1,5 @@
 using HeroCrypt.Cryptography.Primitives.Signature.Rsa;
 using HeroCrypt.Security;
-using Microsoft.Extensions.Logging;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -11,20 +10,14 @@ namespace HeroCrypt.KeyManagement;
 /// </summary>
 public sealed class CryptographicKeyGenerator : ICryptographicKeyGenerator
 {
-    private readonly ILogger<CryptographicKeyGenerator>? _logger;
     private readonly RandomNumberGenerator _rng;
 
     /// <summary>
     /// Initializes a new instance of the cryptographic key generation service
     /// </summary>
-    /// <param name="logger">Optional logger instance</param>
-    public CryptographicKeyGenerator(
-        ILogger<CryptographicKeyGenerator>? logger = null)
+    public CryptographicKeyGenerator()
     {
-        _logger = logger;
         _rng = RandomNumberGenerator.Create();
-
-        _logger?.LogDebug("Cryptographic Key Generation Service initialized");
     }
 
     /// <inheritdoc />
@@ -36,12 +29,12 @@ public sealed class CryptographicKeyGenerator : ICryptographicKeyGenerator
         if (length > InputValidator.MaxArraySize)
             throw new ArgumentException($"Length {length} exceeds maximum {InputValidator.MaxArraySize}", nameof(length));
 
-        _logger?.LogDebug("Generating {Length} random bytes", length);
+
 
         var bytes = new byte[length];
         _rng.GetBytes(bytes);
 
-        _logger?.LogDebug("Successfully generated {Length} random bytes", length);
+
         return bytes;
     }
 
@@ -50,7 +43,7 @@ public sealed class CryptographicKeyGenerator : ICryptographicKeyGenerator
     {
         InputValidator.ValidateArraySize(length, "async random byte generation");
 
-        _logger?.LogDebug("Asynchronously generating {Length} random bytes", length);
+
 
         return await Task.Run(() =>
         {
@@ -64,11 +57,11 @@ public sealed class CryptographicKeyGenerator : ICryptographicKeyGenerator
     {
         InputValidator.ValidateArraySize(keyLength, "symmetric key generation");
 
-        _logger?.LogDebug("Generating symmetric key of {KeyLength} bytes", keyLength);
+
 
         var key = GenerateRandomBytes(keyLength);
 
-        _logger?.LogInformation("Generated symmetric key: {KeyLength} bytes", keyLength);
+
         return key;
     }
 
@@ -87,11 +80,11 @@ public sealed class CryptographicKeyGenerator : ICryptographicKeyGenerator
 
         InputValidator.ValidateSymmetricKeyLength(keyLength, algorithm.ToString());
 
-        _logger?.LogDebug("Generating symmetric key for {Algorithm} ({KeyLength} bytes)", algorithm, keyLength);
+
 
         var key = GenerateSymmetricKey(keyLength);
 
-        _logger?.LogInformation("Generated {Algorithm} key: {KeyLength} bytes", algorithm, keyLength);
+
         return key;
     }
 
@@ -101,11 +94,11 @@ public sealed class CryptographicKeyGenerator : ICryptographicKeyGenerator
         if (ivLength <= 0)
             throw new ArgumentException("IV length must be positive", nameof(ivLength));
 
-        _logger?.LogDebug("Generating IV of {IvLength} bytes", ivLength);
+
 
         var iv = GenerateRandomBytes(ivLength);
 
-        _logger?.LogDebug("Generated IV: {IvLength} bytes", ivLength);
+
         return iv;
     }
 
@@ -122,11 +115,11 @@ public sealed class CryptographicKeyGenerator : ICryptographicKeyGenerator
             _ => throw new ArgumentException($"Unsupported symmetric algorithm: {algorithm}", nameof(algorithm))
         };
 
-        _logger?.LogDebug("Generating IV for {Algorithm} ({IvLength} bytes)", algorithm, ivLength);
+
 
         var iv = GenerateIV(ivLength);
 
-        _logger?.LogDebug("Generated {Algorithm} IV: {IvLength} bytes", algorithm, ivLength);
+
         return iv;
     }
 
@@ -136,11 +129,11 @@ public sealed class CryptographicKeyGenerator : ICryptographicKeyGenerator
         if (saltLength <= 0)
             throw new ArgumentException("Salt length must be positive", nameof(saltLength));
 
-        _logger?.LogDebug("Generating salt of {SaltLength} bytes", saltLength);
+
 
         var salt = GenerateRandomBytes(saltLength);
 
-        _logger?.LogDebug("Generated salt: {SaltLength} bytes", saltLength);
+
         return salt;
     }
 
@@ -150,11 +143,11 @@ public sealed class CryptographicKeyGenerator : ICryptographicKeyGenerator
         if (nonceLength <= 0)
             throw new ArgumentException("Nonce length must be positive", nameof(nonceLength));
 
-        _logger?.LogDebug("Generating nonce of {NonceLength} bytes", nonceLength);
+
 
         var nonce = GenerateRandomBytes(nonceLength);
 
-        _logger?.LogDebug("Generated nonce: {NonceLength} bytes", nonceLength);
+
         return nonce;
     }
 
@@ -169,11 +162,11 @@ public sealed class CryptographicKeyGenerator : ICryptographicKeyGenerator
             _ => throw new ArgumentException($"Unsupported nonce algorithm: {algorithm}", nameof(algorithm))
         };
 
-        _logger?.LogDebug("Generating nonce for {Algorithm} ({NonceLength} bytes)", algorithm, nonceLength);
+
 
         var nonce = GenerateNonce(nonceLength);
 
-        _logger?.LogDebug("Generated {Algorithm} nonce: {NonceLength} bytes", algorithm, nonceLength);
+
         return nonce;
     }
 
@@ -182,7 +175,7 @@ public sealed class CryptographicKeyGenerator : ICryptographicKeyGenerator
     {
         InputValidator.ValidateRsaKeySize(keySize, nameof(keySize));
 
-        _logger?.LogDebug("Generating RSA key pair with {KeySize}-bit keys", keySize);
+
 
         try
         {
@@ -192,13 +185,13 @@ public sealed class CryptographicKeyGenerator : ICryptographicKeyGenerator
             var privateKey = SerializePrivateKey(keyPair.PrivateKey);
             var publicKey = SerializePublicKey(keyPair.PublicKey);
 
-            _logger?.LogInformation("Successfully generated RSA key pair with {KeySize}-bit keys", keySize);
+
 
             return (privateKey, publicKey);
         }
         catch (Exception ex)
         {
-            _logger?.LogError(ex, "Failed to generate RSA key pair");
+
             throw;
         }
     }
@@ -206,7 +199,7 @@ public sealed class CryptographicKeyGenerator : ICryptographicKeyGenerator
     /// <inheritdoc />
     public async Task<(byte[] privateKey, byte[] publicKey)> GenerateRsaKeyPairAsync(int keySize = 2048, CancellationToken cancellationToken = default)
     {
-        _logger?.LogDebug("Asynchronously generating RSA key pair with {KeySize}-bit keys", keySize);
+
 
         return await Task.Run(() =>
         {
@@ -227,11 +220,11 @@ public sealed class CryptographicKeyGenerator : ICryptographicKeyGenerator
             _ => 32 // Default to 32 bytes for unknown algorithms
         };
 
-        _logger?.LogDebug("Generating HMAC key for {Algorithm} ({KeyLength} bytes)", algorithm.Name, keyLength);
+
 
         var key = GenerateRandomBytes(keyLength);
 
-        _logger?.LogInformation("Generated HMAC-{Algorithm} key: {KeyLength} bytes", algorithm.Name, keyLength);
+
         return key;
     }
 
@@ -241,11 +234,11 @@ public sealed class CryptographicKeyGenerator : ICryptographicKeyGenerator
         if (keyLength <= 0)
             throw new ArgumentException("Key length must be positive", nameof(keyLength));
 
-        _logger?.LogDebug("Generating key derivation material of {KeyLength} bytes", keyLength);
+
 
         var material = GenerateRandomBytes(keyLength);
 
-        _logger?.LogDebug("Generated key derivation material: {KeyLength} bytes", keyLength);
+
         return material;
     }
 
@@ -254,13 +247,13 @@ public sealed class CryptographicKeyGenerator : ICryptographicKeyGenerator
     {
         if (keyMaterial == null || keyMaterial.Length == 0)
         {
-            _logger?.LogWarning("Key material validation failed: null or empty");
+
             return false;
         }
 
         if (string.IsNullOrEmpty(algorithm))
         {
-            _logger?.LogWarning("Key material validation failed: null or empty algorithm");
+
             return false;
         }
 
@@ -270,7 +263,7 @@ public sealed class CryptographicKeyGenerator : ICryptographicKeyGenerator
         }
         catch (ArgumentException ex)
         {
-            _logger?.LogWarning("Key material validation failed: {Message}", ex.Message);
+
             return false;
         }
 
@@ -287,7 +280,7 @@ public sealed class CryptographicKeyGenerator : ICryptographicKeyGenerator
 
         if (allZero)
         {
-            _logger?.LogWarning("Key material validation failed: all-zero key detected");
+
             return false;
         }
 
@@ -305,8 +298,7 @@ public sealed class CryptographicKeyGenerator : ICryptographicKeyGenerator
 
         if (!valid)
         {
-            _logger?.LogWarning("Key material validation failed for {Algorithm}: insufficient length {Length}",
-                algorithm, keyMaterial.Length);
+            // Validation failed for algorithm
         }
 
         return valid;
@@ -322,7 +314,7 @@ public sealed class CryptographicKeyGenerator : ICryptographicKeyGenerator
         if (!includeSymbols && !includeNumbers && !includeUppercase && !includeLowercase)
             throw new ArgumentException("At least one character set must be included");
 
-        _logger?.LogDebug("Generating secure password of {Length} characters", length);
+
 
         var characterSets = new StringBuilder();
 
@@ -345,7 +337,7 @@ public sealed class CryptographicKeyGenerator : ICryptographicKeyGenerator
             password.Append(characters[(int)randomIndex]);
         }
 
-        _logger?.LogInformation("Generated secure password: {Length} characters", length);
+
         return password.ToString();
     }
 

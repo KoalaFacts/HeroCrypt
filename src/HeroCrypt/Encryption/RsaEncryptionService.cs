@@ -1,6 +1,5 @@
 using HeroCrypt.Cryptography.Primitives.Signature.Rsa;
 using HeroCrypt.Security;
-using Microsoft.Extensions.Logging;
 using System.Security.Cryptography;
 using BigInteger = HeroCrypt.Cryptography.Primitives.Signature.Rsa.BigInteger;
 using SystemHashAlgorithmName = System.Security.Cryptography.HashAlgorithmName;
@@ -12,7 +11,6 @@ namespace HeroCrypt.Encryption;
 /// </summary>
 public sealed class RsaEncryptionService
 {
-    private readonly ILogger<RsaEncryptionService>? _logger;
     private readonly int _keySize;
     private readonly RsaPaddingMode _defaultPadding;
     private readonly SystemHashAlgorithmName _defaultHashAlgorithm;
@@ -23,22 +21,16 @@ public sealed class RsaEncryptionService
     /// <param name="keySize">RSA key size in bits (default: 2048)</param>
     /// <param name="defaultPadding">Default padding mode (default: OAEP for better security)</param>
     /// <param name="defaultHashAlgorithm">Default hash algorithm for OAEP (default: SHA256)</param>
-    /// <param name="logger">Optional logger instance</param>
     public RsaEncryptionService(
         int keySize = 2048,
         RsaPaddingMode defaultPadding = RsaPaddingMode.Oaep,
-        SystemHashAlgorithmName? defaultHashAlgorithm = null,
-        ILogger<RsaEncryptionService>? logger = null)
+        SystemHashAlgorithmName? defaultHashAlgorithm = null)
     {
         InputValidator.ValidateRsaKeySize(keySize, nameof(keySize));
 
         _keySize = keySize;
         _defaultPadding = defaultPadding;
         _defaultHashAlgorithm = defaultHashAlgorithm ?? SystemHashAlgorithmName.SHA256;
-        _logger = logger;
-
-        _logger?.LogDebug("RSA Encryption Service initialized with {KeySize}-bit keys, {Padding} padding, {HashAlgorithm} hash",
-            keySize, defaultPadding, _defaultHashAlgorithm.Name);
     }
 
     /// <summary>
@@ -74,8 +66,6 @@ public sealed class RsaEncryptionService
     /// <returns>Tuple containing private key and public key as byte arrays</returns>
     public (byte[] privateKey, byte[] publicKey) GenerateKeyPair()
     {
-        _logger?.LogDebug("Generating RSA key pair with {KeySize}-bit keys", _keySize);
-
         try
         {
             var keyPair = RsaCore.GenerateKeyPair(_keySize);
@@ -84,13 +74,10 @@ public sealed class RsaEncryptionService
             var privateKey = SerializePrivateKey(keyPair.PrivateKey);
             var publicKey = SerializePublicKey(keyPair.PublicKey);
 
-            _logger?.LogInformation("Successfully generated RSA key pair with {KeySize}-bit keys", _keySize);
-
             return (privateKey, publicKey);
         }
-        catch (Exception ex)
+        catch
         {
-            _logger?.LogError(ex, "Failed to generate RSA key pair");
             throw;
         }
     }
@@ -110,8 +97,6 @@ public sealed class RsaEncryptionService
 
         InputValidator.ValidateByteArray(privateKey, nameof(privateKey));
 
-        _logger?.LogDebug("Deriving public key from private key");
-
         try
         {
             var rsaPrivateKey = DeserializePrivateKey(privateKey);
@@ -119,13 +104,10 @@ public sealed class RsaEncryptionService
 
             var publicKey = SerializePublicKey(rsaPublicKey);
 
-            _logger?.LogDebug("Successfully derived public key from private key");
-
             return publicKey;
         }
-        catch (Exception ex)
+        catch
         {
-            _logger?.LogError(ex, "Failed to derive public key from private key");
             throw;
         }
     }
@@ -163,21 +145,15 @@ public sealed class RsaEncryptionService
                 nameof(data));
         }
 
-        _logger?.LogDebug("Encrypting data with RSA public key (data size: {DataSize} bytes, padding: {Padding})",
-            data.Length, actualPadding);
-
         try
         {
             var rsaPublicKey = DeserializePublicKey(publicKey);
             var encrypted = RsaCore.Encrypt(data, rsaPublicKey, actualPadding, actualHashAlgorithm);
 
-            _logger?.LogInformation("Successfully encrypted data (output size: {OutputSize} bytes)", encrypted.Length);
-
             return encrypted;
         }
-        catch (Exception ex)
+        catch
         {
-            _logger?.LogError(ex, "Failed to encrypt data with RSA public key");
             throw;
         }
     }
@@ -220,21 +196,15 @@ public sealed class RsaEncryptionService
         var actualPadding = padding ?? _defaultPadding;
         var actualHashAlgorithm = hashAlgorithm ?? _defaultHashAlgorithm;
 
-        _logger?.LogDebug("Decrypting data with RSA private key (data size: {DataSize} bytes, padding: {Padding})",
-            encryptedData.Length, actualPadding);
-
         try
         {
             var rsaPrivateKey = DeserializePrivateKey(privateKey);
             var decrypted = RsaCore.Decrypt(encryptedData, rsaPrivateKey, actualPadding, actualHashAlgorithm);
 
-            _logger?.LogInformation("Successfully decrypted data (output size: {OutputSize} bytes)", decrypted.Length);
-
             return decrypted;
         }
-        catch (Exception ex)
+        catch
         {
-            _logger?.LogError(ex, "Failed to decrypt data with RSA private key");
             throw;
         }
     }
@@ -351,8 +321,6 @@ public sealed class RsaEncryptionService
 
         InputValidator.ValidateByteArray(privateKey, nameof(privateKey));
 
-        _logger?.LogDebug("Exporting private key to PKCS#8 format");
-
         try
         {
             var rsaPrivateKey = DeserializePrivateKey(privateKey);
@@ -362,13 +330,10 @@ public sealed class RsaEncryptionService
 
             var pkcs8Bytes = rsa.ExportPkcs8PrivateKey();
 
-            _logger?.LogDebug("Successfully exported private key to PKCS#8 format ({Size} bytes)", pkcs8Bytes.Length);
-
             return pkcs8Bytes;
         }
-        catch (Exception ex)
+        catch
         {
-            _logger?.LogError(ex, "Failed to export private key to PKCS#8 format");
             throw;
         }
 #else
@@ -399,8 +364,6 @@ public sealed class RsaEncryptionService
 
         InputValidator.ValidateByteArray(pkcs8Data, nameof(pkcs8Data));
 
-        _logger?.LogDebug("Importing private key from PKCS#8 format ({Size} bytes)", pkcs8Data.Length);
-
         try
         {
             using var rsa = System.Security.Cryptography.RSA.Create();
@@ -426,13 +389,10 @@ public sealed class RsaEncryptionService
 
             var internalFormat = SerializePrivateKey(rsaPrivateKey);
 
-            _logger?.LogInformation("Successfully imported PKCS#8 private key ({KeySize}-bit)", rsa.KeySize);
-
             return internalFormat;
         }
-        catch (Exception ex)
+        catch
         {
-            _logger?.LogError(ex, "Failed to import private key from PKCS#8 format");
             throw;
         }
 #else
@@ -463,8 +423,6 @@ public sealed class RsaEncryptionService
 
         InputValidator.ValidateByteArray(publicKey, nameof(publicKey));
 
-        _logger?.LogDebug("Exporting public key to X.509 SubjectPublicKeyInfo format");
-
         try
         {
             var rsaPublicKey = DeserializePublicKey(publicKey);
@@ -474,13 +432,10 @@ public sealed class RsaEncryptionService
 
             var spkiBytes = rsa.ExportSubjectPublicKeyInfo();
 
-            _logger?.LogDebug("Successfully exported public key to X.509 format ({Size} bytes)", spkiBytes.Length);
-
             return spkiBytes;
         }
-        catch (Exception ex)
+        catch
         {
-            _logger?.LogError(ex, "Failed to export public key to X.509 SubjectPublicKeyInfo format");
             throw;
         }
 #else
@@ -511,8 +466,6 @@ public sealed class RsaEncryptionService
 
         InputValidator.ValidateByteArray(subjectPublicKeyInfo, nameof(subjectPublicKeyInfo));
 
-        _logger?.LogDebug("Importing public key from X.509 SubjectPublicKeyInfo format ({Size} bytes)", subjectPublicKeyInfo.Length);
-
         try
         {
             using var rsa = System.Security.Cryptography.RSA.Create();
@@ -527,13 +480,10 @@ public sealed class RsaEncryptionService
 
             var internalFormat = SerializePublicKey(rsaPublicKey);
 
-            _logger?.LogDebug("Successfully imported X.509 public key ({KeySize}-bit)", rsa.KeySize);
-
             return internalFormat;
         }
-        catch (Exception ex)
+        catch
         {
-            _logger?.LogError(ex, "Failed to import public key from X.509 SubjectPublicKeyInfo format");
             throw;
         }
 #else

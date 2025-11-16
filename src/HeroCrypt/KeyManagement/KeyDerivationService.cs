@@ -1,7 +1,6 @@
 using HeroCrypt.Cryptography.Primitives.Kdf;
 using HeroCrypt.Hashing;
 using HeroCrypt.Security;
-using Microsoft.Extensions.Logging;
 using System.Security.Cryptography;
 using CryptoHashAlgorithmName = System.Security.Cryptography.HashAlgorithmName;
 using HeroCryptHashAlgorithmName = HeroCrypt.KeyManagement.HashAlgorithmName;
@@ -14,19 +13,15 @@ namespace HeroCrypt.KeyManagement;
 /// </summary>
 public class KeyDerivationService : IKeyDerivationService
 {
-    private readonly ILogger<KeyDerivationService>? _logger;
     private readonly IBlake2bService? _blake2bService;
 
     /// <summary>
     /// Initializes a new instance of the KeyDerivationService.
     /// </summary>
-    /// <param name="logger">Optional logger for operation tracking.</param>
     /// <param name="blake2bService">Optional Blake2b service for Blake2b-based derivations.</param>
     public KeyDerivationService(
-        ILogger<KeyDerivationService>? logger = null,
         IBlake2bService? blake2bService = null)
     {
-        _logger = logger;
         _blake2bService = blake2bService;
     }
 
@@ -41,8 +36,6 @@ public class KeyDerivationService : IKeyDerivationService
         InputValidator.ValidatePbkdf2Parameters(password, salt, iterations, keyLength);
 
         var algorithm = hashAlgorithm == default ? HeroCryptHashAlgorithmName.SHA256 : hashAlgorithm;
-        _logger?.LogDebug("Deriving PBKDF2 key with {Algorithm}, {Iterations} iterations, {KeyLength} bytes",
-            algorithm.Name, iterations, keyLength);
 
         try
         {
@@ -64,12 +57,12 @@ public class KeyDerivationService : IKeyDerivationService
 
             var result = Rfc2898DeriveBytes.Pbkdf2(password, salt, iterations, hashName, keyLength);
 #endif
-            _logger?.LogDebug("PBKDF2 key derivation completed successfully");
+
             return result;
         }
         catch (Exception ex)
         {
-            _logger?.LogError(ex, "Failed to derive PBKDF2 key");
+
             throw;
         }
     }
@@ -97,7 +90,7 @@ public class KeyDerivationService : IKeyDerivationService
         InputValidator.ValidateHkdfParameters(ikm, salt ?? Array.Empty<byte>(), info ?? Array.Empty<byte>(), keyLength);
 
         var algorithm = hashAlgorithm == default ? HeroCryptHashAlgorithmName.SHA256 : hashAlgorithm;
-        _logger?.LogDebug("Deriving HKDF key with {Algorithm}, {KeyLength} bytes", algorithm.Name, keyLength);
+
 
         try
         {
@@ -116,12 +109,12 @@ public class KeyDerivationService : IKeyDerivationService
             // Manual HKDF implementation for older frameworks
             var result = HkdfManual(ikm, keyLength, salt, info, algorithm);
 #endif
-            _logger?.LogDebug("HKDF key derivation completed successfully");
+
             return result;
         }
         catch (Exception ex)
         {
-            _logger?.LogError(ex, "Failed to derive HKDF key");
+
             throw;
         }
     }
@@ -149,20 +142,20 @@ public class KeyDerivationService : IKeyDerivationService
     {
         InputValidator.ValidateScryptParameters(password, salt, n, r, p, keyLength);
 
-        _logger?.LogDebug("Deriving scrypt key with N={N}, r={R}, p={P}, {KeyLength} bytes", n, r, p, keyLength);
+
 
         try
         {
             // Use the full-featured ScryptCore from KeyDerivation namespace
             var result = ScryptCore.DeriveKey(password.AsSpan(), salt.AsSpan(), n, r, p, keyLength);
 
-            _logger?.LogDebug("Successfully derived scrypt key: {KeyLength} bytes", result.Length);
+
 
             return result;
         }
         catch (Exception ex)
         {
-            _logger?.LogError(ex, "Failed to derive scrypt key");
+
             throw;
         }
     }
@@ -175,7 +168,7 @@ public class KeyDerivationService : IKeyDerivationService
             throw new ArgumentException("Context cannot be null or empty", nameof(context));
         InputValidator.ValidateArraySize(keyLength, "key derivation");
 
-        _logger?.LogDebug("Deriving key for context '{Context}', {KeyLength} bytes", context, keyLength);
+
 
         // Use HKDF with the context as info
         var contextBytes = System.Text.Encoding.UTF8.GetBytes(context);

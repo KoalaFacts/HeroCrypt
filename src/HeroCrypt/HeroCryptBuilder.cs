@@ -3,7 +3,6 @@ using HeroCrypt.Hashing;
 using HeroCrypt.KeyManagement;
 using HeroCrypt.Signatures;
 using HeroCrypt.Cryptography.Primitives.Kdf;
-using Microsoft.Extensions.DependencyInjection;
 using System.Diagnostics.CodeAnalysis;
 
 namespace HeroCrypt;
@@ -476,53 +475,81 @@ public class KeyDerivationBuilder
     /// </summary>
     public byte[] Build()
     {
-        var service = new KeyManagement.KeyDerivationService();
-
         return _type switch
         {
-            KeyDerivationType.PBKDF2 => DerivePBKDF2(service),
-            KeyDerivationType.HKDF => DeriveHKDF(service),
-            KeyDerivationType.Scrypt => DeriveScrypt(service),
-            KeyDerivationType.Argon2 => DeriveArgon2(service),
+            KeyDerivationType.PBKDF2 => DerivePBKDF2(),
+            KeyDerivationType.HKDF => DeriveHKDF(),
+            KeyDerivationType.Scrypt => DeriveScrypt(),
+            KeyDerivationType.Argon2 => DeriveArgon2(),
             _ => throw new InvalidOperationException($"Unsupported key derivation type: {_type}")
         };
     }
 
-    private byte[] DerivePBKDF2(KeyManagement.KeyDerivationService service)
+    private byte[] DerivePBKDF2()
     {
         if (_password == null)
             throw new InvalidOperationException("Password must be set using WithPassword()");
         if (_salt == null)
             throw new InvalidOperationException("Salt must be set using WithSalt()");
 
-        return service.DerivePbkdf2(_password, _salt, _iterations, _keyLength, _hashAlgorithm);
+        // Call PBKDF2 primitive directly
+        var hashName = _hashAlgorithm.Name switch
+        {
+            "SHA256" => System.Security.Cryptography.HashAlgorithmName.SHA256,
+            "SHA384" => System.Security.Cryptography.HashAlgorithmName.SHA384,
+            "SHA512" => System.Security.Cryptography.HashAlgorithmName.SHA512,
+            _ => System.Security.Cryptography.HashAlgorithmName.SHA256
+        };
+
+#if NETSTANDARD2_0
+        // .NET Standard 2.0 doesn't support HashAlgorithmName parameter, defaults to SHA-1
+        // Use HeroCrypt's PBKDF2 implementation for proper hash algorithm support
+        return Cryptography.Primitives.Kdf.Pbkdf2Core.DeriveKey(_password, _salt, _iterations, _keyLength, hashName);
+#else
+        return System.Security.Cryptography.Rfc2898DeriveBytes.Pbkdf2(_password, _salt, _iterations, hashName, _keyLength);
+#endif
     }
 
-    private byte[] DeriveHKDF(KeyManagement.KeyDerivationService service)
+    private byte[] DeriveHKDF()
     {
         if (_ikm == null)
             throw new InvalidOperationException("Input keying material must be set using WithInputKeyingMaterial()");
 
-        return service.DeriveHkdf(_ikm, _keyLength, _salt, _info, _hashAlgorithm);
+        var hashName = _hashAlgorithm.Name switch
+        {
+            "SHA256" => System.Security.Cryptography.HashAlgorithmName.SHA256,
+            "SHA384" => System.Security.Cryptography.HashAlgorithmName.SHA384,
+            "SHA512" => System.Security.Cryptography.HashAlgorithmName.SHA512,
+            _ => System.Security.Cryptography.HashAlgorithmName.SHA256
+        };
+
+#if NET6_0_OR_GREATER
+        return System.Security.Cryptography.HKDF.DeriveKey(hashName, _ikm, _keyLength, _salt, _info);
+#else
+        // Use HeroCrypt's HKDF implementation for .NET Standard 2.0
+        return Cryptography.Primitives.Kdf.HkdfCore.DeriveKey(_ikm, _salt ?? Array.Empty<byte>(), _info ?? Array.Empty<byte>(), _keyLength, hashName);
+#endif
     }
 
-    private byte[] DeriveScrypt(KeyManagement.KeyDerivationService service)
+    private byte[] DeriveScrypt()
     {
         if (_password == null)
             throw new InvalidOperationException("Password must be set using WithPassword()");
         if (_salt == null)
             throw new InvalidOperationException("Salt must be set using WithSalt()");
 
-        return service.DeriveScrypt(_password, _salt, _iterations, _blockSize, _parallelism, _keyLength);
+        // Use HeroCrypt's Scrypt implementation
+        return Cryptography.Primitives.Kdf.ScryptCore.DeriveKey(_password, _salt, _iterations, _blockSize, _parallelism, _keyLength);
     }
 
-    private byte[] DeriveArgon2(KeyManagement.KeyDerivationService service)
+    private byte[] DeriveArgon2()
     {
         if (_password == null)
             throw new InvalidOperationException("Password must be set using WithPassword()");
         if (_salt == null)
             throw new InvalidOperationException("Salt must be set using WithSalt()");
 
+        // Call Argon2 primitive directly
         return Cryptography.Primitives.Kdf.Argon2Core.Hash(
             _password,
             _salt,

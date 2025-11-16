@@ -1,8 +1,5 @@
 using HeroCrypt.Cryptography.Primitives.Signature.Ecc;
-using HeroCrypt.Cryptography.Primitives.Signature.Ecc;
-using HeroCrypt.Cryptography.Primitives.Signature.Ecc;
 using HeroCrypt.Security;
-using Microsoft.Extensions.Logging;
 
 namespace HeroCrypt.Signatures;
 
@@ -12,21 +9,16 @@ namespace HeroCrypt.Signatures;
 /// </summary>
 public class EllipticCurveService : IEllipticCurveService
 {
-    private readonly ILogger<EllipticCurveService>? _logger;
     /// <summary>
     /// Initializes a new instance of the EllipticCurveService
     /// </summary>
-    /// <param name="logger">Optional logger for operation tracking</param>
-    public EllipticCurveService(ILogger<EllipticCurveService>? logger = null)
+    public EllipticCurveService()
     {
-        _logger = logger;
     }
 
     /// <inheritdoc/>
     public Task<EccKeyPair> GenerateKeyPairAsync(EccCurve curve, CancellationToken cancellationToken = default)
     {
-        _logger?.LogDebug("Generating key pair for curve {Curve}", curve);
-
         cancellationToken.ThrowIfCancellationRequested();
 
         try
@@ -39,12 +31,10 @@ public class EllipticCurveService : IEllipticCurveService
                 _ => throw new NotSupportedException($"Curve {curve} is not yet implemented")
             };
 
-            _logger?.LogDebug("Successfully generated key pair for curve {Curve}", curve);
             return Task.FromResult(keyPair);
         }
-        catch (Exception ex)
+        catch
         {
-            _logger?.LogError(ex, "Failed to generate key pair for curve {Curve}", curve);
             throw;
         }
     }
@@ -60,9 +50,6 @@ public class EllipticCurveService : IEllipticCurveService
         InputValidator.ValidateByteArray(privateKey, nameof(privateKey));
         InputValidator.ValidateByteArray(publicKey, nameof(publicKey));
 
-        _logger?.LogDebug("Performing ECDH with {PrivateKeySize}-byte private key and {PublicKeySize}-byte public key",
-            privateKey.Length, publicKey.Length);
-
         cancellationToken.ThrowIfCancellationRequested();
 
         try
@@ -74,12 +61,10 @@ public class EllipticCurveService : IEllipticCurveService
                 _ => throw new ArgumentException("Unsupported key sizes for ECDH")
             };
 
-            _logger?.LogDebug("Successfully computed ECDH shared secret");
             return Task.FromResult(sharedSecret);
         }
-        catch (Exception ex)
+        catch
         {
-            _logger?.LogError(ex, "Failed to perform ECDH");
             throw;
         }
     }
@@ -95,8 +80,6 @@ public class EllipticCurveService : IEllipticCurveService
         InputValidator.ValidateByteArray(data, nameof(data), allowEmpty: true);
         InputValidator.ValidateByteArray(privateKey, nameof(privateKey));
 
-        _logger?.LogDebug("Signing {DataSize} bytes with curve {Curve}", data.Length, curve);
-
         cancellationToken.ThrowIfCancellationRequested();
 
         try
@@ -108,12 +91,10 @@ public class EllipticCurveService : IEllipticCurveService
                 _ => throw new NotSupportedException($"Signing with curve {curve} is not yet implemented")
             };
 
-            _logger?.LogDebug("Successfully signed data with curve {Curve}", curve);
             return Task.FromResult(signature);
         }
-        catch (Exception ex)
+        catch
         {
-            _logger?.LogError(ex, "Failed to sign data with curve {Curve}", curve);
             throw;
         }
     }
@@ -132,8 +113,6 @@ public class EllipticCurveService : IEllipticCurveService
         InputValidator.ValidateByteArray(signature, nameof(signature));
         InputValidator.ValidateByteArray(publicKey, nameof(publicKey));
 
-        _logger?.LogDebug("Verifying signature for {DataSize} bytes with curve {Curve}", data.Length, curve);
-
         cancellationToken.ThrowIfCancellationRequested();
 
         try
@@ -145,12 +124,10 @@ public class EllipticCurveService : IEllipticCurveService
                 _ => throw new NotSupportedException($"Verification with curve {curve} is not yet implemented")
             };
 
-            _logger?.LogDebug("Signature verification result: {IsValid} for curve {Curve}", isValid, curve);
             return Task.FromResult(isValid);
         }
-        catch (Exception ex)
+        catch
         {
-            _logger?.LogError(ex, "Failed to verify signature with curve {Curve}", curve);
             return Task.FromResult(false);
         }
     }
@@ -162,8 +139,6 @@ public class EllipticCurveService : IEllipticCurveService
             throw new ArgumentNullException(nameof(privateKey));
 
         InputValidator.ValidateByteArray(privateKey, nameof(privateKey));
-
-        _logger?.LogDebug("Deriving public key from private key for curve {Curve}", curve);
 
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -177,12 +152,10 @@ public class EllipticCurveService : IEllipticCurveService
                 _ => throw new NotSupportedException($"Public key derivation for curve {curve} is not yet implemented")
             };
 
-            _logger?.LogDebug("Successfully derived public key for curve {Curve}", curve);
             return Task.FromResult(publicKey);
         }
-        catch (Exception ex)
+        catch
         {
-            _logger?.LogError(ex, "Failed to derive public key for curve {Curve}", curve);
             throw;
         }
     }
@@ -205,9 +178,8 @@ public class EllipticCurveService : IEllipticCurveService
                 _ => throw new NotSupportedException($"Point validation for curve {curve} is not yet implemented")
             };
         }
-        catch (Exception ex)
+        catch
         {
-            _logger?.LogWarning(ex, "Point validation failed for curve {Curve}", curve);
             return false;
         }
     }

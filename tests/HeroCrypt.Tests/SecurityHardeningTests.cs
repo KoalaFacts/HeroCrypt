@@ -520,9 +520,7 @@ public class SecurityHardeningTests
     public void RsaDigitalSignatureService_WithInputValidation_RejectsInvalidInput()
     {
         // Arrange
-        using var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
-        var logger = loggerFactory.CreateLogger<RsaDigitalSignatureService>();
-        var service = new RsaDigitalSignatureService(2048, logger);
+        var service = new RsaDigitalSignatureService(2048);
 
         // Act & Assert - Invalid key size in constructor is already tested in constructor
 
@@ -539,9 +537,7 @@ public class SecurityHardeningTests
     public async Task CryptographicKeyGenerationService_WithInputValidation_RejectsInvalidInput()
     {
         // Arrange
-        using var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
-        var logger = loggerFactory.CreateLogger<CryptographicKeyGenerator>();
-        var service = new CryptographicKeyGenerator(logger);
+        var service = new CryptographicKeyGenerator();
 
         // Act & Assert
         Assert.Throws<ArgumentException>(() => service.GenerateRandomBytes(-1));

@@ -1,6 +1,5 @@
 using HeroCrypt.Cryptography.Primitives.Cipher.Aead;
 using HeroCrypt.Security;
-using Microsoft.Extensions.Logging;
 using System.Diagnostics;
 using System.Security.Cryptography;
 
@@ -12,16 +11,13 @@ namespace HeroCrypt.Encryption;
 /// </summary>
 public class AeadService : IAeadService
 {
-    private readonly ILogger<AeadService>? _logger;
     private readonly RandomNumberGenerator _rng;
 
     /// <summary>
     /// Initializes a new instance of the AeadService
     /// </summary>
-    /// <param name="logger">Optional logger for operation tracking</param>
-    public AeadService(ILogger<AeadService>? logger = null)
+    public AeadService()
     {
-        _logger = logger;
         _rng = RandomNumberGenerator.Create();
     }
 
@@ -50,9 +46,6 @@ public class AeadService : IAeadService
 
         ValidateKeyAndNonceSize(key, nonce, algorithm);
 
-        _logger?.LogDebug("Encrypting {PlaintextSize} bytes using {Algorithm}",
-            plaintext.Length, algorithm);
-
         var stopwatch = Stopwatch.StartNew();
 
         try
@@ -74,14 +67,10 @@ public class AeadService : IAeadService
 
             stopwatch.Stop();
 
-            _logger?.LogDebug("Successfully encrypted {PlaintextSize} bytes to {CiphertextSize} bytes using {Algorithm} in {Duration}ms",
-                plaintext.Length, result.Length, algorithm, stopwatch.Elapsed.TotalMilliseconds);
-
             return result;
         }
-        catch (Exception ex)
+        catch
         {
-            _logger?.LogError(ex, "Failed to encrypt using {Algorithm}", algorithm);
             throw;
         }
     }
@@ -114,9 +103,6 @@ public class AeadService : IAeadService
         if (ciphertext.Length < GetTagSize(algorithm))
             throw new ArgumentException("Ciphertext too short", nameof(ciphertext));
 
-        _logger?.LogDebug("Decrypting {CiphertextSize} bytes using {Algorithm}",
-            ciphertext.Length, algorithm);
-
         var stopwatch = Stopwatch.StartNew();
 
         try
@@ -145,14 +131,10 @@ public class AeadService : IAeadService
 
             stopwatch.Stop();
 
-            _logger?.LogDebug("Successfully decrypted {CiphertextSize} bytes to {PlaintextSize} bytes using {Algorithm} in {Duration}ms",
-                ciphertext.Length, result.Length, algorithm, stopwatch.Elapsed.TotalMilliseconds);
-
             return result;
         }
-        catch (Exception ex)
+        catch
         {
-            _logger?.LogError(ex, "Failed to decrypt using {Algorithm}", algorithm);
             throw;
         }
     }
@@ -181,9 +163,6 @@ public class AeadService : IAeadService
 
         if (chunkSize <= 0)
             throw new ArgumentOutOfRangeException(nameof(chunkSize), "Chunk size must be positive");
-
-        _logger?.LogDebug("Starting stream encryption using {Algorithm} with {ChunkSize} byte chunks",
-            algorithm, chunkSize);
 
         var stopwatch = Stopwatch.StartNew();
         var totalBytesProcessed = 0L;
@@ -225,13 +204,9 @@ public class AeadService : IAeadService
             }
 
             stopwatch.Stop();
-
-            _logger?.LogDebug("Successfully encrypted {TotalBytes} bytes in {ChunkCount} chunks using {Algorithm} in {Duration}ms",
-                totalBytesProcessed, chunkCounter, algorithm, stopwatch.Elapsed.TotalMilliseconds);
         }
-        catch (Exception ex)
+        catch
         {
-            _logger?.LogError(ex, "Failed to encrypt stream using {Algorithm}", algorithm);
             throw;
         }
     }
@@ -260,9 +235,6 @@ public class AeadService : IAeadService
 
         if (chunkSize <= 0)
             throw new ArgumentOutOfRangeException(nameof(chunkSize), "Chunk size must be positive");
-
-        _logger?.LogDebug("Starting stream decryption using {Algorithm} with {ChunkSize} byte chunks",
-            algorithm, chunkSize);
 
         var stopwatch = Stopwatch.StartNew();
         var totalBytesProcessed = 0L;
@@ -320,13 +292,9 @@ public class AeadService : IAeadService
             }
 
             stopwatch.Stop();
-
-            _logger?.LogDebug("Successfully decrypted {TotalBytes} bytes in {ChunkCount} chunks using {Algorithm} in {Duration}ms",
-                totalBytesProcessed, chunkCounter, algorithm, stopwatch.Elapsed.TotalMilliseconds);
         }
-        catch (Exception ex)
+        catch
         {
-            _logger?.LogError(ex, "Failed to decrypt stream using {Algorithm}", algorithm);
             throw;
         }
     }
@@ -338,8 +306,6 @@ public class AeadService : IAeadService
         var key = new byte[keySize];
         _rng.GetBytes(key);
 
-        _logger?.LogDebug("Generated {KeySize}-byte key for {Algorithm}", keySize, algorithm);
-
         return key;
     }
 
@@ -349,8 +315,6 @@ public class AeadService : IAeadService
         var nonceSize = GetNonceSize(algorithm);
         var nonce = new byte[nonceSize];
         _rng.GetBytes(nonce);
-
-        _logger?.LogDebug("Generated {NonceSize}-byte nonce for {Algorithm}", nonceSize, algorithm);
 
         return nonce;
     }

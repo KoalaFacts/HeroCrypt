@@ -1,4 +1,3 @@
-using Microsoft.Extensions.Logging;
 using System.Security.Cryptography;
 
 namespace HeroCrypt.Security;
@@ -8,7 +7,6 @@ namespace HeroCrypt.Security;
 /// </summary>
 public sealed class SecureRandomNumberGenerator : IDisposable
 {
-    private readonly ILogger<SecureRandomNumberGenerator>? _logger;
     private readonly RandomNumberGenerator _primaryRng;
     private readonly RandomNumberGenerator _secondaryRng;
     private readonly Timer _healthCheckTimer;
@@ -25,10 +23,8 @@ public sealed class SecureRandomNumberGenerator : IDisposable
     /// <summary>
     /// Initializes a new instance of the secure random number generator
     /// </summary>
-    /// <param name="logger">Optional logger instance</param>
-    public SecureRandomNumberGenerator(ILogger<SecureRandomNumberGenerator>? logger = null)
+    public SecureRandomNumberGenerator()
     {
-        _logger = logger;
         _primaryRng = RandomNumberGenerator.Create();
         _secondaryRng = RandomNumberGenerator.Create();
 
@@ -37,8 +33,6 @@ public sealed class SecureRandomNumberGenerator : IDisposable
 
         // Set up health check timer (every 5 minutes)
         _healthCheckTimer = new Timer(PerformHealthCheck, null, TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(5));
-
-        _logger?.LogDebug("Secure random number generator initialized with health monitoring");
     }
 
     /// <summary>
@@ -64,7 +58,6 @@ public sealed class SecureRandomNumberGenerator : IDisposable
 
         if (!_healthCheckPassed)
         {
-            _logger?.LogWarning("Random number generator health check failed, performing immediate re-check");
             PerformImmediateHealthCheck();
 
             if (!_healthCheckPassed)
@@ -81,12 +74,9 @@ public sealed class SecureRandomNumberGenerator : IDisposable
 
             // Update statistics
             Interlocked.Add(ref _bytesGenerated, buffer.Length);
-
-            _logger?.LogDebug("Generated {ByteCount} random bytes", buffer.Length);
         }
-        catch (Exception ex)
+        catch
         {
-            _logger?.LogError(ex, "Failed to generate random bytes");
             throw;
         }
     }
@@ -103,7 +93,7 @@ public sealed class SecureRandomNumberGenerator : IDisposable
 
         if (!_healthCheckPassed)
         {
-            _logger?.LogWarning("Random number generator health check failed, performing immediate re-check");
+
             PerformImmediateHealthCheck();
 
             if (!_healthCheckPassed)
@@ -128,11 +118,11 @@ public sealed class SecureRandomNumberGenerator : IDisposable
             // Update statistics
             Interlocked.Add(ref _bytesGenerated, span.Length);
 
-            _logger?.LogDebug("Generated {ByteCount} random bytes", span.Length);
+
         }
         catch (Exception ex)
         {
-            _logger?.LogError(ex, "Failed to generate random bytes");
+
             throw;
         }
     }
@@ -206,7 +196,7 @@ public sealed class SecureRandomNumberGenerator : IDisposable
             }
         }
 
-        _logger?.LogDebug("Added {EntropyBytes} bytes of entropy to pool", entropy.Length);
+
     }
 
     /// <summary>
@@ -260,7 +250,7 @@ public sealed class SecureRandomNumberGenerator : IDisposable
             _entropyPool[i % _entropyPool.Length] ^= additionalEntropy[i];
         }
 
-        _logger?.LogDebug("Entropy pool initialized with {PoolSize} bytes", _entropyPool.Length);
+
     }
 
     private void XorWithEntropyPool(Span<byte> buffer)
@@ -281,7 +271,7 @@ public sealed class SecureRandomNumberGenerator : IDisposable
 
         try
         {
-            _logger?.LogDebug("Performing random number generator health check");
+
 
             // Generate test data
             var testData1 = new byte[1024];
@@ -296,21 +286,21 @@ public sealed class SecureRandomNumberGenerator : IDisposable
             // Check for all-zero output (catastrophic failure)
             if (IsAllSame(testData1, 0) || IsAllSame(testData2, 0))
             {
-                _logger?.LogError("Health check failed: RNG producing all-zero output");
+
                 passed = false;
             }
 
             // Check for all-same output
             if (IsAllSame(testData1, testData1[0]) || IsAllSame(testData2, testData2[0]))
             {
-                _logger?.LogError("Health check failed: RNG producing identical bytes");
+
                 passed = false;
             }
 
             // Check for identical outputs between generators
             if (SecureMemoryOperations.ConstantTimeEquals(testData1, testData2))
             {
-                _logger?.LogError("Health check failed: Primary and secondary RNGs producing identical output");
+
                 passed = false;
             }
 
@@ -320,8 +310,7 @@ public sealed class SecureRandomNumberGenerator : IDisposable
 
             if (uniqueBytes1 < 128 || uniqueBytes2 < 128) // Expect at least 50% unique bytes
             {
-                _logger?.LogWarning("Health check warning: Low entropy detected (unique bytes: {Unique1}, {Unique2})",
-                    uniqueBytes1, uniqueBytes2);
+                // Low entropy detected
             }
 
             _healthCheckPassed = passed;
@@ -329,11 +318,11 @@ public sealed class SecureRandomNumberGenerator : IDisposable
 
             if (passed)
             {
-                _logger?.LogDebug("Random number generator health check passed");
+
             }
             else
             {
-                _logger?.LogError("Random number generator health check failed");
+
             }
 
             // Clear test data
@@ -342,7 +331,7 @@ public sealed class SecureRandomNumberGenerator : IDisposable
         }
         catch (Exception ex)
         {
-            _logger?.LogError(ex, "Error during random number generator health check");
+
             _healthCheckPassed = false;
         }
     }
@@ -398,7 +387,7 @@ public sealed class SecureRandomNumberGenerator : IDisposable
                 SecureMemoryOperations.SecureClear(_entropyPool);
             }
 
-            _logger?.LogDebug("Secure random number generator disposed");
+
         }
     }
 }

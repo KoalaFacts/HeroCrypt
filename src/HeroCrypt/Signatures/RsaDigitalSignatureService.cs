@@ -1,6 +1,5 @@
 using HeroCrypt.Cryptography.Primitives.Signature.Rsa;
 using HeroCrypt.Security;
-using Microsoft.Extensions.Logging;
 using BigInteger = HeroCrypt.Cryptography.Primitives.Signature.Rsa.BigInteger;
 
 namespace HeroCrypt.Signatures;
@@ -10,24 +9,18 @@ namespace HeroCrypt.Signatures;
 /// </summary>
 public sealed class RsaDigitalSignatureService : IDigitalSignatureService
 {
-    private readonly ILogger<RsaDigitalSignatureService>? _logger;
     private readonly int _keySize;
 
     /// <summary>
     /// Initializes a new instance of the RSA digital signature service
     /// </summary>
     /// <param name="keySize">RSA key size in bits (default: 2048)</param>
-    /// <param name="logger">Optional logger instance</param>
     public RsaDigitalSignatureService(
-        int keySize = 2048,
-        ILogger<RsaDigitalSignatureService>? logger = null)
+        int keySize = 2048)
     {
         InputValidator.ValidateRsaKeySize(keySize, nameof(keySize));
 
         _keySize = keySize;
-        _logger = logger;
-
-        _logger?.LogDebug("RSA Digital Signature Service initialized with {KeySize}-bit keys", keySize);
     }
 
     /// <inheritdoc />
@@ -42,8 +35,6 @@ public sealed class RsaDigitalSignatureService : IDigitalSignatureService
     /// <inheritdoc />
     public (byte[] privateKey, byte[] publicKey) GenerateKeyPair()
     {
-        _logger?.LogDebug("Generating RSA key pair with {KeySize}-bit keys", _keySize);
-
         try
         {
             var keyPair = RsaCore.GenerateKeyPair(_keySize);
@@ -52,13 +43,10 @@ public sealed class RsaDigitalSignatureService : IDigitalSignatureService
             var privateKey = SerializePrivateKey(keyPair.PrivateKey);
             var publicKey = SerializePublicKey(keyPair.PublicKey);
 
-            _logger?.LogInformation("Successfully generated RSA key pair with {KeySize}-bit keys", _keySize);
-
             return (privateKey, publicKey);
         }
-        catch (Exception ex)
+        catch
         {
-            _logger?.LogError(ex, "Failed to generate RSA key pair");
             throw;
         }
     }
@@ -74,8 +62,6 @@ public sealed class RsaDigitalSignatureService : IDigitalSignatureService
 
         InputValidator.ValidateByteArray(privateKey, nameof(privateKey));
 
-        _logger?.LogDebug("Deriving public key from private key");
-
         try
         {
             var rsaPrivateKey = DeserializePrivateKey(privateKey);
@@ -83,13 +69,10 @@ public sealed class RsaDigitalSignatureService : IDigitalSignatureService
 
             var publicKey = SerializePublicKey(rsaPublicKey);
 
-            _logger?.LogDebug("Successfully derived public key from private key");
-
             return publicKey;
         }
-        catch (Exception ex)
+        catch
         {
-            _logger?.LogError(ex, "Failed to derive public key from private key");
             throw;
         }
     }
@@ -108,20 +91,15 @@ public sealed class RsaDigitalSignatureService : IDigitalSignatureService
         InputValidator.ValidateByteArray(data, nameof(data), allowEmpty: true);
         InputValidator.ValidateByteArray(privateKey, nameof(privateKey));
 
-        _logger?.LogDebug("Signing data with RSA private key (data size: {DataSize} bytes)", data.Length);
-
         try
         {
             var rsaPrivateKey = DeserializePrivateKey(privateKey);
             var signature = RsaCore.Sign(data, rsaPrivateKey);
 
-            _logger?.LogInformation("Successfully signed data (signature size: {SignatureSize} bytes)", signature.Length);
-
             return signature;
         }
-        catch (Exception ex)
+        catch
         {
-            _logger?.LogError(ex, "Failed to sign data with RSA private key");
             throw;
         }
     }
@@ -150,21 +128,15 @@ public sealed class RsaDigitalSignatureService : IDigitalSignatureService
         InputValidator.ValidateByteArray(data, nameof(data), allowEmpty: true);
         InputValidator.ValidateByteArray(publicKey, nameof(publicKey));
 
-        _logger?.LogDebug("Verifying RSA signature (data size: {DataSize} bytes, signature size: {SignatureSize} bytes)",
-            data.Length, signature.Length);
-
         try
         {
             var rsaPublicKey = DeserializePublicKey(publicKey);
             var isValid = RsaCore.Verify(data, signature, rsaPublicKey);
 
-            _logger?.LogInformation("RSA signature verification result: {IsValid}", isValid);
-
             return isValid;
         }
-        catch (Exception ex)
+        catch
         {
-            _logger?.LogError(ex, "Failed to verify RSA signature");
             return false; // Return false instead of throwing for verification failures
         }
     }

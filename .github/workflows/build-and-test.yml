@@ -41,6 +41,7 @@ jobs:
             dotnet-version: 8.0.x
             run-tests: true
           - framework: netstandard2.0
+            dotnet-version: 8.0.x # Use .NET 8 SDK for building/testing netstandard2.0
             run-tests: false
 
     steps:
@@ -51,7 +52,6 @@ jobs:
 
     - name: Setup .NET SDKs
       uses: actions/setup-dotnet@v5
-      if: matrix.dotnet-version != null
       with:
         dotnet-version: ${{ matrix.dotnet-version }}
 

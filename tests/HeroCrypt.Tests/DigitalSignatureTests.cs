@@ -1,4 +1,5 @@
-using HeroCrypt.Cryptography.DigitalSignatures;
+using HeroCrypt.Signatures;
+using HeroCrypt.Cryptography.Primitives.Signature.Ecc;
 using System.Security.Cryptography;
 using System.Text;
 using Xunit;
@@ -179,7 +180,7 @@ public class DigitalSignatureTests
     public void Ed25519_Sign_And_Verify_Success()
     {
         // Arrange - Using HeroCrypt's custom Ed25519Core implementation
-        var (privateKey, publicKey) = HeroCrypt.Cryptography.ECC.Ed25519.Ed25519Core.GenerateKeyPair();
+        var (privateKey, publicKey) = Ed25519Core.GenerateKeyPair();
 
         // Act
         var signature = DigitalSignature.Sign(_testData, privateKey, SignatureAlgorithm.Ed25519);
@@ -195,8 +196,8 @@ public class DigitalSignatureTests
     public void Ed25519_Verify_With_Wrong_PublicKey_Returns_False()
     {
         // Arrange - Using HeroCrypt's custom Ed25519Core implementation
-        var (privateKey1, _) = HeroCrypt.Cryptography.ECC.Ed25519.Ed25519Core.GenerateKeyPair();
-        var (_, publicKey2) = HeroCrypt.Cryptography.ECC.Ed25519.Ed25519Core.GenerateKeyPair();
+        var (privateKey1, _) = Ed25519Core.GenerateKeyPair();
+        var (_, publicKey2) = Ed25519Core.GenerateKeyPair();
 
         // Act
         var signature = DigitalSignature.Sign(_testData, privateKey1, SignatureAlgorithm.Ed25519);

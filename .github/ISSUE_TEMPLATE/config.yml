@@ -4,8 +4,8 @@ contact_links:
     url: mailto:security@herocrypt.dev
     about: Please report security vulnerabilities via email, not as public issues
   - name: GitHub Discussions
-    url: https://github.com/YourOrg/HeroCrypt/discussions
+    url: https://github.com/KoalaFacts/HeroCrypt/discussions
     about: Ask questions and discuss ideas with the community
   - name: Documentation
-    url: https://github.com/YourOrg/HeroCrypt/tree/main/docs
+    url: https://github.com/KoalaFacts/HeroCrypt/tree/main/docs
     about: Browse our documentation and guides

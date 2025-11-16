@@ -37,7 +37,7 @@ This project adheres to a Code of Conduct that all contributors are expected to 
 
 ### Prerequisites
 
-- **.NET SDK**: Version 6.0 or later
+- **.NET SDK**: Version 8.0 or later
 - **Git**: For version control
 - **IDE**: Visual Studio 2022, VS Code, or JetBrains Rider
 - **Understanding of C#**: Intermediate to advanced level
@@ -98,7 +98,7 @@ If this is your first time contributing:
 ### Clone the Repository
 
 ```bash
-git clone https://github.com/YourOrg/HeroCrypt.git
+git clone https://github.com/KoalaFacts/HeroCrypt.git
 cd HeroCrypt
 ```
 

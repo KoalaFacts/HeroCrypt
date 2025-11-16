@@ -4,7 +4,7 @@
 [![Build Status](https://github.com/KoalaFacts/HeroCrypt/workflows/Build%20Pipeline/badge.svg)](https://github.com/KoalaFacts/HeroCrypt/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![.NET](https://img.shields.io/badge/.NET%20Standard-2.0-blue)](https://dotnet.microsoft.com/download)
-[![.NET](https://img.shields.io/badge/.NET-6.0%20|%207.0%20|%208.0%20|%209.0%20|%2010.0-blue)](https://dotnet.microsoft.com/download)
+[![.NET](https://img.shields.io/badge/.NET-8.0%20|%209.0%20|%2010.0-blue)](https://dotnet.microsoft.com/download)
 
 A fully RFC-compliant cryptographic library for .NET featuring high-performance, secure implementations of modern cryptographic algorithms with multi-framework support.
 
@@ -41,7 +41,7 @@ A fully RFC-compliant cryptographic library for .NET featuring high-performance,
 - **🌊 Stream Ciphers**
   - ChaCha8/ChaCha12/ChaCha20 variants
   - XSalsa20
-  - Rabbit cipher (RFC 4503)
+  - Rabbit cipher (RFC 4503) - Fully RFC-compliant with correct endianness
   - HC-128 and HC-256 (eSTREAM portfolio)
   - RC4 (legacy compatibility with security warnings)
 
@@ -56,7 +56,7 @@ A fully RFC-compliant cryptographic library for .NET featuring high-performance,
   - HKDF (RFC 5869)
   - Scrypt (memory-hard KDF)
   - Balloon Hashing (cache-timing resistant)
-  - BIP32 Hierarchical Deterministic Wallets
+  - BIP32 Hierarchical Deterministic Wallets - Production-ready with secp256k1 support
   - BIP39 Mnemonic Codes (12/15/18/21/24 words)
   - Shamir's Secret Sharing (SSS)
   - Key rotation and hierarchical key management
@@ -123,8 +123,6 @@ HeroCrypt supports a wide range of .NET platforms for maximum compatibility:
 | Framework | Version | Status | Notes |
 |-----------|---------|--------|-------|
 | .NET Standard | 2.0 | ✅ Full Support | Compatible with .NET Framework 4.6.1+, Unity, Xamarin |
-| .NET | 6.0 | ✅ Full Support | Long-term support (LTS) |
-| .NET | 7.0 | ✅ Full Support | Standard term support |
 | .NET | 8.0 | ✅ Full Support | Long-term support (LTS) |
 | .NET | 9.0 | ✅ Full Support | Standard term support |
 | .NET | 10.0 | ✅ Full Support | Includes native post-quantum cryptography |
@@ -138,10 +136,11 @@ HeroCrypt supports a wide range of .NET platforms for maximum compatibility:
 - ✅ Stream ciphers (Rabbit, ChaCha, HC-128/256, etc.)
 - ✅ Hash functions (SHA-2, SHA-3, BLAKE2, etc.)
 
-#### .NET 6.0+ Only
-- ✅ AES-GCM (hardware-accelerated AEAD)
+#### .NET 8.0+ Enhanced Features
+- ✅ AES-GCM with custom tag sizes (hardware-accelerated AEAD)
 - ✅ AES-CCM (authenticated encryption)
 - ✅ Ed25519 (built-in BCL implementation)
+- 📝 Note: AES-GCM is available on all frameworks, but .NET 8+ adds support for custom tag sizes
 
 #### .NET 10.0+ Only
 - ✅ **ML-KEM (FIPS 203)** - Post-quantum key encapsulation
@@ -281,23 +280,30 @@ HeroCrypt is built with a modular architecture:
 | Argon2i   | RFC 9106 | ✅ Fully Compliant |
 | Argon2id  | RFC 9106 | ✅ Fully Compliant |
 | Blake2b   | RFC 7693 | ✅ Fully Compliant |
+| ChaCha20-Poly1305 | RFC 8439 | ✅ Fully Compliant |
+| Curve25519 (X25519) | RFC 7748 | ✅ Fully Compliant |
+| Rabbit Stream Cipher | RFC 4503 | ✅ Fully Compliant |
+| HKDF | RFC 5869 | ✅ Fully Compliant |
+| ML-KEM (FIPS 203) | FIPS 203 | ✅ Production-ready (.NET 10+) |
+| ML-DSA (FIPS 204) | FIPS 204 | ✅ Production-ready (.NET 10+) |
+| SLH-DSA (FIPS 205) | FIPS 205 | ✅ Production-ready (.NET 10+) |
 | RSA       | RFC 8017 | ✅ Basic Support |
 
 ## 🎯 Target Frameworks
 
 - .NET Standard 2.0
-- .NET 6.0
-- .NET 7.0
 - .NET 8.0
 - .NET 9.0
 - .NET 10.0 (with native Post-Quantum Cryptography support)
 
 ## 🔒 Security
 
-- Core algorithms (Argon2, Blake2b) implemented from scratch following RFC specifications
-- Leverages .NET's proven cryptographic primitives for AES, SHA-256, and secure random generation
+- Core algorithms (Argon2, Blake2b, ChaCha20, Rabbit) implemented from scratch following RFC specifications
+- Elliptic curve operations (secp256k1, Curve25519) leverage .NET's ECDsa and proven field arithmetic
+- Post-quantum cryptography uses .NET 10+ native BCL implementations (FIPS 203/204/205)
 - Constant-time comparisons for sensitive operations
-- Secure memory management
+- Secure memory management with automatic zeroing
+- Comprehensive test coverage with RFC test vectors and real-world scenarios
 
 ## 📖 Documentation
 

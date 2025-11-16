@@ -291,7 +291,7 @@ HeroCrypt complements .NET's built-in cryptography, not replaces it.
 
 - ✅ Argon2 password hashing (not in .NET)
 - ✅ Blake2b hashing (not in .NET)
-- ✅ ChaCha20-Poly1305 (not in .NET 6/7, available in .NET 8+)
+- ✅ ChaCha20-Poly1305 (available in .NET 8+)
 - ✅ PGP encryption (not in .NET)
 - ✅ Advanced key derivation (Scrypt, Balloon, HKDF)
 - ✅ High-level service APIs with DI

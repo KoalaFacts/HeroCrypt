@@ -47,9 +47,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - CodeQL security scanning workflow
 
 ### Changed
+- **BREAKING**: Dropped .NET 6.0 and .NET 7.0 support - Now requires .NET 8.0+ or .NET Standard 2.0
 - Updated DEVELOPMENT_ROADMAP.md marking Phases 3C, 3D, 3E, and 3F as completed
 - Enhanced README.md with all new cryptographic features
 - Improved documentation with production requirement warnings for reference implementations
+- Updated all documentation to reflect .NET 8.0/9.0/10.0 as supported modern frameworks
+- Updated GitHub workflows to build and test on .NET 8.0/9.0/10.0 only
+
+### Fixed
+- BIP32 Hierarchical Deterministic Wallets
+  - Fixed secp256k1 public key derivation using .NET's ECDsa implementation
+  - Corrected chain code generation for hardened and non-hardened child key derivation
+  - All 37 BIP32 test vectors now passing on all platforms
+- ML-KEM (Post-Quantum KEM) on .NET 10
+  - Fixed buffer size requirements - now uses exact ciphertext sizes per algorithm variant
+  - ML-KEM-512: 768 bytes, ML-KEM-768: 1088 bytes, ML-KEM-1024: 1568 bytes
+  - Resolved ArgumentException on .NET 10 native implementation
+- Rabbit Stream Cipher (RFC 4503)
+  - Fixed key and IV endianness to match RFC specification (little-endian)
+  - Corrected g-function implementation and block counter byte ordering
+  - Updated test vectors to match RFC 4503 reference implementation
+- Curve25519 (RFC 7748)
+  - Fixed iterated test implementation to correctly update u and k values
+  - Now correctly implements RFC 7748 Section 5.2 iteration algorithm
+- ChainOfTrust Post-Quantum test
+  - Fixed ML-DSA verification to include context parameter using fluent API
+- Build warnings
+  - Reduced build warnings from ~11,200 to ~2,242 (80% reduction)
+  - Fixed SYSLIB0053 obsolete API warnings with conditional compilation
+  - Updated Polyfill package to 9.0.3 for .NET Standard 2.0 compatibility
+  - Fixed CS0168 unused variable warnings across the codebase
 
 ### Security
 - Added comprehensive security policy and vulnerability reporting process
@@ -127,7 +154,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Hybrid encryption with AES session keys
     - RSA key pair support
     - Passphrase protection for private keys
-  - Multi-framework targeting (.NET Standard 2.0, .NET 6-9)
+  - Multi-framework targeting (.NET Standard 2.0, .NET 8-10)
   - Dependency injection support
 
 ### Changed
@@ -180,9 +207,9 @@ Security vulnerabilities will be addressed with highest priority:
 
 ## Links
 
-- [Homepage](https://github.com/YourOrg/HeroCrypt)
-- [Documentation](https://github.com/YourOrg/HeroCrypt/tree/main/docs)
-- [Issue Tracker](https://github.com/YourOrg/HeroCrypt/issues)
+- [Homepage](https://github.com/KoalaFacts/HeroCrypt)
+- [Documentation](https://github.com/KoalaFacts/HeroCrypt/tree/main/docs)
+- [Issue Tracker](https://github.com/KoalaFacts/HeroCrypt/issues)
 - [NuGet Package](https://www.nuget.org/packages/HeroCrypt)
 
 ---

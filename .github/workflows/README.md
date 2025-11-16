@@ -57,13 +57,12 @@ Examples:
 ### Build Matrix
 | Framework | Ubuntu | Windows | macOS | Tests |
 |-----------|--------|---------|-------|-------|
+| net10.0 | ✅ | ✅ | ✅ | Full |
 | net9.0 | ✅ | ✅ | ✅ | Full |
 | net8.0 | ✅ | ✅ | ✅ | Full |
-| net7.0 | ✅ | ✅ | ✅ | Compile only |
-| net6.0 | ✅ | ✅ | ✅ | Compile only |
 | netstandard2.0 | ✅ | ✅ | ✅ | Compile only |
 
-**Total:** 15 build configurations
+**Total:** 12 build configurations
 
 ### Artifacts Produced
 Each successful build creates an artifact package containing:

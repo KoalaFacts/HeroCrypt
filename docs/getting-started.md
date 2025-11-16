@@ -20,7 +20,7 @@ dotnet add package HeroCrypt
 
 ### Requirements
 
-- **.NET Standard 2.0+** or **.NET 6.0+**
+- **.NET Standard 2.0+** or **.NET 8.0+**
 - Supported platforms: Windows, Linux, macOS
 - Optional: Hardware acceleration (AVX2, AVX-512, NEON)
 

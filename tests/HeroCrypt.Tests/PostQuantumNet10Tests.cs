@@ -401,7 +401,7 @@ public class PostQuantumNet10Tests
             return;
 
         // Use unified builder
-        using var keyPair = HeroCryptBuilder.PostQuantum.MLKem.Create()
+        using var keyPair = MLKemBuilder.Create()
             .WithSecurityBits(192)
             .GenerateKeyPair();
 
@@ -409,7 +409,7 @@ public class PostQuantumNet10Tests
         Assert.Equal(MLKemWrapper.SecurityLevel.MLKem768, keyPair.Level);
 
         // Encapsulate
-        using var encResult = HeroCryptBuilder.PostQuantum.MLKem.Create()
+        using var encResult = MLKemBuilder.Create()
             .WithPublicKey(keyPair.PublicKeyPem)
             .Encapsulate();
 
@@ -417,7 +417,7 @@ public class PostQuantumNet10Tests
         Assert.NotNull(encResult.SharedSecret);
 
         // Decapsulate
-        var recovered = HeroCryptBuilder.PostQuantum.MLKem.Create()
+        var recovered = MLKemBuilder.Create()
             .WithKeyPair(keyPair)
             .Decapsulate(encResult.Ciphertext);
 
@@ -433,11 +433,11 @@ public class PostQuantumNet10Tests
         var message = "Test unified builder";
 
         // Generate and sign
-        using var keyPair = HeroCryptBuilder.PostQuantum.MLDsa.Create()
+        using var keyPair = MLDsaBuilder.Create()
             .WithSecurityLevel(MLDsaWrapper.SecurityLevel.MLDsa65)
             .GenerateKeyPair();
 
-        var signature = HeroCryptBuilder.PostQuantum.MLDsa.Create()
+        var signature = MLDsaBuilder.Create()
             .WithKeyPair(keyPair)
             .WithData(message)
             .WithContext("unified-test")
@@ -446,7 +446,7 @@ public class PostQuantumNet10Tests
         Assert.NotNull(signature);
 
         // Verify
-        var isValid = HeroCryptBuilder.PostQuantum.MLDsa.Create()
+        var isValid = MLDsaBuilder.Create()
             .WithPublicKey(keyPair.PublicKeyPem)
             .WithData(message)
             .WithContext("unified-test")
@@ -464,19 +464,19 @@ public class PostQuantumNet10Tests
         var message = Encoding.UTF8.GetBytes("Unified builder SLH-DSA test");
 
         // Generate with unified builder
-        using var keyPair = HeroCryptBuilder.PostQuantum.SlhDsa.Create()
+        using var keyPair = SlhDsaBuilder.Create()
             .WithSmallVariant(128)
             .GenerateKeyPair();
 
         Assert.NotNull(keyPair);
 
         // Sign and verify
-        var signature = HeroCryptBuilder.PostQuantum.SlhDsa.Create()
+        var signature = SlhDsaBuilder.Create()
             .WithKeyPair(keyPair)
             .WithData(message)
             .Sign();
 
-        var isValid = HeroCryptBuilder.PostQuantum.SlhDsa.Create()
+        var isValid = SlhDsaBuilder.Create()
             .WithPublicKey(keyPair.PublicKeyPem)
             .WithData(message)
             .Verify(signature);
@@ -491,10 +491,10 @@ public class PostQuantumNet10Tests
             return;
 
         // Use quick access methods
-        using var keyPair = HeroCryptBuilder.PostQuantum.MLKem.GenerateKeyPair();
+        using var keyPair = MLKem.GenerateKeyPair();
         Assert.NotNull(keyPair);
 
-        using var keyPair512 = HeroCryptBuilder.PostQuantum.MLKem.GenerateKeyPair(
+        using var keyPair512 = MLKem.GenerateKeyPair(
             MLKemWrapper.SecurityLevel.MLKem512);
         Assert.Equal(MLKemWrapper.SecurityLevel.MLKem512, keyPair512.Level);
     }
@@ -506,14 +506,14 @@ public class PostQuantumNet10Tests
             return;
 
         // Quick access generation
-        using var keyPair = HeroCryptBuilder.PostQuantum.MLDsa.GenerateKeyPair();
+        using var keyPair = MLDsa.GenerateKeyPair();
         Assert.NotNull(keyPair);
 
         var data = Encoding.UTF8.GetBytes("Quick access test");
         var signature = keyPair.Sign(data);
 
         // Quick access verify
-        var isValid = HeroCryptBuilder.PostQuantum.MLDsa.Verify(
+        var isValid = MLDsa.Verify(
             keyPair.PublicKeyPem, data, signature);
         Assert.True(isValid);
     }

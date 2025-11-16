@@ -45,7 +45,7 @@ public static class DigitalSignatureExample
 
         // Step 1: Generate signing key
         Console.WriteLine("1️⃣  Generating ML-DSA signing key...");
-        using var signingKey = HeroCryptBuilder.PostQuantum.MLDsa.Create()
+        using var signingKey = MLDsaBuilder.Create()
             .WithSecurityLevel(MLDsaWrapper.SecurityLevel.MLDsa87)  // Maximum security
             .GenerateKeyPair();
 
@@ -58,7 +58,7 @@ public static class DigitalSignatureExample
         Console.WriteLine("2️⃣  Signing document...");
         var documentBytes = Encoding.UTF8.GetBytes(documentJson);
 
-        var signature = HeroCryptBuilder.PostQuantum.MLDsa.Create()
+        var signature = MLDsaBuilder.Create()
             .WithKeyPair(signingKey)
             .WithData(documentBytes)
             .WithContext($"legal-contract:{document.DocumentId}")  // Domain separation
@@ -70,7 +70,7 @@ public static class DigitalSignatureExample
 
         // Step 3: Verify the signature
         Console.WriteLine("3️⃣  Verifying signature...");
-        var isValid = HeroCryptBuilder.PostQuantum.MLDsa.Create()
+        var isValid = MLDsaBuilder.Create()
             .WithPublicKey(signingKey.PublicKeyPem)
             .WithData(documentBytes)
             .WithContext($"legal-contract:{document.DocumentId}")
@@ -84,7 +84,7 @@ public static class DigitalSignatureExample
         var tamperedDoc = documentJson.Replace("Company A", "Company X");
         var tamperedBytes = Encoding.UTF8.GetBytes(tamperedDoc);
 
-        var isTamperedValid = HeroCryptBuilder.PostQuantum.MLDsa.Create()
+        var isTamperedValid = MLDsaBuilder.Create()
             .WithPublicKey(signingKey.PublicKeyPem)
             .WithData(tamperedBytes)
             .WithContext($"legal-contract:{document.DocumentId}")
@@ -127,7 +127,7 @@ public static class DigitalSignatureExample
 
         // Use hash-based signatures for conservative security
         Console.WriteLine("1️⃣  Generating SLH-DSA signing key (small variant)...");
-        using var signingKey = HeroCryptBuilder.PostQuantum.SlhDsa.Create()
+        using var signingKey = SlhDsaBuilder.Create()
             .WithSmallVariant(192)  // 192-bit security, smaller signatures
             .GenerateKeyPair();
 
@@ -140,7 +140,7 @@ public static class DigitalSignatureExample
         Console.WriteLine("2️⃣  Signing release...");
         var releaseData = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(release));
 
-        var signature = HeroCryptBuilder.PostQuantum.SlhDsa.Create()
+        var signature = SlhDsaBuilder.Create()
             .WithKeyPair(signingKey)
             .WithData(releaseData)
             .WithContext($"code-signing:{release.Version}")
@@ -151,7 +151,7 @@ public static class DigitalSignatureExample
 
         // Users verify the signature
         Console.WriteLine("3️⃣  End user verifying signature...");
-        var isAuthentic = HeroCryptBuilder.PostQuantum.SlhDsa.Create()
+        var isAuthentic = SlhDsaBuilder.Create()
             .WithPublicKey(signingKey.PublicKeyPem)
             .WithData(releaseData)
             .WithContext($"code-signing:{release.Version}")
@@ -198,7 +198,7 @@ public static class DigitalSignatureExample
 
         // Level 1: Manager approval
         Console.WriteLine("2️⃣  Manager signing...");
-        var managerSig = MLDsa.Create()
+        var managerSig = MLDsaBuilder.Create()
             .WithKeyPair(managerKey)
             .WithData(proposalBytes)
             .WithContext("approval:manager")
@@ -208,7 +208,7 @@ public static class DigitalSignatureExample
         // Level 2: Director approval (includes manager's signature)
         Console.WriteLine("3️⃣  Director signing...");
         var directorData = proposalBytes.Concat(managerSig).ToArray();
-        var directorSig = MLDsa.Create()
+        var directorSig = MLDsaBuilder.Create()
             .WithKeyPair(directorKey)
             .WithData(directorData)
             .WithContext("approval:director")
@@ -218,7 +218,7 @@ public static class DigitalSignatureExample
         // Level 3: CFO final approval
         Console.WriteLine("4️⃣  CFO signing (final approval)...");
         var cfoData = directorData.Concat(directorSig).ToArray();
-        var cfoSig = MLDsa.Create()
+        var cfoSig = MLDsaBuilder.Create()
             .WithKeyPair(cfoKey)
             .WithData(cfoData)
             .WithContext("approval:cfo")

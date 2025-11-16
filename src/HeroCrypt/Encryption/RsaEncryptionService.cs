@@ -89,10 +89,11 @@ public sealed class RsaEncryptionService
     /// <returns>Public key bytes</returns>
     public byte[] DerivePublicKey(byte[] privateKey)
     {
-#if NET6_0_OR_GREATER
+#if !NETSTANDARD2_0
         ArgumentNullException.ThrowIfNull(privateKey);
 #else
-        if (privateKey == null) throw new ArgumentNullException(nameof(privateKey));
+        if (privateKey == null)
+            throw new ArgumentNullException(nameof(privateKey));
 #endif
 
         InputValidator.ValidateByteArray(privateKey, nameof(privateKey));
@@ -122,12 +123,14 @@ public sealed class RsaEncryptionService
     /// <returns>Encrypted data</returns>
     public byte[] Encrypt(byte[] data, byte[] publicKey, RsaPaddingMode? padding = null, SystemHashAlgorithmName? hashAlgorithm = null)
     {
-#if NET6_0_OR_GREATER
+#if !NETSTANDARD2_0
         ArgumentNullException.ThrowIfNull(data);
         ArgumentNullException.ThrowIfNull(publicKey);
 #else
-        if (data == null) throw new ArgumentNullException(nameof(data));
-        if (publicKey == null) throw new ArgumentNullException(nameof(publicKey));
+        if (data == null)
+            throw new ArgumentNullException(nameof(data));
+        if (publicKey == null)
+            throw new ArgumentNullException(nameof(publicKey));
 #endif
 
         InputValidator.ValidateByteArray(data, nameof(data), allowEmpty: false);
@@ -182,12 +185,14 @@ public sealed class RsaEncryptionService
     /// <returns>Decrypted data</returns>
     public byte[] Decrypt(byte[] encryptedData, byte[] privateKey, RsaPaddingMode? padding = null, SystemHashAlgorithmName? hashAlgorithm = null)
     {
-#if NET6_0_OR_GREATER
+#if !NETSTANDARD2_0
         ArgumentNullException.ThrowIfNull(encryptedData);
         ArgumentNullException.ThrowIfNull(privateKey);
 #else
-        if (encryptedData == null) throw new ArgumentNullException(nameof(encryptedData));
-        if (privateKey == null) throw new ArgumentNullException(nameof(privateKey));
+        if (encryptedData == null)
+            throw new ArgumentNullException(nameof(encryptedData));
+        if (privateKey == null)
+            throw new ArgumentNullException(nameof(privateKey));
 #endif
 
         InputValidator.ValidateByteArray(encryptedData, nameof(encryptedData));
@@ -313,10 +318,11 @@ public sealed class RsaEncryptionService
     public byte[] ExportPkcs8PrivateKey(byte[] privateKey)
     {
 #if NET5_0_OR_GREATER
-#if NET6_0_OR_GREATER
+#if !NETSTANDARD2_0
         ArgumentNullException.ThrowIfNull(privateKey);
 #else
-        if (privateKey == null) throw new ArgumentNullException(nameof(privateKey));
+        if (privateKey == null)
+            throw new ArgumentNullException(nameof(privateKey));
 #endif
 
         InputValidator.ValidateByteArray(privateKey, nameof(privateKey));
@@ -356,10 +362,11 @@ public sealed class RsaEncryptionService
     public byte[] ImportPkcs8PrivateKey(byte[] pkcs8Data)
     {
 #if NET5_0_OR_GREATER
-#if NET6_0_OR_GREATER
+#if !NETSTANDARD2_0
         ArgumentNullException.ThrowIfNull(pkcs8Data);
 #else
-        if (pkcs8Data == null) throw new ArgumentNullException(nameof(pkcs8Data));
+        if (pkcs8Data == null)
+            throw new ArgumentNullException(nameof(pkcs8Data));
 #endif
 
         InputValidator.ValidateByteArray(pkcs8Data, nameof(pkcs8Data));
@@ -415,10 +422,11 @@ public sealed class RsaEncryptionService
     public byte[] ExportSubjectPublicKeyInfo(byte[] publicKey)
     {
 #if NET5_0_OR_GREATER
-#if NET6_0_OR_GREATER
+#if !NETSTANDARD2_0
         ArgumentNullException.ThrowIfNull(publicKey);
 #else
-        if (publicKey == null) throw new ArgumentNullException(nameof(publicKey));
+        if (publicKey == null)
+            throw new ArgumentNullException(nameof(publicKey));
 #endif
 
         InputValidator.ValidateByteArray(publicKey, nameof(publicKey));
@@ -458,10 +466,11 @@ public sealed class RsaEncryptionService
     public byte[] ImportSubjectPublicKeyInfo(byte[] subjectPublicKeyInfo)
     {
 #if NET5_0_OR_GREATER
-#if NET6_0_OR_GREATER
+#if !NETSTANDARD2_0
         ArgumentNullException.ThrowIfNull(subjectPublicKeyInfo);
 #else
-        if (subjectPublicKeyInfo == null) throw new ArgumentNullException(nameof(subjectPublicKeyInfo));
+        if (subjectPublicKeyInfo == null)
+            throw new ArgumentNullException(nameof(subjectPublicKeyInfo));
 #endif
 
         InputValidator.ValidateByteArray(subjectPublicKeyInfo, nameof(subjectPublicKeyInfo));

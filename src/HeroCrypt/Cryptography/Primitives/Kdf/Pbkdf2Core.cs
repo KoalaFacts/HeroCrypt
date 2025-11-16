@@ -44,15 +44,17 @@ internal static class Pbkdf2Core
     {
         ValidateParameters(password, salt, iterations, outputLength, hashAlgorithm, allowWeakParameters);
 
-#if NET6_0_OR_GREATER
-        // Use .NET 6+ optimized implementation
-#if NETSTANDARD2_0
-#pragma warning disable CA5379 // Rfc2898DeriveBytes constructor with HashAlgorithmName not available in .NET Standard 2.0
-#endif
+#if !NETSTANDARD2_0
+        // Use .NET 8+ optimized implementation
         return Rfc2898DeriveBytes.Pbkdf2(password, salt, iterations, hashAlgorithm, outputLength);
 #else
-        // Custom implementation for older frameworks
-        return DeriveKeyLegacy(password, salt, iterations, outputLength, hashAlgorithm);
+        // Use Rfc2898DeriveBytes for .NET Standard 2.0
+        // Note: netstandard2.0 constructor doesn't support HashAlgorithmName parameter,
+        // so we suppress the analyzer warning as we validate the hash algorithm separately
+#pragma warning disable CA5379 // Do not use weak key derivation function algorithm
+        using var pbkdf2 = new Rfc2898DeriveBytes(password.ToArray(), salt.ToArray(), iterations);
+#pragma warning restore CA5379
+        return pbkdf2.GetBytes(outputLength);
 #endif
     }
 
@@ -242,26 +244,6 @@ internal static class Pbkdf2Core
             _ => throw new ArgumentException($"Unsupported hash algorithm: {hashAlgorithm}", nameof(hashAlgorithm))
         };
     }
-
-#if !NET6_0_OR_GREATER
-    /// <summary>
-    /// Legacy PBKDF2 implementation for older .NET versions
-    /// </summary>
-    private static byte[] DeriveKeyLegacy(ReadOnlySpan<byte> password, ReadOnlySpan<byte> salt,
-        int iterations, int outputLength, HashAlgorithmName hashAlgorithm)
-    {
-#if NETSTANDARD2_0
-        // .NET Standard 2.0 doesn't support HashAlgorithmName parameter
-#pragma warning disable CA5379 // Rfc2898DeriveBytes with HashAlgorithmName not available in .NET Standard 2.0
-        using var deriveBytes = new Rfc2898DeriveBytes(password.ToArray(), salt.ToArray(), iterations);
-#pragma warning restore CA5379
-        return deriveBytes.GetBytes(outputLength);
-#else
-        using var deriveBytes = new Rfc2898DeriveBytes(password.ToArray(), salt.ToArray(), iterations, hashAlgorithm);
-        return deriveBytes.GetBytes(outputLength);
-#endif
-    }
-#endif
 }
 
 /// <summary>

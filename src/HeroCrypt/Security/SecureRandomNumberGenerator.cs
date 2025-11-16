@@ -102,22 +102,27 @@ public sealed class SecureRandomNumberGenerator : IDisposable
 
         try
         {
-#if NET6_0_OR_GREATER
+#if !NETSTANDARD2_0
             // Use primary RNG
             _primaryRng.GetBytes(span);
-#else
-            // For older frameworks, convert to array
-            var buffer = new byte[span.Length];
-            _primaryRng.GetBytes(buffer);
-            buffer.CopyTo(span);
-#endif
 
             // XOR with entropy pool for additional security
             XorWithEntropyPool(span);
 
             // Update statistics
             Interlocked.Add(ref _bytesGenerated, span.Length);
+#else
+            // .NET Standard 2.0: Convert span to array
+            var buffer = span.ToArray();
+            _primaryRng.GetBytes(buffer);
 
+            // XOR with entropy pool for additional security
+            XorWithEntropyPool(buffer);
+            buffer.CopyTo(span);
+
+            // Update statistics
+            Interlocked.Add(ref _bytesGenerated, span.Length);
+#endif
 
         }
         catch
@@ -133,14 +138,13 @@ public sealed class SecureRandomNumberGenerator : IDisposable
     /// <returns>Random integer</returns>
     public int GetInt32()
     {
-#if NET6_0_OR_GREATER
         Span<byte> buffer = stackalloc byte[4];
         GetBytes(buffer);
+#if !NETSTANDARD2_0
         return BitConverter.ToInt32(buffer);
 #else
-        var buffer = new byte[4];
-        GetBytes(buffer);
-        return BitConverter.ToInt32(buffer, 0);
+        var array = buffer.ToArray();
+        return BitConverter.ToInt32(array, 0);
 #endif
     }
 
@@ -164,14 +168,13 @@ public sealed class SecureRandomNumberGenerator : IDisposable
 
         do
         {
-#if NET6_0_OR_GREATER
             Span<byte> buffer = stackalloc byte[4];
             GetBytes(buffer);
+#if !NETSTANDARD2_0
             randomValue = BitConverter.ToUInt32(buffer);
 #else
-            var buffer = new byte[4];
-            GetBytes(buffer);
-            randomValue = BitConverter.ToUInt32(buffer, 0);
+            var array = buffer.ToArray();
+            randomValue = BitConverter.ToUInt32(array, 0);
 #endif
         } while (randomValue >= mask);
 
@@ -264,6 +267,20 @@ public sealed class SecureRandomNumberGenerator : IDisposable
             }
         }
     }
+
+#if NETSTANDARD2_0
+    private void XorWithEntropyPool(byte[] buffer)
+    {
+        lock (_entropyLock)
+        {
+            for (var i = 0; i < buffer.Length; i++)
+            {
+                buffer[i] ^= _entropyPool[_entropyIndex];
+                _entropyIndex = (_entropyIndex + 1) % _entropyPool.Length;
+            }
+        }
+    }
+#endif
 
     private void PerformHealthCheck(object? state)
     {

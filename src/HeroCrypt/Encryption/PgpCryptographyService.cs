@@ -4,9 +4,6 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using BigInteger = HeroCrypt.Cryptography.Primitives.Signature.Rsa.BigInteger;
-#if !NET8_0_OR_GREATER
-using System;
-#endif
 
 namespace HeroCrypt.Encryption;
 
@@ -56,15 +53,14 @@ public sealed class PgpCryptographyService : ICryptographyService, IPgpKeyGenera
     /// <exception cref="ArgumentException">Thrown when publicKey is null or whitespace.</exception>
     public async Task<byte[]> EncryptAsync(byte[] data, string publicKey, CancellationToken cancellationToken = default)
     {
-#if NET6_0_OR_GREATER
+#if !NETSTANDARD2_0
         ArgumentNullException.ThrowIfNull(data);
-#else
-        if (data == null) throw new ArgumentNullException(nameof(data));
-#endif
-#if NET8_0_OR_GREATER
         ArgumentException.ThrowIfNullOrWhiteSpace(publicKey);
 #else
-        if (string.IsNullOrWhiteSpace(publicKey)) throw new ArgumentException("Value cannot be null or whitespace.", nameof(publicKey));
+        if (data == null)
+            throw new ArgumentNullException(nameof(data));
+        if (string.IsNullOrWhiteSpace(publicKey))
+            throw new ArgumentException("Value cannot be null or whitespace.", nameof(publicKey));
 #endif
 
         return await Task.Run(() =>
@@ -148,15 +144,14 @@ public sealed class PgpCryptographyService : ICryptographyService, IPgpKeyGenera
     /// <exception cref="ArgumentException">Thrown when privateKey is null or whitespace.</exception>
     public async Task<byte[]> DecryptAsync(byte[] encryptedData, string privateKey, string? passphrase, CancellationToken cancellationToken = default)
     {
-#if NET6_0_OR_GREATER
+#if !NETSTANDARD2_0
         ArgumentNullException.ThrowIfNull(encryptedData);
-#else
-        if (encryptedData == null) throw new ArgumentNullException(nameof(encryptedData));
-#endif
-#if NET8_0_OR_GREATER
         ArgumentException.ThrowIfNullOrWhiteSpace(privateKey);
 #else
-        if (string.IsNullOrWhiteSpace(privateKey)) throw new ArgumentException("Value cannot be null or whitespace.", nameof(privateKey));
+        if (encryptedData == null)
+            throw new ArgumentNullException(nameof(encryptedData));
+        if (string.IsNullOrWhiteSpace(privateKey))
+            throw new ArgumentException("Value cannot be null or whitespace.", nameof(privateKey));
 #endif
 
         return await Task.Run(() =>
@@ -207,10 +202,11 @@ public sealed class PgpCryptographyService : ICryptographyService, IPgpKeyGenera
     /// <returns>The encrypted text in ASCII-armored PGP message format.</returns>
     public async Task<string> EncryptTextAsync(string plainText, string publicKey, CancellationToken cancellationToken = default)
     {
-#if NET8_0_OR_GREATER
+#if !NETSTANDARD2_0
         ArgumentException.ThrowIfNullOrWhiteSpace(plainText);
 #else
-        if (string.IsNullOrWhiteSpace(plainText)) throw new ArgumentException("Value cannot be null or whitespace.", nameof(plainText));
+        if (string.IsNullOrWhiteSpace(plainText))
+            throw new ArgumentException("Value cannot be null or whitespace.", nameof(plainText));
 #endif
         var encryptedBytes = await EncryptAsync(Encoding.UTF8.GetBytes(plainText), publicKey, cancellationToken);
         return Encoding.UTF8.GetString(encryptedBytes);
@@ -238,10 +234,11 @@ public sealed class PgpCryptographyService : ICryptographyService, IPgpKeyGenera
     /// <returns>The decrypted plaintext.</returns>
     public async Task<string> DecryptTextAsync(string encryptedText, string privateKey, string? passphrase, CancellationToken cancellationToken = default)
     {
-#if NET8_0_OR_GREATER
+#if !NETSTANDARD2_0
         ArgumentException.ThrowIfNullOrWhiteSpace(encryptedText);
 #else
-        if (string.IsNullOrWhiteSpace(encryptedText)) throw new ArgumentException("Value cannot be null or whitespace.", nameof(encryptedText));
+        if (string.IsNullOrWhiteSpace(encryptedText))
+            throw new ArgumentException("Value cannot be null or whitespace.", nameof(encryptedText));
 #endif
         var decryptedBytes = await DecryptAsync(Encoding.UTF8.GetBytes(encryptedText), privateKey, passphrase, cancellationToken);
         return Encoding.UTF8.GetString(decryptedBytes);
@@ -269,10 +266,11 @@ public sealed class PgpCryptographyService : ICryptographyService, IPgpKeyGenera
     /// <exception cref="ArgumentException">Thrown when identity is null or whitespace.</exception>
     public async Task<KeyPair> GenerateKeyPairAsync(string identity, string passphrase, int keySize = 2048, CancellationToken cancellationToken = default)
     {
-#if NET8_0_OR_GREATER
+#if !NETSTANDARD2_0
         ArgumentException.ThrowIfNullOrWhiteSpace(identity);
 #else
-        if (string.IsNullOrWhiteSpace(identity)) throw new ArgumentException("Value cannot be null or whitespace.", nameof(identity));
+        if (string.IsNullOrWhiteSpace(identity))
+            throw new ArgumentException("Value cannot be null or whitespace.", nameof(identity));
 #endif
 
         return await Task.Run(() =>

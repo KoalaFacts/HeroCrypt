@@ -530,12 +530,16 @@ public class KeyDerivationBuilder
             _ => System.Security.Cryptography.HashAlgorithmName.SHA256
         };
 
-#if NETSTANDARD2_0
-        // .NET Standard 2.0 doesn't support HashAlgorithmName parameter, defaults to SHA-1
-        // Use HeroCrypt's PBKDF2 implementation for proper hash algorithm support
-        return Cryptography.Primitives.Kdf.Pbkdf2Core.DeriveKey(_password, _salt, _iterations, _keyLength, hashName);
-#else
+#if !NETSTANDARD2_0
         return System.Security.Cryptography.Rfc2898DeriveBytes.Pbkdf2(_password, _salt, _iterations, hashName, _keyLength);
+#else
+        // Use Rfc2898DeriveBytes for .NET Standard 2.0
+        // Note: netstandard2.0 constructor doesn't support HashAlgorithmName parameter,
+        // so we suppress the analyzer warning
+#pragma warning disable CA5379 // Do not use weak key derivation function algorithm
+        using var pbkdf2 = new System.Security.Cryptography.Rfc2898DeriveBytes(_password, _salt, _iterations);
+#pragma warning restore CA5379
+        return pbkdf2.GetBytes(_keyLength);
 #endif
     }
 
@@ -555,7 +559,7 @@ public class KeyDerivationBuilder
             _ => System.Security.Cryptography.HashAlgorithmName.SHA256
         };
 
-#if NET6_0_OR_GREATER
+#if !NETSTANDARD2_0
         return System.Security.Cryptography.HKDF.DeriveKey(hashName, _ikm, _keyLength, _salt, _info);
 #else
         // Use HeroCrypt's HKDF implementation for .NET Standard 2.0

@@ -29,7 +29,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        framework: [netstandard2.0, net6.0, net7.0, net8.0, net9.0, net10.0]
+        framework: [netstandard2.0, net8.0, net9.0, net10.0]
         include:
           - framework: net10.0
             run-tests: true
@@ -37,10 +37,6 @@ jobs:
             run-tests: true
           - framework: net8.0
             run-tests: true
-          - framework: net7.0
-            run-tests: false
-          - framework: net6.0
-            run-tests: false
           - framework: netstandard2.0
             run-tests: false
 
@@ -54,8 +50,6 @@ jobs:
       uses: actions/setup-dotnet@v5
       with:
         dotnet-version: |
-          6.0.x
-          7.0.x
           8.0.x
           9.0.x
           10.0.x
@@ -195,7 +189,7 @@ jobs:
           "runId": "${{ github.run_id }}",
           "actor": "${{ github.actor }}",
           "repository": "${{ github.repository }}",
-          "frameworks": ["netstandard2.0", "net6.0", "net7.0", "net8.0", "net9.0"],
+          "frameworks": ["netstandard2.0", "net8.0", "net9.0", "net10.0"],
           "platforms": ["ubuntu-latest", "windows-latest", "macos-latest"]
         }
         EOF
@@ -227,7 +221,7 @@ jobs:
         echo "Package artifacts are available for download and can be used to create a release." >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "### Validation" >> $GITHUB_STEP_SUMMARY
-        echo "- ✅ .NET 6.0, 7.0, 8.0, 9.0, Standard 2.0" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ .NET 8.0, 9.0, 10.0, Standard 2.0" >> $GITHUB_STEP_SUMMARY
         echo "- ✅ Ubuntu, Windows, macOS" >> $GITHUB_STEP_SUMMARY
         echo "- ✅ RFC Compliance Tests Passed" >> $GITHUB_STEP_SUMMARY
         echo "- ✅ Security Validation Tests Passed" >> $GITHUB_STEP_SUMMARY

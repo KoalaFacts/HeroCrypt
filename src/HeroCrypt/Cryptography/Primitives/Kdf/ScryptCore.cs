@@ -248,7 +248,7 @@ internal static class ScryptCore
         var n = (int)(targetBytes / (128 * r * p));
 
         // Round down to nearest power of 2
-#if NET6_0_OR_GREATER
+#if !NETSTANDARD2_0
         n = (int)Math.Pow(2, Math.Floor(Math.Log2(n)));
 #else
         n = (int)Math.Pow(2, Math.Floor(Math.Log(n) / Math.Log(2)));

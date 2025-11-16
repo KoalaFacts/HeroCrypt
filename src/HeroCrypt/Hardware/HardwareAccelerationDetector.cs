@@ -32,17 +32,17 @@ internal static class HardwareAccelerationDetector
     /// <summary>
     /// Checks if AVX-512 instructions are available
     /// </summary>
-#if NET8_0_OR_GREATER
+#if NET5_0_OR_GREATER
     public static bool IsAvx512Available => System.Runtime.Intrinsics.X86.Avx512F.IsSupported;
 #else
-    public static bool IsAvx512Available => false; // Not available in earlier .NET versions
+    public static bool IsAvx512Available => false; // Not detectable in .NET Standard 2.0
 #endif
 
     /// <summary>
     /// Checks if Intel RDRAND/RDSEED is available
     /// </summary>
 #if NET5_0_OR_GREATER
-    public static bool IsRdrandAvailable => System.Runtime.Intrinsics.X86.X86Base.IsSupported &&
+    public static bool IsRdrandAvailable => X86Base.IsSupported &&
                                            CheckRdrandSupport();
 #else
     public static bool IsRdrandAvailable => false; // Not detectable in .NET Standard 2.0

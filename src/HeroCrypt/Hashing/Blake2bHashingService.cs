@@ -23,7 +23,7 @@ public class Blake2bHashingService : IBlake2bService
         byte[]? salt = null,
         byte[]? personalization = null)
     {
-#if NET7_0_OR_GREATER
+#if !NETSTANDARD2_0
         ArgumentNullException.ThrowIfNull(data);
 #else
         if (data == null)
@@ -50,7 +50,7 @@ public class Blake2bHashingService : IBlake2bService
         byte[]? personalization = null,
         CancellationToken cancellationToken = default)
     {
-#if NET7_0_OR_GREATER
+#if !NETSTANDARD2_0
         ArgumentNullException.ThrowIfNull(data);
 #else
         if (data == null)
@@ -63,7 +63,7 @@ public class Blake2bHashingService : IBlake2bService
     /// <inheritdoc/>
     public byte[] ComputeLongHash(byte[] data, int outputLength)
     {
-#if NET7_0_OR_GREATER
+#if !NETSTANDARD2_0
         ArgumentNullException.ThrowIfNull(data);
 #else
         if (data == null)
@@ -84,7 +84,7 @@ public class Blake2bHashingService : IBlake2bService
     /// <inheritdoc/>
     public bool VerifyHash(byte[] data, byte[] expectedHash, byte[]? key = null)
     {
-#if NET7_0_OR_GREATER
+#if !NETSTANDARD2_0
         ArgumentNullException.ThrowIfNull(data);
         ArgumentNullException.ThrowIfNull(expectedHash);
 #else

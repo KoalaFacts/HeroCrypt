@@ -30,7 +30,7 @@ public readonly struct EncryptionResult
 /// </summary>
 internal static class Encryption
 {
-#if !NET6_0_OR_GREATER
+#if NETSTANDARD2_0
     // Polyfill for RandomNumberGenerator.Fill on .NET Standard 2.0
     private static void FillRandomBytes(byte[] buffer)
     {
@@ -51,7 +51,7 @@ internal static class Encryption
     /// <exception cref="NotSupportedException">Thrown when algorithm is not supported on this platform</exception>
     public static EncryptionResult Encrypt(byte[] plaintext, byte[] key, EncryptionAlgorithm algorithm, byte[]? associatedData = null)
     {
-#if NET7_0_OR_GREATER
+#if !NETSTANDARD2_0
         ArgumentNullException.ThrowIfNull(plaintext);
         ArgumentNullException.ThrowIfNull(key);
 #else
@@ -95,7 +95,7 @@ internal static class Encryption
     public static byte[] Decrypt(byte[] ciphertext, byte[] key, byte[] nonce, EncryptionAlgorithm algorithm,
         byte[]? associatedData = null, byte[]? keyCiphertext = null)
     {
-#if NET7_0_OR_GREATER
+#if !NETSTANDARD2_0
         ArgumentNullException.ThrowIfNull(ciphertext);
         ArgumentNullException.ThrowIfNull(key);
         ArgumentNullException.ThrowIfNull(nonce);
@@ -128,7 +128,7 @@ internal static class Encryption
 
     #region AES-GCM
 
-#if NET6_0_OR_GREATER
+#if !NETSTANDARD2_0
     private static EncryptionResult EncryptAesGcm(byte[] plaintext, byte[] key, byte[] associatedData)
     {
         const int nonceSize = 12;
@@ -140,13 +140,7 @@ internal static class Encryption
         var ciphertext = new byte[plaintext.Length + tagSize];
         var tag = ciphertext.AsSpan(plaintext.Length, tagSize);
 
-#if NET8_0_OR_GREATER
         using var aes = new AesGcm(key, tagSize);
-#else
-#pragma warning disable SYSLIB0053 // AesGcm.AesGcm(byte[]) is obsolete
-        using var aes = new AesGcm(key);
-#pragma warning restore SYSLIB0053
-#endif
         aes.Encrypt(nonce, plaintext, ciphertext.AsSpan(0, plaintext.Length), tag, associatedData);
 
         return new EncryptionResult
@@ -167,13 +161,7 @@ internal static class Encryption
         var plaintext = new byte[plaintextLength];
         var tag = ciphertext.AsSpan(plaintextLength, tagSize);
 
-#if NET8_0_OR_GREATER
         using var aes = new AesGcm(key, tagSize);
-#else
-#pragma warning disable SYSLIB0053 // AesGcm.AesGcm(byte[]) is obsolete
-        using var aes = new AesGcm(key);
-#pragma warning restore SYSLIB0053
-#endif
         aes.Decrypt(nonce, ciphertext.AsSpan(0, plaintextLength), tag, plaintext, associatedData);
 
         return plaintext;
@@ -181,12 +169,12 @@ internal static class Encryption
 #else
     private static EncryptionResult EncryptAesGcm(byte[] plaintext, byte[] key, byte[] associatedData)
     {
-        throw new NotSupportedException("AES-GCM is not supported on .NET Standard 2.0. Requires .NET 6.0 or greater.");
+        throw new NotSupportedException("AES-GCM is not supported on .NET Standard 2.0. Requires .NET 8.0 or greater.");
     }
 
     private static byte[] DecryptAesGcm(byte[] ciphertext, byte[] key, byte[] nonce, byte[] associatedData)
     {
-        throw new NotSupportedException("AES-GCM is not supported on .NET Standard 2.0. Requires .NET 6.0 or greater.");
+        throw new NotSupportedException("AES-GCM is not supported on .NET Standard 2.0. Requires .NET 8.0 or greater.");
     }
 #endif
 
@@ -194,7 +182,7 @@ internal static class Encryption
 
     #region AES-CCM
 
-#if NET6_0_OR_GREATER
+#if !NETSTANDARD2_0
     private static EncryptionResult EncryptAesCcm(byte[] plaintext, byte[] key, byte[] associatedData)
     {
         const int nonceSize = 13;
@@ -235,12 +223,12 @@ internal static class Encryption
 #else
     private static EncryptionResult EncryptAesCcm(byte[] plaintext, byte[] key, byte[] associatedData)
     {
-        throw new NotSupportedException("AES-CCM is not supported on .NET Standard 2.0. Requires .NET 6.0 or greater.");
+        throw new NotSupportedException("AES-CCM is not supported on .NET Standard 2.0. Requires .NET 8.0 or greater.");
     }
 
     private static byte[] DecryptAesCcm(byte[] ciphertext, byte[] key, byte[] nonce, byte[] associatedData)
     {
-        throw new NotSupportedException("AES-CCM is not supported on .NET Standard 2.0. Requires .NET 6.0 or greater.");
+        throw new NotSupportedException("AES-CCM is not supported on .NET Standard 2.0. Requires .NET 8.0 or greater.");
     }
 #endif
 
@@ -254,10 +242,10 @@ internal static class Encryption
         const int tagSize = 16;
 
         var nonce = new byte[nonceSize];
-#if NET6_0_OR_GREATER
-        RandomNumberGenerator.Fill(nonce);
-#else
+#if NETSTANDARD2_0
         FillRandomBytes(nonce);
+#else
+        RandomNumberGenerator.Fill(nonce);
 #endif
 
         var ciphertext = new byte[plaintext.Length + tagSize];
@@ -297,10 +285,10 @@ internal static class Encryption
         const int tagSize = 16;
 
         var nonce = new byte[nonceSize];
-#if NET6_0_OR_GREATER
-        RandomNumberGenerator.Fill(nonce);
-#else
+#if NETSTANDARD2_0
         FillRandomBytes(nonce);
+#else
+        RandomNumberGenerator.Fill(nonce);
 #endif
 
         var ciphertext = new byte[plaintext.Length + tagSize];
@@ -334,7 +322,7 @@ internal static class Encryption
 
     #region RSA-OAEP
 
-#if NET6_0_OR_GREATER
+#if !NETSTANDARD2_0
     private static EncryptionResult EncryptRsaOaep(byte[] plaintext, byte[] publicKey)
     {
         using var rsa = System.Security.Cryptography.RSA.Create();
@@ -359,12 +347,12 @@ internal static class Encryption
 #else
     private static EncryptionResult EncryptRsaOaep(byte[] plaintext, byte[] publicKey)
     {
-        throw new NotSupportedException("RSA-OAEP encryption is not supported on .NET Standard 2.0. Requires .NET 6.0 or greater.");
+        throw new NotSupportedException("RSA-OAEP encryption is not supported on .NET Standard 2.0. Requires .NET 8.0 or greater.");
     }
 
     private static byte[] DecryptRsaOaep(byte[] ciphertext, byte[] privateKey)
     {
-        throw new NotSupportedException("RSA-OAEP decryption is not supported on .NET Standard 2.0. Requires .NET 6.0 or greater.");
+        throw new NotSupportedException("RSA-OAEP decryption is not supported on .NET Standard 2.0. Requires .NET 8.0 or greater.");
     }
 #endif
 

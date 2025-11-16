@@ -114,7 +114,7 @@ internal static class DigitalSignature
 
     #region RSA Algorithms
 
-#if NET6_0_OR_GREATER
+#if !NETSTANDARD2_0
     private static byte[] SignRsa(byte[] data, byte[] privateKey, HashAlgorithmName hashAlgorithm, RSASignaturePadding padding)
     {
         using var rsa = System.Security.Cryptography.RSA.Create();
@@ -138,12 +138,12 @@ internal static class DigitalSignature
 #else
     private static byte[] SignRsa(byte[] data, byte[] privateKey, HashAlgorithmName hashAlgorithm, RSASignaturePadding padding)
     {
-        throw new NotSupportedException("RSA signing is not supported on .NET Standard 2.0. Requires .NET 6.0 or greater.");
+        throw new NotSupportedException("RSA signing is not supported on .NET Standard 2.0. Requires .NET 8.0 or greater.");
     }
 
     private static bool VerifyRsa(byte[] data, byte[] signature, byte[] publicKey, HashAlgorithmName hashAlgorithm, RSASignaturePadding padding)
     {
-        throw new NotSupportedException("RSA signature verification is not supported on .NET Standard 2.0. Requires .NET 6.0 or greater.");
+        throw new NotSupportedException("RSA signature verification is not supported on .NET Standard 2.0. Requires .NET 8.0 or greater.");
     }
 #endif
 
@@ -151,7 +151,7 @@ internal static class DigitalSignature
 
     #region ECDSA Algorithms
 
-#if NET6_0_OR_GREATER
+#if !NETSTANDARD2_0
     private static byte[] SignEcdsa(byte[] data, byte[] privateKey, HashAlgorithmName hashAlgorithm, int curveSizeBits)
     {
         using var ecdsa = ECDsa.Create(GetECCurve(curveSizeBits));
@@ -175,12 +175,12 @@ internal static class DigitalSignature
 #else
     private static byte[] SignEcdsa(byte[] data, byte[] privateKey, HashAlgorithmName hashAlgorithm, int curveSizeBits)
     {
-        throw new NotSupportedException("ECDSA signing is not supported on .NET Standard 2.0. Requires .NET 6.0 or greater.");
+        throw new NotSupportedException("ECDSA signing is not supported on .NET Standard 2.0. Requires .NET 8.0 or greater.");
     }
 
     private static bool VerifyEcdsa(byte[] data, byte[] signature, byte[] publicKey, HashAlgorithmName hashAlgorithm, int curveSizeBits)
     {
-        throw new NotSupportedException("ECDSA signature verification is not supported on .NET Standard 2.0. Requires .NET 6.0 or greater.");
+        throw new NotSupportedException("ECDSA signature verification is not supported on .NET Standard 2.0. Requires .NET 8.0 or greater.");
     }
 #endif
 

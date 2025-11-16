@@ -2,9 +2,6 @@ using HeroCrypt.Cryptography.Primitives.Kdf;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
-#if !NET8_0_OR_GREATER
-using System;
-#endif
 
 namespace HeroCrypt.Hashing;
 
@@ -93,10 +90,11 @@ public sealed class Argon2HashingService : IPasswordHashingService
     /// </remarks>
     public async Task<string> HashAsync(string input, CancellationToken cancellationToken = default)
     {
-#if NET8_0_OR_GREATER
+#if !NETSTANDARD2_0
         ArgumentException.ThrowIfNullOrWhiteSpace(input);
 #else
-        if (string.IsNullOrWhiteSpace(input)) throw new ArgumentException("Value cannot be null or whitespace.", nameof(input));
+        if (string.IsNullOrWhiteSpace(input))
+            throw new ArgumentException("Value cannot be null or whitespace.", nameof(input));
 #endif
         return await HashAsync(Encoding.UTF8.GetBytes(input), cancellationToken);
     }
@@ -115,10 +113,11 @@ public sealed class Argon2HashingService : IPasswordHashingService
     /// </remarks>
     public async Task<string> HashAsync(byte[] input, CancellationToken cancellationToken = default)
     {
-#if NET6_0_OR_GREATER
+#if !NETSTANDARD2_0
         ArgumentNullException.ThrowIfNull(input);
 #else
-        if (input == null) throw new ArgumentNullException(nameof(input));
+        if (input == null)
+            throw new ArgumentNullException(nameof(input));
 #endif
 
         return await Task.Run(() =>
@@ -155,10 +154,11 @@ public sealed class Argon2HashingService : IPasswordHashingService
     /// </remarks>
     public async Task<bool> VerifyAsync(string input, string hash, CancellationToken cancellationToken = default)
     {
-#if NET8_0_OR_GREATER
+#if !NETSTANDARD2_0
         ArgumentException.ThrowIfNullOrWhiteSpace(input);
 #else
-        if (string.IsNullOrWhiteSpace(input)) throw new ArgumentException("Value cannot be null or whitespace.", nameof(input));
+        if (string.IsNullOrWhiteSpace(input))
+            throw new ArgumentException("Value cannot be null or whitespace.", nameof(input));
 #endif
         return await VerifyAsync(Encoding.UTF8.GetBytes(input), hash, cancellationToken);
     }
@@ -176,10 +176,11 @@ public sealed class Argon2HashingService : IPasswordHashingService
     /// </remarks>
     public async Task<bool> VerifyAsync(byte[] input, string hash, CancellationToken cancellationToken = default)
     {
-#if NET6_0_OR_GREATER
+#if !NETSTANDARD2_0
         ArgumentNullException.ThrowIfNull(input);
 #else
-        if (input == null) throw new ArgumentNullException(nameof(input));
+        if (input == null)
+            throw new ArgumentNullException(nameof(input));
 #endif
 
         // Return false for null or empty hash instead of throwing

@@ -54,10 +54,11 @@ public sealed class RsaDigitalSignatureService : IDigitalSignatureService
     /// <inheritdoc />
     public byte[] DerivePublicKey(byte[] privateKey)
     {
-#if NET6_0_OR_GREATER
+#if !NETSTANDARD2_0
         ArgumentNullException.ThrowIfNull(privateKey);
 #else
-        if (privateKey == null) throw new ArgumentNullException(nameof(privateKey));
+        if (privateKey == null)
+            throw new ArgumentNullException(nameof(privateKey));
 #endif
 
         InputValidator.ValidateByteArray(privateKey, nameof(privateKey));
@@ -80,12 +81,14 @@ public sealed class RsaDigitalSignatureService : IDigitalSignatureService
     /// <inheritdoc />
     public byte[] Sign(byte[] data, byte[] privateKey)
     {
-#if NET6_0_OR_GREATER
+#if !NETSTANDARD2_0
         ArgumentNullException.ThrowIfNull(data);
         ArgumentNullException.ThrowIfNull(privateKey);
 #else
-        if (data == null) throw new ArgumentNullException(nameof(data));
-        if (privateKey == null) throw new ArgumentNullException(nameof(privateKey));
+        if (data == null)
+            throw new ArgumentNullException(nameof(data));
+        if (privateKey == null)
+            throw new ArgumentNullException(nameof(privateKey));
 #endif
 
         InputValidator.ValidateByteArray(data, nameof(data), allowEmpty: true);
@@ -114,14 +117,17 @@ public sealed class RsaDigitalSignatureService : IDigitalSignatureService
     /// <inheritdoc />
     public bool Verify(byte[] signature, byte[] data, byte[] publicKey)
     {
-#if NET6_0_OR_GREATER
+#if !NETSTANDARD2_0
         ArgumentNullException.ThrowIfNull(signature);
         ArgumentNullException.ThrowIfNull(data);
         ArgumentNullException.ThrowIfNull(publicKey);
 #else
-        if (signature == null) throw new ArgumentNullException(nameof(signature));
-        if (data == null) throw new ArgumentNullException(nameof(data));
-        if (publicKey == null) throw new ArgumentNullException(nameof(publicKey));
+        if (signature == null)
+            throw new ArgumentNullException(nameof(signature));
+        if (data == null)
+            throw new ArgumentNullException(nameof(data));
+        if (publicKey == null)
+            throw new ArgumentNullException(nameof(publicKey));
 #endif
 
         InputValidator.ValidateByteArray(signature, nameof(signature));

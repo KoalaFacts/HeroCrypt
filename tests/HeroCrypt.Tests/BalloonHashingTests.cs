@@ -1,4 +1,4 @@
-using HeroCrypt.Cryptography.PasswordHashing;
+using HeroCrypt.Cryptography.Primitives.Kdf;
 using System.Security.Cryptography;
 using System.Text;
 

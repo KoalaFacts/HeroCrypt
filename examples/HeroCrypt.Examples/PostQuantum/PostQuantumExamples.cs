@@ -1,7 +1,7 @@
 #if NET10_0_OR_GREATER
-using HeroCrypt.Cryptography.PostQuantum.Kyber;
-using HeroCrypt.Cryptography.PostQuantum.Dilithium;
-using HeroCrypt.Cryptography.PostQuantum.Sphincs;
+using HeroCrypt.Cryptography.Primitives.PostQuantum.Kyber;
+using HeroCrypt.Cryptography.Primitives.PostQuantum.Dilithium;
+using HeroCrypt.Cryptography.Primitives.PostQuantum.Sphincs;
 
 namespace HeroCrypt.Examples.PostQuantum;
 
@@ -183,7 +183,7 @@ public static class PostQuantumExamples
         {
             Console.WriteLine("1. ML-KEM (Key Encapsulation):");
             using var kemKey = HeroCryptBuilder.PostQuantum.MLKem.GenerateKeyPair();
-            using var enc = HeroCryptBuilder.Create().PostQuantum().MLKem()
+            using var enc = HeroCryptBuilder.PostQuantum.MLKem.Create()
                 .WithPublicKey(kemKey.PublicKeyPem).Encapsulate();
             var recovered = kemKey.Decapsulate(enc.Ciphertext);
             Console.WriteLine($"   ✓ Shared secret established ({enc.SharedSecret.Length} bytes)");
@@ -209,7 +209,7 @@ public static class PostQuantumExamples
             using var slhKey = HeroCryptBuilder.PostQuantum.SlhDsa.GenerateKeyPair();
             var data = System.Text.Encoding.UTF8.GetBytes("Code release v1.0");
             var sig = slhKey.Sign(data);
-            var valid = HeroCryptBuilder.Create().PostQuantum().SlhDsa()
+            var valid = HeroCryptBuilder.PostQuantum.SlhDsa.Create()
                 .WithPublicKey(slhKey.PublicKeyPem)
                 .WithData(data)
                 .Verify(sig);

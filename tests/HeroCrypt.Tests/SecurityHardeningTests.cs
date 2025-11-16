@@ -1,5 +1,6 @@
+using HeroCrypt.KeyManagement;
 using HeroCrypt.Security;
-using HeroCrypt.Services;
+using HeroCrypt.Signatures;
 using Microsoft.Extensions.Logging;
 
 namespace HeroCrypt.Tests;
@@ -539,8 +540,8 @@ public class SecurityHardeningTests
     {
         // Arrange
         using var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
-        var logger = loggerFactory.CreateLogger<CryptographicKeyGenerationService>();
-        var service = new CryptographicKeyGenerationService(logger);
+        var logger = loggerFactory.CreateLogger<CryptographicKeyGenerator>();
+        var service = new CryptographicKeyGenerator(logger);
 
         // Act & Assert
         Assert.Throws<ArgumentException>(() => service.GenerateRandomBytes(-1));

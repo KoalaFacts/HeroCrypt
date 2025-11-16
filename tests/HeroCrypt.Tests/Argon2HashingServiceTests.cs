@@ -1,5 +1,5 @@
-using HeroCrypt.Cryptography.Argon2;
-using HeroCrypt.Services;
+using HeroCrypt.Cryptography.Primitives.Kdf;
+using HeroCrypt.Hashing;
 
 namespace HeroCrypt.Tests;
 

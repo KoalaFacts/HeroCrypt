@@ -1,6 +1,5 @@
-using HeroCrypt.Abstractions;
-using HeroCrypt.Configuration;
-using HeroCrypt.Services;
+using HeroCrypt.Cryptography.Primitives.Kdf;
+using HeroCrypt.Hashing;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -28,7 +27,7 @@ public static class PasswordStorageExample
         // Create Argon2 hashing service with high security settings
         var argon2Options = new Argon2Options
         {
-            Type = HeroCrypt.Cryptography.Argon2.Argon2Type.Argon2id,
+            Type = HeroCrypt.Cryptography.Primitives.Kdf.Argon2Type.Argon2id,
             Iterations = 3,
             MemorySize = 65536,  // 64 MB
             Parallelism = 4,

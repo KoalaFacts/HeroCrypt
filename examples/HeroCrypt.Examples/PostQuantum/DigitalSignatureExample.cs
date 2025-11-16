@@ -1,8 +1,8 @@
 #if NET10_0_OR_GREATER
 using System.Text;
 using System.Text.Json;
-using HeroCrypt.Cryptography.PostQuantum.Dilithium;
-using HeroCrypt.Cryptography.PostQuantum.Sphincs;
+using HeroCrypt.Cryptography.Primitives.PostQuantum.Dilithium;
+using HeroCrypt.Cryptography.Primitives.PostQuantum.Sphincs;
 
 namespace HeroCrypt.Examples.PostQuantum;
 
@@ -45,9 +45,7 @@ public static class DigitalSignatureExample
 
         // Step 1: Generate signing key
         Console.WriteLine("1️⃣  Generating ML-DSA signing key...");
-        using var signingKey = HeroCryptBuilder.Create()
-            .PostQuantum()
-            .MLDsa()
+        using var signingKey = HeroCryptBuilder.PostQuantum.MLDsa.Create()
             .WithSecurityLevel(MLDsaWrapper.SecurityLevel.MLDsa87)  // Maximum security
             .GenerateKeyPair();
 
@@ -60,9 +58,7 @@ public static class DigitalSignatureExample
         Console.WriteLine("2️⃣  Signing document...");
         var documentBytes = Encoding.UTF8.GetBytes(documentJson);
 
-        var signature = HeroCryptBuilder.Create()
-            .PostQuantum()
-            .MLDsa()
+        var signature = HeroCryptBuilder.PostQuantum.MLDsa.Create()
             .WithKeyPair(signingKey)
             .WithData(documentBytes)
             .WithContext($"legal-contract:{document.DocumentId}")  // Domain separation
@@ -74,9 +70,7 @@ public static class DigitalSignatureExample
 
         // Step 3: Verify the signature
         Console.WriteLine("3️⃣  Verifying signature...");
-        var isValid = HeroCryptBuilder.Create()
-            .PostQuantum()
-            .MLDsa()
+        var isValid = HeroCryptBuilder.PostQuantum.MLDsa.Create()
             .WithPublicKey(signingKey.PublicKeyPem)
             .WithData(documentBytes)
             .WithContext($"legal-contract:{document.DocumentId}")
@@ -90,9 +84,7 @@ public static class DigitalSignatureExample
         var tamperedDoc = documentJson.Replace("Company A", "Company X");
         var tamperedBytes = Encoding.UTF8.GetBytes(tamperedDoc);
 
-        var isTamperedValid = HeroCryptBuilder.Create()
-            .PostQuantum()
-            .MLDsa()
+        var isTamperedValid = HeroCryptBuilder.PostQuantum.MLDsa.Create()
             .WithPublicKey(signingKey.PublicKeyPem)
             .WithData(tamperedBytes)
             .WithContext($"legal-contract:{document.DocumentId}")
@@ -135,9 +127,7 @@ public static class DigitalSignatureExample
 
         // Use hash-based signatures for conservative security
         Console.WriteLine("1️⃣  Generating SLH-DSA signing key (small variant)...");
-        using var signingKey = HeroCryptBuilder.Create()
-            .PostQuantum()
-            .SlhDsa()
+        using var signingKey = HeroCryptBuilder.PostQuantum.SlhDsa.Create()
             .WithSmallVariant(192)  // 192-bit security, smaller signatures
             .GenerateKeyPair();
 
@@ -150,9 +140,7 @@ public static class DigitalSignatureExample
         Console.WriteLine("2️⃣  Signing release...");
         var releaseData = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(release));
 
-        var signature = HeroCryptBuilder.Create()
-            .PostQuantum()
-            .SlhDsa()
+        var signature = HeroCryptBuilder.PostQuantum.SlhDsa.Create()
             .WithKeyPair(signingKey)
             .WithData(releaseData)
             .WithContext($"code-signing:{release.Version}")
@@ -163,9 +151,7 @@ public static class DigitalSignatureExample
 
         // Users verify the signature
         Console.WriteLine("3️⃣  End user verifying signature...");
-        var isAuthentic = HeroCryptBuilder.Create()
-            .PostQuantum()
-            .SlhDsa()
+        var isAuthentic = HeroCryptBuilder.PostQuantum.SlhDsa.Create()
             .WithPublicKey(signingKey.PublicKeyPem)
             .WithData(releaseData)
             .WithContext($"code-signing:{release.Version}")

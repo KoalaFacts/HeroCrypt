@@ -1,5 +1,4 @@
-using HeroCrypt.Abstractions;
-using HeroCrypt.Services;
+using HeroCrypt.Encryption;
 
 namespace HeroCrypt.Tests;
 

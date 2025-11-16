@@ -1,5 +1,5 @@
-using HeroCrypt.Cryptography.Blake2b;
-using HeroCrypt.Services;
+using HeroCrypt.Cryptography.Primitives.Hash;
+using HeroCrypt.Hashing;
 using System.Text;
 
 namespace HeroCrypt.Tests;

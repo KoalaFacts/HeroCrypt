@@ -1,4 +1,4 @@
-using HeroCrypt.Cryptography.ECC.Curve25519;
+using HeroCrypt.Cryptography.Primitives.Signature.Ecc;
 
 namespace HeroCrypt.Tests;
 

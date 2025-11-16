@@ -1,4 +1,5 @@
-using HeroCrypt.Cryptography.Symmetric.AesOcb;
+using HeroCrypt.Cryptography.Primitives.Cipher.Aead;
+using HeroCrypt.Cryptography.Primitives.Cipher.Stream;
 using System.Text;
 
 namespace HeroCrypt.Tests;

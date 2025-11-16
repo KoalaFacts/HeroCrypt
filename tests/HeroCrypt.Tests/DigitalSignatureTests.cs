@@ -212,12 +212,12 @@ public class DigitalSignatureTests
 
 #if NET10_0_OR_GREATER
     [Theory]
-    [InlineData(SignatureAlgorithm.MLDsa65, HeroCrypt.Cryptography.PostQuantum.Dilithium.MLDsaWrapper.SecurityLevel.MLDsa65)]
-    [InlineData(SignatureAlgorithm.MLDsa87, HeroCrypt.Cryptography.PostQuantum.Dilithium.MLDsaWrapper.SecurityLevel.MLDsa87)]
-    public void MLDsa_Sign_And_Verify_Success(SignatureAlgorithm algorithm, HeroCrypt.Cryptography.PostQuantum.Dilithium.MLDsaWrapper.SecurityLevel securityLevel)
+    [InlineData(SignatureAlgorithm.MLDsa65, HeroCrypt.Cryptography.Primitives.PostQuantum.Dilithium.MLDsaWrapper.SecurityLevel.MLDsa65)]
+    [InlineData(SignatureAlgorithm.MLDsa87, HeroCrypt.Cryptography.Primitives.PostQuantum.Dilithium.MLDsaWrapper.SecurityLevel.MLDsa87)]
+    public void MLDsa_Sign_And_Verify_Success(SignatureAlgorithm algorithm, HeroCrypt.Cryptography.Primitives.PostQuantum.Dilithium.MLDsaWrapper.SecurityLevel securityLevel)
     {
         // Arrange
-        using var keyPair = HeroCrypt.Cryptography.PostQuantum.Dilithium.MLDsaWrapper.GenerateKeyPair(securityLevel);
+        using var keyPair = HeroCrypt.Cryptography.Primitives.PostQuantum.Dilithium.MLDsaWrapper.GenerateKeyPair(securityLevel);
         var privateKey = Encoding.UTF8.GetBytes(keyPair.SecretKeyPem);
         var publicKey = Encoding.UTF8.GetBytes(keyPair.PublicKeyPem);
 
@@ -234,8 +234,8 @@ public class DigitalSignatureTests
     public void MLDsa65_Verify_With_Wrong_PublicKey_Returns_False()
     {
         // Arrange
-        using var keyPair1 = HeroCrypt.Cryptography.PostQuantum.Dilithium.MLDsaWrapper.GenerateKeyPair(HeroCrypt.Cryptography.PostQuantum.Dilithium.MLDsaWrapper.SecurityLevel.MLDsa65);
-        using var keyPair2 = HeroCrypt.Cryptography.PostQuantum.Dilithium.MLDsaWrapper.GenerateKeyPair(HeroCrypt.Cryptography.PostQuantum.Dilithium.MLDsaWrapper.SecurityLevel.MLDsa65);
+        using var keyPair1 = HeroCrypt.Cryptography.Primitives.PostQuantum.Dilithium.MLDsaWrapper.GenerateKeyPair(HeroCrypt.Cryptography.Primitives.PostQuantum.Dilithium.MLDsaWrapper.SecurityLevel.MLDsa65);
+        using var keyPair2 = HeroCrypt.Cryptography.Primitives.PostQuantum.Dilithium.MLDsaWrapper.GenerateKeyPair(HeroCrypt.Cryptography.Primitives.PostQuantum.Dilithium.MLDsaWrapper.SecurityLevel.MLDsa65);
         var privateKey1 = Encoding.UTF8.GetBytes(keyPair1.SecretKeyPem);
         var publicKey2 = Encoding.UTF8.GetBytes(keyPair2.PublicKeyPem);
 

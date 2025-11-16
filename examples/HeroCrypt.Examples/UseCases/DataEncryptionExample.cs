@@ -1,5 +1,5 @@
-using HeroCrypt.Abstractions;
-using HeroCrypt.Services;
+using HeroCrypt.Encryption;
+using HeroCrypt.KeyManagement;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;

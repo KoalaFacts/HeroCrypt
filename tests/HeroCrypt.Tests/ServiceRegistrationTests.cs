@@ -1,5 +1,8 @@
-using HeroCrypt.Abstractions;
+using HeroCrypt.Encryption;
 using HeroCrypt.Extensions;
+using HeroCrypt.Hashing;
+using HeroCrypt.KeyManagement;
+using HeroCrypt.Signatures;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System.Text;
@@ -46,21 +49,17 @@ public class ServiceRegistrationTests
 
         var serviceProvider = services.BuildServiceProvider();
 
-        var hashingService = serviceProvider.GetService<IHashingService>();
+        var hashingService = serviceProvider.GetService<IPasswordHashingService>();
         var cryptoService = serviceProvider.GetService<ICryptographyService>();
-        var keyGenService = serviceProvider.GetService<IKeyGenerationService>();
+        var keyGenService = serviceProvider.GetService<IPgpKeyGenerator>();
         var digitalSignatureService = serviceProvider.GetService<IDigitalSignatureService>();
-        var cryptoKeyGenService = serviceProvider.GetService<ICryptographicKeyGenerationService>();
-        var memoryManager = serviceProvider.GetService<ISecureMemoryManager>();
-        var telemetry = serviceProvider.GetService<ICryptoTelemetry>();
+        var cryptoKeyGenService = serviceProvider.GetService<ICryptographicKeyGenerator>();
 
         Assert.NotNull(hashingService);
         Assert.NotNull(cryptoService);
         Assert.NotNull(keyGenService);
         Assert.NotNull(digitalSignatureService);
         Assert.NotNull(cryptoKeyGenService);
-        Assert.NotNull(memoryManager);
-        Assert.NotNull(telemetry);
     }
 
     [Fact]
@@ -129,7 +128,7 @@ public class ServiceRegistrationTests
         services.AddLogging();
 
         var serviceProvider = services.BuildServiceProvider();
-        var keyGenService = serviceProvider.GetRequiredService<ICryptographicKeyGenerationService>();
+        var keyGenService = serviceProvider.GetRequiredService<ICryptographicKeyGenerator>();
 
         var randomBytes = keyGenService.GenerateRandomBytes(32);
         var symmetricKey = keyGenService.GenerateSymmetricKey(CryptographicAlgorithm.Aes256);
@@ -190,10 +189,17 @@ public class ServiceRegistrationTests
             Assert.Same(blake2bService1, blake2bService2);
         }
 
-        // Test that singleton services are truly singleton
-        var memoryManager1 = serviceProvider.GetService<ISecureMemoryManager>();
-        var memoryManager2 = serviceProvider.GetService<ISecureMemoryManager>();
+        // Test that scoped services are different across scopes
+        IBlake2bService? scopedService1;
+        using (var scope1 = serviceProvider.CreateScope())
+        {
+            scopedService1 = scope1.ServiceProvider.GetRequiredService<IBlake2bService>();
+        }
 
-        Assert.Same(memoryManager1, memoryManager2);
+        using (var scope2 = serviceProvider.CreateScope())
+        {
+            var scopedService2 = scope2.ServiceProvider.GetRequiredService<IBlake2bService>();
+            Assert.NotSame(scopedService1, scopedService2);
+        }
     }
 }

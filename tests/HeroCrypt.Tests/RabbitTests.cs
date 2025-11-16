@@ -1,4 +1,4 @@
-using HeroCrypt.Cryptography.Symmetric.Rabbit;
+using HeroCrypt.Cryptography.Primitives.Cipher.Stream;
 using System.Text;
 
 namespace HeroCrypt.Tests;

@@ -1,4 +1,4 @@
-using HeroCrypt.Services;
+using HeroCrypt.Signatures;
 using System.Text;
 
 namespace HeroCrypt.Tests;

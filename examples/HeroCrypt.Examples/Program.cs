@@ -1,17 +1,11 @@
-using HeroCrypt.Cryptography.Argon2;
+using HeroCrypt.Cryptography.Primitives.Kdf;
+using HeroCrypt.Encryption;
 using HeroCrypt.Examples;
-using HeroCrypt.Services;
+using HeroCrypt.Hashing;
 using System.Diagnostics;
 
 Console.WriteLine("HeroCrypt Examples");
 Console.WriteLine("==================\n");
-
-// Run new Fluent API and DI Demo
-await FluentApiDemo.RunDemoAsync();
-
-Console.WriteLine("\n" + new string('=', 50));
-Console.WriteLine("Legacy API Examples (for comparison)");
-Console.WriteLine(new string('=', 50) + "\n");
 
 await RunArgon2Examples();
 await RunPgpExamples();

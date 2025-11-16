@@ -1,5 +1,5 @@
-using HeroCrypt.Cryptography.RSA;
-using HeroCrypt.Services;
+using HeroCrypt.Cryptography.Primitives.Signature.Rsa;
+using HeroCrypt.Encryption;
 using System.Security.Cryptography;
 using System.Text;
 

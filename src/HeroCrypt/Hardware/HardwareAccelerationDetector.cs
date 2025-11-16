@@ -2,22 +2,14 @@
 using System.Runtime.Intrinsics.X86;
 #endif
 using System.Runtime.InteropServices;
-using HeroCrypt.Abstractions;
 
 namespace HeroCrypt.Hardware;
 
 /// <summary>
 /// Detects available hardware acceleration capabilities
 /// </summary>
-public static class HardwareAccelerationDetector
+internal static class HardwareAccelerationDetector
 {
-    private static readonly Lazy<HardwareAccelerationType> _availableAcceleration =
-        new(() => DetectAvailableAcceleration());
-
-    /// <summary>
-    /// Gets the available hardware acceleration types
-    /// </summary>
-    public static HardwareAccelerationType AvailableAcceleration => _availableAcceleration.Value;
 
     /// <summary>
     /// Checks if Intel AES-NI is available
@@ -79,7 +71,6 @@ public static class HardwareAccelerationDetector
     {
         return new HardwareCapabilities
         {
-            AccelerationType = AvailableAcceleration,
             AesNiSupported = IsAesNiAvailable,
             Avx2Supported = IsAvx2Available,
             Avx512Supported = IsAvx512Available,
@@ -90,49 +81,6 @@ public static class HardwareAccelerationDetector
             OperatingSystem = RuntimeInformation.OSDescription,
             ProcessorCount = Environment.ProcessorCount
         };
-    }
-
-    private static HardwareAccelerationType DetectAvailableAcceleration()
-    {
-        var acceleration = HardwareAccelerationType.None;
-
-        // Check for Intel AES-NI
-        if (IsAesNiAvailable)
-        {
-            acceleration |= HardwareAccelerationType.IntelAesNi;
-        }
-
-        // Check for Intel AVX2
-        if (IsAvx2Available)
-        {
-            acceleration |= HardwareAccelerationType.IntelAvx2;
-        }
-
-        // Check for Intel AVX-512
-        if (IsAvx512Available)
-        {
-            acceleration |= HardwareAccelerationType.IntelAvx512;
-        }
-
-        // Check for Intel RDRAND/RDSEED
-        if (IsRdrandAvailable)
-        {
-            acceleration |= HardwareAccelerationType.IntelRdrand;
-        }
-
-        // Check for Intel SHA extensions
-        if (IsShaExtensionsAvailable)
-        {
-            acceleration |= HardwareAccelerationType.IntelSha;
-        }
-
-        // Check for ARM crypto extensions
-        if (IsArmCryptoAvailable)
-        {
-            acceleration |= HardwareAccelerationType.ArmCrypto;
-        }
-
-        return acceleration;
     }
 
     private static bool CheckArmCryptoSupport()
@@ -171,15 +119,6 @@ public static class HardwareAccelerationDetector
         }
     }
 #endif
-
-    /// <summary>
-    /// Creates an appropriate hardware accelerator instance
-    /// </summary>
-    /// <returns>Hardware accelerator instance</returns>
-    public static IHardwareAccelerator CreateAccelerator()
-    {
-        return new DefaultHardwareAccelerator(AvailableAcceleration);
-    }
 }
 
 /// <summary>
@@ -187,10 +126,6 @@ public static class HardwareAccelerationDetector
 /// </summary>
 public class HardwareCapabilities
 {
-    /// <summary>
-    /// Available acceleration types
-    /// </summary>
-    public HardwareAccelerationType AccelerationType { get; set; }
 
     /// <summary>
     /// Whether Intel AES-NI is supported

@@ -1,6 +1,6 @@
-using HeroCrypt.Abstractions;
-using HeroCrypt.Cryptography.Symmetric.AesCcm;
-using HeroCrypt.Services;
+using HeroCrypt.Cryptography.Primitives.Cipher.Aead;
+using HeroCrypt.Cryptography.Primitives.Cipher.Stream;
+using HeroCrypt.Encryption;
 using System.Text;
 
 namespace HeroCrypt.Tests;

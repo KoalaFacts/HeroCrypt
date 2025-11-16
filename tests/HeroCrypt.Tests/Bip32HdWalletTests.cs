@@ -1,4 +1,4 @@
-using HeroCrypt.Cryptography.HDWallet;
+using HeroCrypt.Cryptography.Protocols;
 using System.Text;
 
 namespace HeroCrypt.Tests;

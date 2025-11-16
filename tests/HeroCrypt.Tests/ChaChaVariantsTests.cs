@@ -1,6 +1,6 @@
-using HeroCrypt.Cryptography.Symmetric.ChaCha;
+using HeroCrypt.Cryptography.Primitives.Cipher.Stream;
 using System.Text;
-using static HeroCrypt.Cryptography.Symmetric.ChaCha.ChaChaVariants;
+using static HeroCrypt.Cryptography.Primitives.Cipher.Stream.ChaChaVariants;
 
 namespace HeroCrypt.Tests;
 

@@ -9,7 +9,7 @@ global using BclMLDsa = System.Security.Cryptography.MLDsa;
 global using BclSlhDsa = System.Security.Cryptography.SlhDsa;
 
 // Use HeroCrypt wrappers by default
-global using MLKem = HeroCrypt.Cryptography.PostQuantum.Kyber.MLKem;
-global using MLDsa = HeroCrypt.Cryptography.PostQuantum.Dilithium.MLDsa;
-global using SlhDsa = HeroCrypt.Cryptography.PostQuantum.Sphincs.SlhDsa;
+global using MLKem = HeroCrypt.Cryptography.Primitives.PostQuantum.Kyber.MLKem;
+global using MLDsa = HeroCrypt.Cryptography.Primitives.PostQuantum.Dilithium.MLDsa;
+global using SlhDsa = HeroCrypt.Cryptography.Primitives.PostQuantum.Sphincs.SlhDsa;
 #endif

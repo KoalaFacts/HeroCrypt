@@ -1,5 +1,11 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFrameworks>$(SupportedApplicationTargetFrameworks)</TargetFrameworks>
+    <NoWarn>$(NoWarn);SYSLIB5006</NoWarn>
+  </PropertyGroup>
+  
   <ItemGroup>
     <ProjectReference Include="..\..\src\HeroCrypt\HeroCrypt.csproj" />
   </ItemGroup>
@@ -7,14 +13,5 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.0" />
   </ItemGroup>
-
-  <PropertyGroup>
-    <OutputType>Exe</OutputType>
-    <TargetFrameworks>$(SupportedApplicationTargetFrameworks)</TargetFrameworks>
-    <LangVersion>latest</LangVersion>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-    <NoWarn>$(NoWarn);SYSLIB5006</NoWarn>
-  </PropertyGroup>
 
 </Project>

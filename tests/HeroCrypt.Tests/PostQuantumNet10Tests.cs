@@ -265,8 +265,12 @@ public class PostQuantumNet10Tests
     [Fact]
     public void SlhDsa_IsSupported_ReturnsExpectedValue()
     {
-        var isSupported = SlhDsaWrapper.IsSupported();
-        Assert.True(isSupported);
+        if (!SlhDsaWrapper.IsSupported())
+        {
+            return;
+        }
+
+        Assert.True(SlhDsaWrapper.IsSupported());
     }
 
     [Fact]

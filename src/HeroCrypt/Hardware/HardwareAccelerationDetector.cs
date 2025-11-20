@@ -99,7 +99,11 @@ internal static class HardwareAccelerationDetector
             // This is a simplified check - in production you'd want more thorough CPUID parsing
             return System.Runtime.Intrinsics.X86.X86Base.IsSupported;
         }
-        catch
+        catch (PlatformNotSupportedException)
+        {
+            return false;
+        }
+        catch (NotSupportedException)
         {
             return false;
         }
@@ -113,7 +117,11 @@ internal static class HardwareAccelerationDetector
             // This is a simplified check - real implementation would check CPUID flags
             return System.Runtime.Intrinsics.X86.X86Base.IsSupported;
         }
-        catch
+        catch (PlatformNotSupportedException)
+        {
+            return false;
+        }
+        catch (NotSupportedException)
         {
             return false;
         }
@@ -180,12 +188,35 @@ public class HardwareCapabilities
     {
         var capabilities = new List<string>();
 
-        if (AesNiSupported) capabilities.Add("AES-NI");
-        if (Avx2Supported) capabilities.Add("AVX2");
-        if (Avx512Supported) capabilities.Add("AVX-512");
-        if (RdrandSupported) capabilities.Add("RDRAND");
-        if (ShaExtensionsSupported) capabilities.Add("SHA");
-        if (ArmCryptoSupported) capabilities.Add("ARM Crypto");
+        if (AesNiSupported)
+        {
+            capabilities.Add("AES-NI");
+        }
+
+        if (Avx2Supported)
+        {
+            capabilities.Add("AVX2");
+        }
+
+        if (Avx512Supported)
+        {
+            capabilities.Add("AVX-512");
+        }
+
+        if (RdrandSupported)
+        {
+            capabilities.Add("RDRAND");
+        }
+
+        if (ShaExtensionsSupported)
+        {
+            capabilities.Add("SHA");
+        }
+
+        if (ArmCryptoSupported)
+        {
+            capabilities.Add("ARM Crypto");
+        }
 
         var capabilityString = capabilities.Count > 0 ? string.Join(", ", capabilities) : "None";
 

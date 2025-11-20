@@ -70,10 +70,25 @@ public sealed class Argon2HashingService : IPasswordHashingService
         _options = options ?? throw new ArgumentNullException(nameof(options));
 
         // Basic validation
-        if (_options.Iterations < 1) throw new ArgumentException("Iterations must be positive", nameof(options));
-        if (_options.MemorySize < 1) throw new ArgumentException("MemorySize must be positive", nameof(options));
-        if (_options.Parallelism < 1) throw new ArgumentException("Parallelism must be positive", nameof(options));
-        if (_options.HashSize < 1) throw new ArgumentException("HashSize must be positive", nameof(options));
+        if (_options.Iterations < 1)
+        {
+            throw new ArgumentException("Iterations must be positive", nameof(options));
+        }
+
+        if (_options.MemorySize < 1)
+        {
+            throw new ArgumentException("MemorySize must be positive", nameof(options));
+        }
+
+        if (_options.Parallelism < 1)
+        {
+            throw new ArgumentException("Parallelism must be positive", nameof(options));
+        }
+
+        if (_options.HashSize < 1)
+        {
+            throw new ArgumentException("HashSize must be positive", nameof(options));
+        }
     }
 
     /// <summary>

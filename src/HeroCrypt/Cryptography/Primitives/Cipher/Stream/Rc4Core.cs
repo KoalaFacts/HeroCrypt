@@ -1,5 +1,5 @@
-using HeroCrypt.Security;
 using System.Runtime.CompilerServices;
+using HeroCrypt.Security;
 
 namespace HeroCrypt.Cryptography.Primitives.Cipher.Stream;
 
@@ -77,11 +77,17 @@ internal static class Rc4Core
     public static void Transform(Span<byte> output, ReadOnlySpan<byte> input, ReadOnlySpan<byte> key, int dropBytes = 0)
     {
         if (key.Length < MinKeySize || key.Length > MaxKeySize)
+        {
             throw new ArgumentException($"Key must be between {MinKeySize} and {MaxKeySize} bytes", nameof(key));
+        }
         if (output.Length < input.Length)
+        {
             throw new ArgumentException("Output buffer too small", nameof(output));
+        }
         if (dropBytes < 0)
+        {
             throw new ArgumentException("Drop bytes cannot be negative", nameof(dropBytes));
+        }
 
         var state = new Rc4State();
 
@@ -103,7 +109,9 @@ internal static class Rc4Core
         {
             // Clear state
             if (state?.S != null)
+            {
                 SecureMemoryOperations.SecureClear(state.S.AsSpan());
+            }
         }
     }
 
@@ -184,9 +192,13 @@ internal static class Rc4Core
     public static void ValidateParameters(ReadOnlySpan<byte> key, int dropBytes = 0)
     {
         if (key.Length < MinKeySize || key.Length > MaxKeySize)
+        {
             throw new ArgumentException($"Key must be between {MinKeySize} and {MaxKeySize} bytes", nameof(key));
+        }
         if (dropBytes < 0)
+        {
             throw new ArgumentException("Drop bytes cannot be negative", nameof(dropBytes));
+        }
     }
 
     /// <summary>

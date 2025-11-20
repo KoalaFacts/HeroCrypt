@@ -1,6 +1,7 @@
 #if NET10_0_OR_GREATER
-using System.Security.Cryptography;
+#pragma warning disable SYSLIB5006 // SLH-DSA wrapper uses experimental APIs in .NET 10 preview
 using System.Diagnostics.CodeAnalysis;
+using System.Security.Cryptography;
 
 namespace HeroCrypt.Cryptography.Primitives.PostQuantum.Sphincs;
 
@@ -27,7 +28,7 @@ namespace HeroCrypt.Cryptography.Primitives.PostQuantum.Sphincs;
 ///     .Verify(signature);
 /// </code>
 /// </example>
-[Experimental("SYSLIB5006")]
+
 public class SlhDsaBuilder : IDisposable
 {
     private SlhDsaWrapper.SecurityLevel _securityLevel = SlhDsaWrapper.SecurityLevel.SlhDsa128s;
@@ -42,7 +43,7 @@ public class SlhDsaBuilder : IDisposable
     /// </summary>
     /// <returns>A new builder instance</returns>
     /// <exception cref="PlatformNotSupportedException">If SLH-DSA is not supported on this platform</exception>
-    [Experimental("SYSLIB5006")]
+
     public static SlhDsaBuilder Create()
     {
         if (!SlhDsaWrapper.IsSupported())
@@ -107,8 +108,7 @@ public class SlhDsaBuilder : IDisposable
     /// <exception cref="ArgumentNullException">If publicKeyPem is null</exception>
     public SlhDsaBuilder WithPublicKey(string publicKeyPem)
     {
-        if (publicKeyPem == null)
-            throw new ArgumentNullException(nameof(publicKeyPem));
+        ArgumentNullException.ThrowIfNull(publicKeyPem);
 
         _publicKeyPem = publicKeyPem;
         return this;
@@ -123,7 +123,9 @@ public class SlhDsaBuilder : IDisposable
     public SlhDsaBuilder WithKeyPair(SlhDsaWrapper.SlhDsaKeyPair keyPair)
     {
         if (keyPair == null)
+        {
             throw new ArgumentNullException(nameof(keyPair));
+        }
 
         _keyPair = keyPair;
         return this;
@@ -138,7 +140,9 @@ public class SlhDsaBuilder : IDisposable
     public SlhDsaBuilder WithData(byte[] data)
     {
         if (data == null)
+        {
             throw new ArgumentNullException(nameof(data));
+        }
 
         _data = data;
         return this;
@@ -153,7 +157,9 @@ public class SlhDsaBuilder : IDisposable
     public SlhDsaBuilder WithData(string data)
     {
         if (data == null)
+        {
             throw new ArgumentNullException(nameof(data));
+        }
 
         _data = System.Text.Encoding.UTF8.GetBytes(data);
         return this;
@@ -168,7 +174,9 @@ public class SlhDsaBuilder : IDisposable
     public SlhDsaBuilder WithContext(byte[] context)
     {
         if (context != null && context.Length > 255)
+        {
             throw new ArgumentException("Context must be 255 bytes or less", nameof(context));
+        }
 
         _context = context;
         return this;
@@ -190,7 +198,9 @@ public class SlhDsaBuilder : IDisposable
 
         var contextBytes = System.Text.Encoding.UTF8.GetBytes(context);
         if (contextBytes.Length > 255)
+        {
             throw new ArgumentException("Context must be 255 bytes or less when UTF-8 encoded", nameof(context));
+        }
 
         _context = contextBytes;
         return this;
@@ -201,7 +211,7 @@ public class SlhDsaBuilder : IDisposable
     /// </summary>
     /// <returns>A new SLH-DSA key pair</returns>
     /// <exception cref="CryptographicException">If key generation fails</exception>
-    [Experimental("SYSLIB5006")]
+
     public SlhDsaWrapper.SlhDsaKeyPair GenerateKeyPair()
     {
         return SlhDsaWrapper.GenerateKeyPair(_securityLevel);
@@ -216,10 +226,14 @@ public class SlhDsaBuilder : IDisposable
     public byte[] Sign()
     {
         if (_keyPair == null)
+        {
             throw new InvalidOperationException("Key pair must be set before signing. Use WithKeyPair()");
+        }
 
         if (_data == null)
+        {
             throw new InvalidOperationException("Data must be set before signing. Use WithData()");
+        }
 
         return _keyPair.Sign(_data, _context);
     }
@@ -231,17 +245,20 @@ public class SlhDsaBuilder : IDisposable
     /// <returns>True if the signature is valid, false otherwise</returns>
     /// <exception cref="ArgumentNullException">If signature is null</exception>
     /// <exception cref="InvalidOperationException">If public key or data is not configured</exception>
-    [Experimental("SYSLIB5006")]
+
     public bool Verify(byte[] signature)
     {
-        if (signature == null)
-            throw new ArgumentNullException(nameof(signature));
+        ArgumentNullException.ThrowIfNull(signature);
 
         if (_publicKeyPem == null)
+        {
             throw new InvalidOperationException("Public key must be set before verification. Use WithPublicKey()");
+        }
 
         if (_data == null)
+        {
             throw new InvalidOperationException("Data must be set before verification. Use WithData()");
+        }
 
         return SlhDsaWrapper.Verify(_publicKeyPem, _data, signature, _context);
     }
@@ -285,21 +302,21 @@ public class SlhDsaBuilder : IDisposable
 /// <summary>
 /// Provides a short-hand fluent API for SLH-DSA operations
 /// </summary>
-[Experimental("SYSLIB5006")]
+
 public static class SlhDsa
 {
     /// <summary>
     /// Creates a new SLH-DSA builder instance
     /// </summary>
     /// <returns>A new builder instance</returns>
-    [Experimental("SYSLIB5006")]
+
     public static SlhDsaBuilder Create() => SlhDsaBuilder.Create();
 
     /// <summary>
     /// Quick method to generate a key pair with recommended security (SLH-DSA-128s)
     /// </summary>
     /// <returns>A new SLH-DSA key pair</returns>
-    [Experimental("SYSLIB5006")]
+
     public static SlhDsaWrapper.SlhDsaKeyPair GenerateKeyPair() =>
         SlhDsaWrapper.GenerateKeyPair(SlhDsaWrapper.SecurityLevel.SlhDsa128s);
 
@@ -308,7 +325,7 @@ public static class SlhDsa
     /// </summary>
     /// <param name="level">The security level</param>
     /// <returns>A new SLH-DSA key pair</returns>
-    [Experimental("SYSLIB5006")]
+
     public static SlhDsaWrapper.SlhDsaKeyPair GenerateKeyPair(SlhDsaWrapper.SecurityLevel level) =>
         SlhDsaWrapper.GenerateKeyPair(level);
 
@@ -319,8 +336,9 @@ public static class SlhDsa
     /// <param name="data">The data that was signed</param>
     /// <param name="signature">The signature to verify</param>
     /// <returns>True if valid, false otherwise</returns>
-    [Experimental("SYSLIB5006")]
+
     public static bool Verify(string publicKeyPem, byte[] data, byte[] signature) =>
         SlhDsaWrapper.Verify(publicKeyPem, data, signature);
 }
 #endif
+#pragma warning restore SYSLIB5006

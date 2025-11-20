@@ -1,6 +1,5 @@
-using HeroCrypt.Cryptography.Primitives.Cipher.Aead;
-using HeroCrypt.Cryptography.Primitives.Cipher.Stream;
 using System.Text;
+using HeroCrypt.Cryptography.Primitives.Cipher.Aead;
 
 namespace HeroCrypt.Tests;
 
@@ -18,9 +17,13 @@ public class AesSivTests
     {
         // Initialize test key and nonce with predictable values
         for (var i = 0; i < _testKey256.Length; i++)
+        {
             _testKey256[i] = (byte)(i + 1);
+        }
         for (var i = 0; i < _testNonce.Length; i++)
+        {
             _testNonce[i] = (byte)(i + 50);
+        }
     }
 
     [Fact]

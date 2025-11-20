@@ -1,6 +1,6 @@
-using HeroCrypt.Security;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using HeroCrypt.Security;
 
 namespace HeroCrypt.Cryptography.Primitives.Cipher.Stream;
 
@@ -52,11 +52,17 @@ internal static class Hc256Core
     public static void Transform(Span<byte> output, ReadOnlySpan<byte> input, ReadOnlySpan<byte> key, ReadOnlySpan<byte> iv)
     {
         if (key.Length != KeySize)
+        {
             throw new ArgumentException($"Key must be {KeySize} bytes", nameof(key));
+        }
         if (iv.Length != IvSize)
+        {
             throw new ArgumentException($"IV must be {IvSize} bytes", nameof(iv));
+        }
         if (output.Length < input.Length)
+        {
             throw new ArgumentException("Output buffer too small", nameof(output));
+        }
 
         var state = new Hc256State();
 
@@ -88,9 +94,13 @@ internal static class Hc256Core
         {
             // Clear state
             if (state?.P != null)
+            {
                 SecureMemoryOperations.SecureClear(state.P.AsSpan());
+            }
             if (state?.Q != null)
+            {
                 SecureMemoryOperations.SecureClear(state.Q.AsSpan());
+            }
         }
     }
 
@@ -271,9 +281,13 @@ internal static class Hc256Core
     public static void ValidateParameters(ReadOnlySpan<byte> key, ReadOnlySpan<byte> iv)
     {
         if (key.Length != KeySize)
+        {
             throw new ArgumentException($"Key must be {KeySize} bytes", nameof(key));
+        }
         if (iv.Length != IvSize)
+        {
             throw new ArgumentException($"IV must be {IvSize} bytes", nameof(iv));
+        }
     }
 
     /// <summary>

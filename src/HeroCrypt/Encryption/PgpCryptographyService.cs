@@ -1,8 +1,8 @@
-using HeroCrypt.Cryptography.Primitives.Signature.Rsa;
-using HeroCrypt.KeyManagement;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+using HeroCrypt.Cryptography.Primitives.Signature.Rsa;
+using HeroCrypt.KeyManagement;
 using BigInteger = HeroCrypt.Cryptography.Primitives.Signature.Rsa.BigInteger;
 
 namespace HeroCrypt.Encryption;
@@ -58,9 +58,13 @@ public sealed class PgpCryptographyService : ICryptographyService, IPgpKeyGenera
         ArgumentException.ThrowIfNullOrWhiteSpace(publicKey);
 #else
         if (data == null)
+        {
             throw new ArgumentNullException(nameof(data));
+        }
         if (string.IsNullOrWhiteSpace(publicKey))
+        {
             throw new ArgumentException("Value cannot be null or whitespace.", nameof(publicKey));
+        }
 #endif
 
         return await Task.Run(() =>
@@ -97,7 +101,9 @@ public sealed class PgpCryptographyService : ICryptographyService, IPgpKeyGenera
             finally
             {
                 if (aes.Key != null)
+                {
                     ZeroMemory(aes.Key);
+                }
                 ZeroMemory(keyBuffer);
             }
         }, cancellationToken);
@@ -149,9 +155,13 @@ public sealed class PgpCryptographyService : ICryptographyService, IPgpKeyGenera
         ArgumentException.ThrowIfNullOrWhiteSpace(privateKey);
 #else
         if (encryptedData == null)
+        {
             throw new ArgumentNullException(nameof(encryptedData));
+        }
         if (string.IsNullOrWhiteSpace(privateKey))
+        {
             throw new ArgumentException("Value cannot be null or whitespace.", nameof(privateKey));
+        }
 #endif
 
         return await Task.Run(() =>
@@ -188,7 +198,9 @@ public sealed class PgpCryptographyService : ICryptographyService, IPgpKeyGenera
             var result = resultStream.ToArray();
             ZeroMemory(sessionKey);
             if (aes.Key != null)
+            {
                 ZeroMemory(aes.Key);
+            }
             return result;
         }, cancellationToken);
     }
@@ -206,7 +218,9 @@ public sealed class PgpCryptographyService : ICryptographyService, IPgpKeyGenera
         ArgumentException.ThrowIfNullOrWhiteSpace(plainText);
 #else
         if (string.IsNullOrWhiteSpace(plainText))
+        {
             throw new ArgumentException("Value cannot be null or whitespace.", nameof(plainText));
+        }
 #endif
         var encryptedBytes = await EncryptAsync(Encoding.UTF8.GetBytes(plainText), publicKey, cancellationToken);
         return Encoding.UTF8.GetString(encryptedBytes);
@@ -238,7 +252,9 @@ public sealed class PgpCryptographyService : ICryptographyService, IPgpKeyGenera
         ArgumentException.ThrowIfNullOrWhiteSpace(encryptedText);
 #else
         if (string.IsNullOrWhiteSpace(encryptedText))
+        {
             throw new ArgumentException("Value cannot be null or whitespace.", nameof(encryptedText));
+        }
 #endif
         var decryptedBytes = await DecryptAsync(Encoding.UTF8.GetBytes(encryptedText), privateKey, passphrase, cancellationToken);
         return Encoding.UTF8.GetString(decryptedBytes);
@@ -270,7 +286,9 @@ public sealed class PgpCryptographyService : ICryptographyService, IPgpKeyGenera
         ArgumentException.ThrowIfNullOrWhiteSpace(identity);
 #else
         if (string.IsNullOrWhiteSpace(identity))
+        {
             throw new ArgumentException("Value cannot be null or whitespace.", nameof(identity));
+        }
 #endif
 
         return await Task.Run(() =>
@@ -405,13 +423,17 @@ public sealed class PgpCryptographyService : ICryptographyService, IPgpKeyGenera
         foreach (var line in lines)
         {
             if (line.StartsWith("Modulus:", StringComparison.Ordinal))
+            {
                 modulus = line.Substring("Modulus:".Length).Trim();
+            }
             else if (line.StartsWith("Exponent:", StringComparison.Ordinal))
                 exponent = line.Substring("Exponent:".Length).Trim();
         }
 
         if (modulus == null || exponent == null)
+        {
             throw new ArgumentException("Invalid public key format");
+        }
 
         return new RsaPublicKey(
             new BigInteger(Convert.FromBase64String(modulus)),
@@ -455,9 +477,13 @@ public sealed class PgpCryptographyService : ICryptographyService, IPgpKeyGenera
         if (encrypted)
         {
             if (string.IsNullOrEmpty(encryptedPayload))
+            {
                 throw new ArgumentException("Invalid private key format");
+            }
             if (string.IsNullOrEmpty(passphrase))
+            {
                 throw new ArgumentException("Passphrase is required for encrypted private keys.", nameof(passphrase));
+            }
 
             string decryptedContent;
             try
@@ -476,7 +502,9 @@ public sealed class PgpCryptographyService : ICryptographyService, IPgpKeyGenera
 
             var parts = decryptedContent.Split('|');
             if (parts.Length != 5)
+            {
                 throw new ArgumentException("Invalid encrypted private key data.");
+            }
 
             modulus = parts[0];
             d = parts[1];
@@ -486,7 +514,9 @@ public sealed class PgpCryptographyService : ICryptographyService, IPgpKeyGenera
         }
 
         if (modulus == null || d == null || p == null || q == null || e == null)
+        {
             throw new ArgumentException("Invalid private key format");
+        }
 
         return new RsaPrivateKey(
             new BigInteger(Convert.FromBase64String(modulus)),
@@ -522,7 +552,9 @@ public sealed class PgpCryptographyService : ICryptographyService, IPgpKeyGenera
         {
             ZeroMemory(key);
             if (aes.Key != null)
+            {
                 ZeroMemory(aes.Key);
+            }
         }
     }
 
@@ -533,7 +565,9 @@ public sealed class PgpCryptographyService : ICryptographyService, IPgpKeyGenera
         var ivLength = aes.BlockSize / 8;
 
         if (buffer.Length < ivLength)
+        {
             throw new ArgumentException("Invalid encrypted private key data.", nameof(encryptedData));
+        }
 
         var iv = new byte[ivLength];
         Array.Copy(buffer, 0, iv, 0, ivLength);
@@ -560,7 +594,9 @@ public sealed class PgpCryptographyService : ICryptographyService, IPgpKeyGenera
         {
             ZeroMemory(key);
             if (aes.Key != null)
+            {
                 ZeroMemory(aes.Key);
+            }
         }
     }
 

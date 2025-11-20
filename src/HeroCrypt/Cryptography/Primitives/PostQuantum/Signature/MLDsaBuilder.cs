@@ -1,8 +1,8 @@
 #if NET10_0_OR_GREATER
-using System.Security.Cryptography;
 using System.Diagnostics.CodeAnalysis;
+using System.Security.Cryptography;
 
-#pragma warning disable SYSLIB5006 // Experimental feature warnings
+#pragma warning disable SYSLIB5006 // ML-DSA APIs are experimental in .NET 10 preview
 namespace HeroCrypt.Cryptography.Primitives.PostQuantum.Dilithium;
 
 /// <summary>
@@ -87,7 +87,9 @@ public class MLDsaBuilder : IDisposable
     public MLDsaBuilder WithPublicKey(string publicKeyPem)
     {
         if (publicKeyPem == null)
+        {
             throw new ArgumentNullException(nameof(publicKeyPem));
+        }
 
         _publicKeyPem = publicKeyPem;
         return this;
@@ -102,7 +104,9 @@ public class MLDsaBuilder : IDisposable
     public MLDsaBuilder WithKeyPair(MLDsaWrapper.MLDsaKeyPair keyPair)
     {
         if (keyPair == null)
+        {
             throw new ArgumentNullException(nameof(keyPair));
+        }
 
         _keyPair = keyPair;
         return this;
@@ -117,7 +121,9 @@ public class MLDsaBuilder : IDisposable
     public MLDsaBuilder WithData(byte[] data)
     {
         if (data == null)
+        {
             throw new ArgumentNullException(nameof(data));
+        }
 
         _data = data;
         return this;
@@ -132,7 +138,9 @@ public class MLDsaBuilder : IDisposable
     public MLDsaBuilder WithData(string data)
     {
         if (data == null)
+        {
             throw new ArgumentNullException(nameof(data));
+        }
 
         _data = System.Text.Encoding.UTF8.GetBytes(data);
         return this;
@@ -147,7 +155,9 @@ public class MLDsaBuilder : IDisposable
     public MLDsaBuilder WithContext(byte[] context)
     {
         if (context != null && context.Length > 255)
+        {
             throw new ArgumentException("Context must be 255 bytes or less", nameof(context));
+        }
 
         _context = context;
         return this;
@@ -169,7 +179,9 @@ public class MLDsaBuilder : IDisposable
 
         var contextBytes = System.Text.Encoding.UTF8.GetBytes(context);
         if (contextBytes.Length > 255)
+        {
             throw new ArgumentException("Context must be 255 bytes or less when UTF-8 encoded", nameof(context));
+        }
 
         _context = contextBytes;
         return this;
@@ -194,10 +206,14 @@ public class MLDsaBuilder : IDisposable
     public byte[] Sign()
     {
         if (_keyPair == null)
+        {
             throw new InvalidOperationException("Key pair must be set before signing. Use WithKeyPair()");
+        }
 
         if (_data == null)
+        {
             throw new InvalidOperationException("Data must be set before signing. Use WithData()");
+        }
 
         return _keyPair.Sign(_data, _context);
     }
@@ -212,13 +228,19 @@ public class MLDsaBuilder : IDisposable
     public bool Verify(byte[] signature)
     {
         if (signature == null)
+        {
             throw new ArgumentNullException(nameof(signature));
+        }
 
         if (_publicKeyPem == null)
+        {
             throw new InvalidOperationException("Public key must be set before verification. Use WithPublicKey()");
+        }
 
         if (_data == null)
+        {
             throw new InvalidOperationException("Data must be set before verification. Use WithData()");
+        }
 
         return MLDsaWrapper.Verify(_publicKeyPem, _data, signature, _context);
     }

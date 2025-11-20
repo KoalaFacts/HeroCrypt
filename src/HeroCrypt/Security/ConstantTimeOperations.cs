@@ -71,11 +71,17 @@ public static class ConstantTimeOperations
     public static void ConditionalSwap(byte condition, byte[] a, byte[] b)
     {
         if (a == null)
+        {
             throw new ArgumentNullException(nameof(a));
+        }
         if (b == null)
+        {
             throw new ArgumentNullException(nameof(b));
+        }
         if (a.Length != b.Length)
+        {
             throw new ArgumentException("Arrays must have the same length");
+        }
 
         // Ensure condition is 0 or 1
         condition = (byte)(condition & 1);
@@ -137,7 +143,9 @@ public static class ConstantTimeOperations
     public static byte ValidatePkcs1Padding(byte[] paddedMessage, int expectedLength)
     {
         if (paddedMessage == null)
+        {
             return 0;
+        }
 
         if (paddedMessage.Length < 11) // Minimum padding length
             return 0;
@@ -192,7 +200,9 @@ public static class ConstantTimeOperations
     public static uint ConstantTimeModulo(uint value, uint modulus)
     {
         if (modulus == 0)
+        {
             throw new ArgumentException("Modulus cannot be zero", nameof(modulus));
+        }
 
         // Simple constant-time modular reduction for small values
         // For larger values, use Montgomery reduction or Barrett reduction
@@ -218,13 +228,21 @@ public static class ConstantTimeOperations
     public static void ConditionalCopy(byte condition, byte[] source, byte[] destination, int length)
     {
         if (source == null)
+        {
             throw new ArgumentNullException(nameof(source));
+        }
         if (destination == null)
+        {
             throw new ArgumentNullException(nameof(destination));
+        }
         if (length < 0)
+        {
             throw new ArgumentException("Length cannot be negative", nameof(length));
+        }
         if (source.Length < length || destination.Length < length)
+        {
             throw new ArgumentException("Arrays are too small for the specified length");
+        }
 
         // Ensure condition is 0 or 1
         condition = (byte)(condition & 1);
@@ -246,10 +264,14 @@ public static class ConstantTimeOperations
     public static byte ConstantTimeArrayEquals(byte[] a, byte[] b)
     {
         if (a == null || b == null)
+        {
             return (byte)(a == b ? 1 : 0);
+        }
 
         if (a.Length != b.Length)
+        {
             return 0;
+        }
 
         byte result = 1;
         for (var i = 0; i < a.Length; i++)
@@ -270,9 +292,13 @@ public static class ConstantTimeOperations
     public static byte ConstantTimeLookup(byte[] array, int index)
     {
         if (array == null)
+        {
             throw new ArgumentNullException(nameof(array));
+        }
         if (index < 0 || index >= array.Length)
+        {
             throw new ArgumentOutOfRangeException(nameof(index));
+        }
 
         byte result = 0;
         for (var i = 0; i < array.Length; i++)

@@ -1,6 +1,6 @@
-using HeroCrypt.Security;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
+using HeroCrypt.Security;
 
 namespace HeroCrypt.Cryptography.Primitives.Cipher.Aead;
 
@@ -54,7 +54,9 @@ internal static class AesOcbCore
         ValidateParameters(key, nonce, ciphertext.Length, plaintext.Length);
 
         if (ciphertext.Length < plaintext.Length + TagSize)
+        {
             throw new ArgumentException("Ciphertext buffer too small", nameof(ciphertext));
+        }
 
         // Create key array once and clear it in finally block (avoid repeated allocations)
         var keyArray = key.ToArray();
@@ -181,13 +183,17 @@ internal static class AesOcbCore
         ReadOnlySpan<byte> associatedData)
     {
         if (ciphertext.Length < TagSize)
+        {
             throw new ArgumentException("Ciphertext too short", nameof(ciphertext));
+        }
 
         var plaintextLength = ciphertext.Length - TagSize;
         ValidateParameters(key, nonce, ciphertext.Length, plaintextLength);
 
         if (plaintext.Length < plaintextLength)
+        {
             throw new ArgumentException("Plaintext buffer too small", nameof(plaintext));
+        }
 
         // Create key array once and clear it in finally block (avoid repeated allocations)
         var keyArray = key.ToArray();
@@ -548,11 +554,17 @@ internal static class AesOcbCore
     public static void ValidateParameters(ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce, int ciphertextLength, int plaintextLength)
     {
         if (!SupportedKeySizes.Contains(key.Length))
+        {
             throw new ArgumentException($"Key must be 16, 24, or 32 bytes, got {key.Length}", nameof(key));
+        }
         if (nonce.Length < MinNonceSize || nonce.Length > MaxNonceSize)
+        {
             throw new ArgumentException($"Nonce must be between {MinNonceSize} and {MaxNonceSize} bytes", nameof(nonce));
+        }
         if (plaintextLength < 0)
+        {
             throw new ArgumentException("Plaintext length cannot be negative", nameof(plaintextLength));
+        }
     }
 
     /// <summary>

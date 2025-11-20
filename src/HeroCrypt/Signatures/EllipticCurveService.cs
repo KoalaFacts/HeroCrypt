@@ -43,9 +43,13 @@ public class EllipticCurveService : IEllipticCurveService
     public Task<byte[]> PerformEcdhAsync(byte[] privateKey, byte[] publicKey, CancellationToken cancellationToken = default)
     {
         if (privateKey == null)
+        {
             throw new ArgumentNullException(nameof(privateKey));
+        }
         if (publicKey == null)
+        {
             throw new ArgumentNullException(nameof(publicKey));
+        }
 
         InputValidator.ValidateByteArray(privateKey, nameof(privateKey));
         InputValidator.ValidateByteArray(publicKey, nameof(publicKey));
@@ -73,9 +77,13 @@ public class EllipticCurveService : IEllipticCurveService
     public Task<byte[]> SignAsync(byte[] data, byte[] privateKey, EccCurve curve, CancellationToken cancellationToken = default)
     {
         if (data == null)
+        {
             throw new ArgumentNullException(nameof(data));
+        }
         if (privateKey == null)
+        {
             throw new ArgumentNullException(nameof(privateKey));
+        }
 
         InputValidator.ValidateByteArray(data, nameof(data), allowEmpty: true);
         InputValidator.ValidateByteArray(privateKey, nameof(privateKey));
@@ -103,11 +111,17 @@ public class EllipticCurveService : IEllipticCurveService
     public Task<bool> VerifyAsync(byte[] data, byte[] signature, byte[] publicKey, EccCurve curve, CancellationToken cancellationToken = default)
     {
         if (data == null)
+        {
             throw new ArgumentNullException(nameof(data));
+        }
         if (signature == null)
+        {
             throw new ArgumentNullException(nameof(signature));
+        }
         if (publicKey == null)
+        {
             throw new ArgumentNullException(nameof(publicKey));
+        }
 
         InputValidator.ValidateByteArray(data, nameof(data), allowEmpty: true);
         InputValidator.ValidateByteArray(signature, nameof(signature));
@@ -136,7 +150,9 @@ public class EllipticCurveService : IEllipticCurveService
     public Task<byte[]> DerivePublicKeyAsync(byte[] privateKey, EccCurve curve, CancellationToken cancellationToken = default)
     {
         if (privateKey == null)
+        {
             throw new ArgumentNullException(nameof(privateKey));
+        }
 
         InputValidator.ValidateByteArray(privateKey, nameof(privateKey));
 
@@ -164,7 +180,9 @@ public class EllipticCurveService : IEllipticCurveService
     public bool ValidatePoint(byte[] point, EccCurve curve)
     {
         if (point == null)
+        {
             throw new ArgumentNullException(nameof(point));
+        }
 
         try
         {
@@ -188,7 +206,9 @@ public class EllipticCurveService : IEllipticCurveService
     public byte[] CompressPoint(byte[] uncompressedPoint, EccCurve curve)
     {
         if (uncompressedPoint == null)
+        {
             throw new ArgumentNullException(nameof(uncompressedPoint));
+        }
 
         InputValidator.ValidateByteArray(uncompressedPoint, nameof(uncompressedPoint));
 
@@ -205,7 +225,9 @@ public class EllipticCurveService : IEllipticCurveService
     public byte[] DecompressPoint(byte[] compressedPoint, EccCurve curve)
     {
         if (compressedPoint == null)
+        {
             throw new ArgumentNullException(nameof(compressedPoint));
+        }
 
         InputValidator.ValidateByteArray(compressedPoint, nameof(compressedPoint));
 
@@ -287,7 +309,9 @@ public class EllipticCurveService : IEllipticCurveService
     {
         // Ed25519 points are 32 bytes and should be on the curve
         if (point.Length != 32)
+        {
             return false;
+        }
 
         try
         {

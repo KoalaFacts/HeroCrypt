@@ -1,7 +1,7 @@
 #if NET10_0_OR_GREATER
 using System.Text;
-using HeroCrypt.Cryptography.Primitives.PostQuantum.Kyber;
 using HeroCrypt.Cryptography.Primitives.PostQuantum.Dilithium;
+using HeroCrypt.Cryptography.Primitives.PostQuantum.Kyber;
 using HeroCrypt.Cryptography.Primitives.PostQuantum.Sphincs;
 
 namespace HeroCrypt.Tests;
@@ -18,7 +18,7 @@ public class PostQuantumNet10Tests
     {
         // This test documents platform support - may pass or fail depending on platform
         var isSupported = MLKemWrapper.IsSupported();
-        Assert.NotNull(isSupported); // Just verify it doesn't throw
+        Assert.True(isSupported); // Just verify it doesn't throw
     }
 
     [Fact]
@@ -44,7 +44,9 @@ public class PostQuantumNet10Tests
     public void MLKem_GenerateKeyPair_MLKem768_Success()
     {
         if (!MLKemWrapper.IsSupported())
+        {
             return;
+        }
 
         using var keyPair = MLKemWrapper.GenerateKeyPair(MLKemWrapper.SecurityLevel.MLKem768);
 
@@ -56,7 +58,9 @@ public class PostQuantumNet10Tests
     public void MLKem_GenerateKeyPair_MLKem1024_Success()
     {
         if (!MLKemWrapper.IsSupported())
+        {
             return;
+        }
 
         using var keyPair = MLKemWrapper.GenerateKeyPair(MLKemWrapper.SecurityLevel.MLKem1024);
 
@@ -68,7 +72,9 @@ public class PostQuantumNet10Tests
     public void MLKem_EncapsulateDecapsulate_Success()
     {
         if (!MLKemWrapper.IsSupported())
+        {
             return;
+        }
 
         using var keyPair = MLKemWrapper.GenerateKeyPair(MLKemWrapper.SecurityLevel.MLKem768);
 
@@ -119,14 +125,16 @@ public class PostQuantumNet10Tests
     public void MLDsa_IsSupported_ReturnsExpectedValue()
     {
         var isSupported = MLDsaWrapper.IsSupported();
-        Assert.NotNull(isSupported);
+        Assert.True(isSupported);
     }
 
     [Fact]
     public void MLDsa_GenerateKeyPair_MLDsa44_Success()
     {
         if (!MLDsaWrapper.IsSupported())
+        {
             return;
+        }
 
         using var keyPair = MLDsaWrapper.GenerateKeyPair(MLDsaWrapper.SecurityLevel.MLDsa44);
 
@@ -140,7 +148,9 @@ public class PostQuantumNet10Tests
     public void MLDsa_GenerateKeyPair_MLDsa65_Success()
     {
         if (!MLDsaWrapper.IsSupported())
+        {
             return;
+        }
 
         using var keyPair = MLDsaWrapper.GenerateKeyPair(MLDsaWrapper.SecurityLevel.MLDsa65);
 
@@ -152,7 +162,9 @@ public class PostQuantumNet10Tests
     public void MLDsa_GenerateKeyPair_MLDsa87_Success()
     {
         if (!MLDsaWrapper.IsSupported())
+        {
             return;
+        }
 
         using var keyPair = MLDsaWrapper.GenerateKeyPair(MLDsaWrapper.SecurityLevel.MLDsa87);
 
@@ -164,7 +176,9 @@ public class PostQuantumNet10Tests
     public void MLDsa_SignAndVerify_Success()
     {
         if (!MLDsaWrapper.IsSupported())
+        {
             return;
+        }
 
         using var keyPair = MLDsaWrapper.GenerateKeyPair(MLDsaWrapper.SecurityLevel.MLDsa65);
 
@@ -190,7 +204,9 @@ public class PostQuantumNet10Tests
     public void MLDsa_SignWithContext_Success()
     {
         if (!MLDsaWrapper.IsSupported())
+        {
             return;
+        }
 
         using var keyPair = MLDsaWrapper.GenerateKeyPair(MLDsaWrapper.SecurityLevel.MLDsa65);
 
@@ -250,14 +266,16 @@ public class PostQuantumNet10Tests
     public void SlhDsa_IsSupported_ReturnsExpectedValue()
     {
         var isSupported = SlhDsaWrapper.IsSupported();
-        Assert.NotNull(isSupported);
+        Assert.True(isSupported);
     }
 
     [Fact]
     public void SlhDsa_GenerateKeyPair_128s_Success()
     {
         if (!SlhDsaWrapper.IsSupported())
+        {
             return;
+        }
 
         using var keyPair = SlhDsaWrapper.GenerateKeyPair(SlhDsaWrapper.SecurityLevel.SlhDsa128s);
 
@@ -271,7 +289,9 @@ public class PostQuantumNet10Tests
     public void SlhDsa_GenerateKeyPair_AllLevels_Success()
     {
         if (!SlhDsaWrapper.IsSupported())
+        {
             return;
+        }
 
         var levels = new[]
         {
@@ -295,7 +315,9 @@ public class PostQuantumNet10Tests
     public void SlhDsa_SignAndVerify_Success()
     {
         if (!SlhDsaWrapper.IsSupported())
+        {
             return;
+        }
 
         using var keyPair = SlhDsaWrapper.GenerateKeyPair(SlhDsaWrapper.SecurityLevel.SlhDsa128s);
 
@@ -349,7 +371,9 @@ public class PostQuantumNet10Tests
     public void Integration_HybridEncryption_MLKemWithAesGcm()
     {
         if (!MLKemWrapper.IsSupported())
+        {
             return;
+        }
 
         // Generate ML-KEM key pair
         using var keyPair = MLKemWrapper.GenerateKeyPair(MLKemWrapper.SecurityLevel.MLKem768);
@@ -372,7 +396,9 @@ public class PostQuantumNet10Tests
     public void Integration_MultipleSignatureSchemes_DifferentSecurityLevels()
     {
         if (!MLDsaWrapper.IsSupported() || !SlhDsaWrapper.IsSupported())
+        {
             return;
+        }
 
         var data = Encoding.UTF8.GetBytes("Important document");
 
@@ -398,7 +424,9 @@ public class PostQuantumNet10Tests
     public void HeroCryptBuilder_PostQuantum_MLKem_Success()
     {
         if (!MLKemWrapper.IsSupported())
+        {
             return;
+        }
 
         // Use unified builder
         using var keyPair = MLKemBuilder.Create()
@@ -428,7 +456,9 @@ public class PostQuantumNet10Tests
     public void HeroCryptBuilder_PostQuantum_MLDsa_Success()
     {
         if (!MLDsaWrapper.IsSupported())
+        {
             return;
+        }
 
         var message = "Test unified builder";
 
@@ -459,7 +489,9 @@ public class PostQuantumNet10Tests
     public void HeroCryptBuilder_PostQuantum_SlhDsa_Success()
     {
         if (!SlhDsaWrapper.IsSupported())
+        {
             return;
+        }
 
         var message = Encoding.UTF8.GetBytes("Unified builder SLH-DSA test");
 
@@ -488,7 +520,9 @@ public class PostQuantumNet10Tests
     public void HeroCrypt_PostQuantum_QuickAccess_MLKem_Success()
     {
         if (!MLKemWrapper.IsSupported())
+        {
             return;
+        }
 
         // Use quick access methods
         using var keyPair = MLKem.GenerateKeyPair();
@@ -503,7 +537,9 @@ public class PostQuantumNet10Tests
     public void HeroCrypt_PostQuantum_QuickAccess_MLDsa_Success()
     {
         if (!MLDsaWrapper.IsSupported())
+        {
             return;
+        }
 
         // Quick access generation
         using var keyPair = MLDsa.GenerateKeyPair();
@@ -526,7 +562,9 @@ public class PostQuantumNet10Tests
     public void MLKemBuilder_FluentAPI_Success()
     {
         if (!MLKemWrapper.IsSupported())
+        {
             return;
+        }
 
         // Generate key pair with builder
         using var keyPair = MLKemBuilder.Create()
@@ -556,7 +594,9 @@ public class PostQuantumNet10Tests
     public void MLDsaBuilder_FluentAPI_Success()
     {
         if (!MLDsaWrapper.IsSupported())
+        {
             return;
+        }
 
         var message = "Test message for builder";
 
@@ -587,7 +627,9 @@ public class PostQuantumNet10Tests
     public void SlhDsaBuilder_FluentAPI_SmallVariant_Success()
     {
         if (!SlhDsaWrapper.IsSupported())
+        {
             return;
+        }
 
         var message = Encoding.UTF8.GetBytes("Test message for SLH-DSA builder");
 
@@ -617,7 +659,9 @@ public class PostQuantumNet10Tests
     public void MLKem_ShorthandAPI_Success()
     {
         if (!MLKemWrapper.IsSupported())
+        {
             return;
+        }
 
         // Use shorthand static methods
         using var keyPair = MLKem.GenerateKeyPair();
@@ -631,7 +675,9 @@ public class PostQuantumNet10Tests
     public void MLDsa_ShorthandAPI_Success()
     {
         if (!MLDsaWrapper.IsSupported())
+        {
             return;
+        }
 
         // Use shorthand static methods
         using var keyPair = MLDsa.GenerateKeyPair();

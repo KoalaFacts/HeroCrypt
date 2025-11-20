@@ -1,6 +1,6 @@
-using HeroCrypt.Security;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using HeroCrypt.Security;
 
 namespace HeroCrypt.Cryptography.Primitives.Cipher.Stream;
 
@@ -67,11 +67,17 @@ internal static class RabbitCore
     public static void Transform(Span<byte> output, ReadOnlySpan<byte> input, ReadOnlySpan<byte> key, ReadOnlySpan<byte> iv)
     {
         if (key.Length != KeySize)
+        {
             throw new ArgumentException($"Key must be {KeySize} bytes", nameof(key));
+        }
         if (iv.Length != 0 && iv.Length != IvSize)
+        {
             throw new ArgumentException($"IV must be {IvSize} bytes or empty for key-only mode", nameof(iv));
+        }
         if (output.Length < input.Length)
+        {
             throw new ArgumentException("Output buffer too small", nameof(output));
+        }
 
         var state = new RabbitState();
 
@@ -115,9 +121,13 @@ internal static class RabbitCore
         {
             // Clear state
             if (state.X != null)
+            {
                 SecureMemoryOperations.SecureClear(state.X.AsSpan());
+            }
             if (state.C != null)
+            {
                 SecureMemoryOperations.SecureClear(state.C.AsSpan());
+            }
         }
     }
 
@@ -314,9 +324,13 @@ internal static class RabbitCore
     public static void ValidateParameters(ReadOnlySpan<byte> key, ReadOnlySpan<byte> iv)
     {
         if (key.Length != KeySize)
+        {
             throw new ArgumentException($"Key must be {KeySize} bytes", nameof(key));
+        }
         if (iv.Length != 0 && iv.Length != IvSize)
+        {
             throw new ArgumentException($"IV must be {IvSize} bytes or empty for key-only mode", nameof(iv));
+        }
     }
 
     /// <summary>

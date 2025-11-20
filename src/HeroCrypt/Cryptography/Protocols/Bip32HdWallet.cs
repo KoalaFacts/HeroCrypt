@@ -1,8 +1,8 @@
-using HeroCrypt.Security;
 using System.Buffers.Binary;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
+using HeroCrypt.Security;
 
 namespace HeroCrypt.Cryptography.Protocols;
 
@@ -97,9 +97,13 @@ public static class Bip32HdWallet
             byte[]? parentFingerprint = null, uint childIndex = 0)
         {
             if (key.Length != 32 && key.Length != 33)
+            {
                 throw new ArgumentException("Key must be 32 bytes (private) or 33 bytes (public)", nameof(key));
+            }
             if (chainCode.Length != 32)
+            {
                 throw new ArgumentException("Chain code must be 32 bytes", nameof(chainCode));
+            }
 
             Key = key;
             ChainCode = chainCode;
@@ -130,7 +134,9 @@ public static class Bip32HdWallet
     public static ExtendedKey GenerateMasterKey(ReadOnlySpan<byte> seed, string keyType = BitcoinSeed)
     {
         if (seed.Length < MinSeedLength || seed.Length > MaxSeedLength)
+        {
             throw new ArgumentException($"Seed must be between {MinSeedLength} and {MaxSeedLength} bytes", nameof(seed));
+        }
 
         // Compute I = HMAC-SHA512(Key = keyType, Data = seed)
         var hmacKey = Encoding.UTF8.GetBytes(keyType);
@@ -173,13 +179,17 @@ public static class Bip32HdWallet
     public static ExtendedKey DeriveChild(ExtendedKey parent, uint index)
     {
         if (parent == null)
+        {
             throw new ArgumentNullException(nameof(parent));
+        }
 
         var isHardened = index >= HardenedOffset;
 
         // Hardened derivation requires private key
         if (isHardened && !parent.IsPrivate)
+        {
             throw new InvalidOperationException("Cannot derive hardened child from public key");
+        }
 
         Span<byte> data = stackalloc byte[37]; // 1 + 32 + 4
         var dataLength = 0;
@@ -295,7 +305,9 @@ public static class Bip32HdWallet
     public static ExtendedKey DerivePath(ExtendedKey masterKey, string path)
     {
         if (string.IsNullOrWhiteSpace(path))
+        {
             throw new ArgumentException("Path cannot be empty", nameof(path));
+        }
 
         var indices = ParsePath(path);
         var currentKey = masterKey;
@@ -324,7 +336,9 @@ public static class Bip32HdWallet
     public static uint[] ParsePath(string path)
     {
         if (string.IsNullOrWhiteSpace(path))
+        {
             throw new ArgumentException("Path cannot be empty", nameof(path));
+        }
 
         // Remove "m/" or "M/" prefix if present
         if (path.StartsWith("m/", StringComparison.OrdinalIgnoreCase))
@@ -357,7 +371,9 @@ public static class Bip32HdWallet
             if (isHardened)
             {
                 if (index >= HardenedOffset)
+                {
                     throw new ArgumentException($"Index too large for hardened derivation: {index}", nameof(path));
+                }
                 index += HardenedOffset;
             }
 
@@ -385,7 +401,9 @@ public static class Bip32HdWallet
     public static string FormatPath(uint[] indices)
     {
         if (indices.Length == 0)
+        {
             return "m";
+        }
 
         var parts = new string[indices.Length];
         for (var i = 0; i < indices.Length; i++)
@@ -420,7 +438,9 @@ public static class Bip32HdWallet
 
         var pubParams = ecdsa.ExportParameters(false);
         if (pubParams.Q.X == null || pubParams.Q.Y == null)
+        {
             throw new InvalidOperationException("Failed to derive public key from private key");
+        }
 
         // Compress the public key (0x02/0x03 prefix + x coordinate)
         var yIsEven = (pubParams.Q.Y[pubParams.Q.Y.Length - 1] & 1) == 0;
@@ -463,7 +483,9 @@ public static class Bip32HdWallet
             for (var i = 0; i < 32 && comparison == 0; i++)
             {
                 if (result[i] > n[i])
+                {
                     comparison = 1;
+                }
                 else if (result[i] < n[i])
                     comparison = -1;
             }
@@ -539,7 +561,9 @@ public static class Bip32HdWallet
         for (var i = 0; i < value.Length; i++)
         {
             if (value[i] != 0)
+            {
                 return false;
+            }
         }
         return true;
     }
@@ -562,9 +586,13 @@ public static class Bip32HdWallet
         for (var i = 0; i < 32; i++)
         {
             if (value[i] > n[i])
+            {
                 return true;
+            }
             if (value[i] < n[i])
+            {
                 return false;
+            }
         }
         // Equal
         return true;

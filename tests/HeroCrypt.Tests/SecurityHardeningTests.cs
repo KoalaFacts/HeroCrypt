@@ -55,7 +55,8 @@ public class SecurityHardeningTests
     public void SecureClear_NullArray_DoesNotThrow()
     {
         // Act & Assert
-        var exception = Record.Exception(() => SecureMemoryOperations.SecureClear((byte[])null));
+        byte[]? nullBuffer = null;
+        var exception = Record.Exception(() => SecureMemoryOperations.SecureClear(nullBuffer!));
         Assert.Null(exception);
     }
 
@@ -105,7 +106,7 @@ public class SecurityHardeningTests
     public void SecureByteArray_AutomaticallyClears_OnDispose()
     {
         // Arrange
-        byte[] retrievedData = null;
+        byte[]? retrievedData = null;
 
         // Act
         using (var secureArray = new SecureByteArray(new byte[] { 1, 2, 3, 4, 5 }))
@@ -272,7 +273,7 @@ public class SecurityHardeningTests
     public void ValidateByteArray_NullArray_ThrowsArgumentNullException()
     {
         // Act & Assert
-        Assert.Throws<ArgumentNullException>(() => InputValidator.ValidateByteArray(null, "test"));
+        Assert.Throws<ArgumentNullException>(() => InputValidator.ValidateByteArray(null!, "test"));
     }
 
     [Fact]
@@ -548,7 +549,7 @@ public class SecurityHardeningTests
         var emptyBytes = service.GenerateRandomBytes(0);
         Assert.Empty(emptyBytes);
 
-        await Assert.ThrowsAsync<ArgumentException>(() => service.GenerateRandomBytesAsync(-1));
+        await Assert.ThrowsAsync<ArgumentException>(() => service.GenerateRandomBytesAsync(-1, TestContext.Current.CancellationToken));
 
         service.Dispose();
     }
@@ -608,4 +609,3 @@ public class SecurityHardeningTests
 
     #endregion
 }
-

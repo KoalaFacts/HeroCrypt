@@ -1,6 +1,6 @@
 #if NET10_0_OR_GREATER
-using HeroCrypt.Cryptography.Primitives.PostQuantum.Kyber;
 using HeroCrypt.Cryptography.Primitives.PostQuantum.Dilithium;
+using HeroCrypt.Cryptography.Primitives.PostQuantum.Kyber;
 using HeroCrypt.Cryptography.Primitives.PostQuantum.Sphincs;
 
 namespace HeroCrypt.Examples.PostQuantum;

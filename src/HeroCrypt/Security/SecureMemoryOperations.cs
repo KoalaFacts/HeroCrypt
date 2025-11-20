@@ -14,7 +14,9 @@ public static class SecureMemoryOperations
     public static void SecureClear(byte[] sensitiveData)
     {
         if (sensitiveData == null || sensitiveData.Length == 0)
+        {
             return;
+        }
 
 #if NET5_0_OR_GREATER
         // Use the built-in cryptographically secure clear method
@@ -44,7 +46,9 @@ public static class SecureMemoryOperations
     public static void SecureClear(params byte[][] sensitiveArrays)
     {
         if (sensitiveArrays == null)
+        {
             return;
+        }
 
         foreach (var array in sensitiveArrays)
         {
@@ -59,7 +63,9 @@ public static class SecureMemoryOperations
     public static void SecureClear(Span<byte> sensitiveData)
     {
         if (sensitiveData.Length == 0)
+        {
             return;
+        }
 
 #if NET5_0_OR_GREATER
         CryptographicOperations.ZeroMemory(sensitiveData);
@@ -81,7 +87,9 @@ public static class SecureMemoryOperations
     public static void SecureClear(Span<ulong> sensitiveData)
     {
         if (sensitiveData.Length == 0)
+        {
             return;
+        }
 
         for (var i = 0; i < sensitiveData.Length; i++)
         {
@@ -96,7 +104,9 @@ public static class SecureMemoryOperations
     public static void SecureClear(Span<uint> sensitiveData)
     {
         if (sensitiveData.Length == 0)
+        {
             return;
+        }
 
         for (var i = 0; i < sensitiveData.Length; i++)
         {
@@ -113,10 +123,14 @@ public static class SecureMemoryOperations
     public static bool ConstantTimeEquals(byte[] a, byte[] b)
     {
         if (a == null || b == null)
+        {
             return a == b;
+        }
 
         if (a.Length != b.Length)
+        {
             return false;
+        }
 
 #if NET5_0_OR_GREATER
         return CryptographicOperations.FixedTimeEquals(a, b);
@@ -134,7 +148,9 @@ public static class SecureMemoryOperations
     public static bool ConstantTimeEquals(ReadOnlySpan<byte> a, ReadOnlySpan<byte> b)
     {
         if (a.Length != b.Length)
+        {
             return false;
+        }
 
 #if NET5_0_OR_GREATER
         return CryptographicOperations.FixedTimeEquals(a, b);
@@ -151,7 +167,9 @@ public static class SecureMemoryOperations
     private static bool ConstantTimeEqualsLegacy(byte[] a, byte[] b)
     {
         if (a.Length != b.Length)
+        {
             return false;
+        }
 
         var result = 0;
         for (var i = 0; i < a.Length; i++)
@@ -171,7 +189,9 @@ public static class SecureMemoryOperations
     public static SecureByteArray CreateSecureCopy(byte[] source)
     {
         if (source == null)
+        {
             throw new ArgumentNullException(nameof(source));
+        }
 
         return new SecureByteArray(source);
     }
@@ -184,7 +204,9 @@ public static class SecureMemoryOperations
     public static SecureByteArray AllocateSecure(int length)
     {
         if (length < 0)
+        {
             throw new ArgumentException("Length must be non-negative", nameof(length));
+        }
 
         return new SecureByteArray(length);
     }
@@ -197,12 +219,16 @@ public static class SecureMemoryOperations
     public static bool IsCleared(byte[] data)
     {
         if (data == null || data.Length == 0)
+        {
             return true;
+        }
 
         foreach (var b in data)
         {
             if (b != 0)
+            {
                 return false;
+            }
         }
 
         return true;
@@ -225,7 +251,9 @@ public sealed class SecureByteArray : IDisposable
     public SecureByteArray(int length)
     {
         if (length < 0)
+        {
             throw new ArgumentException("Length must be non-negative", nameof(length));
+        }
 
         _data = new byte[length];
     }
@@ -237,7 +265,9 @@ public sealed class SecureByteArray : IDisposable
     public SecureByteArray(byte[] source)
     {
         if (source == null)
+        {
             throw new ArgumentNullException(nameof(source));
+        }
 
         _data = new byte[source.Length];
         Array.Copy(source, _data, source.Length);
@@ -280,7 +310,9 @@ public sealed class SecureByteArray : IDisposable
     public void WithBytes(Action<byte[]> action)
     {
         if (action == null)
+        {
             throw new ArgumentNullException(nameof(action));
+        }
 
         lock (_lock)
         {
@@ -298,7 +330,9 @@ public sealed class SecureByteArray : IDisposable
     public T WithBytes<T>(Func<byte[], T> func)
     {
         if (func == null)
+        {
             throw new ArgumentNullException(nameof(func));
+        }
 
         lock (_lock)
         {
@@ -332,7 +366,9 @@ public sealed class SecureByteArray : IDisposable
     public void CopyFrom(byte[] source, int sourceIndex = 0, int destinationIndex = 0, int? length = null)
     {
         if (source == null)
+        {
             throw new ArgumentNullException(nameof(source));
+        }
 
         var copyLength = length ?? source.Length;
 
@@ -362,7 +398,9 @@ public sealed class SecureByteArray : IDisposable
     private void ThrowIfDisposed()
     {
         if (_disposed)
+        {
             throw new ObjectDisposedException(nameof(SecureByteArray));
+        }
     }
 
     /// <summary>

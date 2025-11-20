@@ -78,7 +78,9 @@ public static class Ed25519Core
     public static byte[] Sign(byte[] message, byte[] privateKey)
     {
         if (message == null)
+        {
             throw new ArgumentNullException(nameof(message));
+        }
 
         ValidatePrivateKey(privateKey);
 
@@ -109,15 +111,25 @@ public static class Ed25519Core
     public static bool Verify(byte[] message, byte[] signature, byte[] publicKey)
     {
         if (message == null)
+        {
             throw new ArgumentNullException(nameof(message));
+        }
         if (signature == null)
+        {
             throw new ArgumentNullException(nameof(signature));
+        }
         if (publicKey == null)
+        {
             throw new ArgumentNullException(nameof(publicKey));
+        }
         if (publicKey.Length != PublicKeySize)
+        {
             throw new ArgumentException("Public key must be 32 bytes", nameof(publicKey));
+        }
         if (signature.Length != SignatureSize)
+        {
             throw new ArgumentException("Signature must be 64 bytes", nameof(signature));
+        }
 
         var signatureKey = DeriveSignatureKey(publicKey);
 
@@ -157,15 +169,21 @@ public static class Ed25519Core
     private static void ValidatePrivateKey(byte[] privateKey)
     {
         if (privateKey == null)
+        {
             throw new ArgumentNullException(nameof(privateKey));
+        }
         if (privateKey.Length != PrivateKeySize)
+        {
             throw new ArgumentException("Private key must be 32 bytes", nameof(privateKey));
+        }
     }
 
     private static bool FixedTimeEquals(ReadOnlySpan<byte> left, ReadOnlySpan<byte> right)
     {
         if (left.Length != right.Length)
+        {
             return false;
+        }
 
         var result = 0;
         for (var i = 0; i < left.Length; i++)

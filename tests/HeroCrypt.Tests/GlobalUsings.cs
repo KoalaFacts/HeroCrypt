@@ -1,5 +1,4 @@
 global using Xunit;
-global using HeroCrypt;
 
 // Resolve namespace ambiguities for .NET 10+ post-quantum crypto
 #if NET10_0_OR_GREATER

@@ -129,7 +129,9 @@ public static class HybridEncryptionExample
         Console.WriteLine("\n=== Multiple Message Encryption ===\n");
 
         if (!MLKemWrapper.IsSupported())
+        {
             return;
+        }
 
         // Recipient generates key pair once
         using var recipientKey = Cryptography.Primitives.PostQuantum.Kyber.MLKem.GenerateKeyPair();

@@ -1,6 +1,5 @@
-using HeroCrypt.Cryptography.Primitives.Cipher.Aead;
-using HeroCrypt.Cryptography.Primitives.Cipher.Stream;
 using System.Text;
+using HeroCrypt.Cryptography.Primitives.Cipher.Aead;
 
 namespace HeroCrypt.Tests;
 
@@ -18,8 +17,14 @@ public class AesOcbTests
         var plaintext = Encoding.UTF8.GetBytes("Hello, World!");
         var ciphertext = new byte[plaintext.Length + AesOcbCore.TagSize];
 
-        for (var i = 0; i < key.Length; i++) key[i] = (byte)(i + 1);
-        for (var i = 0; i < nonce.Length; i++) nonce[i] = (byte)(i + 100);
+        for (var i = 0; i < key.Length; i++)
+        {
+            key[i] = (byte)(i + 1);
+        }
+        for (var i = 0; i < nonce.Length; i++)
+        {
+            nonce[i] = (byte)(i + 100);
+        }
 
         // Act
         var written = AesOcbCore.Encrypt(ciphertext, plaintext, key, nonce, ReadOnlySpan<byte>.Empty);
@@ -38,8 +43,14 @@ public class AesOcbTests
         var ciphertext = new byte[plaintext.Length + AesOcbCore.TagSize];
         var decrypted = new byte[plaintext.Length];
 
-        for (var i = 0; i < key.Length; i++) key[i] = (byte)(i + 1);
-        for (var i = 0; i < nonce.Length; i++) nonce[i] = (byte)(i + 100);
+        for (var i = 0; i < key.Length; i++)
+        {
+            key[i] = (byte)(i + 1);
+        }
+        for (var i = 0; i < nonce.Length; i++)
+        {
+            nonce[i] = (byte)(i + 100);
+        }
 
         // Act
         var encryptedLength = AesOcbCore.Encrypt(ciphertext, plaintext, key, nonce, ReadOnlySpan<byte>.Empty);
@@ -62,8 +73,14 @@ public class AesOcbTests
         var ciphertext = new byte[plaintext.Length + AesOcbCore.TagSize];
         var decrypted = new byte[plaintext.Length];
 
-        for (var i = 0; i < key.Length; i++) key[i] = (byte)(i + 1);
-        for (var i = 0; i < nonce.Length; i++) nonce[i] = (byte)(i + 100);
+        for (var i = 0; i < key.Length; i++)
+        {
+            key[i] = (byte)(i + 1);
+        }
+        for (var i = 0; i < nonce.Length; i++)
+        {
+            nonce[i] = (byte)(i + 100);
+        }
 
         // Act
         AesOcbCore.Encrypt(ciphertext, plaintext, key, nonce, associatedData);
@@ -86,8 +103,14 @@ public class AesOcbTests
         var ciphertext = new byte[plaintext.Length + AesOcbCore.TagSize];
         var decrypted = new byte[plaintext.Length];
 
-        for (var i = 0; i < key.Length; i++) key[i] = (byte)(i + 1);
-        for (var i = 0; i < nonce.Length; i++) nonce[i] = (byte)(i + 100);
+        for (var i = 0; i < key.Length; i++)
+        {
+            key[i] = (byte)(i + 1);
+        }
+        for (var i = 0; i < nonce.Length; i++)
+        {
+            nonce[i] = (byte)(i + 100);
+        }
 
         // Act
         AesOcbCore.Encrypt(ciphertext, plaintext, key, nonce, correctAd);
@@ -108,8 +131,14 @@ public class AesOcbTests
         var ciphertext = new byte[plaintext.Length + AesOcbCore.TagSize];
         var decrypted = new byte[plaintext.Length];
 
-        for (var i = 0; i < key.Length; i++) key[i] = (byte)(i + 1);
-        for (var i = 0; i < nonce.Length; i++) nonce[i] = (byte)(i + 100);
+        for (var i = 0; i < key.Length; i++)
+        {
+            key[i] = (byte)(i + 1);
+        }
+        for (var i = 0; i < nonce.Length; i++)
+        {
+            nonce[i] = (byte)(i + 100);
+        }
 
         AesOcbCore.Encrypt(ciphertext, plaintext, key, nonce, ReadOnlySpan<byte>.Empty);
 
@@ -131,8 +160,14 @@ public class AesOcbTests
         var ciphertext = new byte[plaintext.Length + AesOcbCore.TagSize];
         var decrypted = new byte[plaintext.Length];
 
-        for (var i = 0; i < key.Length; i++) key[i] = (byte)(i + 1);
-        for (var i = 0; i < nonce.Length; i++) nonce[i] = (byte)(i + 100);
+        for (var i = 0; i < key.Length; i++)
+        {
+            key[i] = (byte)(i + 1);
+        }
+        for (var i = 0; i < nonce.Length; i++)
+        {
+            nonce[i] = (byte)(i + 100);
+        }
 
         AesOcbCore.Encrypt(ciphertext, plaintext, key, nonce, ReadOnlySpan<byte>.Empty);
 
@@ -154,8 +189,14 @@ public class AesOcbTests
         var ciphertext = new byte[AesOcbCore.TagSize];
         var decrypted = Array.Empty<byte>();
 
-        for (var i = 0; i < key.Length; i++) key[i] = (byte)(i + 1);
-        for (var i = 0; i < nonce.Length; i++) nonce[i] = (byte)(i + 100);
+        for (var i = 0; i < key.Length; i++)
+        {
+            key[i] = (byte)(i + 1);
+        }
+        for (var i = 0; i < nonce.Length; i++)
+        {
+            nonce[i] = (byte)(i + 100);
+        }
 
         // Act
         var encryptedLength = AesOcbCore.Encrypt(ciphertext, plaintext, key, nonce, ReadOnlySpan<byte>.Empty);
@@ -178,8 +219,14 @@ public class AesOcbTests
         {
             // Arrange
             var key = new byte[keySize];
-            for (var i = 0; i < key.Length; i++) key[i] = (byte)(i + 1);
-            for (var i = 0; i < nonce.Length; i++) nonce[i] = (byte)(i + 100);
+            for (var i = 0; i < key.Length; i++)
+            {
+                key[i] = (byte)(i + 1);
+            }
+            for (var i = 0; i < nonce.Length; i++)
+            {
+                nonce[i] = (byte)(i + 100);
+            }
 
             var ciphertext = new byte[plaintext.Length + AesOcbCore.TagSize];
             var decrypted = new byte[plaintext.Length];
@@ -201,13 +248,19 @@ public class AesOcbTests
         var key = new byte[16];
         var plaintext = Encoding.UTF8.GetBytes("Test");
 
-        for (var i = 0; i < key.Length; i++) key[i] = (byte)(i + 1);
+        for (var i = 0; i < key.Length; i++)
+        {
+            key[i] = (byte)(i + 1);
+        }
 
         for (var nonceSize = 1; nonceSize <= 15; nonceSize++)
         {
             // Arrange
             var nonce = new byte[nonceSize];
-            for (var i = 0; i < nonce.Length; i++) nonce[i] = (byte)(i + 100);
+            for (var i = 0; i < nonce.Length; i++)
+            {
+                nonce[i] = (byte)(i + 100);
+            }
 
             var ciphertext = new byte[plaintext.Length + AesOcbCore.TagSize];
             var decrypted = new byte[plaintext.Length];
@@ -233,8 +286,14 @@ public class AesOcbTests
         var ciphertext = new byte[plaintext.Length + AesOcbCore.TagSize];
         var decrypted = new byte[plaintext.Length];
 
-        for (var i = 0; i < key.Length; i++) key[i] = (byte)(i + 1);
-        for (var i = 0; i < nonce.Length; i++) nonce[i] = (byte)(i + 100);
+        for (var i = 0; i < key.Length; i++)
+        {
+            key[i] = (byte)(i + 1);
+        }
+        for (var i = 0; i < nonce.Length; i++)
+        {
+            nonce[i] = (byte)(i + 100);
+        }
 
         // Act
         AesOcbCore.Encrypt(ciphertext, plaintext, key, nonce, ReadOnlySpan<byte>.Empty);
@@ -252,13 +311,22 @@ public class AesOcbTests
         var key = new byte[16];
         var nonce = new byte[12];
         var plaintext = new byte[13]; // Not a multiple of 16
-        for (var i = 0; i < plaintext.Length; i++) plaintext[i] = (byte)(i + 50);
+        for (var i = 0; i < plaintext.Length; i++)
+        {
+            plaintext[i] = (byte)(i + 50);
+        }
 
         var ciphertext = new byte[plaintext.Length + AesOcbCore.TagSize];
         var decrypted = new byte[plaintext.Length];
 
-        for (var i = 0; i < key.Length; i++) key[i] = (byte)(i + 1);
-        for (var i = 0; i < nonce.Length; i++) nonce[i] = (byte)(i + 100);
+        for (var i = 0; i < key.Length; i++)
+        {
+            key[i] = (byte)(i + 1);
+        }
+        for (var i = 0; i < nonce.Length; i++)
+        {
+            nonce[i] = (byte)(i + 100);
+        }
 
         // Act
         AesOcbCore.Encrypt(ciphertext, plaintext, key, nonce, ReadOnlySpan<byte>.Empty);
@@ -336,9 +404,18 @@ public class AesOcbTests
         var nonce2 = new byte[12];
         var plaintext = Encoding.UTF8.GetBytes("Same plaintext");
 
-        for (var i = 0; i < key.Length; i++) key[i] = (byte)(i + 1);
-        for (var i = 0; i < nonce1.Length; i++) nonce1[i] = (byte)(i + 100);
-        for (var i = 0; i < nonce2.Length; i++) nonce2[i] = (byte)(i + 200);
+        for (var i = 0; i < key.Length; i++)
+        {
+            key[i] = (byte)(i + 1);
+        }
+        for (var i = 0; i < nonce1.Length; i++)
+        {
+            nonce1[i] = (byte)(i + 100);
+        }
+        for (var i = 0; i < nonce2.Length; i++)
+        {
+            nonce2[i] = (byte)(i + 200);
+        }
 
         var ciphertext1 = new byte[plaintext.Length + AesOcbCore.TagSize];
         var ciphertext2 = new byte[plaintext.Length + AesOcbCore.TagSize];
@@ -379,13 +456,22 @@ public class AesOcbTests
         var key = new byte[16];
         var nonce = new byte[12];
         var plaintext = new byte[48];
-        for (var i = 0; i < plaintext.Length; i++) plaintext[i] = (byte)(i % 256);
+        for (var i = 0; i < plaintext.Length; i++)
+        {
+            plaintext[i] = (byte)(i % 256);
+        }
 
         var ciphertext = new byte[plaintext.Length + AesOcbCore.TagSize];
         var decrypted = new byte[plaintext.Length];
 
-        for (var i = 0; i < key.Length; i++) key[i] = (byte)(i + 1);
-        for (var i = 0; i < nonce.Length; i++) nonce[i] = (byte)(i + 100);
+        for (var i = 0; i < key.Length; i++)
+        {
+            key[i] = (byte)(i + 1);
+        }
+        for (var i = 0; i < nonce.Length; i++)
+        {
+            nonce[i] = (byte)(i + 100);
+        }
 
         // Act
         AesOcbCore.Encrypt(ciphertext, plaintext, key, nonce, ReadOnlySpan<byte>.Empty);

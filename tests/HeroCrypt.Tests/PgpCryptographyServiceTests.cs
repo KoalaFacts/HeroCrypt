@@ -1,6 +1,6 @@
+using System.Text;
 using HeroCrypt.Encryption;
 using HeroCrypt.KeyManagement;
-using System.Text;
 
 namespace HeroCrypt.Tests;
 
@@ -10,10 +10,10 @@ public class PgpCryptographyServiceTests
 
     // Lazy initialization to avoid key generation when tests are filtered out
     private static readonly Lazy<Task<KeyPair>> _lazyTestKeyPair = new(() =>
-        new PgpCryptographyService().GenerateKeyPairAsync(512));
+        new PgpCryptographyService().GenerateKeyPairAsync(512, TestContext.Current.CancellationToken));
 
     private static readonly Lazy<Task<KeyPair>> _lazyTestKeyPair1024 = new(() =>
-        new PgpCryptographyService().GenerateKeyPairAsync(1024));
+        new PgpCryptographyService().GenerateKeyPairAsync(1024, TestContext.Current.CancellationToken));
 
     private static Task<KeyPair> GetSmallKeyPairAsync() => _lazyTestKeyPair.Value;
     private static Task<KeyPair> GetLargeKeyPairAsync() => _lazyTestKeyPair1024.Value; // Reuse 1024-bit key to save time
@@ -42,7 +42,7 @@ public class PgpCryptographyServiceTests
     {
         var identity = "test@example.com";
 
-        var keyPair = await _service.GenerateKeyPairAsync(identity, "", 1024, CancellationToken.None);
+        var keyPair = await _service.GenerateKeyPairAsync(identity, "", 1024, TestContext.Current.CancellationToken);
 
         Assert.Contains(identity, keyPair.PublicKey);
         Assert.Contains(identity, keyPair.PrivateKey);
@@ -56,8 +56,8 @@ public class PgpCryptographyServiceTests
         var keyPair = await GetSmallKeyPairAsync();
         var originalText = "This is a secret message!";
 
-        var encrypted = await _service.EncryptTextAsync(originalText, keyPair.PublicKey, CancellationToken.None);
-        var decrypted = await _service.DecryptTextAsync(encrypted, keyPair.PrivateKey, CancellationToken.None);
+        var encrypted = await _service.EncryptTextAsync(originalText, keyPair.PublicKey, TestContext.Current.CancellationToken);
+        var decrypted = await _service.DecryptTextAsync(encrypted, keyPair.PrivateKey, TestContext.Current.CancellationToken);
 
         Assert.Equal(originalText, decrypted);
     }
@@ -70,8 +70,8 @@ public class PgpCryptographyServiceTests
         var keyPair = await GetSmallKeyPairAsync();
         var originalData = Encoding.UTF8.GetBytes("This is binary data!");
 
-        var encrypted = await _service.EncryptAsync(originalData, keyPair.PublicKey, CancellationToken.None);
-        var decrypted = await _service.DecryptAsync(encrypted, keyPair.PrivateKey, CancellationToken.None);
+        var encrypted = await _service.EncryptAsync(originalData, keyPair.PublicKey, TestContext.Current.CancellationToken);
+        var decrypted = await _service.DecryptAsync(encrypted, keyPair.PrivateKey, TestContext.Current.CancellationToken);
 
         Assert.Equal(originalData, decrypted);
     }
@@ -83,8 +83,8 @@ public class PgpCryptographyServiceTests
         var keyPair = await GetSmallKeyPairAsync();
         var originalText = "Same message";
 
-        var encrypted1 = await _service.EncryptTextAsync(originalText, keyPair.PublicKey, CancellationToken.None);
-        var encrypted2 = await _service.EncryptTextAsync(originalText, keyPair.PublicKey, CancellationToken.None);
+        var encrypted1 = await _service.EncryptTextAsync(originalText, keyPair.PublicKey, TestContext.Current.CancellationToken);
+        var encrypted2 = await _service.EncryptTextAsync(originalText, keyPair.PublicKey, TestContext.Current.CancellationToken);
 
         Assert.NotEqual(encrypted1, encrypted2);
     }
@@ -96,7 +96,7 @@ public class PgpCryptographyServiceTests
         var keyPair = await GetSmallKeyPairAsync();
         var originalText = "Test message";
 
-        var encrypted = await _service.EncryptTextAsync(originalText, keyPair.PublicKey, CancellationToken.None);
+        var encrypted = await _service.EncryptTextAsync(originalText, keyPair.PublicKey, TestContext.Current.CancellationToken);
 
         Assert.Contains("BEGIN PGP MESSAGE", encrypted);
         Assert.Contains("END PGP MESSAGE", encrypted);
@@ -107,13 +107,13 @@ public class PgpCryptographyServiceTests
     public async Task DecryptWithWrongKeyThrowsException()
     {
         var keyPair1 = await GetSmallKeyPairAsync();
-        var keyPair2 = await _service.GenerateKeyPairAsync(512, CancellationToken.None); // Generate small key for this test
+        var keyPair2 = await _service.GenerateKeyPairAsync(512, TestContext.Current.CancellationToken); // Generate small key for this test
         var originalText = "Secret";
 
-        var encrypted = await _service.EncryptTextAsync(originalText, keyPair1.PublicKey, CancellationToken.None);
+        var encrypted = await _service.EncryptTextAsync(originalText, keyPair1.PublicKey, TestContext.Current.CancellationToken);
 
         await Assert.ThrowsAnyAsync<Exception>(async () =>
-            await _service.DecryptTextAsync(encrypted, keyPair2.PrivateKey, CancellationToken.None));
+            await _service.DecryptTextAsync(encrypted, keyPair2.PrivateKey, TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -134,8 +134,8 @@ public class PgpCryptographyServiceTests
         {
             var message = "Test message for key size " + size;
 
-            var encrypted = await _service.EncryptTextAsync(message, keyPair.PublicKey, CancellationToken.None);
-            var decrypted = await _service.DecryptTextAsync(encrypted, keyPair.PrivateKey, CancellationToken.None);
+            var encrypted = await _service.EncryptTextAsync(message, keyPair.PublicKey, TestContext.Current.CancellationToken);
+            var decrypted = await _service.DecryptTextAsync(encrypted, keyPair.PrivateKey, TestContext.Current.CancellationToken);
 
             Assert.Equal(message, decrypted);
         }
@@ -150,8 +150,8 @@ public class PgpCryptographyServiceTests
         var keyPair = await GetSmallKeyPairAsync();
         var largeText = new string('A', 1000);
 
-        var encrypted = await _service.EncryptTextAsync(largeText, keyPair.PublicKey, CancellationToken.None);
-        var decrypted = await _service.DecryptTextAsync(encrypted, keyPair.PrivateKey, CancellationToken.None);
+        var encrypted = await _service.EncryptTextAsync(largeText, keyPair.PublicKey, TestContext.Current.CancellationToken);
+        var decrypted = await _service.DecryptTextAsync(encrypted, keyPair.PrivateKey, TestContext.Current.CancellationToken);
 
         Assert.Equal(largeText, decrypted);
     }
@@ -163,8 +163,8 @@ public class PgpCryptographyServiceTests
         var keyPair = await GetSmallKeyPairAsync();
         var specialText = "Special chars: !@#$%^&*()_+-=[]{}|;':\",./<>?`~\n\t\r";
 
-        var encrypted = await _service.EncryptTextAsync(specialText, keyPair.PublicKey, CancellationToken.None);
-        var decrypted = await _service.DecryptTextAsync(encrypted, keyPair.PrivateKey, CancellationToken.None);
+        var encrypted = await _service.EncryptTextAsync(specialText, keyPair.PublicKey, TestContext.Current.CancellationToken);
+        var decrypted = await _service.DecryptTextAsync(encrypted, keyPair.PrivateKey, TestContext.Current.CancellationToken);
 
         Assert.Equal(specialText, decrypted);
     }
@@ -173,11 +173,11 @@ public class PgpCryptographyServiceTests
     public async Task EncryptDecryptTextWithPassphraseProtectedKeyWorks()
     {
         var passphrase = "strong-passphrase";
-        var keyPair = await _service.GenerateKeyPairAsync("secure@example.com", passphrase, 512, CancellationToken.None);
+        var keyPair = await _service.GenerateKeyPairAsync("secure@example.com", passphrase, 512, TestContext.Current.CancellationToken);
         var originalText = "Message protected by passphrase";
 
-        var encrypted = await _service.EncryptTextAsync(originalText, keyPair.PublicKey, CancellationToken.None);
-        var decrypted = await _service.DecryptTextAsync(encrypted, keyPair.PrivateKey, passphrase, CancellationToken.None);
+        var encrypted = await _service.EncryptTextAsync(originalText, keyPair.PublicKey, TestContext.Current.CancellationToken);
+        var decrypted = await _service.DecryptTextAsync(encrypted, keyPair.PrivateKey, passphrase, TestContext.Current.CancellationToken);
 
         Assert.Equal(originalText, decrypted);
     }
@@ -187,22 +187,22 @@ public class PgpCryptographyServiceTests
     public async Task DecryptingPassphraseProtectedKeyWithoutPassphraseThrows()
     {
         var passphrase = "another-passphrase";
-        var keyPair = await _service.GenerateKeyPairAsync("nopass@example.com", passphrase, 512, CancellationToken.None);
-        var encrypted = await _service.EncryptTextAsync("protected", keyPair.PublicKey, CancellationToken.None);
+        var keyPair = await _service.GenerateKeyPairAsync("nopass@example.com", passphrase, 512, TestContext.Current.CancellationToken);
+        var encrypted = await _service.EncryptTextAsync("protected", keyPair.PublicKey, TestContext.Current.CancellationToken);
 
         await Assert.ThrowsAsync<ArgumentException>(() =>
-            _service.DecryptTextAsync(encrypted, keyPair.PrivateKey, CancellationToken.None));
+            _service.DecryptTextAsync(encrypted, keyPair.PrivateKey, TestContext.Current.CancellationToken));
     }
 
     [Fact]
     [Trait("Category", TestCategories.Slow)]
     public async Task DecryptingWithWrongPassphraseThrows()
     {
-        var keyPair = await _service.GenerateKeyPairAsync("wrong@example.com", "correct-passphrase", 512, CancellationToken.None);
-        var encrypted = await _service.EncryptTextAsync("protected", keyPair.PublicKey, CancellationToken.None);
+        var keyPair = await _service.GenerateKeyPairAsync("wrong@example.com", "correct-passphrase", 512, TestContext.Current.CancellationToken);
+        var encrypted = await _service.EncryptTextAsync("protected", keyPair.PublicKey, TestContext.Current.CancellationToken);
 
         await Assert.ThrowsAsync<ArgumentException>(() =>
-            _service.DecryptTextAsync(encrypted, keyPair.PrivateKey, "incorrect-passphrase", CancellationToken.None));
+            _service.DecryptTextAsync(encrypted, keyPair.PrivateKey, "incorrect-passphrase", TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -213,18 +213,18 @@ public class PgpCryptographyServiceTests
         var senderPassphrase = "sender-secret";
         var recipientPassphrase = "recipient-secret";
 
-        var sender = await _service.GenerateKeyPairAsync("alice@example.com", senderPassphrase, 512, CancellationToken.None);
-        var recipient = await _service.GenerateKeyPairAsync("bob@example.com", recipientPassphrase, 512, CancellationToken.None);
+        var sender = await _service.GenerateKeyPairAsync("alice@example.com", senderPassphrase, 512, TestContext.Current.CancellationToken);
+        var recipient = await _service.GenerateKeyPairAsync("bob@example.com", recipientPassphrase, 512, TestContext.Current.CancellationToken);
 
         var outgoingMessage = "Hello Bob, this is Alice.";
-        var encryptedForRecipient = await _service.EncryptTextAsync(outgoingMessage, recipient.PublicKey, CancellationToken.None);
-        var decryptedByRecipient = await _service.DecryptTextAsync(encryptedForRecipient, recipient.PrivateKey, recipientPassphrase, CancellationToken.None);
+        var encryptedForRecipient = await _service.EncryptTextAsync(outgoingMessage, recipient.PublicKey, TestContext.Current.CancellationToken);
+        var decryptedByRecipient = await _service.DecryptTextAsync(encryptedForRecipient, recipient.PrivateKey, recipientPassphrase, TestContext.Current.CancellationToken);
 
         Assert.Equal(outgoingMessage, decryptedByRecipient);
 
         var replyMessage = "Hi Alice, message received.";
-        var encryptedReply = await _service.EncryptTextAsync(replyMessage, sender.PublicKey, CancellationToken.None);
-        var decryptedBySender = await _service.DecryptTextAsync(encryptedReply, sender.PrivateKey, senderPassphrase, CancellationToken.None);
+        var encryptedReply = await _service.EncryptTextAsync(replyMessage, sender.PublicKey, TestContext.Current.CancellationToken);
+        var decryptedBySender = await _service.DecryptTextAsync(encryptedReply, sender.PrivateKey, senderPassphrase, TestContext.Current.CancellationToken);
 
         Assert.Equal(replyMessage, decryptedBySender);
     }

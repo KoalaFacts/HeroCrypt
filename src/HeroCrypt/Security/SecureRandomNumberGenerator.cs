@@ -61,7 +61,9 @@ public sealed class SecureRandomNumberGenerator : IDisposable
             PerformImmediateHealthCheck();
 
             if (!_healthCheckPassed)
+            {
                 throw new CryptographicException("Random number generator failed health check");
+            }
         }
 
         try
@@ -97,7 +99,9 @@ public sealed class SecureRandomNumberGenerator : IDisposable
             PerformImmediateHealthCheck();
 
             if (!_healthCheckPassed)
+            {
                 throw new CryptographicException("Random number generator failed health check");
+            }
         }
 
         try
@@ -157,7 +161,9 @@ public sealed class SecureRandomNumberGenerator : IDisposable
     public int GetInt32(int minValue, int maxValue)
     {
         if (minValue >= maxValue)
+        {
             throw new ArgumentException("minValue must be less than maxValue");
+        }
 
         var range = (uint)(maxValue - minValue);
         if (range == 0) return minValue;
@@ -382,7 +388,9 @@ public sealed class SecureRandomNumberGenerator : IDisposable
     private void ThrowIfDisposed()
     {
         if (_disposed)
+        {
             throw new ObjectDisposedException(nameof(SecureRandomNumberGenerator));
+        }
     }
 
     /// <summary>

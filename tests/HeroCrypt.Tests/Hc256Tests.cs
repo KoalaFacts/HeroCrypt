@@ -1,5 +1,5 @@
-using HeroCrypt.Cryptography.Primitives.Cipher.Stream;
 using System.Text;
+using HeroCrypt.Cryptography.Primitives.Cipher.Stream;
 
 namespace HeroCrypt.Tests;
 
@@ -16,9 +16,13 @@ public class Hc256Tests
     {
         // Initialize test key and IV with predictable values
         for (var i = 0; i < _testKey.Length; i++)
+        {
             _testKey[i] = (byte)(i + 1);
+        }
         for (var i = 0; i < _testIv.Length; i++)
+        {
             _testIv[i] = (byte)(i + 100);
+        }
     }
 
     [Fact]
@@ -230,7 +234,9 @@ public class Hc256Tests
         // Arrange - Data that is not a multiple of 4 bytes
         var plaintext = new byte[13];
         for (var i = 0; i < plaintext.Length; i++)
+        {
             plaintext[i] = (byte)(i + 50);
+        }
 
         var ciphertext = new byte[plaintext.Length];
         var decrypted = new byte[plaintext.Length];
@@ -300,7 +306,9 @@ public class Hc256Tests
 
         var plaintext = new byte[256];
         for (var i = 0; i < plaintext.Length; i++)
+        {
             plaintext[i] = (byte)(i % 256);
+        }
 
         var ciphertext = new byte[plaintext.Length];
         var decrypted = new byte[plaintext.Length];

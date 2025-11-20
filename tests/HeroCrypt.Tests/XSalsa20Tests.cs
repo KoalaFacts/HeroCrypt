@@ -1,5 +1,5 @@
-using HeroCrypt.Cryptography.Primitives.Cipher.Stream;
 using System.Text;
+using HeroCrypt.Cryptography.Primitives.Cipher.Stream;
 
 namespace HeroCrypt.Tests;
 
@@ -16,9 +16,14 @@ public class XSalsa20Tests
     {
         // Initialize test key and nonce with predictable values
         for (var i = 0; i < _testKey.Length; i++)
+        {
             _testKey[i] = (byte)(i + 1);
+        }
+
         for (var i = 0; i < _testNonce.Length; i++)
+        {
             _testNonce[i] = (byte)(i + 50);
+        }
     }
 
     [Fact]

@@ -1,5 +1,5 @@
-using HeroCrypt.Security;
 using System.Runtime.CompilerServices;
+using HeroCrypt.Security;
 
 namespace HeroCrypt.Cryptography.Primitives.Mac;
 
@@ -40,9 +40,13 @@ internal static class Poly1305Core
     public static void ComputeMac(Span<byte> tag, ReadOnlySpan<byte> message, ReadOnlySpan<byte> key)
     {
         if (tag.Length != TagSize)
+        {
             throw new ArgumentException($"Tag must be {TagSize} bytes", nameof(tag));
+        }
         if (key.Length != KeySize)
+        {
             throw new ArgumentException($"Key must be {KeySize} bytes", nameof(key));
+        }
 
         // Extract r and s from key
         Span<byte> rBytes = stackalloc byte[16];
@@ -110,7 +114,9 @@ internal static class Poly1305Core
     public static bool VerifyMac(ReadOnlySpan<byte> tag, ReadOnlySpan<byte> message, ReadOnlySpan<byte> key)
     {
         if (tag.Length != TagSize)
+        {
             return false;
+        }
 
         Span<byte> computedTag = stackalloc byte[TagSize];
         ComputeMac(computedTag, message, key);

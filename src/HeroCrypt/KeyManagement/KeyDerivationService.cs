@@ -1,10 +1,10 @@
+using System.Security.Cryptography;
 using HeroCrypt.Cryptography.Primitives.Kdf;
 using HeroCrypt.Hashing;
 using HeroCrypt.Security;
-using System.Security.Cryptography;
+using CryptoHashAlgorithm = System.Security.Cryptography.HashAlgorithm;
 using CryptoHashAlgorithmName = System.Security.Cryptography.HashAlgorithmName;
 using HeroCryptHashAlgorithmName = HeroCrypt.KeyManagement.HashAlgorithmName;
-using CryptoHashAlgorithm = System.Security.Cryptography.HashAlgorithm;
 
 namespace HeroCrypt.KeyManagement;
 
@@ -165,7 +165,9 @@ public class KeyDerivationService : IKeyDerivationService
     {
         InputValidator.ValidateByteArray(masterKey, nameof(masterKey));
         if (string.IsNullOrEmpty(context))
+        {
             throw new ArgumentException("Context cannot be null or empty", nameof(context));
+        }
         InputValidator.ValidateArraySize(keyLength, "key derivation");
 
 
@@ -237,7 +239,9 @@ public class KeyDerivationService : IKeyDerivationService
             var n = (length + hashLen - 1) / hashLen;
 
             if (n > 255)
+            {
                 throw new ArgumentException("Output length too large");
+            }
 
             var okm = new byte[length];
             var okmOffset = 0;

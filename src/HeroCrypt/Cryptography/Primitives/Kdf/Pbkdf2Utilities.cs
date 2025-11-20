@@ -1,6 +1,6 @@
-using HeroCrypt.Security;
 using System.Security.Cryptography;
 using System.Text;
+using HeroCrypt.Security;
 
 namespace HeroCrypt.Cryptography.Primitives.Kdf;
 
@@ -19,7 +19,9 @@ public static class Pbkdf2Utilities
     public static (byte[] Key, byte[] Salt) DeriveKeySecure(string password, byte[]? salt = null, int keyLength = 32)
     {
         if (string.IsNullOrEmpty(password))
+        {
             throw new ArgumentException("Password cannot be null or empty", nameof(password));
+        }
 
         var actualSalt = salt ?? Pbkdf2Core.GenerateRandomSalt();
         var parameters = Pbkdf2Core.GetRecommendedParameters(Pbkdf2UseCase.KeyDerivation);
@@ -39,7 +41,9 @@ public static class Pbkdf2Utilities
     public static PasswordHashResult HashPassword(string password, byte[]? salt = null)
     {
         if (string.IsNullOrEmpty(password))
+        {
             throw new ArgumentException("Password cannot be null or empty", nameof(password));
+        }
 
         var actualSalt = salt ?? Pbkdf2Core.GenerateRandomSalt();
         var parameters = Pbkdf2Core.GetRecommendedParameters(Pbkdf2UseCase.PasswordStorage);
@@ -66,9 +70,13 @@ public static class Pbkdf2Utilities
     public static bool VerifyPassword(string password, PasswordHashResult hashResult)
     {
         if (string.IsNullOrEmpty(password))
+        {
             throw new ArgumentException("Password cannot be null or empty", nameof(password));
+        }
         if (hashResult == null)
+        {
             throw new ArgumentNullException(nameof(hashResult));
+        }
 
         var computedHash = Pbkdf2Core.DeriveKeyFromString(password, hashResult.Salt,
             hashResult.Iterations, hashResult.OutputLength, hashResult.HashAlgorithm);
@@ -96,9 +104,13 @@ public static class Pbkdf2Utilities
         KeySpec[] keySpecs, int iterations = 0, HashAlgorithmName hashAlgorithm = default)
     {
         if (string.IsNullOrEmpty(password))
+        {
             throw new ArgumentException("Password cannot be null or empty", nameof(password));
+        }
         if (keySpecs == null || keySpecs.Length == 0)
+        {
             throw new ArgumentException("Key specifications cannot be null or empty", nameof(keySpecs));
+        }
 
         var actualIterations = iterations > 0 ? iterations : Pbkdf2Core.DefaultIterations;
         var algorithm = hashAlgorithm == default ? HashAlgorithmName.SHA256 : hashAlgorithm;
@@ -123,7 +135,9 @@ public static class Pbkdf2Utilities
             foreach (var key in keys)
             {
                 if (key != null)
+                {
                     SecureMemoryOperations.SecureClear(key);
+                }
             }
             throw;
         }
@@ -194,7 +208,9 @@ public static class Pbkdf2Utilities
     public static PasswordBasedEncryptionContext CreateEncryptionContext(string password, Pbkdf2UseCase useCase = Pbkdf2UseCase.KeyDerivation)
     {
         if (string.IsNullOrEmpty(password))
+        {
             throw new ArgumentException("Password cannot be null or empty", nameof(password));
+        }
 
         var parameters = Pbkdf2Core.GetRecommendedParameters(useCase);
         var salt = Pbkdf2Core.GenerateRandomSalt(parameters.SaltLength);
@@ -225,7 +241,9 @@ public static class Pbkdf2Utilities
     private static byte[] CombineSaltWithContext(ReadOnlySpan<byte> salt, string? context)
     {
         if (string.IsNullOrEmpty(context))
+        {
             return salt.ToArray();
+        }
 
         var contextBytes = Encoding.UTF8.GetBytes(context);
         var combined = new byte[salt.Length + contextBytes.Length];

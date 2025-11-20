@@ -1,6 +1,6 @@
-using HeroCrypt.Security;
 using System.Security.Cryptography;
 using System.Text;
+using HeroCrypt.Security;
 
 namespace HeroCrypt.Cryptography.Primitives.Kdf;
 
@@ -21,7 +21,9 @@ public static class HkdfUtilities
         string? info = null, int length = 32)
     {
         if (string.IsNullOrEmpty(password))
+        {
             throw new ArgumentException("Password cannot be null or empty", nameof(password));
+        }
 
         var passwordBytes = Encoding.UTF8.GetBytes(password);
         var infoBytes = info != null ? Encoding.UTF8.GetBytes(info) : ReadOnlySpan<byte>.Empty;
@@ -48,7 +50,9 @@ public static class HkdfUtilities
         KeySpec[] keySpecs, HashAlgorithmName hashAlgorithm = default)
     {
         if (keySpecs == null || keySpecs.Length == 0)
+        {
             throw new ArgumentException("Key specifications cannot be null or empty", nameof(keySpecs));
+        }
 
         var algorithm = hashAlgorithm == default ? HashAlgorithmName.SHA256 : hashAlgorithm;
         var keys = new byte[keySpecs.Length][];
@@ -110,7 +114,9 @@ public static class HkdfUtilities
         int levels, int keySize = 32, HashAlgorithmName hashAlgorithm = default)
     {
         if (levels <= 0)
+        {
             throw new ArgumentException("Levels must be positive", nameof(levels));
+        }
 
         var algorithm = hashAlgorithm == default ? HashAlgorithmName.SHA256 : hashAlgorithm;
         var keys = new byte[levels][];
@@ -130,7 +136,9 @@ public static class HkdfUtilities
 
                 // Clear previous key (except root which we return)
                 if (level > 1)
+                {
                     SecureMemoryOperations.SecureClear(currentKey);
+                }
 
                 currentKey = nextKey;
             }
@@ -143,7 +151,9 @@ public static class HkdfUtilities
             foreach (var key in keys)
             {
                 if (key != null)
+                {
                     SecureMemoryOperations.SecureClear(key);
+                }
             }
             throw;
         }
@@ -164,7 +174,9 @@ public static class HkdfUtilities
         HashAlgorithmName hashAlgorithm = default)
     {
         if (string.IsNullOrEmpty(sessionId))
+        {
             throw new ArgumentException("Session ID cannot be null or empty", nameof(sessionId));
+        }
 
         var algorithm = hashAlgorithm == default ? HashAlgorithmName.SHA256 : hashAlgorithm;
 
@@ -212,7 +224,9 @@ public static class HkdfUtilities
         var recommended = HkdfCore.GetRecommendedParameters(HkdfUseCase.GeneralPurpose);
 
         if (algorithm == HashAlgorithmName.SHA512)
+        {
             recommended = HkdfCore.GetRecommendedParameters(HkdfUseCase.HighSecurity);
+        }
 
         var salt = new byte[recommended.RecommendedSaltLength];
         using var rng = RandomNumberGenerator.Create();
@@ -231,9 +245,13 @@ public static class HkdfUtilities
     public static byte[] CreateContext(string domain, string purpose, int version = 1)
     {
         if (string.IsNullOrEmpty(domain))
+        {
             throw new ArgumentException("Domain cannot be null or empty", nameof(domain));
+        }
         if (string.IsNullOrEmpty(purpose))
+        {
             throw new ArgumentException("Purpose cannot be null or empty", nameof(purpose));
+        }
 
         var contextString = $"{domain}:{purpose}:v{version}";
         return Encoding.UTF8.GetBytes(contextString);

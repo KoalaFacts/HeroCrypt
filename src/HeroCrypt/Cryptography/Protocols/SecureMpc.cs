@@ -1,7 +1,4 @@
-using System;
-using System.Linq;
 using System.Security.Cryptography;
-using HeroCrypt.Cryptography.Protocols;
 using HeroCrypt.Security;
 
 namespace HeroCrypt.Cryptography.Protocols;
@@ -138,9 +135,13 @@ public static class SecureMpc
         SecurityModel model = SecurityModel.SemiHonest)
     {
         if (partyInputs == null || partyInputs.Length < 2)
+        {
             throw new ArgumentException("At least 2 parties required", nameof(partyInputs));
+        }
         if (threshold < 1 || threshold >= partyInputs.Length)
+        {
             throw new ArgumentException("Invalid threshold", nameof(threshold));
+        }
 
         int numParties = partyInputs.Length;
 
@@ -216,9 +217,13 @@ public static class SecureMpc
         BeaverTriple[] beaverTriple, int threshold)
     {
         if (xShares == null || yShares == null || beaverTriple == null)
+        {
             throw new ArgumentNullException("Shares cannot be null");
+        }
         if (xShares.Length != yShares.Length || xShares.Length != beaverTriple.Length)
+        {
             throw new ArgumentException("Share arrays must have same length");
+        }
 
         int numParties = xShares.Length;
 
@@ -311,9 +316,13 @@ public static class SecureMpc
     public static BeaverTriple[] GenerateBeaverTriples(int numParties, int threshold, int valueLength)
     {
         if (numParties < 2)
+        {
             throw new ArgumentException("At least 2 parties required", nameof(numParties));
+        }
         if (threshold < 1 || threshold >= numParties)
+        {
             throw new ArgumentException("Invalid threshold", nameof(threshold));
+        }
 
         // In production: Generated via MPC protocol (no trusted dealer)
         // Or using homomorphic encryption, oblivious transfer, etc.
@@ -366,7 +375,9 @@ public static class SecureMpc
         SecurityModel model = SecurityModel.SemiHonest)
     {
         if (party1Set == null || party2Set == null)
+        {
             throw new ArgumentNullException("Sets cannot be null");
+        }
 
         // Simplified PSI protocol using hashing
         // Production implementations use:
@@ -421,7 +432,9 @@ public static class SecureMpc
         for (int counter = 0; counter < 8; counter++)
         {
             if ((b & 1) != 0)
+            {
                 p ^= a;
+            }
 
             hi_bit_set = (byte)(a & 0x80);
             a <<= 1;

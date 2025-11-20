@@ -1,7 +1,7 @@
-using HeroCrypt.Cryptography.Primitives.Cipher.Aead;
-using HeroCrypt.Security;
 using System.Diagnostics;
 using System.Security.Cryptography;
+using HeroCrypt.Cryptography.Primitives.Cipher.Aead;
+using HeroCrypt.Security;
 
 namespace HeroCrypt.Encryption;
 
@@ -36,11 +36,17 @@ public class AeadService : IAeadService
         ArgumentNullException.ThrowIfNull(nonce);
 #else
         if (plaintext == null)
+        {
             throw new ArgumentNullException(nameof(plaintext));
+        }
         if (key == null)
+        {
             throw new ArgumentNullException(nameof(key));
+        }
         if (nonce == null)
+        {
             throw new ArgumentNullException(nameof(nonce));
+        }
 #endif
 
         InputValidator.ValidateByteArray(plaintext, nameof(plaintext), allowEmpty: true);
@@ -48,7 +54,9 @@ public class AeadService : IAeadService
         InputValidator.ValidateByteArray(nonce, nameof(nonce));
 
         if (associatedData != null)
+        {
             InputValidator.ValidateByteArray(associatedData, nameof(associatedData), allowEmpty: true);
+        }
 
         ValidateKeyAndNonceSize(key, nonce, algorithm);
 
@@ -91,23 +99,33 @@ public class AeadService : IAeadService
         CancellationToken cancellationToken = default)
     {
         if (ciphertext == null)
+        {
             throw new ArgumentNullException(nameof(ciphertext));
+        }
         if (key == null)
+        {
             throw new ArgumentNullException(nameof(key));
+        }
         if (nonce == null)
+        {
             throw new ArgumentNullException(nameof(nonce));
+        }
 
         InputValidator.ValidateByteArray(ciphertext, nameof(ciphertext));
         InputValidator.ValidateByteArray(key, nameof(key));
         InputValidator.ValidateByteArray(nonce, nameof(nonce));
 
         if (associatedData != null)
+        {
             InputValidator.ValidateByteArray(associatedData, nameof(associatedData), allowEmpty: true);
+        }
 
         ValidateKeyAndNonceSize(key, nonce, algorithm);
 
         if (ciphertext.Length < GetTagSize(algorithm))
+        {
             throw new ArgumentException("Ciphertext too short", nameof(ciphertext));
+        }
 
         var stopwatch = Stopwatch.StartNew();
 
@@ -157,18 +175,28 @@ public class AeadService : IAeadService
         CancellationToken cancellationToken = default)
     {
         if (plaintext == null)
+        {
             throw new ArgumentNullException(nameof(plaintext));
+        }
         if (ciphertext == null)
+        {
             throw new ArgumentNullException(nameof(ciphertext));
+        }
         if (key == null)
+        {
             throw new ArgumentNullException(nameof(key));
+        }
         if (nonce == null)
+        {
             throw new ArgumentNullException(nameof(nonce));
+        }
 
         ValidateKeyAndNonceSize(key, nonce, algorithm);
 
         if (chunkSize <= 0)
+        {
             throw new ArgumentOutOfRangeException(nameof(chunkSize), "Chunk size must be positive");
+        }
 
         var stopwatch = Stopwatch.StartNew();
         var totalBytesProcessed = 0L;
@@ -185,7 +213,9 @@ public class AeadService : IAeadService
 
                 var bytesRead = await plaintext.ReadAsync(buffer, 0, chunkSize, cancellationToken);
                 if (bytesRead == 0)
+                {
                     break;
+                }
 
                 // Create chunk-specific nonce by combining original nonce with chunk counter
                 var chunkNonce = CreateChunkNonce(nonce, chunkCounter, algorithm);
@@ -235,19 +265,29 @@ public class AeadService : IAeadService
         ArgumentNullException.ThrowIfNull(nonce);
 #else
         if (ciphertext == null)
+        {
             throw new ArgumentNullException(nameof(ciphertext));
+        }
         if (plaintext == null)
+        {
             throw new ArgumentNullException(nameof(plaintext));
+        }
         if (key == null)
+        {
             throw new ArgumentNullException(nameof(key));
+        }
         if (nonce == null)
+        {
             throw new ArgumentNullException(nameof(nonce));
+        }
 #endif
 
         ValidateKeyAndNonceSize(key, nonce, algorithm);
 
         if (chunkSize <= 0)
+        {
             throw new ArgumentOutOfRangeException(nameof(chunkSize), "Chunk size must be positive");
+        }
 
         var stopwatch = Stopwatch.StartNew();
         var totalBytesProcessed = 0L;
@@ -265,10 +305,14 @@ public class AeadService : IAeadService
 
                 var bytesRead = await ciphertext.ReadAsync(buffer, 0, encryptedChunkSize, cancellationToken);
                 if (bytesRead == 0)
+                {
                     break;
+                }
 
                 if (bytesRead < GetTagSize(algorithm))
+                {
                     throw new InvalidDataException("Incomplete encrypted chunk");
+                }
 
                 // Create chunk-specific nonce
                 var chunkNonce = CreateChunkNonce(nonce, chunkCounter, algorithm);
@@ -301,7 +345,9 @@ public class AeadService : IAeadService
                 SecureMemoryOperations.SecureClear(chunkNonce);
 
                 if (isLastChunk)
+                {
                     break;
+                }
             }
 
             stopwatch.Stop();
@@ -475,9 +521,13 @@ public class AeadService : IAeadService
         var expectedNonceSize = GetNonceSize(algorithm);
 
         if (key.Length != expectedKeySize)
+        {
             throw new ArgumentException($"Key must be {expectedKeySize} bytes for {algorithm}", nameof(key));
+        }
         if (nonce.Length != expectedNonceSize)
+        {
             throw new ArgumentException($"Nonce must be {expectedNonceSize} bytes for {algorithm}", nameof(nonce));
+        }
     }
 
     private static int EncryptAesGcm(Span<byte> ciphertext, ReadOnlySpan<byte> plaintext,

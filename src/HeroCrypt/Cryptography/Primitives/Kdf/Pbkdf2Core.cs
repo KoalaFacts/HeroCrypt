@@ -1,5 +1,5 @@
-using HeroCrypt.Security;
 using System.Security.Cryptography;
+using HeroCrypt.Security;
 
 namespace HeroCrypt.Cryptography.Primitives.Kdf;
 
@@ -71,7 +71,9 @@ internal static class Pbkdf2Core
         int iterations, int outputLength, HashAlgorithmName hashAlgorithm)
     {
         if (string.IsNullOrEmpty(password))
+        {
             throw new ArgumentException("Password cannot be null or empty", nameof(password));
+        }
 
         var passwordBytes = System.Text.Encoding.UTF8.GetBytes(password);
 
@@ -99,26 +101,40 @@ internal static class Pbkdf2Core
     {
         // Allow empty passwords only for test vectors and standards compliance (e.g., RFC test vectors)
         if (!allowWeakParameters && password.IsEmpty)
+        {
             throw new ArgumentException("Password cannot be empty", nameof(password));
+        }
 
         if (!allowWeakParameters && salt.Length < MinSaltLength)
+        {
             throw new ArgumentException($"Salt must be at least {MinSaltLength} bytes", nameof(salt));
+        }
 
         if (iterations < 1)
+        {
             throw new ArgumentException("Iterations must be positive", nameof(iterations));
+        }
 
         if (!allowWeakParameters && iterations < MinRecommendedIterations)
+        {
             throw new ArgumentException($"Iterations should be at least {MinRecommendedIterations} for security", nameof(iterations));
+        }
 
         if (outputLength <= 0)
+        {
             throw new ArgumentException("Output length must be positive", nameof(outputLength));
+        }
 
         if (!IsHashAlgorithmSupported(hashAlgorithm))
+        {
             throw new ArgumentException($"Unsupported hash algorithm: {hashAlgorithm}", nameof(hashAlgorithm));
+        }
 
         var maxOutputLength = GetMaxOutputLength(hashAlgorithm);
         if (outputLength > maxOutputLength)
+        {
             throw new ArgumentException($"Output length too large for {hashAlgorithm} (max: {maxOutputLength})", nameof(outputLength));
+        }
     }
 
     /// <summary>
@@ -129,7 +145,9 @@ internal static class Pbkdf2Core
     public static byte[] GenerateRandomSalt(int length = DefaultSaltLength)
     {
         if (length < MinSaltLength)
+        {
             throw new ArgumentException($"Salt length must be at least {MinSaltLength} bytes", nameof(length));
+        }
 
         var salt = new byte[length];
         using var rng = RandomNumberGenerator.Create();
@@ -147,7 +165,9 @@ internal static class Pbkdf2Core
     public static int CalculateIterations(int targetTimeMs, HashAlgorithmName hashAlgorithm, int testLength = 32)
     {
         if (targetTimeMs <= 0)
+        {
             throw new ArgumentException("Target time must be positive", nameof(targetTimeMs));
+        }
 
         const int testIterations = 10000;
         var testPassword = new byte[16];

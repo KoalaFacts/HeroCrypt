@@ -146,7 +146,9 @@ internal static class RsaCore
         }
 
         if (index == 0)
+        {
             return bytes;
+        }
 
         var result = new byte[bytes.Length - index];
         Array.Copy(bytes, index, result, 0, result.Length);
@@ -156,7 +158,9 @@ internal static class RsaCore
     private static byte[] PadLeft(byte[] value, int length)
     {
         if (value.Length == length)
+        {
             return value;
+        }
 
         if (value.Length > length)
         {
@@ -173,7 +177,9 @@ internal static class RsaCore
     private static SystemNumericsBigInteger PositiveModulo(SystemNumericsBigInteger value, SystemNumericsBigInteger modulus)
     {
         if (modulus.IsZero)
+        {
             throw new DivideByZeroException();
+        }
 
         var result = SystemNumericsBigInteger.Remainder(value, modulus);
         return result.Sign < 0 ? result + modulus : result;
@@ -183,7 +189,9 @@ internal static class RsaCore
     {
         var bytes = ToUnsignedBigEndian(value);
         if (bytes.Length == 0)
+        {
             return SystemNumericsBigInteger.Zero;
+        }
 
         var buffer = new byte[bytes.Length + 1];
         for (var i = 0; i < bytes.Length; i++)
@@ -197,7 +205,9 @@ internal static class RsaCore
     private static byte[] ToBigEndianBytes(SystemNumericsBigInteger value)
     {
         if (value.IsZero)
+        {
             return new[] { (byte)0 };
+        }
 
         var littleEndian = value.ToByteArray();
         var length = littleEndian.Length;

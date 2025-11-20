@@ -34,10 +34,14 @@ public static class SimdConstantTimeOperations
     public static bool ConstantTimeArrayEquals(ReadOnlySpan<byte> a, ReadOnlySpan<byte> b)
     {
         if (a.Length != b.Length)
+        {
             return false;
+        }
 
         if (a.Length == 0)
+        {
             return true;
+        }
 
 #if NET5_0_OR_GREATER
         if (IsAvailable)
@@ -148,9 +152,13 @@ public static class SimdConstantTimeOperations
     public static void ConditionalCopy(byte condition, ReadOnlySpan<byte> source, Span<byte> destination, int length)
     {
         if (length < 0)
+        {
             throw new ArgumentException("Length cannot be negative", nameof(length));
+        }
         if (source.Length < length || destination.Length < length)
+        {
             throw new ArgumentException("Arrays are too small for the specified length");
+        }
 
         // Ensure condition is 0 or 1
         condition = (byte)(condition & 1);
@@ -242,7 +250,9 @@ public static class SimdConstantTimeOperations
     public static void SecureClear(Span<byte> data)
     {
         if (data.Length == 0)
+        {
             return;
+        }
 
 #if NET5_0_OR_GREATER
         if (IsAvailable && data.Length >= 16)
@@ -316,10 +326,14 @@ public static class SimdConstantTimeOperations
     public static void XorArrays(ReadOnlySpan<byte> a, ReadOnlySpan<byte> b, Span<byte> result)
     {
         if (a.Length != b.Length || a.Length != result.Length)
+        {
             throw new ArgumentException("All arrays must have the same length");
+        }
 
         if (a.Length == 0)
+        {
             return;
+        }
 
 #if NET5_0_OR_GREATER
         if (IsAvailable && a.Length >= 16)

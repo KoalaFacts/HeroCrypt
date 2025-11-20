@@ -1,5 +1,5 @@
-using HeroCrypt.Security;
 using System.Security.Cryptography;
+using HeroCrypt.Security;
 
 namespace HeroCrypt.Cryptography.Primitives.Kdf;
 
@@ -27,11 +27,15 @@ internal static class HkdfCore
         int length, HashAlgorithmName hashAlgorithm)
     {
         if (length <= 0)
+        {
             throw new ArgumentException("Length must be positive", nameof(length));
+        }
 
         var hashLength = GetHashLength(hashAlgorithm);
         if (length > 255 * hashLength)
+        {
             throw new ArgumentException($"Length too large for hash algorithm (max: {255 * hashLength})", nameof(length));
+        }
 
         // Step 1: Extract
         var prk = Extract(ikm, salt, hashAlgorithm);
@@ -58,7 +62,9 @@ internal static class HkdfCore
     public static byte[] Extract(ReadOnlySpan<byte> ikm, ReadOnlySpan<byte> salt, HashAlgorithmName hashAlgorithm)
     {
         if (ikm.IsEmpty)
+        {
             throw new ArgumentException("Input key material cannot be empty", nameof(ikm));
+        }
 
         // If salt is empty, use zero-filled salt of hash length
         var actualSalt = salt.IsEmpty ? new byte[GetHashLength(hashAlgorithm)] : salt.ToArray();
@@ -96,13 +102,19 @@ internal static class HkdfCore
     public static byte[] Expand(ReadOnlySpan<byte> prk, ReadOnlySpan<byte> info, int length, HashAlgorithmName hashAlgorithm)
     {
         if (prk.IsEmpty)
+        {
             throw new ArgumentException("Pseudorandom key cannot be empty", nameof(prk));
+        }
         if (length <= 0)
+        {
             throw new ArgumentException("Length must be positive", nameof(length));
+        }
 
         var hashLength = GetHashLength(hashAlgorithm);
         if (length > 255 * hashLength)
+        {
             throw new ArgumentException($"Length too large (max: {255 * hashLength})", nameof(length));
+        }
 
         var n = (length + hashLength - 1) / hashLength; // Ceiling division
         var okm = new byte[length];
@@ -122,10 +134,14 @@ internal static class HkdfCore
                 hmac.Initialize();
 
                 if (t.Length > 0)
+                {
                     hmac.TransformBlock(t, 0, t.Length, null, 0);
+                }
 
                 if (infoArray != null)
+                {
                     hmac.TransformBlock(infoArray, 0, infoArray.Length, null, 0);
+                }
 
                 hmac.TransformFinalBlock(new[] { (byte)i }, 0, 1);
                 t = hmac.Hash ?? throw new InvalidOperationException("HMAC computation failed");
@@ -142,7 +158,9 @@ internal static class HkdfCore
             // Clear sensitive key material
             Array.Clear(prkArray, 0, prkArray.Length);
             if (infoArray != null)
+            {
                 Array.Clear(infoArray, 0, infoArray.Length);
+            }
             SecureMemoryOperations.SecureClear(t);
         }
     }
@@ -156,14 +174,22 @@ internal static class HkdfCore
         // Users should prefer SHA256 or higher, but SHA1 is allowed per the standard
 #pragma warning disable CA5350 // Do Not Use Weak Cryptographic Algorithms
         if (hashAlgorithm == HashAlgorithmName.SHA1)
+        {
             return new HMACSHA1(key);
+        }
 #pragma warning restore CA5350
         if (hashAlgorithm == HashAlgorithmName.SHA256)
+        {
             return new HMACSHA256(key);
+        }
         if (hashAlgorithm == HashAlgorithmName.SHA384)
+        {
             return new HMACSHA384(key);
+        }
         if (hashAlgorithm == HashAlgorithmName.SHA512)
+        {
             return new HMACSHA512(key);
+        }
 
         throw new ArgumentException($"Unsupported hash algorithm: {hashAlgorithm}", nameof(hashAlgorithm));
     }
@@ -174,13 +200,21 @@ internal static class HkdfCore
     private static int GetHashLength(HashAlgorithmName hashAlgorithm)
     {
         if (hashAlgorithm == HashAlgorithmName.SHA1)
+        {
             return 20;
+        }
         if (hashAlgorithm == HashAlgorithmName.SHA256)
+        {
             return 32;
+        }
         if (hashAlgorithm == HashAlgorithmName.SHA384)
+        {
             return 48;
+        }
         if (hashAlgorithm == HashAlgorithmName.SHA512)
+        {
             return 64;
+        }
 
         throw new ArgumentException($"Unsupported hash algorithm: {hashAlgorithm}", nameof(hashAlgorithm));
     }
@@ -191,13 +225,19 @@ internal static class HkdfCore
     public static void ValidateParameters(ReadOnlySpan<byte> ikm, int length, HashAlgorithmName hashAlgorithm)
     {
         if (ikm.IsEmpty)
+        {
             throw new ArgumentException("Input key material cannot be empty", nameof(ikm));
+        }
         if (length <= 0)
+        {
             throw new ArgumentException("Length must be positive", nameof(length));
+        }
 
         var hashLength = GetHashLength(hashAlgorithm);
         if (length > 255 * hashLength)
+        {
             throw new ArgumentException($"Length too large for {hashAlgorithm} (max: {255 * hashLength})", nameof(length));
+        }
     }
 
     /// <summary>

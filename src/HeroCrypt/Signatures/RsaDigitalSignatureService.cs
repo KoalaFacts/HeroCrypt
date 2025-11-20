@@ -58,7 +58,9 @@ public sealed class RsaDigitalSignatureService : IDigitalSignatureService
         ArgumentNullException.ThrowIfNull(privateKey);
 #else
         if (privateKey == null)
+        {
             throw new ArgumentNullException(nameof(privateKey));
+        }
 #endif
 
         InputValidator.ValidateByteArray(privateKey, nameof(privateKey));
@@ -86,9 +88,13 @@ public sealed class RsaDigitalSignatureService : IDigitalSignatureService
         ArgumentNullException.ThrowIfNull(privateKey);
 #else
         if (data == null)
+        {
             throw new ArgumentNullException(nameof(data));
+        }
         if (privateKey == null)
+        {
             throw new ArgumentNullException(nameof(privateKey));
+        }
 #endif
 
         InputValidator.ValidateByteArray(data, nameof(data), allowEmpty: true);
@@ -123,11 +129,17 @@ public sealed class RsaDigitalSignatureService : IDigitalSignatureService
         ArgumentNullException.ThrowIfNull(publicKey);
 #else
         if (signature == null)
+        {
             throw new ArgumentNullException(nameof(signature));
+        }
         if (data == null)
+        {
             throw new ArgumentNullException(nameof(data));
+        }
         if (publicKey == null)
+        {
             throw new ArgumentNullException(nameof(publicKey));
+        }
 #endif
 
         InputValidator.ValidateByteArray(signature, nameof(signature));
@@ -234,7 +246,9 @@ public sealed class RsaDigitalSignatureService : IDigitalSignatureService
     private static RsaPrivateKey DeserializePrivateKey(byte[] data)
     {
         if (data.Length < 20)
+        {
             throw new ArgumentException("Invalid private key data");
+        }
 
         var offset = 0;
 
@@ -283,7 +297,9 @@ public sealed class RsaDigitalSignatureService : IDigitalSignatureService
     private static RsaPublicKey DeserializePublicKey(byte[] data)
     {
         if (data.Length < 8)
+        {
             throw new ArgumentException("Invalid public key data");
+        }
 
         var offset = 0;
 

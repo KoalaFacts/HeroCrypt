@@ -1,7 +1,4 @@
-using System;
-using System.Linq;
 using System.Security.Cryptography;
-using HeroCrypt.Cryptography.Protocols;
 using HeroCrypt.Security;
 
 namespace HeroCrypt.Cryptography.Protocols;
@@ -208,9 +205,13 @@ public static class ThresholdSignatures
         SignatureScheme scheme = SignatureScheme.Schnorr)
     {
         if (numParties < 2)
+        {
             throw new ArgumentException("At least 2 parties required", nameof(numParties));
+        }
         if (threshold < 1 || threshold >= numParties)
+        {
             throw new ArgumentException("Threshold must be 1 ≤ t < n", nameof(threshold));
+        }
 
         try
         {
@@ -281,11 +282,17 @@ public static class ThresholdSignatures
         int[] signers, byte[]? nonce = null)
     {
         if (keyShare == null)
+        {
             throw new ArgumentNullException(nameof(keyShare));
+        }
         if (signers == null || signers.Length < keyShare.Threshold + 1)
+        {
             throw new ArgumentException($"Need at least {keyShare.Threshold + 1} signers", nameof(signers));
+        }
         if (!signers.Contains(keyShare.PartyId))
+        {
             throw new ArgumentException("Key share owner must be in signers list", nameof(signers));
+        }
 
         // Generate or use provided nonce
         byte[] nonceValue = nonce ?? RandomNumberGenerator.GetBytes(32);
@@ -364,9 +371,13 @@ public static class ThresholdSignatures
         PartialSignature[] partialSignatures, byte[] publicKey, SignatureScheme scheme)
     {
         if (partialSignatures == null || partialSignatures.Length == 0)
+        {
             throw new ArgumentException("No partial signatures provided", nameof(partialSignatures));
+        }
         if (publicKey == null)
+        {
             throw new ArgumentNullException(nameof(publicKey));
+        }
 
         // In production:
         // 1. Verify each partial signature with zero-knowledge proof
@@ -401,9 +412,13 @@ public static class ThresholdSignatures
         ThresholdSignature signature, byte[] publicKey)
     {
         if (signature == null)
+        {
             throw new ArgumentNullException(nameof(signature));
+        }
         if (publicKey == null)
+        {
             throw new ArgumentNullException(nameof(publicKey));
+        }
 
         try
         {

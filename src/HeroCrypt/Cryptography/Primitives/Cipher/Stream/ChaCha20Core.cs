@@ -55,11 +55,17 @@ internal static class ChaCha20Core
         ReadOnlySpan<byte> nonce, uint counter = 0)
     {
         if (key.Length != KeySize)
+        {
             throw new ArgumentException($"Key must be {KeySize} bytes", nameof(key));
+        }
         if (nonce.Length != NonceSize)
+        {
             throw new ArgumentException($"Nonce must be {NonceSize} bytes", nameof(nonce));
+        }
         if (output.Length < input.Length)
+        {
             throw new ArgumentException("Output buffer too small", nameof(output));
+        }
 
         // Initialize state
         Span<uint> state = stackalloc uint[16];
@@ -124,7 +130,9 @@ internal static class ChaCha20Core
     public static void GenerateKeystream(Span<byte> output, Span<uint> state)
     {
         if (output.Length < BlockSize)
+        {
             throw new ArgumentException($"Output must be at least {BlockSize} bytes", nameof(output));
+        }
 
         // Copy state for processing
         Span<uint> workingState = stackalloc uint[16];
@@ -311,7 +319,9 @@ internal static class ChaCha20Core
     public static void Seek(Span<uint> state, long position)
     {
         if (position < 0)
+        {
             throw new ArgumentOutOfRangeException(nameof(position));
+        }
 
         var blockNumber = (uint)(position / BlockSize);
         state[12] = blockNumber;

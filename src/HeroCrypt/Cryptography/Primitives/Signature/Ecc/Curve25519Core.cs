@@ -1,6 +1,6 @@
-using HeroCrypt.Security;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
+using HeroCrypt.Security;
 
 namespace HeroCrypt.Cryptography.Primitives.Signature.Ecc;
 
@@ -69,9 +69,13 @@ public static class Curve25519Core
     public static byte[] DerivePublicKey(byte[] privateKey)
     {
         if (privateKey == null)
+        {
             throw new ArgumentNullException(nameof(privateKey));
+        }
         if (privateKey.Length != KeySize)
+        {
             throw new ArgumentException($"Private key must be {KeySize} bytes", nameof(privateKey));
+        }
 
         var basePoint = new byte[KeySize];
         basePoint[0] = 9;
@@ -88,13 +92,21 @@ public static class Curve25519Core
     public static byte[] ComputeSharedSecret(byte[] privateKey, byte[] publicKey)
     {
         if (privateKey == null)
+        {
             throw new ArgumentNullException(nameof(privateKey));
+        }
         if (publicKey == null)
+        {
             throw new ArgumentNullException(nameof(publicKey));
+        }
         if (privateKey.Length != KeySize)
+        {
             throw new ArgumentException($"Private key must be {KeySize} bytes", nameof(privateKey));
+        }
         if (publicKey.Length != KeySize)
+        {
             throw new ArgumentException($"Public key must be {KeySize} bytes", nameof(publicKey));
+        }
 
         return ScalarMult(privateKey, publicKey);
     }
@@ -498,56 +510,99 @@ public static class Curve25519Core
         var t0 = new Long10();
         var t1 = new Long10();
 
-        /* 2 */ Square(z2, x);
-        /* 4 */ Square(t1, z2);
-        /* 8 */ Square(t0, t1);
-        /* 9 */ Multiply(z9, t0, x);
-        /* 11 */ Multiply(z11, z9, z2);
-        /* 22 */ Square(t0, z11);
-        /* 2^5 - 2^0 = 31 */ Multiply(z2_5_0, t0, z9);
+        /* 2 */
+        Square(z2, x);
+        /* 4 */
+        Square(t1, z2);
+        /* 8 */
+        Square(t0, t1);
+        /* 9 */
+        Multiply(z9, t0, x);
+        /* 11 */
+        Multiply(z11, z9, z2);
+        /* 22 */
+        Square(t0, z11);
+        /* 2^5 - 2^0 = 31 */
+        Multiply(z2_5_0, t0, z9);
 
-        /* 2^6 - 2^1 */ Square(t0, z2_5_0);
-        /* 2^7 - 2^2 */ Square(t1, t0);
-        /* 2^8 - 2^3 */ Square(t0, t1);
-        /* 2^9 - 2^4 */ Square(t1, t0);
-        /* 2^10 - 2^5 */ Square(t0, t1);
-        /* 2^10 - 2^0 */ Multiply(z2_10_0, t0, z2_5_0);
+        /* 2^6 - 2^1 */
+        Square(t0, z2_5_0);
+        /* 2^7 - 2^2 */
+        Square(t1, t0);
+        /* 2^8 - 2^3 */
+        Square(t0, t1);
+        /* 2^9 - 2^4 */
+        Square(t1, t0);
+        /* 2^10 - 2^5 */
+        Square(t0, t1);
+        /* 2^10 - 2^0 */
+        Multiply(z2_10_0, t0, z2_5_0);
 
-        /* 2^11 - 2^1 */ Square(t0, z2_10_0);
-        /* 2^12 - 2^2 */ Square(t1, t0);
-        /* 2^20 - 2^10 */ for (var i = 2; i < 10; i += 2) { Square(t0, t1); Square(t1, t0); }
-        /* 2^20 - 2^0 */ Multiply(z2_20_0, t1, z2_10_0);
+        /* 2^11 - 2^1 */
+        Square(t0, z2_10_0);
+        /* 2^12 - 2^2 */
+        Square(t1, t0);
+        /* 2^20 - 2^10 */
+        for (var i = 2; i < 10; i += 2) { Square(t0, t1); Square(t1, t0); }
+        /* 2^20 - 2^0 */
+        Multiply(z2_20_0, t1, z2_10_0);
 
-        /* 2^21 - 2^1 */ Square(t0, z2_20_0);
-        /* 2^22 - 2^2 */ Square(t1, t0);
-        /* 2^40 - 2^20 */ for (var i = 2; i < 20; i += 2) { Square(t0, t1); Square(t1, t0); }
-        /* 2^40 - 2^0 */ Multiply(t0, t1, z2_20_0);
+        /* 2^21 - 2^1 */
+        Square(t0, z2_20_0);
+        /* 2^22 - 2^2 */
+        Square(t1, t0);
+        /* 2^40 - 2^20 */
+        for (var i = 2; i < 20; i += 2) { Square(t0, t1); Square(t1, t0); }
+        /* 2^40 - 2^0 */
+        Multiply(t0, t1, z2_20_0);
 
-        /* 2^41 - 2^1 */ Square(t1, t0);
-        /* 2^42 - 2^2 */ Square(t0, t1);
-        /* 2^50 - 2^10 */ for (var i = 2; i < 10; i += 2) { Square(t1, t0); Square(t0, t1); }
-        /* 2^50 - 2^0 */ Multiply(z2_50_0, t0, z2_10_0);
+        /* 2^41 - 2^1 */
+        Square(t1, t0);
+        /* 2^42 - 2^2 */
+        Square(t0, t1);
+        /* 2^50 - 2^10 */
+        for (var i = 2; i < 10; i += 2) { Square(t1, t0); Square(t0, t1); }
+        /* 2^50 - 2^0 */
+        Multiply(z2_50_0, t0, z2_10_0);
 
-        /* 2^51 - 2^1 */ Square(t0, z2_50_0);
-        /* 2^52 - 2^2 */ Square(t1, t0);
-        /* 2^100 - 2^50 */ for (var i = 2; i < 50; i += 2) { Square(t0, t1); Square(t1, t0); }
-        /* 2^100 - 2^0 */ Multiply(z2_100_0, t1, z2_50_0);
+        /* 2^51 - 2^1 */
+        Square(t0, z2_50_0);
+        /* 2^52 - 2^2 */
+        Square(t1, t0);
+        /* 2^100 - 2^50 */
+        for (var i = 2; i < 50; i += 2) { Square(t0, t1); Square(t1, t0); }
+        /* 2^100 - 2^0 */
+        Multiply(z2_100_0, t1, z2_50_0);
 
-        /* 2^101 - 2^1 */ Square(t1, z2_100_0);
-        /* 2^102 - 2^2 */ Square(t0, t1);
-        /* 2^200 - 2^100 */ for (var i = 2; i < 100; i += 2) { Square(t1, t0); Square(t0, t1); }
-        /* 2^200 - 2^0 */ Multiply(t1, t0, z2_100_0);
+        /* 2^101 - 2^1 */
+        Square(t1, z2_100_0);
+        /* 2^102 - 2^2 */
+        Square(t0, t1);
+        /* 2^200 - 2^100 */
+        for (var i = 2; i < 100; i += 2) { Square(t1, t0); Square(t0, t1); }
+        /* 2^200 - 2^0 */
+        Multiply(t1, t0, z2_100_0);
 
-        /* 2^201 - 2^1 */ Square(t0, t1);
-        /* 2^202 - 2^2 */ Square(t1, t0);
-        /* 2^250 - 2^50 */ for (var i = 2; i < 50; i += 2) { Square(t0, t1); Square(t1, t0); }
-        /* 2^250 - 2^0 */ Multiply(t0, t1, z2_50_0);
+        /* 2^201 - 2^1 */
+        Square(t0, t1);
+        /* 2^202 - 2^2 */
+        Square(t1, t0);
+        /* 2^250 - 2^50 */
+        for (var i = 2; i < 50; i += 2) { Square(t0, t1); Square(t1, t0); }
+        /* 2^250 - 2^0 */
+        Multiply(t0, t1, z2_50_0);
 
-        /* 2^251 - 2^1 */ Square(t1, t0);
-        /* 2^252 - 2^2 */ Square(t0, t1);
-        /* 2^253 - 2^3 */ Square(t1, t0);
-        /* 2^254 - 2^4 */ Square(t0, t1);
-        /* 2^255 - 2^5 */ Square(t1, t0);
-        /* 2^255 - 21 */ Multiply(y, t1, z11);
+        /* 2^251 - 2^1 */
+        Square(t1, t0);
+        /* 2^252 - 2^2 */
+        Square(t0, t1);
+        /* 2^253 - 2^3 */
+        Square(t1, t0);
+        /* 2^254 - 2^4 */
+        Square(t0, t1);
+        /* 2^255 - 2^5 */
+        Square(t1, t0);
+        /* 2^255 - 21 */
+        Multiply(y, t1, z11);
     }
 }

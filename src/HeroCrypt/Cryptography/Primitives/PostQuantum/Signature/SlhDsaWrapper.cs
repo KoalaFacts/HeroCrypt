@@ -1,6 +1,6 @@
 #if NET10_0_OR_GREATER
-using System.Security.Cryptography;
 using System.Diagnostics.CodeAnalysis;
+using System.Security.Cryptography;
 using HeroCrypt.Security;
 
 namespace HeroCrypt.Cryptography.Primitives.PostQuantum.Sphincs;
@@ -107,13 +107,19 @@ public static class SlhDsaWrapper
             ObjectDisposedException.ThrowIf(_disposed, this);
 
             if (data == null)
+            {
                 throw new ArgumentNullException(nameof(data));
+            }
 
             if (_key == null)
+            {
                 throw new InvalidOperationException("Key is not available");
+            }
 
             if (context != null && context.Length > 255)
+            {
                 throw new ArgumentException("Context must be 255 bytes or less", nameof(context));
+            }
 
             if (context == null || context.Length == 0)
             {
@@ -136,10 +142,14 @@ public static class SlhDsaWrapper
             ObjectDisposedException.ThrowIf(_disposed, this);
 
             if (_key == null)
+            {
                 throw new InvalidOperationException("Key is not available");
+            }
 
             if (context.Length > 255)
+            {
                 throw new ArgumentException("Context must be 255 bytes or less");
+            }
 
             return context.Length == 0
                 ? _key.SignData(data.ToArray())
@@ -207,9 +217,13 @@ public static class SlhDsaWrapper
         ValidatePemFormat(publicKeyPem, nameof(publicKeyPem));
 
         if (data == null)
+        {
             throw new ArgumentNullException(nameof(data));
+        }
         if (signature == null)
+        {
             throw new ArgumentNullException(nameof(signature));
+        }
 
         if (!IsSupported())
         {
@@ -219,7 +233,9 @@ public static class SlhDsaWrapper
         }
 
         if (context != null && context.Length > 255)
+        {
             throw new ArgumentException("Context must be 255 bytes or less", nameof(context));
+        }
 
         using var key = System.Security.Cryptography.SlhDsa.ImportFromPem(publicKeyPem);
 
@@ -254,7 +270,9 @@ public static class SlhDsaWrapper
         }
 
         if (context.Length > 255)
+        {
             throw new ArgumentException("Context must be 255 bytes or less");
+        }
 
         using var key = System.Security.Cryptography.SlhDsa.ImportFromPem(publicKeyPem);
         return key.VerifyData(data, signature, context);
@@ -271,7 +289,9 @@ public static class SlhDsaWrapper
     public static System.Security.Cryptography.SlhDsa ImportPublicKey(string publicKeyPem)
     {
         if (publicKeyPem == null)
+        {
             throw new ArgumentNullException(nameof(publicKeyPem));
+        }
 
         if (!IsSupported())
         {
@@ -293,10 +313,10 @@ public static class SlhDsaWrapper
     {
         return (securityBits, preferSmall) switch
         {
-            (<= 128, true) => SecurityLevel.SlhDsa128s,
-            (<= 128, false) => SecurityLevel.SlhDsa128f,
-            (<= 192, true) => SecurityLevel.SlhDsa192s,
-            (<= 192, false) => SecurityLevel.SlhDsa192f,
+            ( <= 128, true) => SecurityLevel.SlhDsa128s,
+            ( <= 128, false) => SecurityLevel.SlhDsa128f,
+            ( <= 192, true) => SecurityLevel.SlhDsa192s,
+            ( <= 192, false) => SecurityLevel.SlhDsa192f,
             (_, true) => SecurityLevel.SlhDsa256s,
             (_, false) => SecurityLevel.SlhDsa256f
         };
@@ -337,10 +357,14 @@ public static class SlhDsaWrapper
     private static void ValidatePemFormat(string pem, string paramName)
     {
         if (pem == null)
+        {
             throw new ArgumentNullException(paramName);
+        }
 
         if (string.IsNullOrWhiteSpace(pem))
+        {
             throw new ArgumentException("PEM string cannot be empty or whitespace", paramName);
+        }
 
         if (!pem.Contains("-----BEGIN") || !pem.Contains("-----END"))
             throw new ArgumentException(

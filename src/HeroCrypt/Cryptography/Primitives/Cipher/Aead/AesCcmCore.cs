@@ -1,6 +1,6 @@
-using HeroCrypt.Security;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
+using HeroCrypt.Security;
 
 namespace HeroCrypt.Cryptography.Primitives.Cipher.Aead;
 
@@ -72,7 +72,9 @@ internal static class AesCcmCore
         ValidateParameters(key, nonce, tagSize, plaintext.Length);
 
         if (ciphertext.Length < plaintext.Length + tagSize)
+        {
             throw new ArgumentException("Ciphertext buffer too small", nameof(ciphertext));
+        }
 
         // Create key array once and clear it in finally block (avoid memory leak)
         var keyArray = key.ToArray();
@@ -127,13 +129,17 @@ internal static class AesCcmCore
         int tagSize = DefaultTagSize)
     {
         if (ciphertext.Length < tagSize)
+        {
             throw new ArgumentException("Ciphertext too short", nameof(ciphertext));
+        }
 
         var plaintextLength = ciphertext.Length - tagSize;
         ValidateParameters(key, nonce, tagSize, plaintextLength);
 
         if (plaintext.Length < plaintextLength)
+        {
             throw new ArgumentException("Plaintext buffer too small", nameof(plaintext));
+        }
 
         // Create key array once and clear it in finally block (avoid memory leak)
         var keyArray = key.ToArray();
@@ -482,19 +488,27 @@ internal static class AesCcmCore
     private static void ValidateParameters(ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce, int tagSize, int plaintextLength)
     {
         if (!SupportedKeySizes.Contains(key.Length))
+        {
             throw new ArgumentException($"Key must be 16, 24, or 32 bytes (AES-128/192/256)", nameof(key));
+        }
 
         if (nonce.Length < MinNonceSize || nonce.Length > MaxNonceSize)
+        {
             throw new ArgumentException($"Nonce must be {MinNonceSize}-{MaxNonceSize} bytes", nameof(nonce));
+        }
 
         if (tagSize < MinTagSize || tagSize > MaxTagSize || tagSize % 2 != 0)
+        {
             throw new ArgumentException($"Tag size must be an even number between {MinTagSize} and {MaxTagSize} bytes", nameof(tagSize));
+        }
 
         var L = 15 - nonce.Length;
         var maxPlaintextLength = (1L << (L * 8)) - 1;
 
         if (plaintextLength > maxPlaintextLength)
+        {
             throw new ArgumentException($"Plaintext too long for nonce size (max {maxPlaintextLength} bytes)", nameof(plaintextLength));
+        }
     }
 
     /// <summary>
@@ -503,7 +517,9 @@ internal static class AesCcmCore
     public static long GetMaxPlaintextLength(int nonceSize)
     {
         if (nonceSize < MinNonceSize || nonceSize > MaxNonceSize)
+        {
             throw new ArgumentException($"Nonce size must be {MinNonceSize}-{MaxNonceSize} bytes");
+        }
 
         var L = 15 - nonceSize;
         return (1L << (L * 8)) - 1;

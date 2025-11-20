@@ -1,5 +1,5 @@
-using HeroCrypt.KeyManagement;
 using System.Text;
+using HeroCrypt.KeyManagement;
 
 namespace HeroCrypt.Tests;
 
@@ -384,7 +384,12 @@ public class KeyDerivationServiceTests
         var password = Encoding.UTF8.GetBytes("password");
         var salt = Encoding.UTF8.GetBytes("salt12345678");
 
-        var key = await service.DerivePbkdf2Async(password, salt, 1000, 32);
+        var key = await service.DerivePbkdf2Async(
+            password,
+            salt,
+            1000,
+            32,
+            cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(32, key.Length);
     }
@@ -396,7 +401,10 @@ public class KeyDerivationServiceTests
         var service = new KeyDerivationService();
         var ikm = Encoding.UTF8.GetBytes("input_key_material");
 
-        var key = await service.DeriveHkdfAsync(ikm, 32);
+        var key = await service.DeriveHkdfAsync(
+            ikm,
+            32,
+            cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(32, key.Length);
     }

@@ -275,7 +275,9 @@ public class Bip39MnemonicTests
         // Arrange
         var entropy = new byte[16];
         for (var i = 0; i < entropy.Length; i++)
+        {
             entropy[i] = (byte)(i + 1);
+        }
 
         // Act - Generate mnemonic twice
         var mnemonic1 = Bip39Mnemonic.GenerateMnemonic(entropy);

@@ -1,5 +1,5 @@
-using HeroCrypt.Cryptography.Primitives.Hash;
 using System.Runtime.CompilerServices;
+using HeroCrypt.Cryptography.Primitives.Hash;
 
 namespace HeroCrypt.Hashing;
 
@@ -27,7 +27,9 @@ public class Blake2bHashingService : IBlake2bService
         ArgumentNullException.ThrowIfNull(data);
 #else
         if (data == null)
+        {
             throw new ArgumentNullException(nameof(data));
+        }
 #endif
 
         try
@@ -54,7 +56,9 @@ public class Blake2bHashingService : IBlake2bService
         ArgumentNullException.ThrowIfNull(data);
 #else
         if (data == null)
+        {
             throw new ArgumentNullException(nameof(data));
+        }
 #endif
 
         return Task.Run(() => ComputeHash(data, outputLength, key, salt, personalization), cancellationToken);
@@ -67,7 +71,9 @@ public class Blake2bHashingService : IBlake2bService
         ArgumentNullException.ThrowIfNull(data);
 #else
         if (data == null)
+        {
             throw new ArgumentNullException(nameof(data));
+        }
 #endif
 
         try
@@ -89,9 +95,13 @@ public class Blake2bHashingService : IBlake2bService
         ArgumentNullException.ThrowIfNull(expectedHash);
 #else
         if (data == null)
+        {
             throw new ArgumentNullException(nameof(data));
+        }
         if (expectedHash == null)
+        {
             throw new ArgumentNullException(nameof(expectedHash));
+        }
 #endif
 
         var actualHash = ComputeHash(data, expectedHash.Length, key);
@@ -107,7 +117,9 @@ public class Blake2bHashingService : IBlake2bService
     private static bool ConstantTimeEquals(byte[] a, byte[] b)
     {
         if (a.Length != b.Length)
+        {
             return false;
+        }
 
         var result = 0;
         for (var i = 0; i < a.Length; i++)

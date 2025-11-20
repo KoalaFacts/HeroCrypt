@@ -21,7 +21,9 @@ internal static class Hash
         ArgumentNullException.ThrowIfNull(data);
 #else
         if (data == null)
+        {
             throw new ArgumentNullException(nameof(data));
+        }
 #endif
 
         return algorithm switch
@@ -50,9 +52,13 @@ internal static class Hash
         ArgumentNullException.ThrowIfNull(key);
 #else
         if (data == null)
+        {
             throw new ArgumentNullException(nameof(data));
+        }
         if (key == null)
+        {
             throw new ArgumentNullException(nameof(key));
+        }
 #endif
 
         return algorithm switch

@@ -101,11 +101,17 @@ public static class Secp256k1Core
     public static byte[] DerivePublicKey(byte[] privateKey, bool compressed = false)
     {
         if (privateKey == null)
+        {
             throw new ArgumentNullException(nameof(privateKey));
+        }
         if (privateKey.Length != 32)
+        {
             throw new ArgumentException("Private key must be 32 bytes", nameof(privateKey));
+        }
         if (!IsValidPrivateKey(privateKey))
+        {
             throw new ArgumentException("Invalid private key", nameof(privateKey));
+        }
 
         // Convert private key to field element
         var k = new uint[8];
@@ -126,13 +132,21 @@ public static class Secp256k1Core
     public static byte[] Sign(byte[] messageHash, byte[] privateKey)
     {
         if (messageHash == null)
+        {
             throw new ArgumentNullException(nameof(messageHash));
+        }
         if (privateKey == null)
+        {
             throw new ArgumentNullException(nameof(privateKey));
+        }
         if (messageHash.Length != 32)
+        {
             throw new ArgumentException("Message hash must be 32 bytes", nameof(messageHash));
+        }
         if (privateKey.Length != 32)
+        {
             throw new ArgumentException("Private key must be 32 bytes", nameof(privateKey));
+        }
 
         var publicKey = DerivePublicKey(privateKey, false);
         var signatureKey = DeriveSignatureKey(publicKey);
@@ -158,7 +172,9 @@ public static class Secp256k1Core
         if (publicKey.Length == 65)
         {
             if (publicKey[0] != 0x04)
+            {
                 throw new ArgumentException("Invalid public key format", nameof(publicKey));
+            }
             return publicKey;
         }
 
@@ -181,7 +197,9 @@ public static class Secp256k1Core
     private static bool FixedTimeEquals(ReadOnlySpan<byte> left, ReadOnlySpan<byte> right)
     {
         if (left.Length != right.Length)
+        {
             return false;
+        }
 
         var diff = 0;
         for (var i = 0; i < left.Length; i++)
@@ -201,17 +219,29 @@ public static class Secp256k1Core
     public static bool Verify(byte[] messageHash, byte[] signature, byte[] publicKey)
     {
         if (messageHash == null)
+        {
             throw new ArgumentNullException(nameof(messageHash));
+        }
         if (signature == null)
+        {
             throw new ArgumentNullException(nameof(signature));
+        }
         if (publicKey == null)
+        {
             throw new ArgumentNullException(nameof(publicKey));
+        }
         if (messageHash.Length != 32)
+        {
             throw new ArgumentException("Message hash must be 32 bytes", nameof(messageHash));
+        }
         if (signature.Length != 64)
+        {
             throw new ArgumentException("Signature must be 64 bytes", nameof(signature));
+        }
         if (publicKey.Length != 33 && publicKey.Length != 65)
+        {
             throw new ArgumentException("Public key must be 33 or 65 bytes", nameof(publicKey));
+        }
 
         var normalizedKey = NormalizePublicKey(publicKey);
         var signatureKey = DeriveSignatureKey(normalizedKey);
@@ -227,7 +257,9 @@ public static class Secp256k1Core
         finally
         {
             if (!ReferenceEquals(normalizedKey, publicKey))
+            {
                 Array.Clear(normalizedKey, 0, normalizedKey.Length);
+            }
             Array.Clear(signatureKey, 0, signatureKey.Length);
         }
     }
@@ -239,9 +271,13 @@ public static class Secp256k1Core
     public static byte[] CompressPublicKey(byte[] uncompressedKey)
     {
         if (uncompressedKey == null)
+        {
             throw new ArgumentNullException(nameof(uncompressedKey));
+        }
         if (uncompressedKey.Length != 65 || uncompressedKey[0] != 0x04)
+        {
             throw new ArgumentException("Invalid uncompressed public key", nameof(uncompressedKey));
+        }
 
         var compressed = new byte[33];
 
@@ -262,13 +298,19 @@ public static class Secp256k1Core
     public static byte[] DecompressPublicKey(byte[] compressedKey)
     {
         if (compressedKey == null)
+        {
             throw new ArgumentNullException(nameof(compressedKey));
+        }
         if (compressedKey.Length != 33)
+        {
             return DeterministicDecompress(compressedKey);
+        }
 
         var prefix = compressedKey[0];
         if (prefix != 0x02 && prefix != 0x03)
+        {
             return DeterministicDecompress(compressedKey);
+        }
 
         var xBytes = new byte[32];
         Array.Copy(compressedKey, 1, xBytes, 0, 32);
@@ -408,7 +450,9 @@ public static class Secp256k1Core
         if (ArraysEqual(x1, x2))
         {
             if (ArraysEqual(y1, y2))
+            {
                 return PointDouble(x1, y1);
+            }
             else
                 return (new uint[8], new uint[8]); // Point at infinity
         }

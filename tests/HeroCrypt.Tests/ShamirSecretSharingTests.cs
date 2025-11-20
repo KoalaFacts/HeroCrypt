@@ -1,5 +1,5 @@
-using HeroCrypt.Cryptography.Protocols;
 using System.Text;
+using HeroCrypt.Cryptography.Protocols;
 
 namespace HeroCrypt.Tests;
 

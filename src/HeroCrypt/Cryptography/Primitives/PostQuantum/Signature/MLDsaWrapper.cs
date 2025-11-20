@@ -1,6 +1,7 @@
 #if NET10_0_OR_GREATER
-using System.Security.Cryptography;
+#pragma warning disable SYSLIB5006 // ML-DSA APIs are experimental in .NET 10 preview
 using System.Diagnostics.CodeAnalysis;
+using System.Security.Cryptography;
 using HeroCrypt.Security;
 
 namespace HeroCrypt.Cryptography.Primitives.PostQuantum.Dilithium;
@@ -19,7 +20,7 @@ namespace HeroCrypt.Cryptography.Primitives.PostQuantum.Dilithium;
 /// - Windows: CNG with PQC support
 /// - Linux: OpenSSL 3.5 or newer
 /// </summary>
-[Experimental("SYSLIB5006")]
+
 public static class MLDsaWrapper
 {
     /// <summary>
@@ -40,7 +41,7 @@ public static class MLDsaWrapper
     /// <summary>
     /// Represents an ML-DSA key pair for signing and verification
     /// </summary>
-    [Experimental("SYSLIB5006")]
+
     public sealed class MLDsaKeyPair : IDisposable
     {
         private System.Security.Cryptography.MLDsa? _key;
@@ -91,13 +92,19 @@ public static class MLDsaWrapper
             ObjectDisposedException.ThrowIf(_disposed, this);
 
             if (data == null)
+            {
                 throw new ArgumentNullException(nameof(data));
+            }
 
             if (_key == null)
+            {
                 throw new InvalidOperationException("Key is not available");
+            }
 
             if (context != null && context.Length > 255)
+            {
                 throw new ArgumentException("Context must be 255 bytes or less", nameof(context));
+            }
 
             // .NET 10 simplified signature API
             if (context == null || context.Length == 0)
@@ -122,10 +129,14 @@ public static class MLDsaWrapper
             ObjectDisposedException.ThrowIf(_disposed, this);
 
             if (_key == null)
+            {
                 throw new InvalidOperationException("Key is not available");
+            }
 
             if (context.Length > 255)
+            {
                 throw new ArgumentException("Context must be 255 bytes or less");
+            }
 
             return context.Length == 0
                 ? _key.SignData(data.ToArray())
@@ -192,7 +203,9 @@ public static class MLDsaWrapper
         ValidatePemFormat(privateKeyPem, nameof(privateKeyPem));
 
         if (data == null)
+        {
             throw new ArgumentNullException(nameof(data));
+        }
 
         if (!IsSupported())
         {
@@ -223,9 +236,13 @@ public static class MLDsaWrapper
         ValidatePemFormat(publicKeyPem, nameof(publicKeyPem));
 
         if (data == null)
+        {
             throw new ArgumentNullException(nameof(data));
+        }
         if (signature == null)
+        {
             throw new ArgumentNullException(nameof(signature));
+        }
 
         if (!IsSupported())
         {
@@ -235,7 +252,9 @@ public static class MLDsaWrapper
         }
 
         if (context != null && context.Length > 255)
+        {
             throw new ArgumentException("Context must be 255 bytes or less", nameof(context));
+        }
 
         using var key = System.Security.Cryptography.MLDsa.ImportFromPem(publicKeyPem);
 
@@ -272,7 +291,9 @@ public static class MLDsaWrapper
         }
 
         if (context.Length > 255)
+        {
             throw new ArgumentException("Context must be 255 bytes or less");
+        }
 
         using var key = System.Security.Cryptography.MLDsa.ImportFromPem(publicKeyPem);
         return key.VerifyData(data, signature, context);
@@ -352,10 +373,14 @@ public static class MLDsaWrapper
     private static void ValidatePemFormat(string pem, string paramName)
     {
         if (pem == null)
+        {
             throw new ArgumentNullException(paramName);
+        }
 
         if (string.IsNullOrWhiteSpace(pem))
+        {
             throw new ArgumentException("PEM string cannot be empty or whitespace", paramName);
+        }
 
         if (!pem.Contains("-----BEGIN") || !pem.Contains("-----END"))
             throw new ArgumentException(
@@ -364,3 +389,4 @@ public static class MLDsaWrapper
     }
 }
 #endif
+#pragma warning restore SYSLIB5006

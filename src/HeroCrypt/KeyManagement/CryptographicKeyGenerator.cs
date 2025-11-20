@@ -1,7 +1,7 @@
-using HeroCrypt.Cryptography.Primitives.Signature.Rsa;
-using HeroCrypt.Security;
 using System.Security.Cryptography;
 using System.Text;
+using HeroCrypt.Cryptography.Primitives.Signature.Rsa;
+using HeroCrypt.Security;
 
 namespace HeroCrypt.KeyManagement;
 
@@ -24,10 +24,14 @@ public sealed class CryptographicKeyGenerator : ICryptographicKeyGenerator
     public byte[] GenerateRandomBytes(int length)
     {
         if (length < 0)
+        {
             throw new ArgumentException("Length cannot be negative", nameof(length));
+        }
 
         if (length > InputValidator.MaxArraySize)
+        {
             throw new ArgumentException($"Length {length} exceeds maximum {InputValidator.MaxArraySize}", nameof(length));
+        }
 
 
 
@@ -92,7 +96,9 @@ public sealed class CryptographicKeyGenerator : ICryptographicKeyGenerator
     public byte[] GenerateIV(int ivLength)
     {
         if (ivLength <= 0)
+        {
             throw new ArgumentException("IV length must be positive", nameof(ivLength));
+        }
 
 
 
@@ -127,7 +133,9 @@ public sealed class CryptographicKeyGenerator : ICryptographicKeyGenerator
     public byte[] GenerateSalt(int saltLength = 32)
     {
         if (saltLength <= 0)
+        {
             throw new ArgumentException("Salt length must be positive", nameof(saltLength));
+        }
 
 
 
@@ -141,7 +149,9 @@ public sealed class CryptographicKeyGenerator : ICryptographicKeyGenerator
     public byte[] GenerateNonce(int nonceLength)
     {
         if (nonceLength <= 0)
+        {
             throw new ArgumentException("Nonce length must be positive", nameof(nonceLength));
+        }
 
 
 
@@ -232,7 +242,9 @@ public sealed class CryptographicKeyGenerator : ICryptographicKeyGenerator
     public byte[] GenerateKeyDerivationMaterial(int keyLength = 32)
     {
         if (keyLength <= 0)
+        {
             throw new ArgumentException("Key length must be positive", nameof(keyLength));
+        }
 
 
 
@@ -309,23 +321,35 @@ public sealed class CryptographicKeyGenerator : ICryptographicKeyGenerator
         bool includeUppercase = true, bool includeLowercase = true)
     {
         if (length <= 0)
+        {
             throw new ArgumentException("Password length must be positive", nameof(length));
+        }
 
         if (!includeSymbols && !includeNumbers && !includeUppercase && !includeLowercase)
+        {
             throw new ArgumentException("At least one character set must be included");
+        }
 
 
 
         var characterSets = new StringBuilder();
 
         if (includeLowercase)
+        {
             characterSets.Append("abcdefghijklmnopqrstuvwxyz");
+        }
         if (includeUppercase)
+        {
             characterSets.Append("ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+        }
         if (includeNumbers)
+        {
             characterSets.Append("0123456789");
+        }
         if (includeSymbols)
+        {
             characterSets.Append("!@#$%^&*()_+-=[]{}|;:,.<>?");
+        }
 
         var characters = characterSets.ToString();
         var password = new StringBuilder(length);

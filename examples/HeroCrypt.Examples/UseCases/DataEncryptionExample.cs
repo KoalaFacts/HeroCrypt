@@ -1,8 +1,8 @@
-using HeroCrypt.Encryption;
-using HeroCrypt.KeyManagement;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using HeroCrypt.Encryption;
+using HeroCrypt.KeyManagement;
 
 namespace HeroCrypt.Examples.UseCases;
 

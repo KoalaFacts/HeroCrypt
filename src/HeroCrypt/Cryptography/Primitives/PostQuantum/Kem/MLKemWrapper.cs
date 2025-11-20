@@ -1,7 +1,8 @@
 #if NET10_0_OR_GREATER
-using System.Security.Cryptography;
 using System.Diagnostics.CodeAnalysis;
+using System.Security.Cryptography;
 using HeroCrypt.Security;
+#pragma warning disable SYSLIB5006 // ML-KEM APIs are experimental in .NET 10 preview
 
 namespace HeroCrypt.Cryptography.Primitives.PostQuantum.Kyber;
 
@@ -19,7 +20,7 @@ namespace HeroCrypt.Cryptography.Primitives.PostQuantum.Kyber;
 /// - Windows: CNG with PQC support
 /// - Linux: OpenSSL 3.5 or newer
 /// </summary>
-[Experimental("SYSLIB5006")]
+
 public static class MLKemWrapper
 {
     /// <summary>
@@ -40,7 +41,7 @@ public static class MLKemWrapper
     /// <summary>
     /// Represents an ML-KEM key pair with public and secret keys
     /// </summary>
-    [Experimental("SYSLIB5006")]
+
     public sealed class MLKemKeyPair : IDisposable
     {
         private System.Security.Cryptography.MLKem? _key;
@@ -89,11 +90,12 @@ public static class MLKemWrapper
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
 
-            if (ciphertext == null)
-                throw new ArgumentNullException(nameof(ciphertext));
+            ArgumentNullException.ThrowIfNull(ciphertext);
 
             if (_key == null)
+            {
                 throw new InvalidOperationException("Key is not available");
+            }
 
             return _key.Decapsulate(ciphertext);
         }
@@ -118,7 +120,7 @@ public static class MLKemWrapper
     /// <summary>
     /// Result of an encapsulation operation containing both the ciphertext and shared secret
     /// </summary>
-    [Experimental("SYSLIB5006")]
+
     public sealed class EncapsulationResult : IDisposable
     {
         /// <summary>
@@ -316,10 +318,14 @@ public static class MLKemWrapper
     private static void ValidatePemFormat(string pem, string paramName)
     {
         if (pem == null)
+        {
             throw new ArgumentNullException(paramName);
+        }
 
         if (string.IsNullOrWhiteSpace(pem))
+        {
             throw new ArgumentException("PEM string cannot be empty or whitespace", paramName);
+        }
 
         if (!pem.Contains("-----BEGIN") || !pem.Contains("-----END"))
             throw new ArgumentException(
@@ -327,4 +333,5 @@ public static class MLKemWrapper
                 paramName);
     }
 }
+#pragma warning restore SYSLIB5006
 #endif

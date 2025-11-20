@@ -1,8 +1,8 @@
-using HeroCrypt.Cryptography.Primitives.Mac;
-using HeroCrypt.Security;
 using System.Buffers;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
+using HeroCrypt.Cryptography.Primitives.Mac;
+using HeroCrypt.Security;
 
 namespace HeroCrypt.Cryptography.Primitives.Cipher.Aead;
 
@@ -47,7 +47,9 @@ internal static class AesSivCore
         ValidateParameters(key, ciphertext.Length, plaintext.Length);
 
         if (ciphertext.Length < SivSize + plaintext.Length)
+        {
             throw new ArgumentException("Ciphertext buffer too small", nameof(ciphertext));
+        }
 
         // Split key into K1 (MAC key) and K2 (CTR key)
         var keyLength = key.Length / 2;
@@ -91,13 +93,17 @@ internal static class AesSivCore
         ReadOnlySpan<byte> associatedData)
     {
         if (ciphertext.Length < SivSize)
+        {
             throw new ArgumentException("Ciphertext too short", nameof(ciphertext));
+        }
 
         var plaintextLength = ciphertext.Length - SivSize;
         ValidateParameters(key, ciphertext.Length, plaintextLength);
 
         if (plaintext.Length < plaintextLength)
+        {
             throw new ArgumentException("Plaintext buffer too small", nameof(plaintext));
+        }
 
         // Split key into K1 (MAC key) and K2 (CTR key)
         var keyLength = key.Length / 2;
@@ -331,7 +337,9 @@ internal static class AesSivCore
         for (var i = BlockSize - 1; i >= 0; i--)
         {
             if (++counter[i] != 0)
+            {
                 break;
+            }
         }
     }
 
@@ -341,10 +349,14 @@ internal static class AesSivCore
     private static void ValidateParameters(ReadOnlySpan<byte> key, int ciphertextLength, int plaintextLength)
     {
         if (!SupportedKeySizes.Contains(key.Length))
+        {
             throw new ArgumentException($"Key must be 32, 48, or 64 bytes (AES-SIV-128/192/256)", nameof(key));
+        }
 
         if (plaintextLength < 0)
+        {
             throw new ArgumentException("Invalid plaintext length", nameof(plaintextLength));
+        }
     }
 
     /// <summary>
@@ -353,7 +365,9 @@ internal static class AesSivCore
     public static void ValidateParameters(ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce)
     {
         if (!SupportedKeySizes.Contains(key.Length))
+        {
             throw new ArgumentException($"Key must be 32, 48, or 64 bytes (AES-SIV-128/192/256)", nameof(key));
+        }
 
         // Nonce can be any length in AES-SIV (it's flexible)
         // No specific validation needed for nonce

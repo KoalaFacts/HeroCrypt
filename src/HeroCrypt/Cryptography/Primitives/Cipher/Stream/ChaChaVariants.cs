@@ -1,5 +1,5 @@
-using HeroCrypt.Security;
 using System.Runtime.CompilerServices;
+using HeroCrypt.Security;
 
 namespace HeroCrypt.Cryptography.Primitives.Cipher.Stream;
 
@@ -57,11 +57,17 @@ public static class ChaChaVariants
         ReadOnlySpan<byte> nonce, uint counter, ChaChaVariant variant)
     {
         if (key.Length != KeySize)
+        {
             throw new ArgumentException($"Key must be {KeySize} bytes", nameof(key));
+        }
         if (nonce.Length != NonceSize)
+        {
             throw new ArgumentException($"Nonce must be {NonceSize} bytes", nameof(nonce));
+        }
         if (output.Length < input.Length)
+        {
             throw new ArgumentException("Output buffer too small", nameof(output));
+        }
 
         Span<uint> state = stackalloc uint[16];
         var blocks = (input.Length + BlockSize - 1) / BlockSize;
@@ -109,11 +115,17 @@ public static class ChaChaVariants
         ReadOnlySpan<byte> nonce, uint counter, ChaChaVariant variant)
     {
         if (key.Length != KeySize)
+        {
             throw new ArgumentException($"Key must be {KeySize} bytes", nameof(key));
+        }
         if (nonce.Length != NonceSize)
+        {
             throw new ArgumentException($"Nonce must be {NonceSize} bytes", nameof(nonce));
+        }
         if (keystream.Length % BlockSize != 0)
+        {
             throw new ArgumentException("Keystream length must be multiple of block size", nameof(keystream));
+        }
 
         Span<uint> state = stackalloc uint[16];
         var blocks = keystream.Length / BlockSize;
@@ -296,10 +308,16 @@ public static class ChaChaVariants
     public static void ValidateParameters(ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce, ChaChaVariant variant)
     {
         if (key.Length != KeySize)
+        {
             throw new ArgumentException($"Key must be {KeySize} bytes", nameof(key));
+        }
         if (nonce.Length != NonceSize)
+        {
             throw new ArgumentException($"Nonce must be {NonceSize} bytes", nameof(nonce));
+        }
         if (!Enum.IsDefined(typeof(ChaChaVariant), variant))
+        {
             throw new ArgumentException("Invalid ChaCha variant", nameof(variant));
+        }
     }
 }

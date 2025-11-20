@@ -1,6 +1,3 @@
-using System;
-using System.Security.Cryptography;
-
 #if NETSTANDARD2_0
 // Polyfills for .NET Standard 2.0
 // These provide APIs that are available in .NET Core 3.0+ but not in .NET Standard 2.0
@@ -74,7 +71,9 @@ namespace System.Security.Cryptography
         public static bool FixedTimeEquals(ReadOnlySpan<byte> left, ReadOnlySpan<byte> right)
         {
             if (left.Length != right.Length)
+            {
                 return false;
+            }
 
             int result = 0;
             for (int i = 0; i < left.Length; i++)
@@ -178,7 +177,9 @@ namespace System
         public static bool TryWriteBytes(Span<byte> destination, ulong value)
         {
             if (destination.Length < sizeof(ulong))
+            {
                 return false;
+            }
 
             var bytes = BitConverter.GetBytes(value);
             bytes.AsSpan().CopyTo(destination);
@@ -194,7 +195,9 @@ namespace System
         public static bool TryWriteBytes(Span<byte> destination, uint value)
         {
             if (destination.Length < sizeof(uint))
+            {
                 return false;
+            }
 
             var bytes = BitConverter.GetBytes(value);
             bytes.AsSpan().CopyTo(destination);

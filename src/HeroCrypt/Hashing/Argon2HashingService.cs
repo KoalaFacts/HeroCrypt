@@ -1,10 +1,7 @@
-using HeroCrypt.Cryptography.Primitives.Kdf;
-using HeroCrypt.Security;
-using System;
-using System.Runtime.CompilerServices;
-
 using System.Security.Cryptography;
 using System.Text;
+using HeroCrypt.Cryptography.Primitives.Kdf;
+using HeroCrypt.Security;
 
 namespace HeroCrypt.Hashing;
 
@@ -97,7 +94,9 @@ public sealed class Argon2HashingService : IPasswordHashingService
         ArgumentException.ThrowIfNullOrWhiteSpace(input);
 #else
         if (string.IsNullOrWhiteSpace(input))
+        {
             throw new ArgumentException("Value cannot be null or whitespace.", nameof(input));
+        }
 #endif
         var bytes = Encoding.UTF8.GetBytes(input);
         try
@@ -128,13 +127,15 @@ public sealed class Argon2HashingService : IPasswordHashingService
         ArgumentNullException.ThrowIfNull(input);
 #else
         if (input == null)
+        {
             throw new ArgumentNullException(nameof(input));
+        }
 #endif
 
         return await Task.Run(() =>
         {
             using var salt = new SecureByteArray(_options.SaltSize);
-            
+
 #if NETSTANDARD2_0
             using (var rng = RandomNumberGenerator.Create())
             {
@@ -146,7 +147,7 @@ public sealed class Argon2HashingService : IPasswordHashingService
 
             byte[]? hash = null;
             // Compute hash
-            salt.WithBytes(s => 
+            salt.WithBytes(s =>
             {
                 hash = Argon2Core.Hash(
                     input,
@@ -205,7 +206,9 @@ public sealed class Argon2HashingService : IPasswordHashingService
         ArgumentException.ThrowIfNullOrWhiteSpace(input);
 #else
         if (string.IsNullOrWhiteSpace(input))
+        {
             throw new ArgumentException("Value cannot be null or whitespace.", nameof(input));
+        }
 #endif
         var bytes = Encoding.UTF8.GetBytes(input);
         try
@@ -235,12 +238,16 @@ public sealed class Argon2HashingService : IPasswordHashingService
         ArgumentNullException.ThrowIfNull(input);
 #else
         if (input == null)
+        {
             throw new ArgumentNullException(nameof(input));
+        }
 #endif
 
         // Return false for null or empty hash instead of throwing
         if (string.IsNullOrWhiteSpace(hash))
+        {
             return false;
+        }
 
         return await Task.Run(() =>
         {
@@ -249,7 +256,9 @@ public sealed class Argon2HashingService : IPasswordHashingService
                 var hashBytes = Convert.FromBase64String(hash);
 
                 if (hashBytes.Length <= _options.SaltSize)
+                {
                     return false;
+                }
 
                 var salt = new byte[_options.SaltSize];
                 Array.Copy(hashBytes, 0, salt, 0, _options.SaltSize);

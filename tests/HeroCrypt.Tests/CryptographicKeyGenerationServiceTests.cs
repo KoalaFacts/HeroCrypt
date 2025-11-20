@@ -35,7 +35,6 @@ public class CryptographicKeyGenerationServiceTests
 
         var result = service.GenerateRandomBytes(0);
         Assert.Empty(result);
-        Assert.Equal(0, result.Length);
     }
 
     [Fact]
@@ -66,7 +65,7 @@ public class CryptographicKeyGenerationServiceTests
     {
         var service = new CryptographicKeyGenerator();
 
-        var bytes = await service.GenerateRandomBytesAsync(16);
+        var bytes = await service.GenerateRandomBytesAsync(16, TestContext.Current.CancellationToken);
 
         Assert.Equal(16, bytes.Length);
     }
@@ -76,7 +75,7 @@ public class CryptographicKeyGenerationServiceTests
     public async Task GenerateRandomBytesAsync_WithCancellation_ThrowsWhenCancelled()
     {
         var service = new CryptographicKeyGenerator();
-        var cts = new CancellationTokenSource();
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         cts.Cancel();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
@@ -292,7 +291,7 @@ public class CryptographicKeyGenerationServiceTests
     {
         var service = new CryptographicKeyGenerator();
 
-        var (privateKey, publicKey) = await service.GenerateRsaKeyPairAsync(2048);
+        var (privateKey, publicKey) = await service.GenerateRsaKeyPairAsync(2048, TestContext.Current.CancellationToken);
 
         Assert.NotNull(privateKey);
         Assert.NotNull(publicKey);
@@ -456,7 +455,7 @@ public class CryptographicKeyGenerationServiceTests
         var password = service.GenerateSecurePassword(50, includeSymbols: true);
 
         var symbols = "!@#$%^&*()_+-=[]{}|;:,.<>?";
-        Assert.True(password.Any(c => symbols.Contains(c)));
+        Assert.Contains(password, c => symbols.Contains(c));
     }
 
     [Fact]
@@ -467,7 +466,7 @@ public class CryptographicKeyGenerationServiceTests
 
         var password = service.GenerateSecurePassword(50, includeNumbers: true);
 
-        Assert.True(password.Any(char.IsDigit));
+        Assert.Contains(password, char.IsDigit);
     }
 
     [Fact]
@@ -478,7 +477,7 @@ public class CryptographicKeyGenerationServiceTests
 
         var password = service.GenerateSecurePassword(50, includeUppercase: true);
 
-        Assert.True(password.Any(char.IsUpper));
+        Assert.Contains(password, char.IsUpper);
     }
 
     [Fact]
@@ -489,7 +488,7 @@ public class CryptographicKeyGenerationServiceTests
 
         var password = service.GenerateSecurePassword(50, includeLowercase: true);
 
-        Assert.True(password.Any(char.IsLower));
+        Assert.Contains(password, char.IsLower);
     }
 
     [Fact]
@@ -578,35 +577,29 @@ public class CryptographicKeyGenerationServiceTests
         Assert.Equal(1024, largeKey.Length);
 
         // Ensure it's not all zeros
-        Assert.True(largeKey.Any(b => b != 0));
+        Assert.Contains(largeKey, b => b != 0);
     }
 
     [Fact]
     [Trait("Category", TestCategories.Unit)]
-    public void Service_ThreadSafety_MultipleThreadsCanGenerate()
+    public async Task Service_ThreadSafety_MultipleThreadsCanGenerate()
     {
         var service = new CryptographicKeyGenerator();
-        var tasks = new Task<byte[]>[10];
+        var tasks = Enumerable.Range(0, 10)
+            .Select(_ => Task.Run(() => service.GenerateSymmetricKey(32), TestContext.Current.CancellationToken))
+            .ToArray();
 
-        // Generate keys on multiple threads
-        for (var i = 0; i < tasks.Length; i++)
-        {
-            tasks[i] = Task.Run(() => service.GenerateSymmetricKey(32));
-        }
-
-        Task.WaitAll(tasks);
+        var results = await Task.WhenAll(tasks);
 
         // All tasks should complete successfully and produce unique results
-        for (var i = 0; i < tasks.Length; i++)
+        for (var i = 0; i < results.Length; i++)
         {
-            Assert.Equal(32, tasks[i].Result.Length);
-            for (var j = i + 1; j < tasks.Length; j++)
+            Assert.Equal(32, results[i].Length);
+            for (var j = i + 1; j < results.Length; j++)
             {
-                Assert.NotEqual(tasks[i].Result, tasks[j].Result);
+                Assert.NotEqual(results[i], results[j]);
             }
         }
     }
 }
-
-
 

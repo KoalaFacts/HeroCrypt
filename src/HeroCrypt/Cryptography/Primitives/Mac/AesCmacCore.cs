@@ -1,6 +1,6 @@
-using HeroCrypt.Security;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
+using HeroCrypt.Security;
 
 namespace HeroCrypt.Cryptography.Primitives.Mac;
 
@@ -30,10 +30,14 @@ internal static class AesCmacCore
     public static void ComputeTag(Span<byte> tag, ReadOnlySpan<byte> data, ReadOnlySpan<byte> key)
     {
         if (tag.Length < BlockSize)
+        {
             throw new ArgumentException($"Tag must be at least {BlockSize} bytes", nameof(tag));
+        }
 
         if (!SupportedKeySizes.Contains(key.Length))
+        {
             throw new ArgumentException($"Key must be 16, 24, or 32 bytes (AES-128/192/256)", nameof(key));
+        }
 
         // Create key array once and clear it at end (avoid memory leak)
         var keyArray = key.ToArray();
@@ -208,7 +212,9 @@ internal static class AesCmacCore
     public static bool VerifyTag(ReadOnlySpan<byte> tag, ReadOnlySpan<byte> data, ReadOnlySpan<byte> key)
     {
         if (tag.Length != BlockSize)
+        {
             throw new ArgumentException($"Tag must be {BlockSize} bytes", nameof(tag));
+        }
 
         Span<byte> computedTag = stackalloc byte[BlockSize];
         ComputeTag(computedTag, data, key);

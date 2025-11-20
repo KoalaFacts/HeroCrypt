@@ -171,7 +171,9 @@ public static class DigitalSignatureExample
         Console.WriteLine("\n=== Multi-Party Approval Chain ===\n");
 
         if (!MLDsaWrapper.IsSupported())
+        {
             return;
+        }
 
         Console.WriteLine("🏢 Scenario: Three-level approval workflow\n");
 

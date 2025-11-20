@@ -1,6 +1,6 @@
-using HeroCrypt.Security;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
+using HeroCrypt.Security;
 
 namespace HeroCrypt.Cryptography.Protocols;
 
@@ -54,7 +54,9 @@ public static class ShamirSecretSharing
         public Share(byte index, byte[] data)
         {
             if (index == 0)
+            {
                 throw new ArgumentException("Share index must be between 1 and 255", nameof(index));
+            }
 
             Index = index;
             Data = data ?? throw new ArgumentNullException(nameof(data));
@@ -131,14 +133,18 @@ public static class ShamirSecretSharing
     public static byte[] Reconstruct(ReadOnlySpan<Share> shares)
     {
         if (shares.Length < MinThreshold)
+        {
             throw new ArgumentException($"At least {MinThreshold} shares required", nameof(shares));
+        }
 
         // Validate all shares have same length
         var secretLength = shares[0].Data.Length;
         for (var i = 1; i < shares.Length; i++)
         {
             if (shares[i].Data.Length != secretLength)
+            {
                 throw new ArgumentException("All shares must have the same length", nameof(shares));
+            }
         }
 
         // Check for duplicate share indices
@@ -146,7 +152,9 @@ public static class ShamirSecretSharing
         foreach (var share in shares)
         {
             if (!indices.Add(share.Index))
+            {
                 throw new ArgumentException($"Duplicate share index: {share.Index}", nameof(shares));
+            }
         }
 
         var secret = new byte[secretLength];
@@ -274,7 +282,9 @@ public static class ShamirSecretSharing
     private static byte GF256Invert(byte a)
     {
         if (a == 0)
+        {
             throw new DivideByZeroException("Cannot invert zero in GF(256)");
+        }
 
         // Fermat's Little Theorem: a^254 = a^(-1) in GF(256)
         // Use binary exponentiation to compute a^254
@@ -304,16 +314,24 @@ public static class ShamirSecretSharing
     private static void ValidateSplitParameters(int secretLength, int threshold, int shareCount)
     {
         if (secretLength == 0)
+        {
             throw new ArgumentException("Secret cannot be empty", nameof(secretLength));
+        }
 
         if (threshold < MinThreshold)
+        {
             throw new ArgumentException($"Threshold must be at least {MinThreshold}", nameof(threshold));
+        }
 
         if (shareCount > MaxShares)
+        {
             throw new ArgumentException($"Share count cannot exceed {MaxShares}", nameof(shareCount));
+        }
 
         if (threshold > shareCount)
+        {
             throw new ArgumentException("Threshold cannot exceed share count", nameof(threshold));
+        }
     }
 
     /// <summary>

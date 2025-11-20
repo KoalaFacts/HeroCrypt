@@ -1,8 +1,8 @@
 #if NET10_0_OR_GREATER
-using System.Security.Cryptography;
 using System.Diagnostics.CodeAnalysis;
+using System.Security.Cryptography;
+#pragma warning disable SYSLIB5006 // ML-KEM APIs are experimental in .NET 10 preview
 
-#pragma warning disable SYSLIB5006 // Experimental feature warnings
 namespace HeroCrypt.Cryptography.Primitives.PostQuantum.Kyber;
 
 /// <summary>
@@ -84,7 +84,9 @@ public class MLKemBuilder : IDisposable
     public MLKemBuilder WithPublicKey(string publicKeyPem)
     {
         if (publicKeyPem == null)
+        {
             throw new ArgumentNullException(nameof(publicKeyPem));
+        }
 
         _publicKeyPem = publicKeyPem;
         return this;
@@ -99,7 +101,9 @@ public class MLKemBuilder : IDisposable
     public MLKemBuilder WithKeyPair(MLKemWrapper.MLKemKeyPair keyPair)
     {
         if (keyPair == null)
+        {
             throw new ArgumentNullException(nameof(keyPair));
+        }
 
         _keyPair = keyPair;
         return this;
@@ -124,7 +128,9 @@ public class MLKemBuilder : IDisposable
     public MLKemWrapper.EncapsulationResult Encapsulate()
     {
         if (_publicKeyPem == null)
+        {
             throw new InvalidOperationException("Public key must be set before encapsulation. Use WithPublicKey()");
+        }
 
         return MLKemWrapper.Encapsulate(_publicKeyPem);
     }
@@ -140,10 +146,14 @@ public class MLKemBuilder : IDisposable
     public byte[] Decapsulate(byte[] ciphertext)
     {
         if (ciphertext == null)
+        {
             throw new ArgumentNullException(nameof(ciphertext));
+        }
 
         if (_keyPair == null)
+        {
             throw new InvalidOperationException("Key pair must be set before decapsulation. Use WithKeyPair()");
+        }
 
         return _keyPair.Decapsulate(ciphertext);
     }
@@ -198,4 +208,5 @@ public static class MLKem
     public static MLKemWrapper.MLKemKeyPair GenerateKeyPair(MLKemWrapper.SecurityLevel level) =>
         MLKemWrapper.GenerateKeyPair(level);
 }
+#pragma warning restore SYSLIB5006
 #endif

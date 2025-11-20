@@ -1,8 +1,7 @@
+using System.Diagnostics;
 using HeroCrypt.Cryptography.Primitives.Kdf;
 using HeroCrypt.Encryption;
-using HeroCrypt.Examples;
 using HeroCrypt.Hashing;
-using System.Diagnostics;
 
 Console.WriteLine("HeroCrypt Examples");
 Console.WriteLine("==================\n");

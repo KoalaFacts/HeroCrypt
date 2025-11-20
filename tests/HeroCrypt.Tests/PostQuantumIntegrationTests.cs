@@ -1,8 +1,8 @@
 #if NET10_0_OR_GREATER
 using System.Security.Cryptography;
 using System.Text;
-using HeroCrypt.Cryptography.Primitives.PostQuantum.Kyber;
 using HeroCrypt.Cryptography.Primitives.PostQuantum.Dilithium;
+using HeroCrypt.Cryptography.Primitives.PostQuantum.Kyber;
 using HeroCrypt.Cryptography.Primitives.PostQuantum.Sphincs;
 
 namespace HeroCrypt.Tests;
@@ -19,7 +19,9 @@ public class PostQuantumIntegrationTests
     public void Integration_HybridEncryption_MLKem_AesGcm_FullWorkflow()
     {
         if (!MLKemWrapper.IsSupported())
+        {
             return;
+        }
 
         // Scenario: Alice wants to send encrypted message to Bob using hybrid PQC encryption
 
@@ -77,7 +79,9 @@ public class PostQuantumIntegrationTests
     public void Integration_HybridEncryption_MultipleRecipients()
     {
         if (!MLKemWrapper.IsSupported())
+        {
             return;
+        }
 
         // Scenario: Alice sends same message to 3 recipients using different shared secrets
         var message = "Confidential group message";
@@ -128,7 +132,9 @@ public class PostQuantumIntegrationTests
         finally
         {
             foreach (var recipient in recipients)
+            {
                 recipient.Dispose();
+            }
         }
     }
 
@@ -140,7 +146,9 @@ public class PostQuantumIntegrationTests
     public void Integration_DocumentSigning_MLDsa_FullWorkflow()
     {
         if (!MLDsaWrapper.IsSupported())
+        {
             return;
+        }
 
         // Scenario: Sign and verify a legal document with ML-DSA
 
@@ -195,7 +203,9 @@ public class PostQuantumIntegrationTests
     public void Integration_ChainOfTrust_MultipleSignatures()
     {
         if (!MLDsaWrapper.IsSupported())
+        {
             return;
+        }
 
         // Scenario: Multi-level approval with signature chain
         var document = "Budget proposal for Q1 2025";
@@ -255,7 +265,9 @@ public class PostQuantumIntegrationTests
     public void Integration_CodeSigning_SlhDsa_SmallSignature()
     {
         if (!SlhDsaWrapper.IsSupported())
+        {
             return;
+        }
 
         // Scenario: Sign software release with conservative hash-based signature
 
@@ -302,7 +314,9 @@ public class PostQuantumIntegrationTests
     public void Integration_KeyRotation_GracefulTransition()
     {
         if (!MLDsaWrapper.IsSupported())
+        {
             return;
+        }
 
         // Scenario: Rotating signing keys while maintaining verification
         var message = "Important message during key rotation";
@@ -336,7 +350,9 @@ public class PostQuantumIntegrationTests
     public void Integration_KeyExport_Import_Roundtrip()
     {
         if (!MLKemWrapper.IsSupported() || !MLDsaWrapper.IsSupported())
+        {
             return;
+        }
 
         // ML-KEM key export/import
         using var originalKemKey = MLKem.GenerateKeyPair(MLKemWrapper.SecurityLevel.MLKem768);
@@ -369,7 +385,9 @@ public class PostQuantumIntegrationTests
     public void Integration_HighVolume_BatchSigning_100_Signatures()
     {
         if (!MLDsaWrapper.IsSupported())
+        {
             return;
+        }
 
         // Scenario: High-volume signature generation (e.g., timestamping service)
         const int batchSize = 100;
@@ -393,17 +411,21 @@ public class PostQuantumIntegrationTests
         foreach (var (data, sig) in signatures)
         {
             if (MLDsa.Verify(signingKey.PublicKeyPem, data, sig))
+            {
                 validCount++;
+            }
         }
 
         Assert.Equal(batchSize, validCount);
     }
 
     [Fact]
-    public void Integration_ConcurrentOperations_ThreadSafety()
+    public async Task Integration_ConcurrentOperations_ThreadSafety()
     {
         if (!MLKemWrapper.IsSupported())
+        {
             return;
+        }
 
         // Scenario: Concurrent key generation and encapsulation
         const int threadCount = 10;
@@ -420,14 +442,18 @@ public class PostQuantumIntegrationTests
                     var recovered = keyPair.Decapsulate(enc.Ciphertext);
                     return enc.SharedSecret.SequenceEqual(recovered);
                 }
-                catch
+                catch (CryptographicException)
                 {
                     return false;
                 }
-            });
+                catch (ArgumentException)
+                {
+                    return false;
+                }
+            }, TestContext.Current.CancellationToken);
         }
 
-        Task.WaitAll(tasks);
+        await Task.WhenAll(tasks);
 
         // All concurrent operations should succeed
         Assert.All(tasks, t => Assert.True(t.Result));
@@ -441,7 +467,9 @@ public class PostQuantumIntegrationTests
     public void Integration_SecurityLevels_AllParameterSets()
     {
         if (!MLKemWrapper.IsSupported() || !MLDsaWrapper.IsSupported() || !SlhDsaWrapper.IsSupported())
+        {
             return;
+        }
 
         // Validate all ML-KEM security levels
         var kemLevels = new[]
@@ -504,7 +532,9 @@ public class PostQuantumIntegrationTests
     public void Integration_SecureMessaging_EndToEnd()
     {
         if (!MLKemWrapper.IsSupported() || !MLDsaWrapper.IsSupported())
+        {
             return;
+        }
 
         // Scenario: Secure messaging app (Signal-like) using PQC
 
@@ -563,7 +593,9 @@ public class PostQuantumIntegrationTests
     public void Integration_BlockchainTransaction_PQC_Signing()
     {
         if (!MLDsaWrapper.IsSupported())
+        {
             return;
+        }
 
         // Scenario: Quantum-resistant blockchain transaction
 
@@ -577,7 +609,7 @@ public class PostQuantumIntegrationTests
         };
 
         var txData = Encoding.UTF8.GetBytes(
-            System.Text.Json.JsonSerializer.Serialize(transaction));
+            $"{transaction.From}|{transaction.To}|{transaction.Amount}|{transaction.Nonce}|{transaction.Timestamp}");
 
         // Sign with highest security
         using var walletKey = MLDsa.GenerateKeyPair(MLDsaWrapper.SecurityLevel.MLDsa87);

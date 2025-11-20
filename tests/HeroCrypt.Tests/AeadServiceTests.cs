@@ -48,8 +48,8 @@ public class AeadServiceTests
         var nonce = _aeadService.GenerateNonce(algorithm);
 
         // Act
-        var ciphertext = await _aeadService.EncryptAsync(plaintext, key, nonce, null, algorithm);
-        var decrypted = await _aeadService.DecryptAsync(ciphertext, key, nonce, null, algorithm);
+        var ciphertext = await _aeadService.EncryptAsync(plaintext, key, nonce, null, algorithm, TestContext.Current.CancellationToken);
+        var decrypted = await _aeadService.DecryptAsync(ciphertext, key, nonce, null, algorithm, TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(plaintext, decrypted);
@@ -87,14 +87,14 @@ public class AeadServiceTests
         var plaintext = "Hello, AEAD World!"u8.ToArray();
         var key = _aeadService.GenerateKey(algorithm);
         var nonce = _aeadService.GenerateNonce(algorithm);
-        var ciphertext = await _aeadService.EncryptAsync(plaintext, key, nonce, null, algorithm);
+        var ciphertext = await _aeadService.EncryptAsync(plaintext, key, nonce, null, algorithm, TestContext.Current.CancellationToken);
 
         // Modify ciphertext
         ciphertext[0] ^= 1;
 
         // Act & Assert
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
-            _aeadService.DecryptAsync(ciphertext, key, nonce, null, algorithm));
+            _aeadService.DecryptAsync(ciphertext, key, nonce, null, algorithm, TestContext.Current.CancellationToken));
     }
 
     [Theory]
@@ -109,11 +109,11 @@ public class AeadServiceTests
         var key = _aeadService.GenerateKey(algorithm);
         var wrongKey = _aeadService.GenerateKey(algorithm);
         var nonce = _aeadService.GenerateNonce(algorithm);
-        var ciphertext = await _aeadService.EncryptAsync(plaintext, key, nonce, null, algorithm);
+        var ciphertext = await _aeadService.EncryptAsync(plaintext, key, nonce, null, algorithm, TestContext.Current.CancellationToken);
 
         // Act & Assert
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
-            _aeadService.DecryptAsync(ciphertext, wrongKey, nonce, null, algorithm));
+            _aeadService.DecryptAsync(ciphertext, wrongKey, nonce, null, algorithm, TestContext.Current.CancellationToken));
     }
 
     [Theory]
@@ -128,11 +128,11 @@ public class AeadServiceTests
         var key = _aeadService.GenerateKey(algorithm);
         var nonce = _aeadService.GenerateNonce(algorithm);
         var wrongNonce = _aeadService.GenerateNonce(algorithm);
-        var ciphertext = await _aeadService.EncryptAsync(plaintext, key, nonce, null, algorithm);
+        var ciphertext = await _aeadService.EncryptAsync(plaintext, key, nonce, null, algorithm, TestContext.Current.CancellationToken);
 
         // Act & Assert
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
-            _aeadService.DecryptAsync(ciphertext, key, wrongNonce, null, algorithm));
+            _aeadService.DecryptAsync(ciphertext, key, wrongNonce, null, algorithm, TestContext.Current.CancellationToken));
     }
 
     [Theory]
@@ -148,11 +148,11 @@ public class AeadServiceTests
         var nonce = _aeadService.GenerateNonce(algorithm);
         var associatedData = "metadata"u8.ToArray();
         var wrongAssociatedData = "wrong-metadata"u8.ToArray();
-        var ciphertext = await _aeadService.EncryptAsync(plaintext, key, nonce, associatedData, algorithm);
+        var ciphertext = await _aeadService.EncryptAsync(plaintext, key, nonce, associatedData, algorithm, TestContext.Current.CancellationToken);
 
         // Act & Assert
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
-            _aeadService.DecryptAsync(ciphertext, key, nonce, wrongAssociatedData, algorithm));
+            _aeadService.DecryptAsync(ciphertext, key, nonce, wrongAssociatedData, algorithm, TestContext.Current.CancellationToken));
     }
 
     [Theory]
@@ -169,8 +169,8 @@ public class AeadServiceTests
         var nonce = _aeadService.GenerateNonce(algorithm);
 
         // Act
-        var ciphertext = await _aeadService.EncryptAsync(plaintext, key, nonce, null, algorithm);
-        var decrypted = await _aeadService.DecryptAsync(ciphertext, key, nonce, null, algorithm);
+        var ciphertext = await _aeadService.EncryptAsync(plaintext, key, nonce, null, algorithm, TestContext.Current.CancellationToken);
+        var decrypted = await _aeadService.DecryptAsync(ciphertext, key, nonce, null, algorithm, TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(plaintext, decrypted);
@@ -193,11 +193,11 @@ public class AeadServiceTests
         using var decryptedStream = new MemoryStream();
 
         // Act - Encrypt
-        await _aeadService.EncryptStreamAsync(plaintextStream, ciphertextStream, key, nonce, null, algorithm);
+        await _aeadService.EncryptStreamAsync(plaintextStream, ciphertextStream, key, nonce, null, algorithm, cancellationToken: TestContext.Current.CancellationToken);
 
         // Act - Decrypt
         ciphertextStream.Position = 0;
-        await _aeadService.DecryptStreamAsync(ciphertextStream, decryptedStream, key, nonce, null, algorithm);
+        await _aeadService.DecryptStreamAsync(ciphertextStream, decryptedStream, key, nonce, null, algorithm, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(plaintext, decryptedStream.ToArray());
@@ -221,11 +221,11 @@ public class AeadServiceTests
         using var decryptedStream = new MemoryStream();
 
         // Act - Encrypt
-        await _aeadService.EncryptStreamAsync(plaintextStream, ciphertextStream, key, nonce, null, algorithm, chunkSize: 4096);
+        await _aeadService.EncryptStreamAsync(plaintextStream, ciphertextStream, key, nonce, null, algorithm, chunkSize: 4096, cancellationToken: TestContext.Current.CancellationToken);
 
         // Act - Decrypt
         ciphertextStream.Position = 0;
-        await _aeadService.DecryptStreamAsync(ciphertextStream, decryptedStream, key, nonce, null, algorithm, chunkSize: 4096);
+        await _aeadService.DecryptStreamAsync(ciphertextStream, decryptedStream, key, nonce, null, algorithm, chunkSize: 4096, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(plaintext, decryptedStream.ToArray());
@@ -349,7 +349,7 @@ public class AeadServiceTests
         var nonce = _aeadService.GenerateNonce();
 
         await Assert.ThrowsAsync<ArgumentNullException>(() =>
-            _aeadService.EncryptAsync(null!, key, nonce));
+            _aeadService.EncryptAsync(null!, key, nonce, cancellationToken: TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -359,7 +359,7 @@ public class AeadServiceTests
         var nonce = _aeadService.GenerateNonce();
 
         await Assert.ThrowsAsync<ArgumentNullException>(() =>
-            _aeadService.EncryptAsync(plaintext, null!, nonce));
+            _aeadService.EncryptAsync(plaintext, null!, nonce, cancellationToken: TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -369,7 +369,7 @@ public class AeadServiceTests
         var key = _aeadService.GenerateKey();
 
         await Assert.ThrowsAsync<ArgumentNullException>(() =>
-            _aeadService.EncryptAsync(plaintext, key, null!));
+            _aeadService.EncryptAsync(plaintext, key, null!, cancellationToken: TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -380,7 +380,7 @@ public class AeadServiceTests
         var nonce = _aeadService.GenerateNonce();
 
         await Assert.ThrowsAsync<ArgumentException>(() =>
-            _aeadService.EncryptAsync(plaintext, wrongKey, nonce));
+            _aeadService.EncryptAsync(plaintext, wrongKey, nonce, cancellationToken: TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -391,7 +391,7 @@ public class AeadServiceTests
         var wrongNonce = new byte[16]; // Wrong size for ChaCha20-Poly1305
 
         await Assert.ThrowsAsync<ArgumentException>(() =>
-            _aeadService.EncryptAsync(plaintext, key, wrongNonce));
+            _aeadService.EncryptAsync(plaintext, key, wrongNonce, cancellationToken: TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -402,7 +402,7 @@ public class AeadServiceTests
         var shortCiphertext = new byte[8]; // Too short to contain tag
 
         await Assert.ThrowsAsync<ArgumentException>(() =>
-            _aeadService.DecryptAsync(shortCiphertext, key, nonce));
+            _aeadService.DecryptAsync(shortCiphertext, key, nonce, cancellationToken: TestContext.Current.CancellationToken));
     }
 
     [Theory]
@@ -422,8 +422,8 @@ public class AeadServiceTests
         var nonce2 = _aeadService.GenerateNonce(algorithm2);
 
         // Act
-        var ciphertext1 = await _aeadService.EncryptAsync(plaintext, key1, nonce1, null, algorithm1);
-        var ciphertext2 = await _aeadService.EncryptAsync(plaintext, key2, nonce2, null, algorithm2);
+        var ciphertext1 = await _aeadService.EncryptAsync(plaintext, key1, nonce1, null, algorithm1, TestContext.Current.CancellationToken);
+        var ciphertext2 = await _aeadService.EncryptAsync(plaintext, key2, nonce2, null, algorithm2, TestContext.Current.CancellationToken);
 
         // Assert
         Assert.NotEqual(ciphertext1, ciphertext2);
@@ -443,15 +443,15 @@ public class AeadServiceTests
         var nonce2 = _aeadService.GenerateNonce(algorithm);
 
         // Act
-        var ciphertext1 = await _aeadService.EncryptAsync(plaintext, key, nonce1, null, algorithm);
-        var ciphertext2 = await _aeadService.EncryptAsync(plaintext, key, nonce2, null, algorithm);
+        var ciphertext1 = await _aeadService.EncryptAsync(plaintext, key, nonce1, null, algorithm, TestContext.Current.CancellationToken);
+        var ciphertext2 = await _aeadService.EncryptAsync(plaintext, key, nonce2, null, algorithm, TestContext.Current.CancellationToken);
 
         // Assert
         Assert.NotEqual(ciphertext1, ciphertext2);
 
         // Verify both can be decrypted correctly
-        var decrypted1 = await _aeadService.DecryptAsync(ciphertext1, key, nonce1, null, algorithm);
-        var decrypted2 = await _aeadService.DecryptAsync(ciphertext2, key, nonce2, null, algorithm);
+        var decrypted1 = await _aeadService.DecryptAsync(ciphertext1, key, nonce1, null, algorithm, TestContext.Current.CancellationToken);
+        var decrypted2 = await _aeadService.DecryptAsync(ciphertext2, key, nonce2, null, algorithm, TestContext.Current.CancellationToken);
 
         Assert.Equal(plaintext, decrypted1);
         Assert.Equal(plaintext, decrypted2);

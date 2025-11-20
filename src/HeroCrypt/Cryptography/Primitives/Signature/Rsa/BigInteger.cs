@@ -132,12 +132,16 @@ internal sealed class BigInteger : IComparable<BigInteger>
         if (right.IsZero) return left;
 
         if (left._sign == right._sign)
+        {
             return new BigInteger(Add(left._data, right._data), left._sign);
+        }
 
         var cmp = CompareAbs(left._data, right._data);
         if (cmp == 0) return Zero;
         if (cmp > 0)
+        {
             return new BigInteger(Subtract(left._data, right._data), left._sign);
+        }
 
         return new BigInteger(Subtract(right._data, left._data), right._sign);
     }
@@ -288,7 +292,9 @@ internal sealed class BigInteger : IComparable<BigInteger>
         while (!exp.IsZero)
         {
             if ((exp._data[0] & 1) == 1)
+            {
                 result = (result * baseValue) % modulus;
+            }
 
             baseValue = (baseValue * baseValue) % modulus;
             exp = exp >> 1;
@@ -307,13 +313,17 @@ internal sealed class BigInteger : IComparable<BigInteger>
     public BigInteger ModInverse(BigInteger modulus)
     {
         if (modulus.IsZero)
+        {
             throw new DivideByZeroException();
+        }
 
         var m0 = modulus;
         var a = this % modulus;
 
         if (a.IsZero)
+        {
             throw new ArgumentException("Value and modulus are not coprime", nameof(modulus));
+        }
 
         var x0 = Zero;
         var x1 = One;
@@ -332,10 +342,14 @@ internal sealed class BigInteger : IComparable<BigInteger>
         }
 
         if (a != One)
+        {
             throw new ArgumentException("Value and modulus are not coprime", nameof(modulus));
+        }
 
         if (x1 < Zero)
+        {
             x1 = x1 + m0;
+        }
 
         return x1;
     }
@@ -372,7 +386,9 @@ internal sealed class BigInteger : IComparable<BigInteger>
                 carry >>= 32;
             }
             if (carry != 0)
+            {
                 result[value._data.Length + wordShift] = (uint)carry;
+            }
         }
 
         return new BigInteger(result, value._sign);
@@ -409,7 +425,9 @@ internal sealed class BigInteger : IComparable<BigInteger>
             {
                 carry = ((ulong)value._data[i] << (32 - bitShift)) | (carry >> 32);
                 if (i - wordShift < result.Length)
+                {
                     result[i - wordShift] = (uint)(value._data[i] >> bitShift) | (uint)(carry >> (32 - bitShift));
+                }
             }
         }
 
@@ -438,7 +456,9 @@ internal sealed class BigInteger : IComparable<BigInteger>
             }
 
             if (carry != 0)
+            {
                 result[maxLength] = (uint)carry;
+            }
 
             var actualLength = carry != 0 ? maxLength + 1 : maxLength;
             var finalResult = new uint[actualLength];
@@ -549,14 +569,18 @@ internal sealed class BigInteger : IComparable<BigInteger>
         {
             Array.Copy(left, 0, leftLow, 0, leftLow.Length);
             if (left.Length > half)
+            {
                 Array.Copy(left, half, leftHigh, 0, leftHigh.Length);
+            }
         }
 
         if (right.Length > 0)
         {
             Array.Copy(right, 0, rightLow, 0, rightLow.Length);
             if (right.Length > half)
+            {
                 Array.Copy(right, half, rightHigh, 0, rightHigh.Length);
+            }
         }
 
         // Compute three products
@@ -602,7 +626,9 @@ internal sealed class BigInteger : IComparable<BigInteger>
     private static (uint[] quotient, uint[] remainder) DivideWithRemainder(uint[] dividend, uint[] divisor)
     {
         if (CompareAbs(dividend, divisor) < 0)
+        {
             return ([0], dividend);
+        }
 
         var quotient = new List<uint>();
         var remainder = (uint[])dividend.Clone();
@@ -661,7 +687,9 @@ internal sealed class BigInteger : IComparable<BigInteger>
                 carry >>= 32;
             }
             if (carry != 0)
+            {
                 result[value.Length + wordShift] = (uint)carry;
+            }
         }
 
         return result;
@@ -692,7 +720,9 @@ internal sealed class BigInteger : IComparable<BigInteger>
         var rightLen = GetActualLength(right);
 
         if (leftLen != rightLen)
+        {
             return leftLen.CompareTo(rightLen);
+        }
 
         for (var i = leftLen - 1; i >= 0; i--)
         {
@@ -700,7 +730,9 @@ internal sealed class BigInteger : IComparable<BigInteger>
             var rightVal = i < right.Length ? right[i] : 0u;
 
             if (leftVal != rightVal)
+            {
                 return leftVal.CompareTo(rightVal);
+            }
         }
 
         return 0;

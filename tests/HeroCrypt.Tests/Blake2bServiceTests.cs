@@ -1,6 +1,6 @@
+using System.Text;
 using HeroCrypt.Cryptography.Primitives.Hash;
 using HeroCrypt.Hashing;
-using System.Text;
 
 namespace HeroCrypt.Tests;
 

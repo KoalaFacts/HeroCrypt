@@ -1,7 +1,7 @@
+using System.Runtime.CompilerServices;
 using HeroCrypt.Cryptography.Primitives.Cipher.Stream;
 using HeroCrypt.Cryptography.Primitives.Mac;
 using HeroCrypt.Security;
-using System.Runtime.CompilerServices;
 
 namespace HeroCrypt.Cryptography.Primitives.Cipher.Aead;
 
@@ -44,11 +44,17 @@ internal static class XChaCha20Poly1305Core
         ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce, ReadOnlySpan<byte> associatedData = default)
     {
         if (key.Length != KeySize)
+        {
             throw new ArgumentException($"Key must be {KeySize} bytes", nameof(key));
+        }
         if (nonce.Length != NonceSize)
+        {
             throw new ArgumentException($"Nonce must be {NonceSize} bytes", nameof(nonce));
+        }
         if (ciphertext.Length < plaintext.Length + TagSize)
+        {
             throw new ArgumentException("Ciphertext buffer too small", nameof(ciphertext));
+        }
 
         // Derive ChaCha20 key and nonce from XChaCha20 parameters
         Span<byte> derivedKey = stackalloc byte[32];
@@ -98,15 +104,23 @@ internal static class XChaCha20Poly1305Core
         ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce, ReadOnlySpan<byte> associatedData = default)
     {
         if (key.Length != KeySize)
+        {
             throw new ArgumentException($"Key must be {KeySize} bytes", nameof(key));
+        }
         if (nonce.Length != NonceSize)
+        {
             throw new ArgumentException($"Nonce must be {NonceSize} bytes", nameof(nonce));
+        }
         if (ciphertext.Length < TagSize)
+        {
             throw new ArgumentException("Ciphertext too short", nameof(ciphertext));
+        }
 
         var ciphertextLength = ciphertext.Length - TagSize;
         if (plaintext.Length < ciphertextLength)
+        {
             throw new ArgumentException("Plaintext buffer too small", nameof(plaintext));
+        }
 
         // Derive ChaCha20 key and nonce from XChaCha20 parameters
         Span<byte> derivedKey = stackalloc byte[32];
@@ -186,11 +200,17 @@ internal static class XChaCha20Poly1305Core
     private static void HChaCha20(Span<byte> output, ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce)
     {
         if (output.Length != 32)
+        {
             throw new ArgumentException("Output must be 32 bytes", nameof(output));
+        }
         if (key.Length != 32)
+        {
             throw new ArgumentException("Key must be 32 bytes", nameof(key));
+        }
         if (nonce.Length != 16)
+        {
             throw new ArgumentException("Nonce must be 16 bytes", nameof(nonce));
+        }
 
         // Initialize HChaCha20 state
         Span<uint> state = stackalloc uint[16];
@@ -382,9 +402,13 @@ internal static class XChaCha20Poly1305Core
     public static void ValidateParameters(ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce)
     {
         if (key.Length != KeySize)
+        {
             throw new ArgumentException($"Key must be {KeySize} bytes", nameof(key));
+        }
         if (nonce.Length != NonceSize)
+        {
             throw new ArgumentException($"Nonce must be {NonceSize} bytes", nameof(nonce));
+        }
     }
 
     /// <summary>
@@ -393,7 +417,9 @@ internal static class XChaCha20Poly1305Core
     public static int GetCiphertextLength(int plaintextLength)
     {
         if (plaintextLength < 0)
+        {
             throw new ArgumentOutOfRangeException(nameof(plaintextLength));
+        }
 
         return plaintextLength + TagSize;
     }

@@ -1,6 +1,5 @@
 using HeroCrypt.Cryptography.Primitives.Signature.Rsa;
 using HeroCrypt.Security;
-using System.Security.Cryptography;
 using BigInteger = HeroCrypt.Cryptography.Primitives.Signature.Rsa.BigInteger;
 using SystemHashAlgorithmName = System.Security.Cryptography.HashAlgorithmName;
 
@@ -93,7 +92,9 @@ public sealed class RsaEncryptionService
         ArgumentNullException.ThrowIfNull(privateKey);
 #else
         if (privateKey == null)
+        {
             throw new ArgumentNullException(nameof(privateKey));
+        }
 #endif
 
         InputValidator.ValidateByteArray(privateKey, nameof(privateKey));
@@ -128,9 +129,13 @@ public sealed class RsaEncryptionService
         ArgumentNullException.ThrowIfNull(publicKey);
 #else
         if (data == null)
+        {
             throw new ArgumentNullException(nameof(data));
+        }
         if (publicKey == null)
+        {
             throw new ArgumentNullException(nameof(publicKey));
+        }
 #endif
 
         InputValidator.ValidateByteArray(data, nameof(data), allowEmpty: false);
@@ -190,9 +195,13 @@ public sealed class RsaEncryptionService
         ArgumentNullException.ThrowIfNull(privateKey);
 #else
         if (encryptedData == null)
+        {
             throw new ArgumentNullException(nameof(encryptedData));
+        }
         if (privateKey == null)
+        {
             throw new ArgumentNullException(nameof(privateKey));
+        }
 #endif
 
         InputValidator.ValidateByteArray(encryptedData, nameof(encryptedData));
@@ -322,7 +331,9 @@ public sealed class RsaEncryptionService
         ArgumentNullException.ThrowIfNull(privateKey);
 #else
         if (privateKey == null)
-            throw new ArgumentNullException(nameof(privateKey));
+            {
+                throw new ArgumentNullException(nameof(privateKey));
+            }
 #endif
 
         InputValidator.ValidateByteArray(privateKey, nameof(privateKey));
@@ -366,7 +377,9 @@ public sealed class RsaEncryptionService
         ArgumentNullException.ThrowIfNull(pkcs8Data);
 #else
         if (pkcs8Data == null)
-            throw new ArgumentNullException(nameof(pkcs8Data));
+            {
+                throw new ArgumentNullException(nameof(pkcs8Data));
+            }
 #endif
 
         InputValidator.ValidateByteArray(pkcs8Data, nameof(pkcs8Data));
@@ -426,7 +439,9 @@ public sealed class RsaEncryptionService
         ArgumentNullException.ThrowIfNull(publicKey);
 #else
         if (publicKey == null)
-            throw new ArgumentNullException(nameof(publicKey));
+            {
+                throw new ArgumentNullException(nameof(publicKey));
+            }
 #endif
 
         InputValidator.ValidateByteArray(publicKey, nameof(publicKey));
@@ -470,7 +485,9 @@ public sealed class RsaEncryptionService
         ArgumentNullException.ThrowIfNull(subjectPublicKeyInfo);
 #else
         if (subjectPublicKeyInfo == null)
-            throw new ArgumentNullException(nameof(subjectPublicKeyInfo));
+            {
+                throw new ArgumentNullException(nameof(subjectPublicKeyInfo));
+            }
 #endif
 
         InputValidator.ValidateByteArray(subjectPublicKeyInfo, nameof(subjectPublicKeyInfo));
@@ -531,7 +548,9 @@ public sealed class RsaEncryptionService
     private static RsaPrivateKey DeserializePrivateKey(byte[] data)
     {
         if (data.Length < 20)
+        {
             throw new ArgumentException("Invalid private key data");
+        }
 
         var offset = 0;
 
@@ -580,7 +599,9 @@ public sealed class RsaEncryptionService
     private static RsaPublicKey DeserializePublicKey(byte[] data)
     {
         if (data.Length < 8)
+        {
             throw new ArgumentException("Invalid public key data");
+        }
 
         var offset = 0;
 

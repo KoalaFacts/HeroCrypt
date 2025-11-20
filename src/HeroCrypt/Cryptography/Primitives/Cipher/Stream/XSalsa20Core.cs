@@ -1,5 +1,5 @@
-using HeroCrypt.Security;
 using System.Runtime.CompilerServices;
+using HeroCrypt.Security;
 
 namespace HeroCrypt.Cryptography.Primitives.Cipher.Stream;
 
@@ -42,11 +42,17 @@ public static class XSalsa20Core
         ReadOnlySpan<byte> nonce, uint counter = 0)
     {
         if (key.Length != KeySize)
+        {
             throw new ArgumentException($"Key must be {KeySize} bytes", nameof(key));
+        }
         if (nonce.Length != NonceSize)
+        {
             throw new ArgumentException($"Nonce must be {NonceSize} bytes", nameof(nonce));
+        }
         if (output.Length < input.Length)
+        {
             throw new ArgumentException("Output buffer too small", nameof(output));
+        }
 
         // Derive Salsa20 key and nonce from XSalsa20 parameters using HSalsa20
         Span<byte> derivedKey = stackalloc byte[32];
@@ -120,11 +126,17 @@ public static class XSalsa20Core
     private static void HSalsa20(Span<byte> output, ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce)
     {
         if (output.Length != 32)
+        {
             throw new ArgumentException("Output must be 32 bytes", nameof(output));
+        }
         if (key.Length != 32)
+        {
             throw new ArgumentException("Key must be 32 bytes", nameof(key));
+        }
         if (nonce.Length != 16)
+        {
             throw new ArgumentException("Nonce must be 16 bytes", nameof(nonce));
+        }
 
         // Initialize HSalsa20 state
         Span<uint> state = stackalloc uint[16];
@@ -329,9 +341,13 @@ public static class XSalsa20Core
     public static void ValidateParameters(ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce)
     {
         if (key.Length != KeySize)
+        {
             throw new ArgumentException($"Key must be {KeySize} bytes", nameof(key));
+        }
         if (nonce.Length != NonceSize)
+        {
             throw new ArgumentException($"Nonce must be {NonceSize} bytes", nameof(nonce));
+        }
     }
 
     /// <summary>

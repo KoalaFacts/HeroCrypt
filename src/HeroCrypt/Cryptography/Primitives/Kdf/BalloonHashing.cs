@@ -1,5 +1,5 @@
-using HeroCrypt.Security;
 using System.Security.Cryptography;
+using HeroCrypt.Security;
 
 namespace HeroCrypt.Cryptography.Primitives.Kdf;
 
@@ -159,7 +159,9 @@ public static class BalloonHashing
         int timeCost = DefaultTimeCost)
     {
         if (hashWithSalt.Length < 16)
+        {
             throw new ArgumentException("Hash too short to contain salt", nameof(hashWithSalt));
+        }
 
         var passwordBytes = System.Text.Encoding.UTF8.GetBytes(password);
         var salt = hashWithSalt.AsSpan(0, 16);
@@ -323,11 +325,17 @@ public static class BalloonHashing
     private static void ValidateParameters(int spaceCost, int timeCost, int outputLength)
     {
         if (spaceCost < MinSpaceCost)
+        {
             throw new ArgumentException($"Space cost must be at least {MinSpaceCost}", nameof(spaceCost));
+        }
         if (timeCost < MinTimeCost)
+        {
             throw new ArgumentException($"Time cost must be at least {MinTimeCost}", nameof(timeCost));
+        }
         if (outputLength <= 0)
+        {
             throw new ArgumentException("Output length must be positive", nameof(outputLength));
+        }
     }
 
     /// <summary>

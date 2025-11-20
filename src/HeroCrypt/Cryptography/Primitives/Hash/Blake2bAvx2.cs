@@ -53,10 +53,14 @@ internal static class Blake2bAvx2
     public static void HashParallel(byte[][] inputs, byte[][] outputs, int hashSize = 64)
     {
         if (!IsSupported)
+        {
             throw new NotSupportedException("AVX2 is not supported on this processor");
+        }
 
         if (inputs.Length != 4 || outputs.Length != 4)
+        {
             throw new ArgumentException("Parallel Blake2b requires exactly 4 inputs and outputs");
+        }
 
         // This would implement parallel processing of 4 Blake2b hashes
         // Each hash runs independently but uses the same SIMD lanes

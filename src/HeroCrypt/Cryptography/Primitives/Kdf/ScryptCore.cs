@@ -1,5 +1,5 @@
-using HeroCrypt.Security;
 using System.Security.Cryptography;
+using HeroCrypt.Security;
 
 namespace HeroCrypt.Cryptography.Primitives.Kdf;
 
@@ -98,7 +98,9 @@ internal static class ScryptCore
         int n, int r, int p, int outputLength)
     {
         if (string.IsNullOrEmpty(password))
+        {
             throw new ArgumentException("Password cannot be null or empty", nameof(password));
+        }
 
         var passwordBytes = System.Text.Encoding.UTF8.GetBytes(password);
 
@@ -128,29 +130,41 @@ internal static class ScryptCore
         // Note: Allow low N values for test vectors and compatibility, but production should use N >= 16384
 
         if (n <= 0 || !IsPowerOfTwo(n))
+        {
             throw new ArgumentException("N must be a power of 2 greater than 0", nameof(n));
+        }
 
         // Don't enforce minimum N - allow test vectors and compatibility scenarios
         // Production code should use MinRecommendedN (16384) or higher
 
         if (r <= 0)
+        {
             throw new ArgumentException("r must be positive", nameof(r));
+        }
 
         if (p <= 0)
+        {
             throw new ArgumentException("p must be positive", nameof(p));
+        }
 
         if (outputLength <= 0)
+        {
             throw new ArgumentException("Output length must be positive", nameof(outputLength));
+        }
 
         // Check memory requirements
         var memoryRequired = (long)128 * r * n * p;
         if (memoryRequired > DefaultMaxMemory)
+        {
             throw new ArgumentException($"Parameters require too much memory: {memoryRequired} bytes (max: {DefaultMaxMemory})", nameof(n));
+        }
 
         // RFC 7914 constraint: p <= (2^32 - 1) * 32 / (128 * r)
         var maxP = ((1L << 32) - 1) * 32 / (128 * r);
         if (p > maxP)
+        {
             throw new ArgumentException($"p too large for given r (max: {maxP})", nameof(p));
+        }
     }
 
     /// <summary>
@@ -161,7 +175,9 @@ internal static class ScryptCore
     public static byte[] GenerateRandomSalt(int length = DefaultSaltLength)
     {
         if (length < MinSaltLength)
+        {
             throw new ArgumentException($"Salt length must be at least {MinSaltLength} bytes", nameof(length));
+        }
 
         var salt = new byte[length];
         using var rng = RandomNumberGenerator.Create();
@@ -238,7 +254,9 @@ internal static class ScryptCore
     public static (int N, int R, int P) SuggestParameters(int targetMemoryMB)
     {
         if (targetMemoryMB <= 0)
+        {
             throw new ArgumentException("Target memory must be positive", nameof(targetMemoryMB));
+        }
 
         var targetBytes = (long)targetMemoryMB * 1024 * 1024;
         var r = DefaultR;

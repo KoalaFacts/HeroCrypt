@@ -401,7 +401,9 @@ public static class Argon2Core
         }
 
         if (referenceAreaSize <= 0)
+        {
             return 0;
+        }
 
         // Apply mapping function: phi(x) = W * (1 - x^2 / 2^64)
         // Use 64-bit arithmetic for precision

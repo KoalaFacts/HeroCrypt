@@ -1,8 +1,7 @@
-using HeroCrypt.Signatures;
-using HeroCrypt.Cryptography.Primitives.Signature.Ecc;
 using System.Security.Cryptography;
 using System.Text;
-using Xunit;
+using HeroCrypt.Cryptography.Primitives.Signature.Ecc;
+using HeroCrypt.Signatures;
 
 namespace HeroCrypt.Tests;
 

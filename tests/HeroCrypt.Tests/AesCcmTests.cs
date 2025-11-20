@@ -1,7 +1,6 @@
-using HeroCrypt.Cryptography.Primitives.Cipher.Aead;
-using HeroCrypt.Cryptography.Primitives.Cipher.Stream;
-using HeroCrypt.Encryption;
 using System.Text;
+using HeroCrypt.Cryptography.Primitives.Cipher.Aead;
+using HeroCrypt.Encryption;
 
 namespace HeroCrypt.Tests;
 
@@ -125,7 +124,7 @@ public class AesCcmTests
 
     [Fact]
     [Trait("Category", TestCategories.Fast)]
-    public void AesCcm128_EncryptDecrypt_RoundTrip_Success()
+    public async Task AesCcm128_EncryptDecrypt_RoundTrip_Success()
     {
         // Arrange
         var plaintext = Encoding.UTF8.GetBytes("Hello, AES-CCM! This is a test message.");
@@ -134,12 +133,10 @@ public class AesCcmTests
         var associatedData = Encoding.UTF8.GetBytes("metadata");
 
         // Act - Encrypt
-        var ciphertext = _aeadService.EncryptAsync(plaintext, key, nonce, associatedData, AeadAlgorithm.Aes128Ccm)
-            .GetAwaiter().GetResult();
+        var ciphertext = await _aeadService.EncryptAsync(plaintext, key, nonce, associatedData, AeadAlgorithm.Aes128Ccm, TestContext.Current.CancellationToken);
 
         // Act - Decrypt
-        var decrypted = _aeadService.DecryptAsync(ciphertext, key, nonce, associatedData, AeadAlgorithm.Aes128Ccm)
-            .GetAwaiter().GetResult();
+        var decrypted = await _aeadService.DecryptAsync(ciphertext, key, nonce, associatedData, AeadAlgorithm.Aes128Ccm, TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(plaintext, decrypted);
@@ -148,7 +145,7 @@ public class AesCcmTests
 
     [Fact]
     [Trait("Category", TestCategories.Fast)]
-    public void AesCcm256_EncryptDecrypt_RoundTrip_Success()
+    public async Task AesCcm256_EncryptDecrypt_RoundTrip_Success()
     {
         // Arrange
         var plaintext = Encoding.UTF8.GetBytes("Testing AES-256-CCM with a longer key.");
@@ -157,12 +154,10 @@ public class AesCcmTests
         var associatedData = Encoding.UTF8.GetBytes("additional data");
 
         // Act - Encrypt
-        var ciphertext = _aeadService.EncryptAsync(plaintext, key, nonce, associatedData, AeadAlgorithm.Aes256Ccm)
-            .GetAwaiter().GetResult();
+        var ciphertext = await _aeadService.EncryptAsync(plaintext, key, nonce, associatedData, AeadAlgorithm.Aes256Ccm, TestContext.Current.CancellationToken);
 
         // Act - Decrypt
-        var decrypted = _aeadService.DecryptAsync(ciphertext, key, nonce, associatedData, AeadAlgorithm.Aes256Ccm)
-            .GetAwaiter().GetResult();
+        var decrypted = await _aeadService.DecryptAsync(ciphertext, key, nonce, associatedData, AeadAlgorithm.Aes256Ccm, TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(plaintext, decrypted);
@@ -170,7 +165,7 @@ public class AesCcmTests
 
     [Fact]
     [Trait("Category", TestCategories.Fast)]
-    public void AesCcm_WithoutAssociatedData_Success()
+    public async Task AesCcm_WithoutAssociatedData_Success()
     {
         // Arrange
         var plaintext = Encoding.UTF8.GetBytes("No associated data");
@@ -178,10 +173,8 @@ public class AesCcmTests
         var nonce = _aeadService.GenerateNonce(AeadAlgorithm.Aes128Ccm);
 
         // Act
-        var ciphertext = _aeadService.EncryptAsync(plaintext, key, nonce, algorithm: AeadAlgorithm.Aes128Ccm)
-            .GetAwaiter().GetResult();
-        var decrypted = _aeadService.DecryptAsync(ciphertext, key, nonce, algorithm: AeadAlgorithm.Aes128Ccm)
-            .GetAwaiter().GetResult();
+        var ciphertext = await _aeadService.EncryptAsync(plaintext, key, nonce, algorithm: AeadAlgorithm.Aes128Ccm, cancellationToken: TestContext.Current.CancellationToken);
+        var decrypted = await _aeadService.DecryptAsync(ciphertext, key, nonce, algorithm: AeadAlgorithm.Aes128Ccm, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(plaintext, decrypted);
@@ -189,7 +182,7 @@ public class AesCcmTests
 
     [Fact]
     [Trait("Category", TestCategories.Fast)]
-    public void AesCcm_EmptyPlaintext_Success()
+    public async Task AesCcm_EmptyPlaintext_Success()
     {
         // Arrange
         var plaintext = Array.Empty<byte>();
@@ -198,10 +191,8 @@ public class AesCcmTests
         var associatedData = Encoding.UTF8.GetBytes("metadata only");
 
         // Act
-        var ciphertext = _aeadService.EncryptAsync(plaintext, key, nonce, associatedData, AeadAlgorithm.Aes128Ccm)
-            .GetAwaiter().GetResult();
-        var decrypted = _aeadService.DecryptAsync(ciphertext, key, nonce, associatedData, AeadAlgorithm.Aes128Ccm)
-            .GetAwaiter().GetResult();
+        var ciphertext = await _aeadService.EncryptAsync(plaintext, key, nonce, associatedData, AeadAlgorithm.Aes128Ccm, TestContext.Current.CancellationToken);
+        var decrypted = await _aeadService.DecryptAsync(ciphertext, key, nonce, associatedData, AeadAlgorithm.Aes128Ccm, TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(plaintext, decrypted);
@@ -210,7 +201,7 @@ public class AesCcmTests
 
     [Fact]
     [Trait("Category", TestCategories.Fast)]
-    public void AesCcm_LargeData_Success()
+    public async Task AesCcm_LargeData_Success()
     {
         // Arrange - 60 KB of data (within AES-CCM limit of 65,535 bytes for 13-byte nonce)
         // AES-CCM max plaintext = 2^(8*L) - 1 where L = 15 - nonceSize
@@ -221,10 +212,8 @@ public class AesCcmTests
         var nonce = _aeadService.GenerateNonce(AeadAlgorithm.Aes256Ccm);
 
         // Act
-        var ciphertext = _aeadService.EncryptAsync(plaintext, key, nonce, algorithm: AeadAlgorithm.Aes256Ccm)
-            .GetAwaiter().GetResult();
-        var decrypted = _aeadService.DecryptAsync(ciphertext, key, nonce, algorithm: AeadAlgorithm.Aes256Ccm)
-            .GetAwaiter().GetResult();
+        var ciphertext = await _aeadService.EncryptAsync(plaintext, key, nonce, algorithm: AeadAlgorithm.Aes256Ccm, cancellationToken: TestContext.Current.CancellationToken);
+        var decrypted = await _aeadService.DecryptAsync(ciphertext, key, nonce, algorithm: AeadAlgorithm.Aes256Ccm, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(plaintext, decrypted);
@@ -236,7 +225,7 @@ public class AesCcmTests
 
     [Fact]
     [Trait("Category", TestCategories.Fast)]
-    public void AesCcm_TamperedCiphertext_FailsAuthentication()
+    public async Task AesCcm_TamperedCiphertext_FailsAuthentication()
     {
         // Arrange
         var plaintext = Encoding.UTF8.GetBytes("Authenticated message");
@@ -244,21 +233,19 @@ public class AesCcmTests
         var nonce = _aeadService.GenerateNonce(AeadAlgorithm.Aes128Ccm);
         var associatedData = Encoding.UTF8.GetBytes("metadata");
 
-        var ciphertext = _aeadService.EncryptAsync(plaintext, key, nonce, associatedData, AeadAlgorithm.Aes128Ccm)
-            .GetAwaiter().GetResult();
+        var ciphertext = await _aeadService.EncryptAsync(plaintext, key, nonce, associatedData, AeadAlgorithm.Aes128Ccm, TestContext.Current.CancellationToken);
 
         // Act - Tamper with ciphertext
         ciphertext[0] ^= 0xFF;
 
         // Assert
-        Assert.Throws<UnauthorizedAccessException>(() =>
-            _aeadService.DecryptAsync(ciphertext, key, nonce, associatedData, AeadAlgorithm.Aes128Ccm)
-                .GetAwaiter().GetResult());
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+            _aeadService.DecryptAsync(ciphertext, key, nonce, associatedData, AeadAlgorithm.Aes128Ccm, TestContext.Current.CancellationToken));
     }
 
     [Fact]
     [Trait("Category", TestCategories.Fast)]
-    public void AesCcm_WrongKey_FailsAuthentication()
+    public async Task AesCcm_WrongKey_FailsAuthentication()
     {
         // Arrange
         var plaintext = Encoding.UTF8.GetBytes("Secret message");
@@ -266,18 +253,16 @@ public class AesCcmTests
         var wrongKey = _aeadService.GenerateKey(AeadAlgorithm.Aes128Ccm);
         var nonce = _aeadService.GenerateNonce(AeadAlgorithm.Aes128Ccm);
 
-        var ciphertext = _aeadService.EncryptAsync(plaintext, key, nonce, algorithm: AeadAlgorithm.Aes128Ccm)
-            .GetAwaiter().GetResult();
+        var ciphertext = await _aeadService.EncryptAsync(plaintext, key, nonce, algorithm: AeadAlgorithm.Aes128Ccm, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
-        Assert.Throws<UnauthorizedAccessException>(() =>
-            _aeadService.DecryptAsync(ciphertext, wrongKey, nonce, algorithm: AeadAlgorithm.Aes128Ccm)
-                .GetAwaiter().GetResult());
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+            _aeadService.DecryptAsync(ciphertext, wrongKey, nonce, algorithm: AeadAlgorithm.Aes128Ccm, cancellationToken: TestContext.Current.CancellationToken));
     }
 
     [Fact]
     [Trait("Category", TestCategories.Fast)]
-    public void AesCcm_WrongNonce_FailsAuthentication()
+    public async Task AesCcm_WrongNonce_FailsAuthentication()
     {
         // Arrange
         var plaintext = Encoding.UTF8.GetBytes("Nonce test");
@@ -285,18 +270,16 @@ public class AesCcmTests
         var nonce = _aeadService.GenerateNonce(AeadAlgorithm.Aes128Ccm);
         var wrongNonce = _aeadService.GenerateNonce(AeadAlgorithm.Aes128Ccm);
 
-        var ciphertext = _aeadService.EncryptAsync(plaintext, key, nonce, algorithm: AeadAlgorithm.Aes128Ccm)
-            .GetAwaiter().GetResult();
+        var ciphertext = await _aeadService.EncryptAsync(plaintext, key, nonce, algorithm: AeadAlgorithm.Aes128Ccm, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
-        Assert.Throws<UnauthorizedAccessException>(() =>
-            _aeadService.DecryptAsync(ciphertext, key, wrongNonce, algorithm: AeadAlgorithm.Aes128Ccm)
-                .GetAwaiter().GetResult());
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+            _aeadService.DecryptAsync(ciphertext, key, wrongNonce, algorithm: AeadAlgorithm.Aes128Ccm, cancellationToken: TestContext.Current.CancellationToken));
     }
 
     [Fact]
     [Trait("Category", TestCategories.Fast)]
-    public void AesCcm_WrongAssociatedData_FailsAuthentication()
+    public async Task AesCcm_WrongAssociatedData_FailsAuthentication()
     {
         // Arrange
         var plaintext = Encoding.UTF8.GetBytes("AAD test");
@@ -305,13 +288,11 @@ public class AesCcmTests
         var associatedData = Encoding.UTF8.GetBytes("correct AAD");
         var wrongAssociatedData = Encoding.UTF8.GetBytes("wrong AAD");
 
-        var ciphertext = _aeadService.EncryptAsync(plaintext, key, nonce, associatedData, AeadAlgorithm.Aes128Ccm)
-            .GetAwaiter().GetResult();
+        var ciphertext = await _aeadService.EncryptAsync(plaintext, key, nonce, associatedData, AeadAlgorithm.Aes128Ccm, TestContext.Current.CancellationToken);
 
         // Assert
-        Assert.Throws<UnauthorizedAccessException>(() =>
-            _aeadService.DecryptAsync(ciphertext, key, nonce, wrongAssociatedData, AeadAlgorithm.Aes128Ccm)
-                .GetAwaiter().GetResult());
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+            _aeadService.DecryptAsync(ciphertext, key, nonce, wrongAssociatedData, AeadAlgorithm.Aes128Ccm, TestContext.Current.CancellationToken));
     }
 
     #endregion

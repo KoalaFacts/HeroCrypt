@@ -1,5 +1,5 @@
-using HeroCrypt.Cryptography.Primitives.Cipher.Stream;
 using System.Text;
+using HeroCrypt.Cryptography.Primitives.Cipher.Stream;
 
 namespace HeroCrypt.Tests;
 
@@ -151,7 +151,9 @@ public class Rc4Tests
         // Arrange - Maximum key size is 256 bytes
         var maxKey = new byte[256];
         for (var i = 0; i < maxKey.Length; i++)
+        {
             maxKey[i] = (byte)i;
+        }
 
         var plaintext = _testPlaintext;
         var ciphertext = new byte[plaintext.Length];

@@ -1,5 +1,5 @@
-using HeroCrypt.Security;
 using System.Security.Cryptography;
+using HeroCrypt.Security;
 
 namespace HeroCrypt.Cryptography.Primitives.Kdf;
 
@@ -21,15 +21,25 @@ public static class KeyManagement
         TimeSpan rotationInterval, int keySize = 32, int maxKeys = 10)
     {
         if (masterKey.IsEmpty)
+        {
             throw new ArgumentException("Master key cannot be empty", nameof(masterKey));
+        }
         if (salt.IsEmpty)
+        {
             throw new ArgumentException("Salt cannot be empty", nameof(salt));
+        }
         if (rotationInterval <= TimeSpan.Zero)
+        {
             throw new ArgumentException("Rotation interval must be positive", nameof(rotationInterval));
+        }
         if (keySize <= 0)
+        {
             throw new ArgumentException("Key size must be positive", nameof(keySize));
+        }
         if (maxKeys <= 0)
+        {
             throw new ArgumentException("Max keys must be positive", nameof(maxKeys));
+        }
 
         return new KeyRotationManager(masterKey.ToArray(), salt.ToArray(), rotationInterval, keySize, maxKeys);
     }
@@ -46,13 +56,21 @@ public static class KeyManagement
         int treeDepth = 5, int keySize = 32)
     {
         if (rootKey.IsEmpty)
+        {
             throw new ArgumentException("Root key cannot be empty", nameof(rootKey));
+        }
         if (salt.IsEmpty)
+        {
             throw new ArgumentException("Salt cannot be empty", nameof(salt));
+        }
         if (treeDepth <= 0)
+        {
             throw new ArgumentException("Tree depth must be positive", nameof(treeDepth));
+        }
         if (keySize <= 0)
+        {
             throw new ArgumentException("Key size must be positive", nameof(keySize));
+        }
 
         return new KeyDerivationTree(rootKey.ToArray(), salt.ToArray(), treeDepth, keySize);
     }
@@ -65,7 +83,9 @@ public static class KeyManagement
     public static KeyPolicyManager CreateKeyPolicy(KeyPolicy policy)
     {
         if (policy == null)
+        {
             throw new ArgumentNullException(nameof(policy));
+        }
 
         return new KeyPolicyManager(policy);
     }
@@ -78,14 +98,18 @@ public static class KeyManagement
     public static KeyValidationResult ValidateKey(ReadOnlySpan<byte> keyMaterial)
     {
         if (keyMaterial.IsEmpty)
+        {
             return new KeyValidationResult { IsValid = false, Issues = new[] { "Key is empty" } };
+        }
 
         var issues = new List<string>();
         var score = 0;
 
         // Check minimum length
         if (keyMaterial.Length < 16)
+        {
             issues.Add("Key is too short (minimum 16 bytes)");
+        }
         else
             score += 20;
 
@@ -112,7 +136,9 @@ public static class KeyManagement
         // Simple entropy estimation
         var entropy = CalculateShannonnEntropy(keyMaterial);
         if (entropy < 6.0)
+        {
             issues.Add($"Low entropy detected ({entropy:F2} bits per byte, should be > 6.0)");
+        }
         else
             score += (int)((entropy / 8.0) * 40); // Max 40 points for perfect entropy
 
@@ -143,7 +169,9 @@ public static class KeyManagement
     public static byte[] GenerateSecureKey(int length = 32)
     {
         if (length <= 0)
+        {
             throw new ArgumentException("Length must be positive", nameof(length));
+        }
 
         var key = new byte[length];
         using var rng = RandomNumberGenerator.Create();
@@ -164,19 +192,27 @@ public static class KeyManagement
         ReadOnlySpan<byte> info, int outputLength = 32)
     {
         if (keys == null)
+        {
             throw new ArgumentNullException(nameof(keys));
+        }
         if (outputLength <= 0)
+        {
             throw new ArgumentException("Output length must be positive", nameof(outputLength));
+        }
 
         var combinedInput = new List<byte>();
         foreach (var key in keys)
         {
             if (key != null)
+            {
                 combinedInput.AddRange(key);
+            }
         }
 
         if (combinedInput.Count == 0)
+        {
             throw new ArgumentException("No valid keys provided", nameof(keys));
+        }
 
         return HkdfCore.DeriveKey(combinedInput.ToArray(), salt, info, outputLength, HashAlgorithmName.SHA256);
     }
@@ -217,7 +253,9 @@ public static class KeyManagement
         for (var i = 0; i <= data.Length - 4; i += 2)
         {
             if (data[i] == data[i + 2] && data[i + 1] == data[i + 3])
+            {
                 return true;
+            }
         }
 
         return false;
@@ -270,12 +308,16 @@ public class KeyRotationManager : IDisposable
                 {
                     latestTime = kvp.Key;
                     if (now - kvp.Key < _rotationInterval)
+                    {
                         shouldRotate = false;
+                    }
                 }
             }
 
             if (shouldRotate)
+            {
                 RotateKey(now);
+            }
 
             // Return the latest key
             return (_activeKeys[latestTime], latestTime);
@@ -399,16 +441,22 @@ public class KeyDerivationTree : IDisposable
     public byte[] DeriveKey(string path)
     {
         if (string.IsNullOrEmpty(path))
+        {
             throw new ArgumentException("Path cannot be null or empty", nameof(path));
+        }
 
         var pathParts = path.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
         if (pathParts.Length > _maxDepth)
+        {
             throw new ArgumentException($"Path depth exceeds maximum ({_maxDepth})", nameof(path));
+        }
 
         lock (_lock)
         {
             if (_derivedKeys.TryGetValue(path, out var existingKey))
+            {
                 return existingKey;
+            }
 
             // Derive key using full path as context
             var context = System.Text.Encoding.UTF8.GetBytes(path);
@@ -427,7 +475,9 @@ public class KeyDerivationTree : IDisposable
     public Dictionary<string, byte[]> DeriveKeys(string[] paths)
     {
         if (paths == null)
+        {
             throw new ArgumentNullException(nameof(paths));
+        }
 
         var result = new Dictionary<string, byte[]>();
         foreach (var path in paths)
@@ -542,27 +592,35 @@ public class KeyPolicyManager
         // Check age
         var age = now - createdAt;
         if (age > _policy.MaxAge)
+        {
             issues.Add($"Key is too old ({age.TotalDays:F1} days, max: {_policy.MaxAge.TotalDays} days)");
+        }
 
         var shouldRotate = age > _policy.RotationInterval;
 
         // Check size
         if (keyMaterial.Length < _policy.MinKeySize)
+        {
             issues.Add($"Key is too small ({keyMaterial.Length} bytes, min: {_policy.MinKeySize} bytes)");
+        }
 
         // Validate entropy if enforcing secure generation
         if (_policy.EnforceSecureGeneration)
         {
             var validation = KeyManagement.ValidateKey(keyMaterial);
             if (validation.Entropy < _policy.MinEntropy)
+            {
                 issues.Add($"Key entropy too low ({validation.Entropy:F2}, min: {_policy.MinEntropy})");
+            }
 
             issues.AddRange(validation.Issues);
         }
 
         // Custom validation
         if (_policy.CustomValidator != null && !_policy.CustomValidator(keyMaterial.ToArray()))
+        {
             issues.Add("Custom validation failed");
+        }
 
         return new PolicyValidationResult
         {
@@ -588,7 +646,9 @@ public class KeyPolicyManager
             var validation = ValidateKey(key, DateTimeOffset.UtcNow);
 
             if (validation.IsValid)
+            {
                 break;
+            }
 
             SecureMemoryOperations.SecureClear(key);
         }

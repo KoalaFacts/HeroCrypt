@@ -1,5 +1,5 @@
-using HeroCrypt.Cryptography.Protocols;
 using System.Text;
+using HeroCrypt.Cryptography.Protocols;
 
 namespace HeroCrypt.Tests;
 
@@ -295,9 +295,15 @@ public class Bip32HdWalletTests
     {
         // Arrange
         var key = new byte[32];
-        for (var i = 0; i < key.Length; i++) key[i] = (byte)(i + 1);
+        for (var i = 0; i < key.Length; i++)
+        {
+            key[i] = (byte)(i + 1);
+        }
         var chainCode = new byte[32];
-        for (var i = 0; i < chainCode.Length; i++) chainCode[i] = (byte)(i + 100);
+        for (var i = 0; i < chainCode.Length; i++)
+        {
+            chainCode[i] = (byte)(i + 100);
+        }
 
         var extendedKey = new Bip32HdWallet.ExtendedKey(key, chainCode);
 

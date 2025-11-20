@@ -1,5 +1,5 @@
-using HeroCrypt.Cryptography.Primitives.Cipher.Stream;
 using System.Text;
+using HeroCrypt.Cryptography.Primitives.Cipher.Stream;
 
 namespace HeroCrypt.Tests;
 
@@ -17,9 +17,13 @@ public class Hc128Tests
     {
         // Initialize test key and IV with predictable values
         for (var i = 0; i < _testKey.Length; i++)
+        {
             _testKey[i] = (byte)(i + 1);
+        }
         for (var i = 0; i < _testIv.Length; i++)
+        {
             _testIv[i] = (byte)(i + 50);
+        }
     }
 
     [Fact]
@@ -164,7 +168,9 @@ public class Hc128Tests
         // Arrange - Test odd-length data to verify partial word handling
         var plaintext = new byte[17]; // Not a multiple of 4
         for (var i = 0; i < plaintext.Length; i++)
+        {
             plaintext[i] = (byte)i;
+        }
 
         var ciphertext = new byte[plaintext.Length];
         var decrypted = new byte[plaintext.Length];
@@ -270,7 +276,9 @@ public class Hc128Tests
         // Arrange
         var key = new byte[16];
         for (var i = 0; i < 16; i++)
+        {
             key[i] = (byte)i;
+        }
 
         var iv = new byte[16];
         var plaintext = new byte[128];
@@ -295,7 +303,9 @@ public class Hc128Tests
         // Arrange - Test data spanning 100+ keystream words
         var plaintext = new byte[500]; // ~125 words
         for (var i = 0; i < plaintext.Length; i++)
+        {
             plaintext[i] = (byte)(i & 0xFF);
+        }
 
         var ciphertext = new byte[plaintext.Length];
         var decrypted = new byte[plaintext.Length];
@@ -312,7 +322,9 @@ public class Hc128Tests
         for (var i = 0; i < plaintext.Length; i++)
         {
             if (plaintext[i] != ciphertext[i])
+            {
                 differences++;
+            }
         }
 
         // Expect most bytes to differ (good keystream quality)
@@ -329,7 +341,9 @@ public class Hc128Tests
         // Arrange - Test data around 512*4 = 2048 byte boundary
         var plaintext = new byte[2100]; // Cross P/Q table boundary
         for (var i = 0; i < plaintext.Length; i++)
+        {
             plaintext[i] = (byte)(i & 0xFF);
+        }
 
         var ciphertext = new byte[plaintext.Length];
         var decrypted = new byte[plaintext.Length];

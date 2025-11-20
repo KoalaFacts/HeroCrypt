@@ -56,9 +56,13 @@ internal static class Encryption
         ArgumentNullException.ThrowIfNull(key);
 #else
         if (plaintext == null)
+        {
             throw new ArgumentNullException(nameof(plaintext));
+        }
         if (key == null)
+        {
             throw new ArgumentNullException(nameof(key));
+        }
 #endif
 
         return algorithm switch
@@ -101,11 +105,17 @@ internal static class Encryption
         ArgumentNullException.ThrowIfNull(nonce);
 #else
         if (ciphertext == null)
+        {
             throw new ArgumentNullException(nameof(ciphertext));
+        }
         if (key == null)
+        {
             throw new ArgumentNullException(nameof(key));
+        }
         if (nonce == null)
+        {
             throw new ArgumentNullException(nameof(nonce));
+        }
 #endif
 
         return algorithm switch
@@ -155,7 +165,9 @@ internal static class Encryption
         const int tagSize = 16;
 
         if (ciphertext.Length < tagSize)
+        {
             throw new CryptographicException("Ciphertext too short");
+        }
 
         var plaintextLength = ciphertext.Length - tagSize;
         var plaintext = new byte[plaintextLength];
@@ -209,7 +221,9 @@ internal static class Encryption
         const int tagSize = 16;
 
         if (ciphertext.Length < tagSize)
+        {
             throw new CryptographicException("Ciphertext too short");
+        }
 
         var plaintextLength = ciphertext.Length - tagSize;
         var plaintext = new byte[plaintextLength];
@@ -264,13 +278,17 @@ internal static class Encryption
         const int tagSize = 16;
 
         if (ciphertext.Length < tagSize)
+        {
             throw new CryptographicException("Ciphertext too short");
+        }
 
         var plaintext = new byte[ciphertext.Length - tagSize];
 
         var result = ChaCha20Poly1305Core.Decrypt(plaintext, ciphertext, key, nonce, associatedData);
         if (result < 0)
+        {
             throw new CryptographicException("Decryption failed: authentication tag mismatch");
+        }
 
         return plaintext;
     }
@@ -307,13 +325,17 @@ internal static class Encryption
         const int tagSize = 16;
 
         if (ciphertext.Length < tagSize)
+        {
             throw new CryptographicException("Ciphertext too short");
+        }
 
         var plaintext = new byte[ciphertext.Length - tagSize];
 
         var result = XChaCha20Poly1305Core.Decrypt(plaintext, ciphertext, key, nonce, associatedData);
         if (result < 0)
+        {
             throw new CryptographicException("Decryption failed: authentication tag mismatch");
+        }
 
         return plaintext;
     }
@@ -389,7 +411,9 @@ internal static class Encryption
     private static byte[] DecryptMLKemHybrid(byte[] ciphertext, byte[] privateKeyPem, byte[] nonce, byte[] keyCiphertext, int securityBits, byte[] associatedData)
     {
         if (keyCiphertext == null)
+        {
             throw new ArgumentNullException(nameof(keyCiphertext), "ML-KEM decryption requires keyCiphertext");
+        }
 
         var pem = System.Text.Encoding.UTF8.GetString(privateKeyPem);
 

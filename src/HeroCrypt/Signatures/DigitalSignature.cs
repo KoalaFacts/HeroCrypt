@@ -1,6 +1,5 @@
 using System.Security.Cryptography;
 using System.Text;
-using HeroCrypt.Cryptography.Primitives.Signature.Ecc;
 using Primitives = HeroCrypt.Cryptography.Primitives;
 
 namespace HeroCrypt.Signatures;
@@ -22,9 +21,13 @@ internal static class DigitalSignature
     public static byte[] Sign(byte[] data, byte[] key, SignatureAlgorithm algorithm)
     {
         if (data == null)
+        {
             throw new ArgumentNullException(nameof(data));
+        }
         if (key == null)
+        {
             throw new ArgumentNullException(nameof(key));
+        }
 
         return algorithm switch
         {
@@ -61,11 +64,17 @@ internal static class DigitalSignature
     public static bool Verify(byte[] data, byte[] signature, byte[] key, SignatureAlgorithm algorithm)
     {
         if (data == null)
+        {
             throw new ArgumentNullException(nameof(data));
+        }
         if (signature == null)
+        {
             throw new ArgumentNullException(nameof(signature));
+        }
         if (key == null)
+        {
             throw new ArgumentNullException(nameof(key));
+        }
 
         return algorithm switch
         {

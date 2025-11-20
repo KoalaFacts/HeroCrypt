@@ -1,7 +1,7 @@
-using HeroCrypt.Cryptography.Primitives.Kdf;
-using HeroCrypt.Security;
 using System.Security.Cryptography;
 using System.Text;
+using HeroCrypt.Cryptography.Primitives.Kdf;
+using HeroCrypt.Security;
 
 namespace HeroCrypt.Cryptography.Protocols;
 
@@ -138,7 +138,9 @@ public static class Bip39Mnemonic
     public static byte[] MnemonicToSeed(string mnemonic, string passphrase = "")
     {
         if (string.IsNullOrWhiteSpace(mnemonic))
+        {
             throw new ArgumentException("Mnemonic cannot be empty", nameof(mnemonic));
+        }
 
         // Normalize mnemonic
         mnemonic = NormalizeMnemonic(mnemonic);
@@ -179,20 +181,26 @@ public static class Bip39Mnemonic
     public static bool ValidateMnemonic(string mnemonic)
     {
         if (string.IsNullOrWhiteSpace(mnemonic))
+        {
             return false;
+        }
 
         mnemonic = NormalizeMnemonic(mnemonic);
         var words = mnemonic.Split(' ', StringSplitOptions.RemoveEmptyEntries);
 
         // Check word count
         if (!WordCounts.Contains(words.Length))
+        {
             return false;
+        }
 
         // Check all words are in wordlist
         foreach (var word in words)
         {
             if (Array.IndexOf(Wordlist, word) == -1)
+            {
                 return false;
+            }
         }
 
         // Convert words back to entropy and validate checksum
@@ -247,7 +255,9 @@ public static class Bip39Mnemonic
         var words = mnemonic.Split(' ', StringSplitOptions.RemoveEmptyEntries);
 
         if (!WordCounts.Contains(words.Length))
+        {
             throw new ArgumentException("Invalid mnemonic word count", nameof(mnemonic));
+        }
 
         var totalBits = words.Length * 11;
         var entropyBits = (totalBits * 32) / 33;
@@ -260,7 +270,9 @@ public static class Bip39Mnemonic
         {
             var index = Array.IndexOf(Wordlist, words[i]);
             if (index == -1)
+            {
                 throw new ArgumentException($"Invalid word in mnemonic: {words[i]}", nameof(mnemonic));
+            }
 
             for (var j = 0; j < 11; j++)
             {

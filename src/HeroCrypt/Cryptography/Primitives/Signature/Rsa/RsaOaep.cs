@@ -17,7 +17,9 @@ internal static class RsaOaep
         var maxMessageLength = modulusLength - 2 * hLen - 2;
 
         if (message.Length > maxMessageLength)
+        {
             throw new ArgumentException($"Message too long. Maximum length is {maxMessageLength} bytes.");
+        }
 
         // Hash the label (default is empty string)
         var lHash = hash.ComputeHash(label ?? Array.Empty<byte>());
@@ -78,10 +80,14 @@ internal static class RsaOaep
         var hLen = hash.HashSize / 8;
 
         if (paddedMessage.Length != modulusLength)
+        {
             throw new ArgumentException("Invalid padded message length");
+        }
 
         if (paddedMessage[0] != 0x00)
+        {
             throw new CryptographicException("Decryption error");
+        }
 
         // Extract maskedSeed and maskedDB
         var maskedSeed = new byte[hLen];
@@ -115,7 +121,9 @@ internal static class RsaOaep
         for (var i = 0; i < hLen; i++)
         {
             if (db[i] != lHash[i])
+            {
                 throw new CryptographicException("Decryption error");
+            }
         }
 
         // Find the 0x01 separator
@@ -134,7 +142,9 @@ internal static class RsaOaep
         }
 
         if (separatorIndex == -1)
+        {
             throw new CryptographicException("Decryption error");
+        }
 
         // Extract message
         var messageLength = db.Length - separatorIndex - 1;
@@ -174,11 +184,17 @@ internal static class RsaOaep
     private static HashAlgorithm CreateHashAlgorithm(HashAlgorithmName name)
     {
         if (name == HashAlgorithmName.SHA256)
+        {
             return SHA256.Create();
+        }
         if (name == HashAlgorithmName.SHA384)
+        {
             return SHA384.Create();
+        }
         if (name == HashAlgorithmName.SHA512)
+        {
             return SHA512.Create();
+        }
         if (name == HashAlgorithmName.SHA1)
 #pragma warning disable CA5350 // Do Not Use Weak Cryptographic Algorithms - SHA1 is required for OAEP compatibility
             return SHA1.Create();

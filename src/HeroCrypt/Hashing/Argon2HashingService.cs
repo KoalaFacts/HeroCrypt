@@ -1,5 +1,8 @@
 using HeroCrypt.Cryptography.Primitives.Kdf;
+using HeroCrypt.Security;
+using System;
 using System.Runtime.CompilerServices;
+
 using System.Security.Cryptography;
 using System.Text;
 
@@ -96,7 +99,15 @@ public sealed class Argon2HashingService : IPasswordHashingService
         if (string.IsNullOrWhiteSpace(input))
             throw new ArgumentException("Value cannot be null or whitespace.", nameof(input));
 #endif
-        return await HashAsync(Encoding.UTF8.GetBytes(input), cancellationToken);
+        var bytes = Encoding.UTF8.GetBytes(input);
+        try
+        {
+            return await HashAsync(bytes, cancellationToken);
+        }
+        finally
+        {
+            SecureMemoryOperations.SecureClear(bytes);
+        }
     }
 
     /// <summary>
@@ -122,27 +133,63 @@ public sealed class Argon2HashingService : IPasswordHashingService
 
         return await Task.Run(() =>
         {
-            var salt = GenerateSalt();
+            using var salt = new SecureByteArray(_options.SaltSize);
+            
+#if NETSTANDARD2_0
+            using (var rng = RandomNumberGenerator.Create())
+            {
+                salt.WithBytes(s => rng.GetBytes(s));
+            }
+#else
+            salt.WithBytes(s => RandomNumberGenerator.Fill(s));
+#endif
 
-            var hash = Argon2Core.Hash(
-                input,
-                salt,
-                _options.Iterations,
-                _options.MemorySize,
-                _options.Parallelism,
-                _options.HashSize,
-                _options.Type);
+            byte[]? hash = null;
+            // Compute hash
+            salt.WithBytes(s => 
+            {
+                hash = Argon2Core.Hash(
+                    input,
+                    s,
+                    _options.Iterations,
+                    _options.MemorySize,
+                    _options.Parallelism,
+                    _options.HashSize,
+                    _options.Type);
+            });
 
-            var result = new byte[_options.SaltSize + hash.Length];
-            Array.Copy(salt, 0, result, 0, _options.SaltSize);
-            Array.Copy(hash, 0, result, _options.SaltSize, hash.Length);
+            try
+            {
+                if (hash == null)
+                {
+                    throw new InvalidOperationException("Failed to compute Argon2 hash.");
+                }
 
-            return Convert.ToBase64String(result);
+                var result = new byte[_options.SaltSize + hash.Length];
+                try
+                {
+                    salt.WithBytes(s => Array.Copy(s, 0, result, 0, _options.SaltSize));
+                    Array.Copy(hash, 0, result, _options.SaltSize, hash.Length);
+
+                    return Convert.ToBase64String(result);
+                }
+                finally
+                {
+                    SecureMemoryOperations.SecureClear(result);
+                }
+            }
+            finally
+            {
+                if (hash != null)
+                {
+                    SecureMemoryOperations.SecureClear(hash);
+                }
+            }
         }, cancellationToken);
     }
 
     /// <summary>
-    /// Verifies a password string against an Argon2 hash.
+    /// Verifies a password against an Argon2 hash.
     /// </summary>
     /// <param name="input">The password to verify.</param>
     /// <param name="hash">The hash to verify against (from <see cref="HashAsync(string, CancellationToken)"/>).</param>
@@ -160,7 +207,15 @@ public sealed class Argon2HashingService : IPasswordHashingService
         if (string.IsNullOrWhiteSpace(input))
             throw new ArgumentException("Value cannot be null or whitespace.", nameof(input));
 #endif
-        return await VerifyAsync(Encoding.UTF8.GetBytes(input), hash, cancellationToken);
+        var bytes = Encoding.UTF8.GetBytes(input);
+        try
+        {
+            return await VerifyAsync(bytes, hash, cancellationToken);
+        }
+        finally
+        {
+            SecureMemoryOperations.SecureClear(bytes);
+        }
     }
 
     /// <summary>
@@ -212,44 +267,13 @@ public sealed class Argon2HashingService : IPasswordHashingService
                     _options.Type);
 
                 // Use constant-time comparison
-                return ConstantTimeEquals(storedHash, computedHash);
+                return SecureMemoryOperations.ConstantTimeEquals(storedHash, computedHash);
             }
-            catch
+            catch (Exception ex) when (ex is FormatException || ex is ArgumentException || ex is CryptographicException)
             {
                 return false;
             }
         }, cancellationToken);
-    }
-
-    private byte[] GenerateSalt()
-    {
-        var salt = new byte[_options.SaltSize];
-#if NETSTANDARD2_0
-        using (var rng = RandomNumberGenerator.Create())
-        {
-            rng.GetBytes(salt);
-        }
-#else
-        RandomNumberGenerator.Fill(salt);
-#endif
-        return salt;
-    }
-
-    /// <summary>
-    /// Constant-time comparison to prevent timing attacks
-    /// </summary>
-    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
-    private static bool ConstantTimeEquals(byte[] a, byte[] b)
-    {
-        if (a.Length != b.Length)
-            return false;
-
-        var result = 0;
-        for (var i = 0; i < a.Length; i++)
-        {
-            result |= a[i] ^ b[i];
-        }
-        return result == 0;
     }
 }
 

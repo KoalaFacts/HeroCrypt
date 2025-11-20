@@ -16,17 +16,16 @@ public static class Blake2bCore
     /// <summary>
     /// Blake2b initialization vectors (first 64 bits of the fractional parts of the square roots of the first 8 primes).
     /// </summary>
-    internal static readonly ulong[] Blake2bIv =
+    public static readonly ulong[] Blake2bIv =
     {
         0x6a09e667f3bcc908UL, 0xbb67ae8584caa73bUL, 0x3c6ef372fe94f82bUL, 0xa54ff53a5f1d36f1UL,
         0x510e527fade682d1UL, 0x9b05688c2b3e6c1fUL, 0x1f83d9abfb41bd6bUL, 0x5be0cd19137e2179UL
     };
 
-
     /// <summary>
     /// Blake2b message schedule permutation table.
     /// </summary>
-    internal static readonly byte[,] Blake2bSigma = new byte[10, 16]
+    public static readonly byte[,] Blake2bSigma = new byte[10, 16]
     {
         { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 },
         { 14, 10, 4, 8, 9, 15, 13, 6, 1, 12, 0, 2, 11, 7, 5, 3 },
@@ -40,10 +39,6 @@ public static class Blake2bCore
         { 10, 2, 8, 4, 7, 6, 1, 5, 15, 11, 9, 14, 3, 12, 13, 0 }
     };
 
-
-    /// <summary>
-    /// Blake2b parameter block structure.
-    /// </summary>
     /// <summary>
     /// Blake2b parameter block structure containing algorithm configuration
     /// </summary>
@@ -52,57 +47,57 @@ public static class Blake2bCore
         /// <summary>
         /// Digest length in bytes (1-64)
         /// </summary>
-        public byte DigestSize;
+        public byte DigestSize { get; set; }
 
         /// <summary>
         /// Key length in bytes (0-64, 0 for no key)
         /// </summary>
-        public byte KeyLength;
+        public byte KeyLength { get; set; }
 
         /// <summary>
         /// Fanout (0-255, 1 for sequential hashing)
         /// </summary>
-        public byte FanOut;
+        public byte FanOut { get; set; }
 
         /// <summary>
         /// Depth (0-255, 1 for sequential hashing)
         /// </summary>
-        public byte Depth;
+        public byte Depth { get; set; }
 
         /// <summary>
         /// Leaf length (0 means unlimited)
         /// </summary>
-        public uint LeafLength;
+        public uint LeafLength { get; set; }
 
         /// <summary>
         /// Node offset for tree hashing
         /// </summary>
-        public ulong NodeOffset;
+        public ulong NodeOffset { get; set; }
 
         /// <summary>
         /// Node depth for tree hashing
         /// </summary>
-        public byte NodeDepth;
+        public byte NodeDepth { get; set; }
 
         /// <summary>
         /// Inner hash length for tree hashing
         /// </summary>
-        public byte InnerLength;
+        public byte InnerLength { get; set; }
 
         /// <summary>
         /// Reserved bytes (must be zero)
         /// </summary>
-        public byte[] Reserved;
+        public byte[]? Reserved { get; set; }
 
         /// <summary>
         /// Salt value (16 bytes)
         /// </summary>
-        public byte[] Salt;
+        public byte[]? Salt { get; set; }
 
         /// <summary>
         /// Personalization value (16 bytes)
         /// </summary>
-        public byte[] Personalization;
+        public byte[]? Personalization { get; set; }
 
         /// <summary>
         /// Creates default Blake2b parameters for sequential hashing
@@ -152,12 +147,23 @@ public static class Blake2bCore
             paramBytes[16] = NodeDepth;
             paramBytes[17] = InnerLength;
 
-            if (Reserved != null)
-                Array.Copy(Reserved, 0, paramBytes, 18, Math.Min(14, Reserved.Length));
-            if (Salt != null)
-                Array.Copy(Salt, 0, paramBytes, 32, Math.Min(16, Salt.Length));
-            if (Personalization != null)
-                Array.Copy(Personalization, 0, paramBytes, 48, Math.Min(16, Personalization.Length));
+            var reserved = Reserved;
+            if (reserved != null)
+            {
+                Array.Copy(reserved, 0, paramBytes, 18, Math.Min(14, reserved.Length));
+            }
+
+            var salt = Salt;
+            if (salt != null)
+            {
+                Array.Copy(salt, 0, paramBytes, 32, Math.Min(16, salt.Length));
+            }
+
+            var personalization = Personalization;
+            if (personalization != null)
+            {
+                Array.Copy(personalization, 0, paramBytes, 48, Math.Min(16, personalization.Length));
+            }
 
             for (var i = 0; i < 8; i++)
             {
@@ -190,10 +196,14 @@ public static class Blake2bCore
         byte[]? personalization = null)
     {
         if (outputLength < 1 || outputLength > 64)
+        {
             throw new ArgumentException("Output length must be between 1 and 64 bytes", nameof(outputLength));
+        }
 
         if (key != null && key.Length > 64)
+        {
             throw new ArgumentException("Key length must not exceed 64 bytes", nameof(key));
+        }
 
         var parameters = Blake2bParams.Default(outputLength);
         parameters.KeyLength = (byte)(key?.Length ?? 0);
@@ -201,14 +211,20 @@ public static class Blake2bCore
         if (salt != null)
         {
             if (salt.Length != 16)
+            {
                 throw new ArgumentException("Salt must be exactly 16 bytes", nameof(salt));
+            }
+
             parameters.Salt = salt;
         }
 
         if (personalization != null)
         {
             if (personalization.Length != 16)
+            {
                 throw new ArgumentException("Personalization must be exactly 16 bytes", nameof(personalization));
+            }
+
             parameters.Personalization = personalization;
         }
 
@@ -226,7 +242,9 @@ public static class Blake2bCore
     public static byte[] ComputeLongHash(byte[] input, int outputLength)
     {
         if (outputLength < 1)
+        {
             throw new ArgumentException("Output length must be positive", nameof(outputLength));
+        }
 
         // Create input with prepended length: LE32(T) || A
         var inputWithLength = new byte[4 + input.Length];

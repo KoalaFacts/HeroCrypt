@@ -1,0 +1,19 @@
+name: 'Setup .NET SDKs'
+description: 'Sets up .NET SDKs with caching support'
+inputs:
+  dotnet-version:
+    description: 'SDK version(s) to install (newline-separated)'
+    required: true
+  cache:
+    description: 'Enable caching of NuGet packages'
+    required: false
+    default: 'true'
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup .NET SDKs
+      uses: actions/setup-dotnet@v5
+      with:
+        dotnet-version: ${{ inputs.dotnet-version }}
+        cache: ${{ inputs.cache }}
+        cache-dependency-path: '**/packages.lock.json'

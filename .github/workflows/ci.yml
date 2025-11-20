@@ -16,33 +16,49 @@ env:
   DOTNET_NOLOGO: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
-  NUGET_XMLDOC_MODE: skip
   CI: true
 
 jobs:
+  prepare:
+    name: Extract build configuration
+    runs-on: ubuntu-latest
+    outputs:
+      frameworks: ${{ steps.extract.outputs.frameworks }}
+      versions: ${{ steps.extract.outputs.versions }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Extract build config
+        id: extract
+        uses: ./.github/actions/extract-build-config
+
   build-and-test:
     name: Build ${{ matrix.framework }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    needs: prepare
     timeout-minutes: 20
 
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        framework: [netstandard2.0, net8.0, net9.0, net10.0]
+        framework: ${{ fromJson(needs.prepare.outputs.frameworks) }}
         include:
           - framework: net10.0
-            dotnet-version: 10.0.x
             run-tests: true
+            sdk: 10.0.x
           - framework: net9.0
-            dotnet-version: 9.0.x
             run-tests: true
+            sdk: 9.0.x
           - framework: net8.0
-            dotnet-version: 8.0.x
             run-tests: true
+            sdk: 8.0.x
           - framework: netstandard2.0
-            dotnet-version: 8.0.x # Use .NET 8 SDK for building/testing netstandard2.0
             run-tests: false
+            sdk: 8.0.x # Use .NET 8 SDK for building/testing netstandard2.0
 
     steps:
     - name: Checkout code
@@ -51,9 +67,9 @@ jobs:
         fetch-depth: 0  # Need full history for build number
 
     - name: Setup .NET SDKs
-      uses: actions/setup-dotnet@v5
+      uses: ./.github/actions/setup-dotnet-sdks
       with:
-        dotnet-version: ${{ matrix.dotnet-version }}
+        dotnet-version: ${{ matrix.sdk }}
 
     - name: Calculate build number
       id: build-number
@@ -123,7 +139,7 @@ jobs:
   package:
     name: Create Release Package
     runs-on: ubuntu-latest
-    needs: build-and-test
+    needs: [prepare, build-and-test]
     if: success()
 
     steps:
@@ -133,9 +149,9 @@ jobs:
         fetch-depth: 0
 
     - name: Setup .NET
-      uses: actions/setup-dotnet@v5
+      uses: ./.github/actions/setup-dotnet-sdks
       with:
-        dotnet-version: 9.0.x
+        dotnet-version: ${{ needs.prepare.outputs.versions }}
 
     - name: Calculate build number
       id: build-number
@@ -161,15 +177,15 @@ jobs:
 
     - name: Run RFC Compliance Tests
       run: |
-        echo "🧪 Running RFC compliance validation..."
+        echo "dY� Running RFC compliance validation..."
         dotnet test --filter "Category=Compliance" --configuration Release --no-build --logger "console;verbosity=detailed"
-        echo "✅ RFC compliance tests passed"
+        echo "�o. RFC compliance tests passed"
 
     - name: Run Security Validation Tests
       run: |
-        echo "🔒 Running security validation tests..."
+        echo "dY\"' Running security validation tests..."
         dotnet test --filter "Category=Security|Category=Critical" --configuration Release --no-build --logger "console;verbosity=detailed"
-        echo "✅ Security tests passed"
+        echo "�o. Security tests passed"
 
     - name: Create NuGet package
       run: dotnet pack --configuration Release --no-build --output ./artifacts /p:BUILD_NUMBER=${{ github.run_number }}
@@ -190,7 +206,7 @@ jobs:
           "runId": "${{ github.run_id }}",
           "actor": "${{ github.actor }}",
           "repository": "${{ github.repository }}",
-          "frameworks": ["netstandard2.0", "net8.0", "net9.0", "net10.0"],
+          "frameworks": ${{ needs.prepare.outputs.frameworks }},
           "platforms": ["ubuntu-latest", "windows-latest", "macos-latest"]
         }
         EOF
@@ -222,7 +238,7 @@ jobs:
         echo "Package artifacts are available for download and can be used to create a release." >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "### Validation" >> $GITHUB_STEP_SUMMARY
-        echo "- ✅ .NET 8.0, 9.0, 10.0, Standard 2.0" >> $GITHUB_STEP_SUMMARY
-        echo "- ✅ Ubuntu, Windows, macOS" >> $GITHUB_STEP_SUMMARY
-        echo "- ✅ RFC Compliance Tests Passed" >> $GITHUB_STEP_SUMMARY
-        echo "- ✅ Security Validation Tests Passed" >> $GITHUB_STEP_SUMMARY
+        echo "- �o. .NET 8.0, 9.0, 10.0, Standard 2.0" >> $GITHUB_STEP_SUMMARY
+        echo "- �o. Ubuntu, Windows, macOS" >> $GITHUB_STEP_SUMMARY
+        echo "- �o. RFC Compliance Tests Passed" >> $GITHUB_STEP_SUMMARY
+        echo "- �o. Security Validation Tests Passed" >> $GITHUB_STEP_SUMMARY

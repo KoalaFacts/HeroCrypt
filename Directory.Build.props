@@ -1,16 +1,17 @@
 <Project>
-  <!-- Centralized Framework Versions -->
   <PropertyGroup>
-    <!-- Target Frameworks Definition -->
+    <!-- Default multi-targeting for all projects -->
+    <!-- Individual projects can override if they need specific frameworks (e.g., source generators using netstandard2.0) -->
     <SupportedTargetFrameworks>netstandard2.0;net8.0;net9.0;net10.0</SupportedTargetFrameworks>
+
+    <!-- Corresponding SDK versions for CI/CD workflows -->
+    <!-- Format: Major.Minor.x (e.g., 8.0.x, 9.0.x, 10.0.x) -->
+    <SupportedRuntimeTargetFrameworks>net8.0;net9.0;net10.0</SupportedRuntimeTargetFrameworks>
     <SupportedRuntimeSdkVersions>8.0.x;9.0.x;10.0.x</SupportedRuntimeSdkVersions>
 
-    <!-- Framework Groups for Build + CI -->
-    <SupportedRuntimeTargetFrameworks>net8.0;net9.0;net10.0</SupportedRuntimeTargetFrameworks>
     <SupportedLibraryTargetFrameworks>$(SupportedTargetFrameworks)</SupportedLibraryTargetFrameworks>
     <SupportedApplicationTargetFrameworks>$(SupportedRuntimeTargetFrameworks)</SupportedApplicationTargetFrameworks>
-    <SupportedTestTargetFrameworks>net8.0;net9.0;net10.0</SupportedTestTargetFrameworks>
-    <ContinuousIntegrationTargetFrameworks>net8.0;net9.0;net10.0</ContinuousIntegrationTargetFrameworks>
+    <SupportedTestTargetFrameworks>$(SupportedRuntimeTargetFrameworks)</SupportedTestTargetFrameworks>
   </PropertyGroup>
 
   <!-- Version Information -->
@@ -22,6 +23,7 @@
     <VersionSuffix Condition="'$(CI)' == 'true' AND '$(GITHUB_REF)' != '' AND '$(GitHubRefIsTag)' != 'True'">preview</VersionSuffix>
 
     <!-- Assembly versioning strategy -->
+    <!-- AssemblyVersion uses only major.minor for binary compatibility -->
     <AssemblyVersion>1.0.0</AssemblyVersion>
     <!-- FileVersion includes build number if available -->
     <FileVersion Condition="'$(BUILD_NUMBER)' != ''">1.0.0.$(BUILD_NUMBER)</FileVersion>
@@ -52,7 +54,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
 
     <!-- Code Analysis -->
-    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
 
     <!-- Documentation -->
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
@@ -64,7 +66,14 @@
   </PropertyGroup>
 
   <!-- Framework-specific optimizations -->
-  <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0' Or '$(TargetFramework)' == 'net9.0'">
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0'">
+    <EnableAOTAnalyzer>true</EnableAOTAnalyzer>
+    <IsAotCompatible>true</IsAotCompatible>
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+    <IsTrimmable>true</IsTrimmable>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net9.0'">
     <EnableAOTAnalyzer>true</EnableAOTAnalyzer>
     <IsAotCompatible>true</IsAotCompatible>
     <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
@@ -80,8 +89,19 @@
     <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
   </PropertyGroup>
 
-  <!-- Test and Benchmark project settings -->
-  <PropertyGroup Condition="$(MSBuildProjectName.Contains('Tests')) Or $(MSBuildProjectName.Contains('Benchmarks'))">
+  <!-- Examples: disable trim/AOT analyzers and documentation requirements -->
+  <PropertyGroup Condition="$(MSBuildProjectName.Contains('Examples'))">
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <EnableTrimAnalyzer>false</EnableTrimAnalyzer>
+    <EnableAOTAnalyzer>false</EnableAOTAnalyzer>
+    <NoWarn>$(NoWarn);CS1591;IL2026;IL3050</NoWarn>
+  </PropertyGroup>
+
+    <!-- Test and Benchmark project settings -->
+  <PropertyGroup
+    Condition="$(MSBuildProjectName.Contains('Tests')) Or $(MSBuildProjectName.Contains('Benchmarks'))">
+    <IsPackable>false</IsPackable>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <!-- CS1591: Missing XML comment for publicly visible type or member -->
     <NoWarn>$(NoWarn);CS1591</NoWarn>

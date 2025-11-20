@@ -1,17 +1,12 @@
 <Solution>
-  <Folder Name="01 - Core">
+  <Folder Name="/01 - Core/">
     <Project Path="src/HeroCrypt/HeroCrypt.csproj" />
   </Folder>
-  <Folder Name="02 - Tests">
+  <Folder Name="/02 - Tests/">
     <Project Path="tests/HeroCrypt.Tests/HeroCrypt.Tests.csproj" />
   </Folder>
-  <Folder Name="03 - Benchmarks" />
-  <Folder Name="04 - Examples">
+  <Folder Name="/03 - Benchmarks/" />
+  <Folder Name="/04 - Examples/">
     <Project Path="examples/HeroCrypt.Examples/HeroCrypt.Examples.csproj" />
   </Folder>
-
-  <!-- Support is provisionally available on Visual Studio 17.10 and later versions. -->
-  <Properties Name="Visual Studio">
-    <Property Name="OpenWith" Value="17" />
-  </Properties>
 </Solution>

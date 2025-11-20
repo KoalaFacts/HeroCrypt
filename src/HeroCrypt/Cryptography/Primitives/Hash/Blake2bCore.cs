@@ -16,16 +16,17 @@ public static class Blake2bCore
     /// <summary>
     /// Blake2b initialization vectors (first 64 bits of the fractional parts of the square roots of the first 8 primes).
     /// </summary>
-    private static readonly ulong[] Blake2bIv =
+    internal static readonly ulong[] Blake2bIv =
     {
         0x6a09e667f3bcc908UL, 0xbb67ae8584caa73bUL, 0x3c6ef372fe94f82bUL, 0xa54ff53a5f1d36f1UL,
         0x510e527fade682d1UL, 0x9b05688c2b3e6c1fUL, 0x1f83d9abfb41bd6bUL, 0x5be0cd19137e2179UL
     };
 
+
     /// <summary>
     /// Blake2b message schedule permutation table.
     /// </summary>
-    private static readonly byte[,] Blake2bSigma = new byte[10, 16]
+    internal static readonly byte[,] Blake2bSigma = new byte[10, 16]
     {
         { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 },
         { 14, 10, 4, 8, 9, 15, 13, 6, 1, 12, 0, 2, 11, 7, 5, 3 },
@@ -38,6 +39,7 @@ public static class Blake2bCore
         { 6, 15, 14, 9, 11, 3, 0, 8, 12, 2, 13, 7, 1, 4, 10, 5 },
         { 10, 2, 8, 4, 7, 6, 1, 5, 15, 11, 9, 14, 3, 12, 13, 0 }
     };
+
 
     /// <summary>
     /// Blake2b parameter block structure.

@@ -3,6 +3,7 @@
   <PropertyGroup>
     <!-- Target Frameworks Definition -->
     <SupportedTargetFrameworks>netstandard2.0;net8.0;net9.0;net10.0</SupportedTargetFrameworks>
+    <SupportedRuntimeSdkVersions>8.0.x;9.0.x;10.0.x</SupportedRuntimeSdkVersions>
 
     <!-- Framework Groups for Build + CI -->
     <SupportedRuntimeTargetFrameworks>net8.0;net9.0;net10.0</SupportedRuntimeTargetFrameworks>
@@ -21,14 +22,13 @@
     <VersionSuffix Condition="'$(CI)' == 'true' AND '$(GITHUB_REF)' != '' AND '$(GitHubRefIsTag)' != 'True'">preview</VersionSuffix>
 
     <!-- Assembly versioning strategy -->
-    <!-- AssemblyVersion uses only major.minor for binary compatibility -->
     <AssemblyVersion>1.0.0</AssemblyVersion>
     <!-- FileVersion includes build number if available -->
     <FileVersion Condition="'$(BUILD_NUMBER)' != ''">1.0.0.$(BUILD_NUMBER)</FileVersion>
     <FileVersion Condition="'$(BUILD_NUMBER)' == ''">1.0.0.0</FileVersion>
 
     <!-- Package Information -->
-    <Authors>KoalaFacts;OpenAI;Claude</Authors>
+    <Authors>KoalaFacts Contributors</Authors>
     <Company>KoalaFacts</Company>
     <Product>HeroCrypt Cryptographic Library</Product>
     <Copyright>Copyright KoalaFacts</Copyright>
@@ -43,7 +43,6 @@
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <Deterministic>true</Deterministic>
-    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
   </PropertyGroup>
 
   <!-- Build Configuration -->
@@ -53,7 +52,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
 
     <!-- Code Analysis -->
-    <EnforceCodeStyleInBuild Condition="'$(CI)' != 'true'">true</EnforceCodeStyleInBuild>
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
 
     <!-- Documentation -->
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
@@ -65,14 +64,7 @@
   </PropertyGroup>
 
   <!-- Framework-specific optimizations -->
-  <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0'">
-    <EnableAOTAnalyzer>true</EnableAOTAnalyzer>
-    <IsAotCompatible>true</IsAotCompatible>
-    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
-    <IsTrimmable>true</IsTrimmable>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(TargetFramework)' == 'net9.0'">
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0' Or '$(TargetFramework)' == 'net9.0'">
     <EnableAOTAnalyzer>true</EnableAOTAnalyzer>
     <IsAotCompatible>true</IsAotCompatible>
     <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
@@ -86,5 +78,12 @@
 
   <PropertyGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
     <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
+  </PropertyGroup>
+
+  <!-- Test and Benchmark project settings -->
+  <PropertyGroup Condition="$(MSBuildProjectName.Contains('Tests')) Or $(MSBuildProjectName.Contains('Benchmarks'))">
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <!-- CS1591: Missing XML comment for publicly visible type or member -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
 </Project>

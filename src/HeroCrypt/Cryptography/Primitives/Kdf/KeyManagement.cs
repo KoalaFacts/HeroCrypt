@@ -261,13 +261,13 @@ public static class KeyManagement
 
     /// <summary>
     /// Checks for simple repeating patterns
-        /// </summary>
-        private static bool HasRepeatingPatterns(ReadOnlySpan<byte> data)
+    /// </summary>
+    private static bool HasRepeatingPatterns(ReadOnlySpan<byte> data)
+    {
+        if (data.Length < 4)
         {
-            if (data.Length < 4)
-            {
-                return false;
-            }
+            return false;
+        }
 
         // Check for 2-byte patterns
         for (var i = 0; i <= data.Length - 4; i += 2)

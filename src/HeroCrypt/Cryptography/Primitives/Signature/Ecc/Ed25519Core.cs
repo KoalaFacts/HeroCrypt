@@ -55,8 +55,7 @@ public static class Ed25519Core
         Buffer.BlockCopy(privateKey, 0, buffer, 0, privateKey.Length);
         Buffer.BlockCopy(PublicKeySaltBytes, 0, buffer, privateKey.Length, PublicKeySaltBytes.Length);
 
-        using var sha512 = SHA512.Create();
-        var hash = sha512.ComputeHash(buffer);
+        var hash = ComputeSha512(buffer);
 
         var publicKey = new byte[PublicKeySize];
         Buffer.BlockCopy(hash, 0, publicKey, 0, PublicKeySize);
@@ -159,8 +158,7 @@ public static class Ed25519Core
         Buffer.BlockCopy(publicKey, 0, buffer, 0, publicKey.Length);
         Buffer.BlockCopy(SignatureSaltBytes, 0, buffer, publicKey.Length, SignatureSaltBytes.Length);
 
-        using var sha512 = SHA512.Create();
-        var key = sha512.ComputeHash(buffer);
+        var key = ComputeSha512(buffer);
 
         Array.Clear(buffer, 0, buffer.Length);
         return key;
@@ -192,5 +190,14 @@ public static class Ed25519Core
         }
 
         return result == 0;
+    }
+
+    private static byte[] ComputeSha512(ReadOnlySpan<byte> data)
+    {
+#if NETSTANDARD2_0
+        return Sha512Extensions.HashData(data);
+#else
+        return SHA512.HashData(data);
+#endif
     }
 }

@@ -173,7 +173,7 @@ public class EncryptionBuilder
             plaintext,
             _key,
             _algorithm,
-            _associatedData ?? Array.Empty<byte>());
+            _associatedData ?? []);
     }
 }
 
@@ -570,7 +570,7 @@ public class KeyDerivationBuilder
         }
 
         // Validate parameters
-        InputValidator.ValidateHkdfParameters(_ikm, _salt ?? Array.Empty<byte>(), _info ?? Array.Empty<byte>(), _keyLength);
+        InputValidator.ValidateHkdfParameters(_ikm, _salt ?? [], _info ?? Array.Empty<byte>(), _keyLength);
 
         var hashName = _hashAlgorithm.Name switch
         {

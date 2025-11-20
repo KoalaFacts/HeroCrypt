@@ -20,6 +20,7 @@ internal static class DigitalSignature
     /// <exception cref="NotSupportedException">Thrown when algorithm is not supported on this platform</exception>
     public static byte[] Sign(byte[] data, byte[] key, SignatureAlgorithm algorithm)
     {
+#if NETSTANDARD2_0
         if (data == null)
         {
             throw new ArgumentNullException(nameof(data));
@@ -28,6 +29,10 @@ internal static class DigitalSignature
         {
             throw new ArgumentNullException(nameof(key));
         }
+#else
+        ArgumentNullException.ThrowIfNull(data);
+        ArgumentNullException.ThrowIfNull(key);
+#endif
 
         return algorithm switch
         {
@@ -63,6 +68,7 @@ internal static class DigitalSignature
     /// <exception cref="NotSupportedException">Thrown when algorithm is not supported on this platform</exception>
     public static bool Verify(byte[] data, byte[] signature, byte[] key, SignatureAlgorithm algorithm)
     {
+#if NETSTANDARD2_0
         if (data == null)
         {
             throw new ArgumentNullException(nameof(data));
@@ -75,6 +81,11 @@ internal static class DigitalSignature
         {
             throw new ArgumentNullException(nameof(key));
         }
+#else
+        ArgumentNullException.ThrowIfNull(data);
+        ArgumentNullException.ThrowIfNull(signature);
+        ArgumentNullException.ThrowIfNull(key);
+#endif
 
         return algorithm switch
         {

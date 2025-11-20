@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
@@ -356,7 +357,7 @@ public static class Bip32HdWallet
         for (var i = 0; i < parts.Length; i++)
         {
             var part = parts[i];
-            var isHardened = part.EndsWith("'") || part.EndsWith("h") || part.EndsWith("H");
+            var isHardened = part.EndsWith('\'') || part.EndsWith('h') || part.EndsWith('H');
 
             if (isHardened)
             {
@@ -392,7 +393,7 @@ public static class Bip32HdWallet
         {
             return $"{index - HardenedOffset}'";
         }
-        return index.ToString();
+        return index.ToString(CultureInfo.InvariantCulture);
     }
 
     /// <summary>
@@ -516,15 +517,21 @@ public static class Bip32HdWallet
         // Note: RIPEMD160 is not available in all .NET versions, so we use double SHA256 as an alternative
         var publicKey = key.IsPrivate ? DerivePublicKeyFromPrivate(key.Key) : key.Key;
 
-        using (var sha = SHA256.Create())
-        {
-            // Double SHA256 to approximate HASH160 behavior
-            var hash1 = sha.ComputeHash(publicKey);
-            var hash2 = sha.ComputeHash(hash1);
-            var fingerprint = new byte[4];
-            Array.Copy(hash2, 0, fingerprint, 0, 4);
-            return fingerprint;
-        }
+        // Double SHA256 to approximate HASH160 behavior
+        var hash1 = ComputeSha256(publicKey);
+        var hash2 = ComputeSha256(hash1);
+        var fingerprint = new byte[4];
+        Array.Copy(hash2, 0, fingerprint, 0, 4);
+        return fingerprint;
+    }
+
+    private static byte[] ComputeSha256(ReadOnlySpan<byte> data)
+    {
+#if NETSTANDARD2_0
+        return Sha256Extensions.HashData(data);
+#else
+        return SHA256.HashData(data);
+#endif
     }
 
     /// <summary>

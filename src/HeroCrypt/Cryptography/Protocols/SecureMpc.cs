@@ -194,7 +194,7 @@ public static class SecureMpc
 
             return new ComputationResult(result, numParties, true);
         }
-        catch (Exception)
+        catch (ArgumentException)
         {
             return new ComputationResult(Array.Empty<byte>(), numParties, false);
         }
@@ -218,7 +218,7 @@ public static class SecureMpc
     {
         if (xShares == null || yShares == null || beaverTriple == null)
         {
-            throw new ArgumentNullException("Shares cannot be null");
+            throw new ArgumentNullException(nameof(xShares));
         }
         if (xShares.Length != yShares.Length || xShares.Length != beaverTriple.Length)
         {
@@ -376,7 +376,7 @@ public static class SecureMpc
     {
         if (party1Set == null || party2Set == null)
         {
-            throw new ArgumentNullException("Sets cannot be null");
+            throw new ArgumentNullException(party1Set == null ? nameof(party1Set) : nameof(party2Set));
         }
 
         // Simplified PSI protocol using hashing
@@ -386,11 +386,9 @@ public static class SecureMpc
         // - Oblivious Polynomial Evaluation
         // - Bloom filters with oblivious transfer
 
-        using var sha256 = SHA256.Create();
-
         // Hash both sets (simplified - real PSI uses more sophisticated cryptography)
-        var set1Hashes = party1Set.Select(item => sha256.ComputeHash(item)).ToList();
-        var set2Hashes = party2Set.Select(item => sha256.ComputeHash(item)).ToList();
+        var set1Hashes = party1Set.Select(HashSha256).ToList();
+        var set2Hashes = party2Set.Select(HashSha256).ToList();
 
         // Find intersection (in production: done obliviously)
         var intersection = new List<byte[]>();
@@ -407,6 +405,20 @@ public static class SecureMpc
     }
 
     // Helper methods
+
+    private static byte[] HashSha256(byte[] data)
+    {
+        return HashSha256((ReadOnlySpan<byte>)data);
+    }
+
+    private static byte[] HashSha256(ReadOnlySpan<byte> data)
+    {
+#if NETSTANDARD2_0
+        return Sha256Extensions.HashData(data);
+#else
+        return SHA256.HashData(data);
+#endif
+    }
 
     private static Share SubtractShares(Share a, Share b)
     {

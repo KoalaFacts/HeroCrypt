@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using HeroCrypt.Cryptography.Primitives.Signature.Rsa;
 using HeroCrypt.Security;
 using BigInteger = HeroCrypt.Cryptography.Primitives.Signature.Rsa.BigInteger;
@@ -153,7 +154,7 @@ public sealed class RsaDigitalSignatureService : IDigitalSignatureService
 
             return isValid;
         }
-        catch
+        catch (CryptographicException)
         {
             return false; // Return false instead of throwing for verification failures
         }

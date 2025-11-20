@@ -238,7 +238,7 @@ public static class Bip39Mnemonic
             // Validate checksum
             return (actualChecksum >> (8 - checksumBits)) == (expectedChecksum >> (8 - checksumBits));
         }
-        catch
+        catch (ArgumentException)
         {
             return false;
         }
@@ -303,9 +303,13 @@ public static class Bip39Mnemonic
     /// </summary>
     private static byte CalculateChecksum(ReadOnlySpan<byte> entropy)
     {
-        using var sha = SHA256.Create();
         Span<byte> hash = stackalloc byte[32];
+#if NETSTANDARD2_0
+        using var sha = SHA256.Create();
         sha.TryComputeHash(entropy, hash, out _);
+#else
+        SHA256.HashData(entropy, hash);
+#endif
         return hash[0];
     }
 

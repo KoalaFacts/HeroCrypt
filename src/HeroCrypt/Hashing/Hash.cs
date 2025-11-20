@@ -76,20 +76,30 @@ internal static class Hash
 
     private static byte[] ComputeSha256(byte[] data)
     {
-        using var sha = SHA256.Create();
-        return sha.ComputeHash(data);
+#if NETSTANDARD2_0
+        return Sha256Extensions.HashData(data);
+#else
+        return SHA256.HashData(data);
+#endif
     }
 
     private static byte[] ComputeSha384(byte[] data)
     {
+#if NETSTANDARD2_0
         using var sha = SHA384.Create();
         return sha.ComputeHash(data);
+#else
+        return SHA384.HashData(data);
+#endif
     }
 
     private static byte[] ComputeSha512(byte[] data)
     {
-        using var sha = SHA512.Create();
-        return sha.ComputeHash(data);
+#if NETSTANDARD2_0
+        return Sha512Extensions.HashData(data);
+#else
+        return SHA512.HashData(data);
+#endif
     }
 
     private static byte[] ComputeHmacSha256(byte[] data, byte[] key)

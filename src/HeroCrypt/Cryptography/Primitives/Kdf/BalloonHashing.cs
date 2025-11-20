@@ -289,23 +289,50 @@ public static class BalloonHashing
     {
         if (algo == HashAlgorithmName.SHA256)
         {
-            using var sha = SHA256.Create();
-            return sha.ComputeHash(input.ToArray());
+            return ComputeHashSha256(input);
         }
         else if (algo == HashAlgorithmName.SHA512)
         {
-            using var sha = SHA512.Create();
-            return sha.ComputeHash(input.ToArray());
+            return ComputeHashSha512(input);
         }
         else if (algo == HashAlgorithmName.SHA384)
         {
-            using var sha = SHA384.Create();
-            return sha.ComputeHash(input.ToArray());
+            return ComputeHashSha384(input);
         }
         else
         {
             throw new NotSupportedException($"Hash algorithm {algo.Name} not supported");
         }
+    }
+
+    private static byte[] ComputeHashSha256(ReadOnlySpan<byte> input)
+    {
+#if NETSTANDARD2_0
+        using var sha = SHA256.Create();
+        return sha.ComputeHash(input.ToArray());
+#else
+        return SHA256.HashData(input);
+#endif
+    }
+
+    private static byte[] ComputeHashSha512(ReadOnlySpan<byte> input)
+    {
+#if NETSTANDARD2_0
+        using var sha = SHA512.Create();
+        return sha.ComputeHash(input.ToArray());
+#else
+        return SHA512.HashData(input);
+#endif
+    }
+
+    private static byte[] ComputeHashSha384(ReadOnlySpan<byte> input)
+    {
+#if NETSTANDARD2_0
+        using var sha = SHA384.Create();
+        return sha.ComputeHash(input.ToArray());
+#else
+        return SHA384.HashData(input);
+#endif
     }
 
     /// <summary>

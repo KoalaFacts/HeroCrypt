@@ -100,10 +100,14 @@ public static class Secp256k1Core
     /// <returns>Public key (33 bytes if compressed, 65 bytes if uncompressed)</returns>
     public static byte[] DerivePublicKey(byte[] privateKey, bool compressed = false)
     {
+#if NETSTANDARD2_0
         if (privateKey == null)
         {
             throw new ArgumentNullException(nameof(privateKey));
         }
+#else
+        ArgumentNullException.ThrowIfNull(privateKey);
+#endif
         if (privateKey.Length != 32)
         {
             throw new ArgumentException("Private key must be 32 bytes", nameof(privateKey));
@@ -131,6 +135,7 @@ public static class Secp256k1Core
     /// <returns>64-byte signature (r || s)</returns>
     public static byte[] Sign(byte[] messageHash, byte[] privateKey)
     {
+#if NETSTANDARD2_0
         if (messageHash == null)
         {
             throw new ArgumentNullException(nameof(messageHash));
@@ -139,6 +144,10 @@ public static class Secp256k1Core
         {
             throw new ArgumentNullException(nameof(privateKey));
         }
+#else
+        ArgumentNullException.ThrowIfNull(messageHash);
+        ArgumentNullException.ThrowIfNull(privateKey);
+#endif
         if (messageHash.Length != 32)
         {
             throw new ArgumentException("Message hash must be 32 bytes", nameof(messageHash));
@@ -187,11 +196,20 @@ public static class Secp256k1Core
         Array.Copy(uncompressedKey, buffer, uncompressedKey.Length);
         Array.Copy(SignatureKeySalt, 0, buffer, uncompressedKey.Length, SignatureKeySalt.Length);
 
-        using var sha512 = SHA512.Create();
-        var key = sha512.ComputeHash(buffer);
+        var key = ComputeSha512(buffer);
 
         Array.Clear(buffer, 0, buffer.Length);
         return key;
+    }
+
+    private static byte[] ComputeSha512(ReadOnlySpan<byte> data)
+    {
+#if NETSTANDARD2_0
+        using var sha = SHA512.Create();
+        return sha.ComputeHash(data.ToArray());
+#else
+        return SHA512.HashData(data);
+#endif
     }
 
     private static bool FixedTimeEquals(ReadOnlySpan<byte> left, ReadOnlySpan<byte> right)
@@ -218,6 +236,7 @@ public static class Secp256k1Core
     /// <returns>True if signature is valid</returns>
     public static bool Verify(byte[] messageHash, byte[] signature, byte[] publicKey)
     {
+#if NETSTANDARD2_0
         if (messageHash == null)
         {
             throw new ArgumentNullException(nameof(messageHash));
@@ -230,6 +249,11 @@ public static class Secp256k1Core
         {
             throw new ArgumentNullException(nameof(publicKey));
         }
+#else
+        ArgumentNullException.ThrowIfNull(messageHash);
+        ArgumentNullException.ThrowIfNull(signature);
+        ArgumentNullException.ThrowIfNull(publicKey);
+#endif
         if (messageHash.Length != 32)
         {
             throw new ArgumentException("Message hash must be 32 bytes", nameof(messageHash));
@@ -270,10 +294,14 @@ public static class Secp256k1Core
     /// <returns>33-byte compressed public key</returns>
     public static byte[] CompressPublicKey(byte[] uncompressedKey)
     {
+#if NETSTANDARD2_0
         if (uncompressedKey == null)
         {
             throw new ArgumentNullException(nameof(uncompressedKey));
         }
+#else
+        ArgumentNullException.ThrowIfNull(uncompressedKey);
+#endif
         if (uncompressedKey.Length != 65 || uncompressedKey[0] != 0x04)
         {
             throw new ArgumentException("Invalid uncompressed public key", nameof(uncompressedKey));
@@ -297,10 +325,14 @@ public static class Secp256k1Core
     /// <returns>65-byte uncompressed public key</returns>
     public static byte[] DecompressPublicKey(byte[] compressedKey)
     {
+#if NETSTANDARD2_0
         if (compressedKey == null)
         {
             throw new ArgumentNullException(nameof(compressedKey));
         }
+#else
+        ArgumentNullException.ThrowIfNull(compressedKey);
+#endif
         if (compressedKey.Length != 33)
         {
             return DeterministicDecompress(compressedKey);

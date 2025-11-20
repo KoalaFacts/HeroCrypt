@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using HeroCrypt.Cryptography.Primitives.Signature.Ecc;
 using HeroCrypt.Security;
 
@@ -42,6 +43,7 @@ public class EllipticCurveService : IEllipticCurveService
     /// <inheritdoc/>
     public Task<byte[]> PerformEcdhAsync(byte[] privateKey, byte[] publicKey, CancellationToken cancellationToken = default)
     {
+#if NETSTANDARD2_0
         if (privateKey == null)
         {
             throw new ArgumentNullException(nameof(privateKey));
@@ -50,6 +52,10 @@ public class EllipticCurveService : IEllipticCurveService
         {
             throw new ArgumentNullException(nameof(publicKey));
         }
+#else
+        ArgumentNullException.ThrowIfNull(privateKey);
+        ArgumentNullException.ThrowIfNull(publicKey);
+#endif
 
         InputValidator.ValidateByteArray(privateKey, nameof(privateKey));
         InputValidator.ValidateByteArray(publicKey, nameof(publicKey));
@@ -76,6 +82,7 @@ public class EllipticCurveService : IEllipticCurveService
     /// <inheritdoc/>
     public Task<byte[]> SignAsync(byte[] data, byte[] privateKey, EccCurve curve, CancellationToken cancellationToken = default)
     {
+#if NETSTANDARD2_0
         if (data == null)
         {
             throw new ArgumentNullException(nameof(data));
@@ -84,6 +91,10 @@ public class EllipticCurveService : IEllipticCurveService
         {
             throw new ArgumentNullException(nameof(privateKey));
         }
+#else
+        ArgumentNullException.ThrowIfNull(data);
+        ArgumentNullException.ThrowIfNull(privateKey);
+#endif
 
         InputValidator.ValidateByteArray(data, nameof(data), allowEmpty: true);
         InputValidator.ValidateByteArray(privateKey, nameof(privateKey));
@@ -110,6 +121,7 @@ public class EllipticCurveService : IEllipticCurveService
     /// <inheritdoc/>
     public Task<bool> VerifyAsync(byte[] data, byte[] signature, byte[] publicKey, EccCurve curve, CancellationToken cancellationToken = default)
     {
+#if NETSTANDARD2_0
         if (data == null)
         {
             throw new ArgumentNullException(nameof(data));
@@ -122,6 +134,11 @@ public class EllipticCurveService : IEllipticCurveService
         {
             throw new ArgumentNullException(nameof(publicKey));
         }
+#else
+        ArgumentNullException.ThrowIfNull(data);
+        ArgumentNullException.ThrowIfNull(signature);
+        ArgumentNullException.ThrowIfNull(publicKey);
+#endif
 
         InputValidator.ValidateByteArray(data, nameof(data), allowEmpty: true);
         InputValidator.ValidateByteArray(signature, nameof(signature));
@@ -140,7 +157,7 @@ public class EllipticCurveService : IEllipticCurveService
 
             return Task.FromResult(isValid);
         }
-        catch
+        catch (ArgumentException)
         {
             return Task.FromResult(false);
         }
@@ -149,10 +166,14 @@ public class EllipticCurveService : IEllipticCurveService
     /// <inheritdoc/>
     public Task<byte[]> DerivePublicKeyAsync(byte[] privateKey, EccCurve curve, CancellationToken cancellationToken = default)
     {
+#if NETSTANDARD2_0
         if (privateKey == null)
         {
             throw new ArgumentNullException(nameof(privateKey));
         }
+#else
+        ArgumentNullException.ThrowIfNull(privateKey);
+#endif
 
         InputValidator.ValidateByteArray(privateKey, nameof(privateKey));
 
@@ -179,10 +200,14 @@ public class EllipticCurveService : IEllipticCurveService
     /// <inheritdoc/>
     public bool ValidatePoint(byte[] point, EccCurve curve)
     {
+#if NETSTANDARD2_0
         if (point == null)
         {
             throw new ArgumentNullException(nameof(point));
         }
+#else
+        ArgumentNullException.ThrowIfNull(point);
+#endif
 
         try
         {
@@ -196,7 +221,7 @@ public class EllipticCurveService : IEllipticCurveService
                 _ => throw new NotSupportedException($"Point validation for curve {curve} is not yet implemented")
             };
         }
-        catch
+        catch (ArgumentException)
         {
             return false;
         }
@@ -205,10 +230,14 @@ public class EllipticCurveService : IEllipticCurveService
     /// <inheritdoc/>
     public byte[] CompressPoint(byte[] uncompressedPoint, EccCurve curve)
     {
+#if NETSTANDARD2_0
         if (uncompressedPoint == null)
         {
             throw new ArgumentNullException(nameof(uncompressedPoint));
         }
+#else
+        ArgumentNullException.ThrowIfNull(uncompressedPoint);
+#endif
 
         InputValidator.ValidateByteArray(uncompressedPoint, nameof(uncompressedPoint));
 
@@ -224,10 +253,14 @@ public class EllipticCurveService : IEllipticCurveService
     /// <inheritdoc/>
     public byte[] DecompressPoint(byte[] compressedPoint, EccCurve curve)
     {
+#if NETSTANDARD2_0
         if (compressedPoint == null)
         {
             throw new ArgumentNullException(nameof(compressedPoint));
         }
+#else
+        ArgumentNullException.ThrowIfNull(compressedPoint);
+#endif
 
         InputValidator.ValidateByteArray(compressedPoint, nameof(compressedPoint));
 
@@ -276,9 +309,7 @@ public class EllipticCurveService : IEllipticCurveService
     /// </summary>
     private static byte[] SignWithSecp256k1(byte[] data, byte[] privateKey)
     {
-        using var sha256 = System.Security.Cryptography.SHA256.Create();
-        var hash = sha256.ComputeHash(data);
-
+        var hash = ComputeSha256(data);
         return Secp256k1Core.Sign(hash, privateKey);
     }
 
@@ -287,9 +318,7 @@ public class EllipticCurveService : IEllipticCurveService
     /// </summary>
     private static bool VerifyWithSecp256k1(byte[] data, byte[] signature, byte[] publicKey)
     {
-        using var sha256 = System.Security.Cryptography.SHA256.Create();
-        var hash = sha256.ComputeHash(data);
-
+        var hash = ComputeSha256(data);
         return Secp256k1Core.Verify(hash, signature, publicKey);
     }
 
@@ -319,7 +348,7 @@ public class EllipticCurveService : IEllipticCurveService
             // This is a simplified check
             return true;
         }
-        catch
+        catch (ArgumentException)
         {
             return false;
         }
@@ -342,5 +371,14 @@ public class EllipticCurveService : IEllipticCurveService
         }
 
         return false;
+    }
+
+    private static byte[] ComputeSha256(ReadOnlySpan<byte> data)
+    {
+#if NETSTANDARD2_0
+        return Sha256Extensions.HashData(data);
+#else
+        return SHA256.HashData(data);
+#endif
     }
 }

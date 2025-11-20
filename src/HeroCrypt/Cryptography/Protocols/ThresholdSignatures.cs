@@ -257,7 +257,7 @@ public static class ThresholdSignatures
 
             return new KeyGenerationResult(keyShares, publicKey, true);
         }
-        catch
+        catch (CryptographicException)
         {
             return new KeyGenerationResult(
                 Array.Empty<KeyShare>(),
@@ -281,10 +281,7 @@ public static class ThresholdSignatures
     public static PartialSignature SignPartial(ReadOnlySpan<byte> message, KeyShare keyShare,
         int[] signers, byte[]? nonce = null)
     {
-        if (keyShare == null)
-        {
-            throw new ArgumentNullException(nameof(keyShare));
-        }
+        ArgumentNullException.ThrowIfNull(keyShare);
         if (signers == null || signers.Length < keyShare.Threshold + 1)
         {
             throw new ArgumentException($"Need at least {keyShare.Threshold + 1} signers", nameof(signers));
@@ -321,11 +318,10 @@ public static class ThresholdSignatures
             //   - Final signature is (R, S)
 
             // Compute message hash
-            using var sha256 = SHA256.Create();
-            var messageHash = sha256.ComputeHash(message.ToArray());
+            var messageHash = ComputeSha256(message);
 
             // Generate commitment (nonce · G in real implementation)
-            var commitment = sha256.ComputeHash(nonceValue);
+            var commitment = ComputeSha256(nonceValue);
 
             // Compute Lagrange coefficient for this share
             var lagrange = ComputeLagrangeCoefficient(
@@ -374,18 +370,13 @@ public static class ThresholdSignatures
         {
             throw new ArgumentException("No partial signatures provided", nameof(partialSignatures));
         }
-        if (publicKey == null)
-        {
-            throw new ArgumentNullException(nameof(publicKey));
-        }
+        ArgumentNullException.ThrowIfNull(publicKey);
 
         // In production:
         // 1. Verify each partial signature with zero-knowledge proof
         // 2. Check commitments were opened correctly
         // 3. Combine: S = Σ si (mod q)
         // 4. Final signature is (R, S) where R = Σ Ri
-
-        using var sha256 = SHA256.Create();
 
         // Combine commitments to get R
         var rValue = CombineCommitments(partialSignatures.Select(ps => ps.Commitment).ToArray());
@@ -411,14 +402,8 @@ public static class ThresholdSignatures
     public static bool VerifySignature(ReadOnlySpan<byte> message,
         ThresholdSignature signature, byte[] publicKey)
     {
-        if (signature == null)
-        {
-            throw new ArgumentNullException(nameof(signature));
-        }
-        if (publicKey == null)
-        {
-            throw new ArgumentNullException(nameof(publicKey));
-        }
+        ArgumentNullException.ThrowIfNull(signature);
+        ArgumentNullException.ThrowIfNull(publicKey);
 
         try
         {
@@ -426,14 +411,12 @@ public static class ThresholdSignatures
             // S·G = R + c·PublicKey
             // where c = H(R || PublicKey || message)
 
-            using var sha256 = SHA256.Create();
-
             // Compute challenge
             var challengeData = signature.R
                 .Concat(publicKey)
                 .Concat(message.ToArray())
                 .ToArray();
-            var challenge = sha256.ComputeHash(challengeData);
+            var challenge = ComputeSha256(challengeData);
 
             // Verify equation (simplified - production uses elliptic curve ops)
             bool isValid = VerifySignatureEquation(
@@ -445,7 +428,7 @@ public static class ThresholdSignatures
 
             return isValid;
         }
-        catch
+        catch (CryptographicException)
         {
             return false;
         }
@@ -462,8 +445,7 @@ public static class ThresholdSignatures
         // - EdDSA: Ed25519 or Ed448
         // - BLS: BLS12-381
 
-        using var sha256 = SHA256.Create();
-        return sha256.ComputeHash(secretKey);
+        return ComputeSha256(secretKey);
     }
 
     private static byte[][] GeneratePolynomialCommitments(int count, SignatureScheme scheme)
@@ -501,23 +483,21 @@ public static class ThresholdSignatures
     {
         // In production: si = ki + λi·xi·c (mod curve order)
 
-        using var sha256 = SHA256.Create();
         var combined = privateShare
             .Concat(nonce)
             .Concat(messageHash)
             .Concat(new[] { lagrange })
             .ToArray();
 
-        return sha256.ComputeHash(combined);
+        return ComputeSha256(combined);
     }
 
     private static byte[] CombineCommitments(byte[][] commitments)
     {
         // In production: R = Σ Ri (elliptic curve point addition)
 
-        using var sha256 = SHA256.Create();
         var combined = commitments.SelectMany(c => c).ToArray();
-        return sha256.ComputeHash(combined);
+        return ComputeSha256(combined);
     }
 
     private static byte[] CombinePartialValues(byte[][] values)
@@ -533,6 +513,15 @@ public static class ThresholdSignatures
             }
         }
         return result;
+    }
+
+    private static byte[] ComputeSha256(ReadOnlySpan<byte> data)
+    {
+#if NETSTANDARD2_0
+        return Sha256Extensions.HashData(data);
+#else
+        return SHA256.HashData(data);
+#endif
     }
 
     private static bool VerifySignatureEquation(byte[] r, byte[] s, byte[] publicKey, byte[] challenge)

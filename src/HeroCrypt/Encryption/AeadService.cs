@@ -98,6 +98,11 @@ public class AeadService : IAeadService
         AeadAlgorithm algorithm = AeadAlgorithm.ChaCha20Poly1305,
         CancellationToken cancellationToken = default)
     {
+#if !NETSTANDARD2_0
+        ArgumentNullException.ThrowIfNull(ciphertext);
+        ArgumentNullException.ThrowIfNull(key);
+        ArgumentNullException.ThrowIfNull(nonce);
+#else
         if (ciphertext == null)
         {
             throw new ArgumentNullException(nameof(ciphertext));
@@ -110,6 +115,7 @@ public class AeadService : IAeadService
         {
             throw new ArgumentNullException(nameof(nonce));
         }
+#endif
 
         InputValidator.ValidateByteArray(ciphertext, nameof(ciphertext));
         InputValidator.ValidateByteArray(key, nameof(key));
@@ -211,7 +217,7 @@ public class AeadService : IAeadService
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                var bytesRead = await plaintext.ReadAsync(buffer, 0, chunkSize, cancellationToken);
+                var bytesRead = await plaintext.ReadAsync(buffer.AsMemory(0, chunkSize), cancellationToken);
                 if (bytesRead == 0)
                 {
                     break;
@@ -230,7 +236,7 @@ public class AeadService : IAeadService
                 var encryptedLength = EncryptCore(chunkOutput, chunkInput, key, chunkNonce, chunkAssociatedData, algorithm);
 
                 // Write encrypted chunk
-                await ciphertext.WriteAsync(outputBuffer, 0, encryptedLength, cancellationToken);
+                await ciphertext.WriteAsync(outputBuffer.AsMemory(0, encryptedLength), cancellationToken);
 
                 totalBytesProcessed += bytesRead;
                 chunkCounter++;
@@ -303,7 +309,7 @@ public class AeadService : IAeadService
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                var bytesRead = await ciphertext.ReadAsync(buffer, 0, encryptedChunkSize, cancellationToken);
+                var bytesRead = await ciphertext.ReadAsync(buffer.AsMemory(0, encryptedChunkSize), cancellationToken);
                 if (bytesRead == 0)
                 {
                     break;
@@ -336,7 +342,7 @@ public class AeadService : IAeadService
                 }
 
                 // Write decrypted chunk
-                await plaintext.WriteAsync(outputBuffer, 0, decryptedLength, cancellationToken);
+                await plaintext.WriteAsync(outputBuffer.AsMemory(0, decryptedLength), cancellationToken);
 
                 totalBytesProcessed += decryptedLength;
                 chunkCounter++;

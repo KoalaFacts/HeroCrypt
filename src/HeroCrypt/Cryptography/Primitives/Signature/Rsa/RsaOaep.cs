@@ -196,9 +196,11 @@ internal static class RsaOaep
             return SHA512.Create();
         }
         if (name == HashAlgorithmName.SHA1)
+        {
 #pragma warning disable CA5350 // Do Not Use Weak Cryptographic Algorithms - SHA1 is required for OAEP compatibility
             return SHA1.Create();
 #pragma warning restore CA5350
+        }
 
         throw new ArgumentException($"Unsupported hash algorithm: {name}");
     }

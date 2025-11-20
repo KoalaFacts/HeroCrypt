@@ -179,10 +179,14 @@ public static class Bip32HdWallet
     /// <returns>Derived child key</returns>
     public static ExtendedKey DeriveChild(ExtendedKey parent, uint index)
     {
+#if !NETSTANDARD2_0
+        ArgumentNullException.ThrowIfNull(parent);
+#else
         if (parent == null)
         {
             throw new ArgumentNullException(nameof(parent));
         }
+#endif
 
         var isHardened = index >= HardenedOffset;
 
@@ -488,7 +492,9 @@ public static class Bip32HdWallet
                     comparison = 1;
                 }
                 else if (result[i] < n[i])
+                {
                     comparison = -1;
+                }
             }
             // Reduce if result >= n (comparison >= 0)
             needsReduction = comparison >= 0;
@@ -553,7 +559,7 @@ public static class Bip32HdWallet
             ParsePath(path);
             return true;
         }
-        catch
+        catch (ArgumentException)
         {
             return false;
         }

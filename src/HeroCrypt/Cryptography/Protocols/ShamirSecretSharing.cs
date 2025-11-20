@@ -206,7 +206,10 @@ public static class ShamirSecretSharing
             // Compute Lagrange basis polynomial L_i(0)
             for (var j = 0; j < shares.Length; j++)
             {
-                if (i == j) continue;
+                if (i == j)
+                {
+                    continue;
+                }
 
                 var xj = shares[j].Index;
 
@@ -349,7 +352,7 @@ public static class ShamirSecretSharing
             Array.Clear(reconstructed, 0, reconstructed.Length);
             return result;
         }
-        catch
+        catch (ArgumentException)
         {
             return false;
         }

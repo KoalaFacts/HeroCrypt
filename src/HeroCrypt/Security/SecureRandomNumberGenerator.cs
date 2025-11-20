@@ -54,7 +54,10 @@ public sealed class SecureRandomNumberGenerator : IDisposable
         ThrowIfDisposed();
         InputValidator.ValidateByteArray(buffer, nameof(buffer), allowEmpty: true);
 
-        if (buffer.Length == 0) return;
+        if (buffer.Length == 0)
+        {
+            return;
+        }
 
         if (!_healthCheckPassed)
         {
@@ -91,7 +94,10 @@ public sealed class SecureRandomNumberGenerator : IDisposable
     {
         ThrowIfDisposed();
 
-        if (span.Length == 0) return;
+        if (span.Length == 0)
+        {
+            return;
+        }
 
         if (!_healthCheckPassed)
         {
@@ -166,15 +172,18 @@ public sealed class SecureRandomNumberGenerator : IDisposable
         }
 
         var range = (uint)(maxValue - minValue);
-        if (range == 0) return minValue;
+        if (range == 0)
+        {
+            return minValue;
+        }
 
         // Use rejection sampling to avoid modulo bias
         var mask = uint.MaxValue - (uint.MaxValue % range);
         uint randomValue;
+        Span<byte> buffer = stackalloc byte[4];
 
         do
         {
-            Span<byte> buffer = stackalloc byte[4];
             GetBytes(buffer);
 #if !NETSTANDARD2_0
             randomValue = BitConverter.ToUInt32(buffer);
@@ -182,7 +191,8 @@ public sealed class SecureRandomNumberGenerator : IDisposable
             var array = buffer.ToArray();
             randomValue = BitConverter.ToUInt32(array, 0);
 #endif
-        } while (randomValue >= mask);
+        }
+        while (randomValue >= mask);
 
         return (int)(randomValue % range) + minValue;
     }
@@ -238,7 +248,7 @@ public sealed class SecureRandomNumberGenerator : IDisposable
 #endif
 
         // Thread ID entropy
-        var threadBytes = BitConverter.GetBytes(Thread.CurrentThread.ManagedThreadId);
+        var threadBytes = BitConverter.GetBytes(Environment.CurrentManagedThreadId);
         threadBytes.CopyTo(additionalEntropy, 12);
 
         // High-resolution timer entropy
@@ -290,12 +300,13 @@ public sealed class SecureRandomNumberGenerator : IDisposable
 
     private void PerformHealthCheck(object? state)
     {
-        if (_disposed) return;
+        if (_disposed)
+        {
+            return;
+        }
 
         try
         {
-
-
             // Generate test data
             var testData1 = new byte[1024];
             var testData2 = new byte[1024];
@@ -309,21 +320,18 @@ public sealed class SecureRandomNumberGenerator : IDisposable
             // Check for all-zero output (catastrophic failure)
             if (IsAllSame(testData1, 0) || IsAllSame(testData2, 0))
             {
-
                 passed = false;
             }
 
             // Check for all-same output
             if (IsAllSame(testData1, testData1[0]) || IsAllSame(testData2, testData2[0]))
             {
-
                 passed = false;
             }
 
             // Check for identical outputs between generators
             if (SecureMemoryOperations.ConstantTimeEquals(testData1, testData2))
             {
-
                 passed = false;
             }
 
@@ -333,28 +341,18 @@ public sealed class SecureRandomNumberGenerator : IDisposable
 
             if (uniqueBytes1 < 128 || uniqueBytes2 < 128) // Expect at least 50% unique bytes
             {
-                // Low entropy detected
+                passed = false;
             }
 
             _healthCheckPassed = passed;
             _lastHealthCheck = DateTime.UtcNow;
 
-            if (passed)
-            {
-
-            }
-            else
-            {
-
-            }
-
             // Clear test data
             SecureMemoryOperations.SecureClear(testData1);
             SecureMemoryOperations.SecureClear(testData2);
         }
-        catch
+        catch (CryptographicException)
         {
-
             _healthCheckPassed = false;
         }
     }
@@ -363,7 +361,10 @@ public sealed class SecureRandomNumberGenerator : IDisposable
     {
         foreach (var b in data)
         {
-            if (b != value) return false;
+            if (b != value)
+            {
+                return false;
+            }
         }
         return true;
     }
@@ -387,10 +388,14 @@ public sealed class SecureRandomNumberGenerator : IDisposable
 
     private void ThrowIfDisposed()
     {
+#if !NETSTANDARD2_0
+        ObjectDisposedException.ThrowIf(_disposed, nameof(SecureRandomNumberGenerator));
+#else
         if (_disposed)
         {
             throw new ObjectDisposedException(nameof(SecureRandomNumberGenerator));
         }
+#endif
     }
 
     /// <summary>

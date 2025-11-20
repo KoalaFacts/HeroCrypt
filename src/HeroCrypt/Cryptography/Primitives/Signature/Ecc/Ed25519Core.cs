@@ -76,10 +76,14 @@ public static class Ed25519Core
     /// <exception cref="ArgumentException">Thrown when privateKey is not 32 bytes</exception>
     public static byte[] Sign(byte[] message, byte[] privateKey)
     {
+#if !NETSTANDARD2_0
+        ArgumentNullException.ThrowIfNull(message);
+#else
         if (message == null)
         {
             throw new ArgumentNullException(nameof(message));
         }
+#endif
 
         ValidatePrivateKey(privateKey);
 
@@ -109,6 +113,11 @@ public static class Ed25519Core
     /// <exception cref="ArgumentException">Thrown when signature or publicKey has incorrect length</exception>
     public static bool Verify(byte[] message, byte[] signature, byte[] publicKey)
     {
+#if !NETSTANDARD2_0
+        ArgumentNullException.ThrowIfNull(message);
+        ArgumentNullException.ThrowIfNull(signature);
+        ArgumentNullException.ThrowIfNull(publicKey);
+#else
         if (message == null)
         {
             throw new ArgumentNullException(nameof(message));
@@ -121,6 +130,7 @@ public static class Ed25519Core
         {
             throw new ArgumentNullException(nameof(publicKey));
         }
+#endif
         if (publicKey.Length != PublicKeySize)
         {
             throw new ArgumentException("Public key must be 32 bytes", nameof(publicKey));
@@ -166,10 +176,14 @@ public static class Ed25519Core
 
     private static void ValidatePrivateKey(byte[] privateKey)
     {
+#if !NETSTANDARD2_0
+        ArgumentNullException.ThrowIfNull(privateKey);
+#else
         if (privateKey == null)
         {
             throw new ArgumentNullException(nameof(privateKey));
         }
+#endif
         if (privateKey.Length != PrivateKeySize)
         {
             throw new ArgumentException("Private key must be 32 bytes", nameof(privateKey));

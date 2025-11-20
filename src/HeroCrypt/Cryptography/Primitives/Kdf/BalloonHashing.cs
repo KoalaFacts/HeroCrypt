@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Security.Cryptography;
 using HeroCrypt.Security;
 
@@ -188,18 +189,26 @@ public static class BalloonHashing
     private static void Expand(byte[][] buffer, ReadOnlySpan<byte> password, ReadOnlySpan<byte> salt, HashAlgorithmName algo)
     {
         var spaceCost = buffer.Length;
+        var inputLength = 8 + password.Length + salt.Length;
+        var inputBuffer = ArrayPool<byte>.Shared.Rent(inputLength);
 
         // buffer[0] = hash(counter || password || salt)
-        for (var i = 0; i < spaceCost; i++)
+        try
         {
-            Span<byte> input = stackalloc byte[8 + password.Length + salt.Length];
+            var input = inputBuffer.AsSpan(0, inputLength);
+            for (var i = 0; i < spaceCost; i++)
+            {
+                // Encode counter as 64-bit little-endian
+                BitConverter.TryWriteBytes(input, (long)i);
+                password.CopyTo(input.Slice(8));
+                salt.CopyTo(input.Slice(8 + password.Length));
 
-            // Encode counter as 64-bit little-endian
-            BitConverter.TryWriteBytes(input, (long)i);
-            password.CopyTo(input.Slice(8));
-            salt.CopyTo(input.Slice(8 + password.Length));
-
-            buffer[i] = ComputeHash(input, algo);
+                buffer[i] = ComputeHash(input, algo);
+            }
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(inputBuffer, clearArray: true);
         }
     }
 
@@ -209,36 +218,44 @@ public static class BalloonHashing
     private static void Mix(byte[][] buffer, int round, HashAlgorithmName algo)
     {
         var spaceCost = buffer.Length;
+        var blockLength = buffer[0].Length;
+        var inputLength = 8 + blockLength + blockLength;
+        var inputBuffer = ArrayPool<byte>.Shared.Rent(inputLength);
 
-        for (var m = 0; m < spaceCost; m++)
+        try
         {
-            // Compute prev = (m - 1) mod space_cost
-            var prev = (m == 0) ? spaceCost - 1 : m - 1;
+            var input = inputBuffer.AsSpan(0, inputLength);
 
-            // buffer[m] = hash(round || buffer[prev] || buffer[m])
-            Span<byte> input = stackalloc byte[8 + buffer[prev].Length + buffer[m].Length];
+            for (var m = 0; m < spaceCost; m++)
+            {
+                // Compute prev = (m - 1) mod space_cost
+                var prev = (m == 0) ? spaceCost - 1 : m - 1;
 
-            BitConverter.TryWriteBytes(input, (long)round);
-            buffer[prev].CopyTo(input.Slice(8));
-            buffer[m].CopyTo(input.Slice(8 + buffer[prev].Length));
+                // buffer[m] = hash(round || buffer[prev] || buffer[m])
+                BitConverter.TryWriteBytes(input, (long)round);
+                buffer[prev].CopyTo(input.Slice(8));
+                buffer[m].CopyTo(input.Slice(8 + buffer[prev].Length));
 
-            var newValue = ComputeHash(input, algo);
-            Array.Clear(buffer[m], 0, buffer[m].Length);
-            buffer[m] = newValue;
+                var newValue = ComputeHash(input, algo);
+                Array.Clear(buffer[m], 0, buffer[m].Length);
+                buffer[m] = newValue;
 
-            // Compute other = to_int(buffer[m]) mod space_cost
-            var other = Math.Abs(BitConverter.ToInt32(buffer[m], 0)) % spaceCost;
+                // Compute other = to_int(buffer[m]) mod space_cost
+                var other = Math.Abs(BitConverter.ToInt32(buffer[m], 0)) % spaceCost;
 
-            // buffer[m] = hash(round || buffer[m] || buffer[other])
-            input = stackalloc byte[8 + buffer[m].Length + buffer[other].Length];
+                // buffer[m] = hash(round || buffer[m] || buffer[other])
+                BitConverter.TryWriteBytes(input, (long)round);
+                buffer[m].CopyTo(input.Slice(8));
+                buffer[other].CopyTo(input.Slice(8 + buffer[m].Length));
 
-            BitConverter.TryWriteBytes(input, (long)round);
-            buffer[m].CopyTo(input.Slice(8));
-            buffer[other].CopyTo(input.Slice(8 + buffer[m].Length));
-
-            newValue = ComputeHash(input, algo);
-            Array.Clear(buffer[m], 0, buffer[m].Length);
-            buffer[m] = newValue;
+                newValue = ComputeHash(input, algo);
+                Array.Clear(buffer[m], 0, buffer[m].Length);
+                buffer[m] = newValue;
+            }
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(inputBuffer, clearArray: true);
         }
     }
 
@@ -340,9 +357,18 @@ public static class BalloonHashing
     /// </summary>
     private static int GetHashLength(HashAlgorithmName algo)
     {
-        if (algo == HashAlgorithmName.SHA256) return 32;
-        if (algo == HashAlgorithmName.SHA384) return 48;
-        if (algo == HashAlgorithmName.SHA512) return 64;
+        if (algo == HashAlgorithmName.SHA256)
+        {
+            return 32;
+        }
+        if (algo == HashAlgorithmName.SHA384)
+        {
+            return 48;
+        }
+        if (algo == HashAlgorithmName.SHA512)
+        {
+            return 64;
+        }
         throw new NotSupportedException($"Hash algorithm {algo.Name} not supported");
     }
 

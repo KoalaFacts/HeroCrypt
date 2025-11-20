@@ -180,6 +180,12 @@ public class AeadService : IAeadService
         int chunkSize = 64 * 1024,
         CancellationToken cancellationToken = default)
     {
+#if !NETSTANDARD2_0
+        ArgumentNullException.ThrowIfNull(plaintext);
+        ArgumentNullException.ThrowIfNull(ciphertext);
+        ArgumentNullException.ThrowIfNull(key);
+        ArgumentNullException.ThrowIfNull(nonce);
+#else
         if (plaintext == null)
         {
             throw new ArgumentNullException(nameof(plaintext));
@@ -196,6 +202,7 @@ public class AeadService : IAeadService
         {
             throw new ArgumentNullException(nameof(nonce));
         }
+#endif
 
         ValidateKeyAndNonceSize(key, nonce, algorithm);
 
@@ -480,6 +487,7 @@ public class AeadService : IAeadService
     /// </summary>
     private static byte[] CreateChunkNonce(ReadOnlySpan<byte> baseNonce, int chunkCounter, AeadAlgorithm algorithm)
     {
+        _ = algorithm; // algorithm is kept for future expansion (nonce sizing)
         var nonce = new byte[baseNonce.Length];
         baseNonce.CopyTo(nonce);
 

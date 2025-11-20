@@ -86,10 +86,14 @@ public class MLDsaBuilder : IDisposable
     /// <exception cref="ArgumentNullException">If publicKeyPem is null</exception>
     public MLDsaBuilder WithPublicKey(string publicKeyPem)
     {
+#if !NETSTANDARD2_0
+        ArgumentNullException.ThrowIfNull(publicKeyPem);
+#else
         if (publicKeyPem == null)
         {
             throw new ArgumentNullException(nameof(publicKeyPem));
         }
+#endif
 
         _publicKeyPem = publicKeyPem;
         return this;
@@ -103,10 +107,14 @@ public class MLDsaBuilder : IDisposable
     /// <exception cref="ArgumentNullException">If keyPair is null</exception>
     public MLDsaBuilder WithKeyPair(MLDsaWrapper.MLDsaKeyPair keyPair)
     {
+#if !NETSTANDARD2_0
+        ArgumentNullException.ThrowIfNull(keyPair);
+#else
         if (keyPair == null)
         {
             throw new ArgumentNullException(nameof(keyPair));
         }
+#endif
 
         _keyPair = keyPair;
         return this;
@@ -120,10 +128,14 @@ public class MLDsaBuilder : IDisposable
     /// <exception cref="ArgumentNullException">If data is null</exception>
     public MLDsaBuilder WithData(byte[] data)
     {
+#if !NETSTANDARD2_0
+        ArgumentNullException.ThrowIfNull(data);
+#else
         if (data == null)
         {
             throw new ArgumentNullException(nameof(data));
         }
+#endif
 
         _data = data;
         return this;
@@ -137,10 +149,14 @@ public class MLDsaBuilder : IDisposable
     /// <exception cref="ArgumentNullException">If data is null</exception>
     public MLDsaBuilder WithData(string data)
     {
+#if !NETSTANDARD2_0
+        ArgumentNullException.ThrowIfNull(data);
+#else
         if (data == null)
         {
             throw new ArgumentNullException(nameof(data));
         }
+#endif
 
         _data = System.Text.Encoding.UTF8.GetBytes(data);
         return this;
@@ -227,10 +243,7 @@ public class MLDsaBuilder : IDisposable
     /// <exception cref="InvalidOperationException">If public key or data is not configured</exception>
     public bool Verify(byte[] signature)
     {
-        if (signature == null)
-        {
-            throw new ArgumentNullException(nameof(signature));
-        }
+        ArgumentNullException.ThrowIfNull(signature);
 
         if (_publicKeyPem == null)
         {
@@ -277,6 +290,7 @@ public class MLDsaBuilder : IDisposable
 
             // Note: We don't dispose _keyPair as it was provided externally
             _disposed = true;
+            GC.SuppressFinalize(this);
         }
     }
 }

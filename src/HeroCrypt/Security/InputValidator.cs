@@ -163,7 +163,9 @@ public static class InputValidator
         }
 
         if (keyLength > 255 * 32) // RFC 5869 limit for SHA-256
+        {
             throw new ArgumentException($"Key length {keyLength} exceeds HKDF maximum for SHA-256", nameof(keyLength));
+        }
     }
 
     /// <summary>
@@ -225,7 +227,9 @@ public static class InputValidator
 
         // Additional security checks
         if (n > 1048576) // 2^20, reasonable upper limit
+        {
             throw new ArgumentException($"N parameter {n} is too large for practical use", nameof(n));
+        }
 
         if (r > 64)
         {
@@ -251,7 +255,9 @@ public static class InputValidator
         }
 
         if (keyLength > 256) // 2048-bit keys
+        {
             throw new ArgumentException($"Key length {keyLength} is unreasonably large", nameof(keyLength));
+        }
 
         // Algorithm-specific validation
         switch (algorithm?.ToUpperInvariant())

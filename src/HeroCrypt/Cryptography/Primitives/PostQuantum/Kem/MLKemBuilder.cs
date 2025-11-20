@@ -83,10 +83,14 @@ public class MLKemBuilder : IDisposable
     /// <exception cref="ArgumentNullException">If publicKeyPem is null</exception>
     public MLKemBuilder WithPublicKey(string publicKeyPem)
     {
+#if !NETSTANDARD2_0
+        ArgumentNullException.ThrowIfNull(publicKeyPem);
+#else
         if (publicKeyPem == null)
         {
             throw new ArgumentNullException(nameof(publicKeyPem));
         }
+#endif
 
         _publicKeyPem = publicKeyPem;
         return this;
@@ -100,10 +104,14 @@ public class MLKemBuilder : IDisposable
     /// <exception cref="ArgumentNullException">If keyPair is null</exception>
     public MLKemBuilder WithKeyPair(MLKemWrapper.MLKemKeyPair keyPair)
     {
+#if !NETSTANDARD2_0
+        ArgumentNullException.ThrowIfNull(keyPair);
+#else
         if (keyPair == null)
         {
             throw new ArgumentNullException(nameof(keyPair));
         }
+#endif
 
         _keyPair = keyPair;
         return this;
@@ -145,10 +153,14 @@ public class MLKemBuilder : IDisposable
     /// <exception cref="CryptographicException">If decapsulation fails</exception>
     public byte[] Decapsulate(byte[] ciphertext)
     {
+#if !NETSTANDARD2_0
+        ArgumentNullException.ThrowIfNull(ciphertext);
+#else
         if (ciphertext == null)
         {
             throw new ArgumentNullException(nameof(ciphertext));
         }
+#endif
 
         if (_keyPair == null)
         {
@@ -178,6 +190,7 @@ public class MLKemBuilder : IDisposable
             // Note: We don't dispose _keyPair as it was provided externally
             // The caller is responsible for disposing it
             _disposed = true;
+            GC.SuppressFinalize(this);
         }
     }
 }

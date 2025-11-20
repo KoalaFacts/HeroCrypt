@@ -106,10 +106,7 @@ public static class SlhDsaWrapper
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
 
-            if (data == null)
-            {
-                throw new ArgumentNullException(nameof(data));
-            }
+            ArgumentNullException.ThrowIfNull(data);
 
             if (_key == null)
             {
@@ -216,14 +213,18 @@ public static class SlhDsaWrapper
     {
         ValidatePemFormat(publicKeyPem, nameof(publicKeyPem));
 
-        if (data == null)
-        {
-            throw new ArgumentNullException(nameof(data));
-        }
-        if (signature == null)
-        {
-            throw new ArgumentNullException(nameof(signature));
-        }
+#if !NETSTANDARD2_0
+        ArgumentNullException.ThrowIfNull(data);
+        ArgumentNullException.ThrowIfNull(signature);
+#else
+#if !NETSTANDARD2_0
+        ArgumentNullException.ThrowIfNull(data);
+        ArgumentNullException.ThrowIfNull(signature);
+#else
+        ArgumentNullException.ThrowIfNull(data);
+        ArgumentNullException.ThrowIfNull(signature);
+#endif
+#endif
 
         if (!IsSupported())
         {
@@ -288,10 +289,7 @@ public static class SlhDsaWrapper
     [Experimental("SYSLIB5006")]
     public static System.Security.Cryptography.SlhDsa ImportPublicKey(string publicKeyPem)
     {
-        if (publicKeyPem == null)
-        {
-            throw new ArgumentNullException(nameof(publicKeyPem));
-        }
+        ArgumentNullException.ThrowIfNull(publicKeyPem);
 
         if (!IsSupported())
         {
@@ -367,9 +365,11 @@ public static class SlhDsaWrapper
         }
 
         if (!pem.Contains("-----BEGIN") || !pem.Contains("-----END"))
+        {
             throw new ArgumentException(
                 "Invalid PEM format. Expected PEM-encoded key with BEGIN/END markers",
                 paramName);
+        }
     }
 }
 #endif

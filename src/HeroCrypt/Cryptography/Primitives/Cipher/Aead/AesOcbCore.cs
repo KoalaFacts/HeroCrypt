@@ -418,6 +418,7 @@ internal static class AesOcbCore
             var fullBlocks = associatedData.Length / BlockSize;
             Span<byte> tempBlock = stackalloc byte[BlockSize];
             Span<byte> l_i = stackalloc byte[BlockSize];
+            Span<byte> encrypted = stackalloc byte[BlockSize];
 
             for (var i = 0; i < fullBlocks; i++)
             {
@@ -429,13 +430,11 @@ internal static class AesOcbCore
 
                 // Sum = Sum xor ENCIPHER(K, A_i xor Offset)
                 XorBlock(tempBlock, adBlock, offset);
-                Span<byte> encrypted = stackalloc byte[BlockSize];
                 EncryptBlock(encryptor, encrypted, tempBlock, inputBuffer, outputBuffer);
                 XorBlock(sum, sum, encrypted);
-
-                SecureMemoryOperations.SecureClear(encrypted);
             }
             SecureMemoryOperations.SecureClear(l_i);
+            SecureMemoryOperations.SecureClear(encrypted);
 
             // Process final partial block if any
             var remaining = associatedData.Length - (fullBlocks * BlockSize);
@@ -452,10 +451,8 @@ internal static class AesOcbCore
                 tempBlock[remaining] = 0x80; // Padding
                 XorBlock(tempBlock, tempBlock, offset);
 
-                Span<byte> encrypted = stackalloc byte[BlockSize];
                 EncryptBlock(encryptor, encrypted, tempBlock, inputBuffer, outputBuffer);
                 XorBlock(sum, sum, encrypted);
-
                 SecureMemoryOperations.SecureClear(encrypted);
             }
 
@@ -553,6 +550,8 @@ internal static class AesOcbCore
     /// </summary>
     public static void ValidateParameters(ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce, int ciphertextLength, int plaintextLength)
     {
+        _ = ciphertextLength;
+
         if (!SupportedKeySizes.Contains(key.Length))
         {
             throw new ArgumentException($"Key must be 16, 24, or 32 bytes, got {key.Length}", nameof(key));

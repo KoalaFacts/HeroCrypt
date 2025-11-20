@@ -349,7 +349,9 @@ public static class ThresholdSignatures
         finally
         {
             if (nonce == null) // Only zero if we generated it
+            {
                 SecureMemoryOperations.SecureClear(nonceValue);
+            }
         }
     }
 
@@ -366,6 +368,9 @@ public static class ThresholdSignatures
     public static ThresholdSignature CombineSignatures(ReadOnlySpan<byte> message,
         PartialSignature[] partialSignatures, byte[] publicKey, SignatureScheme scheme)
     {
+        _ = message;
+        _ = scheme;
+
         if (partialSignatures == null || partialSignatures.Length == 0)
         {
             throw new ArgumentException("No partial signatures provided", nameof(partialSignatures));
@@ -438,6 +443,8 @@ public static class ThresholdSignatures
 
     private static byte[] DerivePublicKey(byte[] secretKey, SignatureScheme scheme)
     {
+        _ = scheme;
+
         // In production: publicKey = secretKey · G (generator point)
         // Different curves for different schemes:
         // - Schnorr: secp256k1 or Ed25519
@@ -450,6 +457,8 @@ public static class ThresholdSignatures
 
     private static byte[][] GeneratePolynomialCommitments(int count, SignatureScheme scheme)
     {
+        _ = scheme;
+
         // In production: Commitments to polynomial coefficients
         // For Feldman VSS: Ci = ai · G for each coefficient ai
 
@@ -463,6 +472,8 @@ public static class ThresholdSignatures
 
     private static byte ComputeLagrangeCoefficient(byte shareIndex, byte[] signerIndices, int threshold)
     {
+        _ = threshold;
+
         // In production: Lagrange interpolation coefficient in field
         // λi = Π(j/(j-i)) for j ∈ signers, j ≠ i
 

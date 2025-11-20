@@ -265,10 +265,14 @@ internal static class ChaCha20Poly1305Core
     /// </summary>
     public static int GetCiphertextLength(int plaintextLength)
     {
+#if NETSTANDARD2_0
         if (plaintextLength < 0)
         {
             throw new ArgumentOutOfRangeException(nameof(plaintextLength));
         }
+#else
+        ArgumentOutOfRangeException.ThrowIfNegative(plaintextLength);
+#endif
 
         return plaintextLength + TagSize;
     }
@@ -279,7 +283,9 @@ internal static class ChaCha20Poly1305Core
     public static int GetPlaintextLength(int ciphertextLength)
     {
         if (ciphertextLength < TagSize)
+        {
             return -1; // Invalid ciphertext
+        }
 
         return ciphertextLength - TagSize;
     }

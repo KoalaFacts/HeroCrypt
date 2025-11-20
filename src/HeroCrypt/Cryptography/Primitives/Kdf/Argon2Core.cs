@@ -43,14 +43,32 @@ public static class Argon2Core
         byte[]? secret = null)
     {
         // Validate inputs
-        if (iterations < 1) throw new ArgumentException("Iterations must be positive", nameof(iterations));
-        if (memorySize < 1) throw new ArgumentException("Memory size must be positive", nameof(memorySize));
-        if (parallelism < 1) throw new ArgumentException("Parallelism must be positive", nameof(parallelism));
-        if (hashLength < 1) throw new ArgumentException("Hash length must be positive", nameof(hashLength));
-        if (parallelism > memorySize) throw new ArgumentException("Parallelism cannot exceed memory size", nameof(parallelism));
+        if (iterations < 1)
+        {
+            throw new ArgumentException("Iterations must be positive", nameof(iterations));
+        }
+        if (memorySize < 1)
+        {
+            throw new ArgumentException("Memory size must be positive", nameof(memorySize));
+        }
+        if (parallelism < 1)
+        {
+            throw new ArgumentException("Parallelism must be positive", nameof(parallelism));
+        }
+        if (hashLength < 1)
+        {
+            throw new ArgumentException("Hash length must be positive", nameof(hashLength));
+        }
+        if (parallelism > memorySize)
+        {
+            throw new ArgumentException("Parallelism cannot exceed memory size", nameof(parallelism));
+        }
 
         // RFC 9106: The memory size m MUST be at least 8*p KB
-        if (memorySize < 8 * parallelism) throw new ArgumentException($"Memory size must be at least {8 * parallelism} KB for {parallelism} parallelism", nameof(memorySize));
+        if (memorySize < 8 * parallelism)
+        {
+            throw new ArgumentException($"Memory size must be at least {8 * parallelism} KB for {parallelism} parallelism", nameof(memorySize));
+        }
 
         // Password and salt can be empty for Argon2, but not null
         password = password ?? Array.Empty<byte>();
@@ -357,6 +375,8 @@ public static class Argon2Core
     /// </summary>
     private static int IndexAlpha(Argon2Context context, int pass, int lane, int slice, int index, uint pseudoRandom, bool sameLane)
     {
+        _ = lane;
+
         var blocksPerLane = context.Memory / context.Lanes;
         var segmentLength = blocksPerLane / 4;
 

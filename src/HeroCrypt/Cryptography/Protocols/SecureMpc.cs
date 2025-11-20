@@ -134,6 +134,8 @@ public static class SecureMpc
     public static ComputationResult SecureSum(byte[][] partyInputs, int threshold,
         SecurityModel model = SecurityModel.SemiHonest)
     {
+        _ = model;
+
         if (partyInputs == null || partyInputs.Length < 2)
         {
             throw new ArgumentException("At least 2 parties required", nameof(partyInputs));
@@ -216,6 +218,8 @@ public static class SecureMpc
     public static Share[] SecureMultiply(Share[] xShares, Share[] yShares,
         BeaverTriple[] beaverTriple, int threshold)
     {
+        _ = threshold;
+
         if (xShares == null || yShares == null || beaverTriple == null)
         {
             throw new ArgumentNullException(nameof(xShares));
@@ -374,6 +378,8 @@ public static class SecureMpc
     public static byte[][] PrivateSetIntersection(byte[][] party1Set, byte[][] party2Set,
         SecurityModel model = SecurityModel.SemiHonest)
     {
+        _ = model;
+
         if (party1Set == null || party2Set == null)
         {
             throw new ArgumentNullException(party1Set == null ? nameof(party1Set) : nameof(party2Set));
@@ -452,7 +458,9 @@ public static class SecureMpc
             a <<= 1;
 
             if (hi_bit_set != 0)
+            {
                 a ^= 0x1B; // Rijndael's irreducible polynomial
+            }
 
             b >>= 1;
         }

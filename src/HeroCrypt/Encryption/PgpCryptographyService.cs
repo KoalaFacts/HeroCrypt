@@ -427,7 +427,9 @@ public sealed class PgpCryptographyService : ICryptographyService, IPgpKeyGenera
                 modulus = line.Substring("Modulus:".Length).Trim();
             }
             else if (line.StartsWith("Exponent:", StringComparison.Ordinal))
+            {
                 exponent = line.Substring("Exponent:".Length).Trim();
+            }
         }
 
         if (modulus == null || exponent == null)
@@ -463,15 +465,25 @@ public sealed class PgpCryptographyService : ICryptographyService, IPgpKeyGenera
                 encryptedPayload = line.Substring("Data:".Length).Trim();
             }
             else if (line.StartsWith("Modulus:", StringComparison.Ordinal))
+            {
                 modulus = line.Substring("Modulus:".Length).Trim();
+            }
             else if (line.StartsWith("D:", StringComparison.Ordinal))
+            {
                 d = line.Substring("D:".Length).Trim();
+            }
             else if (line.StartsWith("P:", StringComparison.Ordinal))
+            {
                 p = line.Substring("P:".Length).Trim();
+            }
             else if (line.StartsWith("Q:", StringComparison.Ordinal))
+            {
                 q = line.Substring("Q:".Length).Trim();
+            }
             else if (line.StartsWith("E:", StringComparison.Ordinal))
+            {
                 e = line.Substring("E:".Length).Trim();
+            }
         }
 
         if (encrypted)

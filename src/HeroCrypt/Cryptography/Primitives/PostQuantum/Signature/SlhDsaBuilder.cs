@@ -122,10 +122,14 @@ public class SlhDsaBuilder : IDisposable
     /// <exception cref="ArgumentNullException">If keyPair is null</exception>
     public SlhDsaBuilder WithKeyPair(SlhDsaWrapper.SlhDsaKeyPair keyPair)
     {
+#if !NETSTANDARD2_0
+        ArgumentNullException.ThrowIfNull(keyPair);
+#else
         if (keyPair == null)
         {
             throw new ArgumentNullException(nameof(keyPair));
         }
+#endif
 
         _keyPair = keyPair;
         return this;
@@ -139,10 +143,14 @@ public class SlhDsaBuilder : IDisposable
     /// <exception cref="ArgumentNullException">If data is null</exception>
     public SlhDsaBuilder WithData(byte[] data)
     {
+#if !NETSTANDARD2_0
+        ArgumentNullException.ThrowIfNull(data);
+#else
         if (data == null)
         {
             throw new ArgumentNullException(nameof(data));
         }
+#endif
 
         _data = data;
         return this;
@@ -156,10 +164,14 @@ public class SlhDsaBuilder : IDisposable
     /// <exception cref="ArgumentNullException">If data is null</exception>
     public SlhDsaBuilder WithData(string data)
     {
+#if !NETSTANDARD2_0
+        ArgumentNullException.ThrowIfNull(data);
+#else
         if (data == null)
         {
             throw new ArgumentNullException(nameof(data));
         }
+#endif
 
         _data = System.Text.Encoding.UTF8.GetBytes(data);
         return this;
@@ -295,6 +307,7 @@ public class SlhDsaBuilder : IDisposable
 
             // Note: We don't dispose _keyPair as it was provided externally
             _disposed = true;
+            GC.SuppressFinalize(this);
         }
     }
 }

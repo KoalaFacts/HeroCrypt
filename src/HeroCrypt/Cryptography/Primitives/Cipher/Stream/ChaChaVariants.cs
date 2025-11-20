@@ -315,7 +315,7 @@ public static class ChaChaVariants
         {
             throw new ArgumentException($"Nonce must be {NonceSize} bytes", nameof(nonce));
         }
-        if (!Enum.IsDefined(typeof(ChaChaVariant), variant))
+        if (!Enum.IsDefined(variant))
         {
             throw new ArgumentException("Invalid ChaCha variant", nameof(variant));
         }

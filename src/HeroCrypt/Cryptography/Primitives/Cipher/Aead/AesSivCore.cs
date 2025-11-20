@@ -348,6 +348,8 @@ internal static class AesSivCore
     /// </summary>
     private static void ValidateParameters(ReadOnlySpan<byte> key, int ciphertextLength, int plaintextLength)
     {
+        _ = ciphertextLength;
+
         if (!SupportedKeySizes.Contains(key.Length))
         {
             throw new ArgumentException($"Key must be 32, 48, or 64 bytes (AES-SIV-128/192/256)", nameof(key));
@@ -364,6 +366,8 @@ internal static class AesSivCore
     /// </summary>
     public static void ValidateParameters(ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce)
     {
+        _ = nonce;
+
         if (!SupportedKeySizes.Contains(key.Length))
         {
             throw new ArgumentException($"Key must be 32, 48, or 64 bytes (AES-SIV-128/192/256)", nameof(key));

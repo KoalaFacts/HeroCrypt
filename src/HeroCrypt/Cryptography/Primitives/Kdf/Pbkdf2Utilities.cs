@@ -73,10 +73,14 @@ public static class Pbkdf2Utilities
         {
             throw new ArgumentException("Password cannot be null or empty", nameof(password));
         }
+#if !NETSTANDARD2_0
+        ArgumentNullException.ThrowIfNull(hashResult);
+#else
         if (hashResult == null)
         {
             throw new ArgumentNullException(nameof(hashResult));
         }
+#endif
 
         var computedHash = Pbkdf2Core.DeriveKeyFromString(password, hashResult.Salt,
             hashResult.Iterations, hashResult.OutputLength, hashResult.HashAlgorithm);
@@ -176,6 +180,8 @@ public static class Pbkdf2Utilities
     public static int CalibrateIterations(int targetMilliseconds, HashAlgorithmName hashAlgorithm = default,
         string samplePassword = "test")
     {
+        _ = samplePassword; // retained for API compatibility
+
         var algorithm = hashAlgorithm == default ? HashAlgorithmName.SHA256 : hashAlgorithm;
         return Pbkdf2Core.CalculateIterations(targetMilliseconds, algorithm);
     }

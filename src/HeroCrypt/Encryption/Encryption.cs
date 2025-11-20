@@ -386,6 +386,8 @@ internal static class Encryption
 #pragma warning disable SYSLIB5006 // Experimental feature warnings
     private static EncryptionResult EncryptMLKemHybrid(byte[] plaintext, byte[] publicKeyPem, int securityBits, byte[] associatedData)
     {
+        _ = securityBits;
+
         var pem = System.Text.Encoding.UTF8.GetString(publicKeyPem);
 
         // Encapsulate shared secret using ML-KEM
@@ -410,6 +412,8 @@ internal static class Encryption
 
     private static byte[] DecryptMLKemHybrid(byte[] ciphertext, byte[] privateKeyPem, byte[] nonce, byte[] keyCiphertext, int securityBits, byte[] associatedData)
     {
+        _ = securityBits;
+
         if (keyCiphertext == null)
         {
             throw new ArgumentNullException(nameof(keyCiphertext), "ML-KEM decryption requires keyCiphertext");

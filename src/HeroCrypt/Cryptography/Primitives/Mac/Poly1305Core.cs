@@ -266,11 +266,17 @@ internal static class Poly1305Core
         // Schoolbook multiplication
         for (var i = 0; i < 3; i++)
         {
-            if (a[i] == 0) continue;
+            if (a[i] == 0)
+            {
+                continue;
+            }
 
             for (var j = 0; j < 3; j++)
             {
-                if (b[j] == 0) continue;
+                if (b[j] == 0)
+                {
+                    continue;
+                }
 
                 // Manual 64x64 -> 128 bit multiplication for .NET Standard 2.0 compatibility
                 var al = a[i] & 0xFFFFFFFF;

@@ -99,7 +99,10 @@ internal sealed class BigInteger : IComparable<BigInteger>
     /// <returns>A byte array representing the value in big-endian format.</returns>
     public byte[] ToByteArray()
     {
-        if (IsZero) return [0];
+        if (IsZero)
+        {
+            return [0];
+        }
 
         var bytes = new List<byte>();
         var data = (uint[])_data.Clone();
@@ -114,7 +117,9 @@ internal sealed class BigInteger : IComparable<BigInteger>
         }
 
         while (bytes.Count > 1 && bytes[bytes.Count - 1] == 0)
+        {
             bytes.RemoveAt(bytes.Count - 1);
+        }
 
         bytes.Reverse();
         return bytes.ToArray();
@@ -128,8 +133,14 @@ internal sealed class BigInteger : IComparable<BigInteger>
     /// <returns>The sum of the two values.</returns>
     public static BigInteger operator +(BigInteger left, BigInteger right)
     {
-        if (left.IsZero) return right;
-        if (right.IsZero) return left;
+        if (left.IsZero)
+        {
+            return right;
+        }
+        if (right.IsZero)
+        {
+            return left;
+        }
 
         if (left._sign == right._sign)
         {
@@ -137,7 +148,10 @@ internal sealed class BigInteger : IComparable<BigInteger>
         }
 
         var cmp = CompareAbs(left._data, right._data);
-        if (cmp == 0) return Zero;
+        if (cmp == 0)
+        {
+            return Zero;
+        }
         if (cmp > 0)
         {
             return new BigInteger(Subtract(left._data, right._data), left._sign);
@@ -165,7 +179,10 @@ internal sealed class BigInteger : IComparable<BigInteger>
     /// <returns>The product of the two values.</returns>
     public static BigInteger operator *(BigInteger left, BigInteger right)
     {
-        if (left.IsZero || right.IsZero) return Zero;
+        if (left.IsZero || right.IsZero)
+        {
+            return Zero;
+        }
 
         var result = Multiply(left._data, right._data);
         return new BigInteger(result, left._sign * right._sign);
@@ -180,8 +197,14 @@ internal sealed class BigInteger : IComparable<BigInteger>
     /// <exception cref="DivideByZeroException">Thrown when divisor is zero.</exception>
     public static BigInteger operator /(BigInteger dividend, BigInteger divisor)
     {
-        if (divisor.IsZero) throw new DivideByZeroException();
-        if (dividend.IsZero) return Zero;
+        if (divisor.IsZero)
+        {
+            throw new DivideByZeroException();
+        }
+        if (dividend.IsZero)
+        {
+            return Zero;
+        }
 
         var (quotient, _) = DivideWithRemainder(dividend._data, divisor._data);
         return new BigInteger(quotient, dividend._sign * divisor._sign);
@@ -196,8 +219,14 @@ internal sealed class BigInteger : IComparable<BigInteger>
     /// <exception cref="DivideByZeroException">Thrown when divisor is zero.</exception>
     public static BigInteger operator %(BigInteger dividend, BigInteger divisor)
     {
-        if (divisor.IsZero) throw new DivideByZeroException();
-        if (dividend.IsZero) return Zero;
+        if (divisor.IsZero)
+        {
+            throw new DivideByZeroException();
+        }
+        if (dividend.IsZero)
+        {
+            return Zero;
+        }
 
         var (_, remainder) = DivideWithRemainder(dividend._data, divisor._data);
         return new BigInteger(remainder, dividend._sign);
@@ -211,8 +240,14 @@ internal sealed class BigInteger : IComparable<BigInteger>
     /// <returns>true if the values are equal; otherwise, false.</returns>
     public static bool operator ==(BigInteger left, BigInteger right)
     {
-        if (ReferenceEquals(left, right)) return true;
-        if (left is null || right is null) return false;
+        if (ReferenceEquals(left, right))
+        {
+            return true;
+        }
+        if (left is null || right is null)
+        {
+            return false;
+        }
 
         return left._sign == right._sign && CompareAbs(left._data, right._data) == 0;
     }
@@ -264,9 +299,18 @@ internal sealed class BigInteger : IComparable<BigInteger>
     /// <returns>A value less than 0 if this instance is less than other; 0 if equal; greater than 0 if greater.</returns>
     public int CompareTo(BigInteger? other)
     {
-        if (other is null) return 1;
-        if (_sign != other._sign) return _sign.CompareTo(other._sign);
-        if (_sign == 0) return 0;
+        if (other is null)
+        {
+            return 1;
+        }
+        if (_sign != other._sign)
+        {
+            return _sign.CompareTo(other._sign);
+        }
+        if (_sign == 0)
+        {
+            return 0;
+        }
 
         var cmp = CompareAbs(_data, other._data);
         return _sign > 0 ? cmp : -cmp;
@@ -282,8 +326,14 @@ internal sealed class BigInteger : IComparable<BigInteger>
     /// <exception cref="ArgumentException">Thrown when exponent is negative.</exception>
     public BigInteger ModPow(BigInteger exponent, BigInteger modulus)
     {
-        if (modulus.IsZero) throw new DivideByZeroException();
-        if (exponent.Sign < 0) throw new ArgumentException("Negative exponent not supported");
+        if (modulus.IsZero)
+        {
+            throw new DivideByZeroException();
+        }
+        if (exponent.Sign < 0)
+        {
+            throw new ArgumentException("Negative exponent not supported");
+        }
 
         var result = One;
         var baseValue = this % modulus;
@@ -363,8 +413,14 @@ internal sealed class BigInteger : IComparable<BigInteger>
     /// <exception cref="ArgumentException">Thrown when shift is negative.</exception>
     public static BigInteger operator <<(BigInteger value, int shift)
     {
-        if (shift < 0) throw new ArgumentException("Negative shift");
-        if (shift == 0 || value.IsZero) return value;
+        if (shift < 0)
+        {
+            throw new ArgumentException("Negative shift");
+        }
+        if (shift == 0 || value.IsZero)
+        {
+            return value;
+        }
 
         var wordShift = shift / 32;
         var bitShift = shift % 32;
@@ -403,13 +459,22 @@ internal sealed class BigInteger : IComparable<BigInteger>
     /// <exception cref="ArgumentException">Thrown when shift is negative.</exception>
     public static BigInteger operator >>(BigInteger value, int shift)
     {
-        if (shift < 0) throw new ArgumentException("Negative shift");
-        if (shift == 0 || value.IsZero) return value;
+        if (shift < 0)
+        {
+            throw new ArgumentException("Negative shift");
+        }
+        if (shift == 0 || value.IsZero)
+        {
+            return value;
+        }
 
         var wordShift = shift / 32;
         var bitShift = shift % 32;
 
-        if (wordShift >= value._data.Length) return Zero;
+        if (wordShift >= value._data.Length)
+        {
+            return Zero;
+        }
 
         var newLength = value._data.Length - wordShift;
         var result = new uint[newLength];
@@ -653,20 +718,28 @@ internal sealed class BigInteger : IComparable<BigInteger>
             if (shift / 32 >= quotient.Count)
             {
                 while (quotient.Count <= shift / 32)
+                {
                     quotient.Add(0);
+                }
             }
 
             quotient[shift / 32] |= 1u << (shift % 32);
         }
 
-        if (quotient.Count == 0) quotient.Add(0);
+        if (quotient.Count == 0)
+        {
+            quotient.Add(0);
+        }
 
         return (quotient.ToArray(), remainder);
     }
 
     private static uint[] ShiftLeft(uint[] value, int shift)
     {
-        if (shift < 0) return value;
+        if (shift < 0)
+        {
+            return value;
+        }
 
         var wordShift = shift / 32;
         var bitShift = shift % 32;
@@ -742,7 +815,10 @@ internal sealed class BigInteger : IComparable<BigInteger>
     {
         for (var i = data.Length - 1; i >= 0; i--)
         {
-            if (data[i] != 0) return i + 1;
+            if (data[i] != 0)
+            {
+                return i + 1;
+            }
         }
         return 0;
     }

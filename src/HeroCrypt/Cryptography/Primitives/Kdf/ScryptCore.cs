@@ -126,6 +126,9 @@ internal static class ScryptCore
     public static void ValidateParameters(ReadOnlySpan<byte> password, ReadOnlySpan<byte> salt,
         int n, int r, int p, int outputLength)
     {
+        _ = password;
+        _ = salt;
+
         // Note: Allow empty passwords and salts for RFC test vectors
         // Note: Allow low N values for test vectors and compatibility, but production should use N >= 16384
 

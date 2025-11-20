@@ -91,10 +91,7 @@ public static class MLDsaWrapper
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
 
-            if (data == null)
-            {
-                throw new ArgumentNullException(nameof(data));
-            }
+            ArgumentNullException.ThrowIfNull(data);
 
             if (_key == null)
             {
@@ -194,21 +191,27 @@ public static class MLDsaWrapper
     /// <param name="data">The data to sign</param>
     /// <param name="securityBits">The security level in bits (192 for ML-DSA-65, 256 for ML-DSA-87)</param>
     /// <param name="context">Optional context string for domain separation</param>
-    /// <returns>The signature</returns>
-    /// <exception cref="ArgumentNullException">If privateKeyPem or data is null</exception>
-    /// <exception cref="ArgumentException">If privateKeyPem is not valid PEM format or context exceeds 255 bytes</exception>
-    /// <exception cref="PlatformNotSupportedException">If ML-DSA is not supported</exception>
-    public static byte[] Sign(string privateKeyPem, byte[] data, int securityBits, byte[]? context = null)
-    {
-        ValidatePemFormat(privateKeyPem, nameof(privateKeyPem));
+        /// <returns>The signature</returns>
+        /// <exception cref="ArgumentNullException">If privateKeyPem or data is null</exception>
+        /// <exception cref="ArgumentException">If privateKeyPem is not valid PEM format or context exceeds 255 bytes</exception>
+        /// <exception cref="PlatformNotSupportedException">If ML-DSA is not supported</exception>
+        public static byte[] Sign(string privateKeyPem, byte[] data, int securityBits, byte[]? context = null)
+        {
+            ValidatePemFormat(privateKeyPem, nameof(privateKeyPem));
 
+        _ = securityBits;
+
+#if !NETSTANDARD2_0
+        ArgumentNullException.ThrowIfNull(data);
+#else
         if (data == null)
         {
             throw new ArgumentNullException(nameof(data));
         }
+#endif
 
-        if (!IsSupported())
-        {
+            if (!IsSupported())
+            {
             throw new PlatformNotSupportedException(
                 "ML-DSA is not supported on this platform. " +
                 "Requires .NET 10+ with Windows CNG PQC support or OpenSSL 3.5+");
@@ -235,6 +238,10 @@ public static class MLDsaWrapper
     {
         ValidatePemFormat(publicKeyPem, nameof(publicKeyPem));
 
+#if !NETSTANDARD2_0
+        ArgumentNullException.ThrowIfNull(data);
+        ArgumentNullException.ThrowIfNull(signature);
+#else
         if (data == null)
         {
             throw new ArgumentNullException(nameof(data));
@@ -243,6 +250,7 @@ public static class MLDsaWrapper
         {
             throw new ArgumentNullException(nameof(signature));
         }
+#endif
 
         if (!IsSupported())
         {
@@ -372,10 +380,14 @@ public static class MLDsaWrapper
     /// <exception cref="ArgumentException">If pem is not valid PEM format</exception>
     private static void ValidatePemFormat(string pem, string paramName)
     {
+#if !NETSTANDARD2_0
+        ArgumentNullException.ThrowIfNull(pem);
+#else
         if (pem == null)
         {
             throw new ArgumentNullException(paramName);
         }
+#endif
 
         if (string.IsNullOrWhiteSpace(pem))
         {
@@ -383,9 +395,11 @@ public static class MLDsaWrapper
         }
 
         if (!pem.Contains("-----BEGIN") || !pem.Contains("-----END"))
+        {
             throw new ArgumentException(
                 "Invalid PEM format. Expected PEM-encoded key with BEGIN/END markers",
                 paramName);
+        }
     }
 }
 #endif

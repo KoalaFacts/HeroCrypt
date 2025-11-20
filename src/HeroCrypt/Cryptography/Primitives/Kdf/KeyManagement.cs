@@ -8,6 +8,8 @@ namespace HeroCrypt.Cryptography.Primitives.Kdf;
 /// </summary>
 public static class KeyManagement
 {
+    internal static readonly char[] PathSeparator = { '/' };
+
     /// <summary>
     /// Creates a new key rotation schedule
     /// </summary>
@@ -82,10 +84,14 @@ public static class KeyManagement
     /// <returns>Key policy manager</returns>
     public static KeyPolicyManager CreateKeyPolicy(KeyPolicy policy)
     {
+#if !NETSTANDARD2_0
+        ArgumentNullException.ThrowIfNull(policy);
+#else
         if (policy == null)
         {
             throw new ArgumentNullException(nameof(policy));
         }
+#endif
 
         return new KeyPolicyManager(policy);
     }
@@ -111,7 +117,9 @@ public static class KeyManagement
             issues.Add("Key is too short (minimum 16 bytes)");
         }
         else
+        {
             score += 20;
+        }
 
         // Check for all zeros
         var allZeros = true;
@@ -140,7 +148,9 @@ public static class KeyManagement
             issues.Add($"Low entropy detected ({entropy:F2} bits per byte, should be > 6.0)");
         }
         else
+        {
             score += (int)((entropy / 8.0) * 40); // Max 40 points for perfect entropy
+        }
 
         // Check for repeating patterns
         if (HasRepeatingPatterns(keyMaterial))
@@ -191,10 +201,14 @@ public static class KeyManagement
     public static byte[] CombineKeys(IEnumerable<byte[]> keys, ReadOnlySpan<byte> salt,
         ReadOnlySpan<byte> info, int outputLength = 32)
     {
+#if !NETSTANDARD2_0
+        ArgumentNullException.ThrowIfNull(keys);
+#else
         if (keys == null)
         {
             throw new ArgumentNullException(nameof(keys));
         }
+#endif
         if (outputLength <= 0)
         {
             throw new ArgumentException("Output length must be positive", nameof(outputLength));
@@ -233,7 +247,10 @@ public static class KeyManagement
 
         for (var i = 0; i < 256; i++)
         {
-            if (frequency[i] == 0) continue;
+            if (frequency[i] == 0)
+            {
+                continue;
+            }
 
             var p = (double)frequency[i] / length;
             entropy -= p * (Math.Log(p) / Math.Log(2));
@@ -244,10 +261,13 @@ public static class KeyManagement
 
     /// <summary>
     /// Checks for simple repeating patterns
-    /// </summary>
-    private static bool HasRepeatingPatterns(ReadOnlySpan<byte> data)
-    {
-        if (data.Length < 4) return false;
+        /// </summary>
+        private static bool HasRepeatingPatterns(ReadOnlySpan<byte> data)
+        {
+            if (data.Length < 4)
+            {
+                return false;
+            }
 
         // Check for 2-byte patterns
         for (var i = 0; i <= data.Length - 4; i += 2)
@@ -445,7 +465,7 @@ public class KeyDerivationTree : IDisposable
             throw new ArgumentException("Path cannot be null or empty", nameof(path));
         }
 
-        var pathParts = path.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+        var pathParts = path.Split(KeyManagement.PathSeparator, StringSplitOptions.RemoveEmptyEntries);
         if (pathParts.Length > _maxDepth)
         {
             throw new ArgumentException($"Path depth exceeds maximum ({_maxDepth})", nameof(path));
@@ -474,10 +494,14 @@ public class KeyDerivationTree : IDisposable
     /// <returns>Dictionary of paths to keys</returns>
     public Dictionary<string, byte[]> DeriveKeys(string[] paths)
     {
+#if !NETSTANDARD2_0
+        ArgumentNullException.ThrowIfNull(paths);
+#else
         if (paths == null)
         {
             throw new ArgumentNullException(nameof(paths));
         }
+#endif
 
         var result = new Dictionary<string, byte[]>();
         foreach (var path in paths)

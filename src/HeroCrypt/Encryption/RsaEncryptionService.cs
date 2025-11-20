@@ -250,10 +250,25 @@ public sealed class RsaEncryptionService
 
     private static int GetHashSize(SystemHashAlgorithmName hashAlgorithm)
     {
-        if (hashAlgorithm == SystemHashAlgorithmName.SHA256) return 256;
-        if (hashAlgorithm == SystemHashAlgorithmName.SHA384) return 384;
-        if (hashAlgorithm == SystemHashAlgorithmName.SHA512) return 512;
-        if (hashAlgorithm == SystemHashAlgorithmName.SHA1) return 160;
+        if (hashAlgorithm == SystemHashAlgorithmName.SHA256)
+        {
+            return 256;
+        }
+
+        if (hashAlgorithm == SystemHashAlgorithmName.SHA384)
+        {
+            return 384;
+        }
+
+        if (hashAlgorithm == SystemHashAlgorithmName.SHA512)
+        {
+            return 512;
+        }
+
+        if (hashAlgorithm == SystemHashAlgorithmName.SHA1)
+        {
+            return 160;
+        }
 
         // Default to SHA256
         return 256;

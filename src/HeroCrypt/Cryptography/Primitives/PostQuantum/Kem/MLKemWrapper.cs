@@ -254,6 +254,8 @@ public static class MLKemWrapper
     /// <exception cref="PlatformNotSupportedException">If ML-KEM is not supported</exception>
     public static System.Security.Cryptography.MLKem ImportPublicKey(string publicKeyPem, SecurityLevel level = SecurityLevel.MLKem768)
     {
+        _ = level;
+
         ValidatePemFormat(publicKeyPem, nameof(publicKeyPem));
 
         if (!IsSupported())
@@ -317,10 +319,7 @@ public static class MLKemWrapper
     /// <exception cref="ArgumentException">If pem is not valid PEM format</exception>
     private static void ValidatePemFormat(string pem, string paramName)
     {
-        if (pem == null)
-        {
-            throw new ArgumentNullException(paramName);
-        }
+        ArgumentNullException.ThrowIfNull(pem);
 
         if (string.IsNullOrWhiteSpace(pem))
         {
@@ -328,9 +327,11 @@ public static class MLKemWrapper
         }
 
         if (!pem.Contains("-----BEGIN") || !pem.Contains("-----END"))
+        {
             throw new ArgumentException(
                 "Invalid PEM format. Expected PEM-encoded key with BEGIN/END markers",
                 paramName);
+        }
     }
 }
 #pragma warning restore SYSLIB5006

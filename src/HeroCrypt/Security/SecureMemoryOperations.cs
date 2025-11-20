@@ -188,10 +188,14 @@ public static class SecureMemoryOperations
     /// <returns>Secure wrapper around the copied data</returns>
     public static SecureByteArray CreateSecureCopy(byte[] source)
     {
+#if !NETSTANDARD2_0
+        ArgumentNullException.ThrowIfNull(source);
+#else
         if (source == null)
         {
             throw new ArgumentNullException(nameof(source));
         }
+#endif
 
         return new SecureByteArray(source);
     }
@@ -264,10 +268,14 @@ public sealed class SecureByteArray : IDisposable
     /// <param name="source">Source data to copy</param>
     public SecureByteArray(byte[] source)
     {
+#if !NETSTANDARD2_0
+        ArgumentNullException.ThrowIfNull(source);
+#else
         if (source == null)
         {
             throw new ArgumentNullException(nameof(source));
         }
+#endif
 
         _data = new byte[source.Length];
         Array.Copy(source, _data, source.Length);
@@ -309,10 +317,14 @@ public sealed class SecureByteArray : IDisposable
     /// <param name="action">Action to execute with the byte array</param>
     public void WithBytes(Action<byte[]> action)
     {
+#if !NETSTANDARD2_0
+        ArgumentNullException.ThrowIfNull(action);
+#else
         if (action == null)
         {
             throw new ArgumentNullException(nameof(action));
         }
+#endif
 
         lock (_lock)
         {
@@ -329,10 +341,14 @@ public sealed class SecureByteArray : IDisposable
     /// <returns>Result of the function</returns>
     public T WithBytes<T>(Func<byte[], T> func)
     {
+#if !NETSTANDARD2_0
+        ArgumentNullException.ThrowIfNull(func);
+#else
         if (func == null)
         {
             throw new ArgumentNullException(nameof(func));
         }
+#endif
 
         lock (_lock)
         {
@@ -365,10 +381,14 @@ public sealed class SecureByteArray : IDisposable
     /// <param name="length">Number of bytes to copy</param>
     public void CopyFrom(byte[] source, int sourceIndex = 0, int destinationIndex = 0, int? length = null)
     {
+#if !NETSTANDARD2_0
+        ArgumentNullException.ThrowIfNull(source);
+#else
         if (source == null)
         {
             throw new ArgumentNullException(nameof(source));
         }
+#endif
 
         var copyLength = length ?? source.Length;
 
@@ -393,14 +413,20 @@ public sealed class SecureByteArray : IDisposable
                 _disposed = true;
             }
         }
+
+        GC.SuppressFinalize(this);
     }
 
     private void ThrowIfDisposed()
     {
+#if !NETSTANDARD2_0
+        ObjectDisposedException.ThrowIf(_disposed, nameof(SecureByteArray));
+#else
         if (_disposed)
         {
             throw new ObjectDisposedException(nameof(SecureByteArray));
         }
+#endif
     }
 
     /// <summary>

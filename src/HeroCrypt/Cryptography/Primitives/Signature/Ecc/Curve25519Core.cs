@@ -68,10 +68,14 @@ public static class Curve25519Core
     /// <returns>32-byte public key</returns>
     public static byte[] DerivePublicKey(byte[] privateKey)
     {
+#if !NETSTANDARD2_0
+        ArgumentNullException.ThrowIfNull(privateKey);
+#else
         if (privateKey == null)
         {
             throw new ArgumentNullException(nameof(privateKey));
         }
+#endif
         if (privateKey.Length != KeySize)
         {
             throw new ArgumentException($"Private key must be {KeySize} bytes", nameof(privateKey));
@@ -91,6 +95,10 @@ public static class Curve25519Core
     /// <returns>32-byte shared secret</returns>
     public static byte[] ComputeSharedSecret(byte[] privateKey, byte[] publicKey)
     {
+#if !NETSTANDARD2_0
+        ArgumentNullException.ThrowIfNull(privateKey);
+        ArgumentNullException.ThrowIfNull(publicKey);
+#else
         if (privateKey == null)
         {
             throw new ArgumentNullException(nameof(privateKey));
@@ -99,6 +107,7 @@ public static class Curve25519Core
         {
             throw new ArgumentNullException(nameof(publicKey));
         }
+#endif
         if (privateKey.Length != KeySize)
         {
             throw new ArgumentException($"Private key must be {KeySize} bytes", nameof(privateKey));

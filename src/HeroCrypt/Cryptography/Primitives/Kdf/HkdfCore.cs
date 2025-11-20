@@ -118,7 +118,7 @@ internal static class HkdfCore
 
         var n = (length + hashLength - 1) / hashLength; // Ceiling division
         var okm = new byte[length];
-        var t = new byte[0]; // T(0) = empty string
+        var t = Array.Empty<byte>(); // T(0) = empty string
 
         // Create arrays once to avoid memory leaks in loop
         var prkArray = prk.ToArray();

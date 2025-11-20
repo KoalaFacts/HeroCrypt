@@ -109,12 +109,11 @@ public static class PostQuantumExamples
             Console.WriteLine(new string('═', 70));
             Console.WriteLine();
 
-            Console.WriteLine("✅ All examples completed successfully!");
+            Console.WriteLine("All examples completed successfully!");
         }
-        catch (Exception ex)
+        catch (System.Security.Cryptography.CryptographicException ex)
         {
-            Console.WriteLine($"❌ Error: {ex.Message}");
-            Console.WriteLine(ex.StackTrace);
+            Console.WriteLine($"Cryptographic error: {ex.Message}");
         }
     }
 

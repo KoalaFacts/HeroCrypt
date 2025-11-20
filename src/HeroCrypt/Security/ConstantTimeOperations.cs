@@ -70,6 +70,10 @@ public static class ConstantTimeOperations
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
     public static void ConditionalSwap(byte condition, byte[] a, byte[] b)
     {
+#if !NETSTANDARD2_0
+        ArgumentNullException.ThrowIfNull(a);
+        ArgumentNullException.ThrowIfNull(b);
+#else
         if (a == null)
         {
             throw new ArgumentNullException(nameof(a));
@@ -78,6 +82,7 @@ public static class ConstantTimeOperations
         {
             throw new ArgumentNullException(nameof(b));
         }
+#endif
         if (a.Length != b.Length)
         {
             throw new ArgumentException("Arrays must have the same length");
@@ -148,7 +153,9 @@ public static class ConstantTimeOperations
         }
 
         if (paddedMessage.Length < 11) // Minimum padding length
+        {
             return 0;
+        }
 
         byte valid = 1;
 
@@ -227,6 +234,10 @@ public static class ConstantTimeOperations
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
     public static void ConditionalCopy(byte condition, byte[] source, byte[] destination, int length)
     {
+#if !NETSTANDARD2_0
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(destination);
+#else
         if (source == null)
         {
             throw new ArgumentNullException(nameof(source));
@@ -235,6 +246,7 @@ public static class ConstantTimeOperations
         {
             throw new ArgumentNullException(nameof(destination));
         }
+#endif
         if (length < 0)
         {
             throw new ArgumentException("Length cannot be negative", nameof(length));
@@ -291,10 +303,14 @@ public static class ConstantTimeOperations
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
     public static byte ConstantTimeLookup(byte[] array, int index)
     {
+#if !NETSTANDARD2_0
+        ArgumentNullException.ThrowIfNull(array);
+#else
         if (array == null)
         {
             throw new ArgumentNullException(nameof(array));
         }
+#endif
         if (index < 0 || index >= array.Length)
         {
             throw new ArgumentOutOfRangeException(nameof(index));

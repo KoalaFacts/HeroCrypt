@@ -318,10 +318,14 @@ internal static class ChaCha20Core
     /// <param name="position">Position in bytes</param>
     public static void Seek(Span<uint> state, long position)
     {
+#if NETSTANDARD2_0
         if (position < 0)
         {
             throw new ArgumentOutOfRangeException(nameof(position));
         }
+#else
+        ArgumentOutOfRangeException.ThrowIfNegative(position);
+#endif
 
         var blockNumber = (uint)(position / BlockSize);
         state[12] = blockNumber;

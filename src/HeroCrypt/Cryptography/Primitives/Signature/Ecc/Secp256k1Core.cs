@@ -392,7 +392,7 @@ public static class Secp256k1Core
         Array.Copy(compressedKey, input, compressedKey.Length);
         Array.Copy(DecompressSalt, 0, input, compressedKey.Length, DecompressSalt.Length);
 
-        var hash = sha256.ComputeHash(input);
+        var hash = HashData(sha256, input);
         Array.Copy(hash, 0, uncompressed, 33, 32);
 
         if (((compressedKey[0] & 1) == 1) != ((uncompressed[64] & 1) == 1))
@@ -404,6 +404,15 @@ public static class Secp256k1Core
         Array.Clear(hash, 0, hash.Length);
 
         return uncompressed;
+    }
+
+    private static byte[] HashData(SHA256 sha256, byte[] input)
+    {
+#if NETSTANDARD2_0
+        return sha256.ComputeHash(input);
+#else
+        return SHA256.HashData(input);
+#endif
     }
     /// <summary>
     /// Checks if a private key is valid
@@ -472,8 +481,14 @@ public static class Secp256k1Core
     private static (uint[] x, uint[] y) PointAdd(uint[] x1, uint[] y1, uint[] x2, uint[] y2)
     {
         // Handle point at infinity cases
-        if (IsZero(x1) && IsZero(y1)) return (x2, y2);
-        if (IsZero(x2) && IsZero(y2)) return (x1, y1);
+        if (IsZero(x1) && IsZero(y1))
+        {
+            return (x2, y2);
+        }
+        if (IsZero(x2) && IsZero(y2))
+        {
+            return (x1, y1);
+        }
 
         var resultX = new uint[8];
         var resultY = new uint[8];
@@ -485,8 +500,8 @@ public static class Secp256k1Core
             {
                 return PointDouble(x1, y1);
             }
-            else
-                return (new uint[8], new uint[8]); // Point at infinity
+
+            return (new uint[8], new uint[8]); // Point at infinity
         }
 
         // Compute slope: s = (y2 - y1) / (x2 - x1)
@@ -853,7 +868,10 @@ public static class Secp256k1Core
     {
         for (var i = 0; i < 8; i++)
         {
-            if (a[i] != 0) return false;
+            if (a[i] != 0)
+            {
+                return false;
+            }
         }
         return true;
     }
@@ -869,8 +887,14 @@ public static class Secp256k1Core
     {
         for (var i = 7; i >= 0; i--)
         {
-            if (a[i] < b[i]) return true;
-            if (a[i] > b[i]) return false;
+            if (a[i] < b[i])
+            {
+                return true;
+            }
+            if (a[i] > b[i])
+            {
+                return false;
+            }
         }
         return false; // Equal
     }
@@ -904,7 +928,10 @@ public static class Secp256k1Core
     {
         for (var i = 0; i < 8; i++)
         {
-            if (a[i] != b[i]) return false;
+            if (a[i] != b[i])
+            {
+                return false;
+            }
         }
         return true;
     }

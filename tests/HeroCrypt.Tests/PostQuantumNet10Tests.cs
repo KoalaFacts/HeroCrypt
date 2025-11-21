@@ -592,6 +592,18 @@ public class PostQuantumNet10Tests
     }
 
     [Fact]
+    public void MLKemBuilder_EncapsulateWithoutPublicKey_Throws()
+    {
+        if (!MLKemWrapper.IsSupported())
+        {
+            return;
+        }
+
+        var builder = MLKemBuilder.Create();
+        Assert.Throws<InvalidOperationException>(() => builder.Encapsulate());
+    }
+
+    [Fact]
     public void MLDsaBuilder_FluentAPI_Success()
     {
         if (!MLDsaWrapper.IsSupported())
@@ -625,6 +637,32 @@ public class PostQuantumNet10Tests
     }
 
     [Fact]
+    public void MLDsaBuilder_Verify_FailsWithDifferentContext()
+    {
+        if (!MLDsaWrapper.IsSupported())
+        {
+            return;
+        }
+
+        using var keyPair = MLDsaBuilder.Create().GenerateKeyPair();
+        var data = Encoding.UTF8.GetBytes("contexted data");
+
+        var signature = MLDsaBuilder.Create()
+            .WithKeyPair(keyPair)
+            .WithData(data)
+            .WithContext("ctx1")
+            .Sign();
+
+        var isValid = MLDsaBuilder.Create()
+            .WithPublicKey(keyPair.PublicKeyPem)
+            .WithData(data)
+            .WithContext("ctx2")
+            .Verify(signature);
+
+        Assert.False(isValid);
+    }
+
+    [Fact]
     public void SlhDsaBuilder_FluentAPI_SmallVariant_Success()
     {
         if (!SlhDsaWrapper.IsSupported())
@@ -654,6 +692,35 @@ public class PostQuantumNet10Tests
             .Verify(signature);
 
         Assert.True(isValid);
+    }
+
+    [Fact]
+    public void SlhDsaBuilder_VerifyFailsWhenDataTampered()
+    {
+        if (!SlhDsaWrapper.IsSupported())
+        {
+            return;
+        }
+
+        using var keyPair = SlhDsaBuilder.Create()
+            .WithSmallVariant(128)
+            .GenerateKeyPair();
+
+        var data = Encoding.UTF8.GetBytes("release");
+
+        var signature = SlhDsaBuilder.Create()
+            .WithKeyPair(keyPair)
+            .WithData(data)
+            .Sign();
+
+        var tampered = Encoding.UTF8.GetBytes("release-mod");
+
+        var isValid = SlhDsaBuilder.Create()
+            .WithPublicKey(keyPair.PublicKeyPem)
+            .WithData(tampered)
+            .Verify(signature);
+
+        Assert.False(isValid);
     }
 
     [Fact]

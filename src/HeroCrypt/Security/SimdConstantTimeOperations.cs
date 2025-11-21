@@ -311,7 +311,7 @@ public static class SimdConstantTimeOperations
         }
 
         // Memory barrier to prevent compiler optimization
-        System.Threading.Thread.MemoryBarrier();
+        Thread.MemoryBarrier();
     }
 #endif
 

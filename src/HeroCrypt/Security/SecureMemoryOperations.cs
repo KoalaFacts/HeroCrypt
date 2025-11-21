@@ -1,5 +1,10 @@
 using System.Security.Cryptography;
 
+#if NET9_0_OR_GREATER
+using Lock = System.Threading.Lock;
+using LockScope = System.Threading.Lock.Scope;
+#endif
+
 namespace HeroCrypt.Security;
 
 /// <summary>
@@ -244,9 +249,19 @@ public static class SecureMemoryOperations
 /// </summary>
 public sealed class SecureByteArray : IDisposable
 {
-    private byte[] _data;
-    private bool _disposed;
-    private readonly object _lock = new();
+    private byte[] data;
+    private bool disposed;
+#if NET9_0_OR_GREATER
+    private readonly Lock syncLock = new();
+#else
+    private readonly object @lock = new();
+#endif
+
+#if NET9_0_OR_GREATER
+    private LockScope EnterLock() => syncLock.EnterScope();
+#else
+    private IDisposable EnterLock() => new LockReleaser(@lock);
+#endif
 
     /// <summary>
     /// Initializes a new secure byte array with the specified length
@@ -259,7 +274,7 @@ public sealed class SecureByteArray : IDisposable
             throw new ArgumentException("Length must be non-negative", nameof(length));
         }
 
-        _data = new byte[length];
+        data = new byte[length];
     }
 
     /// <summary>
@@ -277,8 +292,8 @@ public sealed class SecureByteArray : IDisposable
         }
 #endif
 
-        _data = new byte[source.Length];
-        Array.Copy(source, _data, source.Length);
+        data = new byte[source.Length];
+        Array.Copy(source, data, source.Length);
     }
 
     /// <summary>
@@ -289,7 +304,7 @@ public sealed class SecureByteArray : IDisposable
         get
         {
             ThrowIfDisposed();
-            return _data?.Length ?? 0;
+            return data?.Length ?? 0;
         }
     }
 
@@ -302,12 +317,12 @@ public sealed class SecureByteArray : IDisposable
         get
         {
             ThrowIfDisposed();
-            return _data[index];
+            return data[index];
         }
         set
         {
             ThrowIfDisposed();
-            _data[index] = value;
+            data[index] = value;
         }
     }
 
@@ -326,11 +341,9 @@ public sealed class SecureByteArray : IDisposable
         }
 #endif
 
-        lock (_lock)
-        {
-            ThrowIfDisposed();
-            action(_data);
-        }
+        using var guard = EnterLock();
+        ThrowIfDisposed();
+        action(data);
     }
 
     /// <summary>
@@ -350,11 +363,9 @@ public sealed class SecureByteArray : IDisposable
         }
 #endif
 
-        lock (_lock)
-        {
-            ThrowIfDisposed();
-            return func(_data);
-        }
+        using var guard = EnterLock();
+        ThrowIfDisposed();
+        return func(data);
     }
 
     /// <summary>
@@ -363,13 +374,11 @@ public sealed class SecureByteArray : IDisposable
     /// <returns>Copy of the array data</returns>
     public byte[] ToArray()
     {
-        lock (_lock)
-        {
-            ThrowIfDisposed();
-            var copy = new byte[_data.Length];
-            Array.Copy(_data, copy, _data.Length);
-            return copy;
-        }
+        using var guard = EnterLock();
+        ThrowIfDisposed();
+        var copy = new byte[data.Length];
+        Array.Copy(data, copy, data.Length);
+        return copy;
     }
 
     /// <summary>
@@ -392,11 +401,9 @@ public sealed class SecureByteArray : IDisposable
 
         var copyLength = length ?? source.Length;
 
-        lock (_lock)
-        {
-            ThrowIfDisposed();
-            Array.Copy(source, sourceIndex, _data, destinationIndex, copyLength);
-        }
+        using var guard = EnterLock();
+        ThrowIfDisposed();
+        Array.Copy(source, sourceIndex, data, destinationIndex, copyLength);
     }
 
     /// <summary>
@@ -404,14 +411,12 @@ public sealed class SecureByteArray : IDisposable
     /// </summary>
     public void Dispose()
     {
-        lock (_lock)
+        using var guard = EnterLock();
+        if (!disposed && data != null)
         {
-            if (!_disposed && _data != null)
-            {
-                SecureMemoryOperations.SecureClear(_data);
-                _data = null!;
-                _disposed = true;
-            }
+            SecureMemoryOperations.SecureClear(data);
+            data = null!;
+            disposed = true;
         }
 
         GC.SuppressFinalize(this);
@@ -420,9 +425,9 @@ public sealed class SecureByteArray : IDisposable
     private void ThrowIfDisposed()
     {
 #if !NETSTANDARD2_0
-        ObjectDisposedException.ThrowIf(_disposed, nameof(SecureByteArray));
+        ObjectDisposedException.ThrowIf(disposed, nameof(SecureByteArray));
 #else
-        if (_disposed)
+        if (disposed)
         {
             throw new ObjectDisposedException(nameof(SecureByteArray));
         }

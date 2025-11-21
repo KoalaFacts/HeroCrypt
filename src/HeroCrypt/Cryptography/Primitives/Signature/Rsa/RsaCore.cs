@@ -206,7 +206,7 @@ internal static class RsaCore
     {
         if (value.IsZero)
         {
-            return new[] { (byte)0 };
+            return [0];
         }
 
         var littleEndian = value.ToByteArray();
@@ -248,65 +248,41 @@ internal static class RsaCore
     }
 }
 
-internal sealed class RsaKeyPair
+/// <summary>
+/// Initializes a new instance of the <see cref="RsaKeyPair"/> class.
+/// </summary>
+/// <param name="publicKey">The RSA public key.</param>
+/// <param name="privateKey">The RSA private key.</param>
+internal sealed class RsaKeyPair(RsaPublicKey publicKey, RsaPrivateKey privateKey)
 {
-    public RsaPublicKey PublicKey { get; }
-    public RsaPrivateKey PrivateKey { get; }
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="RsaKeyPair"/> class.
-    /// </summary>
-    /// <param name="publicKey">The RSA public key.</param>
-    /// <param name="privateKey">The RSA private key.</param>
-    public RsaKeyPair(RsaPublicKey publicKey, RsaPrivateKey privateKey)
-    {
-        PublicKey = publicKey;
-        PrivateKey = privateKey;
-    }
+    public RsaPublicKey PublicKey { get; } = publicKey;
+    public RsaPrivateKey PrivateKey { get; } = privateKey;
 }
 
-internal sealed class RsaPublicKey
+/// <summary>
+/// Initializes a new instance of the <see cref="RsaPublicKey"/> class.
+/// </summary>
+/// <param name="modulus">The RSA modulus (n).</param>
+/// <param name="exponent">The public exponent (e).</param>
+internal sealed class RsaPublicKey(BigInteger modulus, BigInteger exponent)
 {
-    public BigInteger Modulus { get; }
-    public BigInteger Exponent { get; }
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="RsaPublicKey"/> class.
-    /// </summary>
-    /// <param name="modulus">The RSA modulus (n).</param>
-    /// <param name="exponent">The public exponent (e).</param>
-    public RsaPublicKey(BigInteger modulus, BigInteger exponent)
-    {
-        Modulus = modulus;
-        Exponent = exponent;
-    }
+    public BigInteger Modulus { get; } = modulus;
+    public BigInteger Exponent { get; } = exponent;
 }
 
-internal sealed class RsaPrivateKey
+/// <summary>
+/// Initializes a new instance of the <see cref="RsaPrivateKey"/> class.
+/// </summary>
+/// <param name="modulus">The RSA modulus (n).</param>
+/// <param name="d">The private exponent (d).</param>
+/// <param name="p">The first prime factor of n.</param>
+/// <param name="q">The second prime factor of n.</param>
+/// <param name="e">The public exponent (e).</param>
+internal sealed class RsaPrivateKey(BigInteger modulus, BigInteger d, BigInteger p, BigInteger q, BigInteger e)
 {
-    public BigInteger Modulus { get; }
-    public BigInteger D { get; }
-    public BigInteger P { get; }
-    public BigInteger Q { get; }
-    public BigInteger E { get; }
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="RsaPrivateKey"/> class.
-    /// </summary>
-    /// <param name="modulus">The RSA modulus (n).</param>
-    /// <param name="d">The private exponent (d).</param>
-    /// <param name="p">The first prime factor of n.</param>
-    /// <param name="q">The second prime factor of n.</param>
-    /// <param name="e">The public exponent (e).</param>
-    public RsaPrivateKey(BigInteger modulus, BigInteger d, BigInteger p, BigInteger q, BigInteger e)
-    {
-        Modulus = modulus;
-        D = d;
-        P = p;
-        Q = q;
-        E = e;
-    }
+    public BigInteger Modulus { get; } = modulus;
+    public BigInteger D { get; } = d;
+    public BigInteger P { get; } = p;
+    public BigInteger Q { get; } = q;
+    public BigInteger E { get; } = e;
 }
-
-
-

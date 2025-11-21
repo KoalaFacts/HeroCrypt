@@ -52,7 +52,7 @@ internal static class Poly1305Core
         Span<byte> rBytes = stackalloc byte[16];
         Span<byte> sBytes = stackalloc byte[16];
 
-        key.Slice(0, 16).CopyTo(rBytes);
+        key[..16].CopyTo(rBytes);
         key.Slice(16, 16).CopyTo(sBytes);
 
         // Clamp r
@@ -62,7 +62,7 @@ internal static class Poly1305Core
         Span<ulong> r = stackalloc ulong[3];
         Span<ulong> s = stackalloc ulong[2];
 
-        BytesToUInt64LE(rBytes, r.Slice(0, 2));
+        BytesToUInt64LE(rBytes, r[..2]);
         r[2] = 0; // High part of r is always 0 after clamping
 
         BytesToUInt64LE(sBytes, s);
@@ -94,7 +94,7 @@ internal static class Poly1305Core
         AddS(h, s);
 
         // Convert to bytes
-        UInt64LEToBytes(h.Slice(0, 2), tag);
+        UInt64LEToBytes(h[..2], tag);
 
         // Clear sensitive data
         SecureMemoryOperations.SecureClear(rBytes);

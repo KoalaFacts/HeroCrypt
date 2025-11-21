@@ -261,26 +261,20 @@ public static class HkdfUtilities
 /// <summary>
 /// Key specification for multiple key derivation
 /// </summary>
-public class KeySpec
+/// <remarks>
+/// Creates a new key specification
+/// </remarks>
+/// <param name="context">Context information</param>
+/// <param name="length">Key length in bytes</param>
+public class KeySpec(string? context, int length)
 {
     /// <summary>
     /// Context information for the key
     /// </summary>
-    public string? Context { get; set; }
+    public string? Context { get; set; } = context;
 
     /// <summary>
     /// Length of the key in bytes
     /// </summary>
-    public int Length { get; set; }
-
-    /// <summary>
-    /// Creates a new key specification
-    /// </summary>
-    /// <param name="context">Context information</param>
-    /// <param name="length">Key length in bytes</param>
-    public KeySpec(string? context, int length)
-    {
-        Context = context;
-        Length = length;
-    }
+    public int Length { get; set; } = length;
 }

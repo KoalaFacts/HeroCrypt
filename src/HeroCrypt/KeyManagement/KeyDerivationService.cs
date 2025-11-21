@@ -13,16 +13,21 @@ namespace HeroCrypt.KeyManagement;
 /// </summary>
 public class KeyDerivationService : IKeyDerivationService
 {
-    private readonly IBlake2bService? _blake2bService;
+#if !NET5_0_OR_GREATER
+    private readonly IBlake2bService? blake2bService;
+#endif
 
     /// <summary>
     /// Initializes a new instance of the KeyDerivationService.
     /// </summary>
     /// <param name="blake2bService">Optional Blake2b service for Blake2b-based derivations.</param>
-    public KeyDerivationService(
-        IBlake2bService? blake2bService = null)
+    public KeyDerivationService(IBlake2bService? blake2bService = null)
     {
-        _blake2bService = blake2bService;
+#if !NET5_0_OR_GREATER
+        this.blake2bService = blake2bService;
+#else
+        _ = blake2bService;
+#endif
     }
 
     /// <inheritdoc/>
@@ -87,7 +92,7 @@ public class KeyDerivationService : IKeyDerivationService
         byte[]? info = null,
         HeroCryptHashAlgorithmName hashAlgorithm = default)
     {
-        InputValidator.ValidateHkdfParameters(ikm, salt ?? Array.Empty<byte>(), info ?? Array.Empty<byte>(), keyLength);
+        InputValidator.ValidateHkdfParameters(ikm, salt ?? [], info ?? [], keyLength);
 
         var algorithm = hashAlgorithm == default ? HeroCryptHashAlgorithmName.SHA256 : hashAlgorithm;
 
@@ -190,7 +195,7 @@ public class KeyDerivationService : IKeyDerivationService
             "SHA256" => (CryptoHashAlgorithm)SHA256.Create(),
             "SHA384" => SHA384.Create(),
             "SHA512" => SHA512.Create(),
-            "Blake2b" when _blake2bService != null => new Blake2bHashAlgorithm(_blake2bService),
+            "Blake2b" when blake2bService != null => new Blake2bHashAlgorithm(blake2bService),
             _ => SHA256.Create()
         };
 
@@ -205,19 +210,19 @@ public class KeyDerivationService : IKeyDerivationService
             hmacExtract.Dispose();
             using var hmac384 = new HMACSHA384(actualSalt);
             var prk = hmac384.ComputeHash(ikm);
-            return HkdfExpand(prk, info ?? Array.Empty<byte>(), length, hashAlgorithm);
+            return HkdfExpand(prk, info ?? [], length, hashAlgorithm);
         }
         else if (hashAlgorithm.Name == "SHA512")
         {
             hmacExtract.Dispose();
             using var hmac512 = new HMACSHA512(actualSalt);
             var prk = hmac512.ComputeHash(ikm);
-            return HkdfExpand(prk, info ?? Array.Empty<byte>(), length, hashAlgorithm);
+            return HkdfExpand(prk, info ?? [], length, hashAlgorithm);
         }
         else
         {
             var prk = hmacExtract.ComputeHash(ikm);
-            return HkdfExpand(prk, info ?? Array.Empty<byte>(), length, hashAlgorithm);
+            return HkdfExpand(prk, info ?? [], length, hashAlgorithm);
         }
     }
 
@@ -245,14 +250,14 @@ public class KeyDerivationService : IKeyDerivationService
 
             var okm = new byte[length];
             var okmOffset = 0;
-            var t = Array.Empty<byte>();
+            byte[] t = [];
 
             for (byte i = 1; i <= n; i++)
             {
                 var input = new byte[t.Length + info.Length + 1];
                 Array.Copy(t, 0, input, 0, t.Length);
                 Array.Copy(info, 0, input, t.Length, info.Length);
-                input[input.Length - 1] = i;
+                input[^1] = i;
 
                 t = hmac.ComputeHash(input);
 
@@ -271,8 +276,8 @@ public class KeyDerivationService : IKeyDerivationService
     /// </summary>
     private sealed class Blake2bHashAlgorithm : CryptoHashAlgorithm
     {
-        private readonly IBlake2bService _blake2bService;
-        private readonly MemoryStream _buffer = new();
+        private readonly IBlake2bService blake2bService;
+        private readonly MemoryStream buffer = new();
 
         /// <summary>
         /// Initializes a new instance of the Blake2bHashAlgorithm wrapper.
@@ -280,7 +285,7 @@ public class KeyDerivationService : IKeyDerivationService
         /// <param name="blake2bService">The Blake2b service to use for hashing.</param>
         public Blake2bHashAlgorithm(IBlake2bService blake2bService)
         {
-            _blake2bService = blake2bService;
+            this.blake2bService = blake2bService ?? throw new ArgumentNullException(nameof(blake2bService));
             HashSizeValue = 512; // Blake2b default
         }
 
@@ -292,24 +297,24 @@ public class KeyDerivationService : IKeyDerivationService
         /// </remarks>
         public override void Initialize()
         {
-            _buffer.SetLength(0);
+            buffer.SetLength(0);
         }
 
         protected override void HashCore(byte[] array, int ibStart, int cbSize)
         {
-            _buffer.Write(array, ibStart, cbSize);
+            buffer.Write(array, ibStart, cbSize);
         }
 
         protected override byte[] HashFinal()
         {
-            return _blake2bService.ComputeHash(_buffer.ToArray(), HashSizeValue / 8);
+            return blake2bService.ComputeHash(buffer.ToArray(), HashSizeValue / 8);
         }
 
         protected override void Dispose(bool disposing)
         {
             if (disposing)
             {
-                _buffer.Dispose();
+                buffer.Dispose();
             }
             base.Dispose(disposing);
         }

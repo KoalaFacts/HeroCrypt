@@ -225,11 +225,11 @@ internal static class RabbitCore
     private static void NextState(ref RabbitState state)
     {
         // Counter update constants (Fibonacci-like)
-        ReadOnlySpan<uint> A = stackalloc uint[8]
-        {
+        ReadOnlySpan<uint> A =
+        [
             0x4D34D34D, 0xD34D34D3, 0x34D34D34, 0x4D34D34D,
             0xD34D34D3, 0x34D34D34, 0x4D34D34D, 0xD34D34D3
-        };
+        ];
 
         // Save old counter values
         Span<uint> c_old = stackalloc uint[8];
@@ -251,14 +251,14 @@ internal static class RabbitCore
         }
 
         // Update state variables
-        state.X[0] = (uint)(g[0] + RotateLeft(g[7], 16) + RotateLeft(g[6], 16));
-        state.X[1] = (uint)(g[1] + RotateLeft(g[0], 8) + g[7]);
-        state.X[2] = (uint)(g[2] + RotateLeft(g[1], 16) + RotateLeft(g[0], 16));
-        state.X[3] = (uint)(g[3] + RotateLeft(g[2], 8) + g[1]);
-        state.X[4] = (uint)(g[4] + RotateLeft(g[3], 16) + RotateLeft(g[2], 16));
-        state.X[5] = (uint)(g[5] + RotateLeft(g[4], 8) + g[3]);
-        state.X[6] = (uint)(g[6] + RotateLeft(g[5], 16) + RotateLeft(g[4], 16));
-        state.X[7] = (uint)(g[7] + RotateLeft(g[6], 8) + g[5]);
+        state.X[0] = g[0] + RotateLeft(g[7], 16) + RotateLeft(g[6], 16);
+        state.X[1] = g[1] + RotateLeft(g[0], 8) + g[7];
+        state.X[2] = g[2] + RotateLeft(g[1], 16) + RotateLeft(g[0], 16);
+        state.X[3] = g[3] + RotateLeft(g[2], 8) + g[1];
+        state.X[4] = g[4] + RotateLeft(g[3], 16) + RotateLeft(g[2], 16);
+        state.X[5] = g[5] + RotateLeft(g[4], 8) + g[3];
+        state.X[6] = g[6] + RotateLeft(g[5], 16) + RotateLeft(g[4], 16);
+        state.X[7] = g[7] + RotateLeft(g[6], 8) + g[5];
     }
 
     /// <summary>
@@ -285,16 +285,17 @@ internal static class RabbitCore
         NextState(ref state);
 
         // Extract 128 bits of keystream
-        Span<ushort> s = stackalloc ushort[8];
-
-        s[0] = (ushort)(state.X[0] ^ (state.X[5] >> 16));
-        s[1] = (ushort)((state.X[0] >> 16) ^ (state.X[3] & 0xFFFF));
-        s[2] = (ushort)(state.X[2] ^ (state.X[7] >> 16));
-        s[3] = (ushort)((state.X[2] >> 16) ^ (state.X[5] & 0xFFFF));
-        s[4] = (ushort)(state.X[4] ^ (state.X[1] >> 16));
-        s[5] = (ushort)((state.X[4] >> 16) ^ (state.X[7] & 0xFFFF));
-        s[6] = (ushort)(state.X[6] ^ (state.X[3] >> 16));
-        s[7] = (ushort)((state.X[6] >> 16) ^ (state.X[1] & 0xFFFF));
+        Span<ushort> s =
+        [
+            (ushort)(state.X[0] ^ (state.X[5] >> 16)),
+            (ushort)((state.X[0] >> 16) ^ (state.X[3] & 0xFFFF)),
+            (ushort)(state.X[2] ^ (state.X[7] >> 16)),
+            (ushort)((state.X[2] >> 16) ^ (state.X[5] & 0xFFFF)),
+            (ushort)(state.X[4] ^ (state.X[1] >> 16)),
+            (ushort)((state.X[4] >> 16) ^ (state.X[7] & 0xFFFF)),
+            (ushort)(state.X[6] ^ (state.X[3] >> 16)),
+            (ushort)((state.X[6] >> 16) ^ (state.X[1] & 0xFFFF)),
+        ];
 
         // Convert to bytes (little-endian - low byte first, high byte second)
         for (var i = 0; i < 8; i++)

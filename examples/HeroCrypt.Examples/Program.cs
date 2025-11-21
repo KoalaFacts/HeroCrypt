@@ -14,7 +14,7 @@ async Task RunArgon2Examples()
     Console.WriteLine("Argon2 Hashing Examples");
     Console.WriteLine("-----------------------");
 
-    var argon2Service = new Argon2HashingService(new Argon2Options
+    Argon2HashingService argon2Service = new(new Argon2Options
     {
         Type = Argon2Type.Argon2id,
         Iterations = 3,
@@ -24,25 +24,25 @@ async Task RunArgon2Examples()
         SaltSize = 16
     });
 
-    var password = "MySecurePassword123!";
+    string password = "MySecurePassword123!";
     Console.WriteLine($"Password: {password}");
 
-    var sw = Stopwatch.StartNew();
-    var hash = await argon2Service.HashAsync(password);
+    Stopwatch sw = Stopwatch.StartNew();
+    string hash = await argon2Service.HashAsync(password);
     sw.Stop();
 
     Console.WriteLine($"Hash: {hash}");
     Console.WriteLine($"Hashing time: {sw.ElapsedMilliseconds}ms");
 
     sw.Restart();
-    var isValid = await argon2Service.VerifyAsync(password, hash);
+    bool isValid = await argon2Service.VerifyAsync(password, hash);
     sw.Stop();
 
     Console.WriteLine($"Verification result: {isValid}");
     Console.WriteLine($"Verification time: {sw.ElapsedMilliseconds}ms");
 
     sw.Restart();
-    var isInvalid = await argon2Service.VerifyAsync("WrongPassword", hash);
+    bool isInvalid = await argon2Service.VerifyAsync("WrongPassword", hash);
     sw.Stop();
 
     Console.WriteLine($"Wrong password verification: {isInvalid}");
@@ -56,10 +56,10 @@ async Task RunPgpExamples()
     Console.WriteLine("PGP Encryption Examples");
     Console.WriteLine("-----------------------");
 
-    var pgpService = new PgpCryptographyService();
+    PgpCryptographyService pgpService = new();
 
     Console.WriteLine("Generating RSA key pair (2048-bit)...");
-    var sw = Stopwatch.StartNew();
+    Stopwatch sw = Stopwatch.StartNew();
     var keyPair = await pgpService.GenerateKeyPairAsync("test@example.com", "", 2048);
     sw.Stop();
     Console.WriteLine($"Key generation time: {sw.ElapsedMilliseconds}ms");
@@ -67,18 +67,18 @@ async Task RunPgpExamples()
     Console.WriteLine("\nPublic Key:");
     Console.WriteLine(keyPair.PublicKey);
 
-    var message = "Hello, this is a secret message!";
+    string message = "Hello, this is a secret message!";
     Console.WriteLine($"Original message: {message}");
 
     sw.Restart();
-    var encryptedMessage = await pgpService.EncryptTextAsync(message, keyPair.PublicKey);
+    string encryptedMessage = await pgpService.EncryptTextAsync(message, keyPair.PublicKey);
     sw.Stop();
     Console.WriteLine($"\nEncryption time: {sw.ElapsedMilliseconds}ms");
     Console.WriteLine("Encrypted message:");
     Console.WriteLine(encryptedMessage);
 
     sw.Restart();
-    var decryptedMessage = await pgpService.DecryptTextAsync(encryptedMessage, keyPair.PrivateKey);
+    string decryptedMessage = await pgpService.DecryptTextAsync(encryptedMessage, keyPair.PrivateKey);
     sw.Stop();
     Console.WriteLine($"\nDecryption time: {sw.ElapsedMilliseconds}ms");
     Console.WriteLine($"Decrypted message: {decryptedMessage}");

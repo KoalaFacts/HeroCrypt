@@ -27,7 +27,7 @@ public class AesOcbTests
         }
 
         // Act
-        var written = AesOcbCore.Encrypt(ciphertext, plaintext, key, nonce, ReadOnlySpan<byte>.Empty);
+        var written = AesOcbCore.Encrypt(ciphertext, plaintext, key, nonce, []);
 
         // Assert
         Assert.Equal(plaintext.Length + AesOcbCore.TAG_SIZE, written);
@@ -53,8 +53,8 @@ public class AesOcbTests
         }
 
         // Act
-        var encryptedLength = AesOcbCore.Encrypt(ciphertext, plaintext, key, nonce, ReadOnlySpan<byte>.Empty);
-        var decryptedLength = AesOcbCore.Decrypt(decrypted, ciphertext, key, nonce, ReadOnlySpan<byte>.Empty);
+        var encryptedLength = AesOcbCore.Encrypt(ciphertext, plaintext, key, nonce, []);
+        var decryptedLength = AesOcbCore.Decrypt(decrypted, ciphertext, key, nonce, []);
 
         // Assert
         Assert.Equal(plaintext.Length + AesOcbCore.TAG_SIZE, encryptedLength);
@@ -140,11 +140,11 @@ public class AesOcbTests
             nonce[i] = (byte)(i + 100);
         }
 
-        AesOcbCore.Encrypt(ciphertext, plaintext, key, nonce, ReadOnlySpan<byte>.Empty);
+        AesOcbCore.Encrypt(ciphertext, plaintext, key, nonce, []);
 
         // Act - Modify ciphertext
         ciphertext[0] ^= 0xFF;
-        var result = AesOcbCore.Decrypt(decrypted, ciphertext, key, nonce, ReadOnlySpan<byte>.Empty);
+        var result = AesOcbCore.Decrypt(decrypted, ciphertext, key, nonce, []);
 
         // Assert - Should fail authentication
         Assert.Equal(-1, result);
@@ -169,11 +169,11 @@ public class AesOcbTests
             nonce[i] = (byte)(i + 100);
         }
 
-        AesOcbCore.Encrypt(ciphertext, plaintext, key, nonce, ReadOnlySpan<byte>.Empty);
+        AesOcbCore.Encrypt(ciphertext, plaintext, key, nonce, []);
 
         // Act - Modify tag
         ciphertext[ciphertext.Length - 1] ^= 0xFF;
-        var result = AesOcbCore.Decrypt(decrypted, ciphertext, key, nonce, ReadOnlySpan<byte>.Empty);
+        var result = AesOcbCore.Decrypt(decrypted, ciphertext, key, nonce, []);
 
         // Assert - Should fail authentication
         Assert.Equal(-1, result);
@@ -199,8 +199,8 @@ public class AesOcbTests
         }
 
         // Act
-        var encryptedLength = AesOcbCore.Encrypt(ciphertext, plaintext, key, nonce, ReadOnlySpan<byte>.Empty);
-        var decryptedLength = AesOcbCore.Decrypt(decrypted, ciphertext, key, nonce, ReadOnlySpan<byte>.Empty);
+        var encryptedLength = AesOcbCore.Encrypt(ciphertext, plaintext, key, nonce, []);
+        var decryptedLength = AesOcbCore.Decrypt(decrypted, ciphertext, key, nonce, []);
 
         // Assert
         Assert.Equal(AesOcbCore.TAG_SIZE, encryptedLength);
@@ -232,8 +232,8 @@ public class AesOcbTests
             var decrypted = new byte[plaintext.Length];
 
             // Act
-            AesOcbCore.Encrypt(ciphertext, plaintext, key, nonce, ReadOnlySpan<byte>.Empty);
-            var result = AesOcbCore.Decrypt(decrypted, ciphertext, key, nonce, ReadOnlySpan<byte>.Empty);
+            AesOcbCore.Encrypt(ciphertext, plaintext, key, nonce, []);
+            var result = AesOcbCore.Decrypt(decrypted, ciphertext, key, nonce, []);
 
             // Assert
             Assert.Equal(plaintext.Length, result);
@@ -266,8 +266,8 @@ public class AesOcbTests
             var decrypted = new byte[plaintext.Length];
 
             // Act
-            AesOcbCore.Encrypt(ciphertext, plaintext, key, nonce, ReadOnlySpan<byte>.Empty);
-            var result = AesOcbCore.Decrypt(decrypted, ciphertext, key, nonce, ReadOnlySpan<byte>.Empty);
+            AesOcbCore.Encrypt(ciphertext, plaintext, key, nonce, []);
+            var result = AesOcbCore.Decrypt(decrypted, ciphertext, key, nonce, []);
 
             // Assert
             Assert.Equal(plaintext.Length, result);
@@ -296,8 +296,8 @@ public class AesOcbTests
         }
 
         // Act
-        AesOcbCore.Encrypt(ciphertext, plaintext, key, nonce, ReadOnlySpan<byte>.Empty);
-        var result = AesOcbCore.Decrypt(decrypted, ciphertext, key, nonce, ReadOnlySpan<byte>.Empty);
+        AesOcbCore.Encrypt(ciphertext, plaintext, key, nonce, []);
+        var result = AesOcbCore.Decrypt(decrypted, ciphertext, key, nonce, []);
 
         // Assert
         Assert.Equal(plaintext.Length, result);
@@ -329,8 +329,8 @@ public class AesOcbTests
         }
 
         // Act
-        AesOcbCore.Encrypt(ciphertext, plaintext, key, nonce, ReadOnlySpan<byte>.Empty);
-        var result = AesOcbCore.Decrypt(decrypted, ciphertext, key, nonce, ReadOnlySpan<byte>.Empty);
+        AesOcbCore.Encrypt(ciphertext, plaintext, key, nonce, []);
+        var result = AesOcbCore.Decrypt(decrypted, ciphertext, key, nonce, []);
 
         // Assert
         Assert.Equal(plaintext.Length, result);
@@ -348,7 +348,7 @@ public class AesOcbTests
 
         // Act & Assert
         var ex = Assert.Throws<ArgumentException>(() =>
-            AesOcbCore.Encrypt(ciphertext, plaintext, invalidKey, nonce, ReadOnlySpan<byte>.Empty));
+            AesOcbCore.Encrypt(ciphertext, plaintext, invalidKey, nonce, []));
         Assert.Contains("16, 24, or 32 bytes", ex.Message);
     }
 
@@ -363,7 +363,7 @@ public class AesOcbTests
 
         // Act & Assert
         var ex = Assert.Throws<ArgumentException>(() =>
-            AesOcbCore.Encrypt(ciphertext, plaintext, key, invalidNonce, ReadOnlySpan<byte>.Empty));
+            AesOcbCore.Encrypt(ciphertext, plaintext, key, invalidNonce, []));
         Assert.Contains("between", ex.Message);
     }
 
@@ -378,7 +378,7 @@ public class AesOcbTests
 
         // Act & Assert
         Assert.Throws<ArgumentException>(() =>
-            AesOcbCore.Encrypt(ciphertext, plaintext, key, nonce, ReadOnlySpan<byte>.Empty));
+            AesOcbCore.Encrypt(ciphertext, plaintext, key, nonce, []));
     }
 
     [Fact]
@@ -392,7 +392,7 @@ public class AesOcbTests
 
         // Act & Assert
         Assert.Throws<ArgumentException>(() =>
-            AesOcbCore.Decrypt(plaintext, ciphertext, key, nonce, ReadOnlySpan<byte>.Empty));
+            AesOcbCore.Decrypt(plaintext, ciphertext, key, nonce, []));
     }
 
     [Fact]
@@ -421,8 +421,8 @@ public class AesOcbTests
         var ciphertext2 = new byte[plaintext.Length + AesOcbCore.TAG_SIZE];
 
         // Act
-        AesOcbCore.Encrypt(ciphertext1, plaintext, key, nonce1, ReadOnlySpan<byte>.Empty);
-        AesOcbCore.Encrypt(ciphertext2, plaintext, key, nonce2, ReadOnlySpan<byte>.Empty);
+        AesOcbCore.Encrypt(ciphertext1, plaintext, key, nonce1, []);
+        AesOcbCore.Encrypt(ciphertext2, plaintext, key, nonce2, []);
 
         // Assert - Different nonces should produce different ciphertexts
         Assert.NotEqual(ciphertext1, ciphertext2);
@@ -474,8 +474,8 @@ public class AesOcbTests
         }
 
         // Act
-        AesOcbCore.Encrypt(ciphertext, plaintext, key, nonce, ReadOnlySpan<byte>.Empty);
-        var result = AesOcbCore.Decrypt(decrypted, ciphertext, key, nonce, ReadOnlySpan<byte>.Empty);
+        AesOcbCore.Encrypt(ciphertext, plaintext, key, nonce, []);
+        var result = AesOcbCore.Decrypt(decrypted, ciphertext, key, nonce, []);
 
         // Assert
         Assert.Equal(plaintext.Length, result);

@@ -1,6 +1,7 @@
 #if NETSTANDARD2_0
 // Polyfills for .NET Standard 2.0
 // These provide APIs that are available in .NET Core 3.0+ but not in .NET Standard 2.0
+#pragma warning disable IDE0130
 
 namespace System.Security.Cryptography
 {
@@ -89,7 +90,7 @@ namespace System.Security.Cryptography
     /// </summary>
     internal static class RandomNumberGeneratorExtensions
     {
-        private static readonly RandomNumberGenerator _globalRng = RandomNumberGenerator.Create();
+        private static readonly RandomNumberGenerator globalRng = RandomNumberGenerator.Create();
 
         /// <summary>
         /// Static Fill method like .NET Core 3.0+
@@ -97,7 +98,7 @@ namespace System.Security.Cryptography
         public static void Fill(Span<byte> data)
         {
             var array = new byte[data.Length];
-            _globalRng.GetBytes(array);
+            globalRng.GetBytes(array);
             array.AsSpan().CopyTo(data);
         }
 
@@ -205,4 +206,5 @@ namespace System
         }
     }
 }
+#pragma warning restore IDE0130
 #endif

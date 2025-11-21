@@ -1,6 +1,13 @@
 using System.Security.Cryptography;
 using HeroCrypt.Security;
 
+#if NET9_0_OR_GREATER
+using LockType = System.Threading.Lock;
+using LockScope = System.Threading.Lock.Scope;
+#else
+using LockType = System.Object;
+#endif
+
 namespace HeroCrypt.Cryptography.Primitives.Kdf;
 
 /// <summary>
@@ -8,7 +15,7 @@ namespace HeroCrypt.Cryptography.Primitives.Kdf;
 /// </summary>
 public static class KeyManagement
 {
-    internal static readonly char[] PathSeparator = { '/' };
+    internal static readonly char[] PathSeparator = ['/'];
 
     /// <summary>
     /// Creates a new key rotation schedule
@@ -105,7 +112,7 @@ public static class KeyManagement
     {
         if (keyMaterial.IsEmpty)
         {
-            return new KeyValidationResult { IsValid = false, Issues = new[] { "Key is empty" } };
+            return new KeyValidationResult { IsValid = false, Issues = ["Key is empty"] };
         }
 
         var issues = new List<string>();
@@ -165,7 +172,7 @@ public static class KeyManagement
         return new KeyValidationResult
         {
             IsValid = issues.Count == 0,
-            Issues = issues.ToArray(),
+            Issues = [.. issues],
             Score = Math.Min(score, 100),
             Entropy = entropy
         };
@@ -287,22 +294,28 @@ public static class KeyManagement
 /// </summary>
 public class KeyRotationManager : IDisposable
 {
-    private readonly byte[] _masterKey;
-    private readonly byte[] _salt;
-    private readonly TimeSpan _rotationInterval;
-    private readonly int _keySize;
-    private readonly int _maxKeys;
-    private readonly Dictionary<DateTimeOffset, byte[]> _activeKeys;
-    private readonly object _lock = new();
+    private readonly byte[] masterKey;
+    private readonly byte[] salt;
+    private readonly TimeSpan rotationInterval;
+    private readonly int keySize;
+    private readonly int maxKeys;
+    private readonly Dictionary<DateTimeOffset, byte[]> activeKeys;
+#if NET9_0_OR_GREATER
+    private readonly LockType syncLock = new();
+    private LockScope EnterLock() => syncLock.EnterScope();
+#else
+    private readonly LockType syncLock = new();
+    private IDisposable EnterLock() => new LockReleaser(syncLock);
+#endif
 
     internal KeyRotationManager(byte[] masterKey, byte[] salt, TimeSpan rotationInterval, int keySize, int maxKeys)
     {
-        _masterKey = masterKey;
-        _salt = salt;
-        _rotationInterval = rotationInterval;
-        _keySize = keySize;
-        _maxKeys = maxKeys;
-        _activeKeys = new Dictionary<DateTimeOffset, byte[]>();
+        this.masterKey = masterKey;
+        this.salt = salt;
+        this.rotationInterval = rotationInterval;
+        this.keySize = keySize;
+        this.maxKeys = maxKeys;
+        activeKeys = [];
 
         // Generate initial key
         RotateKey(DateTimeOffset.UtcNow);
@@ -314,34 +327,32 @@ public class KeyRotationManager : IDisposable
     /// <returns>Current key and its creation time</returns>
     public (byte[] Key, DateTimeOffset CreatedAt) GetCurrentKey()
     {
-        lock (_lock)
+        using var guard = EnterLock();
+        var now = DateTimeOffset.UtcNow;
+
+        // Check if we need to rotate
+        var shouldRotate = true;
+        DateTimeOffset latestTime = DateTimeOffset.MinValue;
+
+        foreach (var kvp in activeKeys)
         {
-            var now = DateTimeOffset.UtcNow;
-
-            // Check if we need to rotate
-            var shouldRotate = true;
-            DateTimeOffset latestTime = DateTimeOffset.MinValue;
-
-            foreach (var kvp in _activeKeys)
+            if (kvp.Key > latestTime)
             {
-                if (kvp.Key > latestTime)
+                latestTime = kvp.Key;
+                if (now - kvp.Key < rotationInterval)
                 {
-                    latestTime = kvp.Key;
-                    if (now - kvp.Key < _rotationInterval)
-                    {
-                        shouldRotate = false;
-                    }
+                    shouldRotate = false;
                 }
             }
-
-            if (shouldRotate)
-            {
-                RotateKey(now);
-            }
-
-            // Return the latest key
-            return (_activeKeys[latestTime], latestTime);
         }
+
+        if (shouldRotate)
+        {
+            RotateKey(now);
+        }
+
+        // Return the latest key
+        return (activeKeys[latestTime], latestTime);
     }
 
     /// <summary>
@@ -350,12 +361,10 @@ public class KeyRotationManager : IDisposable
     /// <returns>New key and its creation time</returns>
     public (byte[] Key, DateTimeOffset CreatedAt) ForceRotation()
     {
-        lock (_lock)
-        {
-            var now = DateTimeOffset.UtcNow;
-            RotateKey(now);
-            return (_activeKeys[now], now);
-        }
+        using var guard = EnterLock();
+        var now = DateTimeOffset.UtcNow;
+        RotateKey(now);
+        return (activeKeys[now], now);
     }
 
     /// <summary>
@@ -365,10 +374,8 @@ public class KeyRotationManager : IDisposable
     /// <returns>Key if found, null otherwise</returns>
     public byte[]? GetKeyByTimestamp(DateTimeOffset timestamp)
     {
-        lock (_lock)
-        {
-            return _activeKeys.TryGetValue(timestamp, out var key) ? key : null;
-        }
+        using var guard = EnterLock();
+        return activeKeys.TryGetValue(timestamp, out var key) ? key : null;
     }
 
     /// <summary>
@@ -377,36 +384,34 @@ public class KeyRotationManager : IDisposable
     /// <returns>Dictionary of timestamps and keys</returns>
     public Dictionary<DateTimeOffset, byte[]> GetAllActiveKeys()
     {
-        lock (_lock)
-        {
-            return new Dictionary<DateTimeOffset, byte[]>(_activeKeys);
-        }
+        using var guard = EnterLock();
+        return new Dictionary<DateTimeOffset, byte[]>(activeKeys);
     }
 
     private void RotateKey(DateTimeOffset timestamp)
     {
         // Derive new key using timestamp as context
         var context = System.Text.Encoding.UTF8.GetBytes($"rotation:{timestamp.Ticks}");
-        var newKey = HkdfCore.DeriveKey(_masterKey, _salt, context, _keySize, HashAlgorithmName.SHA256);
+        var newKey = HkdfCore.DeriveKey(masterKey, salt, context, keySize, HashAlgorithmName.SHA256);
 
-        _activeKeys[timestamp] = newKey;
+        activeKeys[timestamp] = newKey;
 
         // Clean up old keys if we have too many
-        if (_activeKeys.Count > _maxKeys)
+        if (activeKeys.Count > maxKeys)
         {
             var oldestKeys = new List<DateTimeOffset>();
-            foreach (var kvp in _activeKeys)
+            foreach (var kvp in activeKeys)
             {
                 oldestKeys.Add(kvp.Key);
             }
             oldestKeys.Sort();
 
-            var keysToRemove = oldestKeys.Count - _maxKeys;
+            var keysToRemove = oldestKeys.Count - maxKeys;
             for (var i = 0; i < keysToRemove; i++)
             {
                 var keyToRemove = oldestKeys[i];
-                SecureMemoryOperations.SecureClear(_activeKeys[keyToRemove]);
-                _activeKeys.Remove(keyToRemove);
+                SecureMemoryOperations.SecureClear(activeKeys[keyToRemove]);
+                activeKeys.Remove(keyToRemove);
             }
         }
     }
@@ -416,17 +421,15 @@ public class KeyRotationManager : IDisposable
     /// </summary>
     public void Dispose()
     {
-        lock (_lock)
+        using var guard = EnterLock();
+        foreach (var key in activeKeys.Values)
         {
-            foreach (var key in _activeKeys.Values)
-            {
-                SecureMemoryOperations.SecureClear(key);
-            }
-            _activeKeys.Clear();
-
-            SecureMemoryOperations.SecureClear(_masterKey);
-            SecureMemoryOperations.SecureClear(_salt);
+            SecureMemoryOperations.SecureClear(key);
         }
+        activeKeys.Clear();
+
+        SecureMemoryOperations.SecureClear(masterKey);
+        SecureMemoryOperations.SecureClear(salt);
 
         GC.SuppressFinalize(this);
     }
@@ -437,20 +440,26 @@ public class KeyRotationManager : IDisposable
 /// </summary>
 public class KeyDerivationTree : IDisposable
 {
-    private readonly byte[] _rootKey;
-    private readonly byte[] _salt;
-    private readonly int _maxDepth;
-    private readonly int _keySize;
-    private readonly Dictionary<string, byte[]> _derivedKeys;
-    private readonly object _lock = new();
+    private readonly byte[] rootKey;
+    private readonly byte[] salt;
+    private readonly int maxDepth;
+    private readonly int keySize;
+    private readonly Dictionary<string, byte[]> derivedKeys;
+    private readonly LockType syncLock = new();
+
+#if !NET9_0_OR_GREATER
+    private IDisposable EnterLock() => new LockReleaser(syncLock);
+#else
+    private LockScope EnterLock() => syncLock.EnterScope();
+#endif
 
     internal KeyDerivationTree(byte[] rootKey, byte[] salt, int maxDepth, int keySize)
     {
-        _rootKey = rootKey;
-        _salt = salt;
-        _maxDepth = maxDepth;
-        _keySize = keySize;
-        _derivedKeys = new Dictionary<string, byte[]>();
+        this.rootKey = rootKey;
+        this.salt = salt;
+        this.maxDepth = maxDepth;
+        this.keySize = keySize;
+        derivedKeys = [];
     }
 
     /// <summary>
@@ -466,25 +475,23 @@ public class KeyDerivationTree : IDisposable
         }
 
         var pathParts = path.Split(KeyManagement.PathSeparator, StringSplitOptions.RemoveEmptyEntries);
-        if (pathParts.Length > _maxDepth)
+        if (pathParts.Length > maxDepth)
         {
-            throw new ArgumentException($"Path depth exceeds maximum ({_maxDepth})", nameof(path));
+            throw new ArgumentException($"Path depth exceeds maximum ({maxDepth})", nameof(path));
         }
 
-        lock (_lock)
+        using var guard = EnterLock();
+        if (derivedKeys.TryGetValue(path, out var existingKey))
         {
-            if (_derivedKeys.TryGetValue(path, out var existingKey))
-            {
-                return existingKey;
-            }
-
-            // Derive key using full path as context
-            var context = System.Text.Encoding.UTF8.GetBytes(path);
-            var derivedKey = HkdfCore.DeriveKey(_rootKey, _salt, context, _keySize, HashAlgorithmName.SHA256);
-
-            _derivedKeys[path] = derivedKey;
-            return derivedKey;
+            return existingKey;
         }
+
+        // Derive key using full path as context
+        var context = System.Text.Encoding.UTF8.GetBytes(path);
+        var derivedKey = HkdfCore.DeriveKey(rootKey, salt, context, keySize, HashAlgorithmName.SHA256);
+
+        derivedKeys[path] = derivedKey;
+        return derivedKey;
     }
 
     /// <summary>
@@ -517,10 +524,8 @@ public class KeyDerivationTree : IDisposable
     /// <returns>Dictionary of paths to keys</returns>
     public Dictionary<string, byte[]> GetAllKeys()
     {
-        lock (_lock)
-        {
-            return new Dictionary<string, byte[]>(_derivedKeys);
-        }
+        using var guard = EnterLock();
+        return new Dictionary<string, byte[]>(derivedKeys);
     }
 
     /// <summary>
@@ -529,13 +534,11 @@ public class KeyDerivationTree : IDisposable
     /// <param name="path">Path of key to clear</param>
     public void ClearKey(string path)
     {
-        lock (_lock)
+        using var guard = EnterLock();
+        if (derivedKeys.TryGetValue(path, out var key))
         {
-            if (_derivedKeys.TryGetValue(path, out var key))
-            {
-                SecureMemoryOperations.SecureClear(key);
-                _derivedKeys.Remove(path);
-            }
+            SecureMemoryOperations.SecureClear(key);
+            derivedKeys.Remove(path);
         }
     }
 
@@ -544,17 +547,15 @@ public class KeyDerivationTree : IDisposable
     /// </summary>
     public void Dispose()
     {
-        lock (_lock)
+        using var guard = EnterLock();
+        foreach (var key in derivedKeys.Values)
         {
-            foreach (var key in _derivedKeys.Values)
-            {
-                SecureMemoryOperations.SecureClear(key);
-            }
-            _derivedKeys.Clear();
-
-            SecureMemoryOperations.SecureClear(_rootKey);
-            SecureMemoryOperations.SecureClear(_salt);
+            SecureMemoryOperations.SecureClear(key);
         }
+        derivedKeys.Clear();
+
+        SecureMemoryOperations.SecureClear(rootKey);
+        SecureMemoryOperations.SecureClear(salt);
 
         GC.SuppressFinalize(this);
     }
@@ -595,11 +596,11 @@ public class KeyPolicy
 /// </summary>
 public class KeyPolicyManager
 {
-    private readonly KeyPolicy _policy;
+    private readonly KeyPolicy policy;
 
     internal KeyPolicyManager(KeyPolicy policy)
     {
-        _policy = policy;
+        this.policy = policy;
     }
 
     /// <summary>
@@ -615,33 +616,33 @@ public class KeyPolicyManager
 
         // Check age
         var age = now - createdAt;
-        if (age > _policy.MaxAge)
+        if (age > policy.MaxAge)
         {
-            issues.Add($"Key is too old ({age.TotalDays:F1} days, max: {_policy.MaxAge.TotalDays} days)");
+            issues.Add($"Key is too old ({age.TotalDays:F1} days, max: {policy.MaxAge.TotalDays} days)");
         }
 
-        var shouldRotate = age > _policy.RotationInterval;
+        var shouldRotate = age > policy.RotationInterval;
 
         // Check size
-        if (keyMaterial.Length < _policy.MinKeySize)
+        if (keyMaterial.Length < policy.MinKeySize)
         {
-            issues.Add($"Key is too small ({keyMaterial.Length} bytes, min: {_policy.MinKeySize} bytes)");
+            issues.Add($"Key is too small ({keyMaterial.Length} bytes, min: {policy.MinKeySize} bytes)");
         }
 
         // Validate entropy if enforcing secure generation
-        if (_policy.EnforceSecureGeneration)
+        if (policy.EnforceSecureGeneration)
         {
             var validation = KeyManagement.ValidateKey(keyMaterial);
-            if (validation.Entropy < _policy.MinEntropy)
+            if (validation.Entropy < policy.MinEntropy)
             {
-                issues.Add($"Key entropy too low ({validation.Entropy:F2}, min: {_policy.MinEntropy})");
+                issues.Add($"Key entropy too low ({validation.Entropy:F2}, min: {policy.MinEntropy})");
             }
 
             issues.AddRange(validation.Issues);
         }
 
         // Custom validation
-        if (_policy.CustomValidator != null && !_policy.CustomValidator(keyMaterial.ToArray()))
+        if (policy.CustomValidator != null && !policy.CustomValidator(keyMaterial.ToArray()))
         {
             issues.Add("Custom validation failed");
         }
@@ -649,7 +650,7 @@ public class KeyPolicyManager
         return new PolicyValidationResult
         {
             IsValid = issues.Count == 0,
-            Issues = issues.ToArray(),
+            Issues = [.. issues],
             ShouldRotate = shouldRotate,
             KeyAge = age
         };
@@ -661,7 +662,7 @@ public class KeyPolicyManager
     /// <returns>Policy-compliant key</returns>
     public byte[] GenerateCompliantKey()
     {
-        var keySize = Math.Max(_policy.MinKeySize, 32);
+        var keySize = Math.Max(policy.MinKeySize, 32);
         byte[] key;
 
         do
@@ -691,7 +692,7 @@ public class KeyValidationResult
     public bool IsValid { get; set; }
 
     /// <summary>List of validation issues</summary>
-    public string[] Issues { get; set; } = Array.Empty<string>();
+    public string[] Issues { get; set; } = [];
 
     /// <summary>Key strength score (0-100)</summary>
     public int Score { get; set; }
@@ -709,7 +710,7 @@ public class PolicyValidationResult
     public bool IsValid { get; set; }
 
     /// <summary>List of policy violations</summary>
-    public string[] Issues { get; set; } = Array.Empty<string>();
+    public string[] Issues { get; set; } = [];
 
     /// <summary>Whether the key should be rotated</summary>
     public bool ShouldRotate { get; set; }

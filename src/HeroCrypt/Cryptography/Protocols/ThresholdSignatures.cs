@@ -260,8 +260,8 @@ public static class ThresholdSignatures
         catch (CryptographicException)
         {
             return new KeyGenerationResult(
-                Array.Empty<KeyShare>(),
-                Array.Empty<byte>(),
+                [],
+                [],
                 false
             );
         }
@@ -326,7 +326,7 @@ public static class ThresholdSignatures
             // Compute Lagrange coefficient for this share
             var lagrange = ComputeLagrangeCoefficient(
                 keyShare.ShareIndex,
-                signers.Select(id => (byte)(id + 1)).ToArray(),
+                [.. signers.Select(id => (byte)(id + 1))],
                 keyShare.Threshold
             );
 
@@ -384,10 +384,10 @@ public static class ThresholdSignatures
         // 4. Final signature is (R, S) where R = Σ Ri
 
         // Combine commitments to get R
-        var rValue = CombineCommitments(partialSignatures.Select(ps => ps.Commitment).ToArray());
+        var rValue = CombineCommitments([.. partialSignatures.Select(ps => ps.Commitment)]);
 
         // Combine partial signature values to get S
-        var sValue = CombinePartialValues(partialSignatures.Select(ps => ps.Value).ToArray());
+        var sValue = CombinePartialValues([.. partialSignatures.Select(ps => ps.Value)]);
 
         var signers = partialSignatures.Select(ps => ps.PartyId).ToArray();
 
@@ -497,7 +497,7 @@ public static class ThresholdSignatures
         var combined = privateShare
             .Concat(nonce)
             .Concat(messageHash)
-            .Concat(new[] { lagrange })
+            .Concat([lagrange])
             .ToArray();
 
         return ComputeSha256(combined);

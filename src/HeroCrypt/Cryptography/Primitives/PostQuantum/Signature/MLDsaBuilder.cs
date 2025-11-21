@@ -3,7 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography;
 
 #pragma warning disable SYSLIB5006 // ML-DSA APIs are experimental in .NET 10 preview
-namespace HeroCrypt.Cryptography.Primitives.PostQuantum.Dilithium;
+namespace HeroCrypt.Cryptography.Primitives.PostQuantum.Signature;
 
 /// <summary>
 /// Fluent builder for ML-DSA (Module-Lattice-Based Digital Signature Algorithm) operations
@@ -31,12 +31,12 @@ namespace HeroCrypt.Cryptography.Primitives.PostQuantum.Dilithium;
 [Experimental("SYSLIB5006")]
 public class MLDsaBuilder : IDisposable
 {
-    private MLDsaWrapper.SecurityLevel _securityLevel = MLDsaWrapper.SecurityLevel.MLDsa65;
-    private string? _publicKeyPem;
-    private MLDsaWrapper.MLDsaKeyPair? _keyPair;
-    private byte[]? _data;
-    private byte[]? _context;
-    private bool _disposed;
+    private MLDsaWrapper.SecurityLevel securityLevel = MLDsaWrapper.SecurityLevel.MLDsa65;
+    private string? publicKeyPem;
+    private MLDsaWrapper.MLDsaKeyPair? keyPair;
+    private byte[]? data;
+    private byte[]? context;
+    private bool disposed;
 
     /// <summary>
     /// Creates a new ML-DSA builder instance
@@ -63,7 +63,7 @@ public class MLDsaBuilder : IDisposable
     /// <returns>The builder instance for method chaining</returns>
     public MLDsaBuilder WithSecurityLevel(MLDsaWrapper.SecurityLevel level)
     {
-        _securityLevel = level;
+        securityLevel = level;
         return this;
     }
 
@@ -74,7 +74,7 @@ public class MLDsaBuilder : IDisposable
     /// <returns>The builder instance for method chaining</returns>
     public MLDsaBuilder WithSecurityBits(int securityBits)
     {
-        _securityLevel = MLDsaWrapper.GetRecommendedLevel(securityBits);
+        securityLevel = MLDsaWrapper.GetRecommendedLevel(securityBits);
         return this;
     }
 
@@ -95,7 +95,7 @@ public class MLDsaBuilder : IDisposable
         }
 #endif
 
-        _publicKeyPem = publicKeyPem;
+        this.publicKeyPem = publicKeyPem;
         return this;
     }
 
@@ -116,7 +116,7 @@ public class MLDsaBuilder : IDisposable
         }
 #endif
 
-        _keyPair = keyPair;
+        this.keyPair = keyPair;
         return this;
     }
 
@@ -137,7 +137,7 @@ public class MLDsaBuilder : IDisposable
         }
 #endif
 
-        _data = data;
+        this.data = data;
         return this;
     }
 
@@ -158,7 +158,7 @@ public class MLDsaBuilder : IDisposable
         }
 #endif
 
-        _data = System.Text.Encoding.UTF8.GetBytes(data);
+        this.data = System.Text.Encoding.UTF8.GetBytes(data);
         return this;
     }
 
@@ -175,7 +175,7 @@ public class MLDsaBuilder : IDisposable
             throw new ArgumentException("Context must be 255 bytes or less", nameof(context));
         }
 
-        _context = context;
+        this.context = context;
         return this;
     }
 
@@ -189,7 +189,7 @@ public class MLDsaBuilder : IDisposable
     {
         if (context == null)
         {
-            _context = null;
+            this.context = null;
             return this;
         }
 
@@ -199,7 +199,7 @@ public class MLDsaBuilder : IDisposable
             throw new ArgumentException("Context must be 255 bytes or less when UTF-8 encoded", nameof(context));
         }
 
-        _context = contextBytes;
+        this.context = contextBytes;
         return this;
     }
 
@@ -210,7 +210,7 @@ public class MLDsaBuilder : IDisposable
     /// <exception cref="CryptographicException">If key generation fails</exception>
     public MLDsaWrapper.MLDsaKeyPair GenerateKeyPair()
     {
-        return MLDsaWrapper.GenerateKeyPair(_securityLevel);
+        return MLDsaWrapper.GenerateKeyPair(securityLevel);
     }
 
     /// <summary>
@@ -221,17 +221,17 @@ public class MLDsaBuilder : IDisposable
     /// <exception cref="CryptographicException">If signing fails</exception>
     public byte[] Sign()
     {
-        if (_keyPair == null)
+        if (keyPair == null)
         {
             throw new InvalidOperationException("Key pair must be set before signing. Use WithKeyPair()");
         }
 
-        if (_data == null)
+        if (data == null)
         {
             throw new InvalidOperationException("Data must be set before signing. Use WithData()");
         }
 
-        return _keyPair.Sign(_data, _context);
+        return keyPair.Sign(data, context);
     }
 
     /// <summary>
@@ -245,17 +245,17 @@ public class MLDsaBuilder : IDisposable
     {
         ArgumentNullException.ThrowIfNull(signature);
 
-        if (_publicKeyPem == null)
+        if (publicKeyPem == null)
         {
             throw new InvalidOperationException("Public key must be set before verification. Use WithPublicKey()");
         }
 
-        if (_data == null)
+        if (data == null)
         {
             throw new InvalidOperationException("Data must be set before verification. Use WithData()");
         }
 
-        return MLDsaWrapper.Verify(_publicKeyPem, _data, signature, _context);
+        return MLDsaWrapper.Verify(publicKeyPem, data, signature, context);
     }
 
     /// <summary>
@@ -264,7 +264,7 @@ public class MLDsaBuilder : IDisposable
     /// <returns>Tuple of (security bits, signature size, description)</returns>
     public (int SecurityBits, int SignatureSize, string Description) GetLevelInfo()
     {
-        return MLDsaWrapper.GetLevelInfo(_securityLevel);
+        return MLDsaWrapper.GetLevelInfo(securityLevel);
     }
 
     /// <summary>
@@ -273,62 +273,26 @@ public class MLDsaBuilder : IDisposable
     /// </summary>
     public void Dispose()
     {
-        if (!_disposed)
+        if (!disposed)
         {
             // Clear sensitive data
-            if (_data != null)
+            if (data != null)
             {
-                Array.Clear(_data, 0, _data.Length);
-                _data = null;
+                Array.Clear(data, 0, data.Length);
+                data = null;
             }
 
-            if (_context != null)
+            if (context != null)
             {
-                Array.Clear(_context, 0, _context.Length);
-                _context = null;
+                Array.Clear(context, 0, context.Length);
+                context = null;
             }
 
-            // Note: We don't dispose _keyPair as it was provided externally
-            _disposed = true;
+            // Note: We don't dispose keyPair as it was provided externally
+            disposed = true;
             GC.SuppressFinalize(this);
         }
     }
 }
 
-/// <summary>
-/// Provides a short-hand fluent API for ML-DSA operations
-/// </summary>
-public static class MLDsa
-{
-    /// <summary>
-    /// Creates a new ML-DSA builder instance
-    /// </summary>
-    /// <returns>A new builder instance</returns>
-    public static MLDsaBuilder Create() => MLDsaBuilder.Create();
-
-    /// <summary>
-    /// Quick method to generate a key pair with recommended security (ML-DSA-65)
-    /// </summary>
-    /// <returns>A new ML-DSA key pair</returns>
-    public static MLDsaWrapper.MLDsaKeyPair GenerateKeyPair() =>
-        MLDsaWrapper.GenerateKeyPair(MLDsaWrapper.SecurityLevel.MLDsa65);
-
-    /// <summary>
-    /// Quick method to generate a key pair with specified security level
-    /// </summary>
-    /// <param name="level">The security level</param>
-    /// <returns>A new ML-DSA key pair</returns>
-    public static MLDsaWrapper.MLDsaKeyPair GenerateKeyPair(MLDsaWrapper.SecurityLevel level) =>
-        MLDsaWrapper.GenerateKeyPair(level);
-
-    /// <summary>
-    /// Quick method to verify a signature
-    /// </summary>
-    /// <param name="publicKeyPem">The public key in PEM format</param>
-    /// <param name="data">The data that was signed</param>
-    /// <param name="signature">The signature to verify</param>
-    /// <returns>True if valid, false otherwise</returns>
-    public static bool Verify(string publicKeyPem, byte[] data, byte[] signature) =>
-        MLDsaWrapper.Verify(publicKeyPem, data, signature);
-}
 #endif

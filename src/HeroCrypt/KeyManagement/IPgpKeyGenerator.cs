@@ -26,25 +26,21 @@ public interface IPgpKeyGenerator
 /// <summary>
 /// Represents a cryptographic key pair containing both public and private keys
 /// </summary>
-public class KeyPair
+/// <remarks>
+/// Initializes a new instance of the KeyPair class
+/// </remarks>
+/// <param name="publicKey">The public key</param>
+/// <param name="privateKey">The private key</param>
+public class KeyPair(string publicKey, string privateKey)
 {
-    /// <summary>
-    /// Initializes a new instance of the KeyPair class
-    /// </summary>
-    /// <param name="publicKey">The public key</param>
-    /// <param name="privateKey">The private key</param>
-    public KeyPair(string publicKey, string privateKey)
-    {
-        PublicKey = publicKey;
-        PrivateKey = privateKey;
-    }
+
 
     /// <summary>
     /// Gets the public key
     /// </summary>
-    public string PublicKey { get; }
+    public string PublicKey { get; } = publicKey;
     /// <summary>
     /// Gets the private key
     /// </summary>
-    public string PrivateKey { get; }
+    public string PrivateKey { get; } = privateKey;
 }

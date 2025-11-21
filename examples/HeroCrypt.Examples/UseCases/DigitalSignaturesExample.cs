@@ -31,10 +31,10 @@ public static class DigitalSignaturesExample
         Console.WriteLine("-".PadRight(60, '-'));
 
         // Generate RSA key pair
-        using var rsa = RSA.Create(3072);  // 3072-bit key (recommended)
+        using RSA rsa = RSA.Create(3072);  // 3072-bit key (recommended)
 
-        var privateKey = rsa.ExportRSAPrivateKey();
-        var publicKey = rsa.ExportRSAPublicKey();
+        byte[] privateKey = rsa.ExportRSAPrivateKey();
+        byte[] publicKey = rsa.ExportRSAPublicKey();
 
         Console.WriteLine($"Generated 3072-bit RSA key pair");
         Console.WriteLine($"Private key size: {privateKey.Length} bytes");
@@ -42,14 +42,14 @@ public static class DigitalSignaturesExample
         Console.WriteLine();
 
         // Document to sign
-        var document = "This is an important contract that needs to be signed.";
-        var documentBytes = Encoding.UTF8.GetBytes(document);
+        string document = "This is an important contract that needs to be signed.";
+        byte[] documentBytes = Encoding.UTF8.GetBytes(document);
 
         Console.WriteLine($"Document: {document}");
         Console.WriteLine();
 
         // Sign the document using PSS padding (recommended)
-        var signature = rsa.SignData(
+        byte[] signature = rsa.SignData(
             documentBytes,
             HashAlgorithmName.SHA256,
             RSASignaturePadding.Pss
@@ -71,7 +71,7 @@ public static class DigitalSignaturesExample
         Console.WriteLine();
 
         // Attempt to verify with tampered document
-        var tamperedDocument = Encoding.UTF8.GetBytes(document + " TAMPERED");
+        byte[] tamperedDocument = Encoding.UTF8.GetBytes(document + " TAMPERED");
         bool isTamperedValid = rsa.VerifyData(
             tamperedDocument,
             signature,
@@ -91,10 +91,10 @@ public static class DigitalSignaturesExample
         Console.WriteLine("-".PadRight(60, '-'));
 
         // Generate ECDSA key pair using P-256 curve
-        using var ecdsa = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        using ECDsa ecdsa = ECDsa.Create(ECCurve.NamedCurves.nistP256);
 
-        var privateKey = ecdsa.ExportECPrivateKey();
-        var publicKey = ecdsa.ExportSubjectPublicKeyInfo();
+        byte[] privateKey = ecdsa.ExportECPrivateKey();
+        byte[] publicKey = ecdsa.ExportSubjectPublicKeyInfo();
 
         Console.WriteLine("Generated ECDSA P-256 key pair");
         Console.WriteLine($"Private key size: {privateKey.Length} bytes");
@@ -102,14 +102,14 @@ public static class DigitalSignaturesExample
         Console.WriteLine();
 
         // Message to sign
-        var message = "Authentication token: abc123xyz";
-        var messageBytes = Encoding.UTF8.GetBytes(message);
+        string message = "Authentication token: abc123xyz";
+        byte[] messageBytes = Encoding.UTF8.GetBytes(message);
 
         Console.WriteLine($"Message: {message}");
         Console.WriteLine();
 
         // Sign the message
-        var signature = ecdsa.SignData(messageBytes, HashAlgorithmName.SHA256);
+        byte[] signature = ecdsa.SignData(messageBytes, HashAlgorithmName.SHA256);
 
         Console.WriteLine($"Signature: {Convert.ToBase64String(signature)}");
         Console.WriteLine($"Signature size: {signature.Length} bytes (much smaller than RSA!)");
@@ -138,14 +138,14 @@ public static class DigitalSignaturesExample
         Console.WriteLine("-".PadRight(60, '-'));
 
         // Step 1: Generate signer's key pair
-        using var signerKey = ECDsa.Create(ECCurve.NamedCurves.nistP256);
-        var signerPublicKey = signerKey.ExportSubjectPublicKeyInfo();
+        using ECDsa signerKey = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        byte[] signerPublicKey = signerKey.ExportSubjectPublicKeyInfo();
 
         Console.WriteLine("Step 1: Generated signer's key pair");
         Console.WriteLine();
 
         // Step 2: Create document
-        var document = new SignedDocument
+        SignedDocument document = new()
         {
             DocumentId = Guid.NewGuid().ToString(),
             Title = "Software License Agreement",
@@ -160,18 +160,18 @@ public static class DigitalSignaturesExample
         Console.WriteLine();
 
         // Step 3: Compute document hash
-        var documentJson = System.Text.Json.JsonSerializer.Serialize(document);
-        var documentBytes = Encoding.UTF8.GetBytes(documentJson);
+        string documentJson = System.Text.Json.JsonSerializer.Serialize(document);
+        byte[] documentBytes = Encoding.UTF8.GetBytes(documentJson);
 
-        using var sha256 = SHA256.Create();
-        var documentHash = sha256.ComputeHash(documentBytes);
+        using SHA256 sha256 = SHA256.Create();
+        byte[] documentHash = sha256.ComputeHash(documentBytes);
 
         Console.WriteLine($"Step 3: Computed document hash");
         Console.WriteLine($"Hash: {Convert.ToBase64String(documentHash)}");
         Console.WriteLine();
 
         // Step 4: Sign the document hash
-        var signature = signerKey.SignData(documentHash, HashAlgorithmName.SHA256);
+        byte[] signature = signerKey.SignData(documentHash, HashAlgorithmName.SHA256);
 
         document.Signature = signature;
         document.SignerPublicKey = signerPublicKey;
@@ -186,11 +186,11 @@ public static class DigitalSignaturesExample
         Console.WriteLine("Step 5: Recipient verifies signature");
 
         // Import signer's public key
-        using var verifierKey = ECDsa.Create();
+        using ECDsa verifierKey = ECDsa.Create();
         verifierKey.ImportSubjectPublicKeyInfo(document.SignerPublicKey, out _);
 
         // Recompute document hash
-        var verifyDocument = new SignedDocument
+        SignedDocument verifyDocument = new()
         {
             DocumentId = document.DocumentId,
             Title = document.Title,
@@ -199,9 +199,9 @@ public static class DigitalSignaturesExample
             CreatedAt = document.CreatedAt
         };
 
-        var verifyJson = System.Text.Json.JsonSerializer.Serialize(verifyDocument);
-        var verifyBytes = Encoding.UTF8.GetBytes(verifyJson);
-        var verifyHash = sha256.ComputeHash(verifyBytes);
+        string verifyJson = System.Text.Json.JsonSerializer.Serialize(verifyDocument);
+        byte[] verifyBytes = Encoding.UTF8.GetBytes(verifyJson);
+        byte[] verifyHash = sha256.ComputeHash(verifyBytes);
 
         // Verify signature
         bool isValid = verifierKey.VerifyData(verifyHash, document.Signature, HashAlgorithmName.SHA256);
@@ -215,9 +215,9 @@ public static class DigitalSignaturesExample
         Console.WriteLine("Step 6: Attempting to tamper with document");
 
         document.Content += " TAMPERED CONTENT";
-        var tamperedJson = System.Text.Json.JsonSerializer.Serialize(document);
-        var tamperedBytes = Encoding.UTF8.GetBytes(tamperedJson);
-        var tamperedHash = sha256.ComputeHash(tamperedBytes);
+        string tamperedJson = System.Text.Json.JsonSerializer.Serialize(document);
+        byte[] tamperedBytes = Encoding.UTF8.GetBytes(tamperedJson);
+        byte[] tamperedHash = sha256.ComputeHash(tamperedBytes);
 
         bool isTamperedValid = verifierKey.VerifyData(
             tamperedHash,
@@ -253,7 +253,7 @@ public class SignedDocument
     public string Content { get; set; } = string.Empty;
     public string Author { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
-    public byte[] Signature { get; set; } = Array.Empty<byte>();
-    public byte[] SignerPublicKey { get; set; } = Array.Empty<byte>();
+    public byte[] Signature { get; set; } = [];
+    public byte[] SignerPublicKey { get; set; } = [];
     public DateTime? SignedAt { get; set; }
 }

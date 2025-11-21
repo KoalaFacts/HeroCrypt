@@ -40,7 +40,7 @@ public sealed class PgpCryptographyService : ICryptographyService, IPgpKeyGenera
     private const string MESSAGE_HEADER = "-----BEGIN PGP MESSAGE-----";
     private const string MESSAGE_FOOTER = "-----END PGP MESSAGE-----";
 
-    private static readonly char[] _lineSeparators = { '\n' };
+    private static readonly char[] lineSeparators = ['\n'];
 
     /// <summary>
     /// Encrypts data using PGP-compatible encryption with RSA and AES.
@@ -122,7 +122,7 @@ public sealed class PgpCryptographyService : ICryptographyService, IPgpKeyGenera
         result.AddRange(BitConverter.GetBytes(encryptedData.Length));
         result.AddRange(encryptedData);
 
-        var pgpMessage = FormatPgpMessage(result.ToArray());
+        var pgpMessage = FormatPgpMessage([.. result]);
         return Encoding.UTF8.GetBytes(pgpMessage);
     }
 
@@ -389,7 +389,7 @@ public sealed class PgpCryptographyService : ICryptographyService, IPgpKeyGenera
 
     private static byte[] ParsePgpMessage(string pgpMessage)
     {
-        var lines = pgpMessage.Split(_lineSeparators, StringSplitOptions.RemoveEmptyEntries);
+        var lines = pgpMessage.Split(lineSeparators, StringSplitOptions.RemoveEmptyEntries);
         var dataLines = new List<string>();
         var inData = false;
 
@@ -416,7 +416,7 @@ public sealed class PgpCryptographyService : ICryptographyService, IPgpKeyGenera
 
     private static RsaPublicKey ParsePublicKey(string publicKeyString)
     {
-        var lines = publicKeyString.Split(_lineSeparators, StringSplitOptions.RemoveEmptyEntries);
+        var lines = publicKeyString.Split(lineSeparators, StringSplitOptions.RemoveEmptyEntries);
         string? modulus = null;
         string? exponent = null;
 
@@ -424,11 +424,11 @@ public sealed class PgpCryptographyService : ICryptographyService, IPgpKeyGenera
         {
             if (line.StartsWith("Modulus:", StringComparison.Ordinal))
             {
-                modulus = line.Substring("Modulus:".Length).Trim();
+                modulus = line["Modulus:".Length..].Trim();
             }
             else if (line.StartsWith("Exponent:", StringComparison.Ordinal))
             {
-                exponent = line.Substring("Exponent:".Length).Trim();
+                exponent = line["Exponent:".Length..].Trim();
             }
         }
 
@@ -444,7 +444,7 @@ public sealed class PgpCryptographyService : ICryptographyService, IPgpKeyGenera
 
     private static RsaPrivateKey ParsePrivateKey(string privateKeyString, string? passphrase)
     {
-        var lines = privateKeyString.Split(_lineSeparators, StringSplitOptions.RemoveEmptyEntries);
+        var lines = privateKeyString.Split(lineSeparators, StringSplitOptions.RemoveEmptyEntries);
         string? modulus = null;
         string? d = null;
         string? p = null;
@@ -457,32 +457,32 @@ public sealed class PgpCryptographyService : ICryptographyService, IPgpKeyGenera
         {
             if (line.StartsWith("Encrypted:", StringComparison.Ordinal))
             {
-                var value = line.Substring("Encrypted:".Length).Trim();
+                var value = line["Encrypted:".Length..].Trim();
                 encrypted = bool.TryParse(value, out var parsed) && parsed;
             }
             else if (line.StartsWith("Data:", StringComparison.Ordinal))
             {
-                encryptedPayload = line.Substring("Data:".Length).Trim();
+                encryptedPayload = line["Data:".Length..].Trim();
             }
             else if (line.StartsWith("Modulus:", StringComparison.Ordinal))
             {
-                modulus = line.Substring("Modulus:".Length).Trim();
+                modulus = line["Modulus:".Length..].Trim();
             }
             else if (line.StartsWith("D:", StringComparison.Ordinal))
             {
-                d = line.Substring("D:".Length).Trim();
+                d = line["D:".Length..].Trim();
             }
             else if (line.StartsWith("P:", StringComparison.Ordinal))
             {
-                p = line.Substring("P:".Length).Trim();
+                p = line["P:".Length..].Trim();
             }
             else if (line.StartsWith("Q:", StringComparison.Ordinal))
             {
-                q = line.Substring("Q:".Length).Trim();
+                q = line["Q:".Length..].Trim();
             }
             else if (line.StartsWith("E:", StringComparison.Ordinal))
             {
-                e = line.Substring("E:".Length).Trim();
+                e = line["E:".Length..].Trim();
             }
         }
 

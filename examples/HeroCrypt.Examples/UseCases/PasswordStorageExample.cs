@@ -18,13 +18,13 @@ public static class PasswordStorageExample
         Console.WriteLine("1. User Registration");
         Console.WriteLine("-".PadRight(60, '-'));
 
-        var userPassword = "MySecurePassword123!";
+        string userPassword = "MySecurePassword123!";
         Console.WriteLine($"User password: {userPassword}");
 
         // Create Argon2 hashing service with high security settings
-        var argon2Options = new Argon2Options
+        Argon2Options argon2Options = new()
         {
-            Type = HeroCrypt.Cryptography.Primitives.Kdf.Argon2Type.Argon2id,
+            Type = Cryptography.Primitives.Kdf.Argon2Type.Argon2id,
             Iterations = 3,
             MemorySize = 65536,  // 64 MB
             Parallelism = 4,
@@ -32,16 +32,16 @@ public static class PasswordStorageExample
             SaltSize = 16
         };
 
-        var hashingService = new Argon2HashingService(argon2Options);
+        Argon2HashingService hashingService = new(argon2Options);
 
         // Hash the password
-        var passwordHash = await hashingService.HashAsync(userPassword);
+        string passwordHash = await hashingService.HashAsync(userPassword);
 
         Console.WriteLine($"Password hash: {passwordHash[..50]}... (truncated)");
         Console.WriteLine();
 
         // Store in database (simulated)
-        var userRecord = new UserRecord
+        UserRecord userRecord = new()
         {
             UserId = "user123",
             PasswordHash = passwordHash
@@ -55,7 +55,7 @@ public static class PasswordStorageExample
         Console.WriteLine("2. User Login - Correct Password");
         Console.WriteLine("-".PadRight(60, '-'));
 
-        var loginPassword = "MySecurePassword123!";
+        string loginPassword = "MySecurePassword123!";
         Console.WriteLine($"Login attempt with: {loginPassword}");
 
         // Verify the password
@@ -68,7 +68,7 @@ public static class PasswordStorageExample
         Console.WriteLine("3. User Login - Wrong Password");
         Console.WriteLine("-".PadRight(60, '-'));
 
-        var wrongPassword = "WrongPassword123!";
+        string wrongPassword = "WrongPassword123!";
         Console.WriteLine($"Login attempt with: {wrongPassword}");
 
         isValid = await hashingService.VerifyAsync(wrongPassword, userRecord.PasswordHash);
@@ -80,11 +80,11 @@ public static class PasswordStorageExample
         Console.WriteLine("4. Password Change");
         Console.WriteLine("-".PadRight(60, '-'));
 
-        var newPassword = "NewSecurePassword456!";
+        string newPassword = "NewSecurePassword456!";
         Console.WriteLine($"New password: {newPassword}");
 
         // Hash the new password
-        var newPasswordHash = await hashingService.HashAsync(newPassword);
+        string newPasswordHash = await hashingService.HashAsync(newPassword);
 
         // Update the user record
         userRecord.PasswordHash = newPasswordHash;

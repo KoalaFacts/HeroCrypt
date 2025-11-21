@@ -267,10 +267,10 @@ public static class Pbkdf2Utilities
 public class PasswordHashResult
 {
     /// <summary>Derived password hash</summary>
-    public byte[] Hash { get; set; } = Array.Empty<byte>();
+    public byte[] Hash { get; set; } = [];
 
     /// <summary>Salt used for derivation</summary>
-    public byte[] Salt { get; set; } = Array.Empty<byte>();
+    public byte[] Salt { get; set; } = [];
 
     /// <summary>Number of iterations used</summary>
     public int Iterations { get; set; }
@@ -298,16 +298,16 @@ public class PasswordHashResult
 public class PasswordBasedEncryptionContext : IDisposable
 {
     /// <summary>Encryption key</summary>
-    public byte[] EncryptionKey { get; set; } = Array.Empty<byte>();
+    public byte[] EncryptionKey { get; set; } = [];
 
     /// <summary>HMAC key for authentication</summary>
-    public byte[] HmacKey { get; set; } = Array.Empty<byte>();
+    public byte[] HmacKey { get; set; } = [];
 
     /// <summary>Initialization vector</summary>
-    public byte[] Iv { get; set; } = Array.Empty<byte>();
+    public byte[] Iv { get; set; } = [];
 
     /// <summary>Salt used for key derivation</summary>
-    public byte[] Salt { get; set; } = Array.Empty<byte>();
+    public byte[] Salt { get; set; } = [];
 
     /// <summary>Number of PBKDF2 iterations</summary>
     public int Iterations { get; set; }

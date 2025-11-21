@@ -36,7 +36,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Advanced Symmetric Algorithms (Phase 3C)
   - AES-OCB (Offset Codebook Mode) - RFC 7253 AEAD
   - HC-256 stream cipher (eSTREAM portfolio, 256-bit security)
-  - RC4 stream cipher (legacy compatibility with security warnings)
 - Project infrastructure and community guidelines
   - SECURITY.md with vulnerability reporting policy
   - CONTRIBUTING.md with comprehensive contribution guidelines

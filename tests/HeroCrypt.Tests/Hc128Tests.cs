@@ -9,20 +9,20 @@ namespace HeroCrypt.Tests;
 /// </summary>
 public class Hc128Tests
 {
-    private readonly byte[] _testKey = new byte[16];
-    private readonly byte[] _testIv = new byte[16];
-    private readonly byte[] _testPlaintext = Encoding.UTF8.GetBytes("The quick brown fox jumps over the lazy dog");
+    private readonly byte[] testKey = new byte[16];
+    private readonly byte[] testIv = new byte[16];
+    private readonly byte[] testPlaintext = Encoding.UTF8.GetBytes("The quick brown fox jumps over the lazy dog");
 
     public Hc128Tests()
     {
         // Initialize test key and IV with predictable values
-        for (var i = 0; i < _testKey.Length; i++)
+        for (var i = 0; i < testKey.Length; i++)
         {
-            _testKey[i] = (byte)(i + 1);
+            testKey[i] = (byte)(i + 1);
         }
-        for (var i = 0; i < _testIv.Length; i++)
+        for (var i = 0; i < testIv.Length; i++)
         {
-            _testIv[i] = (byte)(i + 50);
+            testIv[i] = (byte)(i + 50);
         }
     }
 
@@ -30,15 +30,15 @@ public class Hc128Tests
     public void Hc128_EncryptDecrypt_RoundTrip_Success()
     {
         // Arrange
-        var plaintext = _testPlaintext;
+        var plaintext = testPlaintext;
         var ciphertext = new byte[plaintext.Length];
         var decrypted = new byte[plaintext.Length];
 
         // Act - Encrypt
-        Hc128Core.Transform(ciphertext, plaintext, _testKey, _testIv);
+        Hc128Core.Transform(ciphertext, plaintext, testKey, testIv);
 
         // Act - Decrypt (HC-128 is symmetric)
-        Hc128Core.Transform(decrypted, ciphertext, _testKey, _testIv);
+        Hc128Core.Transform(decrypted, ciphertext, testKey, testIv);
 
         // Assert
         Assert.Equal(plaintext, decrypted);
@@ -53,7 +53,7 @@ public class Hc128Tests
         var ciphertext = Array.Empty<byte>();
 
         // Act & Assert - Should handle empty input gracefully
-        Hc128Core.Transform(ciphertext, plaintext, _testKey, _testIv);
+        Hc128Core.Transform(ciphertext, plaintext, testKey, testIv);
     }
 
     [Fact]
@@ -61,12 +61,12 @@ public class Hc128Tests
     {
         // Arrange
         var invalidKey = new byte[32]; // Should be 16 bytes
-        var plaintext = _testPlaintext;
+        var plaintext = testPlaintext;
         var ciphertext = new byte[plaintext.Length];
 
         // Act & Assert
         var ex = Assert.Throws<ArgumentException>(() =>
-            Hc128Core.Transform(ciphertext, plaintext, invalidKey, _testIv));
+            Hc128Core.Transform(ciphertext, plaintext, invalidKey, testIv));
         Assert.Contains("16 bytes", ex.Message);
     }
 
@@ -75,12 +75,12 @@ public class Hc128Tests
     {
         // Arrange
         var invalidIv = new byte[8]; // Should be 16 bytes
-        var plaintext = _testPlaintext;
+        var plaintext = testPlaintext;
         var ciphertext = new byte[plaintext.Length];
 
         // Act & Assert
         var ex = Assert.Throws<ArgumentException>(() =>
-            Hc128Core.Transform(ciphertext, plaintext, _testKey, invalidIv));
+            Hc128Core.Transform(ciphertext, plaintext, testKey, invalidIv));
         Assert.Contains("16 bytes", ex.Message);
     }
 
@@ -88,12 +88,12 @@ public class Hc128Tests
     public void Transform_OutputBufferTooSmall_ThrowsException()
     {
         // Arrange
-        var plaintext = _testPlaintext;
+        var plaintext = testPlaintext;
         var ciphertext = new byte[plaintext.Length - 1]; // Too small
 
         // Act & Assert
         var ex = Assert.Throws<ArgumentException>(() =>
-            Hc128Core.Transform(ciphertext, plaintext, _testKey, _testIv));
+            Hc128Core.Transform(ciphertext, plaintext, testKey, testIv));
         Assert.Contains("too small", ex.Message);
     }
 
@@ -101,7 +101,7 @@ public class Hc128Tests
     public void Transform_DifferentIvs_ProduceDifferentCiphertexts()
     {
         // Arrange
-        var plaintext = _testPlaintext;
+        var plaintext = testPlaintext;
         var ciphertext1 = new byte[plaintext.Length];
         var ciphertext2 = new byte[plaintext.Length];
         var iv1 = new byte[16];
@@ -114,8 +114,8 @@ public class Hc128Tests
         }
 
         // Act
-        Hc128Core.Transform(ciphertext1, plaintext, _testKey, iv1);
-        Hc128Core.Transform(ciphertext2, plaintext, _testKey, iv2);
+        Hc128Core.Transform(ciphertext1, plaintext, testKey, iv1);
+        Hc128Core.Transform(ciphertext2, plaintext, testKey, iv2);
 
         // Assert
         Assert.NotEqual(ciphertext1, ciphertext2);
@@ -125,7 +125,7 @@ public class Hc128Tests
     public void Transform_DifferentKeys_ProduceDifferentCiphertexts()
     {
         // Arrange
-        var plaintext = _testPlaintext;
+        var plaintext = testPlaintext;
         var ciphertext1 = new byte[plaintext.Length];
         var ciphertext2 = new byte[plaintext.Length];
         var key1 = new byte[16];
@@ -138,8 +138,8 @@ public class Hc128Tests
         }
 
         // Act
-        Hc128Core.Transform(ciphertext1, plaintext, key1, _testIv);
-        Hc128Core.Transform(ciphertext2, plaintext, key2, _testIv);
+        Hc128Core.Transform(ciphertext1, plaintext, key1, testIv);
+        Hc128Core.Transform(ciphertext2, plaintext, key2, testIv);
 
         // Assert
         Assert.NotEqual(ciphertext1, ciphertext2);
@@ -149,13 +149,13 @@ public class Hc128Tests
     public void Transform_SingleByte_Success()
     {
         // Arrange
-        var plaintext = new byte[] { 0x42 };
+        var plaintext = "B"u8.ToArray();
         var ciphertext = new byte[1];
         var decrypted = new byte[1];
 
         // Act
-        Hc128Core.Transform(ciphertext, plaintext, _testKey, _testIv);
-        Hc128Core.Transform(decrypted, ciphertext, _testKey, _testIv);
+        Hc128Core.Transform(ciphertext, plaintext, testKey, testIv);
+        Hc128Core.Transform(decrypted, ciphertext, testKey, testIv);
 
         // Assert
         Assert.Equal(plaintext, decrypted);
@@ -176,8 +176,8 @@ public class Hc128Tests
         var decrypted = new byte[plaintext.Length];
 
         // Act
-        Hc128Core.Transform(ciphertext, plaintext, _testKey, _testIv);
-        Hc128Core.Transform(decrypted, ciphertext, _testKey, _testIv);
+        Hc128Core.Transform(ciphertext, plaintext, testKey, testIv);
+        Hc128Core.Transform(decrypted, ciphertext, testKey, testIv);
 
         // Assert
         Assert.Equal(plaintext, decrypted);
@@ -194,8 +194,8 @@ public class Hc128Tests
         var decrypted = new byte[largeData.Length];
 
         // Act
-        Hc128Core.Transform(ciphertext, largeData, _testKey, _testIv);
-        Hc128Core.Transform(decrypted, ciphertext, _testKey, _testIv);
+        Hc128Core.Transform(ciphertext, largeData, testKey, testIv);
+        Hc128Core.Transform(decrypted, ciphertext, testKey, testIv);
 
         // Assert
         Assert.Equal(largeData, decrypted);
@@ -206,7 +206,7 @@ public class Hc128Tests
     public void ValidateParameters_ValidInput_DoesNotThrow()
     {
         // Act & Assert - Should not throw
-        Hc128Core.ValidateParameters(_testKey, _testIv);
+        Hc128Core.ValidateParameters(testKey, testIv);
     }
 
     [Fact]
@@ -217,7 +217,7 @@ public class Hc128Tests
 
         // Act & Assert
         Assert.Throws<ArgumentException>(() =>
-            Hc128Core.ValidateParameters(invalidKey, _testIv));
+            Hc128Core.ValidateParameters(invalidKey, testIv));
     }
 
     [Fact]
@@ -228,7 +228,7 @@ public class Hc128Tests
 
         // Act & Assert
         Assert.Throws<ArgumentException>(() =>
-            Hc128Core.ValidateParameters(_testKey, invalidIv));
+            Hc128Core.ValidateParameters(testKey, invalidIv));
     }
 
     [Fact]
@@ -311,8 +311,8 @@ public class Hc128Tests
         var decrypted = new byte[plaintext.Length];
 
         // Act
-        Hc128Core.Transform(ciphertext, plaintext, _testKey, _testIv);
-        Hc128Core.Transform(decrypted, ciphertext, _testKey, _testIv);
+        Hc128Core.Transform(ciphertext, plaintext, testKey, testIv);
+        Hc128Core.Transform(decrypted, ciphertext, testKey, testIv);
 
         // Assert
         Assert.Equal(plaintext, decrypted);
@@ -349,8 +349,8 @@ public class Hc128Tests
         var decrypted = new byte[plaintext.Length];
 
         // Act
-        Hc128Core.Transform(ciphertext, plaintext, _testKey, _testIv);
-        Hc128Core.Transform(decrypted, ciphertext, _testKey, _testIv);
+        Hc128Core.Transform(ciphertext, plaintext, testKey, testIv);
+        Hc128Core.Transform(decrypted, ciphertext, testKey, testIv);
 
         // Assert
         Assert.Equal(plaintext, decrypted);
@@ -374,22 +374,11 @@ public class Hc128Tests
         var ciphertext2 = new byte[64];
 
         // Act
-        Hc128Core.Transform(ciphertext1, plaintext, _testKey, iv1);
-        Hc128Core.Transform(ciphertext2, plaintext, _testKey, iv2);
+        Hc128Core.Transform(ciphertext1, plaintext, testKey, iv1);
+        Hc128Core.Transform(ciphertext2, plaintext, testKey, iv2);
 
         // Assert - Different IVs should produce different keystreams
         Assert.NotEqual(ciphertext1, ciphertext2);
-    }
-
-    private static byte[] HexToBytes(string hex)
-    {
-        hex = hex.Replace(" ", "").Replace("\n", "").Replace("\r", "");
-        var bytes = new byte[hex.Length / 2];
-        for (var i = 0; i < bytes.Length; i++)
-        {
-            bytes[i] = Convert.ToByte(hex.Substring(i * 2, 2), 16);
-        }
-        return bytes;
     }
 }
 

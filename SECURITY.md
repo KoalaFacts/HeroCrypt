@@ -52,7 +52,7 @@ When using HeroCrypt, please follow these security best practices:
 - **Hashing**: Use Blake2b or SHA-256/SHA-512 for general hashing
 
 ### 2. **Avoid Deprecated/Weak Algorithms**
-- ❌ **Never use RC4** - Included only for legacy compatibility, marked `[Obsolete]`
+- ❌ **Never use RC4** – removed from the library due to insecurity
 - ⚠️ **Use caution with RSA** - Ensure key sizes ≥ 2048 bits, prefer 3072 or 4096 bits
 - ⚠️ **Post-Quantum algorithms** - Current implementations are reference/educational only
 
@@ -114,7 +114,7 @@ Production use of these features requires:
 
 ### Algorithm-Specific Warnings
 
-- **RC4**: Known vulnerabilities, use only for legacy compatibility
+- **RC4**: Removed; known vulnerabilities make it unsafe
 - **AES-OCB**: Patent restrictions may apply for commercial use
 - **Shamir's Secret Sharing**: Implemented over GF(256), ensure sufficient threshold
 - **BIP39 Mnemonics**: Using simplified wordlist (production needs full BIP39 wordlist)

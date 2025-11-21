@@ -352,7 +352,7 @@ public static class Bip32HdWallet
         }
         else if (path.Equals("m", StringComparison.OrdinalIgnoreCase))
         {
-            return Array.Empty<uint>();
+            return [];
         }
 
         var parts = path.Split('/');
@@ -463,12 +463,13 @@ public static class Bip32HdWallet
     private static void AddModN(ReadOnlySpan<byte> a, ReadOnlySpan<byte> b, Span<byte> result)
     {
         // secp256k1 group order (n): FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
-        Span<byte> n = stackalloc byte[32] {
+        Span<byte> n =
+        [
             0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
             0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFE,
             0xBA, 0xAE, 0xDC, 0xE6, 0xAF, 0x48, 0xA0, 0x3B,
             0xBF, 0xD2, 0x5E, 0x8C, 0xD0, 0x36, 0x41, 0x41
-        };
+        ];
 
         // Perform addition: result = (a + b) mod n
         uint carry = 0;
@@ -588,12 +589,13 @@ public static class Bip32HdWallet
     private static bool IsGreaterThanOrEqualToN(ReadOnlySpan<byte> value)
     {
         // secp256k1 group order (n): FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
-        ReadOnlySpan<byte> n = stackalloc byte[32] {
+        ReadOnlySpan<byte> n =
+        [
             0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
             0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFE,
             0xBA, 0xAE, 0xDC, 0xE6, 0xAF, 0x48, 0xA0, 0x3B,
             0xBF, 0xD2, 0x5E, 0x8C, 0xD0, 0x36, 0x41, 0x41
-        };
+        ];
 
         // Compare big-endian (most significant byte first)
         for (var i = 0; i < 32; i++)

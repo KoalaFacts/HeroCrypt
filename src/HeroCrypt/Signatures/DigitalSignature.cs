@@ -4,6 +4,20 @@ using Primitives = HeroCrypt.Cryptography.Primitives;
 
 namespace HeroCrypt.Signatures;
 
+internal static class EccCurveSelector
+{
+    public static ECCurve GetECCurve(int curveSizeBits)
+    {
+        return curveSizeBits switch
+        {
+            256 => ECCurve.NamedCurves.nistP256,
+            384 => ECCurve.NamedCurves.nistP384,
+            521 => ECCurve.NamedCurves.nistP521,
+            _ => throw new ArgumentException($"Unsupported curve size: {curveSizeBits}", nameof(curveSizeBits))
+        };
+    }
+}
+
 /// <summary>
 /// Provides digital signature and MAC operations for various algorithms
 /// </summary>
@@ -137,7 +151,7 @@ internal static class DigitalSignature
 #if !NETSTANDARD2_0
     private static byte[] SignRsa(byte[] data, byte[] privateKey, HashAlgorithmName hashAlgorithm, RSASignaturePadding padding)
     {
-        using var rsa = System.Security.Cryptography.RSA.Create();
+        using var rsa = RSA.Create();
         rsa.ImportPkcs8PrivateKey(privateKey, out _);
         return rsa.SignData(data, hashAlgorithm, padding);
     }
@@ -146,7 +160,7 @@ internal static class DigitalSignature
     {
         try
         {
-            using var rsa = System.Security.Cryptography.RSA.Create();
+            using var rsa = RSA.Create();
             rsa.ImportSubjectPublicKeyInfo(publicKey, out _);
             return rsa.VerifyData(data, signature, hashAlgorithm, padding);
         }
@@ -174,7 +188,7 @@ internal static class DigitalSignature
 #if !NETSTANDARD2_0
     private static byte[] SignEcdsa(byte[] data, byte[] privateKey, HashAlgorithmName hashAlgorithm, int curveSizeBits)
     {
-        using var ecdsa = ECDsa.Create(GetECCurve(curveSizeBits));
+        using var ecdsa = ECDsa.Create(EccCurveSelector.GetECCurve(curveSizeBits));
         ecdsa.ImportECPrivateKey(privateKey, out _);
         return ecdsa.SignData(data, hashAlgorithm);
     }
@@ -183,7 +197,7 @@ internal static class DigitalSignature
     {
         try
         {
-            using var ecdsa = ECDsa.Create(GetECCurve(curveSizeBits));
+            using var ecdsa = ECDsa.Create(EccCurveSelector.GetECCurve(curveSizeBits));
             ecdsa.ImportSubjectPublicKeyInfo(publicKey, out _);
             return ecdsa.VerifyData(data, signature, hashAlgorithm);
         }
@@ -202,18 +216,8 @@ internal static class DigitalSignature
     {
         throw new NotSupportedException("ECDSA signature verification is not supported on .NET Standard 2.0. Requires .NET 8.0 or greater.");
     }
-#endif
 
-    private static ECCurve GetECCurve(int curveSizeBits)
-    {
-        return curveSizeBits switch
-        {
-            256 => ECCurve.NamedCurves.nistP256,
-            384 => ECCurve.NamedCurves.nistP384,
-            521 => ECCurve.NamedCurves.nistP521,
-            _ => throw new ArgumentException($"Unsupported curve size: {curveSizeBits}")
-        };
-    }
+#endif
 
     #endregion
 
@@ -243,8 +247,8 @@ internal static class DigitalSignature
 
         return parameterSet switch
         {
-            65 => Primitives.PostQuantum.Dilithium.MLDsaWrapper.Sign(pem, data, securityBits: 192),
-            87 => Primitives.PostQuantum.Dilithium.MLDsaWrapper.Sign(pem, data, securityBits: 256),
+            65 => Primitives.PostQuantum.Signature.MLDsaWrapper.Sign(pem, data, securityBits: 192),
+            87 => Primitives.PostQuantum.Signature.MLDsaWrapper.Sign(pem, data, securityBits: 256),
             _ => throw new ArgumentException($"Unsupported ML-DSA parameter set: {parameterSet}")
         };
     }
@@ -257,8 +261,8 @@ internal static class DigitalSignature
 
             return parameterSet switch
             {
-                65 => Primitives.PostQuantum.Dilithium.MLDsaWrapper.Verify(pem, data, signature),
-                87 => Primitives.PostQuantum.Dilithium.MLDsaWrapper.Verify(pem, data, signature),
+                65 => Primitives.PostQuantum.Signature.MLDsaWrapper.Verify(pem, data, signature),
+                87 => Primitives.PostQuantum.Signature.MLDsaWrapper.Verify(pem, data, signature),
                 _ => throw new ArgumentException($"Unsupported ML-DSA parameter set: {parameterSet}")
             };
         }

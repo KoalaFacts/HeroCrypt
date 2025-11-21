@@ -11,14 +11,14 @@ namespace HeroCrypt.Tests;
 /// </summary>
 public class BalloonHashingTests
 {
-    private readonly byte[] _testPassword = Encoding.UTF8.GetBytes("mySecurePassword123");
-    private readonly byte[] _testSalt = Encoding.UTF8.GetBytes("randomsalt123456");
+    private readonly byte[] testPassword = Encoding.UTF8.GetBytes("mySecurePassword123");
+    private readonly byte[] testSalt = Encoding.UTF8.GetBytes("randomsalt123456");
 
     [Fact]
     public void Hash_WithValidParameters_Success()
     {
         // Act
-        var hash = BalloonHashing.Hash(_testPassword, _testSalt);
+        var hash = BalloonHashing.Hash(testPassword, testSalt);
 
         // Assert
         Assert.NotNull(hash);
@@ -34,7 +34,7 @@ public class BalloonHashingTests
         var outputLength = 64;
 
         // Act
-        var hash = BalloonHashing.Hash(_testPassword, _testSalt, spaceCost, timeCost, outputLength);
+        var hash = BalloonHashing.Hash(testPassword, testSalt, spaceCost, timeCost, outputLength);
 
         // Assert
         Assert.NotNull(hash);
@@ -49,8 +49,8 @@ public class BalloonHashingTests
         var password2 = Encoding.UTF8.GetBytes("password2");
 
         // Act
-        var hash1 = BalloonHashing.Hash(password1, _testSalt);
-        var hash2 = BalloonHashing.Hash(password2, _testSalt);
+        var hash1 = BalloonHashing.Hash(password1, testSalt);
+        var hash2 = BalloonHashing.Hash(password2, testSalt);
 
         // Assert
         Assert.NotEqual(hash1, hash2);
@@ -64,8 +64,8 @@ public class BalloonHashingTests
         var salt2 = Encoding.UTF8.GetBytes("salt2");
 
         // Act
-        var hash1 = BalloonHashing.Hash(_testPassword, salt1);
-        var hash2 = BalloonHashing.Hash(_testPassword, salt2);
+        var hash1 = BalloonHashing.Hash(testPassword, salt1);
+        var hash2 = BalloonHashing.Hash(testPassword, salt2);
 
         // Assert
         Assert.NotEqual(hash1, hash2);
@@ -75,8 +75,8 @@ public class BalloonHashingTests
     public void Hash_SameInputs_ProducesSameHash()
     {
         // Act
-        var hash1 = BalloonHashing.Hash(_testPassword, _testSalt);
-        var hash2 = BalloonHashing.Hash(_testPassword, _testSalt);
+        var hash1 = BalloonHashing.Hash(testPassword, testSalt);
+        var hash2 = BalloonHashing.Hash(testPassword, testSalt);
 
         // Assert
         Assert.Equal(hash1, hash2);
@@ -86,8 +86,8 @@ public class BalloonHashingTests
     public void Hash_DifferentSpaceCost_ProducesDifferentHashes()
     {
         // Act
-        var hash1 = BalloonHashing.Hash(_testPassword, _testSalt, spaceCost: 8);
-        var hash2 = BalloonHashing.Hash(_testPassword, _testSalt, spaceCost: 16);
+        var hash1 = BalloonHashing.Hash(testPassword, testSalt, spaceCost: 8);
+        var hash2 = BalloonHashing.Hash(testPassword, testSalt, spaceCost: 16);
 
         // Assert
         Assert.NotEqual(hash1, hash2);
@@ -97,8 +97,8 @@ public class BalloonHashingTests
     public void Hash_DifferentTimeCost_ProducesDifferentHashes()
     {
         // Act
-        var hash1 = BalloonHashing.Hash(_testPassword, _testSalt, timeCost: 10);
-        var hash2 = BalloonHashing.Hash(_testPassword, _testSalt, timeCost: 20);
+        var hash1 = BalloonHashing.Hash(testPassword, testSalt, timeCost: 10);
+        var hash2 = BalloonHashing.Hash(testPassword, testSalt, timeCost: 20);
 
         // Assert
         Assert.NotEqual(hash1, hash2);
@@ -108,8 +108,8 @@ public class BalloonHashingTests
     public void Hash_Sha256AndSha512_ProduceDifferentHashes()
     {
         // Act
-        var hashSha256 = BalloonHashing.Hash(_testPassword, _testSalt, hashAlgorithm: HashAlgorithmName.SHA256);
-        var hashSha512 = BalloonHashing.Hash(_testPassword, _testSalt, hashAlgorithm: HashAlgorithmName.SHA512);
+        var hashSha256 = BalloonHashing.Hash(testPassword, testSalt, hashAlgorithm: HashAlgorithmName.SHA256);
+        var hashSha512 = BalloonHashing.Hash(testPassword, testSalt, hashAlgorithm: HashAlgorithmName.SHA512);
 
         // Assert
         Assert.NotEqual(hashSha256, hashSha512);
@@ -120,7 +120,7 @@ public class BalloonHashingTests
     {
         // Act & Assert
         Assert.Throws<ArgumentException>(() =>
-            BalloonHashing.Hash(_testPassword, _testSalt, spaceCost: 0));
+            BalloonHashing.Hash(testPassword, testSalt, spaceCost: 0));
     }
 
     [Fact]
@@ -128,7 +128,7 @@ public class BalloonHashingTests
     {
         // Act & Assert
         Assert.Throws<ArgumentException>(() =>
-            BalloonHashing.Hash(_testPassword, _testSalt, timeCost: 0));
+            BalloonHashing.Hash(testPassword, testSalt, timeCost: 0));
     }
 
     [Fact]
@@ -136,7 +136,7 @@ public class BalloonHashingTests
     {
         // Act & Assert
         Assert.Throws<ArgumentException>(() =>
-            BalloonHashing.Hash(_testPassword, _testSalt, outputLength: 0));
+            BalloonHashing.Hash(testPassword, testSalt, outputLength: 0));
     }
 
     [Fact]
@@ -279,7 +279,7 @@ public class BalloonHashingTests
         var emptyPassword = Array.Empty<byte>();
 
         // Act
-        var hash = BalloonHashing.Hash(emptyPassword, _testSalt);
+        var hash = BalloonHashing.Hash(emptyPassword, testSalt);
 
         // Assert
         Assert.NotNull(hash);
@@ -293,7 +293,7 @@ public class BalloonHashingTests
         var emptySalt = Array.Empty<byte>();
 
         // Act
-        var hash = BalloonHashing.Hash(_testPassword, emptySalt);
+        var hash = BalloonHashing.Hash(testPassword, emptySalt);
 
         // Assert
         Assert.NotNull(hash);
@@ -307,7 +307,7 @@ public class BalloonHashingTests
         var outputLength = 256; // Larger than hash function output
 
         // Act
-        var hash = BalloonHashing.Hash(_testPassword, _testSalt, outputLength: outputLength);
+        var hash = BalloonHashing.Hash(testPassword, testSalt, outputLength: outputLength);
 
         // Assert
         Assert.NotNull(hash);
@@ -322,7 +322,7 @@ public class BalloonHashingTests
         var timeCost = BalloonHashing.MIN_TIME_COST;
 
         // Act
-        var hash = BalloonHashing.Hash(_testPassword, _testSalt, spaceCost, timeCost);
+        var hash = BalloonHashing.Hash(testPassword, testSalt, spaceCost, timeCost);
 
         // Assert
         Assert.NotNull(hash);
@@ -337,7 +337,7 @@ public class BalloonHashingTests
         var timeCost = 50;
 
         // Act
-        var hash = BalloonHashing.Hash(_testPassword, _testSalt, spaceCost, timeCost);
+        var hash = BalloonHashing.Hash(testPassword, testSalt, spaceCost, timeCost);
 
         // Assert
         Assert.NotNull(hash);
@@ -348,7 +348,7 @@ public class BalloonHashingTests
     public void Hash_Sha384Algorithm_Success()
     {
         // Act
-        var hash = BalloonHashing.Hash(_testPassword, _testSalt, hashAlgorithm: HashAlgorithmName.SHA384);
+        var hash = BalloonHashing.Hash(testPassword, testSalt, hashAlgorithm: HashAlgorithmName.SHA384);
 
         // Assert
         Assert.NotNull(hash);

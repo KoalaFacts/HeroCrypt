@@ -18,7 +18,7 @@ public static class ConstantTimeOperations
     public static byte ConditionalSelect(byte condition, byte trueValue, byte falseValue)
     {
         // Ensure condition is 0 or 1
-        condition = (byte)(condition & 1);
+        condition &= 1;
 
         // Use bitwise operations to avoid branching
         var mask = (byte)(-(sbyte)condition);
@@ -36,7 +36,7 @@ public static class ConstantTimeOperations
     public static int ConditionalSelect(int condition, int trueValue, int falseValue)
     {
         // Ensure condition is 0 or 1
-        condition = condition & 1;
+        condition &= 1;
 
         // Create mask: 0xFFFFFFFF if condition is 1, 0x00000000 if condition is 0
         var mask = -(condition);
@@ -54,10 +54,10 @@ public static class ConstantTimeOperations
     public static uint ConditionalSelect(uint condition, uint trueValue, uint falseValue)
     {
         // Ensure condition is 0 or 1
-        condition = condition & 1;
+        condition &= 1;
 
         // Create mask: 0xFFFFFFFF if condition is 1, 0x00000000 if condition is 0
-        var mask = (uint)(-(int)condition);
+        var mask = 0u - condition;
         return (trueValue & mask) | (falseValue & ~mask);
     }
 
@@ -89,7 +89,7 @@ public static class ConstantTimeOperations
         }
 
         // Ensure condition is 0 or 1
-        condition = (byte)(condition & 1);
+        condition &= 1;
         var mask = (byte)(-(sbyte)condition);
 
         for (var i = 0; i < a.Length; i++)
@@ -123,7 +123,7 @@ public static class ConstantTimeOperations
     public static uint ConstantTimeEquals(uint a, uint b)
     {
         var diff = a ^ b;
-        return (uint)(1 & ((diff - 1) >> 31));
+        return 1 & ((diff - 1) >> 31);
     }
 
     /// <summary>

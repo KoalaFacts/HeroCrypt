@@ -14,9 +14,9 @@ namespace HeroCrypt.Cryptography.Primitives.Cipher.Stream;
 internal static class ChaCha20Core
 {
     /// <summary>
-    /// ChaCha20 _constants "expand 32-byte k"
+    /// ChaCha20 constants "expand 32-byte k"
     /// </summary>
-    private static readonly uint[] _constants = { 0x61707865, 0x3320646e, 0x79622d32, 0x6b206574 };
+    private static readonly uint[] constants = [0x61707865, 0x3320646e, 0x79622d32, 0x6b206574];
 
     /// <summary>
     /// Key size in bytes
@@ -71,9 +71,9 @@ internal static class ChaCha20Core
         Span<uint> state = stackalloc uint[16];
         InitializeState(state, key, nonce, counter);
 
-        var inputOffset = 0;
-        var outputOffset = 0;
-        var remaining = input.Length;
+        int inputOffset = 0;
+        int outputOffset = 0;
+        int remaining = input.Length;
 
         // Process full blocks
         while (remaining >= BLOCK_SIZE)
@@ -112,7 +112,7 @@ internal static class ChaCha20Core
             Span<byte> keystream = stackalloc byte[BLOCK_SIZE];
             GenerateKeystream(keystream, state);
 
-            for (var i = 0; i < remaining; i++)
+            for (int i = 0; i < remaining; i++)
             {
                 output[outputOffset + i] = (byte)(input[inputOffset + i] ^ keystream[i]);
             }
@@ -142,19 +142,19 @@ internal static class ChaCha20Core
         ChaCha20Round(workingState);
 
         // Add initial state
-        for (var i = 0; i < 16; i++)
+        for (int i = 0; i < 16; i++)
         {
             workingState[i] += state[i];
         }
 
         // Convert to bytes
-        for (var i = 0; i < 16; i++)
+        for (int i = 0; i < 16; i++)
         {
-            var value = workingState[i];
+            uint value = workingState[i];
             output[i * 4] = (byte)value;
-            output[i * 4 + 1] = (byte)(value >> 8);
-            output[i * 4 + 2] = (byte)(value >> 16);
-            output[i * 4 + 3] = (byte)(value >> 24);
+            output[(i * 4) + 1] = (byte)(value >> 8);
+            output[(i * 4) + 2] = (byte)(value >> 16);
+            output[(i * 4) + 3] = (byte)(value >> 24);
         }
 
         // Clear working state
@@ -167,33 +167,33 @@ internal static class ChaCha20Core
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void InitializeState(Span<uint> state, ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce, uint counter)
     {
-        // _constants
-        state[0] = _constants[0];
-        state[1] = _constants[1];
-        state[2] = _constants[2];
-        state[3] = _constants[3];
+        // constants
+        state[0] = constants[0];
+        state[1] = constants[1];
+        state[2] = constants[2];
+        state[3] = constants[3];
 
         // Key
-        for (var i = 0; i < 8; i++)
+        for (int i = 0; i < 8; i++)
         {
             state[4 + i] =
-                (uint)(key[i * 4]) |
-                ((uint)(key[i * 4 + 1]) << 8) |
-                ((uint)(key[i * 4 + 2]) << 16) |
-                ((uint)(key[i * 4 + 3]) << 24);
+                key[i * 4] |
+                ((uint)key[(i * 4) + 1] << 8) |
+                ((uint)key[(i * 4) + 2] << 16) |
+                ((uint)key[(i * 4) + 3] << 24);
         }
 
         // Counter
         state[12] = counter;
 
         // Nonce
-        for (var i = 0; i < 3; i++)
+        for (int i = 0; i < 3; i++)
         {
             state[13 + i] =
-                (uint)(nonce[i * 4]) |
-                ((uint)(nonce[i * 4 + 1]) << 8) |
-                ((uint)(nonce[i * 4 + 2]) << 16) |
-                ((uint)(nonce[i * 4 + 3]) << 24);
+                nonce[i * 4] |
+                ((uint)nonce[(i * 4) + 1] << 8) |
+                ((uint)nonce[(i * 4) + 2] << 16) |
+                ((uint)nonce[(i * 4) + 3] << 24);
         }
     }
 
@@ -203,7 +203,7 @@ internal static class ChaCha20Core
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void ChaCha20Round(Span<uint> state)
     {
-        for (var i = 0; i < 10; i++)
+        for (int i = 0; i < 10; i++)
         {
             // Odd round - column rounds
             QuarterRound(state, 0, 4, 8, 12);
@@ -270,7 +270,7 @@ internal static class ChaCha20Core
         GenerateKeystream(keystream, state);
 
         // XOR input with keystream
-        for (var i = 0; i < BLOCK_SIZE; i++)
+        for (int i = 0; i < BLOCK_SIZE; i++)
         {
             output[i] = (byte)(input[i] ^ keystream[i]);
         }
@@ -288,7 +288,7 @@ internal static class ChaCha20Core
         if (!IsHardwareAccelerated)
         {
             // Fallback to sequential processing
-            for (var i = 0; i < 4; i++)
+            for (int i = 0; i < 4; i++)
             {
                 ProcessSingleBlock(
                     output.Slice(i * BLOCK_SIZE, BLOCK_SIZE),
@@ -301,7 +301,7 @@ internal static class ChaCha20Core
 
         // SIMD implementation would go here
         // For now, use sequential fallback
-        for (var i = 0; i < 4; i++)
+        for (int i = 0; i < 4; i++)
         {
             ProcessSingleBlock(
                 output.Slice(i * BLOCK_SIZE, BLOCK_SIZE),
@@ -327,7 +327,7 @@ internal static class ChaCha20Core
         ArgumentOutOfRangeException.ThrowIfNegative(position);
 #endif
 
-        var blockNumber = (uint)(position / BLOCK_SIZE);
+        uint blockNumber = (uint)(position / BLOCK_SIZE);
         state[12] = blockNumber;
     }
 

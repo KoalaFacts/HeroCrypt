@@ -79,15 +79,15 @@ public static class HeroCryptBuilder
 /// </summary>
 public class HashBuilder
 {
-    private HashAlgorithm _algorithm = HashAlgorithm.Sha256;
-    private byte[]? _key;
+    private HashAlgorithm algorithm = HashAlgorithm.Sha256;
+    private byte[]? key;
 
     /// <summary>
     /// Sets the hash algorithm to use
     /// </summary>
     public HashBuilder WithAlgorithm(HashAlgorithm algorithm)
     {
-        _algorithm = algorithm;
+        this.algorithm = algorithm;
         return this;
     }
 
@@ -96,7 +96,7 @@ public class HashBuilder
     /// </summary>
     public HashBuilder WithKey(byte[] key)
     {
-        _key = key;
+        this.key = key;
         return this;
     }
 
@@ -107,12 +107,12 @@ public class HashBuilder
     {
         InputValidator.ValidateByteArray(data, nameof(data));
 
-        if (_key != null)
+        if (key != null)
         {
-            InputValidator.ValidateByteArray(_key, nameof(_key));
-            return Hashing.Hash.ComputeKeyed(data, _key, _algorithm);
+            InputValidator.ValidateByteArray(key, nameof(key));
+            return Hash.ComputeKeyed(data, key, algorithm);
         }
-        return Hashing.Hash.Compute(data, _algorithm);
+        return Hash.Compute(data, algorithm);
     }
 }
 
@@ -121,16 +121,16 @@ public class HashBuilder
 /// </summary>
 public class EncryptionBuilder
 {
-    private EncryptionAlgorithm _algorithm = EncryptionAlgorithm.AesGcm;
-    private byte[]? _key;
-    private byte[]? _associatedData;
+    private EncryptionAlgorithm algorithm = EncryptionAlgorithm.AesGcm;
+    private byte[]? key;
+    private byte[]? associatedData;
 
     /// <summary>
     /// Sets the encryption algorithm to use
     /// </summary>
     public EncryptionBuilder WithAlgorithm(EncryptionAlgorithm algorithm)
     {
-        _algorithm = algorithm;
+        this.algorithm = algorithm;
         return this;
     }
 
@@ -139,7 +139,7 @@ public class EncryptionBuilder
     /// </summary>
     public EncryptionBuilder WithKey(byte[] key)
     {
-        _key = key;
+        this.key = key;
         return this;
     }
 
@@ -148,7 +148,7 @@ public class EncryptionBuilder
     /// </summary>
     public EncryptionBuilder WithAssociatedData(byte[] associatedData)
     {
-        _associatedData = associatedData;
+        this.associatedData = associatedData;
         return this;
     }
 
@@ -157,23 +157,23 @@ public class EncryptionBuilder
     /// </summary>
     public EncryptionResult Build(byte[] plaintext)
     {
-        if (_key == null)
+        if (key == null)
         {
             throw new InvalidOperationException("Encryption key must be set using WithKey()");
         }
 
         InputValidator.ValidateByteArray(plaintext, nameof(plaintext));
-        InputValidator.ValidateByteArray(_key, nameof(_key));
-        if (_associatedData != null)
+        InputValidator.ValidateByteArray(key, nameof(key));
+        if (associatedData != null)
         {
-            InputValidator.ValidateByteArray(_associatedData, nameof(_associatedData), allowEmpty: true);
+            InputValidator.ValidateByteArray(associatedData, nameof(associatedData), allowEmpty: true);
         }
 
         return Encryption.Encryption.Encrypt(
             plaintext,
-            _key,
-            _algorithm,
-            _associatedData ?? []);
+            key,
+            algorithm,
+            associatedData ?? []);
     }
 }
 
@@ -182,18 +182,18 @@ public class EncryptionBuilder
 /// </summary>
 public class DecryptionBuilder
 {
-    private EncryptionAlgorithm _algorithm = EncryptionAlgorithm.AesGcm;
-    private byte[]? _key;
-    private byte[]? _nonce;
-    private byte[]? _associatedData;
-    private byte[]? _keyCiphertext;
+    private EncryptionAlgorithm algorithm = EncryptionAlgorithm.AesGcm;
+    private byte[]? key;
+    private byte[]? nonce;
+    private byte[]? associatedData;
+    private byte[]? keyCiphertext;
 
     /// <summary>
     /// Sets the encryption algorithm to use
     /// </summary>
     public DecryptionBuilder WithAlgorithm(EncryptionAlgorithm algorithm)
     {
-        _algorithm = algorithm;
+        this.algorithm = algorithm;
         return this;
     }
 
@@ -202,7 +202,7 @@ public class DecryptionBuilder
     /// </summary>
     public DecryptionBuilder WithKey(byte[] key)
     {
-        _key = key;
+        this.key = key;
         return this;
     }
 
@@ -211,7 +211,7 @@ public class DecryptionBuilder
     /// </summary>
     public DecryptionBuilder WithNonce(byte[] nonce)
     {
-        _nonce = nonce;
+        this.nonce = nonce;
         return this;
     }
 
@@ -220,7 +220,7 @@ public class DecryptionBuilder
     /// </summary>
     public DecryptionBuilder WithAssociatedData(byte[] associatedData)
     {
-        _associatedData = associatedData;
+        this.associatedData = associatedData;
         return this;
     }
 
@@ -229,7 +229,7 @@ public class DecryptionBuilder
     /// </summary>
     public DecryptionBuilder WithKeyCiphertext(byte[] keyCiphertext)
     {
-        _keyCiphertext = keyCiphertext;
+        this.keyCiphertext = keyCiphertext;
         return this;
     }
 
@@ -238,34 +238,34 @@ public class DecryptionBuilder
     /// </summary>
     public byte[] Build(byte[] ciphertext)
     {
-        if (_key == null)
+        if (key == null)
         {
             throw new InvalidOperationException("Decryption key must be set using WithKey()");
         }
-        if (_nonce == null)
+        if (nonce == null)
         {
             throw new InvalidOperationException("Nonce must be set using WithNonce()");
         }
 
         InputValidator.ValidateByteArray(ciphertext, nameof(ciphertext));
-        InputValidator.ValidateByteArray(_key, nameof(_key));
-        InputValidator.ValidateByteArray(_nonce, nameof(_nonce));
-        if (_associatedData != null)
+        InputValidator.ValidateByteArray(key, nameof(key));
+        InputValidator.ValidateByteArray(nonce, nameof(nonce));
+        if (associatedData != null)
         {
-            InputValidator.ValidateByteArray(_associatedData, nameof(_associatedData), allowEmpty: true);
+            InputValidator.ValidateByteArray(associatedData, nameof(associatedData), allowEmpty: true);
         }
-        if (_keyCiphertext != null)
+        if (keyCiphertext != null)
         {
-            InputValidator.ValidateByteArray(_keyCiphertext, nameof(_keyCiphertext));
+            InputValidator.ValidateByteArray(keyCiphertext, nameof(keyCiphertext));
         }
 
         return Encryption.Encryption.Decrypt(
             ciphertext,
-            _key,
-            _nonce,
-            _algorithm,
-            _associatedData ?? Array.Empty<byte>(),
-            _keyCiphertext);
+            key,
+            nonce,
+            algorithm,
+            associatedData ?? [],
+            keyCiphertext);
     }
 }
 
@@ -274,24 +274,24 @@ public class DecryptionBuilder
 /// </summary>
 public class SignatureBuilder
 {
-    private SignatureAlgorithm _algorithm = SignatureAlgorithm.Ed25519;
-    private byte[]? _key;
+    private SignatureAlgorithm algorithm = SignatureAlgorithm.Ed25519;
+    private byte[]? privateKey;
 
     /// <summary>
     /// Sets the signature algorithm to use
     /// </summary>
     public SignatureBuilder WithAlgorithm(SignatureAlgorithm algorithm)
     {
-        _algorithm = algorithm;
+        this.algorithm = algorithm;
         return this;
     }
 
     /// <summary>
     /// Sets the private key for signing
     /// </summary>
-    public SignatureBuilder WithKey(byte[] privateKey)
+    public SignatureBuilder WithPrivateKey(byte[] privateKey)
     {
-        _key = privateKey;
+        this.privateKey = privateKey;
         return this;
     }
 
@@ -300,15 +300,15 @@ public class SignatureBuilder
     /// </summary>
     public byte[] Build(byte[] data)
     {
-        if (_key == null)
+        if (privateKey == null)
         {
             throw new InvalidOperationException("Private key must be set using WithKey()");
         }
 
         InputValidator.ValidateByteArray(data, nameof(data));
-        InputValidator.ValidateByteArray(_key, nameof(_key));
+        InputValidator.ValidateByteArray(privateKey, nameof(privateKey));
 
-        return Signatures.DigitalSignature.Sign(data, _key, _algorithm);
+        return DigitalSignature.Sign(data, privateKey, algorithm);
     }
 }
 
@@ -317,25 +317,25 @@ public class SignatureBuilder
 /// </summary>
 public class VerificationBuilder
 {
-    private SignatureAlgorithm _algorithm = SignatureAlgorithm.Ed25519;
-    private byte[]? _key;
-    private byte[]? _signature;
+    private SignatureAlgorithm algorithm = SignatureAlgorithm.Ed25519;
+    private byte[]? publicKey;
+    private byte[]? signature;
 
     /// <summary>
     /// Sets the signature algorithm to use
     /// </summary>
     public VerificationBuilder WithAlgorithm(SignatureAlgorithm algorithm)
     {
-        _algorithm = algorithm;
+        this.algorithm = algorithm;
         return this;
     }
 
     /// <summary>
     /// Sets the public key for verification
     /// </summary>
-    public VerificationBuilder WithKey(byte[] publicKey)
+    public VerificationBuilder WithPublicKey(byte[] publicKey)
     {
-        _key = publicKey;
+        this.publicKey = publicKey;
         return this;
     }
 
@@ -344,7 +344,7 @@ public class VerificationBuilder
     /// </summary>
     public VerificationBuilder WithSignature(byte[] signature)
     {
-        _signature = signature;
+        this.signature = signature;
         return this;
     }
 
@@ -353,20 +353,20 @@ public class VerificationBuilder
     /// </summary>
     public bool Build(byte[] data)
     {
-        if (_key == null)
+        if (publicKey == null)
         {
-            throw new InvalidOperationException("Public key must be set using WithKey()");
+            throw new InvalidOperationException("Public key must be set using WithPublicKey()");
         }
-        if (_signature == null)
+        if (signature == null)
         {
             throw new InvalidOperationException("Signature must be set using WithSignature()");
         }
 
         InputValidator.ValidateByteArray(data, nameof(data));
-        InputValidator.ValidateByteArray(_signature, nameof(_signature));
-        InputValidator.ValidateByteArray(_key, nameof(_key));
+        InputValidator.ValidateByteArray(signature, nameof(signature));
+        InputValidator.ValidateByteArray(publicKey, nameof(publicKey));
 
-        return Signatures.DigitalSignature.Verify(data, _signature, _key, _algorithm);
+        return DigitalSignature.Verify(data, signature, publicKey, algorithm);
     }
 }
 
@@ -375,16 +375,16 @@ public class VerificationBuilder
 /// </summary>
 public class KeyDerivationBuilder
 {
-    private byte[]? _password;
-    private byte[]? _salt;
-    private byte[]? _ikm;
-    private byte[]? _info;
-    private int _iterations = 100000;
-    private int _keyLength = 32;
-    private int _blockSize = 8;
-    private int _parallelism = 1;
-    private KeyManagement.HashAlgorithmName _hashAlgorithm = KeyManagement.HashAlgorithmName.SHA256;
-    private KeyDerivationType _type = KeyDerivationType.PBKDF2;
+    private byte[]? password;
+    private byte[]? salt;
+    private byte[]? ikm;
+    private byte[]? info;
+    private int iterations = 100000;
+    private int keyLength = 32;
+    private int blockSize = 8;
+    private int parallelism = 1;
+    private KeyManagement.HashAlgorithmName hashAlgorithm = KeyManagement.HashAlgorithmName.SHA256;
+    private KeyDerivationType derivationType = KeyDerivationType.PBKDF2;
 
     private enum KeyDerivationType
     {
@@ -399,7 +399,7 @@ public class KeyDerivationBuilder
     /// </summary>
     public KeyDerivationBuilder WithPassword(byte[] password)
     {
-        _password = password;
+        this.password = password;
         return this;
     }
 
@@ -408,7 +408,7 @@ public class KeyDerivationBuilder
     /// </summary>
     public KeyDerivationBuilder WithSalt(byte[] salt)
     {
-        _salt = salt;
+        this.salt = salt;
         return this;
     }
 
@@ -417,7 +417,7 @@ public class KeyDerivationBuilder
     /// </summary>
     public KeyDerivationBuilder WithInputKeyingMaterial(byte[] ikm)
     {
-        _ikm = ikm;
+        this.ikm = ikm;
         return this;
     }
 
@@ -426,7 +426,7 @@ public class KeyDerivationBuilder
     /// </summary>
     public KeyDerivationBuilder WithInfo(byte[] info)
     {
-        _info = info;
+        this.info = info;
         return this;
     }
 
@@ -435,7 +435,7 @@ public class KeyDerivationBuilder
     /// </summary>
     public KeyDerivationBuilder WithIterations(int iterations)
     {
-        _iterations = iterations;
+        this.iterations = iterations;
         return this;
     }
 
@@ -444,7 +444,7 @@ public class KeyDerivationBuilder
     /// </summary>
     public KeyDerivationBuilder WithKeyLength(int keyLength)
     {
-        _keyLength = keyLength;
+        this.keyLength = keyLength;
         return this;
     }
 
@@ -453,7 +453,7 @@ public class KeyDerivationBuilder
     /// </summary>
     public KeyDerivationBuilder WithHashAlgorithm(KeyManagement.HashAlgorithmName hashAlgorithm)
     {
-        _hashAlgorithm = hashAlgorithm;
+        this.hashAlgorithm = hashAlgorithm;
         return this;
     }
 
@@ -462,7 +462,7 @@ public class KeyDerivationBuilder
     /// </summary>
     public KeyDerivationBuilder WithBlockSize(int blockSize)
     {
-        _blockSize = blockSize;
+        this.blockSize = blockSize;
         return this;
     }
 
@@ -471,7 +471,7 @@ public class KeyDerivationBuilder
     /// </summary>
     public KeyDerivationBuilder WithParallelism(int parallelism)
     {
-        _parallelism = parallelism;
+        this.parallelism = parallelism;
         return this;
     }
 
@@ -480,7 +480,7 @@ public class KeyDerivationBuilder
     /// </summary>
     public KeyDerivationBuilder UsePBKDF2()
     {
-        _type = KeyDerivationType.PBKDF2;
+        derivationType = KeyDerivationType.PBKDF2;
         return this;
     }
 
@@ -489,7 +489,7 @@ public class KeyDerivationBuilder
     /// </summary>
     public KeyDerivationBuilder UseHKDF()
     {
-        _type = KeyDerivationType.HKDF;
+        derivationType = KeyDerivationType.HKDF;
         return this;
     }
 
@@ -498,7 +498,7 @@ public class KeyDerivationBuilder
     /// </summary>
     public KeyDerivationBuilder UseScrypt()
     {
-        _type = KeyDerivationType.Scrypt;
+        derivationType = KeyDerivationType.Scrypt;
         return this;
     }
 
@@ -507,7 +507,7 @@ public class KeyDerivationBuilder
     /// </summary>
     public KeyDerivationBuilder UseArgon2()
     {
-        _type = KeyDerivationType.Argon2;
+        derivationType = KeyDerivationType.Argon2;
         return this;
     }
 
@@ -516,32 +516,32 @@ public class KeyDerivationBuilder
     /// </summary>
     public byte[] Build()
     {
-        return _type switch
+        return derivationType switch
         {
             KeyDerivationType.PBKDF2 => DerivePBKDF2(),
             KeyDerivationType.HKDF => DeriveHKDF(),
             KeyDerivationType.Scrypt => DeriveScrypt(),
             KeyDerivationType.Argon2 => DeriveArgon2(),
-            _ => throw new InvalidOperationException($"Unsupported key derivation type: {_type}")
+            _ => throw new InvalidOperationException($"Unsupported key derivation type: {derivationType}")
         };
     }
 
     private byte[] DerivePBKDF2()
     {
-        if (_password == null)
+        if (password == null)
         {
             throw new InvalidOperationException("Password must be set using WithPassword()");
         }
-        if (_salt == null)
+        if (salt == null)
         {
             throw new InvalidOperationException("Salt must be set using WithSalt()");
         }
 
         // Validate parameters
-        InputValidator.ValidatePbkdf2Parameters(_password, _salt, _iterations, _keyLength);
+        InputValidator.ValidatePbkdf2Parameters(password, salt, iterations, keyLength);
 
         // Call PBKDF2 primitive directly
-        var hashName = _hashAlgorithm.Name switch
+        var hashName = hashAlgorithm.Name switch
         {
             "SHA256" => System.Security.Cryptography.HashAlgorithmName.SHA256,
             "SHA384" => System.Security.Cryptography.HashAlgorithmName.SHA384,
@@ -550,29 +550,29 @@ public class KeyDerivationBuilder
         };
 
 #if !NETSTANDARD2_0
-        return System.Security.Cryptography.Rfc2898DeriveBytes.Pbkdf2(_password, _salt, _iterations, hashName, _keyLength);
+        return System.Security.Cryptography.Rfc2898DeriveBytes.Pbkdf2(password, salt, iterations, hashName, keyLength);
 #else
         // Use Rfc2898DeriveBytes for .NET Standard 2.0
         // Note: netstandard2.0 constructor doesn't support HashAlgorithmName parameter,
         // so we suppress the analyzer warning
 #pragma warning disable CA5379 // Do not use weak key derivation function algorithm
-        using var pbkdf2 = new System.Security.Cryptography.Rfc2898DeriveBytes(_password, _salt, _iterations);
+        using var pbkdf2 = new System.Security.Cryptography.Rfc2898DeriveBytes(password, salt, iterations);
 #pragma warning restore CA5379
-        return pbkdf2.GetBytes(_keyLength);
+        return pbkdf2.GetBytes(keyLength);
 #endif
     }
 
     private byte[] DeriveHKDF()
     {
-        if (_ikm == null)
+        if (ikm == null)
         {
             throw new InvalidOperationException("Input keying material must be set using WithInputKeyingMaterial()");
         }
 
         // Validate parameters
-        InputValidator.ValidateHkdfParameters(_ikm, _salt ?? [], _info ?? Array.Empty<byte>(), _keyLength);
+        InputValidator.ValidateHkdfParameters(ikm, salt ?? [], info ?? [], keyLength);
 
-        var hashName = _hashAlgorithm.Name switch
+        var hashName = hashAlgorithm.Name switch
         {
             "SHA256" => System.Security.Cryptography.HashAlgorithmName.SHA256,
             "SHA384" => System.Security.Cryptography.HashAlgorithmName.SHA384,
@@ -581,64 +581,64 @@ public class KeyDerivationBuilder
         };
 
 #if !NETSTANDARD2_0
-        return System.Security.Cryptography.HKDF.DeriveKey(hashName, _ikm, _keyLength, _salt, _info);
+        return System.Security.Cryptography.HKDF.DeriveKey(hashName, ikm, keyLength, salt, info);
 #else
         // Use HeroCrypt's HKDF implementation for .NET Standard 2.0
-        return Cryptography.Primitives.Kdf.HkdfCore.DeriveKey(_ikm, _salt ?? Array.Empty<byte>(), _info ?? Array.Empty<byte>(), _keyLength, hashName);
+        return Cryptography.Primitives.Kdf.HkdfCore.DeriveKey(ikm, salt ?? [], info ?? [], keyLength, hashName);
 #endif
     }
 
     private byte[] DeriveScrypt()
     {
-        if (_password == null)
+        if (password == null)
         {
             throw new InvalidOperationException("Password must be set using WithPassword()");
         }
-        if (_salt == null)
+        if (salt == null)
         {
             throw new InvalidOperationException("Salt must be set using WithSalt()");
         }
 
         // Validate parameters
-        InputValidator.ValidateScryptParameters(_password, _salt, _iterations, _blockSize, _parallelism, _keyLength);
+        InputValidator.ValidateScryptParameters(password, salt, iterations, blockSize, parallelism, keyLength);
 
         // Use HeroCrypt's Scrypt implementation
-        return Cryptography.Primitives.Kdf.ScryptCore.DeriveKey(_password, _salt, _iterations, _blockSize, _parallelism, _keyLength);
+        return Cryptography.Primitives.Kdf.ScryptCore.DeriveKey(password, salt, iterations, blockSize, parallelism, keyLength);
     }
 
     private byte[] DeriveArgon2()
     {
-        if (_password == null)
+        if (password == null)
         {
             throw new InvalidOperationException("Password must be set using WithPassword()");
         }
-        if (_salt == null)
+        if (salt == null)
         {
             throw new InvalidOperationException("Salt must be set using WithSalt()");
         }
 
         // Validate parameters (use PBKDF2 validator as baseline for password/salt/iterations)
-        InputValidator.ValidateByteArray(_password, nameof(_password), allowEmpty: true);
-        InputValidator.ValidateByteArray(_salt, nameof(_salt), allowEmpty: false);
-        InputValidator.ValidateArraySize(_keyLength, "Argon2 key derivation");
+        InputValidator.ValidateByteArray(password, nameof(password), allowEmpty: true);
+        InputValidator.ValidateByteArray(salt, nameof(salt), allowEmpty: false);
+        InputValidator.ValidateArraySize(keyLength, "Argon2 key derivation");
 
-        if (_iterations < 1)
+        if (iterations < 1)
         {
-            throw new ArgumentException("Iterations must be at least 1", nameof(_iterations));
+            throw new ArgumentException("Iterations must be at least 1", nameof(iterations));
         }
-        if (_iterations > InputValidator.MAX_ITERATION_COUNT)
+        if (iterations > InputValidator.MAX_ITERATION_COUNT)
         {
-            throw new ArgumentException($"Iterations {_iterations} exceeds maximum {InputValidator.MAX_ITERATION_COUNT}", nameof(_iterations));
+            throw new ArgumentException($"Iterations {iterations} exceeds maximum {InputValidator.MAX_ITERATION_COUNT}", nameof(iterations));
         }
 
         // Call Argon2 primitive directly
         return Cryptography.Primitives.Kdf.Argon2Core.Hash(
-            _password,
-            _salt,
-            _iterations,
+            password,
+            salt,
+            iterations,
             65536, // memory size in KB
-            _parallelism,
-            _keyLength,
+            parallelism,
+            keyLength,
             Cryptography.Primitives.Kdf.Argon2Type.Argon2id,
             null,
             null);

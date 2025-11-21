@@ -11,9 +11,9 @@ namespace HeroCrypt.Cryptography.Primitives.Cipher.Stream;
 public static class XSalsa20Core
 {
     /// <summary>
-    /// Salsa20 _constants "expand 32-byte k"
+    /// Salsa20 constants "expand 32-byte k"
     /// </summary>
-    private static readonly uint[] _constants = { 0x61707865, 0x3320646e, 0x79622d32, 0x6b206574 };
+    private static readonly uint[] constants = [0x61707865, 0x3320646e, 0x79622d32, 0x6b206574];
 
     /// <summary>
     /// Key size in bytes
@@ -110,7 +110,7 @@ public static class XSalsa20Core
         ReadOnlySpan<byte> originalKey, ReadOnlySpan<byte> extendedNonce)
     {
         // HSalsa20 takes the first 16 bytes of the nonce
-        var hsalsa20Nonce = extendedNonce.Slice(0, 16);
+        var hsalsa20Nonce = extendedNonce[..16];
 
         // Derive new key using HSalsa20
         HSalsa20(derivedKey, originalKey, hsalsa20Nonce);
@@ -141,11 +141,11 @@ public static class XSalsa20Core
         // Initialize HSalsa20 state
         Span<uint> state = stackalloc uint[16];
 
-        // _constants
-        state[0] = _constants[0];
-        state[1] = _constants[1];
-        state[2] = _constants[2];
-        state[3] = _constants[3];
+        // constants
+        state[0] = constants[0];
+        state[1] = constants[1];
+        state[2] = constants[2];
+        state[3] = constants[3];
 
 #if !NET5_0_OR_GREATER
         // Create reusable arrays for .NET Standard 2.0 (avoid memory leaks in loops)
@@ -192,7 +192,7 @@ public static class XSalsa20Core
         }
 
         // Output only state[0], state[5], state[10], state[15], state[6], state[7], state[8], state[9]
-        WriteUInt32LittleEndian(output.Slice(0, 4), state[0]);
+        WriteUInt32LittleEndian(output[..4], state[0]);
         WriteUInt32LittleEndian(output.Slice(4, 4), state[5]);
         WriteUInt32LittleEndian(output.Slice(8, 4), state[10]);
         WriteUInt32LittleEndian(output.Slice(12, 4), state[15]);
@@ -211,11 +211,11 @@ public static class XSalsa20Core
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void InitializeSalsa20State(Span<uint> state, ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce, uint counter)
     {
-        // _constants
-        state[0] = _constants[0];
-        state[1] = _constants[1];
-        state[2] = _constants[2];
-        state[3] = _constants[3];
+        // constants
+        state[0] = constants[0];
+        state[1] = constants[1];
+        state[2] = constants[2];
+        state[3] = constants[3];
 
 #if !NET5_0_OR_GREATER
         // Create reusable arrays for .NET Standard 2.0 (avoid memory leaks in loops)
@@ -239,10 +239,10 @@ public static class XSalsa20Core
         state[9] = 0; // High part of counter for 64-bit counter
 
 #if NET5_0_OR_GREATER
-        state[10] = System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(nonce.Slice(0, 4));
+        state[10] = System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(nonce[..4]);
         state[11] = System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(nonce.Slice(4, 4));
 #else
-        nonce.Slice(0, 4).CopyTo(nonceSlice);
+        nonce[..4].CopyTo(nonceSlice);
         state[10] = BitConverter.ToUInt32(nonceSlice, 0);
         nonce.Slice(4, 4).CopyTo(nonceSlice);
         state[11] = BitConverter.ToUInt32(nonceSlice, 0);

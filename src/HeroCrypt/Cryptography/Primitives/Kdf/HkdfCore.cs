@@ -31,14 +31,14 @@ internal static class HkdfCore
             throw new ArgumentException("Length must be positive", nameof(length));
         }
 
-        var hashLength = GetHashLength(hashAlgorithm);
+        int hashLength = GetHashLength(hashAlgorithm);
         if (length > 255 * hashLength)
         {
             throw new ArgumentException($"Length too large for hash algorithm (max: {255 * hashLength})", nameof(length));
         }
 
         // Step 1: Extract
-        var prk = Extract(ikm, salt, hashAlgorithm);
+        byte[] prk = Extract(ikm, salt, hashAlgorithm);
 
         try
         {
@@ -67,8 +67,8 @@ internal static class HkdfCore
         }
 
         // If salt is empty, use zero-filled salt of hash length
-        var actualSalt = salt.IsEmpty ? new byte[GetHashLength(hashAlgorithm)] : salt.ToArray();
-        var ikmArray = ikm.ToArray();
+        byte[] actualSalt = salt.IsEmpty ? new byte[GetHashLength(hashAlgorithm)] : salt.ToArray();
+        byte[] ikmArray = ikm.ToArray();
 
         try
         {
@@ -110,44 +110,44 @@ internal static class HkdfCore
             throw new ArgumentException("Length must be positive", nameof(length));
         }
 
-        var hashLength = GetHashLength(hashAlgorithm);
+        int hashLength = GetHashLength(hashAlgorithm);
         if (length > 255 * hashLength)
         {
             throw new ArgumentException($"Length too large (max: {255 * hashLength})", nameof(length));
         }
 
-        var n = (length + hashLength - 1) / hashLength; // Ceiling division
-        var okm = new byte[length];
-        var t = Array.Empty<byte>(); // T(0) = empty string
+        int n = (length + hashLength - 1) / hashLength; // Ceiling division
+        byte[] okm = new byte[length];
+        byte[] t = []; // T(0) = empty string
 
         // Create arrays once to avoid memory leaks in loop
-        var prkArray = prk.ToArray();
-        var infoArray = info.IsEmpty ? null : info.ToArray();
+        byte[] prkArray = prk.ToArray();
+        byte[]? infoArray = info.IsEmpty ? null : info.ToArray();
 
         try
         {
             using var hmac = CreateHmac(hashAlgorithm, prkArray);
 
-            for (var i = 1; i <= n; i++)
+            for (int i = 1; i <= n; i++)
             {
                 // T(i) = HMAC-Hash(PRK, T(i-1) | info | i)
                 hmac.Initialize();
 
                 if (t.Length > 0)
                 {
-                    hmac.TransformBlock(t, 0, t.Length, null, 0);
+                    _ = hmac.TransformBlock(t, 0, t.Length, null, 0);
                 }
 
                 if (infoArray != null)
                 {
-                    hmac.TransformBlock(infoArray, 0, infoArray.Length, null, 0);
+                    _ = hmac.TransformBlock(infoArray, 0, infoArray.Length, null, 0);
                 }
 
-                hmac.TransformFinalBlock(new[] { (byte)i }, 0, 1);
+                _ = hmac.TransformFinalBlock([(byte)i], 0, 1);
                 t = hmac.Hash ?? throw new InvalidOperationException("HMAC computation failed");
 
                 // Copy T(i) to output
-                var copyLength = Math.Min(hashLength, length - (i - 1) * hashLength);
+                int copyLength = Math.Min(hashLength, length - ((i - 1) * hashLength));
                 Array.Copy(t, 0, okm, (i - 1) * hashLength, copyLength);
             }
 
@@ -182,16 +182,11 @@ internal static class HkdfCore
         {
             return new HMACSHA256(key);
         }
-        if (hashAlgorithm == HashAlgorithmName.SHA384)
-        {
-            return new HMACSHA384(key);
-        }
-        if (hashAlgorithm == HashAlgorithmName.SHA512)
-        {
-            return new HMACSHA512(key);
-        }
-
-        throw new ArgumentException($"Unsupported hash algorithm: {hashAlgorithm}", nameof(hashAlgorithm));
+        return hashAlgorithm == HashAlgorithmName.SHA384
+            ? new HMACSHA384(key)
+            : hashAlgorithm == HashAlgorithmName.SHA512
+            ? (HMAC)new HMACSHA512(key)
+            : throw new ArgumentException($"Unsupported hash algorithm: {hashAlgorithm}", nameof(hashAlgorithm));
     }
 
     /// <summary>
@@ -207,16 +202,11 @@ internal static class HkdfCore
         {
             return 32;
         }
-        if (hashAlgorithm == HashAlgorithmName.SHA384)
-        {
-            return 48;
-        }
-        if (hashAlgorithm == HashAlgorithmName.SHA512)
-        {
-            return 64;
-        }
-
-        throw new ArgumentException($"Unsupported hash algorithm: {hashAlgorithm}", nameof(hashAlgorithm));
+        return hashAlgorithm == HashAlgorithmName.SHA384
+            ? 48
+            : hashAlgorithm == HashAlgorithmName.SHA512
+            ? 64
+            : throw new ArgumentException($"Unsupported hash algorithm: {hashAlgorithm}", nameof(hashAlgorithm));
     }
 
     /// <summary>
@@ -233,7 +223,7 @@ internal static class HkdfCore
             throw new ArgumentException("Length must be positive", nameof(length));
         }
 
-        var hashLength = GetHashLength(hashAlgorithm);
+        int hashLength = GetHashLength(hashAlgorithm);
         if (length > 255 * hashLength)
         {
             throw new ArgumentException($"Length too large for {hashAlgorithm} (max: {255 * hashLength})", nameof(length));

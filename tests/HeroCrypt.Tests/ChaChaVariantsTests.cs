@@ -1,5 +1,4 @@
 using System.Text;
-using HeroCrypt.Cryptography.Primitives.Cipher.Stream;
 using static HeroCrypt.Cryptography.Primitives.Cipher.Stream.ChaChaVariants;
 
 namespace HeroCrypt.Tests;
@@ -9,21 +8,21 @@ namespace HeroCrypt.Tests;
 /// </summary>
 public class ChaChaVariantsTests
 {
-    private readonly byte[] _testKey = new byte[32];
-    private readonly byte[] _testNonce = new byte[12];
-    private readonly byte[] _testPlaintext = Encoding.UTF8.GetBytes("The quick brown fox jumps over the lazy dog");
+    private readonly byte[] testKey = new byte[32];
+    private readonly byte[] testNonce = new byte[12];
+    private readonly byte[] testPlaintext = Encoding.UTF8.GetBytes("The quick brown fox jumps over the lazy dog");
 
     public ChaChaVariantsTests()
     {
         // Initialize test key and nonce with predictable values
-        for (var i = 0; i < _testKey.Length; i++)
+        for (var i = 0; i < testKey.Length; i++)
         {
-            _testKey[i] = (byte)(i + 1);
+            testKey[i] = (byte)(i + 1);
         }
 
-        for (var i = 0; i < _testNonce.Length; i++)
+        for (var i = 0; i < testNonce.Length; i++)
         {
-            _testNonce[i] = (byte)(i + 100);
+            testNonce[i] = (byte)(i + 100);
         }
     }
 
@@ -31,15 +30,15 @@ public class ChaChaVariantsTests
     public void ChaCha8_EncryptDecrypt_RoundTrip_Success()
     {
         // Arrange
-        var plaintext = _testPlaintext;
+        var plaintext = testPlaintext;
         var ciphertext = new byte[plaintext.Length];
         var decrypted = new byte[plaintext.Length];
 
         // Act - Encrypt
-        ChaChaVariants.Transform(ciphertext, plaintext, _testKey, _testNonce, 0, ChaChaVariant.ChaCha8);
+        Transform(ciphertext, plaintext, testKey, testNonce, 0, ChaChaVariant.ChaCha8);
 
         // Act - Decrypt (ChaCha is symmetric)
-        ChaChaVariants.Transform(decrypted, ciphertext, _testKey, _testNonce, 0, ChaChaVariant.ChaCha8);
+        Transform(decrypted, ciphertext, testKey, testNonce, 0, ChaChaVariant.ChaCha8);
 
         // Assert
         Assert.Equal(plaintext, decrypted);
@@ -50,13 +49,13 @@ public class ChaChaVariantsTests
     public void ChaCha12_EncryptDecrypt_RoundTrip_Success()
     {
         // Arrange
-        var plaintext = _testPlaintext;
+        var plaintext = testPlaintext;
         var ciphertext = new byte[plaintext.Length];
         var decrypted = new byte[plaintext.Length];
 
         // Act
-        ChaChaVariants.Transform(ciphertext, plaintext, _testKey, _testNonce, 0, ChaChaVariant.ChaCha12);
-        ChaChaVariants.Transform(decrypted, ciphertext, _testKey, _testNonce, 0, ChaChaVariant.ChaCha12);
+        Transform(ciphertext, plaintext, testKey, testNonce, 0, ChaChaVariant.ChaCha12);
+        Transform(decrypted, ciphertext, testKey, testNonce, 0, ChaChaVariant.ChaCha12);
 
         // Assert
         Assert.Equal(plaintext, decrypted);
@@ -67,13 +66,13 @@ public class ChaChaVariantsTests
     public void ChaCha20_EncryptDecrypt_RoundTrip_Success()
     {
         // Arrange
-        var plaintext = _testPlaintext;
+        var plaintext = testPlaintext;
         var ciphertext = new byte[plaintext.Length];
         var decrypted = new byte[plaintext.Length];
 
         // Act
-        ChaChaVariants.Transform(ciphertext, plaintext, _testKey, _testNonce, 0, ChaChaVariant.ChaCha20);
-        ChaChaVariants.Transform(decrypted, ciphertext, _testKey, _testNonce, 0, ChaChaVariant.ChaCha20);
+        Transform(ciphertext, plaintext, testKey, testNonce, 0, ChaChaVariant.ChaCha20);
+        Transform(decrypted, ciphertext, testKey, testNonce, 0, ChaChaVariant.ChaCha20);
 
         // Assert
         Assert.Equal(plaintext, decrypted);
@@ -84,15 +83,15 @@ public class ChaChaVariantsTests
     public void DifferentVariants_ProduceDifferentCiphertexts()
     {
         // Arrange
-        var plaintext = _testPlaintext;
+        var plaintext = testPlaintext;
         var ciphertext8 = new byte[plaintext.Length];
         var ciphertext12 = new byte[plaintext.Length];
         var ciphertext20 = new byte[plaintext.Length];
 
         // Act
-        ChaChaVariants.Transform(ciphertext8, plaintext, _testKey, _testNonce, 0, ChaChaVariant.ChaCha8);
-        ChaChaVariants.Transform(ciphertext12, plaintext, _testKey, _testNonce, 0, ChaChaVariant.ChaCha12);
-        ChaChaVariants.Transform(ciphertext20, plaintext, _testKey, _testNonce, 0, ChaChaVariant.ChaCha20);
+        Transform(ciphertext8, plaintext, testKey, testNonce, 0, ChaChaVariant.ChaCha8);
+        Transform(ciphertext12, plaintext, testKey, testNonce, 0, ChaChaVariant.ChaCha12);
+        Transform(ciphertext20, plaintext, testKey, testNonce, 0, ChaChaVariant.ChaCha20);
 
         // Assert - Different variants should produce different outputs
         Assert.NotEqual(ciphertext8, ciphertext12);
@@ -104,13 +103,13 @@ public class ChaChaVariantsTests
     public void Transform_WithCounter_ProducesCorrectOutput()
     {
         // Arrange
-        var plaintext = _testPlaintext;
+        var plaintext = testPlaintext;
         var ciphertext1 = new byte[plaintext.Length];
         var ciphertext2 = new byte[plaintext.Length];
 
         // Act - Same key/nonce but different counter values
-        ChaChaVariants.Transform(ciphertext1, plaintext, _testKey, _testNonce, 0, ChaChaVariant.ChaCha20);
-        ChaChaVariants.Transform(ciphertext2, plaintext, _testKey, _testNonce, 1, ChaChaVariant.ChaCha20);
+        Transform(ciphertext1, plaintext, testKey, testNonce, 0, ChaChaVariant.ChaCha20);
+        Transform(ciphertext2, plaintext, testKey, testNonce, 1, ChaChaVariant.ChaCha20);
 
         // Assert - Different counter values should produce different outputs
         Assert.NotEqual(ciphertext1, ciphertext2);
@@ -124,7 +123,7 @@ public class ChaChaVariantsTests
         var ciphertext = Array.Empty<byte>();
 
         // Act & Assert - Should handle empty input gracefully
-        ChaChaVariants.Transform(ciphertext, plaintext, _testKey, _testNonce, 0, ChaChaVariant.ChaCha20);
+        Transform(ciphertext, plaintext, testKey, testNonce, 0, ChaChaVariant.ChaCha20);
     }
 
     [Fact]
@@ -132,12 +131,12 @@ public class ChaChaVariantsTests
     {
         // Arrange
         var invalidKey = new byte[16]; // Should be 32 bytes
-        var plaintext = _testPlaintext;
+        var plaintext = testPlaintext;
         var ciphertext = new byte[plaintext.Length];
 
         // Act & Assert
         var ex = Assert.Throws<ArgumentException>(() =>
-            ChaChaVariants.Transform(ciphertext, plaintext, invalidKey, _testNonce, 0, ChaChaVariant.ChaCha20));
+            Transform(ciphertext, plaintext, invalidKey, testNonce, 0, ChaChaVariant.ChaCha20));
         Assert.Contains("32 bytes", ex.Message);
     }
 
@@ -146,12 +145,12 @@ public class ChaChaVariantsTests
     {
         // Arrange
         var invalidNonce = new byte[8]; // Should be 12 bytes
-        var plaintext = _testPlaintext;
+        var plaintext = testPlaintext;
         var ciphertext = new byte[plaintext.Length];
 
         // Act & Assert
         var ex = Assert.Throws<ArgumentException>(() =>
-            ChaChaVariants.Transform(ciphertext, plaintext, _testKey, invalidNonce, 0, ChaChaVariant.ChaCha20));
+            Transform(ciphertext, plaintext, testKey, invalidNonce, 0, ChaChaVariant.ChaCha20));
         Assert.Contains("12 bytes", ex.Message);
     }
 
@@ -159,12 +158,12 @@ public class ChaChaVariantsTests
     public void Transform_OutputBufferTooSmall_ThrowsException()
     {
         // Arrange
-        var plaintext = _testPlaintext;
+        var plaintext = testPlaintext;
         var ciphertext = new byte[plaintext.Length - 1]; // Too small
 
         // Act & Assert
         var ex = Assert.Throws<ArgumentException>(() =>
-            ChaChaVariants.Transform(ciphertext, plaintext, _testKey, _testNonce, 0, ChaChaVariant.ChaCha20));
+            Transform(ciphertext, plaintext, testKey, testNonce, 0, ChaChaVariant.ChaCha20));
         Assert.Contains("too small", ex.Message);
     }
 
@@ -172,9 +171,9 @@ public class ChaChaVariantsTests
     public void GetSecurityBits_ReturnsCorrectValues()
     {
         // Act & Assert
-        Assert.Equal(64, ChaChaVariants.GetSecurityBits(ChaChaVariant.ChaCha8));
-        Assert.Equal(96, ChaChaVariants.GetSecurityBits(ChaChaVariant.ChaCha12));
-        Assert.Equal(128, ChaChaVariants.GetSecurityBits(ChaChaVariant.ChaCha20));
+        Assert.Equal(64, GetSecurityBits(ChaChaVariant.ChaCha8));
+        Assert.Equal(96, GetSecurityBits(ChaChaVariant.ChaCha12));
+        Assert.Equal(128, GetSecurityBits(ChaChaVariant.ChaCha20));
     }
 
     [Fact]
@@ -187,8 +186,8 @@ public class ChaChaVariantsTests
         var decrypted = new byte[largeData.Length];
 
         // Act
-        ChaChaVariants.Transform(ciphertext, largeData, _testKey, _testNonce, 0, ChaChaVariant.ChaCha20);
-        ChaChaVariants.Transform(decrypted, ciphertext, _testKey, _testNonce, 0, ChaChaVariant.ChaCha20);
+        Transform(ciphertext, largeData, testKey, testNonce, 0, ChaChaVariant.ChaCha20);
+        Transform(decrypted, ciphertext, testKey, testNonce, 0, ChaChaVariant.ChaCha20);
 
         // Assert
         Assert.Equal(largeData, decrypted);
@@ -206,8 +205,8 @@ public class ChaChaVariantsTests
         var decrypted = new byte[plaintext.Length];
 
         // Act
-        ChaChaVariants.Transform(ciphertext, plaintext, _testKey, _testNonce, 0, variant);
-        ChaChaVariants.Transform(decrypted, ciphertext, _testKey, _testNonce, 0, variant);
+        Transform(ciphertext, plaintext, testKey, testNonce, 0, variant);
+        Transform(decrypted, ciphertext, testKey, testNonce, 0, variant);
 
         // Assert
         Assert.Equal(plaintext, decrypted);
@@ -218,7 +217,7 @@ public class ChaChaVariantsTests
     public void ValidateParameters_ValidInput_DoesNotThrow()
     {
         // Act & Assert - Should not throw
-        ChaChaVariants.ValidateParameters(_testKey, _testNonce, ChaChaVariant.ChaCha20);
+        ValidateParameters(testKey, testNonce, ChaChaVariant.ChaCha20);
     }
 
     [Fact]
@@ -229,7 +228,7 @@ public class ChaChaVariantsTests
 
         // Act & Assert
         Assert.Throws<ArgumentException>(() =>
-            ChaChaVariants.ValidateParameters(invalidKey, _testNonce, ChaChaVariant.ChaCha20));
+            ValidateParameters(invalidKey, testNonce, ChaChaVariant.ChaCha20));
     }
 }
 

@@ -4,7 +4,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography;
 using HeroCrypt.Security;
 
-namespace HeroCrypt.Cryptography.Primitives.PostQuantum.Dilithium;
+namespace HeroCrypt.Cryptography.Primitives.PostQuantum.Signature;
 
 /// <summary>
 /// ML-DSA (Module-Lattice-Based Digital Signature Algorithm) wrapper for .NET 10+
@@ -44,8 +44,8 @@ public static class MLDsaWrapper
 
     public sealed class MLDsaKeyPair : IDisposable
     {
-        private System.Security.Cryptography.MLDsa? _key;
-        private bool _disposed;
+        private System.Security.Cryptography.MLDsa? key;
+        private bool disposed;
 
         /// <summary>
         /// Gets the public key in PEM format
@@ -73,7 +73,7 @@ public static class MLDsaWrapper
 
         internal MLDsaKeyPair(System.Security.Cryptography.MLDsa key, SecurityLevel level)
         {
-            _key = key ?? throw new ArgumentNullException(nameof(key));
+            this.key = key ?? throw new ArgumentNullException(nameof(key));
             Level = level;
             PublicKeyPem = key.ExportSubjectPublicKeyInfoPem();
             SecretKeyPem = key.ExportPkcs8PrivateKeyPem();
@@ -89,11 +89,11 @@ public static class MLDsaWrapper
         /// <exception cref="CryptographicException">If signing fails</exception>
         public byte[] Sign(byte[] data, byte[]? context = null)
         {
-            ObjectDisposedException.ThrowIf(_disposed, this);
+            ObjectDisposedException.ThrowIf(disposed, this);
 
             ArgumentNullException.ThrowIfNull(data);
 
-            if (_key == null)
+            if (key == null)
             {
                 throw new InvalidOperationException("Key is not available");
             }
@@ -106,12 +106,12 @@ public static class MLDsaWrapper
             // .NET 10 simplified signature API
             if (context == null || context.Length == 0)
             {
-                return _key.SignData(data);
+                return key.SignData(data);
             }
             else
             {
                 // With context support
-                return _key.SignData(data, context);
+                return key.SignData(data, context);
             }
         }
 
@@ -123,9 +123,9 @@ public static class MLDsaWrapper
         /// <returns>The signature</returns>
         public byte[] Sign(ReadOnlySpan<byte> data, ReadOnlySpan<byte> context = default)
         {
-            ObjectDisposedException.ThrowIf(_disposed, this);
+            ObjectDisposedException.ThrowIf(disposed, this);
 
-            if (_key == null)
+            if (key == null)
             {
                 throw new InvalidOperationException("Key is not available");
             }
@@ -136,8 +136,8 @@ public static class MLDsaWrapper
             }
 
             return context.Length == 0
-                ? _key.SignData(data.ToArray())
-                : _key.SignData(data.ToArray(), context.ToArray());
+                ? key.SignData(data.ToArray())
+                : key.SignData(data.ToArray(), context.ToArray());
         }
 
         /// <summary>
@@ -145,11 +145,11 @@ public static class MLDsaWrapper
         /// </summary>
         public void Dispose()
         {
-            if (!_disposed)
+            if (!disposed)
             {
-                _key?.Dispose();
-                _key = null;
-                _disposed = true;
+                key?.Dispose();
+                key = null;
+                disposed = true;
             }
         }
     }
@@ -191,13 +191,13 @@ public static class MLDsaWrapper
     /// <param name="data">The data to sign</param>
     /// <param name="securityBits">The security level in bits (192 for ML-DSA-65, 256 for ML-DSA-87)</param>
     /// <param name="context">Optional context string for domain separation</param>
-        /// <returns>The signature</returns>
-        /// <exception cref="ArgumentNullException">If privateKeyPem or data is null</exception>
-        /// <exception cref="ArgumentException">If privateKeyPem is not valid PEM format or context exceeds 255 bytes</exception>
-        /// <exception cref="PlatformNotSupportedException">If ML-DSA is not supported</exception>
-        public static byte[] Sign(string privateKeyPem, byte[] data, int securityBits, byte[]? context = null)
-        {
-            ValidatePemFormat(privateKeyPem, nameof(privateKeyPem));
+    /// <returns>The signature</returns>
+    /// <exception cref="ArgumentNullException">If privateKeyPem or data is null</exception>
+    /// <exception cref="ArgumentException">If privateKeyPem is not valid PEM format or context exceeds 255 bytes</exception>
+    /// <exception cref="PlatformNotSupportedException">If ML-DSA is not supported</exception>
+    public static byte[] Sign(string privateKeyPem, byte[] data, int securityBits, byte[]? context = null)
+    {
+        ValidatePemFormat(privateKeyPem, nameof(privateKeyPem));
 
         _ = securityBits;
 
@@ -210,8 +210,8 @@ public static class MLDsaWrapper
         }
 #endif
 
-            if (!IsSupported())
-            {
+        if (!IsSupported())
+        {
             throw new PlatformNotSupportedException(
                 "ML-DSA is not supported on this platform. " +
                 "Requires .NET 10+ with Windows CNG PQC support or OpenSSL 3.5+");

@@ -14,7 +14,7 @@ internal static class AesCcmCore
     /// <summary>
     /// Supported key sizes in bytes
     /// </summary>
-    public static readonly int[] SupportedKeySizes = { 16, 24, 32 }; // AES-128, AES-192, AES-256
+    public static readonly int[] SupportedKeySizes = [16, 24, 32]; // AES-128, AES-192, AES-256
 
     /// <summary>
     /// Minimum nonce size in bytes (RFC 3610: 7-13 bytes)
@@ -89,7 +89,7 @@ internal static class AesCcmCore
             using var encryptor = aes.CreateEncryptor();
 
             // Split output: ciphertext | tag
-            var ciphertextOnly = ciphertext.Slice(0, plaintext.Length);
+            var ciphertextOnly = ciphertext[..plaintext.Length];
             var tag = ciphertext.Slice(plaintext.Length, tagSize);
 
             // Compute authentication tag using CBC-MAC
@@ -97,7 +97,7 @@ internal static class AesCcmCore
             ComputeTag(fullTag, plaintext, associatedData, nonce, encryptor, tagSize);
 
             // Encrypt plaintext using CTR mode and encrypt tag
-            EncryptCtr(ciphertextOnly, tag, plaintext, fullTag.Slice(0, tagSize), nonce, encryptor);
+            EncryptCtr(ciphertextOnly, tag, plaintext, fullTag[..tagSize], nonce, encryptor);
 
             // Clear sensitive data
             SecureMemoryOperations.SecureClear(fullTag);
@@ -154,21 +154,21 @@ internal static class AesCcmCore
             using var encryptor = aes.CreateEncryptor();
 
             // Split input: ciphertext | tag
-            var ciphertextOnly = ciphertext.Slice(0, plaintextLength);
+            var ciphertextOnly = ciphertext[..plaintextLength];
             var receivedTag = ciphertext.Slice(plaintextLength, tagSize);
 
             // Decrypt ciphertext using CTR mode
             Span<byte> decryptedTag = stackalloc byte[tagSize];
-            DecryptCtr(plaintext.Slice(0, plaintextLength), decryptedTag, ciphertextOnly, receivedTag, nonce, encryptor);
+            DecryptCtr(plaintext[..plaintextLength], decryptedTag, ciphertextOnly, receivedTag, nonce, encryptor);
 
             // Compute expected tag
             Span<byte> expectedTag = stackalloc byte[BLOCK_SIZE];
-            ComputeTag(expectedTag, plaintext.Slice(0, plaintextLength), associatedData, nonce, encryptor, tagSize);
+            ComputeTag(expectedTag, plaintext[..plaintextLength], associatedData, nonce, encryptor, tagSize);
 
             // Verify tag in constant time
             var tagMatch = SecureMemoryOperations.ConstantTimeEquals(
                 decryptedTag,
-                expectedTag.Slice(0, tagSize));
+                expectedTag[..tagSize]);
 
             // Clear sensitive data
             SecureMemoryOperations.SecureClear(expectedTag);
@@ -177,7 +177,7 @@ internal static class AesCcmCore
             if (!tagMatch)
             {
                 // Clear plaintext on authentication failure
-                SecureMemoryOperations.SecureClear(plaintext.Slice(0, plaintextLength));
+                SecureMemoryOperations.SecureClear(plaintext[..plaintextLength]);
                 return -1;
             }
 
@@ -261,7 +261,7 @@ internal static class AesCcmCore
             if (aadRemaining.Length <= firstBlockSpace)
             {
                 // AAD fits in first block
-                aadRemaining.CopyTo(aadBlock.Slice(aadOffset));
+                aadRemaining.CopyTo(aadBlock[aadOffset..]);
                 XorBlock(mac, aadBlock);
                 mac.CopyTo(macArray);
                 aes.TransformBlock(macArray, 0, BLOCK_SIZE, macArray, 0);
@@ -270,24 +270,24 @@ internal static class AesCcmCore
             else
             {
                 // First block
-                aadRemaining.Slice(0, firstBlockSpace).CopyTo(aadBlock.Slice(aadOffset));
+                aadRemaining[..firstBlockSpace].CopyTo(aadBlock[aadOffset..]);
                 XorBlock(mac, aadBlock);
                 mac.CopyTo(macArray);
                 aes.TransformBlock(macArray, 0, BLOCK_SIZE, macArray, 0);
                 macArray.CopyTo(mac);
-                aadRemaining = aadRemaining.Slice(firstBlockSpace);
+                aadRemaining = aadRemaining[firstBlockSpace..];
 
                 // Remaining AAD blocks
                 while (aadRemaining.Length > 0)
                 {
                     aadBlock.Clear();
                     var copyLen = Math.Min(BLOCK_SIZE, aadRemaining.Length);
-                    aadRemaining.Slice(0, copyLen).CopyTo(aadBlock);
+                    aadRemaining[..copyLen].CopyTo(aadBlock);
                     XorBlock(mac, aadBlock);
                     mac.CopyTo(macArray);
                     aes.TransformBlock(macArray, 0, BLOCK_SIZE, macArray, 0);
                     macArray.CopyTo(mac);
-                    aadRemaining = aadRemaining.Slice(copyLen);
+                    aadRemaining = aadRemaining[copyLen..];
                 }
             }
         }
@@ -298,12 +298,12 @@ internal static class AesCcmCore
         {
             block.Clear();
             var copyLen = Math.Min(BLOCK_SIZE, remaining.Length);
-            remaining.Slice(0, copyLen).CopyTo(block);
+            remaining[..copyLen].CopyTo(block);
             XorBlock(mac, block);
             mac.CopyTo(macArray);
             aes.TransformBlock(macArray, 0, BLOCK_SIZE, macArray, 0);
             macArray.CopyTo(mac);
-            remaining = remaining.Slice(copyLen);
+            remaining = remaining[copyLen..];
         }
 
         // Final MAC is the tag
@@ -374,7 +374,7 @@ internal static class AesCcmCore
                 ciphertext[outputOffset + i] = (byte)(remaining[i] ^ keystream[i]);
             }
 
-            remaining = remaining.Slice(blockSize);
+            remaining = remaining[blockSize..];
             outputOffset += blockSize;
             ctrValue++;
         }
@@ -447,7 +447,7 @@ internal static class AesCcmCore
                 plaintext[outputOffset + i] = (byte)(remaining[i] ^ keystream[i]);
             }
 
-            remaining = remaining.Slice(blockSize);
+            remaining = remaining[blockSize..];
             outputOffset += blockSize;
             ctrValue++;
         }

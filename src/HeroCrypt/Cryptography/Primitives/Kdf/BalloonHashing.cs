@@ -200,8 +200,8 @@ public static class BalloonHashing
             {
                 // Encode counter as 64-bit little-endian
                 BitConverter.TryWriteBytes(input, (long)i);
-                password.CopyTo(input.Slice(8));
-                salt.CopyTo(input.Slice(8 + password.Length));
+                password.CopyTo(input[8..]);
+                salt.CopyTo(input[(8 + password.Length)..]);
 
                 buffer[i] = ComputeHash(input, algo);
             }
@@ -233,8 +233,8 @@ public static class BalloonHashing
 
                 // buffer[m] = hash(round || buffer[prev] || buffer[m])
                 BitConverter.TryWriteBytes(input, (long)round);
-                buffer[prev].CopyTo(input.Slice(8));
-                buffer[m].CopyTo(input.Slice(8 + buffer[prev].Length));
+                buffer[prev].CopyTo(input[8..]);
+                buffer[m].CopyTo(input[(8 + buffer[prev].Length)..]);
 
                 var newValue = ComputeHash(input, algo);
                 Array.Clear(buffer[m], 0, buffer[m].Length);
@@ -245,8 +245,8 @@ public static class BalloonHashing
 
                 // buffer[m] = hash(round || buffer[m] || buffer[other])
                 BitConverter.TryWriteBytes(input, (long)round);
-                buffer[m].CopyTo(input.Slice(8));
-                buffer[other].CopyTo(input.Slice(8 + buffer[m].Length));
+                buffer[m].CopyTo(input[8..]);
+                buffer[other].CopyTo(input[(8 + buffer[m].Length)..]);
 
                 newValue = ComputeHash(input, algo);
                 Array.Clear(buffer[m], 0, buffer[m].Length);
@@ -265,7 +265,7 @@ public static class BalloonHashing
     private static byte[] Extract(byte[][] buffer, int outputLength, HashAlgorithmName algo)
     {
         // Return first outputLength bytes of last buffer block
-        var lastBlock = buffer[buffer.Length - 1];
+        var lastBlock = buffer[^1];
 
         if (outputLength <= lastBlock.Length)
         {

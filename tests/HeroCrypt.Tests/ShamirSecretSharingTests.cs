@@ -115,9 +115,9 @@ public class ShamirSecretSharingTests
         var combinations = new[]
         {
             new[] { shares[0], shares[1], shares[2] },
-            new[] { shares[0], shares[2], shares[4] },
-            new[] { shares[1], shares[3], shares[4] },
-            new[] { shares[2], shares[3], shares[4] }
+            [shares[0], shares[2], shares[4]],
+            [shares[1], shares[3], shares[4]],
+            [shares[2], shares[3], shares[4]]
         };
 
         // Assert - All combinations should reconstruct the same secret
@@ -181,7 +181,7 @@ public class ShamirSecretSharingTests
     public void Split_SingleByteSecret_Success()
     {
         // Arrange
-        var secret = new byte[] { 0x42 };
+        var secret = "B"u8.ToArray();
         var threshold = 2;
         var shareCount = 3;
 
@@ -296,8 +296,8 @@ public class ShamirSecretSharingTests
         // Arrange
         var shares = new[]
         {
-            new ShamirSecretSharing.Share(1, new byte[] { 1, 2, 3 }),
-            new ShamirSecretSharing.Share(2, new byte[] { 4, 5 }) // Different length
+            new ShamirSecretSharing.Share(1, [1, 2, 3]),
+            new ShamirSecretSharing.Share(2, [4, 5]) // Different length
         };
 
         // Act & Assert
@@ -397,7 +397,7 @@ public class ShamirSecretSharingTests
     public void Share_Clone_CreatesIndependentCopy()
     {
         // Arrange
-        var original = new ShamirSecretSharing.Share(1, new byte[] { 1, 2, 3 });
+        var original = new ShamirSecretSharing.Share(1, [1, 2, 3]);
 
         // Act
         var clone = original.Clone();

@@ -10,9 +10,9 @@ namespace HeroCrypt.Cryptography.Primitives.Cipher.Stream;
 public static class ChaChaVariants
 {
     /// <summary>
-    /// ChaCha _constants "expand 32-byte k"
+    /// ChaCha constants "expand 32-byte k"
     /// </summary>
-    private static readonly uint[] _constants = { 0x61707865, 0x3320646e, 0x79622d32, 0x6b206574 };
+    private static readonly uint[] constants = [0x61707865, 0x3320646e, 0x79622d32, 0x6b206574];
 
     /// <summary>
     /// Key size in bytes (same for all variants)
@@ -70,18 +70,18 @@ public static class ChaChaVariants
         }
 
         Span<uint> state = stackalloc uint[16];
-        var blocks = (input.Length + BLOCK_SIZE - 1) / BLOCK_SIZE;
+        int blocks = (input.Length + BLOCK_SIZE - 1) / BLOCK_SIZE;
 
         // Move stackalloc outside the loop to prevent stack overflow
         Span<byte> keystream = stackalloc byte[BLOCK_SIZE];
 
-        for (var blockIndex = 0; blockIndex < blocks; blockIndex++)
+        for (int blockIndex = 0; blockIndex < blocks; blockIndex++)
         {
-            var blockStart = blockIndex * BLOCK_SIZE;
-            var blockSize = Math.Min(BLOCK_SIZE, input.Length - blockStart);
+            int blockStart = blockIndex * BLOCK_SIZE;
+            int blockSize = Math.Min(BLOCK_SIZE, input.Length - blockStart);
 
-            var inputBlock = input.Slice(blockStart, blockSize);
-            var outputBlock = output.Slice(blockStart, blockSize);
+            ReadOnlySpan<byte> inputBlock = input.Slice(blockStart, blockSize);
+            Span<byte> outputBlock = output.Slice(blockStart, blockSize);
 
             // Initialize state for this block
             InitializeState(state, key, nonce, counter + (uint)blockIndex);
@@ -90,7 +90,7 @@ public static class ChaChaVariants
             GenerateKeystreamBlock(keystream, state, (int)variant);
 
             // XOR with input
-            for (var i = 0; i < blockSize; i++)
+            for (int i = 0; i < blockSize; i++)
             {
                 outputBlock[i] = (byte)(inputBlock[i] ^ keystream[i]);
             }
@@ -128,12 +128,12 @@ public static class ChaChaVariants
         }
 
         Span<uint> state = stackalloc uint[16];
-        var blocks = keystream.Length / BLOCK_SIZE;
+        int blocks = keystream.Length / BLOCK_SIZE;
 
-        for (var blockIndex = 0; blockIndex < blocks; blockIndex++)
+        for (int blockIndex = 0; blockIndex < blocks; blockIndex++)
         {
-            var blockStart = blockIndex * BLOCK_SIZE;
-            var keystreamBlock = keystream.Slice(blockStart, BLOCK_SIZE);
+            int blockStart = blockIndex * BLOCK_SIZE;
+            Span<byte> keystreamBlock = keystream.Slice(blockStart, BLOCK_SIZE);
 
             // Initialize state for this block
             InitializeState(state, key, nonce, counter + (uint)blockIndex);
@@ -152,20 +152,20 @@ public static class ChaChaVariants
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void InitializeState(Span<uint> state, ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce, uint counter)
     {
-        // _constants
-        state[0] = _constants[0];
-        state[1] = _constants[1];
-        state[2] = _constants[2];
-        state[3] = _constants[3];
+        // constants
+        state[0] = constants[0];
+        state[1] = constants[1];
+        state[2] = constants[2];
+        state[3] = constants[3];
 
         // Key
-        for (var i = 0; i < 8; i++)
+        for (int i = 0; i < 8; i++)
         {
             state[4 + i] =
-                (uint)(key[i * 4]) |
-                ((uint)(key[i * 4 + 1]) << 8) |
-                ((uint)(key[i * 4 + 2]) << 16) |
-                ((uint)(key[i * 4 + 3]) << 24);
+                key[i * 4] |
+                ((uint)key[(i * 4) + 1] << 8) |
+                ((uint)key[(i * 4) + 2] << 16) |
+                ((uint)key[(i * 4) + 3] << 24);
         }
 
         // Counter
@@ -173,22 +173,22 @@ public static class ChaChaVariants
 
         // Nonce
         state[13] =
-            (uint)(nonce[0]) |
-            ((uint)(nonce[1]) << 8) |
-            ((uint)(nonce[2]) << 16) |
-            ((uint)(nonce[3]) << 24);
+            nonce[0] |
+            ((uint)nonce[1] << 8) |
+            ((uint)nonce[2] << 16) |
+            ((uint)nonce[3] << 24);
 
         state[14] =
-            (uint)(nonce[4]) |
-            ((uint)(nonce[5]) << 8) |
-            ((uint)(nonce[6]) << 16) |
-            ((uint)(nonce[7]) << 24);
+            nonce[4] |
+            ((uint)nonce[5] << 8) |
+            ((uint)nonce[6] << 16) |
+            ((uint)nonce[7] << 24);
 
         state[15] =
-            (uint)(nonce[8]) |
-            ((uint)(nonce[9]) << 8) |
-            ((uint)(nonce[10]) << 16) |
-            ((uint)(nonce[11]) << 24);
+            nonce[8] |
+            ((uint)nonce[9] << 8) |
+            ((uint)nonce[10] << 16) |
+            ((uint)nonce[11] << 24);
     }
 
     /// <summary>
@@ -202,8 +202,8 @@ public static class ChaChaVariants
         state.CopyTo(workingState);
 
         // Perform the specified number of rounds
-        var doubleRounds = rounds / 2;
-        for (var i = 0; i < doubleRounds; i++)
+        int doubleRounds = rounds / 2;
+        for (int i = 0; i < doubleRounds; i++)
         {
             // Odd round - column rounds
             QuarterRound(workingState, 0, 4, 8, 12);
@@ -219,19 +219,19 @@ public static class ChaChaVariants
         }
 
         // Add original state to working state
-        for (var i = 0; i < 16; i++)
+        for (int i = 0; i < 16; i++)
         {
             workingState[i] += state[i];
         }
 
         // Convert to bytes (little-endian)
-        for (var i = 0; i < 16; i++)
+        for (int i = 0; i < 16; i++)
         {
-            var value = workingState[i];
+            uint value = workingState[i];
             keystream[i * 4] = (byte)value;
-            keystream[i * 4 + 1] = (byte)(value >> 8);
-            keystream[i * 4 + 2] = (byte)(value >> 16);
-            keystream[i * 4 + 3] = (byte)(value >> 24);
+            keystream[(i * 4) + 1] = (byte)(value >> 8);
+            keystream[(i * 4) + 2] = (byte)(value >> 16);
+            keystream[(i * 4) + 3] = (byte)(value >> 24);
         }
 
         // Clear working state

@@ -2,12 +2,15 @@ using System.Security.Cryptography;
 using System.Text;
 using HeroCrypt.Cryptography.Primitives.Signature.Ecc;
 using HeroCrypt.Signatures;
+#if NET10_0_OR_GREATER
+using HeroCrypt.Cryptography.Primitives.PostQuantum.Signature;
+#endif
 
 namespace HeroCrypt.Tests;
 
 public class DigitalSignatureTests
 {
-    private readonly byte[] _testData = Encoding.UTF8.GetBytes("The quick brown fox jumps over the lazy dog");
+    private readonly byte[] testData = Encoding.UTF8.GetBytes("The quick brown fox jumps over the lazy dog");
 
     #region HMAC Tests
 
@@ -22,9 +25,9 @@ public class DigitalSignatureTests
         RandomNumberGenerator.Fill(key);
 
         // Act
-        var signature = DigitalSignature.Sign(_testData, key, algorithm);
+        var signature = DigitalSignature.Sign(testData, key, algorithm);
 
-        var isValid = DigitalSignature.Verify(_testData, signature, key, algorithm);
+        var isValid = DigitalSignature.Verify(testData, signature, key, algorithm);
 
         // Assert
         Assert.NotNull(signature);
@@ -42,8 +45,8 @@ public class DigitalSignatureTests
         RandomNumberGenerator.Fill(key2);
 
         // Act
-        var signature = DigitalSignature.Sign(_testData, key1, SignatureAlgorithm.HmacSha256);
-        var isValid = DigitalSignature.Verify(_testData, signature, key2, SignatureAlgorithm.HmacSha256);
+        var signature = DigitalSignature.Sign(testData, key1, SignatureAlgorithm.HmacSha256);
+        var isValid = DigitalSignature.Verify(testData, signature, key2, SignatureAlgorithm.HmacSha256);
 
         // Assert
         Assert.False(isValid);
@@ -58,7 +61,7 @@ public class DigitalSignatureTests
         var tamperedData = Encoding.UTF8.GetBytes("Tampered data");
 
         // Act
-        var signature = DigitalSignature.Sign(_testData, key, SignatureAlgorithm.HmacSha256);
+        var signature = DigitalSignature.Sign(testData, key, SignatureAlgorithm.HmacSha256);
         var isValid = DigitalSignature.Verify(tamperedData, signature, key, SignatureAlgorithm.HmacSha256);
 
         // Assert
@@ -80,8 +83,8 @@ public class DigitalSignatureTests
         var publicKey = rsa.ExportSubjectPublicKeyInfo();
 
         // Act
-        var signature = DigitalSignature.Sign(_testData, privateKey, algorithm);
-        var isValid = DigitalSignature.Verify(_testData, signature, publicKey, algorithm);
+        var signature = DigitalSignature.Sign(testData, privateKey, algorithm);
+        var isValid = DigitalSignature.Verify(testData, signature, publicKey, algorithm);
 
         // Assert
         Assert.NotNull(signature);
@@ -98,8 +101,8 @@ public class DigitalSignatureTests
         var publicKey2 = rsa2.ExportSubjectPublicKeyInfo();
 
         // Act
-        var signature = DigitalSignature.Sign(_testData, privateKey1, SignatureAlgorithm.RsaSha256);
-        var isValid = DigitalSignature.Verify(_testData, signature, publicKey2, SignatureAlgorithm.RsaSha256);
+        var signature = DigitalSignature.Sign(testData, privateKey1, SignatureAlgorithm.RsaSha256);
+        var isValid = DigitalSignature.Verify(testData, signature, publicKey2, SignatureAlgorithm.RsaSha256);
 
         // Assert
         Assert.False(isValid);
@@ -114,9 +117,9 @@ public class DigitalSignatureTests
         var publicKey = rsa.ExportSubjectPublicKeyInfo();
 
         // Act
-        var signature = DigitalSignature.Sign(_testData, privateKey, SignatureAlgorithm.RsaSha256);
+        var signature = DigitalSignature.Sign(testData, privateKey, SignatureAlgorithm.RsaSha256);
         signature[0] ^= 0xFF; // Tamper with signature
-        var isValid = DigitalSignature.Verify(_testData, signature, publicKey, SignatureAlgorithm.RsaSha256);
+        var isValid = DigitalSignature.Verify(testData, signature, publicKey, SignatureAlgorithm.RsaSha256);
 
         // Assert
         Assert.False(isValid);
@@ -146,8 +149,8 @@ public class DigitalSignatureTests
         var publicKey = ecdsa.ExportSubjectPublicKeyInfo();
 
         // Act
-        var signature = DigitalSignature.Sign(_testData, privateKey, algorithm);
-        var isValid = DigitalSignature.Verify(_testData, signature, publicKey, algorithm);
+        var signature = DigitalSignature.Sign(testData, privateKey, algorithm);
+        var isValid = DigitalSignature.Verify(testData, signature, publicKey, algorithm);
 
         // Assert
         Assert.NotNull(signature);
@@ -164,8 +167,8 @@ public class DigitalSignatureTests
         var publicKey2 = ecdsa2.ExportSubjectPublicKeyInfo();
 
         // Act
-        var signature = DigitalSignature.Sign(_testData, privateKey1, SignatureAlgorithm.EcdsaP256Sha256);
-        var isValid = DigitalSignature.Verify(_testData, signature, publicKey2, SignatureAlgorithm.EcdsaP256Sha256);
+        var signature = DigitalSignature.Sign(testData, privateKey1, SignatureAlgorithm.EcdsaP256Sha256);
+        var isValid = DigitalSignature.Verify(testData, signature, publicKey2, SignatureAlgorithm.EcdsaP256Sha256);
 
         // Assert
         Assert.False(isValid);
@@ -182,8 +185,8 @@ public class DigitalSignatureTests
         var (privateKey, publicKey) = Ed25519Core.GenerateKeyPair();
 
         // Act
-        var signature = DigitalSignature.Sign(_testData, privateKey, SignatureAlgorithm.Ed25519);
-        var isValid = DigitalSignature.Verify(_testData, signature, publicKey, SignatureAlgorithm.Ed25519);
+        var signature = DigitalSignature.Sign(testData, privateKey, SignatureAlgorithm.Ed25519);
+        var isValid = DigitalSignature.Verify(testData, signature, publicKey, SignatureAlgorithm.Ed25519);
 
         // Assert
         Assert.NotNull(signature);
@@ -199,8 +202,8 @@ public class DigitalSignatureTests
         var (_, publicKey2) = Ed25519Core.GenerateKeyPair();
 
         // Act
-        var signature = DigitalSignature.Sign(_testData, privateKey1, SignatureAlgorithm.Ed25519);
-        var isValid = DigitalSignature.Verify(_testData, signature, publicKey2, SignatureAlgorithm.Ed25519);
+        var signature = DigitalSignature.Sign(testData, privateKey1, SignatureAlgorithm.Ed25519);
+        var isValid = DigitalSignature.Verify(testData, signature, publicKey2, SignatureAlgorithm.Ed25519);
 
         // Assert
         Assert.False(isValid);
@@ -212,18 +215,18 @@ public class DigitalSignatureTests
 
 #if NET10_0_OR_GREATER
     [Theory]
-    [InlineData(SignatureAlgorithm.MLDsa65, HeroCrypt.Cryptography.Primitives.PostQuantum.Dilithium.MLDsaWrapper.SecurityLevel.MLDsa65)]
-    [InlineData(SignatureAlgorithm.MLDsa87, HeroCrypt.Cryptography.Primitives.PostQuantum.Dilithium.MLDsaWrapper.SecurityLevel.MLDsa87)]
-    public void MLDsa_Sign_And_Verify_Success(SignatureAlgorithm algorithm, HeroCrypt.Cryptography.Primitives.PostQuantum.Dilithium.MLDsaWrapper.SecurityLevel securityLevel)
+    [InlineData(SignatureAlgorithm.MLDsa65, MLDsaWrapper.SecurityLevel.MLDsa65)]
+    [InlineData(SignatureAlgorithm.MLDsa87, MLDsaWrapper.SecurityLevel.MLDsa87)]
+    public void MLDsa_Sign_And_Verify_Success(SignatureAlgorithm algorithm, MLDsaWrapper.SecurityLevel securityLevel)
     {
         // Arrange
-        using var keyPair = HeroCrypt.Cryptography.Primitives.PostQuantum.Dilithium.MLDsaWrapper.GenerateKeyPair(securityLevel);
+        using var keyPair = MLDsaWrapper.GenerateKeyPair(securityLevel);
         var privateKey = Encoding.UTF8.GetBytes(keyPair.SecretKeyPem);
         var publicKey = Encoding.UTF8.GetBytes(keyPair.PublicKeyPem);
 
         // Act
-        var signature = DigitalSignature.Sign(_testData, privateKey, algorithm);
-        var isValid = DigitalSignature.Verify(_testData, signature, publicKey, algorithm);
+        var signature = DigitalSignature.Sign(testData, privateKey, algorithm);
+        var isValid = DigitalSignature.Verify(testData, signature, publicKey, algorithm);
 
         // Assert
         Assert.NotNull(signature);
@@ -234,14 +237,14 @@ public class DigitalSignatureTests
     public void MLDsa65_Verify_With_Wrong_PublicKey_Returns_False()
     {
         // Arrange
-        using var keyPair1 = HeroCrypt.Cryptography.Primitives.PostQuantum.Dilithium.MLDsaWrapper.GenerateKeyPair(HeroCrypt.Cryptography.Primitives.PostQuantum.Dilithium.MLDsaWrapper.SecurityLevel.MLDsa65);
-        using var keyPair2 = HeroCrypt.Cryptography.Primitives.PostQuantum.Dilithium.MLDsaWrapper.GenerateKeyPair(HeroCrypt.Cryptography.Primitives.PostQuantum.Dilithium.MLDsaWrapper.SecurityLevel.MLDsa65);
+        using var keyPair1 = MLDsaWrapper.GenerateKeyPair(MLDsaWrapper.SecurityLevel.MLDsa65);
+        using var keyPair2 = MLDsaWrapper.GenerateKeyPair(MLDsaWrapper.SecurityLevel.MLDsa65);
         var privateKey1 = Encoding.UTF8.GetBytes(keyPair1.SecretKeyPem);
         var publicKey2 = Encoding.UTF8.GetBytes(keyPair2.PublicKeyPem);
 
         // Act
-        var signature = DigitalSignature.Sign(_testData, privateKey1, SignatureAlgorithm.MLDsa65);
-        var isValid = DigitalSignature.Verify(_testData, signature, publicKey2, SignatureAlgorithm.MLDsa65);
+        var signature = DigitalSignature.Sign(testData, privateKey1, SignatureAlgorithm.MLDsa65);
+        var isValid = DigitalSignature.Verify(testData, signature, publicKey2, SignatureAlgorithm.MLDsa65);
 
         // Assert
         Assert.False(isValid);
@@ -260,10 +263,10 @@ public class DigitalSignatureTests
         RandomNumberGenerator.Fill(key);
 
         // Act - Sign
-        var signature = DigitalSignature.Sign(_testData, key, SignatureAlgorithm.HmacSha256);
+        var signature = DigitalSignature.Sign(testData, key, SignatureAlgorithm.HmacSha256);
 
         // Act - Verify
-        var isValid = DigitalSignature.Verify(_testData, signature, key, SignatureAlgorithm.HmacSha256);
+        var isValid = DigitalSignature.Verify(testData, signature, key, SignatureAlgorithm.HmacSha256);
 
         // Assert
         Assert.True(isValid);
@@ -277,7 +280,7 @@ public class DigitalSignatureTests
         RandomNumberGenerator.Fill(key);
 
         // Act
-        var testData = System.Text.Encoding.UTF8.GetBytes("test message");
+        var testData = Encoding.UTF8.GetBytes("test message");
         var signature = DigitalSignature.Sign(testData, key, SignatureAlgorithm.HmacSha256);
 
         // Assert
@@ -303,7 +306,7 @@ public class DigitalSignatureTests
     public void Sign_With_Null_Key_Throws_ArgumentNullException()
     {
         // Act & Assert
-        Assert.Throws<ArgumentNullException>(() => DigitalSignature.Sign(_testData, null!, SignatureAlgorithm.HmacSha256));
+        Assert.Throws<ArgumentNullException>(() => DigitalSignature.Sign(testData, null!, SignatureAlgorithm.HmacSha256));
     }
 
     [Fact]
@@ -324,7 +327,7 @@ public class DigitalSignatureTests
         var key = new byte[32];
 
         // Act & Assert
-        Assert.Throws<ArgumentNullException>(() => DigitalSignature.Verify(_testData, null!, key, SignatureAlgorithm.HmacSha256));
+        Assert.Throws<ArgumentNullException>(() => DigitalSignature.Verify(testData, null!, key, SignatureAlgorithm.HmacSha256));
     }
 
     [Fact]
@@ -334,7 +337,7 @@ public class DigitalSignatureTests
         var signature = new byte[32];
 
         // Act & Assert
-        Assert.Throws<ArgumentNullException>(() => DigitalSignature.Verify(_testData, signature, null!, SignatureAlgorithm.HmacSha256));
+        Assert.Throws<ArgumentNullException>(() => DigitalSignature.Verify(testData, signature, null!, SignatureAlgorithm.HmacSha256));
     }
 
     #endregion
@@ -349,9 +352,9 @@ public class DigitalSignatureTests
         RandomNumberGenerator.Fill(key);
 
         // Act
-        var sig256 = DigitalSignature.Sign(_testData, key, SignatureAlgorithm.HmacSha256);
-        var sig384 = DigitalSignature.Sign(_testData, key, SignatureAlgorithm.HmacSha384);
-        var sig512 = DigitalSignature.Sign(_testData, key, SignatureAlgorithm.HmacSha512);
+        var sig256 = DigitalSignature.Sign(testData, key, SignatureAlgorithm.HmacSha256);
+        var sig384 = DigitalSignature.Sign(testData, key, SignatureAlgorithm.HmacSha384);
+        var sig512 = DigitalSignature.Sign(testData, key, SignatureAlgorithm.HmacSha512);
 
         // Assert
         Assert.NotEqual(sig256, sig384);

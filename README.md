@@ -43,7 +43,6 @@ A fully RFC-compliant cryptographic library for .NET featuring high-performance,
   - XSalsa20
   - Rabbit cipher (RFC 4503) - Fully RFC-compliant with correct endianness
   - HC-128 and HC-256 (eSTREAM portfolio)
-  - RC4 (legacy compatibility with security warnings)
 
 - **📐 Elliptic Curve Cryptography**
   - Curve25519 (X25519 key exchange)

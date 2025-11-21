@@ -51,8 +51,8 @@ public static class Curve25519Core
     /// <returns>32-byte private key</returns>
     public static byte[] GeneratePrivateKey()
     {
-        var privateKey = new byte[KEY_SIZE];
-        using var rng = RandomNumberGenerator.Create();
+        byte[] privateKey = new byte[KEY_SIZE];
+        using RandomNumberGenerator rng = RandomNumberGenerator.Create();
         rng.GetBytes(privateKey);
 
         // Clamp the private key according to RFC 7748
@@ -81,7 +81,7 @@ public static class Curve25519Core
             throw new ArgumentException($"Private key must be {KEY_SIZE} bytes", nameof(privateKey));
         }
 
-        var basePoint = new byte[KEY_SIZE];
+        byte[] basePoint = new byte[KEY_SIZE];
         basePoint[0] = 9;
 
         return ScalarMult(privateKey, basePoint);
@@ -108,16 +108,11 @@ public static class Curve25519Core
             throw new ArgumentNullException(nameof(publicKey));
         }
 #endif
-        if (privateKey.Length != KEY_SIZE)
-        {
-            throw new ArgumentException($"Private key must be {KEY_SIZE} bytes", nameof(privateKey));
-        }
-        if (publicKey.Length != KEY_SIZE)
-        {
-            throw new ArgumentException($"Public key must be {KEY_SIZE} bytes", nameof(publicKey));
-        }
-
-        return ScalarMult(privateKey, publicKey);
+        return privateKey.Length != KEY_SIZE
+            ? throw new ArgumentException($"Private key must be {KEY_SIZE} bytes", nameof(privateKey))
+            : publicKey.Length != KEY_SIZE
+            ? throw new ArgumentException($"Public key must be {KEY_SIZE} bytes", nameof(publicKey))
+            : ScalarMult(privateKey, publicKey);
     }
 
     /// <summary>
@@ -137,19 +132,19 @@ public static class Curve25519Core
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static byte[] ScalarMult(byte[] scalar, byte[] point)
     {
-        var clampedScalar = new byte[KEY_SIZE];
+        byte[] clampedScalar = new byte[KEY_SIZE];
         Array.Copy(scalar, clampedScalar, KEY_SIZE);
         ClampPrivateKey(clampedScalar);
 
         try
         {
-            var dx = new Long10();
-            var t1 = new Long10();
-            var t2 = new Long10();
-            var t3 = new Long10();
-            var t4 = new Long10();
-            var x = new Long10[2];
-            var z = new Long10[2];
+            Long10 dx = new();
+            Long10 t1 = new();
+            Long10 t2 = new();
+            Long10 t3 = new();
+            Long10 t4 = new();
+            Long10[] x = new Long10[2];
+            Long10[] z = new Long10[2];
             x[0] = new Long10();
             x[1] = new Long10();
             z[0] = new Long10();
@@ -167,17 +162,17 @@ public static class Curve25519Core
             z[1].N0 = 1;
 
             // Montgomery ladder - process all 256 bits
-            for (var i = 32; i-- != 0;)
+            for (int i = 32; i-- != 0;)
             {
-                for (var j = 8; j-- != 0;)
+                for (int j = 8; j-- != 0;)
                 {
                     // Swap arguments depending on bit
-                    var bit1 = (clampedScalar[i] & 0xFF) >> j & 1;
-                    var bit0 = ~(clampedScalar[i] & 0xFF) >> j & 1;
-                    var ax = x[bit0];
-                    var az = z[bit0];
-                    var bx = x[bit1];
-                    var bz = z[bit1];
+                    int bit1 = ((clampedScalar[i] & 0xFF) >> j) & 1;
+                    int bit0 = (~(clampedScalar[i] & 0xFF) >> j) & 1;
+                    Long10 ax = x[bit0];
+                    Long10 az = z[bit0];
+                    Long10 bx = x[bit1];
+                    Long10 bz = z[bit1];
 
                     // a' = a + b
                     // b' = 2 * b
@@ -191,7 +186,7 @@ public static class Curve25519Core
             Recip(t1, z[0]);
             Multiply(dx, x[0], t1);
 
-            var result = new byte[KEY_SIZE];
+            byte[] result = new byte[KEY_SIZE];
             Pack(dx, result);
             return result;
         }
@@ -264,40 +259,21 @@ public static class Curve25519Core
     }
 
     /// <summary>
-    /// Conditional swap in constant time
-    /// </summary>
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static void ConditionalSwap(Long10 a, Long10 b, int iswap)
-    {
-        var swap = -iswap;
-        var t = swap & (a.N0 ^ b.N0); a.N0 ^= t; b.N0 ^= t;
-        t = swap & (a.N1 ^ b.N1); a.N1 ^= t; b.N1 ^= t;
-        t = swap & (a.N2 ^ b.N2); a.N2 ^= t; b.N2 ^= t;
-        t = swap & (a.N3 ^ b.N3); a.N3 ^= t; b.N3 ^= t;
-        t = swap & (a.N4 ^ b.N4); a.N4 ^= t; b.N4 ^= t;
-        t = swap & (a.N5 ^ b.N5); a.N5 ^= t; b.N5 ^= t;
-        t = swap & (a.N6 ^ b.N6); a.N6 ^= t; b.N6 ^= t;
-        t = swap & (a.N7 ^ b.N7); a.N7 ^= t; b.N7 ^= t;
-        t = swap & (a.N8 ^ b.N8); a.N8 ^= t; b.N8 ^= t;
-        t = swap & (a.N9 ^ b.N9); a.N9 ^= t; b.N9 ^= t;
-    }
-
-    /// <summary>
     /// Unpacks 32 bytes (little-endian) into Long10 radix-2^25.5 representation
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static void Unpack(Long10 x, byte[] m)
     {
-        x.N0 = ((m[0] & 0xFF)) | ((m[1] & 0xFF)) << 8 | (m[2] & 0xFF) << 16 | ((m[3] & 0xFF) & 3) << 24;
-        x.N1 = (((m[3] & 0xFF) & ~3) >> 2) | (m[4] & 0xFF) << 6 | (m[5] & 0xFF) << 14 | ((m[6] & 0xFF) & 7) << 22;
-        x.N2 = (((m[6] & 0xFF) & ~7) >> 3) | (m[7] & 0xFF) << 5 | (m[8] & 0xFF) << 13 | ((m[9] & 0xFF) & 31) << 21;
-        x.N3 = (((m[9] & 0xFF) & ~31) >> 5) | (m[10] & 0xFF) << 3 | (m[11] & 0xFF) << 11 | ((m[12] & 0xFF) & 63) << 19;
-        x.N4 = (((m[12] & 0xFF) & ~63) >> 6) | (m[13] & 0xFF) << 2 | (m[14] & 0xFF) << 10 | (m[15] & 0xFF) << 18;
-        x.N5 = (m[16] & 0xFF) | (m[17] & 0xFF) << 8 | (m[18] & 0xFF) << 16 | ((m[19] & 0xFF) & 1) << 24;
-        x.N6 = (((m[19] & 0xFF) & ~1) >> 1) | (m[20] & 0xFF) << 7 | (m[21] & 0xFF) << 15 | ((m[22] & 0xFF) & 7) << 23;
-        x.N7 = (((m[22] & 0xFF) & ~7) >> 3) | (m[23] & 0xFF) << 5 | (m[24] & 0xFF) << 13 | ((m[25] & 0xFF) & 15) << 21;
-        x.N8 = (((m[25] & 0xFF) & ~15) >> 4) | (m[26] & 0xFF) << 4 | (m[27] & 0xFF) << 12 | ((m[28] & 0xFF) & 63) << 20;
-        x.N9 = (((m[28] & 0xFF) & ~63) >> 6) | (m[29] & 0xFF) << 2 | (m[30] & 0xFF) << 10 | (m[31] & 0xFF) << 18;
+        x.N0 = (m[0] & 0xFF) | ((m[1] & 0xFF) << 8) | ((m[2] & 0xFF) << 16) | ((m[3] & 0xFF & 3) << 24);
+        x.N1 = ((m[3] & 0xFF & ~3) >> 2) | ((m[4] & 0xFF) << 6) | ((m[5] & 0xFF) << 14) | ((m[6] & 0xFF & 7) << 22);
+        x.N2 = ((m[6] & 0xFF & ~7) >> 3) | ((m[7] & 0xFF) << 5) | ((m[8] & 0xFF) << 13) | ((m[9] & 0xFF & 31) << 21);
+        x.N3 = ((m[9] & 0xFF & ~31) >> 5) | ((m[10] & 0xFF) << 3) | ((m[11] & 0xFF) << 11) | ((m[12] & 0xFF & 63) << 19);
+        x.N4 = ((m[12] & 0xFF & ~63) >> 6) | ((m[13] & 0xFF) << 2) | ((m[14] & 0xFF) << 10) | ((m[15] & 0xFF) << 18);
+        x.N5 = (m[16] & 0xFF) | ((m[17] & 0xFF) << 8) | ((m[18] & 0xFF) << 16) | ((m[19] & 0xFF & 1) << 24);
+        x.N6 = ((m[19] & 0xFF & ~1) >> 1) | ((m[20] & 0xFF) << 7) | ((m[21] & 0xFF) << 15) | ((m[22] & 0xFF & 7) << 23);
+        x.N7 = ((m[22] & 0xFF & ~7) >> 3) | ((m[23] & 0xFF) << 5) | ((m[24] & 0xFF) << 13) | ((m[25] & 0xFF & 15) << 21);
+        x.N8 = ((m[25] & 0xFF & ~15) >> 4) | ((m[26] & 0xFF) << 4) | ((m[27] & 0xFF) << 12) | ((m[28] & 0xFF & 63) << 20);
+        x.N9 = ((m[28] & 0xFF & ~63) >> 6) | ((m[29] & 0xFF) << 2) | ((m[30] & 0xFF) << 10) | ((m[31] & 0xFF) << 18);
     }
 
     /// <summary>
@@ -306,10 +282,10 @@ public static class Curve25519Core
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static void Pack(Long10 x, byte[] m)
     {
-        var ld = (IsOverflow(x) ? 1 : 0) - (x.N9 < 0 ? 1 : 0);
-        var ud = ld * -(P25 + 1);
+        int ld = (IsOverflow(x) ? 1 : 0) - (x.N9 < 0 ? 1 : 0);
+        long ud = ld * -(P25 + 1);
         ld *= 19;
-        var t = ld + x.N0 + (x.N1 << 26);
+        long t = ld + x.N0 + (x.N1 << 26);
         m[0] = (byte)t; m[1] = (byte)(t >> 8); m[2] = (byte)(t >> 16); m[3] = (byte)(t >> 24);
         t = (t >> 32) + (x.N2 << 19);
         m[4] = (byte)t; m[5] = (byte)(t >> 8); m[6] = (byte)(t >> 16); m[7] = (byte)(t >> 24);
@@ -334,30 +310,10 @@ public static class Curve25519Core
     private static bool IsOverflow(Long10 x)
     {
         return (
-            ((x.N0 > P26 - 19)) &&
+            x.N0 > P26 - 19 &&
             ((x.N1 & x.N3 & x.N5 & x.N7 & x.N9) == P25) &&
             ((x.N2 & x.N4 & x.N6 & x.N8) == P26)
         ) || (x.N9 > P25);
-    }
-
-    /// <summary>
-    /// Carry/reduce values
-    /// </summary>
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static void Carry(Long10 x)
-    {
-        long c;
-        c = x.N0 >> 26; x.N0 &= P26; x.N1 += c;
-        c = x.N1 >> 25; x.N1 &= P25; x.N2 += c;
-        c = x.N2 >> 26; x.N2 &= P26; x.N3 += c;
-        c = x.N3 >> 25; x.N3 &= P25; x.N4 += c;
-        c = x.N4 >> 26; x.N4 &= P26; x.N5 += c;
-        c = x.N5 >> 25; x.N5 &= P25; x.N6 += c;
-        c = x.N6 >> 26; x.N6 &= P26; x.N7 += c;
-        c = x.N7 >> 25; x.N7 &= P25; x.N8 += c;
-        c = x.N8 >> 26; x.N8 &= P26; x.N9 += c;
-        c = x.N9 >> 25; x.N9 &= P25; x.N0 += 19 * c;
-        c = x.N0 >> 26; x.N0 &= P26; x.N1 += c;
     }
 
     /// <summary>
@@ -402,35 +358,35 @@ public static class Curve25519Core
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static void Multiply(Long10 xy, Long10 x, Long10 y)
     {
-        var x0 = x.N0; var x1 = x.N1; var x2 = x.N2; var x3 = x.N3; var x4 = x.N4;
-        var x5 = x.N5; var x6 = x.N6; var x7 = x.N7; var x8 = x.N8; var x9 = x.N9;
-        var y0 = y.N0; var y1 = y.N1; var y2 = y.N2; var y3 = y.N3; var y4 = y.N4;
-        var y5 = y.N5; var y6 = y.N6; var y7 = y.N7; var y8 = y.N8; var y9 = y.N9;
+        long x0 = x.N0; long x1 = x.N1; long x2 = x.N2; long x3 = x.N3; long x4 = x.N4;
+        long x5 = x.N5; long x6 = x.N6; long x7 = x.N7; long x8 = x.N8; long x9 = x.N9;
+        long y0 = y.N0; long y1 = y.N1; long y2 = y.N2; long y3 = y.N3; long y4 = y.N4;
+        long y5 = y.N5; long y6 = y.N6; long y7 = y.N7; long y8 = y.N8; long y9 = y.N9;
         long t;
 
-        t = (x0 * y8) + (x2 * y6) + (x4 * y4) + (x6 * y2) + (x8 * y0) + 2 * ((x1 * y7) + (x3 * y5) + (x5 * y3) + (x7 * y1)) + 38 * (x9 * y9);
+        t = (x0 * y8) + (x2 * y6) + (x4 * y4) + (x6 * y2) + (x8 * y0) + (2 * ((x1 * y7) + (x3 * y5) + (x5 * y3) + (x7 * y1))) + (38 * (x9 * y9));
         xy.N8 = t & P26;
         t = (t >> 26) + (x0 * y9) + (x1 * y8) + (x2 * y7) + (x3 * y6) + (x4 * y5) + (x5 * y4) + (x6 * y3) + (x7 * y2) + (x8 * y1) + (x9 * y0);
         xy.N9 = t & P25;
-        t = (x0 * y0) + 19 * ((t >> 25) + (x2 * y8) + (x4 * y6) + (x6 * y4) + (x8 * y2)) + 38 * ((x1 * y9) + (x3 * y7) + (x5 * y5) + (x7 * y3) + (x9 * y1));
+        t = (x0 * y0) + (19 * ((t >> 25) + (x2 * y8) + (x4 * y6) + (x6 * y4) + (x8 * y2))) + (38 * ((x1 * y9) + (x3 * y7) + (x5 * y5) + (x7 * y3) + (x9 * y1)));
         xy.N0 = t & P26;
-        t = (t >> 26) + (x0 * y1) + (x1 * y0) + 19 * ((x2 * y9) + (x3 * y8) + (x4 * y7) + (x5 * y6) + (x6 * y5) + (x7 * y4) + (x8 * y3) + (x9 * y2));
+        t = (t >> 26) + (x0 * y1) + (x1 * y0) + (19 * ((x2 * y9) + (x3 * y8) + (x4 * y7) + (x5 * y6) + (x6 * y5) + (x7 * y4) + (x8 * y3) + (x9 * y2)));
         xy.N1 = t & P25;
-        t = (t >> 25) + (x0 * y2) + (x2 * y0) + 19 * ((x4 * y8) + (x6 * y6) + (x8 * y4)) + 2 * (x1 * y1) + 38 * ((x3 * y9) + (x5 * y7) + (x7 * y5) + (x9 * y3));
+        t = (t >> 25) + (x0 * y2) + (x2 * y0) + (19 * ((x4 * y8) + (x6 * y6) + (x8 * y4))) + (2 * (x1 * y1)) + (38 * ((x3 * y9) + (x5 * y7) + (x7 * y5) + (x9 * y3)));
         xy.N2 = t & P26;
-        t = (t >> 26) + (x0 * y3) + (x1 * y2) + (x2 * y1) + (x3 * y0) + 19 * ((x4 * y9) + (x5 * y8) + (x6 * y7) + (x7 * y6) + (x8 * y5) + (x9 * y4));
+        t = (t >> 26) + (x0 * y3) + (x1 * y2) + (x2 * y1) + (x3 * y0) + (19 * ((x4 * y9) + (x5 * y8) + (x6 * y7) + (x7 * y6) + (x8 * y5) + (x9 * y4)));
         xy.N3 = t & P25;
-        t = (t >> 25) + (x0 * y4) + (x2 * y2) + (x4 * y0) + 19 * ((x6 * y8) + (x8 * y6)) + 2 * ((x1 * y3) + (x3 * y1)) + 38 * ((x5 * y9) + (x7 * y7) + (x9 * y5));
+        t = (t >> 25) + (x0 * y4) + (x2 * y2) + (x4 * y0) + (19 * ((x6 * y8) + (x8 * y6))) + (2 * ((x1 * y3) + (x3 * y1))) + (38 * ((x5 * y9) + (x7 * y7) + (x9 * y5)));
         xy.N4 = t & P26;
-        t = (t >> 26) + (x0 * y5) + (x1 * y4) + (x2 * y3) + (x3 * y2) + (x4 * y1) + (x5 * y0) + 19 * ((x6 * y9) + (x7 * y8) + (x8 * y7) + (x9 * y6));
+        t = (t >> 26) + (x0 * y5) + (x1 * y4) + (x2 * y3) + (x3 * y2) + (x4 * y1) + (x5 * y0) + (19 * ((x6 * y9) + (x7 * y8) + (x8 * y7) + (x9 * y6)));
         xy.N5 = t & P25;
-        t = (t >> 25) + (x0 * y6) + (x2 * y4) + (x4 * y2) + (x6 * y0) + 19 * (x8 * y8) + 2 * ((x1 * y5) + (x3 * y3) + (x5 * y1)) + 38 * ((x7 * y9) + (x9 * y7));
+        t = (t >> 25) + (x0 * y6) + (x2 * y4) + (x4 * y2) + (x6 * y0) + (19 * (x8 * y8)) + (2 * ((x1 * y5) + (x3 * y3) + (x5 * y1))) + (38 * ((x7 * y9) + (x9 * y7)));
         xy.N6 = t & P26;
-        t = (t >> 26) + (x0 * y7) + (x1 * y6) + (x2 * y5) + (x3 * y4) + (x4 * y3) + (x5 * y2) + (x6 * y1) + (x7 * y0) + 19 * ((x8 * y9) + (x9 * y8));
+        t = (t >> 26) + (x0 * y7) + (x1 * y6) + (x2 * y5) + (x3 * y4) + (x4 * y3) + (x5 * y2) + (x6 * y1) + (x7 * y0) + (19 * ((x8 * y9) + (x9 * y8)));
         xy.N7 = t & P25;
         t = (t >> 25) + xy.N8;
         xy.N8 = t & P26;
-        xy.N9 += (t >> 26);
+        xy.N9 += t >> 26;
     }
 
     /// <summary>
@@ -439,33 +395,33 @@ public static class Curve25519Core
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static void Square(Long10 xsq, Long10 x)
     {
-        var x0 = x.N0; var x1 = x.N1; var x2 = x.N2; var x3 = x.N3; var x4 = x.N4;
-        var x5 = x.N5; var x6 = x.N6; var x7 = x.N7; var x8 = x.N8; var x9 = x.N9;
+        long x0 = x.N0; long x1 = x.N1; long x2 = x.N2; long x3 = x.N3; long x4 = x.N4;
+        long x5 = x.N5; long x6 = x.N6; long x7 = x.N7; long x8 = x.N8; long x9 = x.N9;
         long t;
 
-        t = (x4 * x4) + 2 * ((x0 * x8) + (x2 * x6)) + 38 * (x9 * x9) + 4 * ((x1 * x7) + (x3 * x5));
+        t = (x4 * x4) + (2 * ((x0 * x8) + (x2 * x6))) + (38 * (x9 * x9)) + (4 * ((x1 * x7) + (x3 * x5)));
         xsq.N8 = t & P26;
-        t = (t >> 26) + 2 * ((x0 * x9) + (x1 * x8) + (x2 * x7) + (x3 * x6) + (x4 * x5));
+        t = (t >> 26) + (2 * ((x0 * x9) + (x1 * x8) + (x2 * x7) + (x3 * x6) + (x4 * x5)));
         xsq.N9 = t & P25;
-        t = 19 * (t >> 25) + (x0 * x0) + 38 * ((x2 * x8) + (x4 * x6) + (x5 * x5)) + 76 * ((x1 * x9) + (x3 * x7));
+        t = (19 * (t >> 25)) + (x0 * x0) + (38 * ((x2 * x8) + (x4 * x6) + (x5 * x5))) + (76 * ((x1 * x9) + (x3 * x7)));
         xsq.N0 = t & P26;
-        t = (t >> 26) + 2 * (x0 * x1) + 38 * ((x2 * x9) + (x3 * x8) + (x4 * x7) + (x5 * x6));
+        t = (t >> 26) + (2 * (x0 * x1)) + (38 * ((x2 * x9) + (x3 * x8) + (x4 * x7) + (x5 * x6)));
         xsq.N1 = t & P25;
-        t = (t >> 25) + 19 * (x6 * x6) + 2 * ((x0 * x2) + (x1 * x1)) + 38 * (x4 * x8) + 76 * ((x3 * x9) + (x5 * x7));
+        t = (t >> 25) + (19 * (x6 * x6)) + (2 * ((x0 * x2) + (x1 * x1))) + (38 * (x4 * x8)) + (76 * ((x3 * x9) + (x5 * x7)));
         xsq.N2 = t & P26;
-        t = (t >> 26) + 2 * ((x0 * x3) + (x1 * x2)) + 38 * ((x4 * x9) + (x5 * x8) + (x6 * x7));
+        t = (t >> 26) + (2 * ((x0 * x3) + (x1 * x2))) + (38 * ((x4 * x9) + (x5 * x8) + (x6 * x7)));
         xsq.N3 = t & P25;
-        t = (t >> 25) + (x2 * x2) + 2 * (x0 * x4) + 38 * ((x6 * x8) + (x7 * x7)) + 4 * (x1 * x3) + 76 * (x5 * x9);
+        t = (t >> 25) + (x2 * x2) + (2 * (x0 * x4)) + (38 * ((x6 * x8) + (x7 * x7))) + (4 * (x1 * x3)) + (76 * (x5 * x9));
         xsq.N4 = t & P26;
-        t = (t >> 26) + 2 * ((x0 * x5) + (x1 * x4) + (x2 * x3)) + 38 * ((x6 * x9) + (x7 * x8));
+        t = (t >> 26) + (2 * ((x0 * x5) + (x1 * x4) + (x2 * x3))) + (38 * ((x6 * x9) + (x7 * x8)));
         xsq.N5 = t & P25;
-        t = (t >> 25) + 19 * (x8 * x8) + 2 * ((x0 * x6) + (x2 * x4) + (x3 * x3)) + 4 * (x1 * x5) + 76 * (x7 * x9);
+        t = (t >> 25) + (19 * (x8 * x8)) + (2 * ((x0 * x6) + (x2 * x4) + (x3 * x3))) + (4 * (x1 * x5)) + (76 * (x7 * x9));
         xsq.N6 = t & P26;
-        t = (t >> 26) + 2 * ((x0 * x7) + (x1 * x6) + (x2 * x5) + (x3 * x4)) + 38 * (x8 * x9);
+        t = (t >> 26) + (2 * ((x0 * x7) + (x1 * x6) + (x2 * x5) + (x3 * x4))) + (38 * (x8 * x9));
         xsq.N7 = t & P25;
         t = (t >> 25) + xsq.N8;
         xsq.N8 = t & P26;
-        xsq.N9 += (t >> 26);
+        xsq.N9 += t >> 26;
     }
 
     /// <summary>
@@ -477,27 +433,27 @@ public static class Curve25519Core
         long t;
         t = x.N8 * y;
         xy.N8 = t & P26;
-        t = (t >> 26) + x.N9 * y;
+        t = (t >> 26) + (x.N9 * y);
         xy.N9 = t & P25;
-        t = 19 * (t >> 25) + x.N0 * y;
+        t = (19 * (t >> 25)) + (x.N0 * y);
         xy.N0 = t & P26;
-        t = (t >> 26) + x.N1 * y;
+        t = (t >> 26) + (x.N1 * y);
         xy.N1 = t & P25;
-        t = (t >> 25) + x.N2 * y;
+        t = (t >> 25) + (x.N2 * y);
         xy.N2 = t & P26;
-        t = (t >> 26) + x.N3 * y;
+        t = (t >> 26) + (x.N3 * y);
         xy.N3 = t & P25;
-        t = (t >> 25) + x.N4 * y;
+        t = (t >> 25) + (x.N4 * y);
         xy.N4 = t & P26;
-        t = (t >> 26) + x.N5 * y;
+        t = (t >> 26) + (x.N5 * y);
         xy.N5 = t & P25;
-        t = (t >> 25) + x.N6 * y;
+        t = (t >> 25) + (x.N6 * y);
         xy.N6 = t & P26;
-        t = (t >> 26) + x.N7 * y;
+        t = (t >> 26) + (x.N7 * y);
         xy.N7 = t & P25;
         t = (t >> 25) + xy.N8;
         xy.N8 = t & P26;
-        xy.N9 += (t >> 26);
+        xy.N9 += t >> 26;
     }
 
     /// <summary>
@@ -506,18 +462,18 @@ public static class Curve25519Core
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static void Recip(Long10 y, Long10 x)
     {
-        var z0 = new Long10();
-        var z1 = new Long10();
-        var z2 = new Long10();
-        var z9 = new Long10();
-        var z11 = new Long10();
-        var z2_5_0 = new Long10();
-        var z2_10_0 = new Long10();
-        var z2_20_0 = new Long10();
-        var z2_50_0 = new Long10();
-        var z2_100_0 = new Long10();
-        var t0 = new Long10();
-        var t1 = new Long10();
+        _ = new Long10();
+        _ = new Long10();
+        Long10 z2 = new();
+        Long10 z9 = new();
+        Long10 z11 = new();
+        Long10 z2_5_0 = new();
+        Long10 z2_10_0 = new();
+        Long10 z2_20_0 = new();
+        Long10 z2_50_0 = new();
+        Long10 z2_100_0 = new();
+        Long10 t0 = new();
+        Long10 t1 = new();
 
         /* 2 */
         Square(z2, x);
@@ -552,7 +508,7 @@ public static class Curve25519Core
         /* 2^12 - 2^2 */
         Square(t1, t0);
         /* 2^20 - 2^10 */
-        for (var i = 2; i < 10; i += 2) { Square(t0, t1); Square(t1, t0); }
+        for (int i = 2; i < 10; i += 2) { Square(t0, t1); Square(t1, t0); }
         /* 2^20 - 2^0 */
         Multiply(z2_20_0, t1, z2_10_0);
 
@@ -561,7 +517,7 @@ public static class Curve25519Core
         /* 2^22 - 2^2 */
         Square(t1, t0);
         /* 2^40 - 2^20 */
-        for (var i = 2; i < 20; i += 2) { Square(t0, t1); Square(t1, t0); }
+        for (int i = 2; i < 20; i += 2) { Square(t0, t1); Square(t1, t0); }
         /* 2^40 - 2^0 */
         Multiply(t0, t1, z2_20_0);
 
@@ -570,7 +526,7 @@ public static class Curve25519Core
         /* 2^42 - 2^2 */
         Square(t0, t1);
         /* 2^50 - 2^10 */
-        for (var i = 2; i < 10; i += 2) { Square(t1, t0); Square(t0, t1); }
+        for (int i = 2; i < 10; i += 2) { Square(t1, t0); Square(t0, t1); }
         /* 2^50 - 2^0 */
         Multiply(z2_50_0, t0, z2_10_0);
 
@@ -579,7 +535,7 @@ public static class Curve25519Core
         /* 2^52 - 2^2 */
         Square(t1, t0);
         /* 2^100 - 2^50 */
-        for (var i = 2; i < 50; i += 2) { Square(t0, t1); Square(t1, t0); }
+        for (int i = 2; i < 50; i += 2) { Square(t0, t1); Square(t1, t0); }
         /* 2^100 - 2^0 */
         Multiply(z2_100_0, t1, z2_50_0);
 
@@ -588,7 +544,7 @@ public static class Curve25519Core
         /* 2^102 - 2^2 */
         Square(t0, t1);
         /* 2^200 - 2^100 */
-        for (var i = 2; i < 100; i += 2) { Square(t1, t0); Square(t0, t1); }
+        for (int i = 2; i < 100; i += 2) { Square(t1, t0); Square(t0, t1); }
         /* 2^200 - 2^0 */
         Multiply(t1, t0, z2_100_0);
 
@@ -597,7 +553,7 @@ public static class Curve25519Core
         /* 2^202 - 2^2 */
         Square(t1, t0);
         /* 2^250 - 2^50 */
-        for (var i = 2; i < 50; i += 2) { Square(t0, t1); Square(t1, t0); }
+        for (int i = 2; i < 50; i += 2) { Square(t0, t1); Square(t1, t0); }
         /* 2^250 - 2^0 */
         Multiply(t0, t1, z2_50_0);
 

@@ -71,15 +71,15 @@ public static class Argon2Core
         }
 
         // Password and salt can be empty for Argon2, but not null
-        password = password ?? Array.Empty<byte>();
-        salt = salt ?? Array.Empty<byte>();
+        password ??= [];
+        salt ??= [];
 
         var context = new Argon2Context
         {
             Password = password,
             Salt = salt,
-            Secret = secret ?? Array.Empty<byte>(),
-            AssociatedData = associatedData ?? Array.Empty<byte>(),
+            Secret = secret ?? [],
+            AssociatedData = associatedData ?? [],
             Iterations = iterations,
             Memory = memorySize,
             Lanes = parallelism,
@@ -693,7 +693,7 @@ public static class Argon2Core
 
     private static ulong ReadUInt64LittleEndian(byte[] source, int offset)
     {
-        return (ulong)source[offset] |
+        return source[offset] |
                ((ulong)source[offset + 1] << 8) |
                ((ulong)source[offset + 2] << 16) |
                ((ulong)source[offset + 3] << 24) |

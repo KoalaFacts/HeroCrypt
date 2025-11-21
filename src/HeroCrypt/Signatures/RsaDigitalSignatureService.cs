@@ -10,7 +10,6 @@ namespace HeroCrypt.Signatures;
 /// </summary>
 public sealed class RsaDigitalSignatureService : IDigitalSignatureService
 {
-    private readonly int _keySize;
 
     /// <summary>
     /// Initializes a new instance of the RSA digital signature service
@@ -21,24 +20,24 @@ public sealed class RsaDigitalSignatureService : IDigitalSignatureService
     {
         InputValidator.ValidateRsaKeySize(keySize, nameof(keySize));
 
-        _keySize = keySize;
+        KeySizeBits = keySize;
     }
 
     /// <inheritdoc />
     public string AlgorithmName => "RSA-SHA256";
 
     /// <inheritdoc />
-    public int KeySizeBits => _keySize;
+    public int KeySizeBits { get; }
 
     /// <inheritdoc />
-    public int SignatureSize => _keySize / 8; // RSA signature size equals key size in bytes
+    public int SignatureSize => KeySizeBits / 8; // RSA signature size equals key size in bytes
 
     /// <inheritdoc />
     public (byte[] privateKey, byte[] publicKey) GenerateKeyPair()
     {
         try
         {
-            var keyPair = RsaCore.GenerateKeyPair(_keySize);
+            var keyPair = RsaCore.GenerateKeyPair(KeySizeBits);
 
             // Serialize keys to byte arrays
             var privateKey = SerializePrivateKey(keyPair.PrivateKey);

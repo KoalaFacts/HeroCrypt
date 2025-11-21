@@ -9,20 +9,20 @@ namespace HeroCrypt.Tests;
 /// </summary>
 public class RabbitTests
 {
-    private readonly byte[] _testKey = new byte[16];
-    private readonly byte[] _testIv = new byte[8];
-    private readonly byte[] _testPlaintext = Encoding.UTF8.GetBytes("The quick brown fox jumps over the lazy dog");
+    private readonly byte[] testKey = new byte[16];
+    private readonly byte[] testIv = new byte[8];
+    private readonly byte[] testPlaintext = Encoding.UTF8.GetBytes("The quick brown fox jumps over the lazy dog");
 
     public RabbitTests()
     {
         // Initialize test key and IV with predictable values
-        for (var i = 0; i < _testKey.Length; i++)
+        for (var i = 0; i < testKey.Length; i++)
         {
-            _testKey[i] = (byte)(i + 1);
+            testKey[i] = (byte)(i + 1);
         }
-        for (var i = 0; i < _testIv.Length; i++)
+        for (var i = 0; i < testIv.Length; i++)
         {
-            _testIv[i] = (byte)(i + 50);
+            testIv[i] = (byte)(i + 50);
         }
     }
 
@@ -30,15 +30,15 @@ public class RabbitTests
     public void Rabbit_EncryptDecrypt_RoundTrip_Success()
     {
         // Arrange
-        var plaintext = _testPlaintext;
+        var plaintext = testPlaintext;
         var ciphertext = new byte[plaintext.Length];
         var decrypted = new byte[plaintext.Length];
 
         // Act - Encrypt
-        RabbitCore.Transform(ciphertext, plaintext, _testKey, _testIv);
+        RabbitCore.Transform(ciphertext, plaintext, testKey, testIv);
 
         // Act - Decrypt (Rabbit is symmetric)
-        RabbitCore.Transform(decrypted, ciphertext, _testKey, _testIv);
+        RabbitCore.Transform(decrypted, ciphertext, testKey, testIv);
 
         // Assert
         Assert.Equal(plaintext, decrypted);
@@ -53,7 +53,7 @@ public class RabbitTests
         var ciphertext = Array.Empty<byte>();
 
         // Act & Assert - Should handle empty input gracefully
-        RabbitCore.Transform(ciphertext, plaintext, _testKey, _testIv);
+        RabbitCore.Transform(ciphertext, plaintext, testKey, testIv);
     }
 
     [Fact]
@@ -61,12 +61,12 @@ public class RabbitTests
     {
         // Arrange
         var invalidKey = new byte[32]; // Should be 16 bytes
-        var plaintext = _testPlaintext;
+        var plaintext = testPlaintext;
         var ciphertext = new byte[plaintext.Length];
 
         // Act & Assert
         var ex = Assert.Throws<ArgumentException>(() =>
-            RabbitCore.Transform(ciphertext, plaintext, invalidKey, _testIv));
+            RabbitCore.Transform(ciphertext, plaintext, invalidKey, testIv));
         Assert.Contains("16 bytes", ex.Message);
     }
 
@@ -75,12 +75,12 @@ public class RabbitTests
     {
         // Arrange
         var invalidIv = new byte[16]; // Should be 8 bytes
-        var plaintext = _testPlaintext;
+        var plaintext = testPlaintext;
         var ciphertext = new byte[plaintext.Length];
 
         // Act & Assert
         var ex = Assert.Throws<ArgumentException>(() =>
-            RabbitCore.Transform(ciphertext, plaintext, _testKey, invalidIv));
+            RabbitCore.Transform(ciphertext, plaintext, testKey, invalidIv));
         Assert.Contains("8 bytes", ex.Message);
     }
 
@@ -88,12 +88,12 @@ public class RabbitTests
     public void Transform_OutputBufferTooSmall_ThrowsException()
     {
         // Arrange
-        var plaintext = _testPlaintext;
+        var plaintext = testPlaintext;
         var ciphertext = new byte[plaintext.Length - 1]; // Too small
 
         // Act & Assert
         var ex = Assert.Throws<ArgumentException>(() =>
-            RabbitCore.Transform(ciphertext, plaintext, _testKey, _testIv));
+            RabbitCore.Transform(ciphertext, plaintext, testKey, testIv));
         Assert.Contains("too small", ex.Message);
     }
 
@@ -101,7 +101,7 @@ public class RabbitTests
     public void Transform_DifferentIvs_ProduceDifferentCiphertexts()
     {
         // Arrange
-        var plaintext = _testPlaintext;
+        var plaintext = testPlaintext;
         var ciphertext1 = new byte[plaintext.Length];
         var ciphertext2 = new byte[plaintext.Length];
         var iv1 = new byte[8];
@@ -114,8 +114,8 @@ public class RabbitTests
         }
 
         // Act
-        RabbitCore.Transform(ciphertext1, plaintext, _testKey, iv1);
-        RabbitCore.Transform(ciphertext2, plaintext, _testKey, iv2);
+        RabbitCore.Transform(ciphertext1, plaintext, testKey, iv1);
+        RabbitCore.Transform(ciphertext2, plaintext, testKey, iv2);
 
         // Assert
         Assert.NotEqual(ciphertext1, ciphertext2);
@@ -125,7 +125,7 @@ public class RabbitTests
     public void Transform_DifferentKeys_ProduceDifferentCiphertexts()
     {
         // Arrange
-        var plaintext = _testPlaintext;
+        var plaintext = testPlaintext;
         var ciphertext1 = new byte[plaintext.Length];
         var ciphertext2 = new byte[plaintext.Length];
         var key1 = new byte[16];
@@ -138,8 +138,8 @@ public class RabbitTests
         }
 
         // Act
-        RabbitCore.Transform(ciphertext1, plaintext, key1, _testIv);
-        RabbitCore.Transform(ciphertext2, plaintext, key2, _testIv);
+        RabbitCore.Transform(ciphertext1, plaintext, key1, testIv);
+        RabbitCore.Transform(ciphertext2, plaintext, key2, testIv);
 
         // Assert
         Assert.NotEqual(ciphertext1, ciphertext2);
@@ -155,8 +155,8 @@ public class RabbitTests
         var decrypted = new byte[largeData.Length];
 
         // Act
-        RabbitCore.Transform(ciphertext, largeData, _testKey, _testIv);
-        RabbitCore.Transform(decrypted, ciphertext, _testKey, _testIv);
+        RabbitCore.Transform(ciphertext, largeData, testKey, testIv);
+        RabbitCore.Transform(decrypted, ciphertext, testKey, testIv);
 
         // Assert
         Assert.Equal(largeData, decrypted);
@@ -167,7 +167,7 @@ public class RabbitTests
     public void ValidateParameters_ValidInput_DoesNotThrow()
     {
         // Act & Assert - Should not throw
-        RabbitCore.ValidateParameters(_testKey, _testIv);
+        RabbitCore.ValidateParameters(testKey, testIv);
     }
 
     [Fact]
@@ -178,7 +178,7 @@ public class RabbitTests
 
         // Act & Assert
         Assert.Throws<ArgumentException>(() =>
-            RabbitCore.ValidateParameters(invalidKey, _testIv));
+            RabbitCore.ValidateParameters(invalidKey, testIv));
     }
 
     [Fact]

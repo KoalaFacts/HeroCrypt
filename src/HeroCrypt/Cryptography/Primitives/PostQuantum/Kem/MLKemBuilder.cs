@@ -3,7 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography;
 #pragma warning disable SYSLIB5006 // ML-KEM APIs are experimental in .NET 10 preview
 
-namespace HeroCrypt.Cryptography.Primitives.PostQuantum.Kyber;
+namespace HeroCrypt.Cryptography.Primitives.PostQuantum.Kem;
 
 /// <summary>
 /// Fluent builder for ML-KEM (Module-Lattice-Based Key Encapsulation Mechanism) operations
@@ -30,10 +30,10 @@ namespace HeroCrypt.Cryptography.Primitives.PostQuantum.Kyber;
 [Experimental("SYSLIB5006")]
 public class MLKemBuilder : IDisposable
 {
-    private MLKemWrapper.SecurityLevel _securityLevel = MLKemWrapper.SecurityLevel.MLKem768;
-    private string? _publicKeyPem;
-    private MLKemWrapper.MLKemKeyPair? _keyPair;
-    private bool _disposed;
+    private MLKemWrapper.SecurityLevel securityLevel = MLKemWrapper.SecurityLevel.MLKem768;
+    private string? publicKeyPem;
+    private MLKemWrapper.MLKemKeyPair? keyPair;
+    private bool disposed;
 
     /// <summary>
     /// Creates a new ML-KEM builder instance
@@ -60,7 +60,7 @@ public class MLKemBuilder : IDisposable
     /// <returns>The builder instance for method chaining</returns>
     public MLKemBuilder WithSecurityLevel(MLKemWrapper.SecurityLevel level)
     {
-        _securityLevel = level;
+        securityLevel = level;
         return this;
     }
 
@@ -71,7 +71,7 @@ public class MLKemBuilder : IDisposable
     /// <returns>The builder instance for method chaining</returns>
     public MLKemBuilder WithSecurityBits(int securityBits)
     {
-        _securityLevel = MLKemWrapper.GetRecommendedLevel(securityBits);
+        securityLevel = MLKemWrapper.GetRecommendedLevel(securityBits);
         return this;
     }
 
@@ -92,7 +92,7 @@ public class MLKemBuilder : IDisposable
         }
 #endif
 
-        _publicKeyPem = publicKeyPem;
+        this.publicKeyPem = publicKeyPem;
         return this;
     }
 
@@ -113,7 +113,7 @@ public class MLKemBuilder : IDisposable
         }
 #endif
 
-        _keyPair = keyPair;
+        this.keyPair = keyPair;
         return this;
     }
 
@@ -124,7 +124,7 @@ public class MLKemBuilder : IDisposable
     /// <exception cref="CryptographicException">If key generation fails</exception>
     public MLKemWrapper.MLKemKeyPair GenerateKeyPair()
     {
-        return MLKemWrapper.GenerateKeyPair(_securityLevel);
+        return MLKemWrapper.GenerateKeyPair(securityLevel);
     }
 
     /// <summary>
@@ -135,12 +135,12 @@ public class MLKemBuilder : IDisposable
     /// <exception cref="CryptographicException">If encapsulation fails</exception>
     public MLKemWrapper.EncapsulationResult Encapsulate()
     {
-        if (_publicKeyPem == null)
+        if (publicKeyPem == null)
         {
             throw new InvalidOperationException("Public key must be set before encapsulation. Use WithPublicKey()");
         }
 
-        return MLKemWrapper.Encapsulate(_publicKeyPem);
+        return MLKemWrapper.Encapsulate(publicKeyPem);
     }
 
     /// <summary>
@@ -162,12 +162,12 @@ public class MLKemBuilder : IDisposable
         }
 #endif
 
-        if (_keyPair == null)
+        if (keyPair == null)
         {
             throw new InvalidOperationException("Key pair must be set before decapsulation. Use WithKeyPair()");
         }
 
-        return _keyPair.Decapsulate(ciphertext);
+        return keyPair.Decapsulate(ciphertext);
     }
 
     /// <summary>
@@ -176,7 +176,7 @@ public class MLKemBuilder : IDisposable
     /// <returns>Tuple of (security bits, description)</returns>
     public (int SecurityBits, string Description) GetLevelInfo()
     {
-        return MLKemWrapper.GetLevelInfo(_securityLevel);
+        return MLKemWrapper.GetLevelInfo(securityLevel);
     }
 
     /// <summary>
@@ -185,41 +185,15 @@ public class MLKemBuilder : IDisposable
     /// </summary>
     public void Dispose()
     {
-        if (!_disposed)
+        if (!disposed)
         {
-            // Note: We don't dispose _keyPair as it was provided externally
+            // Note: We don't dispose keyPair as it was provided externally
             // The caller is responsible for disposing it
-            _disposed = true;
+            disposed = true;
             GC.SuppressFinalize(this);
         }
     }
 }
 
-/// <summary>
-/// Provides a short-hand fluent API for ML-KEM operations
-/// </summary>
-public static class MLKem
-{
-    /// <summary>
-    /// Creates a new ML-KEM builder instance
-    /// </summary>
-    /// <returns>A new builder instance</returns>
-    public static MLKemBuilder Create() => MLKemBuilder.Create();
-
-    /// <summary>
-    /// Quick method to generate a key pair with recommended security (ML-KEM-768)
-    /// </summary>
-    /// <returns>A new ML-KEM key pair</returns>
-    public static MLKemWrapper.MLKemKeyPair GenerateKeyPair() =>
-        MLKemWrapper.GenerateKeyPair(MLKemWrapper.SecurityLevel.MLKem768);
-
-    /// <summary>
-    /// Quick method to generate a key pair with specified security level
-    /// </summary>
-    /// <param name="level">The security level</param>
-    /// <returns>A new ML-KEM key pair</returns>
-    public static MLKemWrapper.MLKemKeyPair GenerateKeyPair(MLKemWrapper.SecurityLevel level) =>
-        MLKemWrapper.GenerateKeyPair(level);
-}
 #pragma warning restore SYSLIB5006
 #endif

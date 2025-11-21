@@ -22,12 +22,12 @@ public static class Bip39Mnemonic
     /// <summary>
     /// Supported entropy lengths in bits
     /// </summary>
-    public static readonly int[] SupportedEntropyBits = { 128, 160, 192, 224, 256 };
+    public static readonly int[] SupportedEntropyBits = [128, 160, 192, 224, 256];
 
     /// <summary>
     /// Corresponding word counts for entropy lengths
     /// </summary>
-    public static readonly int[] WordCounts = { 12, 15, 18, 21, 24 };
+    public static readonly int[] WordCounts = [12, 15, 18, 21, 24];
 
     /// <summary>
     /// PBKDF2 iteration count for mnemonic to seed conversion
@@ -43,7 +43,7 @@ public static class Bip39Mnemonic
     /// BIP39 wordlist (simplified for demonstration - production should use full 2048-word list)
     /// This is a minimal wordlist for testing. A full implementation should load the complete BIP39 wordlist.
     /// </summary>
-    private static readonly string[] _wordlist = GenerateMinimalWordlist();
+    private static readonly string[] wordlist = GenerateMinimalWordlist();
 
     /// <summary>
     /// Generates a mnemonic from entropy
@@ -98,7 +98,7 @@ public static class Bip39Mnemonic
                 }
             }
 
-            words[i] = _wordlist[index];
+            words[i] = wordlist[index];
         }
 
         return string.Join(" ", words);
@@ -194,10 +194,10 @@ public static class Bip39Mnemonic
             return false;
         }
 
-        // Check all words are in _wordlist
+        // Check all words are in wordlist
         foreach (var word in words)
         {
-            if (Array.IndexOf(_wordlist, word) == -1)
+            if (Array.IndexOf(wordlist, word) == -1)
             {
                 return false;
             }
@@ -218,7 +218,7 @@ public static class Bip39Mnemonic
             var bits = new bool[totalBits];
             for (var i = 0; i < words.Length; i++)
             {
-                var index = Array.IndexOf(_wordlist, words[i]);
+                var index = Array.IndexOf(wordlist, words[i]);
                 for (var j = 0; j < 11; j++)
                 {
                     bits[i * 11 + j] = ((index >> (10 - j)) & 1) == 1;
@@ -268,7 +268,7 @@ public static class Bip39Mnemonic
         // Convert words to bits
         for (var i = 0; i < words.Length; i++)
         {
-            var index = Array.IndexOf(_wordlist, words[i]);
+            var index = Array.IndexOf(wordlist, words[i]);
             if (index == -1)
             {
                 throw new ArgumentException($"Invalid word in mnemonic: {words[i]}", nameof(mnemonic));

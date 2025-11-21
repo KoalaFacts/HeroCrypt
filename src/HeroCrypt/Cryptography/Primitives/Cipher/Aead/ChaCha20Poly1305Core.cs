@@ -51,7 +51,7 @@ internal static class ChaCha20Poly1305Core
             throw new ArgumentException("Ciphertext buffer too small", nameof(ciphertext));
         }
 
-        var ciphertextWithoutTag = ciphertext.Slice(0, plaintext.Length);
+        var ciphertextWithoutTag = ciphertext[..plaintext.Length];
         var tag = ciphertext.Slice(plaintext.Length, TAG_SIZE);
 
         // Generate Poly1305 key using ChaCha20 with counter=0
@@ -103,7 +103,7 @@ internal static class ChaCha20Poly1305Core
             throw new ArgumentException("Plaintext buffer too small", nameof(plaintext));
         }
 
-        var ciphertextWithoutTag = ciphertext.Slice(0, ciphertextLength);
+        var ciphertextWithoutTag = ciphertext[..ciphertextLength];
         var receivedTag = ciphertext.Slice(ciphertextLength, TAG_SIZE);
 
         // Generate Poly1305 key using ChaCha20 with counter=0
@@ -130,7 +130,7 @@ internal static class ChaCha20Poly1305Core
         }
 
         // Decrypt ciphertext using ChaCha20 with counter=1
-        var plaintextSlice = plaintext.Slice(0, ciphertextLength);
+        var plaintextSlice = plaintext[..ciphertextLength];
         ChaCha20Core.Transform(plaintextSlice, ciphertextWithoutTag, key, nonce, 1);
 
         // Clear sensitive data
@@ -192,7 +192,7 @@ internal static class ChaCha20Poly1305Core
 
         // Add lengths in little-endian format
         var lengthBytes = message.Slice(offset, 16);
-        WriteUInt64LittleEndian(lengthBytes.Slice(0, 8), (ulong)aadLength);
+        WriteUInt64LittleEndian(lengthBytes[..8], (ulong)aadLength);
         WriteUInt64LittleEndian(lengthBytes.Slice(8, 8), (ulong)ciphertextLength);
 
         // Compute Poly1305 MAC

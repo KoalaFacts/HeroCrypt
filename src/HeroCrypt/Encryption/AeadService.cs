@@ -11,14 +11,14 @@ namespace HeroCrypt.Encryption;
 /// </summary>
 public class AeadService : IAeadService
 {
-    private readonly RandomNumberGenerator _rng;
+    private readonly RandomNumberGenerator rng;
 
     /// <summary>
     /// Initializes a new instance of the AeadService
     /// </summary>
     public AeadService()
     {
-        _rng = RandomNumberGenerator.Create();
+        rng = RandomNumberGenerator.Create();
     }
 
     /// <inheritdoc/>
@@ -69,7 +69,7 @@ public class AeadService : IAeadService
             var result = await Task.Run(() =>
             {
                 var ciphertext = new byte[plaintext.Length + GetTagSize(algorithm)];
-                var actualLength = EncryptCore(ciphertext, plaintext, key, nonce, associatedData ?? Array.Empty<byte>(), algorithm);
+                var actualLength = EncryptCore(ciphertext, plaintext, key, nonce, associatedData ?? [], algorithm);
 
                 if (actualLength != ciphertext.Length)
                 {
@@ -144,7 +144,7 @@ public class AeadService : IAeadService
                 var maxPlaintextLength = ciphertext.Length - GetTagSize(algorithm);
                 var plaintext = new byte[maxPlaintextLength];
 
-                var actualLength = DecryptCore(plaintext, ciphertext, key, nonce, associatedData ?? Array.Empty<byte>(), algorithm);
+                var actualLength = DecryptCore(plaintext, ciphertext, key, nonce, associatedData ?? [], algorithm);
 
                 if (actualLength == -1)
                 {
@@ -376,7 +376,7 @@ public class AeadService : IAeadService
     {
         var keySize = GetKeySize(algorithm);
         var key = new byte[keySize];
-        _rng.GetBytes(key);
+        rng.GetBytes(key);
 
         return key;
     }
@@ -386,7 +386,7 @@ public class AeadService : IAeadService
     {
         var nonceSize = GetNonceSize(algorithm);
         var nonce = new byte[nonceSize];
-        _rng.GetBytes(nonce);
+        rng.GetBytes(nonce);
 
         return nonce;
     }
@@ -521,7 +521,7 @@ public class AeadService : IAeadService
             var result = new byte[baseAssociatedData.Length + 5];
             baseAssociatedData.CopyTo(result, 0);
             counterBytes.CopyTo(result, baseAssociatedData.Length);
-            result[result.Length - 1] = flagByte;
+            result[^1] = flagByte;
             return result;
         }
     }
@@ -551,7 +551,7 @@ public class AeadService : IAeadService
         const int TagSizeInBytes = 16;
         using var aes = new AesGcm(key, TagSizeInBytes);
         var tag = ciphertext.Slice(plaintext.Length, TagSizeInBytes);
-        var actualCiphertext = ciphertext.Slice(0, plaintext.Length);
+        var actualCiphertext = ciphertext[..plaintext.Length];
 
         aes.Encrypt(nonce, plaintext, actualCiphertext, tag, associatedData);
 
@@ -568,7 +568,7 @@ public class AeadService : IAeadService
         const int TagSizeInBytes = 16;
         using var aes = new AesGcm(key, TagSizeInBytes);
         var tag = ciphertext.Slice(ciphertext.Length - TagSizeInBytes, TagSizeInBytes);
-        var actualCiphertext = ciphertext.Slice(0, ciphertext.Length - 16);
+        var actualCiphertext = ciphertext[..^16];
 
         try
         {
@@ -590,6 +590,6 @@ public class AeadService : IAeadService
     /// </summary>
     public void Dispose()
     {
-        _rng?.Dispose();
+        rng?.Dispose();
     }
 }

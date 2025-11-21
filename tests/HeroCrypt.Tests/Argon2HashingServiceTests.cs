@@ -7,11 +7,11 @@ namespace HeroCrypt.Tests;
 [Trait("Category", TestCategories.UNIT)]
 public class Argon2HashingServiceTests
 {
-    private readonly Argon2HashingService _service;
+    private readonly Argon2HashingService service;
 
     public Argon2HashingServiceTests()
     {
-        _service = new Argon2HashingService(new Argon2Options
+        service = new Argon2HashingService(new Argon2Options
         {
             Type = Argon2Type.Argon2id,
             Iterations = 2,
@@ -27,7 +27,7 @@ public class Argon2HashingServiceTests
     {
         var input = "TestPassword123!";
 
-        var hash = await _service.HashAsync(input, TestContext.Current.CancellationToken);
+        var hash = await service.HashAsync(input, TestContext.Current.CancellationToken);
 
         Assert.NotNull(hash);
         Assert.NotEmpty(hash);
@@ -38,8 +38,8 @@ public class Argon2HashingServiceTests
     {
         var input = "TestPassword123!";
 
-        var hash1 = await _service.HashAsync(input, TestContext.Current.CancellationToken);
-        var hash2 = await _service.HashAsync(input, TestContext.Current.CancellationToken);
+        var hash1 = await service.HashAsync(input, TestContext.Current.CancellationToken);
+        var hash2 = await service.HashAsync(input, TestContext.Current.CancellationToken);
 
         Assert.NotEqual(hash1, hash2);
     }
@@ -48,9 +48,9 @@ public class Argon2HashingServiceTests
     public async Task VerifyAsyncWithCorrectPasswordReturnsTrue()
     {
         var input = "TestPassword123!";
-        var hash = await _service.HashAsync(input, TestContext.Current.CancellationToken);
+        var hash = await service.HashAsync(input, TestContext.Current.CancellationToken);
 
-        var result = await _service.VerifyAsync(input, hash, TestContext.Current.CancellationToken);
+        var result = await service.VerifyAsync(input, hash, TestContext.Current.CancellationToken);
 
         Assert.True(result);
     }
@@ -60,9 +60,9 @@ public class Argon2HashingServiceTests
     {
         var input = "TestPassword123!";
         var wrongInput = "WrongPassword123!";
-        var hash = await _service.HashAsync(input, TestContext.Current.CancellationToken);
+        var hash = await service.HashAsync(input, TestContext.Current.CancellationToken);
 
-        var result = await _service.VerifyAsync(wrongInput, hash, TestContext.Current.CancellationToken);
+        var result = await service.VerifyAsync(wrongInput, hash, TestContext.Current.CancellationToken);
 
         Assert.False(result);
     }
@@ -72,7 +72,7 @@ public class Argon2HashingServiceTests
     {
         var input = new byte[] { 1, 2, 3, 4, 5 };
 
-        var hash = await _service.HashAsync(input, TestContext.Current.CancellationToken);
+        var hash = await service.HashAsync(input, TestContext.Current.CancellationToken);
 
         Assert.NotNull(hash);
         Assert.NotEmpty(hash);
@@ -82,9 +82,9 @@ public class Argon2HashingServiceTests
     public async Task VerifyAsyncWithBytesWorksCorrectly()
     {
         var input = new byte[] { 1, 2, 3, 4, 5 };
-        var hash = await _service.HashAsync(input, TestContext.Current.CancellationToken);
+        var hash = await service.HashAsync(input, TestContext.Current.CancellationToken);
 
-        var result = await _service.VerifyAsync(input, hash, TestContext.Current.CancellationToken);
+        var result = await service.VerifyAsync(input, hash, TestContext.Current.CancellationToken);
 
         Assert.True(result);
     }
@@ -116,7 +116,7 @@ public class Argon2HashingServiceTests
         var input = "TestPassword";
         var invalidHash = "InvalidBase64Hash!!!";
 
-        var result = await _service.VerifyAsync(input, invalidHash, TestContext.Current.CancellationToken);
+        var result = await service.VerifyAsync(input, invalidHash, TestContext.Current.CancellationToken);
 
         Assert.False(result);
     }
@@ -126,7 +126,7 @@ public class Argon2HashingServiceTests
     {
         var input = "TestPassword";
 
-        var result = await _service.VerifyAsync(input, "", TestContext.Current.CancellationToken);
+        var result = await service.VerifyAsync(input, "", TestContext.Current.CancellationToken);
 
         Assert.False(result);
     }

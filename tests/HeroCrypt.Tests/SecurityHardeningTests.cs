@@ -10,12 +10,12 @@ namespace HeroCrypt.Tests;
 /// </summary>
 public class SecurityHardeningTests
 {
-    private readonly ILogger<SecurityHardeningTests> _logger;
+    private readonly ILogger<SecurityHardeningTests> logger;
 
     public SecurityHardeningTests()
     {
         using var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
-        _logger = loggerFactory.CreateLogger<SecurityHardeningTests>();
+        logger = loggerFactory.CreateLogger<SecurityHardeningTests>();
     }
 
     #region SecureMemoryOperations Tests
@@ -109,7 +109,7 @@ public class SecurityHardeningTests
         byte[]? retrievedData = null;
 
         // Act
-        using (var secureArray = new SecureByteArray(new byte[] { 1, 2, 3, 4, 5 }))
+        using (var secureArray = new SecureByteArray([1, 2, 3, 4, 5]))
         {
             retrievedData = secureArray.ToArray();
         }
@@ -123,7 +123,7 @@ public class SecurityHardeningTests
     public void SecureByteArray_WithBytes_ExecutesActionSafely()
     {
         // Arrange
-        var secureArray = new SecureByteArray(new byte[] { 1, 2, 3, 4, 5 });
+        var secureArray = new SecureByteArray([1, 2, 3, 4, 5]);
         var actionExecuted = false;
 
         // Act
@@ -506,7 +506,7 @@ public class SecurityHardeningTests
         using var rng = new SecureRandomNumberGenerator();
 
         // Act & Assert
-        var exception = Record.Exception(() => rng.PerformImmediateHealthCheck());
+        var exception = Record.Exception(rng.PerformImmediateHealthCheck);
         Assert.Null(exception);
 
         var stats = rng.Statistics;
@@ -526,12 +526,12 @@ public class SecurityHardeningTests
         // Act & Assert - Invalid key size in constructor is already tested in constructor
 
         // Test invalid data
-        Assert.Throws<ArgumentException>(() => service.Sign(new byte[0], new byte[] { 1, 2, 3 }));
-        Assert.Throws<ArgumentException>(() => service.Sign(new byte[] { 1, 2, 3 }, new byte[0]));
+        Assert.Throws<ArgumentException>(() => service.Sign([], [1, 2, 3]));
+        Assert.Throws<ArgumentException>(() => service.Sign([1, 2, 3], []));
 
         // Test oversized data
         var oversizedData = new byte[InputValidator.MAX_ARRAY_SIZE + 1];
-        Assert.Throws<ArgumentException>(() => service.Sign(oversizedData, new byte[] { 1, 2, 3 }));
+        Assert.Throws<ArgumentException>(() => service.Sign(oversizedData, [1, 2, 3]));
     }
 
     [Fact]

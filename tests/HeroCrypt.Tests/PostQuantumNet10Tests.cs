@@ -1,8 +1,7 @@
 #if NET10_0_OR_GREATER
 using System.Text;
-using HeroCrypt.Cryptography.Primitives.PostQuantum.Dilithium;
-using HeroCrypt.Cryptography.Primitives.PostQuantum.Kyber;
-using HeroCrypt.Cryptography.Primitives.PostQuantum.Sphincs;
+using HeroCrypt.Cryptography.Primitives.PostQuantum.Signature;
+using HeroCrypt.Cryptography.Primitives.PostQuantum.Kem;
 
 namespace HeroCrypt.Tests;
 
@@ -528,12 +527,12 @@ public class PostQuantumNet10Tests
             return;
         }
 
-        // Use quick access methods
-        using var keyPair = MLKem.GenerateKeyPair();
+        using var keyPair = MLKemBuilder.Create().GenerateKeyPair();
         Assert.NotNull(keyPair);
 
-        using var keyPair512 = MLKem.GenerateKeyPair(
-            MLKemWrapper.SecurityLevel.MLKem512);
+        using var keyPair512 = MLKemBuilder.Create()
+            .WithSecurityLevel(MLKemWrapper.SecurityLevel.MLKem512)
+            .GenerateKeyPair();
         Assert.Equal(MLKemWrapper.SecurityLevel.MLKem512, keyPair512.Level);
     }
 
@@ -545,15 +544,13 @@ public class PostQuantumNet10Tests
             return;
         }
 
-        // Quick access generation
-        using var keyPair = MLDsa.GenerateKeyPair();
+        using var keyPair = MLDsaBuilder.Create().GenerateKeyPair();
         Assert.NotNull(keyPair);
 
         var data = Encoding.UTF8.GetBytes("Quick access test");
         var signature = keyPair.Sign(data);
 
-        // Quick access verify
-        var isValid = MLDsa.Verify(
+        var isValid = MLDsaWrapper.Verify(
             keyPair.PublicKeyPem, data, signature);
         Assert.True(isValid);
     }
@@ -667,11 +664,12 @@ public class PostQuantumNet10Tests
             return;
         }
 
-        // Use shorthand static methods
-        using var keyPair = MLKem.GenerateKeyPair();
+        using var keyPair = MLKemBuilder.Create().GenerateKeyPair();
         Assert.NotNull(keyPair);
 
-        using var keyPair512 = MLKem.GenerateKeyPair(MLKemWrapper.SecurityLevel.MLKem512);
+        using var keyPair512 = MLKemBuilder.Create()
+            .WithSecurityLevel(MLKemWrapper.SecurityLevel.MLKem512)
+            .GenerateKeyPair();
         Assert.Equal(MLKemWrapper.SecurityLevel.MLKem512, keyPair512.Level);
     }
 
@@ -683,14 +681,13 @@ public class PostQuantumNet10Tests
             return;
         }
 
-        // Use shorthand static methods
-        using var keyPair = MLDsa.GenerateKeyPair();
+        using var keyPair = MLDsaBuilder.Create().GenerateKeyPair();
         Assert.NotNull(keyPair);
 
         var data = Encoding.UTF8.GetBytes("Quick test");
         var signature = keyPair.Sign(data);
 
-        var isValid = MLDsa.Verify(keyPair.PublicKeyPem, data, signature);
+        var isValid = MLDsaWrapper.Verify(keyPair.PublicKeyPem, data, signature);
         Assert.True(isValid);
     }
 

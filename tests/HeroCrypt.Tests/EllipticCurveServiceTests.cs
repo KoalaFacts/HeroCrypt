@@ -8,11 +8,11 @@ namespace HeroCrypt.Tests;
 /// </summary>
 public class EllipticCurveServiceTests
 {
-    private readonly IEllipticCurveService _eccService;
+    private readonly EllipticCurveService eccService;
 
     public EllipticCurveServiceTests()
     {
-        _eccService = new EllipticCurveService();
+        eccService = new EllipticCurveService();
     }
 
     [Theory]
@@ -22,7 +22,7 @@ public class EllipticCurveServiceTests
     public async Task GenerateKeyPair_SupportedCurves_GeneratesValidKeyPair(EccCurve curve)
     {
         // Act
-        var keyPair = await _eccService.GenerateKeyPairAsync(curve, TestContext.Current.CancellationToken);
+        var keyPair = await eccService.GenerateKeyPairAsync(curve, TestContext.Current.CancellationToken);
 
         // Assert
         Assert.NotNull(keyPair.PrivateKey);
@@ -48,8 +48,8 @@ public class EllipticCurveServiceTests
     public async Task GenerateKeyPair_MultipleCalls_GeneratesDifferentKeys(EccCurve curve)
     {
         // Act
-        var keyPair1 = await _eccService.GenerateKeyPairAsync(curve, TestContext.Current.CancellationToken);
-        var keyPair2 = await _eccService.GenerateKeyPairAsync(curve, TestContext.Current.CancellationToken);
+        var keyPair1 = await eccService.GenerateKeyPairAsync(curve, TestContext.Current.CancellationToken);
+        var keyPair2 = await eccService.GenerateKeyPairAsync(curve, TestContext.Current.CancellationToken);
 
         // Assert
         Assert.False(keyPair1.PrivateKey.AsSpan().SequenceEqual(keyPair2.PrivateKey));
@@ -63,10 +63,10 @@ public class EllipticCurveServiceTests
     public async Task DerivePublicKey_FromPrivateKey_MatchesGeneratedPublicKey(EccCurve curve)
     {
         // Arrange
-        var keyPair = await _eccService.GenerateKeyPairAsync(curve, TestContext.Current.CancellationToken);
+        var keyPair = await eccService.GenerateKeyPairAsync(curve, TestContext.Current.CancellationToken);
 
         // Act
-        var derivedPublicKey = await _eccService.DerivePublicKeyAsync(keyPair.PrivateKey, curve, TestContext.Current.CancellationToken);
+        var derivedPublicKey = await eccService.DerivePublicKeyAsync(keyPair.PrivateKey, curve, TestContext.Current.CancellationToken);
 
         // Assert
         if (curve == EccCurve.Secp256k1)
@@ -88,12 +88,12 @@ public class EllipticCurveServiceTests
     public async Task Sign_And_Verify_ValidMessage_ReturnsTrue(EccCurve curve)
     {
         // Arrange
-        var keyPair = await _eccService.GenerateKeyPairAsync(curve, TestContext.Current.CancellationToken);
+        var keyPair = await eccService.GenerateKeyPairAsync(curve, TestContext.Current.CancellationToken);
         var message = "Hello, ECC World!"u8.ToArray();
 
         // Act
-        var signature = await _eccService.SignAsync(message, keyPair.PrivateKey, curve, TestContext.Current.CancellationToken);
-        var isValid = await _eccService.VerifyAsync(message, signature, keyPair.PublicKey, curve, TestContext.Current.CancellationToken);
+        var signature = await eccService.SignAsync(message, keyPair.PrivateKey, curve, TestContext.Current.CancellationToken);
+        var isValid = await eccService.VerifyAsync(message, signature, keyPair.PublicKey, curve, TestContext.Current.CancellationToken);
 
         // Assert
         Assert.True(isValid);
@@ -107,13 +107,13 @@ public class EllipticCurveServiceTests
     public async Task Verify_ModifiedMessage_ReturnsFalse(EccCurve curve)
     {
         // Arrange
-        var keyPair = await _eccService.GenerateKeyPairAsync(curve, TestContext.Current.CancellationToken);
+        var keyPair = await eccService.GenerateKeyPairAsync(curve, TestContext.Current.CancellationToken);
         var originalMessage = "Hello, ECC World!"u8.ToArray();
         var modifiedMessage = "Hello, ECC World?"u8.ToArray();
 
         // Act
-        var signature = await _eccService.SignAsync(originalMessage, keyPair.PrivateKey, curve, TestContext.Current.CancellationToken);
-        var isValid = await _eccService.VerifyAsync(modifiedMessage, signature, keyPair.PublicKey, curve, TestContext.Current.CancellationToken);
+        var signature = await eccService.SignAsync(originalMessage, keyPair.PrivateKey, curve, TestContext.Current.CancellationToken);
+        var isValid = await eccService.VerifyAsync(modifiedMessage, signature, keyPair.PublicKey, curve, TestContext.Current.CancellationToken);
 
         // Assert
         Assert.False(isValid);
@@ -125,16 +125,16 @@ public class EllipticCurveServiceTests
     public async Task Verify_ModifiedSignature_ReturnsFalse(EccCurve curve)
     {
         // Arrange
-        var keyPair = await _eccService.GenerateKeyPairAsync(curve, TestContext.Current.CancellationToken);
+        var keyPair = await eccService.GenerateKeyPairAsync(curve, TestContext.Current.CancellationToken);
         var message = "Hello, ECC World!"u8.ToArray();
 
         // Act
-        var signature = await _eccService.SignAsync(message, keyPair.PrivateKey, curve, TestContext.Current.CancellationToken);
+        var signature = await eccService.SignAsync(message, keyPair.PrivateKey, curve, TestContext.Current.CancellationToken);
 
         // Modify the signature
         signature[0] ^= 0x01;
 
-        var isValid = await _eccService.VerifyAsync(message, signature, keyPair.PublicKey, curve, TestContext.Current.CancellationToken);
+        var isValid = await eccService.VerifyAsync(message, signature, keyPair.PublicKey, curve, TestContext.Current.CancellationToken);
 
         // Assert
         Assert.False(isValid);
@@ -146,13 +146,13 @@ public class EllipticCurveServiceTests
     public async Task Verify_WrongPublicKey_ReturnsFalse(EccCurve curve)
     {
         // Arrange
-        var keyPair1 = await _eccService.GenerateKeyPairAsync(curve, TestContext.Current.CancellationToken);
-        var keyPair2 = await _eccService.GenerateKeyPairAsync(curve, TestContext.Current.CancellationToken);
+        var keyPair1 = await eccService.GenerateKeyPairAsync(curve, TestContext.Current.CancellationToken);
+        var keyPair2 = await eccService.GenerateKeyPairAsync(curve, TestContext.Current.CancellationToken);
         var message = "Hello, ECC World!"u8.ToArray();
 
         // Act
-        var signature = await _eccService.SignAsync(message, keyPair1.PrivateKey, curve, TestContext.Current.CancellationToken);
-        var isValid = await _eccService.VerifyAsync(message, signature, keyPair2.PublicKey, curve, TestContext.Current.CancellationToken);
+        var signature = await eccService.SignAsync(message, keyPair1.PrivateKey, curve, TestContext.Current.CancellationToken);
+        var isValid = await eccService.VerifyAsync(message, signature, keyPair2.PublicKey, curve, TestContext.Current.CancellationToken);
 
         // Assert
         Assert.False(isValid);
@@ -162,12 +162,12 @@ public class EllipticCurveServiceTests
     public async Task PerformEcdh_Curve25519_ProducesSameSharedSecret()
     {
         // Arrange
-        var keyPair1 = await _eccService.GenerateKeyPairAsync(EccCurve.Curve25519, TestContext.Current.CancellationToken);
-        var keyPair2 = await _eccService.GenerateKeyPairAsync(EccCurve.Curve25519, TestContext.Current.CancellationToken);
+        var keyPair1 = await eccService.GenerateKeyPairAsync(EccCurve.Curve25519, TestContext.Current.CancellationToken);
+        var keyPair2 = await eccService.GenerateKeyPairAsync(EccCurve.Curve25519, TestContext.Current.CancellationToken);
 
         // Act
-        var sharedSecret1 = await _eccService.PerformEcdhAsync(keyPair1.PrivateKey, keyPair2.PublicKey, TestContext.Current.CancellationToken);
-        var sharedSecret2 = await _eccService.PerformEcdhAsync(keyPair2.PrivateKey, keyPair1.PublicKey, TestContext.Current.CancellationToken);
+        var sharedSecret1 = await eccService.PerformEcdhAsync(keyPair1.PrivateKey, keyPair2.PublicKey, TestContext.Current.CancellationToken);
+        var sharedSecret2 = await eccService.PerformEcdhAsync(keyPair2.PrivateKey, keyPair1.PublicKey, TestContext.Current.CancellationToken);
 
         // Assert
         Assert.True(sharedSecret1.AsSpan().SequenceEqual(sharedSecret2));
@@ -178,13 +178,13 @@ public class EllipticCurveServiceTests
     public async Task PerformEcdh_DifferentKeyPairs_ProducesDifferentSharedSecrets()
     {
         // Arrange
-        var keyPair1 = await _eccService.GenerateKeyPairAsync(EccCurve.Curve25519, TestContext.Current.CancellationToken);
-        var keyPair2 = await _eccService.GenerateKeyPairAsync(EccCurve.Curve25519, TestContext.Current.CancellationToken);
-        var keyPair3 = await _eccService.GenerateKeyPairAsync(EccCurve.Curve25519, TestContext.Current.CancellationToken);
+        var keyPair1 = await eccService.GenerateKeyPairAsync(EccCurve.Curve25519, TestContext.Current.CancellationToken);
+        var keyPair2 = await eccService.GenerateKeyPairAsync(EccCurve.Curve25519, TestContext.Current.CancellationToken);
+        var keyPair3 = await eccService.GenerateKeyPairAsync(EccCurve.Curve25519, TestContext.Current.CancellationToken);
 
         // Act
-        var sharedSecret1 = await _eccService.PerformEcdhAsync(keyPair1.PrivateKey, keyPair2.PublicKey, TestContext.Current.CancellationToken);
-        var sharedSecret2 = await _eccService.PerformEcdhAsync(keyPair1.PrivateKey, keyPair3.PublicKey, TestContext.Current.CancellationToken);
+        var sharedSecret1 = await eccService.PerformEcdhAsync(keyPair1.PrivateKey, keyPair2.PublicKey, TestContext.Current.CancellationToken);
+        var sharedSecret2 = await eccService.PerformEcdhAsync(keyPair1.PrivateKey, keyPair3.PublicKey, TestContext.Current.CancellationToken);
 
         // Assert
         Assert.False(sharedSecret1.AsSpan().SequenceEqual(sharedSecret2));
@@ -200,7 +200,7 @@ public class EllipticCurveServiceTests
         // For Curve25519 and Ed25519, any 32-byte array is potentially valid
 
         // Act & Assert
-        Assert.True(_eccService.ValidatePoint(validPoint, curve));
+        Assert.True(eccService.ValidatePoint(validPoint, curve));
     }
 
     [Fact]
@@ -215,8 +215,8 @@ public class EllipticCurveServiceTests
         uncompressedPoint[0] = 0x04; // Valid uncompressed prefix
 
         // Act & Assert
-        Assert.True(_eccService.ValidatePoint(compressedPoint, EccCurve.Secp256k1));
-        Assert.True(_eccService.ValidatePoint(uncompressedPoint, EccCurve.Secp256k1));
+        Assert.True(eccService.ValidatePoint(compressedPoint, EccCurve.Secp256k1));
+        Assert.True(eccService.ValidatePoint(uncompressedPoint, EccCurve.Secp256k1));
     }
 
     [Fact]
@@ -234,30 +234,22 @@ public class EllipticCurveServiceTests
         var invalidPoint3 = new byte[32];
 
         // Act & Assert
-        Assert.False(_eccService.ValidatePoint(invalidPoint1, EccCurve.Secp256k1));
-        Assert.False(_eccService.ValidatePoint(invalidPoint2, EccCurve.Secp256k1));
-        Assert.False(_eccService.ValidatePoint(invalidPoint3, EccCurve.Secp256k1));
+        Assert.False(eccService.ValidatePoint(invalidPoint1, EccCurve.Secp256k1));
+        Assert.False(eccService.ValidatePoint(invalidPoint2, EccCurve.Secp256k1));
+        Assert.False(eccService.ValidatePoint(invalidPoint3, EccCurve.Secp256k1));
     }
 
     [Fact]
     public async Task CompressPoint_Secp256k1_ValidUncompressed_ReturnsCompressed()
     {
         // Arrange
-        var keyPair = await _eccService.GenerateKeyPairAsync(EccCurve.Secp256k1, TestContext.Current.CancellationToken);
+        var keyPair = await eccService.GenerateKeyPairAsync(EccCurve.Secp256k1, TestContext.Current.CancellationToken);
 
         // Ensure we have an uncompressed public key
-        byte[] uncompressedKey;
-        if (keyPair.PublicKey.Length == 65)
-        {
-            uncompressedKey = keyPair.PublicKey;
-        }
-        else
-        {
-            uncompressedKey = _eccService.DecompressPoint(keyPair.PublicKey, EccCurve.Secp256k1);
-        }
+        byte[] uncompressedKey = keyPair.PublicKey.Length == 65 ? keyPair.PublicKey : eccService.DecompressPoint(keyPair.PublicKey, EccCurve.Secp256k1);
 
         // Act
-        var compressedKey = _eccService.CompressPoint(uncompressedKey, EccCurve.Secp256k1);
+        var compressedKey = eccService.CompressPoint(uncompressedKey, EccCurve.Secp256k1);
 
         // Assert
         Assert.Equal(33, compressedKey.Length);
@@ -268,21 +260,13 @@ public class EllipticCurveServiceTests
     public async Task DecompressPoint_Secp256k1_ValidCompressed_ReturnsUncompressed()
     {
         // Arrange
-        var keyPair = await _eccService.GenerateKeyPairAsync(EccCurve.Secp256k1, TestContext.Current.CancellationToken);
+        var keyPair = await eccService.GenerateKeyPairAsync(EccCurve.Secp256k1, TestContext.Current.CancellationToken);
 
         // Ensure we have a compressed public key
-        byte[] compressedKey;
-        if (keyPair.PublicKey.Length == 33)
-        {
-            compressedKey = keyPair.PublicKey;
-        }
-        else
-        {
-            compressedKey = _eccService.CompressPoint(keyPair.PublicKey, EccCurve.Secp256k1);
-        }
+        byte[] compressedKey = keyPair.PublicKey.Length == 33 ? keyPair.PublicKey : eccService.CompressPoint(keyPair.PublicKey, EccCurve.Secp256k1);
 
         // Act
-        var uncompressedKey = _eccService.DecompressPoint(compressedKey, EccCurve.Secp256k1);
+        var uncompressedKey = eccService.DecompressPoint(compressedKey, EccCurve.Secp256k1);
 
         // Assert
         Assert.Equal(65, uncompressedKey.Length);
@@ -299,8 +283,8 @@ public class EllipticCurveServiceTests
         new Random().NextBytes(originalPoint);
 
         // Act
-        var compressed = _eccService.CompressPoint(originalPoint, curve);
-        var decompressed = _eccService.DecompressPoint(compressed, curve);
+        var compressed = eccService.CompressPoint(originalPoint, curve);
+        var decompressed = eccService.DecompressPoint(compressed, curve);
 
         // Assert
         Assert.True(originalPoint.AsSpan().SequenceEqual(decompressed));
@@ -310,12 +294,12 @@ public class EllipticCurveServiceTests
     public async Task Sign_EmptyMessage_ProducesValidSignature()
     {
         // Arrange
-        var keyPair = await _eccService.GenerateKeyPairAsync(EccCurve.Ed25519, TestContext.Current.CancellationToken);
+        var keyPair = await eccService.GenerateKeyPairAsync(EccCurve.Ed25519, TestContext.Current.CancellationToken);
         var emptyMessage = Array.Empty<byte>();
 
         // Act
-        var signature = await _eccService.SignAsync(emptyMessage, keyPair.PrivateKey, EccCurve.Ed25519, TestContext.Current.CancellationToken);
-        var isValid = await _eccService.VerifyAsync(emptyMessage, signature, keyPair.PublicKey, EccCurve.Ed25519, TestContext.Current.CancellationToken);
+        var signature = await eccService.SignAsync(emptyMessage, keyPair.PrivateKey, EccCurve.Ed25519, TestContext.Current.CancellationToken);
+        var isValid = await eccService.VerifyAsync(emptyMessage, signature, keyPair.PublicKey, EccCurve.Ed25519, TestContext.Current.CancellationToken);
 
         // Assert
         Assert.True(isValid);
@@ -325,13 +309,13 @@ public class EllipticCurveServiceTests
     public async Task Sign_LargeMessage_ProducesValidSignature()
     {
         // Arrange
-        var keyPair = await _eccService.GenerateKeyPairAsync(EccCurve.Ed25519, TestContext.Current.CancellationToken);
+        var keyPair = await eccService.GenerateKeyPairAsync(EccCurve.Ed25519, TestContext.Current.CancellationToken);
         var largeMessage = new byte[10000];
         new Random(42).NextBytes(largeMessage);
 
         // Act
-        var signature = await _eccService.SignAsync(largeMessage, keyPair.PrivateKey, EccCurve.Ed25519, TestContext.Current.CancellationToken);
-        var isValid = await _eccService.VerifyAsync(largeMessage, signature, keyPair.PublicKey, EccCurve.Ed25519, TestContext.Current.CancellationToken);
+        var signature = await eccService.SignAsync(largeMessage, keyPair.PrivateKey, EccCurve.Ed25519, TestContext.Current.CancellationToken);
+        var isValid = await eccService.VerifyAsync(largeMessage, signature, keyPair.PublicKey, EccCurve.Ed25519, TestContext.Current.CancellationToken);
 
         // Assert
         Assert.True(isValid);
@@ -342,7 +326,7 @@ public class EllipticCurveServiceTests
     {
         // Act & Assert
         await Assert.ThrowsAsync<NotSupportedException>(
-            () => _eccService.GenerateKeyPairAsync((EccCurve)999, TestContext.Current.CancellationToken));
+            () => eccService.GenerateKeyPairAsync((EccCurve)999, TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -350,30 +334,30 @@ public class EllipticCurveServiceTests
     {
         // Act & Assert
         await Assert.ThrowsAsync<ArgumentNullException>(
-            () => _eccService.DerivePublicKeyAsync(null!, EccCurve.Ed25519, TestContext.Current.CancellationToken));
+            () => eccService.DerivePublicKeyAsync(null!, EccCurve.Ed25519, TestContext.Current.CancellationToken));
     }
 
     [Fact]
     public async Task Sign_NullData_ThrowsArgumentNullException()
     {
         // Arrange
-        var keyPair = await _eccService.GenerateKeyPairAsync(EccCurve.Ed25519, TestContext.Current.CancellationToken);
+        var keyPair = await eccService.GenerateKeyPairAsync(EccCurve.Ed25519, TestContext.Current.CancellationToken);
 
         // Act & Assert
         await Assert.ThrowsAsync<ArgumentNullException>(
-            () => _eccService.SignAsync(null!, keyPair.PrivateKey, EccCurve.Ed25519, TestContext.Current.CancellationToken));
+            () => eccService.SignAsync(null!, keyPair.PrivateKey, EccCurve.Ed25519, TestContext.Current.CancellationToken));
     }
 
     [Fact]
     public async Task Verify_NullSignature_ThrowsArgumentNullException()
     {
         // Arrange
-        var keyPair = await _eccService.GenerateKeyPairAsync(EccCurve.Ed25519, TestContext.Current.CancellationToken);
+        var keyPair = await eccService.GenerateKeyPairAsync(EccCurve.Ed25519, TestContext.Current.CancellationToken);
         var message = "test"u8.ToArray();
 
         // Act & Assert
         await Assert.ThrowsAsync<ArgumentNullException>(
-            () => _eccService.VerifyAsync(message, null!, keyPair.PublicKey, EccCurve.Ed25519, TestContext.Current.CancellationToken));
+            () => eccService.VerifyAsync(message, null!, keyPair.PublicKey, EccCurve.Ed25519, TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -381,10 +365,10 @@ public class EllipticCurveServiceTests
     {
         // Act & Assert
         await Assert.ThrowsAsync<ArgumentNullException>(
-            () => _eccService.PerformEcdhAsync(null!, new byte[32], TestContext.Current.CancellationToken));
+            () => eccService.PerformEcdhAsync(null!, new byte[32], TestContext.Current.CancellationToken));
 
         await Assert.ThrowsAsync<ArgumentNullException>(
-            () => _eccService.PerformEcdhAsync(new byte[32], null!, TestContext.Current.CancellationToken));
+            () => eccService.PerformEcdhAsync(new byte[32], null!, TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -392,7 +376,7 @@ public class EllipticCurveServiceTests
     {
         // Act & Assert
         Assert.Throws<ArgumentNullException>(
-            () => _eccService.ValidatePoint(null!, EccCurve.Ed25519));
+            () => eccService.ValidatePoint(null!, EccCurve.Ed25519));
     }
 
     /// <summary>
@@ -403,8 +387,8 @@ public class EllipticCurveServiceTests
         try
         {
             // Convert both to uncompressed format for comparison
-            var uncompressed1 = key1.Length == 65 ? key1 : _eccService.DecompressPoint(key1, EccCurve.Secp256k1);
-            var uncompressed2 = key2.Length == 65 ? key2 : _eccService.DecompressPoint(key2, EccCurve.Secp256k1);
+            var uncompressed1 = key1.Length == 65 ? key1 : eccService.DecompressPoint(key1, EccCurve.Secp256k1);
+            var uncompressed2 = key2.Length == 65 ? key2 : eccService.DecompressPoint(key2, EccCurve.Secp256k1);
 
             return uncompressed1.AsSpan().SequenceEqual(uncompressed2);
         }

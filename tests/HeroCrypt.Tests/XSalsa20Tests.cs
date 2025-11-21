@@ -8,21 +8,21 @@ namespace HeroCrypt.Tests;
 /// </summary>
 public class XSalsa20Tests
 {
-    private readonly byte[] _testKey = new byte[32];
-    private readonly byte[] _testNonce = new byte[24]; // XSalsa20 uses 24-byte nonces
-    private readonly byte[] _testPlaintext = Encoding.UTF8.GetBytes("The quick brown fox jumps over the lazy dog");
+    private readonly byte[] testKey = new byte[32];
+    private readonly byte[] testNonce = new byte[24]; // XSalsa20 uses 24-byte nonces
+    private readonly byte[] testPlaintext = Encoding.UTF8.GetBytes("The quick brown fox jumps over the lazy dog");
 
     public XSalsa20Tests()
     {
         // Initialize test key and nonce with predictable values
-        for (var i = 0; i < _testKey.Length; i++)
+        for (var i = 0; i < testKey.Length; i++)
         {
-            _testKey[i] = (byte)(i + 1);
+            testKey[i] = (byte)(i + 1);
         }
 
-        for (var i = 0; i < _testNonce.Length; i++)
+        for (var i = 0; i < testNonce.Length; i++)
         {
-            _testNonce[i] = (byte)(i + 50);
+            testNonce[i] = (byte)(i + 50);
         }
     }
 
@@ -30,15 +30,15 @@ public class XSalsa20Tests
     public void XSalsa20_EncryptDecrypt_RoundTrip_Success()
     {
         // Arrange
-        var plaintext = _testPlaintext;
+        var plaintext = testPlaintext;
         var ciphertext = new byte[plaintext.Length];
         var decrypted = new byte[plaintext.Length];
 
         // Act - Encrypt
-        XSalsa20Core.Transform(ciphertext, plaintext, _testKey, _testNonce);
+        XSalsa20Core.Transform(ciphertext, plaintext, testKey, testNonce);
 
         // Act - Decrypt (XSalsa20 is symmetric)
-        XSalsa20Core.Transform(decrypted, ciphertext, _testKey, _testNonce);
+        XSalsa20Core.Transform(decrypted, ciphertext, testKey, testNonce);
 
         // Assert
         Assert.Equal(plaintext, decrypted);
@@ -53,7 +53,7 @@ public class XSalsa20Tests
         var ciphertext = Array.Empty<byte>();
 
         // Act & Assert - Should handle empty input gracefully
-        XSalsa20Core.Transform(ciphertext, plaintext, _testKey, _testNonce);
+        XSalsa20Core.Transform(ciphertext, plaintext, testKey, testNonce);
     }
 
     [Fact]
@@ -61,12 +61,12 @@ public class XSalsa20Tests
     {
         // Arrange
         var invalidKey = new byte[16]; // Should be 32 bytes
-        var plaintext = _testPlaintext;
+        var plaintext = testPlaintext;
         var ciphertext = new byte[plaintext.Length];
 
         // Act & Assert
         var ex = Assert.Throws<ArgumentException>(() =>
-            XSalsa20Core.Transform(ciphertext, plaintext, invalidKey, _testNonce));
+            XSalsa20Core.Transform(ciphertext, plaintext, invalidKey, testNonce));
         Assert.Contains("32 bytes", ex.Message);
     }
 
@@ -75,12 +75,12 @@ public class XSalsa20Tests
     {
         // Arrange
         var invalidNonce = new byte[12]; // Should be 24 bytes for XSalsa20
-        var plaintext = _testPlaintext;
+        var plaintext = testPlaintext;
         var ciphertext = new byte[plaintext.Length];
 
         // Act & Assert
         var ex = Assert.Throws<ArgumentException>(() =>
-            XSalsa20Core.Transform(ciphertext, plaintext, _testKey, invalidNonce));
+            XSalsa20Core.Transform(ciphertext, plaintext, testKey, invalidNonce));
         Assert.Contains("24 bytes", ex.Message);
     }
 
@@ -88,12 +88,12 @@ public class XSalsa20Tests
     public void Transform_OutputBufferTooSmall_ThrowsException()
     {
         // Arrange
-        var plaintext = _testPlaintext;
+        var plaintext = testPlaintext;
         var ciphertext = new byte[plaintext.Length - 1]; // Too small
 
         // Act & Assert
         var ex = Assert.Throws<ArgumentException>(() =>
-            XSalsa20Core.Transform(ciphertext, plaintext, _testKey, _testNonce));
+            XSalsa20Core.Transform(ciphertext, plaintext, testKey, testNonce));
         Assert.Contains("too small", ex.Message);
     }
 
@@ -101,7 +101,7 @@ public class XSalsa20Tests
     public void Transform_DifferentNonces_ProduceDifferentCiphertexts()
     {
         // Arrange
-        var plaintext = _testPlaintext;
+        var plaintext = testPlaintext;
         var ciphertext1 = new byte[plaintext.Length];
         var ciphertext2 = new byte[plaintext.Length];
         var nonce1 = new byte[24];
@@ -114,8 +114,8 @@ public class XSalsa20Tests
         }
 
         // Act
-        XSalsa20Core.Transform(ciphertext1, plaintext, _testKey, nonce1);
-        XSalsa20Core.Transform(ciphertext2, plaintext, _testKey, nonce2);
+        XSalsa20Core.Transform(ciphertext1, plaintext, testKey, nonce1);
+        XSalsa20Core.Transform(ciphertext2, plaintext, testKey, nonce2);
 
         // Assert
         Assert.NotEqual(ciphertext1, ciphertext2);
@@ -125,7 +125,7 @@ public class XSalsa20Tests
     public void Transform_DifferentKeys_ProduceDifferentCiphertexts()
     {
         // Arrange
-        var plaintext = _testPlaintext;
+        var plaintext = testPlaintext;
         var ciphertext1 = new byte[plaintext.Length];
         var ciphertext2 = new byte[plaintext.Length];
         var key1 = new byte[32];
@@ -138,8 +138,8 @@ public class XSalsa20Tests
         }
 
         // Act
-        XSalsa20Core.Transform(ciphertext1, plaintext, key1, _testNonce);
-        XSalsa20Core.Transform(ciphertext2, plaintext, key2, _testNonce);
+        XSalsa20Core.Transform(ciphertext1, plaintext, key1, testNonce);
+        XSalsa20Core.Transform(ciphertext2, plaintext, key2, testNonce);
 
         // Assert
         Assert.NotEqual(ciphertext1, ciphertext2);
@@ -155,8 +155,8 @@ public class XSalsa20Tests
         var decrypted = new byte[largeData.Length];
 
         // Act
-        XSalsa20Core.Transform(ciphertext, largeData, _testKey, _testNonce);
-        XSalsa20Core.Transform(decrypted, ciphertext, _testKey, _testNonce);
+        XSalsa20Core.Transform(ciphertext, largeData, testKey, testNonce);
+        XSalsa20Core.Transform(decrypted, ciphertext, testKey, testNonce);
 
         // Assert
         Assert.Equal(largeData, decrypted);
@@ -167,7 +167,7 @@ public class XSalsa20Tests
     public void ValidateParameters_ValidInput_DoesNotThrow()
     {
         // Act & Assert - Should not throw
-        XSalsa20Core.ValidateParameters(_testKey, _testNonce);
+        XSalsa20Core.ValidateParameters(testKey, testNonce);
     }
 
     [Fact]
@@ -178,7 +178,7 @@ public class XSalsa20Tests
 
         // Act & Assert
         Assert.Throws<ArgumentException>(() =>
-            XSalsa20Core.ValidateParameters(invalidKey, _testNonce));
+            XSalsa20Core.ValidateParameters(invalidKey, testNonce));
     }
 
     [Fact]

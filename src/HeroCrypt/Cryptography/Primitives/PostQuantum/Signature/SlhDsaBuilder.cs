@@ -3,7 +3,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography;
 
-namespace HeroCrypt.Cryptography.Primitives.PostQuantum.Sphincs;
+namespace HeroCrypt.Cryptography.Primitives.PostQuantum.Signature;
 
 /// <summary>
 /// Fluent builder for SLH-DSA (Stateless Hash-Based Digital Signature Algorithm) operations
@@ -31,12 +31,12 @@ namespace HeroCrypt.Cryptography.Primitives.PostQuantum.Sphincs;
 
 public class SlhDsaBuilder : IDisposable
 {
-    private SlhDsaWrapper.SecurityLevel _securityLevel = SlhDsaWrapper.SecurityLevel.SlhDsa128s;
-    private string? _publicKeyPem;
-    private SlhDsaWrapper.SlhDsaKeyPair? _keyPair;
-    private byte[]? _data;
-    private byte[]? _context;
-    private bool _disposed;
+    private SlhDsaWrapper.SecurityLevel securityLevel = SlhDsaWrapper.SecurityLevel.SlhDsa128s;
+    private string? publicKeyPem;
+    private SlhDsaWrapper.SlhDsaKeyPair? keyPair;
+    private byte[]? data;
+    private byte[]? context;
+    private bool disposed;
 
     /// <summary>
     /// Creates a new SLH-DSA builder instance
@@ -64,7 +64,7 @@ public class SlhDsaBuilder : IDisposable
     /// <returns>The builder instance for method chaining</returns>
     public SlhDsaBuilder WithSecurityLevel(SlhDsaWrapper.SecurityLevel level)
     {
-        _securityLevel = level;
+        securityLevel = level;
         return this;
     }
 
@@ -76,7 +76,7 @@ public class SlhDsaBuilder : IDisposable
     /// <returns>The builder instance for method chaining</returns>
     public SlhDsaBuilder WithSecurityBits(int securityBits, bool preferSmall = true)
     {
-        _securityLevel = SlhDsaWrapper.GetRecommendedLevel(securityBits, preferSmall);
+        securityLevel = SlhDsaWrapper.GetRecommendedLevel(securityBits, preferSmall);
         return this;
     }
 
@@ -110,7 +110,7 @@ public class SlhDsaBuilder : IDisposable
     {
         ArgumentNullException.ThrowIfNull(publicKeyPem);
 
-        _publicKeyPem = publicKeyPem;
+        this.publicKeyPem = publicKeyPem;
         return this;
     }
 
@@ -131,7 +131,7 @@ public class SlhDsaBuilder : IDisposable
         }
 #endif
 
-        _keyPair = keyPair;
+        this.keyPair = keyPair;
         return this;
     }
 
@@ -152,7 +152,7 @@ public class SlhDsaBuilder : IDisposable
         }
 #endif
 
-        _data = data;
+        this.data = data;
         return this;
     }
 
@@ -173,7 +173,7 @@ public class SlhDsaBuilder : IDisposable
         }
 #endif
 
-        _data = System.Text.Encoding.UTF8.GetBytes(data);
+        this.data = System.Text.Encoding.UTF8.GetBytes(data);
         return this;
     }
 
@@ -190,7 +190,7 @@ public class SlhDsaBuilder : IDisposable
             throw new ArgumentException("Context must be 255 bytes or less", nameof(context));
         }
 
-        _context = context;
+        this.context = context;
         return this;
     }
 
@@ -204,7 +204,7 @@ public class SlhDsaBuilder : IDisposable
     {
         if (context == null)
         {
-            _context = null;
+            this.context = null;
             return this;
         }
 
@@ -214,7 +214,7 @@ public class SlhDsaBuilder : IDisposable
             throw new ArgumentException("Context must be 255 bytes or less when UTF-8 encoded", nameof(context));
         }
 
-        _context = contextBytes;
+        this.context = contextBytes;
         return this;
     }
 
@@ -226,7 +226,7 @@ public class SlhDsaBuilder : IDisposable
 
     public SlhDsaWrapper.SlhDsaKeyPair GenerateKeyPair()
     {
-        return SlhDsaWrapper.GenerateKeyPair(_securityLevel);
+        return SlhDsaWrapper.GenerateKeyPair(securityLevel);
     }
 
     /// <summary>
@@ -237,17 +237,17 @@ public class SlhDsaBuilder : IDisposable
     /// <exception cref="CryptographicException">If signing fails</exception>
     public byte[] Sign()
     {
-        if (_keyPair == null)
+        if (keyPair == null)
         {
             throw new InvalidOperationException("Key pair must be set before signing. Use WithKeyPair()");
         }
 
-        if (_data == null)
+        if (data == null)
         {
             throw new InvalidOperationException("Data must be set before signing. Use WithData()");
         }
 
-        return _keyPair.Sign(_data, _context);
+        return keyPair.Sign(data, context);
     }
 
     /// <summary>
@@ -262,17 +262,17 @@ public class SlhDsaBuilder : IDisposable
     {
         ArgumentNullException.ThrowIfNull(signature);
 
-        if (_publicKeyPem == null)
+        if (publicKeyPem == null)
         {
             throw new InvalidOperationException("Public key must be set before verification. Use WithPublicKey()");
         }
 
-        if (_data == null)
+        if (data == null)
         {
             throw new InvalidOperationException("Data must be set before verification. Use WithData()");
         }
 
-        return SlhDsaWrapper.Verify(_publicKeyPem, _data, signature, _context);
+        return SlhDsaWrapper.Verify(publicKeyPem, data, signature, context);
     }
 
     /// <summary>
@@ -281,7 +281,7 @@ public class SlhDsaBuilder : IDisposable
     /// <returns>Tuple of (security bits, approximate signature size, description)</returns>
     public (int SecurityBits, int SignatureSizeApprox, string Description) GetLevelInfo()
     {
-        return SlhDsaWrapper.GetLevelInfo(_securityLevel);
+        return SlhDsaWrapper.GetLevelInfo(securityLevel);
     }
 
     /// <summary>
@@ -290,68 +290,27 @@ public class SlhDsaBuilder : IDisposable
     /// </summary>
     public void Dispose()
     {
-        if (!_disposed)
+        if (!disposed)
         {
             // Clear sensitive data
-            if (_data != null)
+            if (data != null)
             {
-                Array.Clear(_data, 0, _data.Length);
-                _data = null;
+                Array.Clear(data, 0, data.Length);
+                data = null;
             }
 
-            if (_context != null)
+            if (context != null)
             {
-                Array.Clear(_context, 0, _context.Length);
-                _context = null;
+                Array.Clear(context, 0, context.Length);
+                context = null;
             }
 
-            // Note: We don't dispose _keyPair as it was provided externally
-            _disposed = true;
+            // Note: We don't dispose keyPair as it was provided externally
+            disposed = true;
             GC.SuppressFinalize(this);
         }
     }
 }
 
-/// <summary>
-/// Provides a short-hand fluent API for SLH-DSA operations
-/// </summary>
-
-public static class SlhDsa
-{
-    /// <summary>
-    /// Creates a new SLH-DSA builder instance
-    /// </summary>
-    /// <returns>A new builder instance</returns>
-
-    public static SlhDsaBuilder Create() => SlhDsaBuilder.Create();
-
-    /// <summary>
-    /// Quick method to generate a key pair with recommended security (SLH-DSA-128s)
-    /// </summary>
-    /// <returns>A new SLH-DSA key pair</returns>
-
-    public static SlhDsaWrapper.SlhDsaKeyPair GenerateKeyPair() =>
-        SlhDsaWrapper.GenerateKeyPair(SlhDsaWrapper.SecurityLevel.SlhDsa128s);
-
-    /// <summary>
-    /// Quick method to generate a key pair with specified security level
-    /// </summary>
-    /// <param name="level">The security level</param>
-    /// <returns>A new SLH-DSA key pair</returns>
-
-    public static SlhDsaWrapper.SlhDsaKeyPair GenerateKeyPair(SlhDsaWrapper.SecurityLevel level) =>
-        SlhDsaWrapper.GenerateKeyPair(level);
-
-    /// <summary>
-    /// Quick method to verify a signature
-    /// </summary>
-    /// <param name="publicKeyPem">The public key in PEM format</param>
-    /// <param name="data">The data that was signed</param>
-    /// <param name="signature">The signature to verify</param>
-    /// <returns>True if valid, false otherwise</returns>
-
-    public static bool Verify(string publicKeyPem, byte[] data, byte[] signature) =>
-        SlhDsaWrapper.Verify(publicKeyPem, data, signature);
-}
 #endif
 #pragma warning restore SYSLIB5006

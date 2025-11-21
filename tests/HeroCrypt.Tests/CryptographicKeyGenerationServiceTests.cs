@@ -455,7 +455,7 @@ public class CryptographicKeyGenerationServiceTests
         var password = service.GenerateSecurePassword(50, includeSymbols: true);
 
         var symbols = "!@#$%^&*()_+-=[]{}|;:,.<>?";
-        Assert.Contains(password, c => symbols.Contains(c));
+        Assert.Contains(password, symbols.Contains);
     }
 
     [Fact]

@@ -198,7 +198,7 @@ public static class SecureMpc
         }
         catch (ArgumentException)
         {
-            return new ComputationResult(Array.Empty<byte>(), numParties, false);
+            return new ComputationResult([], numParties, false);
         }
     }
 
@@ -262,10 +262,10 @@ public static class SecureMpc
             }
 
             // Step 2: Reconstruct d and e (these are safe to reveal)
-            var dValue = ReconstructSecret(dShares.Select(s =>
-                new ShamirSecretSharing.Share(s.ShareIndex, s.Value)).ToArray());
-            var eValue = ReconstructSecret(eShares.Select(s =>
-                new ShamirSecretSharing.Share(s.ShareIndex, s.Value)).ToArray());
+            var dValue = ReconstructSecret([.. dShares.Select(s =>
+                new ShamirSecretSharing.Share(s.ShareIndex, s.Value))]);
+            var eValue = ReconstructSecret([.. eShares.Select(s =>
+                new ShamirSecretSharing.Share(s.ShareIndex, s.Value))]);
 
             // Step 3: Each party computes [x*y] = d*e + d*[b] + e*[a] + [c]
             for (int i = 0; i < numParties; i++)
@@ -407,7 +407,7 @@ public static class SecureMpc
             }
         }
 
-        return intersection.ToArray();
+        return [.. intersection];
     }
 
     // Helper methods

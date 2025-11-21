@@ -287,6 +287,8 @@ public static class InputValidator
                     throw new ArgumentException("ChaCha20 requires 32-byte keys", nameof(keyLength));
                 }
                 break;
+            default:
+                throw new ArgumentException($"Unsupported algorithm '{algorithm}'", nameof(algorithm));
         }
     }
 

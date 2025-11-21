@@ -67,14 +67,14 @@ internal static class Encryption
 
         return algorithm switch
         {
-            EncryptionAlgorithm.AesGcm => EncryptAesGcm(plaintext, key, associatedData ?? Array.Empty<byte>()),
-            EncryptionAlgorithm.AesCcm => EncryptAesCcm(plaintext, key, associatedData ?? Array.Empty<byte>()),
-            EncryptionAlgorithm.ChaCha20Poly1305 => EncryptChaCha20Poly1305(plaintext, key, associatedData ?? Array.Empty<byte>()),
-            EncryptionAlgorithm.XChaCha20Poly1305 => EncryptXChaCha20Poly1305(plaintext, key, associatedData ?? Array.Empty<byte>()),
+            EncryptionAlgorithm.AesGcm => EncryptAesGcm(plaintext, key, associatedData ?? []),
+            EncryptionAlgorithm.AesCcm => EncryptAesCcm(plaintext, key, associatedData ?? []),
+            EncryptionAlgorithm.ChaCha20Poly1305 => EncryptChaCha20Poly1305(plaintext, key, associatedData ?? []),
+            EncryptionAlgorithm.XChaCha20Poly1305 => EncryptXChaCha20Poly1305(plaintext, key, associatedData ?? []),
             EncryptionAlgorithm.RsaOaepSha256 => EncryptRsaOaep(plaintext, key),
 #if NET10_0_OR_GREATER
-            EncryptionAlgorithm.MLKem768AesGcm => EncryptMLKemHybrid(plaintext, key, 768, associatedData ?? Array.Empty<byte>()),
-            EncryptionAlgorithm.MLKem1024AesGcm => EncryptMLKemHybrid(plaintext, key, 1024, associatedData ?? Array.Empty<byte>()),
+            EncryptionAlgorithm.MLKem768AesGcm => EncryptMLKemHybrid(plaintext, key, 768, associatedData ?? []),
+            EncryptionAlgorithm.MLKem1024AesGcm => EncryptMLKemHybrid(plaintext, key, 1024, associatedData ?? []),
 #else
             EncryptionAlgorithm.MLKem768AesGcm or EncryptionAlgorithm.MLKem1024AesGcm =>
                 throw new NotSupportedException("ML-KEM algorithms require .NET 10 or greater"),
@@ -120,14 +120,14 @@ internal static class Encryption
 
         return algorithm switch
         {
-            EncryptionAlgorithm.AesGcm => DecryptAesGcm(ciphertext, key, nonce, associatedData ?? Array.Empty<byte>()),
-            EncryptionAlgorithm.AesCcm => DecryptAesCcm(ciphertext, key, nonce, associatedData ?? Array.Empty<byte>()),
-            EncryptionAlgorithm.ChaCha20Poly1305 => DecryptChaCha20Poly1305(ciphertext, key, nonce, associatedData ?? Array.Empty<byte>()),
-            EncryptionAlgorithm.XChaCha20Poly1305 => DecryptXChaCha20Poly1305(ciphertext, key, nonce, associatedData ?? Array.Empty<byte>()),
+            EncryptionAlgorithm.AesGcm => DecryptAesGcm(ciphertext, key, nonce, associatedData ?? []),
+            EncryptionAlgorithm.AesCcm => DecryptAesCcm(ciphertext, key, nonce, associatedData ?? []),
+            EncryptionAlgorithm.ChaCha20Poly1305 => DecryptChaCha20Poly1305(ciphertext, key, nonce, associatedData ?? []),
+            EncryptionAlgorithm.XChaCha20Poly1305 => DecryptXChaCha20Poly1305(ciphertext, key, nonce, associatedData ?? []),
             EncryptionAlgorithm.RsaOaepSha256 => DecryptRsaOaep(ciphertext, key),
 #if NET10_0_OR_GREATER
-            EncryptionAlgorithm.MLKem768AesGcm => DecryptMLKemHybrid(ciphertext, key, nonce, keyCiphertext!, 768, associatedData ?? Array.Empty<byte>()),
-            EncryptionAlgorithm.MLKem1024AesGcm => DecryptMLKemHybrid(ciphertext, key, nonce, keyCiphertext!, 1024, associatedData ?? Array.Empty<byte>()),
+            EncryptionAlgorithm.MLKem768AesGcm => DecryptMLKemHybrid(ciphertext, key, nonce, keyCiphertext!, 768, associatedData ?? []),
+            EncryptionAlgorithm.MLKem1024AesGcm => DecryptMLKemHybrid(ciphertext, key, nonce, keyCiphertext!, 1024, associatedData ?? []),
 #else
             EncryptionAlgorithm.MLKem768AesGcm or EncryptionAlgorithm.MLKem1024AesGcm =>
                 throw new NotSupportedException("ML-KEM algorithms require .NET 10 or greater"),
@@ -347,7 +347,7 @@ internal static class Encryption
 #if !NETSTANDARD2_0
     private static EncryptionResult EncryptRsaOaep(byte[] plaintext, byte[] publicKey)
     {
-        using var rsa = System.Security.Cryptography.RSA.Create();
+        using var rsa = RSA.Create();
         rsa.ImportSubjectPublicKeyInfo(publicKey, out _);
 
         var ciphertext = rsa.Encrypt(plaintext, RSAEncryptionPadding.OaepSHA256);
@@ -355,13 +355,13 @@ internal static class Encryption
         return new EncryptionResult
         {
             Ciphertext = ciphertext,
-            Nonce = Array.Empty<byte>() // RSA doesn't use nonce
+            Nonce = [] // RSA doesn't use nonce
         };
     }
 
     private static byte[] DecryptRsaOaep(byte[] ciphertext, byte[] privateKey)
     {
-        using var rsa = System.Security.Cryptography.RSA.Create();
+        using var rsa = RSA.Create();
         rsa.ImportPkcs8PrivateKey(privateKey, out _);
 
         return rsa.Decrypt(ciphertext, RSAEncryptionPadding.OaepSHA256);
@@ -391,7 +391,7 @@ internal static class Encryption
         var pem = System.Text.Encoding.UTF8.GetString(publicKeyPem);
 
         // Encapsulate shared secret using ML-KEM
-        using var encapsulation = Primitives.PostQuantum.Kyber.MLKemWrapper.Encapsulate(pem);
+        using var encapsulation = Primitives.PostQuantum.Kem.MLKemWrapper.Encapsulate(pem);
         var sharedSecret = encapsulation.SharedSecret;
 
         // Use first 32 bytes of shared secret as AES-GCM key

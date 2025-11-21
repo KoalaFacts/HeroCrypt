@@ -33,7 +33,7 @@ internal static class HardwareAccelerationDetector
     /// Checks if AVX-512 instructions are available
     /// </summary>
 #if NET5_0_OR_GREATER
-    public static bool IsAvx512Available => System.Runtime.Intrinsics.X86.Avx512F.IsSupported;
+    public static bool IsAvx512Available => Avx512F.IsSupported;
 #else
     public static bool IsAvx512Available => false; // Not detectable in .NET Standard 2.0
 #endif
@@ -97,7 +97,7 @@ internal static class HardwareAccelerationDetector
         {
             // Check for RDRAND instruction support in CPUID
             // This is a simplified check - in production you'd want more thorough CPUID parsing
-            return System.Runtime.Intrinsics.X86.X86Base.IsSupported;
+            return X86Base.IsSupported;
         }
         catch (PlatformNotSupportedException)
         {
@@ -115,7 +115,7 @@ internal static class HardwareAccelerationDetector
         {
             // Check for Intel SHA extensions support
             // This is a simplified check - real implementation would check CPUID flags
-            return System.Runtime.Intrinsics.X86.X86Base.IsSupported;
+            return X86Base.IsSupported;
         }
         catch (PlatformNotSupportedException)
         {

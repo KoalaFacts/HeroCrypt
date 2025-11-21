@@ -29,7 +29,7 @@ internal static class XChaCha20Poly1305Core
     /// <summary>
     /// HChaCha20 constants
     /// </summary>
-    private static readonly uint[] _hChaCha20Constants = { 0x61707865, 0x3320646e, 0x79622d32, 0x6b206574 };
+    private static readonly uint[] hChaCha20Constants = [0x61707865, 0x3320646e, 0x79622d32, 0x6b206574];
 
     /// <summary>
     /// Encrypts plaintext using XChaCha20-Poly1305
@@ -63,7 +63,7 @@ internal static class XChaCha20Poly1305Core
 
         try
         {
-            var ciphertextWithoutTag = ciphertext.Slice(0, plaintext.Length);
+            var ciphertextWithoutTag = ciphertext[..plaintext.Length];
             var tag = ciphertext.Slice(plaintext.Length, TAG_SIZE);
 
             // Generate Poly1305 key using the derived ChaCha20 key
@@ -129,7 +129,7 @@ internal static class XChaCha20Poly1305Core
 
         try
         {
-            var ciphertextWithoutTag = ciphertext.Slice(0, ciphertextLength);
+            var ciphertextWithoutTag = ciphertext[..ciphertextLength];
             var receivedTag = ciphertext.Slice(ciphertextLength, TAG_SIZE);
 
             // Generate Poly1305 key using the derived ChaCha20 key
@@ -155,7 +155,7 @@ internal static class XChaCha20Poly1305Core
             }
 
             // Decrypt ciphertext using ChaCha20 with counter=1
-            var plaintextSlice = plaintext.Slice(0, ciphertextLength);
+            var plaintextSlice = plaintext[..ciphertextLength];
             ChaCha20Core.Transform(plaintextSlice, ciphertextWithoutTag, derivedKey, derivedNonce, 1);
 
             return ciphertextLength;
@@ -180,7 +180,7 @@ internal static class XChaCha20Poly1305Core
         ReadOnlySpan<byte> originalKey, ReadOnlySpan<byte> extendedNonce)
     {
         // HChaCha20 takes the first 16 bytes of the nonce
-        var hchacha20Nonce = extendedNonce.Slice(0, 16);
+        var hchacha20Nonce = extendedNonce[..16];
 
         // Derive new key using HChaCha20
         HChaCha20(derivedKey, originalKey, hchacha20Nonce);
@@ -216,10 +216,10 @@ internal static class XChaCha20Poly1305Core
         Span<uint> state = stackalloc uint[16];
 
         // Constants
-        state[0] = _hChaCha20Constants[0];
-        state[1] = _hChaCha20Constants[1];
-        state[2] = _hChaCha20Constants[2];
-        state[3] = _hChaCha20Constants[3];
+        state[0] = hChaCha20Constants[0];
+        state[1] = hChaCha20Constants[1];
+        state[2] = hChaCha20Constants[2];
+        state[3] = hChaCha20Constants[3];
 
 #if !NET5_0_OR_GREATER
         // Create reusable arrays for .NET Standard 2.0 (avoid memory leaks in loops)
@@ -266,7 +266,7 @@ internal static class XChaCha20Poly1305Core
         }
 
         // Output only state[0], state[1], state[2], state[3], state[12], state[13], state[14], state[15]
-        BitConverter.GetBytes(state[0]).CopyTo(output.Slice(0, 4));
+        BitConverter.GetBytes(state[0]).CopyTo(output[..4]);
         BitConverter.GetBytes(state[1]).CopyTo(output.Slice(4, 4));
         BitConverter.GetBytes(state[2]).CopyTo(output.Slice(8, 4));
         BitConverter.GetBytes(state[3]).CopyTo(output.Slice(12, 4));
@@ -363,7 +363,7 @@ internal static class XChaCha20Poly1305Core
 
         // Add lengths in little-endian format
         var lengthBytes = message.Slice(offset, 16);
-        WriteUInt64LittleEndian(lengthBytes.Slice(0, 8), (ulong)aadLength);
+        WriteUInt64LittleEndian(lengthBytes[..8], (ulong)aadLength);
         WriteUInt64LittleEndian(lengthBytes.Slice(8, 8), (ulong)ciphertextLength);
 
         // Compute Poly1305 MAC

@@ -22,7 +22,7 @@ internal static class AesOcbCore
     /// <summary>
     /// Supported key sizes in bytes
     /// </summary>
-    public static readonly int[] SupportedKeySizes = { 16, 24, 32 }; // AES-128, AES-192, AES-256
+    public static readonly int[] SupportedKeySizes = [16, 24, 32]; // AES-128, AES-192, AES-256
 
     /// <summary>
     /// Supported nonce sizes in bytes (1-15 bytes per RFC 7253)
@@ -93,7 +93,7 @@ internal static class AesOcbCore
 
             // Process plaintext blocks
             var fullBlocks = plaintext.Length / BLOCK_SIZE;
-            var ciphertextOnly = ciphertext.Slice(0, plaintext.Length);
+            var ciphertextOnly = ciphertext[..plaintext.Length];
 
             // Move stackalloc outside loop to avoid stack overflow with large data
             Span<byte> l_i = stackalloc byte[BLOCK_SIZE];
@@ -230,7 +230,7 @@ internal static class AesOcbCore
             InitializeOffset(encryptor, offset, nonce, l_dollar, inputBuffer, outputBuffer);
 
             // Process ciphertext blocks
-            var ciphertextOnly = ciphertext.Slice(0, plaintextLength);
+            var ciphertextOnly = ciphertext[..plaintextLength];
             var fullBlocks = plaintextLength / BLOCK_SIZE;
 
             // Move stackalloc outside loop to avoid stack overflow with large data
@@ -294,7 +294,7 @@ internal static class AesOcbCore
             if (!SecureMemoryOperations.ConstantTimeEquals(expectedTag, receivedTag))
             {
                 // Clear plaintext on authentication failure
-                SecureMemoryOperations.SecureClear(plaintext.Slice(0, plaintextLength));
+                SecureMemoryOperations.SecureClear(plaintext[..plaintextLength]);
                 SecureMemoryOperations.SecureClear(expectedTag);
                 return -1;
             }
@@ -331,7 +331,7 @@ internal static class AesOcbCore
         // Last bytes: nonce
         var nonceStart = BLOCK_SIZE - nonce.Length;
         nonceBlock[nonceStart - 1] |= 0x01; // Set separator bit
-        nonce.CopyTo(nonceBlock.Slice(nonceStart));
+        nonce.CopyTo(nonceBlock[nonceStart..]);
 
         // bottom = str2num(Nonce) mod 64
         var bottom = nonceBlock[BLOCK_SIZE - 1] & 0x3F;
@@ -345,7 +345,7 @@ internal static class AesOcbCore
 
         // Stretch = Ktop || (Ktop[1..64] xor Ktop[9..72])
         Span<byte> stretch = stackalloc byte[24];
-        ktop.CopyTo(stretch.Slice(0, BLOCK_SIZE));
+        ktop.CopyTo(stretch[..BLOCK_SIZE]);
         for (var i = 0; i < 8; i++)
         {
             stretch[BLOCK_SIZE + i] = (byte)(ktop[i] ^ ktop[i + 1]);

@@ -10,14 +10,14 @@ namespace HeroCrypt.KeyManagement;
 /// </summary>
 public sealed class CryptographicKeyGenerator : ICryptographicKeyGenerator
 {
-    private readonly RandomNumberGenerator _rng;
+    private readonly RandomNumberGenerator rng;
 
     /// <summary>
     /// Initializes a new instance of the cryptographic key generation service
     /// </summary>
     public CryptographicKeyGenerator()
     {
-        _rng = RandomNumberGenerator.Create();
+        rng = RandomNumberGenerator.Create();
     }
 
     /// <inheritdoc />
@@ -36,7 +36,7 @@ public sealed class CryptographicKeyGenerator : ICryptographicKeyGenerator
 
 
         var bytes = new byte[length];
-        _rng.GetBytes(bytes);
+        rng.GetBytes(bytes);
 
 
         return bytes;
@@ -439,6 +439,6 @@ public sealed class CryptographicKeyGenerator : ICryptographicKeyGenerator
     /// </summary>
     public void Dispose()
     {
-        _rng?.Dispose();
+        rng?.Dispose();
     }
 }

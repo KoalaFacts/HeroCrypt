@@ -23,8 +23,8 @@ public static class Ed25519Core
     /// </summary>
     public const int PRIVATE_KEY_SIZE = 32;
 
-    private static readonly byte[] _publicKeySaltBytes = Encoding.ASCII.GetBytes("HeroCrypt.Ed25519.PublicKey");
-    private static readonly byte[] _signatureSaltBytes = Encoding.ASCII.GetBytes("HeroCrypt.Ed25519.Signature");
+    private static readonly byte[] publicKeySaltBytes = Encoding.ASCII.GetBytes("HeroCrypt.Ed25519.PublicKey");
+    private static readonly byte[] signatureSaltBytes = Encoding.ASCII.GetBytes("HeroCrypt.Ed25519.Signature");
 
     /// <summary>
     /// Generates a new Ed25519 key pair
@@ -51,9 +51,9 @@ public static class Ed25519Core
     {
         ValidatePrivateKey(privateKey);
 
-        var buffer = new byte[privateKey.Length + _publicKeySaltBytes.Length];
+        var buffer = new byte[privateKey.Length + publicKeySaltBytes.Length];
         Buffer.BlockCopy(privateKey, 0, buffer, 0, privateKey.Length);
-        Buffer.BlockCopy(_publicKeySaltBytes, 0, buffer, privateKey.Length, _publicKeySaltBytes.Length);
+        Buffer.BlockCopy(publicKeySaltBytes, 0, buffer, privateKey.Length, publicKeySaltBytes.Length);
 
         var hash = ComputeSha512(buffer);
 
@@ -164,9 +164,9 @@ public static class Ed25519Core
 
     private static byte[] DeriveSignatureKey(byte[] publicKey)
     {
-        var buffer = new byte[publicKey.Length + _signatureSaltBytes.Length];
+        var buffer = new byte[publicKey.Length + signatureSaltBytes.Length];
         Buffer.BlockCopy(publicKey, 0, buffer, 0, publicKey.Length);
-        Buffer.BlockCopy(_signatureSaltBytes, 0, buffer, publicKey.Length, _signatureSaltBytes.Length);
+        Buffer.BlockCopy(signatureSaltBytes, 0, buffer, publicKey.Length, signatureSaltBytes.Length);
 
         var key = ComputeSha512(buffer);
 

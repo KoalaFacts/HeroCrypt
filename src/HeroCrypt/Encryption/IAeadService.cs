@@ -56,8 +56,8 @@ public interface IAeadService
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Task representing the operation</returns>
     Task EncryptStreamAsync(
-        System.IO.Stream plaintext,
-        System.IO.Stream ciphertext,
+        Stream plaintext,
+        Stream ciphertext,
         byte[] key,
         byte[] nonce,
         byte[]? associatedData = null,
@@ -78,8 +78,8 @@ public interface IAeadService
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Task representing the operation</returns>
     Task DecryptStreamAsync(
-        System.IO.Stream ciphertext,
-        System.IO.Stream plaintext,
+        Stream ciphertext,
+        Stream plaintext,
         byte[] key,
         byte[] nonce,
         byte[]? associatedData = null,
@@ -185,47 +185,38 @@ public enum AeadAlgorithm
 /// <summary>
 /// AEAD operation result with metadata
 /// </summary>
-public readonly struct AeadResult
+/// <remarks>
+/// Initializes a new instance of the AeadResult struct
+/// </remarks>
+/// <param name="data">The encrypted or decrypted data</param>
+/// <param name="algorithm">Algorithm used for the operation</param>
+/// <param name="originalSize">Size of the original data before encryption/decryption</param>
+/// <param name="hardwareAccelerated">Whether hardware acceleration was used</param>
+/// <param name="durationMs">Operation duration in milliseconds</param>
+public readonly struct AeadResult(byte[] data, AeadAlgorithm algorithm, int originalSize, bool hardwareAccelerated, double durationMs)
 {
     /// <summary>
     /// The encrypted or decrypted data
     /// </summary>
-    public byte[] Data { get; }
+    public byte[] Data { get; } = data;
 
     /// <summary>
     /// Algorithm used for the operation
     /// </summary>
-    public AeadAlgorithm Algorithm { get; }
+    public AeadAlgorithm Algorithm { get; } = algorithm;
 
     /// <summary>
     /// Size of the original data before encryption/decryption
     /// </summary>
-    public int OriginalSize { get; }
+    public int OriginalSize { get; } = originalSize;
 
     /// <summary>
     /// Whether hardware acceleration was used
     /// </summary>
-    public bool HardwareAccelerated { get; }
+    public bool HardwareAccelerated { get; } = hardwareAccelerated;
 
     /// <summary>
     /// Operation duration in milliseconds
     /// </summary>
-    public double DurationMs { get; }
-
-    /// <summary>
-    /// Initializes a new instance of the AeadResult struct
-    /// </summary>
-    /// <param name="data">The encrypted or decrypted data</param>
-    /// <param name="algorithm">Algorithm used for the operation</param>
-    /// <param name="originalSize">Size of the original data before encryption/decryption</param>
-    /// <param name="hardwareAccelerated">Whether hardware acceleration was used</param>
-    /// <param name="durationMs">Operation duration in milliseconds</param>
-    public AeadResult(byte[] data, AeadAlgorithm algorithm, int originalSize, bool hardwareAccelerated, double durationMs)
-    {
-        Data = data;
-        Algorithm = algorithm;
-        OriginalSize = originalSize;
-        HardwareAccelerated = hardwareAccelerated;
-        DurationMs = durationMs;
-    }
+    public double DurationMs { get; } = durationMs;
 }

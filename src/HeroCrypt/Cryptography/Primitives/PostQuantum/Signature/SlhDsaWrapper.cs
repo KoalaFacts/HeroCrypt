@@ -3,7 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography;
 using HeroCrypt.Security;
 
-namespace HeroCrypt.Cryptography.Primitives.PostQuantum.Sphincs;
+namespace HeroCrypt.Cryptography.Primitives.PostQuantum.Signature;
 
 /// <summary>
 /// SLH-DSA (Stateless Hash-Based Digital Signature Algorithm) wrapper for .NET 10+
@@ -59,8 +59,8 @@ public static class SlhDsaWrapper
     [Experimental("SYSLIB5006")]
     public sealed class SlhDsaKeyPair : IDisposable
     {
-        private System.Security.Cryptography.SlhDsa? _key;
-        private bool _disposed;
+        private System.Security.Cryptography.SlhDsa? key;
+        private bool disposed;
 
         /// <summary>
         /// Gets the public key in PEM format
@@ -88,7 +88,7 @@ public static class SlhDsaWrapper
 
         internal SlhDsaKeyPair(System.Security.Cryptography.SlhDsa key, SecurityLevel level)
         {
-            _key = key ?? throw new ArgumentNullException(nameof(key));
+            this.key = key ?? throw new ArgumentNullException(nameof(key));
             Level = level;
             PublicKeyPem = key.ExportSubjectPublicKeyInfoPem();
             SecretKeyPem = key.ExportPkcs8PrivateKeyPem();
@@ -104,11 +104,11 @@ public static class SlhDsaWrapper
         /// <exception cref="CryptographicException">If signing fails</exception>
         public byte[] Sign(byte[] data, byte[]? context = null)
         {
-            ObjectDisposedException.ThrowIf(_disposed, this);
+            ObjectDisposedException.ThrowIf(disposed, this);
 
             ArgumentNullException.ThrowIfNull(data);
 
-            if (_key == null)
+            if (key == null)
             {
                 throw new InvalidOperationException("Key is not available");
             }
@@ -120,11 +120,11 @@ public static class SlhDsaWrapper
 
             if (context == null || context.Length == 0)
             {
-                return _key.SignData(data);
+                return key.SignData(data);
             }
             else
             {
-                return _key.SignData(data, context);
+                return key.SignData(data, context);
             }
         }
 
@@ -136,9 +136,9 @@ public static class SlhDsaWrapper
         /// <returns>The signature</returns>
         public byte[] Sign(ReadOnlySpan<byte> data, ReadOnlySpan<byte> context = default)
         {
-            ObjectDisposedException.ThrowIf(_disposed, this);
+            ObjectDisposedException.ThrowIf(disposed, this);
 
-            if (_key == null)
+            if (key == null)
             {
                 throw new InvalidOperationException("Key is not available");
             }
@@ -149,8 +149,8 @@ public static class SlhDsaWrapper
             }
 
             return context.Length == 0
-                ? _key.SignData(data.ToArray())
-                : _key.SignData(data.ToArray(), context.ToArray());
+                ? key.SignData(data.ToArray())
+                : key.SignData(data.ToArray(), context.ToArray());
         }
 
         /// <summary>
@@ -158,11 +158,11 @@ public static class SlhDsaWrapper
         /// </summary>
         public void Dispose()
         {
-            if (!_disposed)
+            if (!disposed)
             {
-                _key?.Dispose();
-                _key = null;
-                _disposed = true;
+                key?.Dispose();
+                key = null;
+                disposed = true;
             }
         }
     }
@@ -339,7 +339,7 @@ public static class SlhDsaWrapper
         };
     }
 
-    private static System.Security.Cryptography.SlhDsaAlgorithm ToSlhDsaAlgorithm(SecurityLevel level)
+    private static SlhDsaAlgorithm ToSlhDsaAlgorithm(SecurityLevel level)
     {
         // SLH-DSA enum values don't exist yet in .NET 10 - will be added in future release
         throw new NotSupportedException("SLH-DSA is not yet available in .NET 10. The enum values are not defined in the current SDK.");

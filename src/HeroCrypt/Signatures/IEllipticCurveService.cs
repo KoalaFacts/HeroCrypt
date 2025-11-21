@@ -116,35 +116,30 @@ public enum EccCurve
 /// <summary>
 /// Elliptic curve key pair
 /// </summary>
-public readonly struct EccKeyPair
+/// <remarks>
+/// Initializes a new ECC key pair
+/// </remarks>
+/// <param name="privateKey">Private key bytes</param>
+/// <param name="publicKey">Public key bytes</param>
+/// <param name="curve">Elliptic curve</param>
+public readonly struct EccKeyPair(byte[] privateKey, byte[] publicKey, EccCurve curve)
 {
-    /// <summary>
-    /// Initializes a new ECC key pair
-    /// </summary>
-    /// <param name="privateKey">Private key bytes</param>
-    /// <param name="publicKey">Public key bytes</param>
-    /// <param name="curve">Elliptic curve</param>
-    public EccKeyPair(byte[] privateKey, byte[] publicKey, EccCurve curve)
-    {
-        PrivateKey = privateKey ?? throw new ArgumentNullException(nameof(privateKey));
-        PublicKey = publicKey ?? throw new ArgumentNullException(nameof(publicKey));
-        Curve = curve;
-    }
+
 
     /// <summary>
     /// Private key bytes
     /// </summary>
-    public byte[] PrivateKey { get; }
+    public byte[] PrivateKey { get; } = privateKey ?? throw new ArgumentNullException(nameof(privateKey));
 
     /// <summary>
     /// Public key bytes
     /// </summary>
-    public byte[] PublicKey { get; }
+    public byte[] PublicKey { get; } = publicKey ?? throw new ArgumentNullException(nameof(publicKey));
 
     /// <summary>
     /// Elliptic curve used
     /// </summary>
-    public EccCurve Curve { get; }
+    public EccCurve Curve { get; } = curve;
 
     /// <summary>
     /// Gets the private key size in bytes for the curve

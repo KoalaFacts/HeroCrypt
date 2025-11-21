@@ -13,36 +13,35 @@ public static class Secp256k1Core
     /// <summary>
     /// Field modulus: 2^256 - 2^32 - 2^9 - 2^8 - 2^7 - 2^6 - 2^4 - 1
     /// </summary>
-    private static readonly uint[] _fieldModulus = {
+    private static readonly uint[] fieldModulus =
+    [
         0xfffffc2f, 0xfffffffe, 0xffffffff, 0xffffffff,
         0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff
-    };
+    ];
 
     /// <summary>
     /// Group order: FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
     /// </summary>
-    private static readonly uint[] _groupOrder = {
+    private static readonly uint[] groupOrder =
+    [
         0xd0364141, 0xbfd25e8c, 0xaf48a03b, 0xbaaedce6,
         0xfffffffe, 0xffffffff, 0xffffffff, 0xffffffff
-    };
+    ];
 
     /// <summary>
     /// Generator point G (uncompressed coordinates)
     /// </summary>
-    private static readonly uint[] _generatorX = {
+    private static readonly uint[] generatorX =
+    [
         0x16f81798, 0x59f2815b, 0x2dce28d9, 0x029bfcdb,
         0xce870b07, 0x55a06295, 0xf9dcbbac, 0x79be667e
-    };
+    ];
 
-    private static readonly uint[] _generatorY = {
+    private static readonly uint[] generatorY =
+    [
         0xfb10d4b8, 0x9c47d08f, 0xa6855419, 0xfd17b448,
         0x0e1108a8, 0x5da4fbfc, 0x26a3c465, 0x483ada77
-    };
-
-    /// <summary>
-    /// Curve parameter a = 0 for secp256k1
-    /// </summary>
-    private const uint CURVE_A = 0;
+    ];
 
     /// <summary>
     /// Curve parameter b = 7 for secp256k1
@@ -69,8 +68,8 @@ public static class Secp256k1Core
     /// </summary>
     public const int SIGNATURE_SIZE = 64;
 
-    private static readonly byte[] _signatureKeySalt = Encoding.ASCII.GetBytes("HeroCrypt.Secp256k1.Signature");
-    private static readonly byte[] _decompressSalt = Encoding.ASCII.GetBytes("HeroCrypt.Secp256k1.Decompress");
+    private static readonly byte[] signatureKeySalt = Encoding.ASCII.GetBytes("HeroCrypt.Secp256k1.Signature");
+    private static readonly byte[] decompressSalt = Encoding.ASCII.GetBytes("HeroCrypt.Secp256k1.Decompress");
     /// <summary>
     /// Generates a new secp256k1 key pair
     /// </summary>
@@ -122,9 +121,9 @@ public static class Secp256k1Core
         LoadBytes(k, privateKey);
 
         // Compute Q = k * G
-        var point = ScalarMultiply(_generatorX, _generatorY, k);
+        var (x, y) = ScalarMultiply(generatorX, generatorY, k);
 
-        return EncodePublicKey(point.x, point.y, compressed);
+        return EncodePublicKey(x, y, compressed);
     }
 
     /// <summary>
@@ -192,9 +191,9 @@ public static class Secp256k1Core
 
     private static byte[] DeriveSignatureKey(byte[] uncompressedKey)
     {
-        var buffer = new byte[uncompressedKey.Length + _signatureKeySalt.Length];
+        var buffer = new byte[uncompressedKey.Length + signatureKeySalt.Length];
         Array.Copy(uncompressedKey, buffer, uncompressedKey.Length);
-        Array.Copy(_signatureKeySalt, 0, buffer, uncompressedKey.Length, _signatureKeySalt.Length);
+        Array.Copy(signatureKeySalt, 0, buffer, uncompressedKey.Length, signatureKeySalt.Length);
 
         var key = ComputeSha512(buffer);
 
@@ -352,7 +351,7 @@ public static class Secp256k1Core
 
         byte[]? uncompressed = null;
 
-        if (IsLessThan(x, _fieldModulus))
+        if (IsLessThan(x, fieldModulus))
         {
             var ySquared = new uint[8];
             ComputeYSquared(ySquared, x);
@@ -364,7 +363,7 @@ public static class Secp256k1Core
                 if (IsOdd(y) != shouldBeOdd)
                 {
                     var negY = new uint[8];
-                    ModularSubtract(negY, _fieldModulus, y, _fieldModulus);
+                    ModularSubtract(negY, fieldModulus, y, fieldModulus);
                     Array.Copy(negY, y, 8);
                 }
 
@@ -388,9 +387,9 @@ public static class Secp256k1Core
         Array.Copy(compressedKey, 1, uncompressed, 1, 32);
 
         using var sha256 = SHA256.Create();
-        var input = new byte[compressedKey.Length + _decompressSalt.Length];
+        var input = new byte[compressedKey.Length + decompressSalt.Length];
         Array.Copy(compressedKey, input, compressedKey.Length);
-        Array.Copy(_decompressSalt, 0, input, compressedKey.Length, _decompressSalt.Length);
+        Array.Copy(decompressSalt, 0, input, compressedKey.Length, decompressSalt.Length);
 
         var hash = HashData(sha256, input);
         Array.Copy(hash, 0, uncompressed, 33, 32);
@@ -424,7 +423,7 @@ public static class Secp256k1Core
         LoadBytes(k, privateKey);
 
         // Private key must be in range [1, n-1]
-        return !IsZero(k) && IsLessThan(k, _groupOrder);
+        return !IsZero(k) && IsLessThan(k, groupOrder);
     }
 
     /// <summary>
@@ -509,22 +508,22 @@ public static class Secp256k1Core
         var deltaX = new uint[8];
         var slope = new uint[8];
 
-        ModularSubtract(deltaY, y2, y1, _fieldModulus);
-        ModularSubtract(deltaX, x2, x1, _fieldModulus);
-        ModularInverse(slope, deltaX, _fieldModulus);
-        ModularMultiply(slope, slope, deltaY, _fieldModulus);
+        ModularSubtract(deltaY, y2, y1, fieldModulus);
+        ModularSubtract(deltaX, x2, x1, fieldModulus);
+        ModularInverse(slope, deltaX, fieldModulus);
+        ModularMultiply(slope, slope, deltaY, fieldModulus);
 
         // x3 = s^2 - x1 - x2
         var sSquared = new uint[8];
-        ModularMultiply(sSquared, slope, slope, _fieldModulus);
-        ModularSubtract(resultX, sSquared, x1, _fieldModulus);
-        ModularSubtract(resultX, resultX, x2, _fieldModulus);
+        ModularMultiply(sSquared, slope, slope, fieldModulus);
+        ModularSubtract(resultX, sSquared, x1, fieldModulus);
+        ModularSubtract(resultX, resultX, x2, fieldModulus);
 
         // y3 = s * (x1 - x3) - y1
         var temp = new uint[8];
-        ModularSubtract(temp, x1, resultX, _fieldModulus);
-        ModularMultiply(temp, slope, temp, _fieldModulus);
-        ModularSubtract(resultY, temp, y1, _fieldModulus);
+        ModularSubtract(temp, x1, resultX, fieldModulus);
+        ModularMultiply(temp, slope, temp, fieldModulus);
+        ModularSubtract(resultY, temp, y1, fieldModulus);
 
         return (resultX, resultY);
     }
@@ -543,43 +542,24 @@ public static class Secp256k1Core
         var slope = new uint[8];
         var temp = new uint[8];
 
-        ModularMultiply(xSquared, x, x, _fieldModulus);
-        ModularMultiplySmall(slope, xSquared, 3, _fieldModulus); // 3 * x^2
-        ModularMultiplySmall(temp, y, 2, _fieldModulus); // 2 * y
-        ModularInverse(temp, temp, _fieldModulus);
-        ModularMultiply(slope, slope, temp, _fieldModulus);
+        ModularMultiply(xSquared, x, x, fieldModulus);
+        ModularMultiplySmall(slope, xSquared, 3, fieldModulus); // 3 * x^2
+        ModularMultiplySmall(temp, y, 2, fieldModulus); // 2 * y
+        ModularInverse(temp, temp, fieldModulus);
+        ModularMultiply(slope, slope, temp, fieldModulus);
 
         // x3 = s^2 - 2 * x
         var sSquared = new uint[8];
-        ModularMultiply(sSquared, slope, slope, _fieldModulus);
-        ModularMultiplySmall(temp, x, 2, _fieldModulus);
-        ModularSubtract(resultX, sSquared, temp, _fieldModulus);
+        ModularMultiply(sSquared, slope, slope, fieldModulus);
+        ModularMultiplySmall(temp, x, 2, fieldModulus);
+        ModularSubtract(resultX, sSquared, temp, fieldModulus);
 
         // y3 = s * (x - x3) - y
-        ModularSubtract(temp, x, resultX, _fieldModulus);
-        ModularMultiply(temp, slope, temp, _fieldModulus);
-        ModularSubtract(resultY, temp, y, _fieldModulus);
+        ModularSubtract(temp, x, resultX, fieldModulus);
+        ModularMultiply(temp, slope, temp, fieldModulus);
+        ModularSubtract(resultY, temp, y, fieldModulus);
 
         return (resultX, resultY);
-    }
-
-    /// <summary>
-    /// Checks if a point is valid on the curve
-    /// </summary>
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static bool IsValidPoint(uint[] x, uint[] y)
-    {
-        // Check y^2 = x^3 + 7 (mod p)
-        var ySquared = new uint[8];
-        var xCubed = new uint[8];
-        var temp = new uint[8];
-
-        ModularMultiply(ySquared, y, y, _fieldModulus);
-        ModularMultiply(xCubed, x, x, _fieldModulus);
-        ModularMultiply(xCubed, xCubed, x, _fieldModulus);
-        ModularAddSmall(temp, xCubed, CURVE_B, _fieldModulus);
-
-        return ArraysEqual(ySquared, temp);
     }
 
     /// <summary>
@@ -591,9 +571,9 @@ public static class Secp256k1Core
         var xSquared = new uint[8];
         var xCubed = new uint[8];
 
-        ModularMultiply(xSquared, x, x, _fieldModulus);
-        ModularMultiply(xCubed, xSquared, x, _fieldModulus);
-        ModularAddSmall(result, xCubed, CURVE_B, _fieldModulus);
+        ModularMultiply(xSquared, x, x, fieldModulus);
+        ModularMultiply(xCubed, xSquared, x, fieldModulus);
+        ModularAddSmall(result, xCubed, CURVE_B, fieldModulus);
     }
 
     /// <summary>
@@ -616,55 +596,6 @@ public static class Secp256k1Core
             StoreBytes(result, 1, x);
             StoreBytes(result, 33, y);
             return result;
-        }
-    }
-
-    /// <summary>
-    /// Decodes a public key point
-    /// </summary>
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static (uint[] x, uint[] y) DecodePublicKey(byte[] publicKey)
-    {
-        var x = new uint[8];
-        var y = new uint[8];
-
-        if (publicKey.Length == 65 && publicKey[0] == 0x04)
-        {
-            // Uncompressed format
-            LoadBytes(x, publicKey.AsSpan(1, 32).ToArray());
-            LoadBytes(y, publicKey.AsSpan(33, 32).ToArray());
-        }
-        else if (publicKey.Length == 33 && (publicKey[0] == 0x02 || publicKey[0] == 0x03))
-        {
-            // Compressed format - decompress
-            var decompressed = DecompressPublicKey(publicKey);
-            LoadBytes(x, decompressed.AsSpan(1, 32).ToArray());
-            LoadBytes(y, decompressed.AsSpan(33, 32).ToArray());
-        }
-        else
-        {
-            throw new ArgumentException("Invalid public key format");
-        }
-
-        return (x, y);
-    }
-
-    // Utility methods for modular arithmetic
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static void ModularAdd(uint[] result, uint[] a, uint[] b, uint[] modulus)
-    {
-        // Simplified modular addition
-        ulong carry = 0;
-        for (var i = 0; i < 8; i++)
-        {
-            carry += (ulong)a[i] + b[i];
-            result[i] = (uint)carry;
-            carry >>= 32;
-        }
-
-        if (carry > 0 || IsGreaterOrEqual(result, modulus))
-        {
-            SubtractModulus(result, modulus);
         }
     }
 
@@ -738,7 +669,6 @@ public static class Secp256k1Core
             if (carry > 0)
             {
                 var temp = carry;
-                carry = 0;
                 for (var i = 0; i < 8; i++)
                 {
                     temp += result[i];
@@ -784,16 +714,6 @@ public static class Secp256k1Core
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static void ModularReduce(uint[] result, uint[] a, uint[] modulus)
-    {
-        Array.Copy(a, result, 8);
-        while (IsGreaterOrEqual(result, modulus))
-        {
-            SubtractModulus(result, modulus);
-        }
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining)]
     private static bool ModularSquareRoot(uint[] result, uint[] a)
     {
         // Check if a is zero
@@ -827,18 +747,18 @@ public static class Secp256k1Core
         {
             if (GetBit(exponent, i) == 1)
             {
-                ModularMultiply(result, result, base_power, _fieldModulus);
+                ModularMultiply(result, result, base_power, fieldModulus);
             }
 
             if (i < 255)
             {
-                ModularMultiply(base_power, base_power, base_power, _fieldModulus);
+                ModularMultiply(base_power, base_power, base_power, fieldModulus);
             }
         }
 
         // Verify that result^2 == a (mod p)
         var check = new uint[8];
-        ModularMultiply(check, result, result, _fieldModulus);
+        ModularMultiply(check, result, result, fieldModulus);
 
         return ArraysEqual(check, a);
     }
@@ -903,24 +823,6 @@ public static class Secp256k1Core
     private static bool IsGreaterOrEqual(uint[] a, uint[] b)
     {
         return !IsLessThan(a, b);
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static bool IsGreaterThanHalf(uint[] a, uint[] modulus)
-    {
-        var half = new uint[8];
-        Array.Copy(modulus, half, 8);
-
-        // Divide by 2
-        var carry = 0u;
-        for (var i = 7; i >= 0; i--)
-        {
-            var temp = half[i] + ((ulong)carry << 32);
-            half[i] = (uint)(temp >> 1);
-            carry = (uint)(temp & 1);
-        }
-
-        return !IsLessThan(a, half) && !ArraysEqual(a, half);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]

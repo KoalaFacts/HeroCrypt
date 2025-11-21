@@ -26,7 +26,7 @@ internal static class AesSivCore
     /// <summary>
     /// Supported key sizes in bytes (doubled because SIV uses two keys)
     /// </summary>
-    public static readonly int[] SupportedKeySizes = { 32, 48, 64 }; // AES-SIV-128, AES-SIV-192, AES-SIV-256
+    public static readonly int[] SupportedKeySizes = [32, 48, 64]; // AES-SIV-128, AES-SIV-192, AES-SIV-256
 
     /// <summary>
     /// Encrypts plaintext using AES-SIV
@@ -53,7 +53,7 @@ internal static class AesSivCore
 
         // Split key into K1 (MAC key) and K2 (CTR key)
         var keyLength = key.Length / 2;
-        var k1 = key.Slice(0, keyLength);
+        var k1 = key[..keyLength];
         var k2 = key.Slice(keyLength, keyLength);
 
         // Compute SIV = S2V(K1, AD, plaintext, nonce)
@@ -107,22 +107,22 @@ internal static class AesSivCore
 
         // Split key into K1 (MAC key) and K2 (CTR key)
         var keyLength = key.Length / 2;
-        var k1 = key.Slice(0, keyLength);
+        var k1 = key[..keyLength];
         var k2 = key.Slice(keyLength, keyLength);
 
         // Extract SIV from ciphertext
-        var receivedSiv = ciphertext.Slice(0, SIV_SIZE);
-        var ciphertextOnly = ciphertext.Slice(SIV_SIZE);
+        var receivedSiv = ciphertext[..SIV_SIZE];
+        var ciphertextOnly = ciphertext[SIV_SIZE..];
 
         // Decrypt ciphertext using CTR mode
         if (plaintextLength > 0)
         {
-            DecryptCtr(plaintext.Slice(0, plaintextLength), ciphertextOnly, k2, receivedSiv);
+            DecryptCtr(plaintext[..plaintextLength], ciphertextOnly, k2, receivedSiv);
         }
 
         // Compute expected SIV = S2V(K1, AD, plaintext, nonce)
         Span<byte> expectedSiv = stackalloc byte[SIV_SIZE];
-        S2V(expectedSiv, k1, associatedData, plaintext.Slice(0, plaintextLength), nonce);
+        S2V(expectedSiv, k1, associatedData, plaintext[..plaintextLength], nonce);
 
         // Verify SIV in constant time
         var sivMatch = SecureMemoryOperations.ConstantTimeEquals(receivedSiv, expectedSiv);
@@ -133,7 +133,7 @@ internal static class AesSivCore
         if (!sivMatch)
         {
             // Clear plaintext on authentication failure
-            SecureMemoryOperations.SecureClear(plaintext.Slice(0, plaintextLength));
+            SecureMemoryOperations.SecureClear(plaintext[..plaintextLength]);
             return -1;
         }
 
@@ -191,7 +191,7 @@ internal static class AesSivCore
             var combined = ArrayPool<byte>.Shared.Rent(combinedLength);
             try
             {
-                plaintext.Slice(0, xorLen).CopyTo(combined);
+                plaintext[..xorLen].CopyTo(combined);
                 t.CopyTo(combined.AsSpan(xorLen, BLOCK_SIZE));
 
                 AesCmacCore.ComputeTag(output, combined.AsSpan(0, combinedLength), key);
@@ -270,7 +270,7 @@ internal static class AesSivCore
                 // Increment counter (big-endian)
                 IncrementCounter(counterArray);
 
-                remaining = remaining.Slice(blockSize);
+                remaining = remaining[blockSize..];
                 outputOffset += blockSize;
             }
         }

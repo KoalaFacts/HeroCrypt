@@ -4,7 +4,7 @@ using System.Security.Cryptography;
 using HeroCrypt.Security;
 #pragma warning disable SYSLIB5006 // ML-KEM APIs are experimental in .NET 10 preview
 
-namespace HeroCrypt.Cryptography.Primitives.PostQuantum.Kyber;
+namespace HeroCrypt.Cryptography.Primitives.PostQuantum.Kem;
 
 /// <summary>
 /// ML-KEM (Module-Lattice-Based Key Encapsulation Mechanism) wrapper for .NET 10+
@@ -44,8 +44,8 @@ public static class MLKemWrapper
 
     public sealed class MLKemKeyPair : IDisposable
     {
-        private System.Security.Cryptography.MLKem? _key;
-        private bool _disposed;
+        private System.Security.Cryptography.MLKem? key;
+        private bool disposed;
 
         /// <summary>
         /// Gets the public key in PEM format
@@ -73,7 +73,7 @@ public static class MLKemWrapper
 
         internal MLKemKeyPair(System.Security.Cryptography.MLKem key, SecurityLevel level)
         {
-            _key = key ?? throw new ArgumentNullException(nameof(key));
+            this.key = key ?? throw new ArgumentNullException(nameof(key));
             Level = level;
             PublicKeyPem = key.ExportSubjectPublicKeyInfoPem();
             SecretKeyPem = key.ExportPkcs8PrivateKeyPem();
@@ -88,16 +88,16 @@ public static class MLKemWrapper
         /// <exception cref="CryptographicException">If decapsulation fails</exception>
         public byte[] Decapsulate(byte[] ciphertext)
         {
-            ObjectDisposedException.ThrowIf(_disposed, this);
+            ObjectDisposedException.ThrowIf(disposed, this);
 
             ArgumentNullException.ThrowIfNull(ciphertext);
 
-            if (_key == null)
+            if (key == null)
             {
                 throw new InvalidOperationException("Key is not available");
             }
 
-            return _key.Decapsulate(ciphertext);
+            return key.Decapsulate(ciphertext);
         }
 
         /// <summary>
@@ -105,14 +105,14 @@ public static class MLKemWrapper
         /// </summary>
         public void Dispose()
         {
-            if (!_disposed)
+            if (!disposed)
             {
-                _key?.Dispose();
-                _key = null;
+                key?.Dispose();
+                key = null;
 
                 // Note: PEM strings will be cleared by GC, but sensitive key material
                 // in the MLKem object is properly zeroed by its Dispose method
-                _disposed = true;
+                disposed = true;
             }
         }
     }
@@ -128,7 +128,7 @@ public static class MLKemWrapper
         /// </summary>
         public byte[] Ciphertext { get; }
 
-        private byte[] _sharedSecret;
+        private byte[] sharedSecret;
 
         /// <summary>
         /// Gets the shared secret (32 bytes)
@@ -144,18 +144,18 @@ public static class MLKemWrapper
         {
             get
             {
-                ObjectDisposedException.ThrowIf(_disposed, this);
-                return _sharedSecret;
+                ObjectDisposedException.ThrowIf(disposed, this);
+                return sharedSecret;
             }
-            private set => _sharedSecret = value;
+            private set => sharedSecret = value;
         }
 
-        private bool _disposed;
+        private bool disposed;
 
         internal EncapsulationResult(byte[] ciphertext, byte[] sharedSecret)
         {
             Ciphertext = ciphertext ?? throw new ArgumentNullException(nameof(ciphertext));
-            _sharedSecret = sharedSecret ?? throw new ArgumentNullException(nameof(sharedSecret));
+            this.sharedSecret = sharedSecret ?? throw new ArgumentNullException(nameof(sharedSecret));
         }
 
         /// <summary>
@@ -163,14 +163,14 @@ public static class MLKemWrapper
         /// </summary>
         public void Dispose()
         {
-            if (!_disposed)
+            if (!disposed)
             {
-                if (_sharedSecret != null)
+                if (sharedSecret != null)
                 {
-                    SecureMemoryOperations.SecureClear(_sharedSecret);
-                    _sharedSecret = Array.Empty<byte>();
+                    SecureMemoryOperations.SecureClear(sharedSecret);
+                    sharedSecret = [];
                 }
-                _disposed = true;
+                disposed = true;
             }
         }
     }

@@ -46,7 +46,7 @@ namespace HeroCrypt.Hashing;
 /// </example>
 public sealed class Argon2HashingService : IPasswordHashingService
 {
-    private readonly Argon2Options _options;
+    private readonly Argon2Options options;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="Argon2HashingService"/> class with default options.
@@ -67,25 +67,25 @@ public sealed class Argon2HashingService : IPasswordHashingService
     /// <exception cref="ArgumentException">Thrown when options contain invalid values.</exception>
     public Argon2HashingService(Argon2Options options)
     {
-        _options = options ?? throw new ArgumentNullException(nameof(options));
+        this.options = options ?? throw new ArgumentNullException(nameof(options));
 
         // Basic validation
-        if (_options.Iterations < 1)
+        if (this.options.Iterations < 1)
         {
             throw new ArgumentException("Iterations must be positive", nameof(options));
         }
 
-        if (_options.MemorySize < 1)
+        if (this.options.MemorySize < 1)
         {
             throw new ArgumentException("MemorySize must be positive", nameof(options));
         }
 
-        if (_options.Parallelism < 1)
+        if (this.options.Parallelism < 1)
         {
             throw new ArgumentException("Parallelism must be positive", nameof(options));
         }
 
-        if (_options.HashSize < 1)
+        if (this.options.HashSize < 1)
         {
             throw new ArgumentException("HashSize must be positive", nameof(options));
         }
@@ -149,7 +149,7 @@ public sealed class Argon2HashingService : IPasswordHashingService
 
         return await Task.Run(() =>
         {
-            using var salt = new SecureByteArray(_options.SaltSize);
+            using var salt = new SecureByteArray(options.SaltSize);
 
 #if NETSTANDARD2_0
             using (var rng = RandomNumberGenerator.Create())
@@ -167,11 +167,11 @@ public sealed class Argon2HashingService : IPasswordHashingService
                 hash = Argon2Core.Hash(
                     input,
                     s,
-                    _options.Iterations,
-                    _options.MemorySize,
-                    _options.Parallelism,
-                    _options.HashSize,
-                    _options.Type);
+                    options.Iterations,
+                    options.MemorySize,
+                    options.Parallelism,
+                    options.HashSize,
+                    options.Type);
             });
 
             try
@@ -181,11 +181,11 @@ public sealed class Argon2HashingService : IPasswordHashingService
                     throw new InvalidOperationException("Failed to compute Argon2 hash.");
                 }
 
-                var result = new byte[_options.SaltSize + hash.Length];
+                var result = new byte[options.SaltSize + hash.Length];
                 try
                 {
-                    salt.WithBytes(s => Array.Copy(s, 0, result, 0, _options.SaltSize));
-                    Array.Copy(hash, 0, result, _options.SaltSize, hash.Length);
+                    salt.WithBytes(s => Array.Copy(s, 0, result, 0, options.SaltSize));
+                    Array.Copy(hash, 0, result, options.SaltSize, hash.Length);
 
                     return Convert.ToBase64String(result);
                 }
@@ -270,25 +270,25 @@ public sealed class Argon2HashingService : IPasswordHashingService
             {
                 var hashBytes = Convert.FromBase64String(hash);
 
-                if (hashBytes.Length <= _options.SaltSize)
+                if (hashBytes.Length <= options.SaltSize)
                 {
                     return false;
                 }
 
-                var salt = new byte[_options.SaltSize];
-                Array.Copy(hashBytes, 0, salt, 0, _options.SaltSize);
+                var salt = new byte[options.SaltSize];
+                Array.Copy(hashBytes, 0, salt, 0, options.SaltSize);
 
-                var storedHash = new byte[hashBytes.Length - _options.SaltSize];
-                Array.Copy(hashBytes, _options.SaltSize, storedHash, 0, storedHash.Length);
+                var storedHash = new byte[hashBytes.Length - options.SaltSize];
+                Array.Copy(hashBytes, options.SaltSize, storedHash, 0, storedHash.Length);
 
                 var computedHash = Argon2Core.Hash(
                     input,
                     salt,
-                    _options.Iterations,
-                    _options.MemorySize,
-                    _options.Parallelism,
+                    options.Iterations,
+                    options.MemorySize,
+                    options.Parallelism,
                     storedHash.Length,
-                    _options.Type);
+                    options.Type);
 
                 // Use constant-time comparison
                 return SecureMemoryOperations.ConstantTimeEquals(storedHash, computedHash);

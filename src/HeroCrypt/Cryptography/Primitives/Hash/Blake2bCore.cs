@@ -17,10 +17,10 @@ public static class Blake2bCore
     /// Blake2b initialization vectors (first 64 bits of the fractional parts of the square roots of the first 8 primes).
     /// </summary>
     public static readonly ulong[] Blake2bIv =
-    {
+    [
         0x6a09e667f3bcc908UL, 0xbb67ae8584caa73bUL, 0x3c6ef372fe94f82bUL, 0xa54ff53a5f1d36f1UL,
         0x510e527fade682d1UL, 0x9b05688c2b3e6c1fUL, 0x1f83d9abfb41bd6bUL, 0x5be0cd19137e2179UL
-    };
+    ];
 
     /// <summary>
     /// Blake2b message schedule permutation table.
@@ -126,10 +126,10 @@ public static class Blake2bCore
         /// Converts the parameter block to an array of 64-bit words
         /// </summary>
         /// <returns>Parameter block as 8 x 64-bit words</returns>
-        public ulong[] ToWords()
+        public readonly ulong[] ToWords()
         {
-            var words = new ulong[8];
-            var paramBytes = new byte[64];
+            ulong[] words = new ulong[8];
+            byte[] paramBytes = new byte[64];
 
             paramBytes[0] = DigestSize;
             paramBytes[1] = KeyLength;
@@ -147,25 +147,25 @@ public static class Blake2bCore
             paramBytes[16] = NodeDepth;
             paramBytes[17] = InnerLength;
 
-            var reserved = Reserved;
+            byte[]? reserved = Reserved;
             if (reserved != null)
             {
                 Array.Copy(reserved, 0, paramBytes, 18, Math.Min(14, reserved.Length));
             }
 
-            var salt = Salt;
+            byte[]? salt = Salt;
             if (salt != null)
             {
                 Array.Copy(salt, 0, paramBytes, 32, Math.Min(16, salt.Length));
             }
 
-            var personalization = Personalization;
+            byte[]? personalization = Personalization;
             if (personalization != null)
             {
                 Array.Copy(personalization, 0, paramBytes, 48, Math.Min(16, personalization.Length));
             }
 
-            for (var i = 0; i < 8; i++)
+            for (int i = 0; i < 8; i++)
             {
 #if NETSTANDARD2_0
                 words[i] = ReadUInt64LittleEndian(paramBytes, i * 8);
@@ -195,7 +195,7 @@ public static class Blake2bCore
         byte[]? salt = null,
         byte[]? personalization = null)
     {
-        if (outputLength < 1 || outputLength > 64)
+        if (outputLength is < 1 or > 64)
         {
             throw new ArgumentException("Output length must be between 1 and 64 bytes", nameof(outputLength));
         }
@@ -205,7 +205,7 @@ public static class Blake2bCore
             throw new ArgumentException("Key length must not exceed 64 bytes", nameof(key));
         }
 
-        var parameters = Blake2bParams.Default(outputLength);
+        Blake2bParams parameters = Blake2bParams.Default(outputLength);
         parameters.KeyLength = (byte)(key?.Length ?? 0);
 
         if (salt != null)
@@ -247,7 +247,7 @@ public static class Blake2bCore
         }
 
         // Create input with prepended length: LE32(T) || A
-        var inputWithLength = new byte[4 + input.Length];
+        byte[] inputWithLength = new byte[4 + input.Length];
 #if NETSTANDARD2_0
         WriteInt32LittleEndian(inputWithLength, 0, outputLength);
 #else
@@ -263,18 +263,18 @@ public static class Blake2bCore
         else
         {
             // For T > 64: Use multi-stage approach
-            var output = new byte[outputLength];
-            var r = (outputLength + 31) / 32 - 2;
+            byte[] output = new byte[outputLength];
+            int r = ((outputLength + 31) / 32) - 2;
 
             // V_1 = H^(64)(LE32(T) || A)
-            var v = ComputeHash(inputWithLength, 64);
+            byte[] v = ComputeHash(inputWithLength, 64);
 
             // W_1: first 32 bytes of V_1
             Array.Copy(v, 0, output, 0, 32);
-            var position = 32;
+            int position = 32;
 
             // Generate V_2, V_3, ..., V_r
-            for (var i = 1; i < r; i++)
+            for (int i = 1; i < r; i++)
             {
                 v = ComputeHash(v, 64);
                 Array.Copy(v, 0, output, position, 32);
@@ -282,10 +282,10 @@ public static class Blake2bCore
             }
 
             // Final block V_{r+1} with reduced length
-            var finalLength = outputLength - 32 * r;
+            int finalLength = outputLength - (32 * r);
             if (finalLength > 0)
             {
-                var finalBlock = ComputeHash(v, finalLength);
+                byte[] finalBlock = ComputeHash(v, finalLength);
                 Array.Copy(finalBlock, 0, output, position, finalLength);
             }
 
@@ -296,17 +296,17 @@ public static class Blake2bCore
     private static byte[] ComputeHashInternal(byte[] input, Blake2bParams parameters, byte[]? key)
     {
         // Initialize hash state with parameter block
-        var h = new ulong[8];
+        ulong[] h = new ulong[8];
         Array.Copy(Blake2bIv, h, 8);
-        var paramWords = parameters.ToWords();
-        for (var i = 0; i < 8; i++)
+        ulong[] paramWords = parameters.ToWords();
+        for (int i = 0; i < 8; i++)
         {
             h[i] ^= paramWords[i];
         }
 
-        var bytesCompressed = 0;
-        var buffer = new byte[128];
-        var bufferLength = 0;
+        int bytesCompressed = 0;
+        byte[] buffer = new byte[128];
+        int bufferLength = 0;
 
         // If keyed, process the key as the first block
         if (key != null && key.Length > 0)
@@ -316,7 +316,7 @@ public static class Blake2bCore
         }
 
         // Process input
-        for (var i = 0; i < input.Length; i++)
+        for (int i = 0; i < input.Length; i++)
         {
             if (bufferLength == 128)
             {
@@ -333,8 +333,8 @@ public static class Blake2bCore
         Compress(h, buffer, bytesCompressed, true);
 
         // Output hash bytes
-        var output = new byte[parameters.DigestSize];
-        for (var i = 0; i < parameters.DigestSize / 8; i++)
+        byte[] output = new byte[parameters.DigestSize];
+        for (int i = 0; i < parameters.DigestSize / 8; i++)
         {
 #if NETSTANDARD2_0
             WriteUInt64LittleEndian(output, i * 8, h[i]);
@@ -346,13 +346,13 @@ public static class Blake2bCore
         // Handle remaining bytes
         if (parameters.DigestSize % 8 != 0)
         {
-            var lastBytes = new byte[8];
+            byte[] lastBytes = new byte[8];
 #if NETSTANDARD2_0
             WriteUInt64LittleEndian(lastBytes, 0, h[parameters.DigestSize / 8]);
 #else
             BinaryPrimitives.WriteUInt64LittleEndian(lastBytes, h[parameters.DigestSize / 8]);
 #endif
-            Array.Copy(lastBytes, 0, output, (parameters.DigestSize / 8) * 8, parameters.DigestSize % 8);
+            Array.Copy(lastBytes, 0, output, parameters.DigestSize / 8 * 8, parameters.DigestSize % 8);
         }
 
         return output;
@@ -361,8 +361,8 @@ public static class Blake2bCore
     private static void Compress(ulong[] h, byte[] messageBlock, int bytesCompressed, bool isLastBlock)
     {
         // Convert message block to 16 64-bit words
-        var m = new ulong[16];
-        for (var i = 0; i < 16; i++)
+        ulong[] m = new ulong[16];
+        for (int i = 0; i < 16; i++)
         {
 #if NETSTANDARD2_0
             m[i] = ReadUInt64LittleEndian(messageBlock, i * 8);
@@ -372,7 +372,7 @@ public static class Blake2bCore
         }
 
         // Initialize working vector
-        var v = new ulong[16];
+        ulong[] v = new ulong[16];
         Array.Copy(h, v, 8);
         Array.Copy(Blake2bIv, 0, v, 8, 8);
 
@@ -385,7 +385,7 @@ public static class Blake2bCore
         }
 
         // 12 rounds of mixing
-        for (var round = 0; round < 12; round++)
+        for (int round = 0; round < 12; round++)
         {
             // Column step
             G(v, 0, 4, 8, 12, m[Blake2bSigma[round % 10, 0]], m[Blake2bSigma[round % 10, 1]]);
@@ -401,7 +401,7 @@ public static class Blake2bCore
         }
 
         // Finalize hash value
-        for (var i = 0; i < 8; i++)
+        for (int i = 0; i < 8; i++)
         {
             h[i] ^= v[i] ^ v[i + 8];
         }
@@ -458,7 +458,7 @@ public static class Blake2bCore
 
     private static ulong ReadUInt64LittleEndian(byte[] source, int offset)
     {
-        return (ulong)source[offset] |
+        return source[offset] |
                ((ulong)source[offset + 1] << 8) |
                ((ulong)source[offset + 2] << 16) |
                ((ulong)source[offset + 3] << 24) |

@@ -1,9 +1,8 @@
 #if NET10_0_OR_GREATER
 using System.Security.Cryptography;
 using System.Text;
-using HeroCrypt.Cryptography.Primitives.PostQuantum.Dilithium;
-using HeroCrypt.Cryptography.Primitives.PostQuantum.Kyber;
-using HeroCrypt.Cryptography.Primitives.PostQuantum.Sphincs;
+using HeroCrypt.Cryptography.Primitives.PostQuantum.Kem;
+using HeroCrypt.Cryptography.Primitives.PostQuantum.Signature;
 
 namespace HeroCrypt.Tests;
 
@@ -90,9 +89,9 @@ public class PostQuantumIntegrationTests
         // Generate key pairs for 3 recipients
         var recipients = new[]
         {
-            MLKem.GenerateKeyPair(),
-            MLKem.GenerateKeyPair(),
-            MLKem.GenerateKeyPair()
+            MLKemBuilder.Create().GenerateKeyPair(),
+            MLKemBuilder.Create().GenerateKeyPair(),
+            MLKemBuilder.Create().GenerateKeyPair()
         };
 
         try
@@ -102,7 +101,7 @@ public class PostQuantumIntegrationTests
 
             foreach (var recipient in recipients)
             {
-                using var enc = MLKem.Create().WithPublicKey(recipient.PublicKeyPem).Encapsulate();
+                using var enc = MLKemBuilder.Create().WithPublicKey(recipient.PublicKeyPem).Encapsulate();
 
                 byte[] nonce = new byte[12];
                 RandomNumberGenerator.Fill(nonce);
@@ -212,12 +211,12 @@ public class PostQuantumIntegrationTests
         var docBytes = Encoding.UTF8.GetBytes(document);
 
         // Three approvers
-        using var managerKey = MLDsa.Create().WithSecurityLevel(MLDsaWrapper.SecurityLevel.MLDsa65).GenerateKeyPair();
-        using var directorKey = MLDsa.Create().WithSecurityLevel(MLDsaWrapper.SecurityLevel.MLDsa65).GenerateKeyPair();
-        using var cfoKey = MLDsa.Create().WithSecurityLevel(MLDsaWrapper.SecurityLevel.MLDsa87).GenerateKeyPair(); // Higher security
+        using var managerKey = MLDsaBuilder.Create().WithSecurityLevel(MLDsaWrapper.SecurityLevel.MLDsa65).GenerateKeyPair();
+        using var directorKey = MLDsaBuilder.Create().WithSecurityLevel(MLDsaWrapper.SecurityLevel.MLDsa65).GenerateKeyPair();
+        using var cfoKey = MLDsaBuilder.Create().WithSecurityLevel(MLDsaWrapper.SecurityLevel.MLDsa87).GenerateKeyPair(); // Higher security
 
         // Manager signs
-        var managerSig = MLDsa.Create()
+        var managerSig = MLDsaBuilder.Create()
             .WithKeyPair(managerKey)
             .WithData(docBytes)
             .WithContext("approval:manager")
@@ -225,7 +224,7 @@ public class PostQuantumIntegrationTests
 
         // Director signs (including manager's signature)
         var combinedData1 = docBytes.Concat(managerSig).ToArray();
-        var directorSig = MLDsa.Create()
+        var directorSig = MLDsaBuilder.Create()
             .WithKeyPair(directorKey)
             .WithData(combinedData1)
             .WithContext("approval:director")
@@ -233,24 +232,24 @@ public class PostQuantumIntegrationTests
 
         // CFO signs (including both previous signatures)
         var combinedData2 = combinedData1.Concat(directorSig).ToArray();
-        var cfoSig = MLDsa.Create()
+        var cfoSig = MLDsaBuilder.Create()
             .WithKeyPair(cfoKey)
             .WithData(combinedData2)
             .WithContext("approval:cfo")
             .Sign();
 
         // Verify chain of trust (in reverse order)
-        Assert.True(MLDsa.Create()
+        Assert.True(MLDsaBuilder.Create()
             .WithPublicKey(cfoKey.PublicKeyPem)
             .WithData(combinedData2)
             .WithContext("approval:cfo")
             .Verify(cfoSig));
-        Assert.True(MLDsa.Create()
+        Assert.True(MLDsaBuilder.Create()
             .WithPublicKey(directorKey.PublicKeyPem)
             .WithData(combinedData1)
             .WithContext("approval:director")
             .Verify(directorSig));
-        Assert.True(MLDsa.Create()
+        Assert.True(MLDsaBuilder.Create()
             .WithPublicKey(managerKey.PublicKeyPem)
             .WithData(docBytes)
             .WithContext("approval:manager")
@@ -323,10 +322,10 @@ public class PostQuantumIntegrationTests
         var msgBytes = Encoding.UTF8.GetBytes(message);
 
         // Old key (being phased out)
-        using var oldKey = MLDsa.GenerateKeyPair(MLDsaWrapper.SecurityLevel.MLDsa65);
+        using var oldKey = MLDsaWrapper.GenerateKeyPair(MLDsaWrapper.SecurityLevel.MLDsa65);
 
         // New key (being phased in)
-        using var newKey = MLDsa.GenerateKeyPair(MLDsaWrapper.SecurityLevel.MLDsa87);
+        using var newKey = MLDsaWrapper.GenerateKeyPair(MLDsaWrapper.SecurityLevel.MLDsa87);
 
         // Sign with old key
         var oldSignature = oldKey.Sign(msgBytes);
@@ -335,14 +334,14 @@ public class PostQuantumIntegrationTests
         var newSignature = newKey.Sign(msgBytes);
 
         // During transition period, accept both signatures
-        var oldIsValid = MLDsa.Verify(oldKey.PublicKeyPem, msgBytes, oldSignature);
-        var newIsValid = MLDsa.Verify(newKey.PublicKeyPem, msgBytes, newSignature);
+        var oldIsValid = MLDsaBuilder.Create().WithPublicKey(oldKey.PublicKeyPem).WithData(msgBytes).Verify(oldSignature);
+        var newIsValid = MLDsaBuilder.Create().WithPublicKey(newKey.PublicKeyPem).WithData(msgBytes).Verify(newSignature);
 
         Assert.True(oldIsValid);
         Assert.True(newIsValid);
 
         // Cross-verification should fail (different keys)
-        var crossCheck = MLDsa.Verify(newKey.PublicKeyPem, msgBytes, oldSignature);
+        var crossCheck = MLDsaBuilder.Create().WithPublicKey(newKey.PublicKeyPem).WithData(msgBytes).Verify(oldSignature);
         Assert.False(crossCheck);
     }
 
@@ -355,7 +354,7 @@ public class PostQuantumIntegrationTests
         }
 
         // ML-KEM key export/import
-        using var originalKemKey = MLKem.GenerateKeyPair(MLKemWrapper.SecurityLevel.MLKem768);
+        using var originalKemKey = MLKemWrapper.GenerateKeyPair(MLKemWrapper.SecurityLevel.MLKem768);
 
         var publicKeyPem = originalKemKey.PublicKeyPem;
         var secretKeyPem = originalKemKey.SecretKeyPem;
@@ -365,7 +364,7 @@ public class PostQuantumIntegrationTests
         Assert.Contains("-----BEGIN PRIVATE KEY-----", secretKeyPem);
 
         // ML-DSA key export/import
-        using var originalDsaKey = MLDsa.GenerateKeyPair(MLDsaWrapper.SecurityLevel.MLDsa65);
+        using var originalDsaKey = MLDsaWrapper.GenerateKeyPair(MLDsaWrapper.SecurityLevel.MLDsa65);
 
         var dsaPublicPem = originalDsaKey.PublicKeyPem;
         var dsaSecretPem = originalDsaKey.SecretKeyPem;
@@ -392,7 +391,7 @@ public class PostQuantumIntegrationTests
         // Scenario: High-volume signature generation (e.g., timestamping service)
         const int batchSize = 100;
 
-        using var signingKey = MLDsa.GenerateKeyPair(MLDsaWrapper.SecurityLevel.MLDsa65);
+        using var signingKey = MLDsaWrapper.GenerateKeyPair(MLDsaWrapper.SecurityLevel.MLDsa65);
 
         var signatures = new List<(byte[] data, byte[] signature)>();
 
@@ -410,7 +409,7 @@ public class PostQuantumIntegrationTests
         int validCount = 0;
         foreach (var (data, sig) in signatures)
         {
-            if (MLDsa.Verify(signingKey.PublicKeyPem, data, sig))
+            if (MLDsaBuilder.Create().WithPublicKey(signingKey.PublicKeyPem).WithData(data).Verify(sig))
             {
                 validCount++;
             }
@@ -437,8 +436,8 @@ public class PostQuantumIntegrationTests
             {
                 try
                 {
-                    using var keyPair = MLKem.GenerateKeyPair();
-                    using var enc = MLKem.Create().WithPublicKey(keyPair.PublicKeyPem).Encapsulate();
+                    using var keyPair = MLKemWrapper.GenerateKeyPair();
+                    using var enc = MLKemBuilder.Create().WithPublicKey(keyPair.PublicKeyPem).Encapsulate();
                     var recovered = keyPair.Decapsulate(enc.Ciphertext);
                     return enc.SharedSecret.SequenceEqual(recovered);
                 }
@@ -481,7 +480,7 @@ public class PostQuantumIntegrationTests
 
         foreach (var level in kemLevels)
         {
-            using var key = MLKem.GenerateKeyPair(level);
+            using var key = MLKemWrapper.GenerateKeyPair(level);
             Assert.Equal(level, key.Level);
 
             var info = MLKemWrapper.GetLevelInfo(level);
@@ -498,7 +497,7 @@ public class PostQuantumIntegrationTests
 
         foreach (var level in dsaLevels)
         {
-            using var key = MLDsa.GenerateKeyPair(level);
+            using var key = MLDsaWrapper.GenerateKeyPair(level);
             Assert.Equal(level, key.Level);
 
             var info = MLDsaWrapper.GetLevelInfo(level);
@@ -519,7 +518,7 @@ public class PostQuantumIntegrationTests
 
         foreach (var level in slhLevels)
         {
-            using var key = SlhDsa.GenerateKeyPair(level);
+            using var key = SlhDsaWrapper.GenerateKeyPair(level);
             Assert.Equal(level, key.Level);
         }
     }
@@ -539,18 +538,18 @@ public class PostQuantumIntegrationTests
         // Scenario: Secure messaging app (Signal-like) using PQC
 
         // Alice's long-term signing key
-        using var aliceSignKey = MLDsa.GenerateKeyPair(MLDsaWrapper.SecurityLevel.MLDsa65);
+        using var aliceSignKey = MLDsaWrapper.GenerateKeyPair(MLDsaWrapper.SecurityLevel.MLDsa65);
 
         // Bob's long-term signing key and ephemeral encryption key
-        using var bobSignKey = MLDsa.GenerateKeyPair(MLDsaWrapper.SecurityLevel.MLDsa65);
-        using var bobKemKey = MLKem.GenerateKeyPair(MLKemWrapper.SecurityLevel.MLKem768);
+        using var bobSignKey = MLDsaWrapper.GenerateKeyPair(MLDsaWrapper.SecurityLevel.MLDsa65);
+        using var bobKemKey = MLKemWrapper.GenerateKeyPair(MLKemWrapper.SecurityLevel.MLKem768);
 
         // Alice sends message to Bob
         var message = "Hi Bob! 👋";
         var messageBytes = Encoding.UTF8.GetBytes(message);
 
         // 1. Alice establishes shared secret with Bob's KEM key
-        using var encResult = MLKem.Create().WithPublicKey(bobKemKey.PublicKeyPem).Encapsulate();
+        using var encResult = MLKemBuilder.Create().WithPublicKey(bobKemKey.PublicKeyPem).Encapsulate();
 
         // 2. Alice encrypts message with AES-GCM
         byte[] nonce = new byte[12];
@@ -575,7 +574,7 @@ public class PostQuantumIntegrationTests
 
         // 5. Bob verifies signature
         var receivedSigData = encrypted.Concat(nonce).Concat(tag).ToArray();
-        var isSigValid = MLDsa.Verify(aliceSignKey.PublicKeyPem, receivedSigData, signature);
+        var isSigValid = MLDsaWrapper.Verify(aliceSignKey.PublicKeyPem, receivedSigData, signature);
         Assert.True(isSigValid, "Signature verification failed");
 
         // 6. Bob decrypts message
@@ -612,16 +611,16 @@ public class PostQuantumIntegrationTests
             $"{transaction.From}|{transaction.To}|{transaction.Amount}|{transaction.Nonce}|{transaction.Timestamp}");
 
         // Sign with highest security
-        using var walletKey = MLDsa.GenerateKeyPair(MLDsaWrapper.SecurityLevel.MLDsa87);
+        using var walletKey = MLDsaWrapper.GenerateKeyPair(MLDsaWrapper.SecurityLevel.MLDsa87);
 
-        var signature = MLDsa.Create()
+        var signature = MLDsaBuilder.Create()
             .WithKeyPair(walletKey)
             .WithData(txData)
             .WithContext("blockchain-tx-v1")
             .Sign();
 
         // Network validates
-        var isValid = MLDsa.Create()
+        var isValid = MLDsaBuilder.Create()
             .WithPublicKey(walletKey.PublicKeyPem)
             .WithData(txData)
             .WithContext("blockchain-tx-v1")

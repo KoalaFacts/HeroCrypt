@@ -440,7 +440,7 @@ internal static class ScryptCore
     private static int Integerify(ReadOnlySpan<byte> block)
     {
         var offset = block.Length - 64;
-        return (int)(block[offset] | (block[offset + 1] << 8) | (block[offset + 2] << 16) | (block[offset + 3] << 24));
+        return block[offset] | (block[offset + 1] << 8) | (block[offset + 2] << 16) | (block[offset + 3] << 24);
     }
 
     /// <summary>

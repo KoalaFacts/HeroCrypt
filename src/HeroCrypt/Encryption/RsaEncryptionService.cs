@@ -10,9 +10,8 @@ namespace HeroCrypt.Encryption;
 /// </summary>
 public sealed class RsaEncryptionService
 {
-    private readonly int _keySize;
-    private readonly RsaPaddingMode _defaultPadding;
-    private readonly SystemHashAlgorithmName _defaultHashAlgorithm;
+    private readonly RsaPaddingMode defaultPadding;
+    private readonly SystemHashAlgorithmName defaultHashAlgorithm;
 
     /// <summary>
     /// Initializes a new instance of the RSA encryption service
@@ -27,20 +26,20 @@ public sealed class RsaEncryptionService
     {
         InputValidator.ValidateRsaKeySize(keySize, nameof(keySize));
 
-        _keySize = keySize;
-        _defaultPadding = defaultPadding;
-        _defaultHashAlgorithm = defaultHashAlgorithm ?? SystemHashAlgorithmName.SHA256;
+        KeySizeBits = keySize;
+        this.defaultPadding = defaultPadding;
+        this.defaultHashAlgorithm = defaultHashAlgorithm ?? SystemHashAlgorithmName.SHA256;
     }
 
     /// <summary>
     /// Gets the algorithm name
     /// </summary>
-    public string AlgorithmName => $"RSA-{_keySize}";
+    public string AlgorithmName => $"RSA-{KeySizeBits}";
 
     /// <summary>
     /// Gets the key size in bits
     /// </summary>
-    public int KeySizeBits => _keySize;
+    public int KeySizeBits { get; }
 
     /// <summary>
     /// Gets the maximum message size that can be encrypted in bytes
@@ -49,11 +48,11 @@ public sealed class RsaEncryptionService
     {
         get
         {
-            var modulusSize = _keySize / 8;
-            return _defaultPadding switch
+            var modulusSize = KeySizeBits / 8;
+            return defaultPadding switch
             {
                 RsaPaddingMode.Pkcs1 => modulusSize - 11,
-                RsaPaddingMode.Oaep => modulusSize - 2 * (GetHashSize(_defaultHashAlgorithm) / 8) - 2,
+                RsaPaddingMode.Oaep => modulusSize - 2 * (GetHashSize(defaultHashAlgorithm) / 8) - 2,
                 _ => modulusSize - 11
             };
         }
@@ -67,7 +66,7 @@ public sealed class RsaEncryptionService
     {
         try
         {
-            var keyPair = RsaCore.GenerateKeyPair(_keySize);
+            var keyPair = RsaCore.GenerateKeyPair(KeySizeBits);
 
             // Serialize keys to byte arrays
             var privateKey = SerializePrivateKey(keyPair.PrivateKey);
@@ -141,15 +140,15 @@ public sealed class RsaEncryptionService
         InputValidator.ValidateByteArray(data, nameof(data), allowEmpty: false);
         InputValidator.ValidateByteArray(publicKey, nameof(publicKey));
 
-        var actualPadding = padding ?? _defaultPadding;
-        var actualHashAlgorithm = hashAlgorithm ?? _defaultHashAlgorithm;
+        var actualPadding = padding ?? defaultPadding;
+        var actualHashAlgorithm = hashAlgorithm ?? defaultHashAlgorithm;
 
         // Validate message size
         var maxSize = CalculateMaxMessageSize(actualPadding, actualHashAlgorithm);
         if (data.Length > maxSize)
         {
             throw new ArgumentException(
-                $"Data size ({data.Length} bytes) exceeds maximum message size ({maxSize} bytes) for {_keySize}-bit RSA with {actualPadding} padding",
+                $"Data size ({data.Length} bytes) exceeds maximum message size ({maxSize} bytes) for {KeySizeBits}-bit RSA with {actualPadding} padding",
                 nameof(data));
         }
 
@@ -207,8 +206,8 @@ public sealed class RsaEncryptionService
         InputValidator.ValidateByteArray(encryptedData, nameof(encryptedData));
         InputValidator.ValidateByteArray(privateKey, nameof(privateKey));
 
-        var actualPadding = padding ?? _defaultPadding;
-        var actualHashAlgorithm = hashAlgorithm ?? _defaultHashAlgorithm;
+        var actualPadding = padding ?? defaultPadding;
+        var actualHashAlgorithm = hashAlgorithm ?? defaultHashAlgorithm;
 
         try
         {
@@ -239,7 +238,7 @@ public sealed class RsaEncryptionService
 
     private int CalculateMaxMessageSize(RsaPaddingMode padding, SystemHashAlgorithmName hashAlgorithm)
     {
-        var modulusSize = _keySize / 8;
+        var modulusSize = KeySizeBits / 8;
         return padding switch
         {
             RsaPaddingMode.Pkcs1 => modulusSize - 11,

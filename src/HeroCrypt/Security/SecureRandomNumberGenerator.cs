@@ -1,5 +1,10 @@
 using System.Security.Cryptography;
 
+#if NET9_0_OR_GREATER
+using Lock = System.Threading.Lock;
+using LockScope = System.Threading.Lock.Scope;
+#endif
+
 namespace HeroCrypt.Security;
 
 /// <summary>
@@ -7,42 +12,52 @@ namespace HeroCrypt.Security;
 /// </summary>
 public sealed class SecureRandomNumberGenerator : IDisposable
 {
-    private readonly RandomNumberGenerator _primaryRng;
-    private readonly RandomNumberGenerator _secondaryRng;
-    private readonly Timer _healthCheckTimer;
-    private volatile bool _disposed;
-    private volatile bool _healthCheckPassed = true;
+    private readonly RandomNumberGenerator primaryRng;
+    private readonly RandomNumberGenerator secondaryRng;
+    private readonly Timer healthCheckTimer;
+    private volatile bool disposed;
+    private volatile bool healthCheckPassed = true;
 
     // Entropy pool for additional randomness
-    private readonly byte[] _entropyPool = new byte[4096];
-    private readonly object _entropyLock = new();
-    private int _entropyIndex;
-    private long _bytesGenerated;
-    private DateTime _lastHealthCheck = DateTime.UtcNow;
+    private readonly byte[] entropyPool = new byte[4096];
+#if NET9_0_OR_GREATER
+    private readonly Lock entropyLock = new();
+#else
+    private readonly object entropyLock = new();
+#endif
+    private int entropyIndex;
+    private long bytesGenerated;
+    private DateTime lastHealthCheck = DateTime.UtcNow;
+
+#if NET9_0_OR_GREATER
+    private LockScope EnterEntropyLock() => entropyLock.EnterScope();
+#else
+    private IDisposable EnterEntropyLock() => new LockReleaser(entropyLock);
+#endif
 
     /// <summary>
     /// Initializes a new instance of the secure random number generator
     /// </summary>
     public SecureRandomNumberGenerator()
     {
-        _primaryRng = RandomNumberGenerator.Create();
-        _secondaryRng = RandomNumberGenerator.Create();
+        primaryRng = RandomNumberGenerator.Create();
+        secondaryRng = RandomNumberGenerator.Create();
 
         // Initialize entropy pool
         InitializeEntropyPool();
 
         // Set up health check timer (every 5 minutes)
-        _healthCheckTimer = new Timer(PerformHealthCheck, null, TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(5));
+        healthCheckTimer = new Timer(PerformHealthCheck, null, TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(5));
     }
 
     /// <summary>
     /// Gets statistics about the random number generator
     /// </summary>
     public RandomNumberGeneratorStats Statistics => new(
-        _bytesGenerated,
-        _healthCheckPassed,
-        _lastHealthCheck,
-        (_entropyIndex / (double)_entropyPool.Length) * 100
+        bytesGenerated,
+        healthCheckPassed,
+        lastHealthCheck,
+        (entropyIndex / (double)entropyPool.Length) * 100
     );
 
     /// <summary>
@@ -59,11 +74,11 @@ public sealed class SecureRandomNumberGenerator : IDisposable
             return;
         }
 
-        if (!_healthCheckPassed)
+        if (!healthCheckPassed)
         {
             PerformImmediateHealthCheck();
 
-            if (!_healthCheckPassed)
+            if (!healthCheckPassed)
             {
                 throw new CryptographicException("Random number generator failed health check");
             }
@@ -72,13 +87,13 @@ public sealed class SecureRandomNumberGenerator : IDisposable
         try
         {
             // Use primary RNG
-            _primaryRng.GetBytes(buffer);
+            primaryRng.GetBytes(buffer);
 
             // XOR with entropy pool for additional security
             XorWithEntropyPool(buffer);
 
             // Update statistics
-            Interlocked.Add(ref _bytesGenerated, buffer.Length);
+            Interlocked.Add(ref bytesGenerated, buffer.Length);
         }
         catch
         {
@@ -99,12 +114,12 @@ public sealed class SecureRandomNumberGenerator : IDisposable
             return;
         }
 
-        if (!_healthCheckPassed)
+        if (!healthCheckPassed)
         {
 
             PerformImmediateHealthCheck();
 
-            if (!_healthCheckPassed)
+            if (!healthCheckPassed)
             {
                 throw new CryptographicException("Random number generator failed health check");
             }
@@ -114,24 +129,24 @@ public sealed class SecureRandomNumberGenerator : IDisposable
         {
 #if !NETSTANDARD2_0
             // Use primary RNG
-            _primaryRng.GetBytes(span);
+            primaryRng.GetBytes(span);
 
             // XOR with entropy pool for additional security
             XorWithEntropyPool(span);
 
             // Update statistics
-            Interlocked.Add(ref _bytesGenerated, span.Length);
+            Interlocked.Add(ref bytesGenerated, span.Length);
 #else
             // .NET Standard 2.0: Convert span to array
             var buffer = span.ToArray();
-            _primaryRng.GetBytes(buffer);
+            primaryRng.GetBytes(buffer);
 
             // XOR with entropy pool for additional security
             XorWithEntropyPool(buffer);
             buffer.CopyTo(span);
 
             // Update statistics
-            Interlocked.Add(ref _bytesGenerated, span.Length);
+            Interlocked.Add(ref bytesGenerated, span.Length);
 #endif
 
         }
@@ -206,16 +221,12 @@ public sealed class SecureRandomNumberGenerator : IDisposable
         ThrowIfDisposed();
         InputValidator.ValidateByteArray(entropy, nameof(entropy));
 
-        lock (_entropyLock)
+        using var guard = EnterEntropyLock();
+        for (var i = 0; i < entropy.Length; i++)
         {
-            for (var i = 0; i < entropy.Length; i++)
-            {
-                _entropyPool[_entropyIndex] ^= entropy[i];
-                _entropyIndex = (_entropyIndex + 1) % _entropyPool.Length;
-            }
+            entropyPool[entropyIndex] ^= entropy[i];
+            entropyIndex = (entropyIndex + 1) % entropyPool.Length;
         }
-
-
     }
 
     /// <summary>
@@ -229,7 +240,7 @@ public sealed class SecureRandomNumberGenerator : IDisposable
     private void InitializeEntropyPool()
     {
         // Initialize entropy pool with system randomness
-        _primaryRng.GetBytes(_entropyPool);
+        primaryRng.GetBytes(entropyPool);
 
         // Add additional entropy sources
         var additionalEntropy = new byte[256];
@@ -266,7 +277,7 @@ public sealed class SecureRandomNumberGenerator : IDisposable
         // Add to entropy pool
         for (var i = 0; i < additionalEntropy.Length; i++)
         {
-            _entropyPool[i % _entropyPool.Length] ^= additionalEntropy[i];
+            entropyPool[i % entropyPool.Length] ^= additionalEntropy[i];
         }
 
 
@@ -274,33 +285,29 @@ public sealed class SecureRandomNumberGenerator : IDisposable
 
     private void XorWithEntropyPool(Span<byte> buffer)
     {
-        lock (_entropyLock)
+        using var guard = EnterEntropyLock();
+        for (var i = 0; i < buffer.Length; i++)
         {
-            for (var i = 0; i < buffer.Length; i++)
-            {
-                buffer[i] ^= _entropyPool[_entropyIndex];
-                _entropyIndex = (_entropyIndex + 1) % _entropyPool.Length;
-            }
+            buffer[i] ^= entropyPool[entropyIndex];
+            entropyIndex = (entropyIndex + 1) % entropyPool.Length;
         }
     }
 
 #if NETSTANDARD2_0
     private void XorWithEntropyPool(byte[] buffer)
     {
-        lock (_entropyLock)
+        using var guard = EnterEntropyLock();
+        for (var i = 0; i < buffer.Length; i++)
         {
-            for (var i = 0; i < buffer.Length; i++)
-            {
-                buffer[i] ^= _entropyPool[_entropyIndex];
-                _entropyIndex = (_entropyIndex + 1) % _entropyPool.Length;
-            }
+            buffer[i] ^= entropyPool[entropyIndex];
+            entropyIndex = (entropyIndex + 1) % entropyPool.Length;
         }
     }
 #endif
 
     private void PerformHealthCheck(object? state)
     {
-        if (_disposed)
+        if (disposed)
         {
             return;
         }
@@ -311,8 +318,8 @@ public sealed class SecureRandomNumberGenerator : IDisposable
             var testData1 = new byte[1024];
             var testData2 = new byte[1024];
 
-            _primaryRng.GetBytes(testData1);
-            _secondaryRng.GetBytes(testData2);
+            primaryRng.GetBytes(testData1);
+            secondaryRng.GetBytes(testData2);
 
             // Basic health checks
             var passed = true;
@@ -344,8 +351,8 @@ public sealed class SecureRandomNumberGenerator : IDisposable
                 passed = false;
             }
 
-            _healthCheckPassed = passed;
-            _lastHealthCheck = DateTime.UtcNow;
+            healthCheckPassed = passed;
+            lastHealthCheck = DateTime.UtcNow;
 
             // Clear test data
             SecureMemoryOperations.SecureClear(testData1);
@@ -353,7 +360,7 @@ public sealed class SecureRandomNumberGenerator : IDisposable
         }
         catch (CryptographicException)
         {
-            _healthCheckPassed = false;
+            healthCheckPassed = false;
         }
     }
 
@@ -389,9 +396,9 @@ public sealed class SecureRandomNumberGenerator : IDisposable
     private void ThrowIfDisposed()
     {
 #if !NETSTANDARD2_0
-        ObjectDisposedException.ThrowIf(_disposed, nameof(SecureRandomNumberGenerator));
+        ObjectDisposedException.ThrowIf(disposed, nameof(SecureRandomNumberGenerator));
 #else
-        if (_disposed)
+        if (disposed)
         {
             throw new ObjectDisposedException(nameof(SecureRandomNumberGenerator));
         }
@@ -403,19 +410,17 @@ public sealed class SecureRandomNumberGenerator : IDisposable
     /// </summary>
     public void Dispose()
     {
-        if (!_disposed)
+        if (!disposed)
         {
-            _disposed = true;
+            disposed = true;
 
-            _healthCheckTimer?.Dispose();
-            _primaryRng?.Dispose();
-            _secondaryRng?.Dispose();
+            healthCheckTimer?.Dispose();
+            primaryRng?.Dispose();
+            secondaryRng?.Dispose();
 
             // Clear entropy pool
-            lock (_entropyLock)
-            {
-                SecureMemoryOperations.SecureClear(_entropyPool);
-            }
+            using var guard = EnterEntropyLock();
+            SecureMemoryOperations.SecureClear(entropyPool);
 
 
         }

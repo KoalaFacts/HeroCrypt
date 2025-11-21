@@ -240,7 +240,7 @@ public class UserData
 public class EncryptedFilePackage
 {
     public string Filename { get; set; } = string.Empty;
-    public byte[] Nonce { get; set; } = Array.Empty<byte>();
-    public byte[] Ciphertext { get; set; } = Array.Empty<byte>();
+    public byte[] Nonce { get; set; } = [];
+    public byte[] Ciphertext { get; set; } = [];
     public byte[]? EncryptedKey { get; set; }  // DEK encrypted with KEK
 }

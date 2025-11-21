@@ -104,38 +104,38 @@ public interface IKeyDerivationService
 /// <summary>
 /// Represents a hash algorithm name for key derivation.
 /// </summary>
-public struct HashAlgorithmName : IEquatable<HashAlgorithmName>
+public readonly struct HashAlgorithmName : IEquatable<HashAlgorithmName>
 {
-    private readonly string? _name;
+    private readonly string? name;
 
-    private HashAlgorithmName(string name)
+    private HashAlgorithmName(string? name)
     {
-        _name = name;
+        this.name = name;
     }
 
     /// <summary>Gets SHA256 hash algorithm.</summary>
-    public static HashAlgorithmName SHA256 => new("SHA256");
+    public static HashAlgorithmName SHA256 { get; } = new("SHA256");
 
     /// <summary>Gets SHA384 hash algorithm.</summary>
-    public static HashAlgorithmName SHA384 => new("SHA384");
+    public static HashAlgorithmName SHA384 { get; } = new("SHA384");
 
     /// <summary>Gets SHA512 hash algorithm.</summary>
-    public static HashAlgorithmName SHA512 => new("SHA512");
+    public static HashAlgorithmName SHA512 { get; } = new("SHA512");
 
     /// <summary>Gets SHA3-256 hash algorithm.</summary>
-    public static HashAlgorithmName SHA3256 => new("SHA3-256");
+    public static HashAlgorithmName SHA3256 { get; } = new("SHA3-256");
 
     /// <summary>Gets SHA3-384 hash algorithm.</summary>
-    public static HashAlgorithmName SHA3384 => new("SHA3-384");
+    public static HashAlgorithmName SHA3384 { get; } = new("SHA3-384");
 
     /// <summary>Gets SHA3-512 hash algorithm.</summary>
-    public static HashAlgorithmName SHA3512 => new("SHA3-512");
+    public static HashAlgorithmName SHA3512 { get; } = new("SHA3-512");
 
     /// <summary>Gets Blake2b hash algorithm.</summary>
-    public static HashAlgorithmName Blake2b => new("Blake2b");
+    public static HashAlgorithmName Blake2b { get; } = new("Blake2b");
 
     /// <summary>Gets the algorithm name.</summary>
-    public string Name => _name ?? "SHA256";
+    public string Name => name ?? "SHA256";
 
     /// <summary>
     /// Creates a custom hash algorithm name.
@@ -151,15 +151,15 @@ public struct HashAlgorithmName : IEquatable<HashAlgorithmName>
     public override bool Equals(object? obj) => obj is HashAlgorithmName other && Equals(other);
 
     /// <inheritdoc/>
-    public bool Equals(HashAlgorithmName other) => string.Equals(_name, other._name, StringComparison.OrdinalIgnoreCase);
+    public bool Equals(HashAlgorithmName other) => string.Equals(name, other.name, StringComparison.OrdinalIgnoreCase);
 
     /// <inheritdoc/>
     public override int GetHashCode()
     {
 #if NETSTANDARD2_0
-        return _name?.ToUpperInvariant().GetHashCode() ?? 0;
+        return name?.ToUpperInvariant().GetHashCode() ?? 0;
 #else
-        return _name?.GetHashCode(StringComparison.OrdinalIgnoreCase) ?? 0;
+        return name?.GetHashCode(StringComparison.OrdinalIgnoreCase) ?? 0;
 #endif
     }
 

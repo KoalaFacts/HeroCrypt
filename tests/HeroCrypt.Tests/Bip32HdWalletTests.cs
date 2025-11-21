@@ -1,4 +1,3 @@
-using System.Text;
 using HeroCrypt.Cryptography.Protocols;
 
 namespace HeroCrypt.Tests;
@@ -10,8 +9,6 @@ namespace HeroCrypt.Tests;
 /// </summary>
 public class Bip32HdWalletTests
 {
-    private readonly byte[] _testSeed = Encoding.UTF8.GetBytes("test seed for BIP32 wallet implementation 1234567890");
-
     [Fact]
     public void GenerateMasterKey_ValidSeed_Success()
     {

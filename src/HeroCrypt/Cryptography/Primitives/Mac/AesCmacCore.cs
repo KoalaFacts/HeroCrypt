@@ -19,7 +19,7 @@ internal static class AesCmacCore
     /// <summary>
     /// Supported key sizes in bytes
     /// </summary>
-    public static readonly int[] SupportedKeySizes = { 16, 24, 32 }; // AES-128, AES-192, AES-256
+    public static readonly int[] SupportedKeySizes = [16, 24, 32]; // AES-128, AES-192, AES-256
 
     /// <summary>
     /// Computes AES-CMAC tag for given data

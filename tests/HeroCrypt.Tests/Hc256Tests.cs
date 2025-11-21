@@ -8,20 +8,20 @@ namespace HeroCrypt.Tests;
 /// </summary>
 public class Hc256Tests
 {
-    private readonly byte[] _testKey = new byte[32];
-    private readonly byte[] _testIv = new byte[32];
-    private readonly byte[] _testPlaintext = Encoding.UTF8.GetBytes("The quick brown fox jumps over the lazy dog");
+    private readonly byte[] testKey = new byte[32];
+    private readonly byte[] testIv = new byte[32];
+    private readonly byte[] testPlaintext = Encoding.UTF8.GetBytes("The quick brown fox jumps over the lazy dog");
 
     public Hc256Tests()
     {
         // Initialize test key and IV with predictable values
-        for (var i = 0; i < _testKey.Length; i++)
+        for (var i = 0; i < testKey.Length; i++)
         {
-            _testKey[i] = (byte)(i + 1);
+            testKey[i] = (byte)(i + 1);
         }
-        for (var i = 0; i < _testIv.Length; i++)
+        for (var i = 0; i < testIv.Length; i++)
         {
-            _testIv[i] = (byte)(i + 100);
+            testIv[i] = (byte)(i + 100);
         }
     }
 
@@ -29,15 +29,15 @@ public class Hc256Tests
     public void Transform_EncryptDecrypt_RoundTrip_Success()
     {
         // Arrange
-        var plaintext = _testPlaintext;
+        var plaintext = testPlaintext;
         var ciphertext = new byte[plaintext.Length];
         var decrypted = new byte[plaintext.Length];
 
         // Act - Encrypt
-        Hc256Core.Transform(ciphertext, plaintext, _testKey, _testIv);
+        Hc256Core.Transform(ciphertext, plaintext, testKey, testIv);
 
         // Act - Decrypt (HC-256 is symmetric)
-        Hc256Core.Transform(decrypted, ciphertext, _testKey, _testIv);
+        Hc256Core.Transform(decrypted, ciphertext, testKey, testIv);
 
         // Assert
         Assert.Equal(plaintext, decrypted);
@@ -56,13 +56,13 @@ public class Hc256Tests
             key2[i] = (byte)(i + 100);
         }
 
-        var plaintext = _testPlaintext;
+        var plaintext = testPlaintext;
         var ciphertext1 = new byte[plaintext.Length];
         var ciphertext2 = new byte[plaintext.Length];
 
         // Act
-        Hc256Core.Transform(ciphertext1, plaintext, key1, _testIv);
-        Hc256Core.Transform(ciphertext2, plaintext, key2, _testIv);
+        Hc256Core.Transform(ciphertext1, plaintext, key1, testIv);
+        Hc256Core.Transform(ciphertext2, plaintext, key2, testIv);
 
         // Assert - Different keys should produce different ciphertexts
         Assert.NotEqual(ciphertext1, ciphertext2);
@@ -80,13 +80,13 @@ public class Hc256Tests
             iv2[i] = (byte)(i + 100);
         }
 
-        var plaintext = _testPlaintext;
+        var plaintext = testPlaintext;
         var ciphertext1 = new byte[plaintext.Length];
         var ciphertext2 = new byte[plaintext.Length];
 
         // Act
-        Hc256Core.Transform(ciphertext1, plaintext, _testKey, iv1);
-        Hc256Core.Transform(ciphertext2, plaintext, _testKey, iv2);
+        Hc256Core.Transform(ciphertext1, plaintext, testKey, iv1);
+        Hc256Core.Transform(ciphertext2, plaintext, testKey, iv2);
 
         // Assert - Different IVs should produce different ciphertexts
         Assert.NotEqual(ciphertext1, ciphertext2);
@@ -100,20 +100,20 @@ public class Hc256Tests
         var ciphertext = Array.Empty<byte>();
 
         // Act & Assert - Should handle empty input gracefully
-        Hc256Core.Transform(ciphertext, plaintext, _testKey, _testIv);
+        Hc256Core.Transform(ciphertext, plaintext, testKey, testIv);
     }
 
     [Fact]
     public void Transform_SingleByte_Success()
     {
         // Arrange
-        var plaintext = new byte[] { 0x42 };
+        var plaintext = "B"u8.ToArray();
         var ciphertext = new byte[1];
         var decrypted = new byte[1];
 
         // Act
-        Hc256Core.Transform(ciphertext, plaintext, _testKey, _testIv);
-        Hc256Core.Transform(decrypted, ciphertext, _testKey, _testIv);
+        Hc256Core.Transform(ciphertext, plaintext, testKey, testIv);
+        Hc256Core.Transform(decrypted, ciphertext, testKey, testIv);
 
         // Assert
         Assert.Equal(plaintext[0], decrypted[0]);
@@ -130,8 +130,8 @@ public class Hc256Tests
         var decrypted = new byte[largeData.Length];
 
         // Act
-        Hc256Core.Transform(ciphertext, largeData, _testKey, _testIv);
-        Hc256Core.Transform(decrypted, ciphertext, _testKey, _testIv);
+        Hc256Core.Transform(ciphertext, largeData, testKey, testIv);
+        Hc256Core.Transform(decrypted, ciphertext, testKey, testIv);
 
         // Assert
         Assert.Equal(largeData, decrypted);
@@ -142,12 +142,12 @@ public class Hc256Tests
     {
         // Arrange
         var invalidKey = new byte[16]; // Should be 32 bytes
-        var plaintext = _testPlaintext;
+        var plaintext = testPlaintext;
         var ciphertext = new byte[plaintext.Length];
 
         // Act & Assert
         var ex = Assert.Throws<ArgumentException>(() =>
-            Hc256Core.Transform(ciphertext, plaintext, invalidKey, _testIv));
+            Hc256Core.Transform(ciphertext, plaintext, invalidKey, testIv));
         Assert.Contains("32 bytes", ex.Message);
     }
 
@@ -156,12 +156,12 @@ public class Hc256Tests
     {
         // Arrange
         var invalidIv = new byte[16]; // Should be 32 bytes
-        var plaintext = _testPlaintext;
+        var plaintext = testPlaintext;
         var ciphertext = new byte[plaintext.Length];
 
         // Act & Assert
         var ex = Assert.Throws<ArgumentException>(() =>
-            Hc256Core.Transform(ciphertext, plaintext, _testKey, invalidIv));
+            Hc256Core.Transform(ciphertext, plaintext, testKey, invalidIv));
         Assert.Contains("32 bytes", ex.Message);
     }
 
@@ -169,12 +169,12 @@ public class Hc256Tests
     public void Transform_OutputBufferTooSmall_ThrowsException()
     {
         // Arrange
-        var plaintext = _testPlaintext;
+        var plaintext = testPlaintext;
         var ciphertext = new byte[plaintext.Length - 1]; // Too small
 
         // Act & Assert
         var ex = Assert.Throws<ArgumentException>(() =>
-            Hc256Core.Transform(ciphertext, plaintext, _testKey, _testIv));
+            Hc256Core.Transform(ciphertext, plaintext, testKey, testIv));
         Assert.Contains("too small", ex.Message);
     }
 
@@ -182,7 +182,7 @@ public class Hc256Tests
     public void ValidateParameters_ValidInput_DoesNotThrow()
     {
         // Act & Assert - Should not throw
-        Hc256Core.ValidateParameters(_testKey, _testIv);
+        Hc256Core.ValidateParameters(testKey, testIv);
     }
 
     [Fact]
@@ -193,7 +193,7 @@ public class Hc256Tests
 
         // Act & Assert
         Assert.Throws<ArgumentException>(() =>
-            Hc256Core.ValidateParameters(invalidKey, _testIv));
+            Hc256Core.ValidateParameters(invalidKey, testIv));
     }
 
     [Fact]
@@ -204,7 +204,7 @@ public class Hc256Tests
 
         // Act & Assert
         Assert.Throws<ArgumentException>(() =>
-            Hc256Core.ValidateParameters(_testKey, invalidIv));
+            Hc256Core.ValidateParameters(testKey, invalidIv));
     }
 
     [Fact]
@@ -242,8 +242,8 @@ public class Hc256Tests
         var decrypted = new byte[plaintext.Length];
 
         // Act
-        Hc256Core.Transform(ciphertext, plaintext, _testKey, _testIv);
-        Hc256Core.Transform(decrypted, ciphertext, _testKey, _testIv);
+        Hc256Core.Transform(ciphertext, plaintext, testKey, testIv);
+        Hc256Core.Transform(decrypted, ciphertext, testKey, testIv);
 
         // Assert
         Assert.Equal(plaintext, decrypted);
@@ -262,12 +262,12 @@ public class Hc256Tests
         var ciphertext2b = new byte[plaintext2.Length];
 
         // Act - Encrypt same plaintext twice
-        Hc256Core.Transform(ciphertext1a, plaintext1, _testKey, _testIv);
-        Hc256Core.Transform(ciphertext1b, plaintext1, _testKey, _testIv);
+        Hc256Core.Transform(ciphertext1a, plaintext1, testKey, testIv);
+        Hc256Core.Transform(ciphertext1b, plaintext1, testKey, testIv);
 
         // Encrypt different plaintext with same key/IV
-        Hc256Core.Transform(ciphertext2a, plaintext2, _testKey, _testIv);
-        Hc256Core.Transform(ciphertext2b, plaintext2, _testKey, _testIv);
+        Hc256Core.Transform(ciphertext2a, plaintext2, testKey, testIv);
+        Hc256Core.Transform(ciphertext2b, plaintext2, testKey, testIv);
 
         // Assert - Same input should always produce same output
         Assert.Equal(ciphertext1a, ciphertext1b);

@@ -14,12 +14,12 @@ internal static class Hc128Core
     /// <summary>
     /// Key size in bytes (128 bits)
     /// </summary>
-    public const int KeySize = 16;
+    public const int KEY_SIZE = 16;
 
     /// <summary>
     /// IV size in bytes (128 bits)
     /// </summary>
-    public const int IvSize = 16;
+    public const int IV_SIZE = 16;
 
     /// <summary>
     /// HC-128 cipher state container.
@@ -51,13 +51,13 @@ internal static class Hc128Core
     /// <param name="iv">16-byte initialization vector</param>
     public static void Transform(Span<byte> output, ReadOnlySpan<byte> input, ReadOnlySpan<byte> key, ReadOnlySpan<byte> iv)
     {
-        if (key.Length != KeySize)
+        if (key.Length != KEY_SIZE)
         {
-            throw new ArgumentException($"Key must be {KeySize} bytes", nameof(key));
+            throw new ArgumentException($"Key must be {KEY_SIZE} bytes", nameof(key));
         }
-        if (iv.Length != IvSize)
+        if (iv.Length != IV_SIZE)
         {
-            throw new ArgumentException($"IV must be {IvSize} bytes", nameof(iv));
+            throw new ArgumentException($"IV must be {IV_SIZE} bytes", nameof(iv));
         }
         if (output.Length < input.Length)
         {
@@ -278,13 +278,13 @@ internal static class Hc128Core
     /// </summary>
     public static void ValidateParameters(ReadOnlySpan<byte> key, ReadOnlySpan<byte> iv)
     {
-        if (key.Length != KeySize)
+        if (key.Length != KEY_SIZE)
         {
-            throw new ArgumentException($"Key must be {KeySize} bytes", nameof(key));
+            throw new ArgumentException($"Key must be {KEY_SIZE} bytes", nameof(key));
         }
-        if (iv.Length != IvSize)
+        if (iv.Length != IV_SIZE)
         {
-            throw new ArgumentException($"IV must be {IvSize} bytes", nameof(iv));
+            throw new ArgumentException($"IV must be {IV_SIZE} bytes", nameof(iv));
         }
     }
 

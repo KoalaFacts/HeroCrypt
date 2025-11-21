@@ -11,7 +11,7 @@ namespace HeroCrypt.Cryptography.Primitives.Signature.Ecc;
 /// </summary>
 public static class Curve25519Core
 {
-    private const int KeySize = 32;
+    private const int KEY_SIZE = 32;
 
     // Radix-2^25.5 constants
     private const long P25 = 33554431;  // 2^25 - 1
@@ -51,7 +51,7 @@ public static class Curve25519Core
     /// <returns>32-byte private key</returns>
     public static byte[] GeneratePrivateKey()
     {
-        var privateKey = new byte[KeySize];
+        var privateKey = new byte[KEY_SIZE];
         using var rng = RandomNumberGenerator.Create();
         rng.GetBytes(privateKey);
 
@@ -76,12 +76,12 @@ public static class Curve25519Core
             throw new ArgumentNullException(nameof(privateKey));
         }
 #endif
-        if (privateKey.Length != KeySize)
+        if (privateKey.Length != KEY_SIZE)
         {
-            throw new ArgumentException($"Private key must be {KeySize} bytes", nameof(privateKey));
+            throw new ArgumentException($"Private key must be {KEY_SIZE} bytes", nameof(privateKey));
         }
 
-        var basePoint = new byte[KeySize];
+        var basePoint = new byte[KEY_SIZE];
         basePoint[0] = 9;
 
         return ScalarMult(privateKey, basePoint);
@@ -108,13 +108,13 @@ public static class Curve25519Core
             throw new ArgumentNullException(nameof(publicKey));
         }
 #endif
-        if (privateKey.Length != KeySize)
+        if (privateKey.Length != KEY_SIZE)
         {
-            throw new ArgumentException($"Private key must be {KeySize} bytes", nameof(privateKey));
+            throw new ArgumentException($"Private key must be {KEY_SIZE} bytes", nameof(privateKey));
         }
-        if (publicKey.Length != KeySize)
+        if (publicKey.Length != KEY_SIZE)
         {
-            throw new ArgumentException($"Public key must be {KeySize} bytes", nameof(publicKey));
+            throw new ArgumentException($"Public key must be {KEY_SIZE} bytes", nameof(publicKey));
         }
 
         return ScalarMult(privateKey, publicKey);
@@ -137,8 +137,8 @@ public static class Curve25519Core
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static byte[] ScalarMult(byte[] scalar, byte[] point)
     {
-        var clampedScalar = new byte[KeySize];
-        Array.Copy(scalar, clampedScalar, KeySize);
+        var clampedScalar = new byte[KEY_SIZE];
+        Array.Copy(scalar, clampedScalar, KEY_SIZE);
         ClampPrivateKey(clampedScalar);
 
         try
@@ -191,7 +191,7 @@ public static class Curve25519Core
             Recip(t1, z[0]);
             Multiply(dx, x[0], t1);
 
-            var result = new byte[KeySize];
+            var result = new byte[KEY_SIZE];
             Pack(dx, result);
             return result;
         }

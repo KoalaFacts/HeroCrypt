@@ -28,9 +28,9 @@ public sealed class CryptographicKeyGenerator : ICryptographicKeyGenerator
             throw new ArgumentException("Length cannot be negative", nameof(length));
         }
 
-        if (length > InputValidator.MaxArraySize)
+        if (length > InputValidator.MAX_ARRAY_SIZE)
         {
-            throw new ArgumentException($"Length {length} exceeds maximum {InputValidator.MaxArraySize}", nameof(length));
+            throw new ArgumentException($"Length {length} exceeds maximum {InputValidator.MAX_ARRAY_SIZE}", nameof(length));
         }
 
 

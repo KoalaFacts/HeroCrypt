@@ -9,7 +9,7 @@ namespace HeroCrypt.Tests;
 public class KeyDerivationServiceTests
 {
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void PBKDF2_DerivesCorrectLength()
     {
         var service = new KeyDerivationService();
@@ -22,7 +22,7 @@ public class KeyDerivationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void PBKDF2_IsDeterministic()
     {
         var service = new KeyDerivationService();
@@ -36,7 +36,7 @@ public class KeyDerivationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void PBKDF2_DifferentSaltProducesDifferentKeys()
     {
         var service = new KeyDerivationService();
@@ -51,7 +51,7 @@ public class KeyDerivationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void HKDF_DerivesCorrectLength()
     {
         var service = new KeyDerivationService();
@@ -65,7 +65,7 @@ public class KeyDerivationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void HKDF_IsDeterministic()
     {
         var service = new KeyDerivationService();
@@ -78,7 +78,7 @@ public class KeyDerivationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void DeriveKey_WithContext_ProducesConsistentResults()
     {
         var service = new KeyDerivationService();
@@ -93,7 +93,7 @@ public class KeyDerivationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void DeriveKey_DifferentContexts_ProduceDifferentKeys()
     {
         var service = new KeyDerivationService();
@@ -106,7 +106,7 @@ public class KeyDerivationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void PBKDF2_ThrowsOnNullPassword()
     {
         var service = new KeyDerivationService();
@@ -119,7 +119,7 @@ public class KeyDerivationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void PBKDF2_ThrowsOnInvalidIterations()
     {
         var service = new KeyDerivationService();
@@ -133,7 +133,7 @@ public class KeyDerivationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void HKDF_ThrowsOnNullIkm()
     {
         var service = new KeyDerivationService();
@@ -145,7 +145,7 @@ public class KeyDerivationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void DeriveKey_ThrowsOnEmptyContext()
     {
         var service = new KeyDerivationService();
@@ -158,7 +158,7 @@ public class KeyDerivationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Scrypt_DerivesCorrectLength()
     {
         var service = new KeyDerivationService();
@@ -171,7 +171,7 @@ public class KeyDerivationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Scrypt_IsDeterministic()
     {
         var service = new KeyDerivationService();
@@ -185,7 +185,7 @@ public class KeyDerivationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Scrypt_DifferentPasswordsProduceDifferentKeys()
     {
         var service = new KeyDerivationService();
@@ -200,7 +200,7 @@ public class KeyDerivationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Scrypt_DifferentSaltsProduceDifferentKeys()
     {
         var service = new KeyDerivationService();
@@ -215,7 +215,7 @@ public class KeyDerivationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Scrypt_DifferentParametersProduceDifferentKeys()
     {
         var service = new KeyDerivationService();
@@ -229,7 +229,7 @@ public class KeyDerivationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Scrypt_ThrowsOnNullPassword()
     {
         var service = new KeyDerivationService();
@@ -241,7 +241,7 @@ public class KeyDerivationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Scrypt_ThrowsOnNullSalt()
     {
         var service = new KeyDerivationService();
@@ -253,7 +253,7 @@ public class KeyDerivationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Scrypt_ThrowsOnInvalidN()
     {
         var service = new KeyDerivationService();
@@ -270,7 +270,7 @@ public class KeyDerivationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Scrypt_ThrowsOnInvalidR()
     {
         var service = new KeyDerivationService();
@@ -282,7 +282,7 @@ public class KeyDerivationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Scrypt_ThrowsOnInvalidP()
     {
         var service = new KeyDerivationService();
@@ -294,7 +294,7 @@ public class KeyDerivationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Scrypt_ThrowsOnInvalidKeyLength()
     {
         var service = new KeyDerivationService();
@@ -306,7 +306,7 @@ public class KeyDerivationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Compliance)]
+    [Trait("Category", TestCategories.COMPLIANCE)]
     public void Scrypt_RFC7914TestVector1()
     {
         // RFC 7914 Test Vector 1
@@ -323,7 +323,7 @@ public class KeyDerivationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Compliance)]
+    [Trait("Category", TestCategories.COMPLIANCE)]
     public void Scrypt_RFC7914TestVector2()
     {
         // RFC 7914 Test Vector 2 (reduced parameters for faster testing)
@@ -338,7 +338,7 @@ public class KeyDerivationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Scrypt_HandlesLargeOutputLength()
     {
         var service = new KeyDerivationService();
@@ -351,7 +351,7 @@ public class KeyDerivationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Scrypt_HandlesEmptyPassword()
     {
         var service = new KeyDerivationService();
@@ -364,7 +364,7 @@ public class KeyDerivationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Scrypt_HandlesEmptySalt()
     {
         var service = new KeyDerivationService();
@@ -377,7 +377,7 @@ public class KeyDerivationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Compliance)]
+    [Trait("Category", TestCategories.COMPLIANCE)]
     public async Task PBKDF2_Async_WorksCorrectly()
     {
         var service = new KeyDerivationService();
@@ -395,7 +395,7 @@ public class KeyDerivationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Compliance)]
+    [Trait("Category", TestCategories.COMPLIANCE)]
     public async Task HKDF_Async_WorksCorrectly()
     {
         var service = new KeyDerivationService();

@@ -141,16 +141,16 @@ internal static class Encryption
 #if !NETSTANDARD2_0
     private static EncryptionResult EncryptAesGcm(byte[] plaintext, byte[] key, byte[] associatedData)
     {
-        const int nonceSize = 12;
-        const int tagSize = 16;
+        const int NonceSize = 12;
+        const int TagSize = 16;
 
-        var nonce = new byte[nonceSize];
+        var nonce = new byte[NonceSize];
         RandomNumberGenerator.Fill(nonce);
 
-        var ciphertext = new byte[plaintext.Length + tagSize];
-        var tag = ciphertext.AsSpan(plaintext.Length, tagSize);
+        var ciphertext = new byte[plaintext.Length + TagSize];
+        var tag = ciphertext.AsSpan(plaintext.Length, TagSize);
 
-        using var aes = new AesGcm(key, tagSize);
+        using var aes = new AesGcm(key, TagSize);
         aes.Encrypt(nonce, plaintext, ciphertext.AsSpan(0, plaintext.Length), tag, associatedData);
 
         return new EncryptionResult
@@ -162,18 +162,18 @@ internal static class Encryption
 
     private static byte[] DecryptAesGcm(byte[] ciphertext, byte[] key, byte[] nonce, byte[] associatedData)
     {
-        const int tagSize = 16;
+        const int TagSize = 16;
 
-        if (ciphertext.Length < tagSize)
+        if (ciphertext.Length < TagSize)
         {
             throw new CryptographicException("Ciphertext too short");
         }
 
-        var plaintextLength = ciphertext.Length - tagSize;
+        var plaintextLength = ciphertext.Length - TagSize;
         var plaintext = new byte[plaintextLength];
-        var tag = ciphertext.AsSpan(plaintextLength, tagSize);
+        var tag = ciphertext.AsSpan(plaintextLength, TagSize);
 
-        using var aes = new AesGcm(key, tagSize);
+        using var aes = new AesGcm(key, TagSize);
         aes.Decrypt(nonce, ciphertext.AsSpan(0, plaintextLength), tag, plaintext, associatedData);
 
         return plaintext;
@@ -197,14 +197,14 @@ internal static class Encryption
 #if !NETSTANDARD2_0
     private static EncryptionResult EncryptAesCcm(byte[] plaintext, byte[] key, byte[] associatedData)
     {
-        const int nonceSize = 13;
-        const int tagSize = 16;
+        const int NonceSize = 13;
+        const int TagSize = 16;
 
-        var nonce = new byte[nonceSize];
+        var nonce = new byte[NonceSize];
         RandomNumberGenerator.Fill(nonce);
 
-        var ciphertext = new byte[plaintext.Length + tagSize];
-        var tag = ciphertext.AsSpan(plaintext.Length, tagSize);
+        var ciphertext = new byte[plaintext.Length + TagSize];
+        var tag = ciphertext.AsSpan(plaintext.Length, TagSize);
 
         using var aes = new AesCcm(key);
         aes.Encrypt(nonce, plaintext, ciphertext.AsSpan(0, plaintext.Length), tag, associatedData);
@@ -218,16 +218,16 @@ internal static class Encryption
 
     private static byte[] DecryptAesCcm(byte[] ciphertext, byte[] key, byte[] nonce, byte[] associatedData)
     {
-        const int tagSize = 16;
+        const int TagSize = 16;
 
-        if (ciphertext.Length < tagSize)
+        if (ciphertext.Length < TagSize)
         {
             throw new CryptographicException("Ciphertext too short");
         }
 
-        var plaintextLength = ciphertext.Length - tagSize;
+        var plaintextLength = ciphertext.Length - TagSize;
         var plaintext = new byte[plaintextLength];
-        var tag = ciphertext.AsSpan(plaintextLength, tagSize);
+        var tag = ciphertext.AsSpan(plaintextLength, TagSize);
 
         using var aes = new AesCcm(key);
         aes.Decrypt(nonce, ciphertext.AsSpan(0, plaintextLength), tag, plaintext, associatedData);

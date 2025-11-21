@@ -19,37 +19,37 @@ internal static class AesCcmCore
     /// <summary>
     /// Minimum nonce size in bytes (RFC 3610: 7-13 bytes)
     /// </summary>
-    public const int MinNonceSize = 7;
+    public const int MIN_NONCE_SIZE = 7;
 
     /// <summary>
     /// Maximum nonce size in bytes (RFC 3610: 7-13 bytes)
     /// </summary>
-    public const int MaxNonceSize = 13;
+    public const int MAX_NONCE_SIZE = 13;
 
     /// <summary>
     /// Default nonce size in bytes (commonly used in IoT)
     /// </summary>
-    public const int DefaultNonceSize = 13;
+    public const int DEFAULT_NONCE_SIZE = 13;
 
     /// <summary>
     /// Minimum tag size in bytes (RFC 3610: 4, 6, 8, 10, 12, 14, 16)
     /// </summary>
-    public const int MinTagSize = 4;
+    public const int MIN_TAG_SIZE = 4;
 
     /// <summary>
     /// Maximum tag size in bytes (RFC 3610: 4, 6, 8, 10, 12, 14, 16)
     /// </summary>
-    public const int MaxTagSize = 16;
+    public const int MAX_TAG_SIZE = 16;
 
     /// <summary>
     /// Default tag size in bytes (most common)
     /// </summary>
-    public const int DefaultTagSize = 16;
+    public const int DEFAULT_TAG_SIZE = 16;
 
     /// <summary>
     /// AES block size in bytes
     /// </summary>
-    private const int BlockSize = 16;
+    private const int BLOCK_SIZE = 16;
 
     /// <summary>
     /// Encrypts plaintext using AES-CCM
@@ -67,7 +67,7 @@ internal static class AesCcmCore
         ReadOnlySpan<byte> key,
         ReadOnlySpan<byte> nonce,
         ReadOnlySpan<byte> associatedData,
-        int tagSize = DefaultTagSize)
+        int tagSize = DEFAULT_TAG_SIZE)
     {
         ValidateParameters(key, nonce, tagSize, plaintext.Length);
 
@@ -93,7 +93,7 @@ internal static class AesCcmCore
             var tag = ciphertext.Slice(plaintext.Length, tagSize);
 
             // Compute authentication tag using CBC-MAC
-            Span<byte> fullTag = stackalloc byte[BlockSize];
+            Span<byte> fullTag = stackalloc byte[BLOCK_SIZE];
             ComputeTag(fullTag, plaintext, associatedData, nonce, encryptor, tagSize);
 
             // Encrypt plaintext using CTR mode and encrypt tag
@@ -126,7 +126,7 @@ internal static class AesCcmCore
         ReadOnlySpan<byte> key,
         ReadOnlySpan<byte> nonce,
         ReadOnlySpan<byte> associatedData,
-        int tagSize = DefaultTagSize)
+        int tagSize = DEFAULT_TAG_SIZE)
     {
         if (ciphertext.Length < tagSize)
         {
@@ -162,7 +162,7 @@ internal static class AesCcmCore
             DecryptCtr(plaintext.Slice(0, plaintextLength), decryptedTag, ciphertextOnly, receivedTag, nonce, encryptor);
 
             // Compute expected tag
-            Span<byte> expectedTag = stackalloc byte[BlockSize];
+            Span<byte> expectedTag = stackalloc byte[BLOCK_SIZE];
             ComputeTag(expectedTag, plaintext.Slice(0, plaintextLength), associatedData, nonce, encryptor, tagSize);
 
             // Verify tag in constant time
@@ -205,7 +205,7 @@ internal static class AesCcmCore
         var M = tagSize; // M parameter (tag size)
 
         // B_0 = flags | nonce | plaintext_length
-        Span<byte> block = stackalloc byte[BlockSize];
+        Span<byte> block = stackalloc byte[BLOCK_SIZE];
         block.Clear();
 
         // Flags byte: Reserved(1) | Adata(1) | M'(3) | L'(3)
@@ -218,21 +218,21 @@ internal static class AesCcmCore
         nonce.CopyTo(block.Slice(1, nonce.Length));
 
         // Plaintext length (big-endian, L bytes)
-        WriteLength(block.Slice(BlockSize - L, L), plaintext.Length);
+        WriteLength(block.Slice(BLOCK_SIZE - L, L), plaintext.Length);
 
         // Initialize CBC-MAC with B_0
-        Span<byte> mac = stackalloc byte[BlockSize];
-        var macArray = new byte[BlockSize];
-        var blockArray = new byte[BlockSize];
+        Span<byte> mac = stackalloc byte[BLOCK_SIZE];
+        var macArray = new byte[BLOCK_SIZE];
+        var blockArray = new byte[BLOCK_SIZE];
         block.CopyTo(blockArray);
-        aes.TransformBlock(blockArray, 0, BlockSize, macArray, 0);
+        aes.TransformBlock(blockArray, 0, BLOCK_SIZE, macArray, 0);
         macArray.CopyTo(mac);
 
         // Process associated data if present
         if (associatedData.Length > 0)
         {
             // Encode AAD length
-            Span<byte> aadBlock = stackalloc byte[BlockSize];
+            Span<byte> aadBlock = stackalloc byte[BLOCK_SIZE];
             int aadOffset;
 
             if (associatedData.Length < 0xFF00)
@@ -256,7 +256,7 @@ internal static class AesCcmCore
 
             // Copy AAD data and process blocks
             var aadRemaining = associatedData;
-            var firstBlockSpace = BlockSize - aadOffset;
+            var firstBlockSpace = BLOCK_SIZE - aadOffset;
 
             if (aadRemaining.Length <= firstBlockSpace)
             {
@@ -264,7 +264,7 @@ internal static class AesCcmCore
                 aadRemaining.CopyTo(aadBlock.Slice(aadOffset));
                 XorBlock(mac, aadBlock);
                 mac.CopyTo(macArray);
-                aes.TransformBlock(macArray, 0, BlockSize, macArray, 0);
+                aes.TransformBlock(macArray, 0, BLOCK_SIZE, macArray, 0);
                 macArray.CopyTo(mac);
             }
             else
@@ -273,7 +273,7 @@ internal static class AesCcmCore
                 aadRemaining.Slice(0, firstBlockSpace).CopyTo(aadBlock.Slice(aadOffset));
                 XorBlock(mac, aadBlock);
                 mac.CopyTo(macArray);
-                aes.TransformBlock(macArray, 0, BlockSize, macArray, 0);
+                aes.TransformBlock(macArray, 0, BLOCK_SIZE, macArray, 0);
                 macArray.CopyTo(mac);
                 aadRemaining = aadRemaining.Slice(firstBlockSpace);
 
@@ -281,11 +281,11 @@ internal static class AesCcmCore
                 while (aadRemaining.Length > 0)
                 {
                     aadBlock.Clear();
-                    var copyLen = Math.Min(BlockSize, aadRemaining.Length);
+                    var copyLen = Math.Min(BLOCK_SIZE, aadRemaining.Length);
                     aadRemaining.Slice(0, copyLen).CopyTo(aadBlock);
                     XorBlock(mac, aadBlock);
                     mac.CopyTo(macArray);
-                    aes.TransformBlock(macArray, 0, BlockSize, macArray, 0);
+                    aes.TransformBlock(macArray, 0, BLOCK_SIZE, macArray, 0);
                     macArray.CopyTo(mac);
                     aadRemaining = aadRemaining.Slice(copyLen);
                 }
@@ -297,11 +297,11 @@ internal static class AesCcmCore
         while (remaining.Length > 0)
         {
             block.Clear();
-            var copyLen = Math.Min(BlockSize, remaining.Length);
+            var copyLen = Math.Min(BLOCK_SIZE, remaining.Length);
             remaining.Slice(0, copyLen).CopyTo(block);
             XorBlock(mac, block);
             mac.CopyTo(macArray);
-            aes.TransformBlock(macArray, 0, BlockSize, macArray, 0);
+            aes.TransformBlock(macArray, 0, BLOCK_SIZE, macArray, 0);
             macArray.CopyTo(mac);
             remaining = remaining.Slice(copyLen);
         }
@@ -325,15 +325,15 @@ internal static class AesCcmCore
         var L = 15 - nonce.Length;
 
         // A_i = flags | nonce | counter
-        Span<byte> counter = stackalloc byte[BlockSize];
-        Span<byte> keystream = stackalloc byte[BlockSize];
+        Span<byte> counter = stackalloc byte[BLOCK_SIZE];
+        Span<byte> keystream = stackalloc byte[BLOCK_SIZE];
 
         // Flags for CTR mode: L' = L - 1
         var flags = (byte)(L - 1);
 
         // Reusable arrays for AES transform (avoid memory leaks in loops)
-        var keystreamArray = new byte[BlockSize];
-        var counterArray = new byte[BlockSize];
+        var keystreamArray = new byte[BLOCK_SIZE];
+        var counterArray = new byte[BLOCK_SIZE];
 
         // Encrypt tag with A_0 (counter = 0)
         counter.Clear();
@@ -341,7 +341,7 @@ internal static class AesCcmCore
         nonce.CopyTo(counter.Slice(1, nonce.Length));
         // Counter bytes already 0
         counter.CopyTo(counterArray);
-        aes.TransformBlock(counterArray, 0, BlockSize, keystreamArray, 0);
+        aes.TransformBlock(counterArray, 0, BLOCK_SIZE, keystreamArray, 0);
         keystreamArray.CopyTo(keystream);
 
         for (var i = 0; i < tag.Length; i++)
@@ -360,15 +360,15 @@ internal static class AesCcmCore
             counter.Clear();
             counter[0] = flags;
             nonce.CopyTo(counter.Slice(1, nonce.Length));
-            WriteLength(counter.Slice(BlockSize - L, L), ctrValue);
+            WriteLength(counter.Slice(BLOCK_SIZE - L, L), ctrValue);
 
             // Generate keystream
             counter.CopyTo(counterArray);
-            aes.TransformBlock(counterArray, 0, BlockSize, keystreamArray, 0);
+            aes.TransformBlock(counterArray, 0, BLOCK_SIZE, keystreamArray, 0);
             keystreamArray.CopyTo(keystream);
 
             // XOR with plaintext
-            var blockSize = Math.Min(BlockSize, remaining.Length);
+            var blockSize = Math.Min(BLOCK_SIZE, remaining.Length);
             for (var i = 0; i < blockSize; i++)
             {
                 ciphertext[outputOffset + i] = (byte)(remaining[i] ^ keystream[i]);
@@ -399,22 +399,22 @@ internal static class AesCcmCore
         var L = 15 - nonce.Length;
 
         // A_i = flags | nonce | counter
-        Span<byte> counter = stackalloc byte[BlockSize];
-        Span<byte> keystream = stackalloc byte[BlockSize];
+        Span<byte> counter = stackalloc byte[BLOCK_SIZE];
+        Span<byte> keystream = stackalloc byte[BLOCK_SIZE];
 
         // Flags for CTR mode: L' = L - 1
         var flags = (byte)(L - 1);
 
         // Reusable arrays for AES transform (avoid memory leaks in loops)
-        var keystreamArray = new byte[BlockSize];
-        var counterArray = new byte[BlockSize];
+        var keystreamArray = new byte[BLOCK_SIZE];
+        var counterArray = new byte[BLOCK_SIZE];
 
         // Decrypt tag with A_0 (counter = 0)
         counter.Clear();
         counter[0] = flags;
         nonce.CopyTo(counter.Slice(1, nonce.Length));
         counter.CopyTo(counterArray);
-        aes.TransformBlock(counterArray, 0, BlockSize, keystreamArray, 0);
+        aes.TransformBlock(counterArray, 0, BLOCK_SIZE, keystreamArray, 0);
         keystreamArray.CopyTo(keystream);
 
         for (var i = 0; i < encryptedTag.Length; i++)
@@ -433,15 +433,15 @@ internal static class AesCcmCore
             counter.Clear();
             counter[0] = flags;
             nonce.CopyTo(counter.Slice(1, nonce.Length));
-            WriteLength(counter.Slice(BlockSize - L, L), ctrValue);
+            WriteLength(counter.Slice(BLOCK_SIZE - L, L), ctrValue);
 
             // Generate keystream
             counter.CopyTo(counterArray);
-            aes.TransformBlock(counterArray, 0, BlockSize, keystreamArray, 0);
+            aes.TransformBlock(counterArray, 0, BLOCK_SIZE, keystreamArray, 0);
             keystreamArray.CopyTo(keystream);
 
             // XOR with ciphertext
-            var blockSize = Math.Min(BlockSize, remaining.Length);
+            var blockSize = Math.Min(BLOCK_SIZE, remaining.Length);
             for (var i = 0; i < blockSize; i++)
             {
                 plaintext[outputOffset + i] = (byte)(remaining[i] ^ keystream[i]);
@@ -476,7 +476,7 @@ internal static class AesCcmCore
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void XorBlock(Span<byte> mac, ReadOnlySpan<byte> block)
     {
-        for (var i = 0; i < BlockSize; i++)
+        for (var i = 0; i < BLOCK_SIZE; i++)
         {
             mac[i] ^= block[i];
         }
@@ -492,14 +492,14 @@ internal static class AesCcmCore
             throw new ArgumentException($"Key must be 16, 24, or 32 bytes (AES-128/192/256)", nameof(key));
         }
 
-        if (nonce.Length < MinNonceSize || nonce.Length > MaxNonceSize)
+        if (nonce.Length < MIN_NONCE_SIZE || nonce.Length > MAX_NONCE_SIZE)
         {
-            throw new ArgumentException($"Nonce must be {MinNonceSize}-{MaxNonceSize} bytes", nameof(nonce));
+            throw new ArgumentException($"Nonce must be {MIN_NONCE_SIZE}-{MAX_NONCE_SIZE} bytes", nameof(nonce));
         }
 
-        if (tagSize < MinTagSize || tagSize > MaxTagSize || tagSize % 2 != 0)
+        if (tagSize < MIN_TAG_SIZE || tagSize > MAX_TAG_SIZE || tagSize % 2 != 0)
         {
-            throw new ArgumentException($"Tag size must be an even number between {MinTagSize} and {MaxTagSize} bytes", nameof(tagSize));
+            throw new ArgumentException($"Tag size must be an even number between {MIN_TAG_SIZE} and {MAX_TAG_SIZE} bytes", nameof(tagSize));
         }
 
         var L = 15 - nonce.Length;
@@ -516,9 +516,9 @@ internal static class AesCcmCore
     /// </summary>
     public static long GetMaxPlaintextLength(int nonceSize)
     {
-        if (nonceSize < MinNonceSize || nonceSize > MaxNonceSize)
+        if (nonceSize < MIN_NONCE_SIZE || nonceSize > MAX_NONCE_SIZE)
         {
-            throw new ArgumentException($"Nonce size must be {MinNonceSize}-{MaxNonceSize} bytes");
+            throw new ArgumentException($"Nonce size must be {MIN_NONCE_SIZE}-{MAX_NONCE_SIZE} bytes");
         }
 
         var L = 15 - nonceSize;

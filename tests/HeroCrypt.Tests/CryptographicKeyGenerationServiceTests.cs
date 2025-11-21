@@ -8,7 +8,7 @@ namespace HeroCrypt.Tests;
 public class CryptographicKeyGenerationServiceTests
 {
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Constructor_InitializesCorrectly()
     {
         var service = new CryptographicKeyGenerator();
@@ -17,7 +17,7 @@ public class CryptographicKeyGenerationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void GenerateRandomBytes_WithValidLength_ReturnsCorrectLength()
     {
         var service = new CryptographicKeyGenerator();
@@ -28,7 +28,7 @@ public class CryptographicKeyGenerationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void GenerateRandomBytes_WithZeroLength_ReturnsEmptyArray()
     {
         var service = new CryptographicKeyGenerator();
@@ -38,7 +38,7 @@ public class CryptographicKeyGenerationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void GenerateRandomBytes_WithNegativeLength_ThrowsException()
     {
         var service = new CryptographicKeyGenerator();
@@ -48,7 +48,7 @@ public class CryptographicKeyGenerationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void GenerateRandomBytes_ProducesUniqueValues()
     {
         var service = new CryptographicKeyGenerator();
@@ -60,7 +60,7 @@ public class CryptographicKeyGenerationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public async Task GenerateRandomBytesAsync_WorksCorrectly()
     {
         var service = new CryptographicKeyGenerator();
@@ -71,7 +71,7 @@ public class CryptographicKeyGenerationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public async Task GenerateRandomBytesAsync_WithCancellation_ThrowsWhenCancelled()
     {
         var service = new CryptographicKeyGenerator();
@@ -83,7 +83,7 @@ public class CryptographicKeyGenerationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void GenerateSymmetricKey_WithValidLength_ReturnsCorrectLength()
     {
         var service = new CryptographicKeyGenerator();
@@ -94,7 +94,7 @@ public class CryptographicKeyGenerationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void GenerateSymmetricKey_Aes128_Returns16Bytes()
     {
         var service = new CryptographicKeyGenerator();
@@ -105,7 +105,7 @@ public class CryptographicKeyGenerationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void GenerateSymmetricKey_Aes192_Returns24Bytes()
     {
         var service = new CryptographicKeyGenerator();
@@ -116,7 +116,7 @@ public class CryptographicKeyGenerationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void GenerateSymmetricKey_Aes256_Returns32Bytes()
     {
         var service = new CryptographicKeyGenerator();
@@ -127,7 +127,7 @@ public class CryptographicKeyGenerationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void GenerateSymmetricKey_ChaCha20_Returns32Bytes()
     {
         var service = new CryptographicKeyGenerator();
@@ -138,7 +138,7 @@ public class CryptographicKeyGenerationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void GenerateSymmetricKey_ChaCha20Poly1305_Returns32Bytes()
     {
         var service = new CryptographicKeyGenerator();
@@ -149,7 +149,7 @@ public class CryptographicKeyGenerationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void GenerateIV_WithValidLength_ReturnsCorrectLength()
     {
         var service = new CryptographicKeyGenerator();
@@ -160,7 +160,7 @@ public class CryptographicKeyGenerationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void GenerateIV_Aes128_Returns16Bytes()
     {
         var service = new CryptographicKeyGenerator();
@@ -171,7 +171,7 @@ public class CryptographicKeyGenerationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void GenerateIV_ChaCha20_Returns12Bytes()
     {
         var service = new CryptographicKeyGenerator();
@@ -182,7 +182,7 @@ public class CryptographicKeyGenerationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void GenerateSalt_DefaultLength_Returns32Bytes()
     {
         var service = new CryptographicKeyGenerator();
@@ -193,7 +193,7 @@ public class CryptographicKeyGenerationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void GenerateSalt_CustomLength_ReturnsCorrectLength()
     {
         var service = new CryptographicKeyGenerator();
@@ -204,7 +204,7 @@ public class CryptographicKeyGenerationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void GenerateNonce_WithValidLength_ReturnsCorrectLength()
     {
         var service = new CryptographicKeyGenerator();
@@ -215,7 +215,7 @@ public class CryptographicKeyGenerationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void GenerateNonce_ChaCha20_Returns12Bytes()
     {
         var service = new CryptographicKeyGenerator();
@@ -226,7 +226,7 @@ public class CryptographicKeyGenerationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void GenerateNonce_AesGcm_Returns12Bytes()
     {
         var service = new CryptographicKeyGenerator();
@@ -237,7 +237,7 @@ public class CryptographicKeyGenerationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void GenerateRsaKeyPair_DefaultSize_ReturnsValidKeyPair()
     {
         var service = new CryptographicKeyGenerator();
@@ -252,7 +252,7 @@ public class CryptographicKeyGenerationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void GenerateRsaKeyPair_2048Bits_ReturnsValidKeyPair()
     {
         var service = new CryptographicKeyGenerator();
@@ -266,7 +266,7 @@ public class CryptographicKeyGenerationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void GenerateRsaKeyPair_InvalidKeySize_ThrowsException()
     {
         var service = new CryptographicKeyGenerator();
@@ -276,7 +276,7 @@ public class CryptographicKeyGenerationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void GenerateRsaKeyPair_NonMultipleOf8_ThrowsException()
     {
         var service = new CryptographicKeyGenerator();
@@ -286,7 +286,7 @@ public class CryptographicKeyGenerationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public async Task GenerateRsaKeyPairAsync_WorksCorrectly()
     {
         var service = new CryptographicKeyGenerator();
@@ -300,7 +300,7 @@ public class CryptographicKeyGenerationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void GenerateHmacKey_SHA256_Returns32Bytes()
     {
         var service = new CryptographicKeyGenerator();
@@ -311,7 +311,7 @@ public class CryptographicKeyGenerationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void GenerateHmacKey_SHA384_Returns48Bytes()
     {
         var service = new CryptographicKeyGenerator();
@@ -322,7 +322,7 @@ public class CryptographicKeyGenerationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void GenerateHmacKey_SHA512_Returns64Bytes()
     {
         var service = new CryptographicKeyGenerator();
@@ -333,7 +333,7 @@ public class CryptographicKeyGenerationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void GenerateHmacKey_Blake2b_Returns64Bytes()
     {
         var service = new CryptographicKeyGenerator();
@@ -344,7 +344,7 @@ public class CryptographicKeyGenerationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void GenerateKeyDerivationMaterial_DefaultLength_Returns32Bytes()
     {
         var service = new CryptographicKeyGenerator();
@@ -355,7 +355,7 @@ public class CryptographicKeyGenerationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void GenerateKeyDerivationMaterial_CustomLength_ReturnsCorrectLength()
     {
         var service = new CryptographicKeyGenerator();
@@ -366,7 +366,7 @@ public class CryptographicKeyGenerationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void ValidateKeyMaterial_ValidAesKey_ReturnsTrue()
     {
         var service = new CryptographicKeyGenerator();
@@ -378,7 +378,7 @@ public class CryptographicKeyGenerationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void ValidateKeyMaterial_TooShortKey_ReturnsFalse()
     {
         var service = new CryptographicKeyGenerator();
@@ -390,7 +390,7 @@ public class CryptographicKeyGenerationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void ValidateKeyMaterial_AllZeroKey_ReturnsFalse()
     {
         var service = new CryptographicKeyGenerator();
@@ -402,7 +402,7 @@ public class CryptographicKeyGenerationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void ValidateKeyMaterial_NullKey_ReturnsFalse()
     {
         var service = new CryptographicKeyGenerator();
@@ -413,7 +413,7 @@ public class CryptographicKeyGenerationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void ValidateKeyMaterial_EmptyAlgorithm_ReturnsFalse()
     {
         var service = new CryptographicKeyGenerator();
@@ -425,7 +425,7 @@ public class CryptographicKeyGenerationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void GenerateSecurePassword_DefaultLength_Returns32Characters()
     {
         var service = new CryptographicKeyGenerator();
@@ -436,7 +436,7 @@ public class CryptographicKeyGenerationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void GenerateSecurePassword_CustomLength_ReturnsCorrectLength()
     {
         var service = new CryptographicKeyGenerator();
@@ -447,7 +447,7 @@ public class CryptographicKeyGenerationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void GenerateSecurePassword_WithSymbols_ContainsSymbols()
     {
         var service = new CryptographicKeyGenerator();
@@ -459,7 +459,7 @@ public class CryptographicKeyGenerationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void GenerateSecurePassword_WithNumbers_ContainsNumbers()
     {
         var service = new CryptographicKeyGenerator();
@@ -470,7 +470,7 @@ public class CryptographicKeyGenerationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void GenerateSecurePassword_WithUppercase_ContainsUppercase()
     {
         var service = new CryptographicKeyGenerator();
@@ -481,7 +481,7 @@ public class CryptographicKeyGenerationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void GenerateSecurePassword_WithLowercase_ContainsLowercase()
     {
         var service = new CryptographicKeyGenerator();
@@ -492,7 +492,7 @@ public class CryptographicKeyGenerationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void GenerateSecurePassword_AllCharacterSetsDisabled_ThrowsException()
     {
         var service = new CryptographicKeyGenerator();
@@ -503,7 +503,7 @@ public class CryptographicKeyGenerationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void GenerateSecurePassword_ZeroLength_ThrowsException()
     {
         var service = new CryptographicKeyGenerator();
@@ -513,7 +513,7 @@ public class CryptographicKeyGenerationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void GenerateSecurePassword_ProducesUniquePasswords()
     {
         var service = new CryptographicKeyGenerator();
@@ -525,7 +525,7 @@ public class CryptographicKeyGenerationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void MultipleGenerations_ProduceUniqueResults()
     {
         var service = new CryptographicKeyGenerator();
@@ -543,7 +543,7 @@ public class CryptographicKeyGenerationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Compliance)]
+    [Trait("Category", TestCategories.COMPLIANCE)]
     public void KeyGeneration_ProducesHighEntropyKeys()
     {
         var service = new CryptographicKeyGenerator();
@@ -566,7 +566,7 @@ public class CryptographicKeyGenerationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Service_HandlesLargeKeyGeneration()
     {
         var service = new CryptographicKeyGenerator();
@@ -581,7 +581,7 @@ public class CryptographicKeyGenerationServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public async Task Service_ThreadSafety_MultipleThreadsCanGenerate()
     {
         var service = new CryptographicKeyGenerator();

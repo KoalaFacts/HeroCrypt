@@ -12,7 +12,7 @@ internal static class HkdfCore
     /// <summary>
     /// Maximum output key material length for HKDF-Expand
     /// </summary>
-    public const int MaxOutputLength = 255 * 64; // 255 * hash_len for SHA-512
+    public const int MAX_OUTPUT_LENGTH = 255 * 64; // 255 * hash_len for SHA-512
 
     /// <summary>
     /// Performs HKDF key derivation (Extract + Expand)
@@ -243,7 +243,7 @@ internal static class HkdfCore
     /// <summary>
     /// Gets the maximum output length for a given hash algorithm
     /// </summary>
-    public static int GetMaxOutputLength(HashAlgorithmName hashAlgorithm)
+    public static int GetMAX_OUTPUT_LENGTH(HashAlgorithmName hashAlgorithm)
     {
         return 255 * GetHashLength(hashAlgorithm);
     }

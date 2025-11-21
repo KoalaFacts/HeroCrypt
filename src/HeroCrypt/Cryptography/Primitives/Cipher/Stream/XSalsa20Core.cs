@@ -11,24 +11,24 @@ namespace HeroCrypt.Cryptography.Primitives.Cipher.Stream;
 public static class XSalsa20Core
 {
     /// <summary>
-    /// Salsa20 constants "expand 32-byte k"
+    /// Salsa20 _constants "expand 32-byte k"
     /// </summary>
-    private static readonly uint[] Constants = { 0x61707865, 0x3320646e, 0x79622d32, 0x6b206574 };
+    private static readonly uint[] _constants = { 0x61707865, 0x3320646e, 0x79622d32, 0x6b206574 };
 
     /// <summary>
     /// Key size in bytes
     /// </summary>
-    public const int KeySize = 32;
+    public const int KEY_SIZE = 32;
 
     /// <summary>
     /// Extended nonce size in bytes
     /// </summary>
-    public const int NonceSize = 24;
+    public const int NONCE_SIZE = 24;
 
     /// <summary>
     /// Block size in bytes
     /// </summary>
-    public const int BlockSize = 64;
+    public const int BLOCK_SIZE = 64;
 
     /// <summary>
     /// Encrypts or decrypts data using XSalsa20
@@ -41,13 +41,13 @@ public static class XSalsa20Core
     public static void Transform(Span<byte> output, ReadOnlySpan<byte> input, ReadOnlySpan<byte> key,
         ReadOnlySpan<byte> nonce, uint counter = 0)
     {
-        if (key.Length != KeySize)
+        if (key.Length != KEY_SIZE)
         {
-            throw new ArgumentException($"Key must be {KeySize} bytes", nameof(key));
+            throw new ArgumentException($"Key must be {KEY_SIZE} bytes", nameof(key));
         }
-        if (nonce.Length != NonceSize)
+        if (nonce.Length != NONCE_SIZE)
         {
-            throw new ArgumentException($"Nonce must be {NonceSize} bytes", nameof(nonce));
+            throw new ArgumentException($"Nonce must be {NONCE_SIZE} bytes", nameof(nonce));
         }
         if (output.Length < input.Length)
         {
@@ -62,15 +62,15 @@ public static class XSalsa20Core
         try
         {
             Span<uint> state = stackalloc uint[16];
-            var blocks = (input.Length + BlockSize - 1) / BlockSize;
+            var blocks = (input.Length + BLOCK_SIZE - 1) / BLOCK_SIZE;
 
             // Move stackalloc outside the loop to prevent stack overflow
-            Span<byte> keystream = stackalloc byte[BlockSize];
+            Span<byte> keystream = stackalloc byte[BLOCK_SIZE];
 
             for (var blockIndex = 0; blockIndex < blocks; blockIndex++)
             {
-                var blockStart = blockIndex * BlockSize;
-                var blockSize = Math.Min(BlockSize, input.Length - blockStart);
+                var blockStart = blockIndex * BLOCK_SIZE;
+                var blockSize = Math.Min(BLOCK_SIZE, input.Length - blockStart);
 
                 var inputBlock = input.Slice(blockStart, blockSize);
                 var outputBlock = output.Slice(blockStart, blockSize);
@@ -141,11 +141,11 @@ public static class XSalsa20Core
         // Initialize HSalsa20 state
         Span<uint> state = stackalloc uint[16];
 
-        // Constants
-        state[0] = Constants[0];
-        state[1] = Constants[1];
-        state[2] = Constants[2];
-        state[3] = Constants[3];
+        // _constants
+        state[0] = _constants[0];
+        state[1] = _constants[1];
+        state[2] = _constants[2];
+        state[3] = _constants[3];
 
 #if !NET5_0_OR_GREATER
         // Create reusable arrays for .NET Standard 2.0 (avoid memory leaks in loops)
@@ -211,11 +211,11 @@ public static class XSalsa20Core
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void InitializeSalsa20State(Span<uint> state, ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce, uint counter)
     {
-        // Constants
-        state[0] = Constants[0];
-        state[1] = Constants[1];
-        state[2] = Constants[2];
-        state[3] = Constants[3];
+        // _constants
+        state[0] = _constants[0];
+        state[1] = _constants[1];
+        state[2] = _constants[2];
+        state[3] = _constants[3];
 
 #if !NET5_0_OR_GREATER
         // Create reusable arrays for .NET Standard 2.0 (avoid memory leaks in loops)
@@ -340,13 +340,13 @@ public static class XSalsa20Core
     /// </summary>
     public static void ValidateParameters(ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce)
     {
-        if (key.Length != KeySize)
+        if (key.Length != KEY_SIZE)
         {
-            throw new ArgumentException($"Key must be {KeySize} bytes", nameof(key));
+            throw new ArgumentException($"Key must be {KEY_SIZE} bytes", nameof(key));
         }
-        if (nonce.Length != NonceSize)
+        if (nonce.Length != NONCE_SIZE)
         {
-            throw new ArgumentException($"Nonce must be {NonceSize} bytes", nameof(nonce));
+            throw new ArgumentException($"Nonce must be {NONCE_SIZE} bytes", nameof(nonce));
         }
     }
 

@@ -16,12 +16,12 @@ internal static class AesSivCore
     /// <summary>
     /// AES block size in bytes
     /// </summary>
-    private const int BlockSize = 16;
+    private const int BLOCK_SIZE = 16;
 
     /// <summary>
     /// SIV (Synthetic IV) size in bytes
     /// </summary>
-    public const int SivSize = 16;
+    public const int SIV_SIZE = 16;
 
     /// <summary>
     /// Supported key sizes in bytes (doubled because SIV uses two keys)
@@ -36,7 +36,7 @@ internal static class AesSivCore
     /// <param name="key">AES-SIV key (32, 48, or 64 bytes for AES-128/192/256)</param>
     /// <param name="nonce">Nonce (can be any length, including empty)</param>
     /// <param name="associatedData">Associated data (can be empty)</param>
-    /// <returns>Total bytes written (SivSize + plaintext.Length)</returns>
+    /// <returns>Total bytes written (SIV_SIZE + plaintext.Length)</returns>
     public static int Encrypt(
         Span<byte> ciphertext,
         ReadOnlySpan<byte> plaintext,
@@ -46,7 +46,7 @@ internal static class AesSivCore
     {
         ValidateParameters(key, ciphertext.Length, plaintext.Length);
 
-        if (ciphertext.Length < SivSize + plaintext.Length)
+        if (ciphertext.Length < SIV_SIZE + plaintext.Length)
         {
             throw new ArgumentException("Ciphertext buffer too small", nameof(ciphertext));
         }
@@ -57,7 +57,7 @@ internal static class AesSivCore
         var k2 = key.Slice(keyLength, keyLength);
 
         // Compute SIV = S2V(K1, AD, plaintext, nonce)
-        Span<byte> siv = stackalloc byte[SivSize];
+        Span<byte> siv = stackalloc byte[SIV_SIZE];
         S2V(siv, k1, associatedData, plaintext, nonce);
 
         // Store SIV at beginning of output
@@ -66,14 +66,14 @@ internal static class AesSivCore
         // Encrypt plaintext using CTR mode with SIV as IV
         if (plaintext.Length > 0)
         {
-            var ciphertextOnly = ciphertext.Slice(SivSize, plaintext.Length);
+            var ciphertextOnly = ciphertext.Slice(SIV_SIZE, plaintext.Length);
             EncryptCtr(ciphertextOnly, plaintext, k2, siv);
         }
 
         // Clear sensitive data
         SecureMemoryOperations.SecureClear(siv);
 
-        return SivSize + plaintext.Length;
+        return SIV_SIZE + plaintext.Length;
     }
 
     /// <summary>
@@ -92,12 +92,12 @@ internal static class AesSivCore
         ReadOnlySpan<byte> nonce,
         ReadOnlySpan<byte> associatedData)
     {
-        if (ciphertext.Length < SivSize)
+        if (ciphertext.Length < SIV_SIZE)
         {
             throw new ArgumentException("Ciphertext too short", nameof(ciphertext));
         }
 
-        var plaintextLength = ciphertext.Length - SivSize;
+        var plaintextLength = ciphertext.Length - SIV_SIZE;
         ValidateParameters(key, ciphertext.Length, plaintextLength);
 
         if (plaintext.Length < plaintextLength)
@@ -111,8 +111,8 @@ internal static class AesSivCore
         var k2 = key.Slice(keyLength, keyLength);
 
         // Extract SIV from ciphertext
-        var receivedSiv = ciphertext.Slice(0, SivSize);
-        var ciphertextOnly = ciphertext.Slice(SivSize);
+        var receivedSiv = ciphertext.Slice(0, SIV_SIZE);
+        var ciphertextOnly = ciphertext.Slice(SIV_SIZE);
 
         // Decrypt ciphertext using CTR mode
         if (plaintextLength > 0)
@@ -121,7 +121,7 @@ internal static class AesSivCore
         }
 
         // Compute expected SIV = S2V(K1, AD, plaintext, nonce)
-        Span<byte> expectedSiv = stackalloc byte[SivSize];
+        Span<byte> expectedSiv = stackalloc byte[SIV_SIZE];
         S2V(expectedSiv, k1, associatedData, plaintext.Slice(0, plaintextLength), nonce);
 
         // Verify SIV in constant time
@@ -149,15 +149,15 @@ internal static class AesSivCore
         ReadOnlySpan<byte> associatedData, ReadOnlySpan<byte> plaintext, ReadOnlySpan<byte> nonce)
     {
         // D = AES-CMAC(K, <zero>)
-        Span<byte> d = stackalloc byte[BlockSize];
-        Span<byte> zero = stackalloc byte[BlockSize];
+        Span<byte> d = stackalloc byte[BLOCK_SIZE];
+        Span<byte> zero = stackalloc byte[BLOCK_SIZE];
         zero.Clear();
         AesCmacCore.ComputeTag(d, zero, key);
 
         // Process associated data if present
         if (associatedData.Length > 0)
         {
-            Span<byte> cmac = stackalloc byte[BlockSize];
+            Span<byte> cmac = stackalloc byte[BLOCK_SIZE];
             AesCmacCore.ComputeTag(cmac, associatedData, key);
             Dbl(d);
             XorBlock(d, cmac);
@@ -167,7 +167,7 @@ internal static class AesSivCore
         // Process nonce if present
         if (nonce.Length > 0)
         {
-            Span<byte> cmac = stackalloc byte[BlockSize];
+            Span<byte> cmac = stackalloc byte[BLOCK_SIZE];
             AesCmacCore.ComputeTag(cmac, nonce, key);
             Dbl(d);
             XorBlock(d, cmac);
@@ -175,24 +175,24 @@ internal static class AesSivCore
         }
 
         // Process plaintext (final input)
-        Span<byte> t = stackalloc byte[BlockSize];
+        Span<byte> t = stackalloc byte[BLOCK_SIZE];
 
-        if (plaintext.Length >= BlockSize)
+        if (plaintext.Length >= BLOCK_SIZE)
         {
             // T = plaintext[0..n-16] || (plaintext[n-16..n] XOR D)
-            var xorLen = plaintext.Length - BlockSize;
-            var lastBlock = plaintext.Slice(xorLen, BlockSize);
+            var xorLen = plaintext.Length - BLOCK_SIZE;
+            var lastBlock = plaintext.Slice(xorLen, BLOCK_SIZE);
 
             d.CopyTo(t);
             XorBlock(t, lastBlock);
 
             // Create combined input using ArrayPool to avoid heap allocation
-            var combinedLength = xorLen + BlockSize;
+            var combinedLength = xorLen + BLOCK_SIZE;
             var combined = ArrayPool<byte>.Shared.Rent(combinedLength);
             try
             {
                 plaintext.Slice(0, xorLen).CopyTo(combined);
-                t.CopyTo(combined.AsSpan(xorLen, BlockSize));
+                t.CopyTo(combined.AsSpan(xorLen, BLOCK_SIZE));
 
                 AesCmacCore.ComputeTag(output, combined.AsSpan(0, combinedLength), key);
             }
@@ -210,7 +210,7 @@ internal static class AesSivCore
             // Pad plaintext: plaintext || 10000000...
             t.Clear();
             plaintext.CopyTo(t);
-            if (plaintext.Length < BlockSize)
+            if (plaintext.Length < BLOCK_SIZE)
             {
                 t[plaintext.Length] = 0x80;
             }
@@ -243,7 +243,7 @@ internal static class AesSivCore
         using var encryptor = aes.CreateEncryptor();
 
         // Clear bit 63 and bit 31 of IV for CTR mode (RFC 5297 Section 2.6)
-        var counterArray = new byte[BlockSize];
+        var counterArray = new byte[BLOCK_SIZE];
         iv.CopyTo(counterArray);
         counterArray[8] &= 0x7F;  // Clear bit 63
         counterArray[12] &= 0x7F; // Clear bit 31
@@ -251,17 +251,17 @@ internal static class AesSivCore
         var remaining = plaintext;
         var outputOffset = 0;
 
-        var keystreamArray = new byte[BlockSize];
+        var keystreamArray = new byte[BLOCK_SIZE];
 
         try
         {
             while (remaining.Length > 0)
             {
                 // Generate keystream block
-                encryptor.TransformBlock(counterArray, 0, BlockSize, keystreamArray, 0);
+                encryptor.TransformBlock(counterArray, 0, BLOCK_SIZE, keystreamArray, 0);
 
                 // XOR with plaintext
-                var blockSize = Math.Min(BlockSize, remaining.Length);
+                var blockSize = Math.Min(BLOCK_SIZE, remaining.Length);
                 for (var i = 0; i < blockSize; i++)
                 {
                     ciphertext[outputOffset + i] = (byte)(remaining[i] ^ keystreamArray[i]);
@@ -302,7 +302,7 @@ internal static class AesSivCore
     {
         byte overflow = 0;
 
-        for (var i = BlockSize - 1; i >= 0; i--)
+        for (var i = BLOCK_SIZE - 1; i >= 0; i--)
         {
             var newOverflow = (byte)((value[i] & 0x80) >> 7);
             value[i] = (byte)((value[i] << 1) | overflow);
@@ -312,7 +312,7 @@ internal static class AesSivCore
         // If original MSB was 1, XOR with R_128
         if (overflow != 0)
         {
-            value[BlockSize - 1] ^= 0x87;
+            value[BLOCK_SIZE - 1] ^= 0x87;
         }
     }
 
@@ -322,7 +322,7 @@ internal static class AesSivCore
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void XorBlock(Span<byte> a, ReadOnlySpan<byte> b)
     {
-        for (var i = 0; i < BlockSize; i++)
+        for (var i = 0; i < BLOCK_SIZE; i++)
         {
             a[i] ^= b[i];
         }
@@ -334,7 +334,7 @@ internal static class AesSivCore
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void IncrementCounter(byte[] counter)
     {
-        for (var i = BlockSize - 1; i >= 0; i--)
+        for (var i = BLOCK_SIZE - 1; i >= 0; i--)
         {
             if (++counter[i] != 0)
             {

@@ -14,17 +14,17 @@ internal static class RabbitCore
     /// <summary>
     /// Key size in bytes (128 bits)
     /// </summary>
-    public const int KeySize = 16;
+    public const int KEY_SIZE = 16;
 
     /// <summary>
     /// IV size in bytes (64 bits)
     /// </summary>
-    public const int IvSize = 8;
+    public const int IV_SIZE = 8;
 
     /// <summary>
     /// Block size in bytes (128 bits of output per iteration)
     /// </summary>
-    public const int BlockSize = 16;
+    public const int BLOCK_SIZE = 16;
 
     /// <summary>
     /// Rabbit cipher state container.
@@ -66,13 +66,13 @@ internal static class RabbitCore
     /// <param name="iv">8-byte initialization vector (or empty for key-only mode)</param>
     public static void Transform(Span<byte> output, ReadOnlySpan<byte> input, ReadOnlySpan<byte> key, ReadOnlySpan<byte> iv)
     {
-        if (key.Length != KeySize)
+        if (key.Length != KEY_SIZE)
         {
-            throw new ArgumentException($"Key must be {KeySize} bytes", nameof(key));
+            throw new ArgumentException($"Key must be {KEY_SIZE} bytes", nameof(key));
         }
-        if (iv.Length != 0 && iv.Length != IvSize)
+        if (iv.Length != 0 && iv.Length != IV_SIZE)
         {
-            throw new ArgumentException($"IV must be {IvSize} bytes or empty for key-only mode", nameof(iv));
+            throw new ArgumentException($"IV must be {IV_SIZE} bytes or empty for key-only mode", nameof(iv));
         }
         if (output.Length < input.Length)
         {
@@ -87,19 +87,19 @@ internal static class RabbitCore
             KeySetup(ref state, key);
 
             // Setup IV (only if provided)
-            if (iv.Length == IvSize)
+            if (iv.Length == IV_SIZE)
             {
                 IvSetup(ref state, iv);
             }
 
             // Generate keystream and XOR with input
-            var blocks = (input.Length + BlockSize - 1) / BlockSize;
-            Span<byte> keystream = stackalloc byte[BlockSize];
+            var blocks = (input.Length + BLOCK_SIZE - 1) / BLOCK_SIZE;
+            Span<byte> keystream = stackalloc byte[BLOCK_SIZE];
 
             for (var blockIndex = 0; blockIndex < blocks; blockIndex++)
             {
-                var blockStart = blockIndex * BlockSize;
-                var blockSize = Math.Min(BlockSize, input.Length - blockStart);
+                var blockStart = blockIndex * BLOCK_SIZE;
+                var blockSize = Math.Min(BLOCK_SIZE, input.Length - blockStart);
 
                 var inputBlock = input.Slice(blockStart, blockSize);
                 var outputBlock = output.Slice(blockStart, blockSize);
@@ -323,13 +323,13 @@ internal static class RabbitCore
     /// </summary>
     public static void ValidateParameters(ReadOnlySpan<byte> key, ReadOnlySpan<byte> iv)
     {
-        if (key.Length != KeySize)
+        if (key.Length != KEY_SIZE)
         {
-            throw new ArgumentException($"Key must be {KeySize} bytes", nameof(key));
+            throw new ArgumentException($"Key must be {KEY_SIZE} bytes", nameof(key));
         }
-        if (iv.Length != 0 && iv.Length != IvSize)
+        if (iv.Length != 0 && iv.Length != IV_SIZE)
         {
-            throw new ArgumentException($"IV must be {IvSize} bytes or empty for key-only mode", nameof(iv));
+            throw new ArgumentException($"IV must be {IV_SIZE} bytes or empty for key-only mode", nameof(iv));
         }
     }
 

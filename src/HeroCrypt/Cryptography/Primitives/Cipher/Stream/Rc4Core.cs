@@ -31,18 +31,18 @@ internal static class Rc4Core
     /// <summary>
     /// Minimum key size in bytes
     /// </summary>
-    public const int MinKeySize = 5;
+    public const int MIN_KEY_SIZE = 5;
 
     /// <summary>
     /// Maximum key size in bytes
     /// </summary>
-    public const int MaxKeySize = 256;
+    public const int MAX_KEY_SIZE = 256;
 
     /// <summary>
     /// Recommended minimum number of initial keystream bytes to discard
     /// to mitigate known biases (RFC 4345 recommends 256-3072 bytes)
     /// </summary>
-    public const int RecommendedDropBytes = 3072;
+    public const int RECOMMENDED_DROP_BYTES = 3072;
 
     /// <summary>
     /// RC4 cipher state container.
@@ -76,9 +76,9 @@ internal static class Rc4Core
     /// <param name="dropBytes">Number of initial keystream bytes to discard (3072 recommended, 0 for compatibility mode)</param>
     public static void Transform(Span<byte> output, ReadOnlySpan<byte> input, ReadOnlySpan<byte> key, int dropBytes = 0)
     {
-        if (key.Length < MinKeySize || key.Length > MaxKeySize)
+        if (key.Length < MIN_KEY_SIZE || key.Length > MAX_KEY_SIZE)
         {
-            throw new ArgumentException($"Key must be between {MinKeySize} and {MaxKeySize} bytes", nameof(key));
+            throw new ArgumentException($"Key must be between {MIN_KEY_SIZE} and {MAX_KEY_SIZE} bytes", nameof(key));
         }
         if (output.Length < input.Length)
         {
@@ -191,9 +191,9 @@ internal static class Rc4Core
     /// </summary>
     public static void ValidateParameters(ReadOnlySpan<byte> key, int dropBytes = 0)
     {
-        if (key.Length < MinKeySize || key.Length > MaxKeySize)
+        if (key.Length < MIN_KEY_SIZE || key.Length > MAX_KEY_SIZE)
         {
-            throw new ArgumentException($"Key must be between {MinKeySize} and {MaxKeySize} bytes", nameof(key));
+            throw new ArgumentException($"Key must be between {MIN_KEY_SIZE} and {MAX_KEY_SIZE} bytes", nameof(key));
         }
         if (dropBytes < 0)
         {
@@ -207,7 +207,7 @@ internal static class Rc4Core
     public static bool IsSecureConfiguration(int keySize, int dropBytes)
     {
         // RC4 is never truly secure, but this checks if basic mitigations are applied
-        return keySize >= 16 && dropBytes >= RecommendedDropBytes;
+        return keySize >= 16 && dropBytes >= RECOMMENDED_DROP_BYTES;
     }
 
     /// <summary>
@@ -222,8 +222,5 @@ internal static class Rc4Core
     /// <summary>
     /// Gets recommended drop bytes for security
     /// </summary>
-    public static int GetRecommendedDropBytes()
-    {
-        return RecommendedDropBytes;
-    }
+    public static int GetRecommendedDropBytes() => RECOMMENDED_DROP_BYTES;
 }

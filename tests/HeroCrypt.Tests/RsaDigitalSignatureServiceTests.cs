@@ -9,7 +9,7 @@ namespace HeroCrypt.Tests;
 public class RsaDigitalSignatureServiceTests
 {
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Constructor_WithValidKeySize_InitializesCorrectly()
     {
         var service = new RsaDigitalSignatureService(2048);
@@ -20,7 +20,7 @@ public class RsaDigitalSignatureServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Constructor_WithInvalidKeySize_ThrowsException()
     {
         var ex = Assert.Throws<ArgumentException>(() => new RsaDigitalSignatureService(1024));
@@ -28,7 +28,7 @@ public class RsaDigitalSignatureServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Constructor_WithNonMultipleOf8_ThrowsException()
     {
         var ex = Assert.Throws<ArgumentException>(() => new RsaDigitalSignatureService(2049));
@@ -36,7 +36,7 @@ public class RsaDigitalSignatureServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void GenerateKeyPair_ReturnsValidKeyPair()
     {
         var service = new RsaDigitalSignatureService(2048);
@@ -51,7 +51,7 @@ public class RsaDigitalSignatureServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void DerivePublicKey_FromPrivateKey_ReturnsConsistentResult()
     {
         var service = new RsaDigitalSignatureService(2048);
@@ -63,7 +63,7 @@ public class RsaDigitalSignatureServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void DerivePublicKey_WithNullPrivateKey_ThrowsException()
     {
         var service = new RsaDigitalSignatureService();
@@ -73,7 +73,7 @@ public class RsaDigitalSignatureServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Sign_WithValidInputs_ReturnsSignature()
     {
         var service = new RsaDigitalSignatureService(2048);
@@ -88,7 +88,7 @@ public class RsaDigitalSignatureServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Sign_WithNullData_ThrowsException()
     {
         var service = new RsaDigitalSignatureService();
@@ -99,7 +99,7 @@ public class RsaDigitalSignatureServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Sign_WithNullPrivateKey_ThrowsException()
     {
         var service = new RsaDigitalSignatureService();
@@ -110,7 +110,7 @@ public class RsaDigitalSignatureServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Verify_WithValidSignature_ReturnsTrue()
     {
         var service = new RsaDigitalSignatureService(2048);
@@ -124,7 +124,7 @@ public class RsaDigitalSignatureServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Verify_WithInvalidSignature_ReturnsFalse()
     {
         var service = new RsaDigitalSignatureService(2048);
@@ -139,7 +139,7 @@ public class RsaDigitalSignatureServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Verify_WithTamperedSignature_ReturnsFalse()
     {
         var service = new RsaDigitalSignatureService(2048);
@@ -155,7 +155,7 @@ public class RsaDigitalSignatureServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Verify_WithWrongPublicKey_ReturnsFalse()
     {
         var service = new RsaDigitalSignatureService(2048);
@@ -170,7 +170,7 @@ public class RsaDigitalSignatureServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Verify_WithNullInputs_ThrowsException()
     {
         var service = new RsaDigitalSignatureService();
@@ -184,7 +184,7 @@ public class RsaDigitalSignatureServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Sign_IsDeterministic_WithSameInputs()
     {
         var service = new RsaDigitalSignatureService(2048);
@@ -199,7 +199,7 @@ public class RsaDigitalSignatureServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Sign_DifferentMessages_ProduceDifferentSignatures()
     {
         var service = new RsaDigitalSignatureService(2048);
@@ -214,7 +214,7 @@ public class RsaDigitalSignatureServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void KeyPairGeneration_ProducesUniqueKeys()
     {
         var service = new RsaDigitalSignatureService(2048);
@@ -227,7 +227,7 @@ public class RsaDigitalSignatureServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Compliance)]
+    [Trait("Category", TestCategories.COMPLIANCE)]
     public async Task SignAsync_WorksCorrectly()
     {
         var service = new RsaDigitalSignatureService(2048);
@@ -242,7 +242,7 @@ public class RsaDigitalSignatureServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Compliance)]
+    [Trait("Category", TestCategories.COMPLIANCE)]
     public async Task VerifyAsync_WorksCorrectly()
     {
         var service = new RsaDigitalSignatureService(2048);
@@ -256,7 +256,7 @@ public class RsaDigitalSignatureServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Compliance)]
+    [Trait("Category", TestCategories.COMPLIANCE)]
     public async Task AsyncOperations_ProduceSameResultsAsSyncOperations()
     {
         var service = new RsaDigitalSignatureService(2048);
@@ -276,7 +276,7 @@ public class RsaDigitalSignatureServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Service_HandlesLargeData()
     {
         var service = new RsaDigitalSignatureService(2048);
@@ -293,7 +293,7 @@ public class RsaDigitalSignatureServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Service_HandlesEmptyData()
     {
         var service = new RsaDigitalSignatureService(2048);
@@ -307,7 +307,7 @@ public class RsaDigitalSignatureServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Service_PerformanceTest_MultipleOperations()
     {
         var service = new RsaDigitalSignatureService(2048);
@@ -324,7 +324,7 @@ public class RsaDigitalSignatureServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Service_SecurityTest_DifferentKeysDontWork()
     {
         var service = new RsaDigitalSignatureService(2048);
@@ -339,7 +339,7 @@ public class RsaDigitalSignatureServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Service_SecurityTest_ModifiedDataDetected()
     {
         var service = new RsaDigitalSignatureService(2048);

@@ -24,7 +24,7 @@ public class PgpCryptographyServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Slow)]
+    [Trait("Category", TestCategories.SLOW)]
     public async Task GenerateKeyPairAsyncReturnsValidKeyPair()
     {
         var keyPair = await GetSmallKeyPairAsync();
@@ -37,7 +37,7 @@ public class PgpCryptographyServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Slow)]
+    [Trait("Category", TestCategories.SLOW)]
     public async Task GenerateKeyPairAsyncWithIdentityIncludesIdentityInKeys()
     {
         var identity = "test@example.com";
@@ -49,8 +49,8 @@ public class PgpCryptographyServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Slow)]
-    [Trait("Category", TestCategories.Integration)]
+    [Trait("Category", TestCategories.SLOW)]
+    [Trait("Category", TestCategories.INTEGRATION)]
     public async Task EncryptDecryptTextWorksCorrectly()
     {
         var keyPair = await GetSmallKeyPairAsync();
@@ -63,8 +63,8 @@ public class PgpCryptographyServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Slow)]
-    [Trait("Category", TestCategories.Integration)]
+    [Trait("Category", TestCategories.SLOW)]
+    [Trait("Category", TestCategories.INTEGRATION)]
     public async Task EncryptDecryptBytesWorksCorrectly()
     {
         var keyPair = await GetSmallKeyPairAsync();
@@ -77,7 +77,7 @@ public class PgpCryptographyServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Slow)]
+    [Trait("Category", TestCategories.SLOW)]
     public async Task EncryptProducesDifferentOutputForSameInput()
     {
         var keyPair = await GetSmallKeyPairAsync();
@@ -90,7 +90,7 @@ public class PgpCryptographyServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Slow)]
+    [Trait("Category", TestCategories.SLOW)]
     public async Task EncryptedMessageHasPgpFormat()
     {
         var keyPair = await GetSmallKeyPairAsync();
@@ -103,7 +103,7 @@ public class PgpCryptographyServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Slow)]
+    [Trait("Category", TestCategories.SLOW)]
     public async Task DecryptWithWrongKeyThrowsException()
     {
         var keyPair1 = await GetSmallKeyPairAsync();
@@ -117,7 +117,7 @@ public class PgpCryptographyServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Slow)]
+    [Trait("Category", TestCategories.SLOW)]
     public async Task GenerateKeyPairAsyncDifferentKeySizesWorkCorrectly()
     {
         // Test with pre-generated keys to avoid slow generation
@@ -143,8 +143,8 @@ public class PgpCryptographyServiceTests
 
 
     [Fact]
-    [Trait("Category", TestCategories.Slow)]
-    [Trait("Category", TestCategories.Integration)]
+    [Trait("Category", TestCategories.SLOW)]
+    [Trait("Category", TestCategories.INTEGRATION)]
     public async Task EncryptDecryptLargeDataWorksCorrectly()
     {
         var keyPair = await GetSmallKeyPairAsync();
@@ -157,7 +157,7 @@ public class PgpCryptographyServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Slow)]
+    [Trait("Category", TestCategories.SLOW)]
     public async Task EncryptDecryptSpecialCharactersWorksCorrectly()
     {
         var keyPair = await GetSmallKeyPairAsync();
@@ -169,7 +169,7 @@ public class PgpCryptographyServiceTests
         Assert.Equal(specialText, decrypted);
     }
     [Fact]
-    [Trait("Category", TestCategories.Slow)]
+    [Trait("Category", TestCategories.SLOW)]
     public async Task EncryptDecryptTextWithPassphraseProtectedKeyWorks()
     {
         var passphrase = "strong-passphrase";
@@ -183,7 +183,7 @@ public class PgpCryptographyServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Slow)]
+    [Trait("Category", TestCategories.SLOW)]
     public async Task DecryptingPassphraseProtectedKeyWithoutPassphraseThrows()
     {
         var passphrase = "another-passphrase";
@@ -195,7 +195,7 @@ public class PgpCryptographyServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Slow)]
+    [Trait("Category", TestCategories.SLOW)]
     public async Task DecryptingWithWrongPassphraseThrows()
     {
         var keyPair = await _service.GenerateKeyPairAsync("wrong@example.com", "correct-passphrase", 512, TestContext.Current.CancellationToken);
@@ -206,8 +206,8 @@ public class PgpCryptographyServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Slow)]
-    [Trait("Category", TestCategories.Integration)]
+    [Trait("Category", TestCategories.SLOW)]
+    [Trait("Category", TestCategories.INTEGRATION)]
     public async Task SenderCanEncryptAndRecipientCanReply()
     {
         var senderPassphrase = "sender-secret";

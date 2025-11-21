@@ -12,22 +12,22 @@ internal static class Pbkdf2Core
     /// <summary>
     /// Minimum recommended iteration count for new applications
     /// </summary>
-    public const int MinRecommendedIterations = 100000;
+    public const int MIN_RECOMMENDED_ITERATIONS = 100000;
 
     /// <summary>
     /// Default iteration count for general use
     /// </summary>
-    public const int DefaultIterations = 600000;
+    public const int DEFAULT_ITERATIONS = 600000;
 
     /// <summary>
     /// Minimum salt length in bytes
     /// </summary>
-    public const int MinSaltLength = 16;
+    public const int MIN_SALT_LENGTH = 16;
 
     /// <summary>
     /// Default salt length in bytes
     /// </summary>
-    public const int DefaultSaltLength = 32;
+    public const int DEFAULT_SALT_LENGTH = 32;
 
     /// <summary>
     /// Derives a key using PBKDF2
@@ -105,9 +105,9 @@ internal static class Pbkdf2Core
             throw new ArgumentException("Password cannot be empty", nameof(password));
         }
 
-        if (!allowWeakParameters && salt.Length < MinSaltLength)
+        if (!allowWeakParameters && salt.Length < MIN_SALT_LENGTH)
         {
-            throw new ArgumentException($"Salt must be at least {MinSaltLength} bytes", nameof(salt));
+            throw new ArgumentException($"Salt must be at least {MIN_SALT_LENGTH} bytes", nameof(salt));
         }
 
         if (iterations < 1)
@@ -115,9 +115,9 @@ internal static class Pbkdf2Core
             throw new ArgumentException("Iterations must be positive", nameof(iterations));
         }
 
-        if (!allowWeakParameters && iterations < MinRecommendedIterations)
+        if (!allowWeakParameters && iterations < MIN_RECOMMENDED_ITERATIONS)
         {
-            throw new ArgumentException($"Iterations should be at least {MinRecommendedIterations} for security", nameof(iterations));
+            throw new ArgumentException($"Iterations should be at least {MIN_RECOMMENDED_ITERATIONS} for security", nameof(iterations));
         }
 
         if (outputLength <= 0)
@@ -142,11 +142,11 @@ internal static class Pbkdf2Core
     /// </summary>
     /// <param name="length">Salt length (default: 32 bytes)</param>
     /// <returns>Random salt</returns>
-    public static byte[] GenerateRandomSalt(int length = DefaultSaltLength)
+    public static byte[] GenerateRandomSalt(int length = DEFAULT_SALT_LENGTH)
     {
-        if (length < MinSaltLength)
+        if (length < MIN_SALT_LENGTH)
         {
-            throw new ArgumentException($"Salt length must be at least {MinSaltLength} bytes", nameof(length));
+            throw new ArgumentException($"Salt length must be at least {MIN_SALT_LENGTH} bytes", nameof(length));
         }
 
         var salt = new byte[length];
@@ -169,7 +169,7 @@ internal static class Pbkdf2Core
             throw new ArgumentException("Target time must be positive", nameof(targetTimeMs));
         }
 
-        const int testIterations = 10000;
+        const int TEST_ITERATIONS = 10000;
         var testPassword = new byte[16];
         var testSalt = GenerateRandomSalt();
 
@@ -177,15 +177,15 @@ internal static class Pbkdf2Core
         rng.GetBytes(testPassword);
 
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-        DeriveKey(testPassword, testSalt, testIterations, testLength, hashAlgorithm);
+        DeriveKey(testPassword, testSalt, TEST_ITERATIONS, testLength, hashAlgorithm);
         stopwatch.Stop();
 
         var actualTimeMs = stopwatch.Elapsed.TotalMilliseconds;
-        var iterationsPerMs = testIterations / actualTimeMs;
+        var iterationsPerMs = TEST_ITERATIONS / actualTimeMs;
         var recommendedIterations = (int)(iterationsPerMs * targetTimeMs);
 
         // Ensure minimum security requirements
-        return Math.Max(recommendedIterations, MinRecommendedIterations);
+        return Math.Max(recommendedIterations, MIN_RECOMMENDED_ITERATIONS);
     }
 
     /// <summary>
@@ -201,7 +201,7 @@ internal static class Pbkdf2Core
             {
                 HashAlgorithm = HashAlgorithmName.SHA256,
                 Iterations = 600000,
-                SaltLength = DefaultSaltLength,
+                SaltLength = DEFAULT_SALT_LENGTH,
                 OutputLength = 32,
                 Description = "Password storage and verification"
             },
@@ -209,7 +209,7 @@ internal static class Pbkdf2Core
             {
                 HashAlgorithm = HashAlgorithmName.SHA256,
                 Iterations = 100000,
-                SaltLength = DefaultSaltLength,
+                SaltLength = DEFAULT_SALT_LENGTH,
                 OutputLength = 32,
                 Description = "Key derivation from passwords"
             },
@@ -225,7 +225,7 @@ internal static class Pbkdf2Core
             {
                 HashAlgorithm = HashAlgorithmName.SHA1,
                 Iterations = 100000,
-                SaltLength = MinSaltLength,
+                SaltLength = MIN_SALT_LENGTH,
                 OutputLength = 20,
                 Description = "Legacy system compatibility (SHA-1 not recommended)"
             },

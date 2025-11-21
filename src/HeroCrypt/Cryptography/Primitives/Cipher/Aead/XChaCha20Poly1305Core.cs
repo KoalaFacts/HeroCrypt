@@ -14,22 +14,22 @@ internal static class XChaCha20Poly1305Core
     /// <summary>
     /// Key size in bytes
     /// </summary>
-    public const int KeySize = 32;
+    public const int KEY_SIZE = 32;
 
     /// <summary>
     /// Extended nonce size in bytes
     /// </summary>
-    public const int NonceSize = 24;
+    public const int NONCE_SIZE = 24;
 
     /// <summary>
     /// Authentication tag size in bytes
     /// </summary>
-    public const int TagSize = 16;
+    public const int TAG_SIZE = 16;
 
     /// <summary>
     /// HChaCha20 constants
     /// </summary>
-    private static readonly uint[] HChaCha20Constants = { 0x61707865, 0x3320646e, 0x79622d32, 0x6b206574 };
+    private static readonly uint[] _hChaCha20Constants = { 0x61707865, 0x3320646e, 0x79622d32, 0x6b206574 };
 
     /// <summary>
     /// Encrypts plaintext using XChaCha20-Poly1305
@@ -43,15 +43,15 @@ internal static class XChaCha20Poly1305Core
     public static int Encrypt(Span<byte> ciphertext, ReadOnlySpan<byte> plaintext,
         ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce, ReadOnlySpan<byte> associatedData = default)
     {
-        if (key.Length != KeySize)
+        if (key.Length != KEY_SIZE)
         {
-            throw new ArgumentException($"Key must be {KeySize} bytes", nameof(key));
+            throw new ArgumentException($"Key must be {KEY_SIZE} bytes", nameof(key));
         }
-        if (nonce.Length != NonceSize)
+        if (nonce.Length != NONCE_SIZE)
         {
-            throw new ArgumentException($"Nonce must be {NonceSize} bytes", nameof(nonce));
+            throw new ArgumentException($"Nonce must be {NONCE_SIZE} bytes", nameof(nonce));
         }
-        if (ciphertext.Length < plaintext.Length + TagSize)
+        if (ciphertext.Length < plaintext.Length + TAG_SIZE)
         {
             throw new ArgumentException("Ciphertext buffer too small", nameof(ciphertext));
         }
@@ -64,7 +64,7 @@ internal static class XChaCha20Poly1305Core
         try
         {
             var ciphertextWithoutTag = ciphertext.Slice(0, plaintext.Length);
-            var tag = ciphertext.Slice(plaintext.Length, TagSize);
+            var tag = ciphertext.Slice(plaintext.Length, TAG_SIZE);
 
             // Generate Poly1305 key using the derived ChaCha20 key
             Span<byte> poly1305Key = stackalloc byte[32];
@@ -81,7 +81,7 @@ internal static class XChaCha20Poly1305Core
             SecureMemoryOperations.SecureClear(poly1305Key);
             SecureMemoryOperations.SecureClear(zeroBlock);
 
-            return plaintext.Length + TagSize;
+            return plaintext.Length + TAG_SIZE;
         }
         finally
         {
@@ -103,20 +103,20 @@ internal static class XChaCha20Poly1305Core
     public static int Decrypt(Span<byte> plaintext, ReadOnlySpan<byte> ciphertext,
         ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce, ReadOnlySpan<byte> associatedData = default)
     {
-        if (key.Length != KeySize)
+        if (key.Length != KEY_SIZE)
         {
-            throw new ArgumentException($"Key must be {KeySize} bytes", nameof(key));
+            throw new ArgumentException($"Key must be {KEY_SIZE} bytes", nameof(key));
         }
-        if (nonce.Length != NonceSize)
+        if (nonce.Length != NONCE_SIZE)
         {
-            throw new ArgumentException($"Nonce must be {NonceSize} bytes", nameof(nonce));
+            throw new ArgumentException($"Nonce must be {NONCE_SIZE} bytes", nameof(nonce));
         }
-        if (ciphertext.Length < TagSize)
+        if (ciphertext.Length < TAG_SIZE)
         {
             throw new ArgumentException("Ciphertext too short", nameof(ciphertext));
         }
 
-        var ciphertextLength = ciphertext.Length - TagSize;
+        var ciphertextLength = ciphertext.Length - TAG_SIZE;
         if (plaintext.Length < ciphertextLength)
         {
             throw new ArgumentException("Plaintext buffer too small", nameof(plaintext));
@@ -130,7 +130,7 @@ internal static class XChaCha20Poly1305Core
         try
         {
             var ciphertextWithoutTag = ciphertext.Slice(0, ciphertextLength);
-            var receivedTag = ciphertext.Slice(ciphertextLength, TagSize);
+            var receivedTag = ciphertext.Slice(ciphertextLength, TAG_SIZE);
 
             // Generate Poly1305 key using the derived ChaCha20 key
             Span<byte> poly1305Key = stackalloc byte[32];
@@ -138,7 +138,7 @@ internal static class XChaCha20Poly1305Core
             ChaCha20Core.Transform(poly1305Key, zeroBlock, derivedKey, derivedNonce, 0);
 
             // Compute expected authentication tag
-            Span<byte> expectedTag = stackalloc byte[TagSize];
+            Span<byte> expectedTag = stackalloc byte[TAG_SIZE];
             ComputeTag(expectedTag, associatedData, ciphertextWithoutTag, poly1305Key);
 
             // Verify tag in constant time
@@ -216,10 +216,10 @@ internal static class XChaCha20Poly1305Core
         Span<uint> state = stackalloc uint[16];
 
         // Constants
-        state[0] = HChaCha20Constants[0];
-        state[1] = HChaCha20Constants[1];
-        state[2] = HChaCha20Constants[2];
-        state[3] = HChaCha20Constants[3];
+        state[0] = _hChaCha20Constants[0];
+        state[1] = _hChaCha20Constants[1];
+        state[2] = _hChaCha20Constants[2];
+        state[3] = _hChaCha20Constants[3];
 
 #if !NET5_0_OR_GREATER
         // Create reusable arrays for .NET Standard 2.0 (avoid memory leaks in loops)
@@ -401,13 +401,13 @@ internal static class XChaCha20Poly1305Core
     /// </summary>
     public static void ValidateParameters(ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce)
     {
-        if (key.Length != KeySize)
+        if (key.Length != KEY_SIZE)
         {
-            throw new ArgumentException($"Key must be {KeySize} bytes", nameof(key));
+            throw new ArgumentException($"Key must be {KEY_SIZE} bytes", nameof(key));
         }
-        if (nonce.Length != NonceSize)
+        if (nonce.Length != NONCE_SIZE)
         {
-            throw new ArgumentException($"Nonce must be {NonceSize} bytes", nameof(nonce));
+            throw new ArgumentException($"Nonce must be {NONCE_SIZE} bytes", nameof(nonce));
         }
     }
 
@@ -425,7 +425,7 @@ internal static class XChaCha20Poly1305Core
         ArgumentOutOfRangeException.ThrowIfNegative(plaintextLength);
 #endif
 
-        return plaintextLength + TagSize;
+        return plaintextLength + TAG_SIZE;
     }
 
     /// <summary>
@@ -433,11 +433,11 @@ internal static class XChaCha20Poly1305Core
     /// </summary>
     public static int GetPlaintextLength(int ciphertextLength)
     {
-        if (ciphertextLength < TagSize)
+        if (ciphertextLength < TAG_SIZE)
         {
             return -1; // Invalid ciphertext
         }
 
-        return ciphertextLength - TagSize;
+        return ciphertextLength - TAG_SIZE;
     }
 }

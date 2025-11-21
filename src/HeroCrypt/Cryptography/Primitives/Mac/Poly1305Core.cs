@@ -12,17 +12,17 @@ internal static class Poly1305Core
     /// <summary>
     /// Key size in bytes
     /// </summary>
-    public const int KeySize = 32;
+    public const int KEY_SIZE = 32;
 
     /// <summary>
     /// Tag size in bytes
     /// </summary>
-    public const int TagSize = 16;
+    public const int TAG_SIZE = 16;
 
     /// <summary>
     /// Block size in bytes
     /// </summary>
-    public const int BlockSize = 16;
+    public const int BLOCK_SIZE = 16;
 
     /// <summary>
     /// Poly1305 prime: 2^130 - 5
@@ -39,13 +39,13 @@ internal static class Poly1305Core
     /// <param name="key">32-byte key</param>
     public static void ComputeMac(Span<byte> tag, ReadOnlySpan<byte> message, ReadOnlySpan<byte> key)
     {
-        if (tag.Length != TagSize)
+        if (tag.Length != TAG_SIZE)
         {
-            throw new ArgumentException($"Tag must be {TagSize} bytes", nameof(tag));
+            throw new ArgumentException($"Tag must be {TAG_SIZE} bytes", nameof(tag));
         }
-        if (key.Length != KeySize)
+        if (key.Length != KEY_SIZE)
         {
-            throw new ArgumentException($"Key must be {KeySize} bytes", nameof(key));
+            throw new ArgumentException($"Key must be {KEY_SIZE} bytes", nameof(key));
         }
 
         // Extract r and s from key
@@ -77,7 +77,7 @@ internal static class Poly1305Core
         var offset = 0;
         while (offset < message.Length)
         {
-            var blockSize = Math.Min(BlockSize, message.Length - offset);
+            var blockSize = Math.Min(BLOCK_SIZE, message.Length - offset);
             var block = message.Slice(offset, blockSize);
 
             // Convert block to number with padding bit (reuse the blockNum buffer)
@@ -113,12 +113,12 @@ internal static class Poly1305Core
     /// <returns>True if verification succeeds</returns>
     public static bool VerifyMac(ReadOnlySpan<byte> tag, ReadOnlySpan<byte> message, ReadOnlySpan<byte> key)
     {
-        if (tag.Length != TagSize)
+        if (tag.Length != TAG_SIZE)
         {
             return false;
         }
 
-        Span<byte> computedTag = stackalloc byte[TagSize];
+        Span<byte> computedTag = stackalloc byte[TAG_SIZE];
         ComputeMac(computedTag, message, key);
 
         // Constant-time comparison

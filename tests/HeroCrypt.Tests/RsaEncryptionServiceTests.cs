@@ -11,7 +11,7 @@ namespace HeroCrypt.Tests;
 public class RsaEncryptionServiceTests
 {
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Constructor_WithValidKeySize_InitializesCorrectly()
     {
         var service = new RsaEncryptionService(2048);
@@ -22,7 +22,7 @@ public class RsaEncryptionServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Constructor_WithInvalidKeySize_ThrowsException()
     {
         var ex = Assert.Throws<ArgumentException>(() => new RsaEncryptionService(1024));
@@ -30,7 +30,7 @@ public class RsaEncryptionServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Constructor_WithNonMultipleOf8_ThrowsException()
     {
         var ex = Assert.Throws<ArgumentException>(() => new RsaEncryptionService(2049));
@@ -38,7 +38,7 @@ public class RsaEncryptionServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void GenerateKeyPair_ReturnsValidKeyPair()
     {
         var service = new RsaEncryptionService(2048);
@@ -53,7 +53,7 @@ public class RsaEncryptionServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void DerivePublicKey_FromPrivateKey_ReturnsConsistentResult()
     {
         var service = new RsaEncryptionService(2048);
@@ -65,7 +65,7 @@ public class RsaEncryptionServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void DerivePublicKey_WithNullPrivateKey_ThrowsException()
     {
         var service = new RsaEncryptionService();
@@ -75,7 +75,7 @@ public class RsaEncryptionServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Encrypt_WithValidInputs_ReturnsEncryptedData()
     {
         var service = new RsaEncryptionService(2048);
@@ -90,7 +90,7 @@ public class RsaEncryptionServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Encrypt_WithPkcs1Padding_Works()
     {
         var service = new RsaEncryptionService(2048, RsaPaddingMode.Pkcs1);
@@ -104,7 +104,7 @@ public class RsaEncryptionServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Encrypt_WithOaepPadding_Works()
     {
         var service = new RsaEncryptionService(2048, RsaPaddingMode.Oaep);
@@ -118,7 +118,7 @@ public class RsaEncryptionServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Encrypt_WithNullData_ThrowsException()
     {
         var service = new RsaEncryptionService();
@@ -129,7 +129,7 @@ public class RsaEncryptionServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Encrypt_WithNullPublicKey_ThrowsException()
     {
         var service = new RsaEncryptionService();
@@ -140,7 +140,7 @@ public class RsaEncryptionServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Decrypt_WithValidInputs_ReturnsOriginalData()
     {
         var service = new RsaEncryptionService(2048);
@@ -154,7 +154,7 @@ public class RsaEncryptionServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Decrypt_WithPkcs1Padding_Works()
     {
         var service = new RsaEncryptionService(2048, RsaPaddingMode.Pkcs1);
@@ -168,7 +168,7 @@ public class RsaEncryptionServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Decrypt_WithOaepPadding_Works()
     {
         var service = new RsaEncryptionService(2048, RsaPaddingMode.Oaep);
@@ -182,7 +182,7 @@ public class RsaEncryptionServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Decrypt_WithNullEncryptedData_ThrowsException()
     {
         var service = new RsaEncryptionService();
@@ -193,7 +193,7 @@ public class RsaEncryptionServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Decrypt_WithNullPrivateKey_ThrowsException()
     {
         var service = new RsaEncryptionService();
@@ -204,7 +204,7 @@ public class RsaEncryptionServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void EncryptDecrypt_RoundTrip_PreservesData()
     {
         var service = new RsaEncryptionService(2048);
@@ -218,7 +218,7 @@ public class RsaEncryptionServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void EncryptDecrypt_WithDifferentPaddings_Works()
     {
         var service = new RsaEncryptionService(2048);
@@ -240,7 +240,7 @@ public class RsaEncryptionServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Encrypt_WithWrongPaddingOnDecrypt_Fails()
     {
         var service = new RsaEncryptionService(2048);
@@ -255,7 +255,7 @@ public class RsaEncryptionServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Encrypt_WithWrongPrivateKey_FailsDecryption()
     {
         var service = new RsaEncryptionService(2048);
@@ -270,7 +270,7 @@ public class RsaEncryptionServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void KeyPairGeneration_ProducesUniqueKeys()
     {
         var service = new RsaEncryptionService(2048);
@@ -283,7 +283,7 @@ public class RsaEncryptionServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Encrypt_SameDataTwice_ProducesDifferentCiphertexts()
     {
         var service = new RsaEncryptionService(2048, RsaPaddingMode.Oaep);
@@ -298,7 +298,7 @@ public class RsaEncryptionServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void MaxMessageSize_ReturnsCorrectValue()
     {
         var service = new RsaEncryptionService(2048, RsaPaddingMode.Oaep);
@@ -312,7 +312,7 @@ public class RsaEncryptionServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Encrypt_ExceedsMaxMessageSize_ThrowsException()
     {
         var service = new RsaEncryptionService(2048, RsaPaddingMode.Oaep);
@@ -326,7 +326,7 @@ public class RsaEncryptionServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Encrypt_AtMaxMessageSize_Works()
     {
         var service = new RsaEncryptionService(2048, RsaPaddingMode.Oaep);
@@ -343,7 +343,7 @@ public class RsaEncryptionServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Compliance)]
+    [Trait("Category", TestCategories.COMPLIANCE)]
     public async Task EncryptAsync_WorksCorrectly()
     {
         var service = new RsaEncryptionService(2048);
@@ -357,7 +357,7 @@ public class RsaEncryptionServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Compliance)]
+    [Trait("Category", TestCategories.COMPLIANCE)]
     public async Task DecryptAsync_WorksCorrectly()
     {
         var service = new RsaEncryptionService(2048);
@@ -371,7 +371,7 @@ public class RsaEncryptionServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Compliance)]
+    [Trait("Category", TestCategories.COMPLIANCE)]
     public async Task AsyncOperations_ProduceSameResultsAsSyncOperations()
     {
         var service = new RsaEncryptionService(2048);
@@ -391,7 +391,7 @@ public class RsaEncryptionServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Service_HandlesEmptyData_ThrowsException()
     {
         var service = new RsaEncryptionService(2048);
@@ -403,7 +403,7 @@ public class RsaEncryptionServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Service_HandlesBinaryData()
     {
         var service = new RsaEncryptionService(2048);
@@ -420,7 +420,7 @@ public class RsaEncryptionServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Service_HandlesUnicodeText()
     {
         var service = new RsaEncryptionService(2048);
@@ -436,7 +436,7 @@ public class RsaEncryptionServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Service_MultipleKeySizes_Work()
     {
         var keySizes = new[] { 2048, 3072, 4096 };
@@ -455,7 +455,7 @@ public class RsaEncryptionServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Service_SecurityTest_TamperedCiphertext_FailsDecryption()
     {
         var service = new RsaEncryptionService(2048);
@@ -470,7 +470,7 @@ public class RsaEncryptionServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Service_PerformanceTest_MultipleOperations()
     {
         var service = new RsaEncryptionService(2048);
@@ -487,7 +487,7 @@ public class RsaEncryptionServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void AlgorithmName_ReflectsKeySize()
     {
         var service2048 = new RsaEncryptionService(2048);
@@ -500,7 +500,7 @@ public class RsaEncryptionServiceTests
     #region PKCS#8 and X.509 Key Format Tests
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void ExportPkcs8PrivateKey_WithValidKey_ReturnsValidPkcs8()
     {
         // Arrange
@@ -521,7 +521,7 @@ public class RsaEncryptionServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void ImportPkcs8PrivateKey_WithValidPkcs8_ImportsSuccessfully()
     {
         // Arrange - Generate a standard PKCS#8 key
@@ -549,7 +549,7 @@ public class RsaEncryptionServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Pkcs8_ExportImportRoundtrip_PreservesKey()
     {
         // Arrange
@@ -573,7 +573,7 @@ public class RsaEncryptionServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void ImportPkcs8PrivateKey_WithWeakKey_ThrowsException()
     {
         // Arrange - Generate a weak 1024-bit PKCS#8 key
@@ -589,7 +589,7 @@ public class RsaEncryptionServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void ExportSubjectPublicKeyInfo_WithValidKey_ReturnsValidX509()
     {
         // Arrange
@@ -610,7 +610,7 @@ public class RsaEncryptionServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void ImportSubjectPublicKeyInfo_WithValidX509_ImportsSuccessfully()
     {
         // Arrange - Generate a standard X.509 public key
@@ -639,7 +639,7 @@ public class RsaEncryptionServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void SubjectPublicKeyInfo_ExportImportRoundtrip_PreservesKey()
     {
         // Arrange
@@ -665,7 +665,7 @@ public class RsaEncryptionServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Pkcs8AndX509_InteroperabilityTest()
     {
         // Arrange - Generate key pair with standard .NET RSA
@@ -691,7 +691,7 @@ public class RsaEncryptionServiceTests
     [InlineData(2048)]
     [InlineData(3072)]
     [InlineData(4096)]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Pkcs8Export_WithDifferentKeySizes_WorksCorrectly(int keySize)
     {
         // Arrange
@@ -711,7 +711,7 @@ public class RsaEncryptionServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void ExportPkcs8PrivateKey_WithNullKey_ThrowsException()
     {
         var service = new RsaEncryptionService();
@@ -721,7 +721,7 @@ public class RsaEncryptionServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void ImportPkcs8PrivateKey_WithNullData_ThrowsException()
     {
         var service = new RsaEncryptionService();
@@ -731,7 +731,7 @@ public class RsaEncryptionServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void ExportSubjectPublicKeyInfo_WithNullKey_ThrowsException()
     {
         var service = new RsaEncryptionService();
@@ -741,7 +741,7 @@ public class RsaEncryptionServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void ImportSubjectPublicKeyInfo_WithNullData_ThrowsException()
     {
         var service = new RsaEncryptionService();

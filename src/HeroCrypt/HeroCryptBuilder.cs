@@ -626,9 +626,9 @@ public class KeyDerivationBuilder
         {
             throw new ArgumentException("Iterations must be at least 1", nameof(_iterations));
         }
-        if (_iterations > InputValidator.MaxIterationCount)
+        if (_iterations > InputValidator.MAX_ITERATION_COUNT)
         {
-            throw new ArgumentException($"Iterations {_iterations} exceeds maximum {InputValidator.MaxIterationCount}", nameof(_iterations));
+            throw new ArgumentException($"Iterations {_iterations} exceeds maximum {InputValidator.MAX_ITERATION_COUNT}", nameof(_iterations));
         }
 
         // Call Argon2 primitive directly

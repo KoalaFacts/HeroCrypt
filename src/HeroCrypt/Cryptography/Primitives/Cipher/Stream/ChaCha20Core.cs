@@ -14,24 +14,24 @@ namespace HeroCrypt.Cryptography.Primitives.Cipher.Stream;
 internal static class ChaCha20Core
 {
     /// <summary>
-    /// ChaCha20 constants "expand 32-byte k"
+    /// ChaCha20 _constants "expand 32-byte k"
     /// </summary>
-    private static readonly uint[] Constants = { 0x61707865, 0x3320646e, 0x79622d32, 0x6b206574 };
+    private static readonly uint[] _constants = { 0x61707865, 0x3320646e, 0x79622d32, 0x6b206574 };
 
     /// <summary>
     /// Key size in bytes
     /// </summary>
-    public const int KeySize = 32;
+    public const int KEY_SIZE = 32;
 
     /// <summary>
     /// Nonce size in bytes
     /// </summary>
-    public const int NonceSize = 12;
+    public const int NONCE_SIZE = 12;
 
     /// <summary>
     /// Block size in bytes
     /// </summary>
-    public const int BlockSize = 64;
+    public const int BLOCK_SIZE = 64;
 
     /// <summary>
     /// Checks if hardware acceleration is available
@@ -54,13 +54,13 @@ internal static class ChaCha20Core
     public static void Transform(Span<byte> output, ReadOnlySpan<byte> input, ReadOnlySpan<byte> key,
         ReadOnlySpan<byte> nonce, uint counter = 0)
     {
-        if (key.Length != KeySize)
+        if (key.Length != KEY_SIZE)
         {
-            throw new ArgumentException($"Key must be {KeySize} bytes", nameof(key));
+            throw new ArgumentException($"Key must be {KEY_SIZE} bytes", nameof(key));
         }
-        if (nonce.Length != NonceSize)
+        if (nonce.Length != NONCE_SIZE)
         {
-            throw new ArgumentException($"Nonce must be {NonceSize} bytes", nameof(nonce));
+            throw new ArgumentException($"Nonce must be {NONCE_SIZE} bytes", nameof(nonce));
         }
         if (output.Length < input.Length)
         {
@@ -76,32 +76,32 @@ internal static class ChaCha20Core
         var remaining = input.Length;
 
         // Process full blocks
-        while (remaining >= BlockSize)
+        while (remaining >= BLOCK_SIZE)
         {
-            if (IsHardwareAccelerated && remaining >= BlockSize * 4)
+            if (IsHardwareAccelerated && remaining >= BLOCK_SIZE * 4)
             {
                 // Process 4 blocks in parallel using SIMD
                 ProcessFourBlocksSIMD(
-                    output.Slice(outputOffset, BlockSize * 4),
-                    input.Slice(inputOffset, BlockSize * 4),
+                    output.Slice(outputOffset, BLOCK_SIZE * 4),
+                    input.Slice(inputOffset, BLOCK_SIZE * 4),
                     state);
 
-                inputOffset += BlockSize * 4;
-                outputOffset += BlockSize * 4;
-                remaining -= BlockSize * 4;
+                inputOffset += BLOCK_SIZE * 4;
+                outputOffset += BLOCK_SIZE * 4;
+                remaining -= BLOCK_SIZE * 4;
                 IncrementCounter(state, 4);
             }
             else
             {
                 // Process single block
                 ProcessSingleBlock(
-                    output.Slice(outputOffset, BlockSize),
-                    input.Slice(inputOffset, BlockSize),
+                    output.Slice(outputOffset, BLOCK_SIZE),
+                    input.Slice(inputOffset, BLOCK_SIZE),
                     state);
 
-                inputOffset += BlockSize;
-                outputOffset += BlockSize;
-                remaining -= BlockSize;
+                inputOffset += BLOCK_SIZE;
+                outputOffset += BLOCK_SIZE;
+                remaining -= BLOCK_SIZE;
                 IncrementCounter(state, 1);
             }
         }
@@ -109,7 +109,7 @@ internal static class ChaCha20Core
         // Process final partial block
         if (remaining > 0)
         {
-            Span<byte> keystream = stackalloc byte[BlockSize];
+            Span<byte> keystream = stackalloc byte[BLOCK_SIZE];
             GenerateKeystream(keystream, state);
 
             for (var i = 0; i < remaining; i++)
@@ -129,9 +129,9 @@ internal static class ChaCha20Core
     /// <param name="state">ChaCha20 state</param>
     public static void GenerateKeystream(Span<byte> output, Span<uint> state)
     {
-        if (output.Length < BlockSize)
+        if (output.Length < BLOCK_SIZE)
         {
-            throw new ArgumentException($"Output must be at least {BlockSize} bytes", nameof(output));
+            throw new ArgumentException($"Output must be at least {BLOCK_SIZE} bytes", nameof(output));
         }
 
         // Copy state for processing
@@ -167,11 +167,11 @@ internal static class ChaCha20Core
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void InitializeState(Span<uint> state, ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce, uint counter)
     {
-        // Constants
-        state[0] = Constants[0];
-        state[1] = Constants[1];
-        state[2] = Constants[2];
-        state[3] = Constants[3];
+        // _constants
+        state[0] = _constants[0];
+        state[1] = _constants[1];
+        state[2] = _constants[2];
+        state[3] = _constants[3];
 
         // Key
         for (var i = 0; i < 8; i++)
@@ -266,11 +266,11 @@ internal static class ChaCha20Core
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void ProcessSingleBlock(Span<byte> output, ReadOnlySpan<byte> input, Span<uint> state)
     {
-        Span<byte> keystream = stackalloc byte[BlockSize];
+        Span<byte> keystream = stackalloc byte[BLOCK_SIZE];
         GenerateKeystream(keystream, state);
 
         // XOR input with keystream
-        for (var i = 0; i < BlockSize; i++)
+        for (var i = 0; i < BLOCK_SIZE; i++)
         {
             output[i] = (byte)(input[i] ^ keystream[i]);
         }
@@ -291,8 +291,8 @@ internal static class ChaCha20Core
             for (var i = 0; i < 4; i++)
             {
                 ProcessSingleBlock(
-                    output.Slice(i * BlockSize, BlockSize),
-                    input.Slice(i * BlockSize, BlockSize),
+                    output.Slice(i * BLOCK_SIZE, BLOCK_SIZE),
+                    input.Slice(i * BLOCK_SIZE, BLOCK_SIZE),
                     state);
                 IncrementCounter(state, 1);
             }
@@ -304,8 +304,8 @@ internal static class ChaCha20Core
         for (var i = 0; i < 4; i++)
         {
             ProcessSingleBlock(
-                output.Slice(i * BlockSize, BlockSize),
-                input.Slice(i * BlockSize, BlockSize),
+                output.Slice(i * BLOCK_SIZE, BLOCK_SIZE),
+                input.Slice(i * BLOCK_SIZE, BLOCK_SIZE),
                 state);
             IncrementCounter(state, 1);
         }
@@ -327,7 +327,7 @@ internal static class ChaCha20Core
         ArgumentOutOfRangeException.ThrowIfNegative(position);
 #endif
 
-        var blockNumber = (uint)(position / BlockSize);
+        var blockNumber = (uint)(position / BLOCK_SIZE);
         state[12] = blockNumber;
     }
 
@@ -338,6 +338,6 @@ internal static class ChaCha20Core
     /// <returns>Position in bytes</returns>
     public static long GetPosition(ReadOnlySpan<uint> state)
     {
-        return (long)state[12] * BlockSize;
+        return (long)state[12] * BLOCK_SIZE;
     }
 }

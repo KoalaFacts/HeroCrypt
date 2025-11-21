@@ -396,8 +396,8 @@ public class AeadService : IAeadService
     {
         return algorithm switch
         {
-            AeadAlgorithm.ChaCha20Poly1305 => ChaCha20Poly1305Core.KeySize,
-            AeadAlgorithm.XChaCha20Poly1305 => XChaCha20Poly1305Core.KeySize,
+            AeadAlgorithm.ChaCha20Poly1305 => ChaCha20Poly1305Core.KEY_SIZE,
+            AeadAlgorithm.XChaCha20Poly1305 => XChaCha20Poly1305Core.KEY_SIZE,
             AeadAlgorithm.Aes128Gcm => 16, // AES-128 key size
             AeadAlgorithm.Aes256Gcm => 32, // AES-256 key size
             AeadAlgorithm.Aes128Ccm => 16, // AES-128 key size
@@ -413,12 +413,12 @@ public class AeadService : IAeadService
     {
         return algorithm switch
         {
-            AeadAlgorithm.ChaCha20Poly1305 => ChaCha20Poly1305Core.NonceSize,
-            AeadAlgorithm.XChaCha20Poly1305 => XChaCha20Poly1305Core.NonceSize,
+            AeadAlgorithm.ChaCha20Poly1305 => ChaCha20Poly1305Core.NONCE_SIZE,
+            AeadAlgorithm.XChaCha20Poly1305 => XChaCha20Poly1305Core.NONCE_SIZE,
             AeadAlgorithm.Aes128Gcm => 12, // AES-GCM nonce size
             AeadAlgorithm.Aes256Gcm => 12, // AES-GCM nonce size
-            AeadAlgorithm.Aes128Ccm => AesCcmCore.DefaultNonceSize, // AES-CCM default nonce size
-            AeadAlgorithm.Aes256Ccm => AesCcmCore.DefaultNonceSize, // AES-CCM default nonce size
+            AeadAlgorithm.Aes128Ccm => AesCcmCore.DEFAULT_NONCE_SIZE, // AES-CCM default nonce size
+            AeadAlgorithm.Aes256Ccm => AesCcmCore.DEFAULT_NONCE_SIZE, // AES-CCM default nonce size
             AeadAlgorithm.Aes256Siv => 12, // AES-SIV default (can be any length)
             AeadAlgorithm.Aes512Siv => 12, // AES-SIV default (can be any length)
             _ => throw new NotSupportedException($"Algorithm {algorithm} is not supported")
@@ -430,14 +430,14 @@ public class AeadService : IAeadService
     {
         return algorithm switch
         {
-            AeadAlgorithm.ChaCha20Poly1305 => ChaCha20Poly1305Core.TagSize,
-            AeadAlgorithm.XChaCha20Poly1305 => XChaCha20Poly1305Core.TagSize,
+            AeadAlgorithm.ChaCha20Poly1305 => ChaCha20Poly1305Core.TAG_SIZE,
+            AeadAlgorithm.XChaCha20Poly1305 => XChaCha20Poly1305Core.TAG_SIZE,
             AeadAlgorithm.Aes128Gcm => 16, // AES-GCM tag size
             AeadAlgorithm.Aes256Gcm => 16, // AES-GCM tag size
-            AeadAlgorithm.Aes128Ccm => AesCcmCore.DefaultTagSize, // AES-CCM default tag size
-            AeadAlgorithm.Aes256Ccm => AesCcmCore.DefaultTagSize, // AES-CCM default tag size
-            AeadAlgorithm.Aes256Siv => AesSivCore.SivSize, // AES-SIV tag (SIV) size
-            AeadAlgorithm.Aes512Siv => AesSivCore.SivSize, // AES-SIV tag (SIV) size
+            AeadAlgorithm.Aes128Ccm => AesCcmCore.DEFAULT_TAG_SIZE, // AES-CCM default tag size
+            AeadAlgorithm.Aes256Ccm => AesCcmCore.DEFAULT_TAG_SIZE, // AES-CCM default tag size
+            AeadAlgorithm.Aes256Siv => AesSivCore.SIV_SIZE, // AES-SIV tag (SIV) size
+            AeadAlgorithm.Aes512Siv => AesSivCore.SIV_SIZE, // AES-SIV tag (SIV) size
             _ => throw new NotSupportedException($"Algorithm {algorithm} is not supported")
         };
     }

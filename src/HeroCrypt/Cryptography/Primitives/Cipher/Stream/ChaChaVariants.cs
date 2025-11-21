@@ -10,24 +10,24 @@ namespace HeroCrypt.Cryptography.Primitives.Cipher.Stream;
 public static class ChaChaVariants
 {
     /// <summary>
-    /// ChaCha constants "expand 32-byte k"
+    /// ChaCha _constants "expand 32-byte k"
     /// </summary>
-    private static readonly uint[] Constants = { 0x61707865, 0x3320646e, 0x79622d32, 0x6b206574 };
+    private static readonly uint[] _constants = { 0x61707865, 0x3320646e, 0x79622d32, 0x6b206574 };
 
     /// <summary>
     /// Key size in bytes (same for all variants)
     /// </summary>
-    public const int KeySize = 32;
+    public const int KEY_SIZE = 32;
 
     /// <summary>
     /// Nonce size in bytes (same for all variants)
     /// </summary>
-    public const int NonceSize = 12;
+    public const int NONCE_SIZE = 12;
 
     /// <summary>
     /// Block size in bytes (same for all variants)
     /// </summary>
-    public const int BlockSize = 64;
+    public const int BLOCK_SIZE = 64;
 
     /// <summary>
     /// ChaCha variant types with different security/performance tradeoffs
@@ -56,13 +56,13 @@ public static class ChaChaVariants
     public static void Transform(Span<byte> output, ReadOnlySpan<byte> input, ReadOnlySpan<byte> key,
         ReadOnlySpan<byte> nonce, uint counter, ChaChaVariant variant)
     {
-        if (key.Length != KeySize)
+        if (key.Length != KEY_SIZE)
         {
-            throw new ArgumentException($"Key must be {KeySize} bytes", nameof(key));
+            throw new ArgumentException($"Key must be {KEY_SIZE} bytes", nameof(key));
         }
-        if (nonce.Length != NonceSize)
+        if (nonce.Length != NONCE_SIZE)
         {
-            throw new ArgumentException($"Nonce must be {NonceSize} bytes", nameof(nonce));
+            throw new ArgumentException($"Nonce must be {NONCE_SIZE} bytes", nameof(nonce));
         }
         if (output.Length < input.Length)
         {
@@ -70,15 +70,15 @@ public static class ChaChaVariants
         }
 
         Span<uint> state = stackalloc uint[16];
-        var blocks = (input.Length + BlockSize - 1) / BlockSize;
+        var blocks = (input.Length + BLOCK_SIZE - 1) / BLOCK_SIZE;
 
         // Move stackalloc outside the loop to prevent stack overflow
-        Span<byte> keystream = stackalloc byte[BlockSize];
+        Span<byte> keystream = stackalloc byte[BLOCK_SIZE];
 
         for (var blockIndex = 0; blockIndex < blocks; blockIndex++)
         {
-            var blockStart = blockIndex * BlockSize;
-            var blockSize = Math.Min(BlockSize, input.Length - blockStart);
+            var blockStart = blockIndex * BLOCK_SIZE;
+            var blockSize = Math.Min(BLOCK_SIZE, input.Length - blockStart);
 
             var inputBlock = input.Slice(blockStart, blockSize);
             var outputBlock = output.Slice(blockStart, blockSize);
@@ -114,26 +114,26 @@ public static class ChaChaVariants
     public static void GenerateKeystream(Span<byte> keystream, ReadOnlySpan<byte> key,
         ReadOnlySpan<byte> nonce, uint counter, ChaChaVariant variant)
     {
-        if (key.Length != KeySize)
+        if (key.Length != KEY_SIZE)
         {
-            throw new ArgumentException($"Key must be {KeySize} bytes", nameof(key));
+            throw new ArgumentException($"Key must be {KEY_SIZE} bytes", nameof(key));
         }
-        if (nonce.Length != NonceSize)
+        if (nonce.Length != NONCE_SIZE)
         {
-            throw new ArgumentException($"Nonce must be {NonceSize} bytes", nameof(nonce));
+            throw new ArgumentException($"Nonce must be {NONCE_SIZE} bytes", nameof(nonce));
         }
-        if (keystream.Length % BlockSize != 0)
+        if (keystream.Length % BLOCK_SIZE != 0)
         {
             throw new ArgumentException("Keystream length must be multiple of block size", nameof(keystream));
         }
 
         Span<uint> state = stackalloc uint[16];
-        var blocks = keystream.Length / BlockSize;
+        var blocks = keystream.Length / BLOCK_SIZE;
 
         for (var blockIndex = 0; blockIndex < blocks; blockIndex++)
         {
-            var blockStart = blockIndex * BlockSize;
-            var keystreamBlock = keystream.Slice(blockStart, BlockSize);
+            var blockStart = blockIndex * BLOCK_SIZE;
+            var keystreamBlock = keystream.Slice(blockStart, BLOCK_SIZE);
 
             // Initialize state for this block
             InitializeState(state, key, nonce, counter + (uint)blockIndex);
@@ -152,11 +152,11 @@ public static class ChaChaVariants
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void InitializeState(Span<uint> state, ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce, uint counter)
     {
-        // Constants
-        state[0] = Constants[0];
-        state[1] = Constants[1];
-        state[2] = Constants[2];
-        state[3] = Constants[3];
+        // _constants
+        state[0] = _constants[0];
+        state[1] = _constants[1];
+        state[2] = _constants[2];
+        state[3] = _constants[3];
 
         // Key
         for (var i = 0; i < 8; i++)
@@ -307,13 +307,13 @@ public static class ChaChaVariants
     /// </summary>
     public static void ValidateParameters(ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce, ChaChaVariant variant)
     {
-        if (key.Length != KeySize)
+        if (key.Length != KEY_SIZE)
         {
-            throw new ArgumentException($"Key must be {KeySize} bytes", nameof(key));
+            throw new ArgumentException($"Key must be {KEY_SIZE} bytes", nameof(key));
         }
-        if (nonce.Length != NonceSize)
+        if (nonce.Length != NONCE_SIZE)
         {
-            throw new ArgumentException($"Nonce must be {NonceSize} bytes", nameof(nonce));
+            throw new ArgumentException($"Nonce must be {NONCE_SIZE} bytes", nameof(nonce));
         }
         if (!Enum.IsDefined(variant))
         {

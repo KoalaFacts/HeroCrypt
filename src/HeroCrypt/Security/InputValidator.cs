@@ -8,27 +8,27 @@ public static class InputValidator
     /// <summary>
     /// Maximum allowed array size to prevent DoS attacks
     /// </summary>
-    public const int MaxArraySize = 100 * 1024 * 1024; // 100MB
+    public const int MAX_ARRAY_SIZE = 100 * 1024 * 1024; // 100MB
 
     /// <summary>
     /// Maximum allowed key size in bits
     /// </summary>
-    public const int MaxKeySizeBits = 16384; // 16KB keys
+    public const int MAX_KEY_SIZE_BITS = 16384; // 16KB keys
 
     /// <summary>
     /// Minimum secure key size in bits (2048 bits per NIST recommendations)
     /// </summary>
-    public const int MinSecureKeySizeBits = 2048;
+    public const int MIN_SECURE_KEY_SIZE_BITS = 2048;
 
     /// <summary>
     /// Maximum allowed iteration count for key derivation
     /// </summary>
-    public const int MaxIterationCount = 10_000_000;
+    public const int MAX_ITERATION_COUNT = 10_000_000;
 
     /// <summary>
     /// Maximum allowed memory usage for Scrypt (in bytes)
     /// </summary>
-    public const long MaxScryptMemory = 1L * 1024 * 1024 * 1024; // 1GB
+    public const long MAX_SCRYPT_MEMORY = 1L * 1024 * 1024 * 1024; // 1GB
 
     /// <summary>
     /// Validates a byte array for cryptographic use
@@ -39,7 +39,7 @@ public static class InputValidator
     /// <param name="maxSize">Maximum allowed size</param>
     /// <exception cref="ArgumentNullException">When data is null</exception>
     /// <exception cref="ArgumentException">When data fails validation</exception>
-    public static void ValidateByteArray(byte[] data, string parameterName, bool allowEmpty = false, int maxSize = MaxArraySize)
+    public static void ValidateByteArray(byte[] data, string parameterName, bool allowEmpty = false, int maxSize = MAX_ARRAY_SIZE)
     {
         if (data == null)
         {
@@ -65,14 +65,14 @@ public static class InputValidator
     /// <exception cref="ArgumentException">When key size is invalid</exception>
     public static void ValidateRsaKeySize(int keySizeBits, string parameterName)
     {
-        if (keySizeBits < MinSecureKeySizeBits)
+        if (keySizeBits < MIN_SECURE_KEY_SIZE_BITS)
         {
-            throw new ArgumentException($"RSA key size must be at least {MinSecureKeySizeBits} bits", parameterName);
+            throw new ArgumentException($"RSA key size must be at least {MIN_SECURE_KEY_SIZE_BITS} bits", parameterName);
         }
 
-        if (keySizeBits > MaxKeySizeBits)
+        if (keySizeBits > MAX_KEY_SIZE_BITS)
         {
-            throw new ArgumentException($"RSA key size {keySizeBits} exceeds maximum allowed size {MaxKeySizeBits}", parameterName);
+            throw new ArgumentException($"RSA key size {keySizeBits} exceeds maximum allowed size {MAX_KEY_SIZE_BITS}", parameterName);
         }
 
         if (keySizeBits % 8 != 0)
@@ -120,9 +120,9 @@ public static class InputValidator
             throw new ArgumentException("Iteration count must be at least 1000 for security", nameof(iterations));
         }
 
-        if (iterations > MaxIterationCount)
+        if (iterations > MAX_ITERATION_COUNT)
         {
-            throw new ArgumentException($"Iteration count {iterations} exceeds maximum {MaxIterationCount}", nameof(iterations));
+            throw new ArgumentException($"Iteration count {iterations} exceeds maximum {MAX_ITERATION_COUNT}", nameof(iterations));
         }
 
         if (keyLength < 1)
@@ -130,9 +130,9 @@ public static class InputValidator
             throw new ArgumentException("Key length must be positive", nameof(keyLength));
         }
 
-        if (keyLength > MaxArraySize)
+        if (keyLength > MAX_ARRAY_SIZE)
         {
-            throw new ArgumentException($"Key length {keyLength} exceeds maximum {MaxArraySize}", nameof(keyLength));
+            throw new ArgumentException($"Key length {keyLength} exceeds maximum {MAX_ARRAY_SIZE}", nameof(keyLength));
         }
     }
 
@@ -207,22 +207,22 @@ public static class InputValidator
             throw new ArgumentException("Key length must be positive", nameof(keyLength));
         }
 
-        if (keyLength > MaxArraySize)
+        if (keyLength > MAX_ARRAY_SIZE)
         {
-            throw new ArgumentException($"Key length {keyLength} exceeds maximum {MaxArraySize}", nameof(keyLength));
+            throw new ArgumentException($"Key length {keyLength} exceeds maximum {MAX_ARRAY_SIZE}", nameof(keyLength));
         }
 
         // Check for potential overflow and DoS conditions
         var memoryRequired = (long)128 * r * n;
-        if (memoryRequired > MaxScryptMemory)
+        if (memoryRequired > MAX_SCRYPT_MEMORY)
         {
-            throw new ArgumentException($"Scrypt memory requirement {memoryRequired} bytes exceeds maximum {MaxScryptMemory}", nameof(n));
+            throw new ArgumentException($"Scrypt memory requirement {memoryRequired} bytes exceeds maximum {MAX_SCRYPT_MEMORY}", nameof(n));
         }
 
         var operationsRequired = (long)2 * n * r * p;
-        if (operationsRequired > MaxIterationCount)
+        if (operationsRequired > MAX_ITERATION_COUNT)
         {
-            throw new ArgumentException($"Scrypt operations {operationsRequired} exceed maximum {MaxIterationCount}", nameof(n));
+            throw new ArgumentException($"Scrypt operations {operationsRequired} exceed maximum {MAX_ITERATION_COUNT}", nameof(n));
         }
 
         // Additional security checks
@@ -366,7 +366,7 @@ public static class InputValidator
     /// <param name="size">Size to validate</param>
     /// <param name="operation">Operation name for error messages</param>
     /// <param name="maxSize">Maximum allowed size</param>
-    public static void ValidateArraySize(int size, string operation, int maxSize = MaxArraySize)
+    public static void ValidateArraySize(int size, string operation, int maxSize = MAX_ARRAY_SIZE)
     {
         if (size <= 0)
         {

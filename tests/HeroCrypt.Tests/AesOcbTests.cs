@@ -15,7 +15,7 @@ public class AesOcbTests
         var key = new byte[16];
         var nonce = new byte[12];
         var plaintext = Encoding.UTF8.GetBytes("Hello, World!");
-        var ciphertext = new byte[plaintext.Length + AesOcbCore.TagSize];
+        var ciphertext = new byte[plaintext.Length + AesOcbCore.TAG_SIZE];
 
         for (var i = 0; i < key.Length; i++)
         {
@@ -30,7 +30,7 @@ public class AesOcbTests
         var written = AesOcbCore.Encrypt(ciphertext, plaintext, key, nonce, ReadOnlySpan<byte>.Empty);
 
         // Assert
-        Assert.Equal(plaintext.Length + AesOcbCore.TagSize, written);
+        Assert.Equal(plaintext.Length + AesOcbCore.TAG_SIZE, written);
     }
 
     [Fact]
@@ -40,7 +40,7 @@ public class AesOcbTests
         var key = new byte[16];
         var nonce = new byte[12];
         var plaintext = Encoding.UTF8.GetBytes("The quick brown fox jumps over the lazy dog");
-        var ciphertext = new byte[plaintext.Length + AesOcbCore.TagSize];
+        var ciphertext = new byte[plaintext.Length + AesOcbCore.TAG_SIZE];
         var decrypted = new byte[plaintext.Length];
 
         for (var i = 0; i < key.Length; i++)
@@ -57,7 +57,7 @@ public class AesOcbTests
         var decryptedLength = AesOcbCore.Decrypt(decrypted, ciphertext, key, nonce, ReadOnlySpan<byte>.Empty);
 
         // Assert
-        Assert.Equal(plaintext.Length + AesOcbCore.TagSize, encryptedLength);
+        Assert.Equal(plaintext.Length + AesOcbCore.TAG_SIZE, encryptedLength);
         Assert.Equal(plaintext.Length, decryptedLength);
         Assert.Equal(plaintext, decrypted);
     }
@@ -70,7 +70,7 @@ public class AesOcbTests
         var nonce = new byte[12];
         var plaintext = Encoding.UTF8.GetBytes("Secret message");
         var associatedData = Encoding.UTF8.GetBytes("user_id=12345");
-        var ciphertext = new byte[plaintext.Length + AesOcbCore.TagSize];
+        var ciphertext = new byte[plaintext.Length + AesOcbCore.TAG_SIZE];
         var decrypted = new byte[plaintext.Length];
 
         for (var i = 0; i < key.Length; i++)
@@ -100,7 +100,7 @@ public class AesOcbTests
         var plaintext = Encoding.UTF8.GetBytes("Secret message");
         var correctAd = Encoding.UTF8.GetBytes("user_id=12345");
         var wrongAd = Encoding.UTF8.GetBytes("user_id=99999");
-        var ciphertext = new byte[plaintext.Length + AesOcbCore.TagSize];
+        var ciphertext = new byte[plaintext.Length + AesOcbCore.TAG_SIZE];
         var decrypted = new byte[plaintext.Length];
 
         for (var i = 0; i < key.Length; i++)
@@ -128,7 +128,7 @@ public class AesOcbTests
         var key = new byte[16];
         var nonce = new byte[12];
         var plaintext = Encoding.UTF8.GetBytes("Secret message");
-        var ciphertext = new byte[plaintext.Length + AesOcbCore.TagSize];
+        var ciphertext = new byte[plaintext.Length + AesOcbCore.TAG_SIZE];
         var decrypted = new byte[plaintext.Length];
 
         for (var i = 0; i < key.Length; i++)
@@ -157,7 +157,7 @@ public class AesOcbTests
         var key = new byte[16];
         var nonce = new byte[12];
         var plaintext = Encoding.UTF8.GetBytes("Secret message");
-        var ciphertext = new byte[plaintext.Length + AesOcbCore.TagSize];
+        var ciphertext = new byte[plaintext.Length + AesOcbCore.TAG_SIZE];
         var decrypted = new byte[plaintext.Length];
 
         for (var i = 0; i < key.Length; i++)
@@ -186,7 +186,7 @@ public class AesOcbTests
         var key = new byte[16];
         var nonce = new byte[12];
         var plaintext = Array.Empty<byte>();
-        var ciphertext = new byte[AesOcbCore.TagSize];
+        var ciphertext = new byte[AesOcbCore.TAG_SIZE];
         var decrypted = Array.Empty<byte>();
 
         for (var i = 0; i < key.Length; i++)
@@ -203,7 +203,7 @@ public class AesOcbTests
         var decryptedLength = AesOcbCore.Decrypt(decrypted, ciphertext, key, nonce, ReadOnlySpan<byte>.Empty);
 
         // Assert
-        Assert.Equal(AesOcbCore.TagSize, encryptedLength);
+        Assert.Equal(AesOcbCore.TAG_SIZE, encryptedLength);
         Assert.Equal(0, decryptedLength);
     }
 
@@ -228,7 +228,7 @@ public class AesOcbTests
                 nonce[i] = (byte)(i + 100);
             }
 
-            var ciphertext = new byte[plaintext.Length + AesOcbCore.TagSize];
+            var ciphertext = new byte[plaintext.Length + AesOcbCore.TAG_SIZE];
             var decrypted = new byte[plaintext.Length];
 
             // Act
@@ -262,7 +262,7 @@ public class AesOcbTests
                 nonce[i] = (byte)(i + 100);
             }
 
-            var ciphertext = new byte[plaintext.Length + AesOcbCore.TagSize];
+            var ciphertext = new byte[plaintext.Length + AesOcbCore.TAG_SIZE];
             var decrypted = new byte[plaintext.Length];
 
             // Act
@@ -283,7 +283,7 @@ public class AesOcbTests
         var nonce = new byte[12];
         var plaintext = new byte[1024 * 1024];
         new Random(42).NextBytes(plaintext);
-        var ciphertext = new byte[plaintext.Length + AesOcbCore.TagSize];
+        var ciphertext = new byte[plaintext.Length + AesOcbCore.TAG_SIZE];
         var decrypted = new byte[plaintext.Length];
 
         for (var i = 0; i < key.Length; i++)
@@ -316,7 +316,7 @@ public class AesOcbTests
             plaintext[i] = (byte)(i + 50);
         }
 
-        var ciphertext = new byte[plaintext.Length + AesOcbCore.TagSize];
+        var ciphertext = new byte[plaintext.Length + AesOcbCore.TAG_SIZE];
         var decrypted = new byte[plaintext.Length];
 
         for (var i = 0; i < key.Length; i++)
@@ -344,7 +344,7 @@ public class AesOcbTests
         var invalidKey = new byte[15]; // Should be 16, 24, or 32
         var nonce = new byte[12];
         var plaintext = new byte[10];
-        var ciphertext = new byte[plaintext.Length + AesOcbCore.TagSize];
+        var ciphertext = new byte[plaintext.Length + AesOcbCore.TAG_SIZE];
 
         // Act & Assert
         var ex = Assert.Throws<ArgumentException>(() =>
@@ -359,7 +359,7 @@ public class AesOcbTests
         var key = new byte[16];
         var invalidNonce = new byte[16]; // Should be 1-15 bytes
         var plaintext = new byte[10];
-        var ciphertext = new byte[plaintext.Length + AesOcbCore.TagSize];
+        var ciphertext = new byte[plaintext.Length + AesOcbCore.TAG_SIZE];
 
         // Act & Assert
         var ex = Assert.Throws<ArgumentException>(() =>
@@ -417,8 +417,8 @@ public class AesOcbTests
             nonce2[i] = (byte)(i + 200);
         }
 
-        var ciphertext1 = new byte[plaintext.Length + AesOcbCore.TagSize];
-        var ciphertext2 = new byte[plaintext.Length + AesOcbCore.TagSize];
+        var ciphertext1 = new byte[plaintext.Length + AesOcbCore.TAG_SIZE];
+        var ciphertext2 = new byte[plaintext.Length + AesOcbCore.TAG_SIZE];
 
         // Act
         AesOcbCore.Encrypt(ciphertext1, plaintext, key, nonce1, ReadOnlySpan<byte>.Empty);
@@ -461,7 +461,7 @@ public class AesOcbTests
             plaintext[i] = (byte)(i % 256);
         }
 
-        var ciphertext = new byte[plaintext.Length + AesOcbCore.TagSize];
+        var ciphertext = new byte[plaintext.Length + AesOcbCore.TAG_SIZE];
         var decrypted = new byte[plaintext.Length];
 
         for (var i = 0; i < key.Length; i++)

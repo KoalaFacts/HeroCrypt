@@ -10,7 +10,7 @@ namespace HeroCrypt.Tests;
 public class Blake2bServiceTests
 {
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Blake2bCore_ComputeHash_ReturnsCorrectLength()
     {
         var data = Encoding.UTF8.GetBytes("Hello Blake2b");
@@ -20,7 +20,7 @@ public class Blake2bServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Blake2bCore_ComputeHash_IsDeterministic()
     {
         var data = Encoding.UTF8.GetBytes("Test data");
@@ -31,7 +31,7 @@ public class Blake2bServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Blake2bCore_ComputeLongHash_HandlesLargeSizes()
     {
         var data = Encoding.UTF8.GetBytes("Test data for long hash");
@@ -41,7 +41,7 @@ public class Blake2bServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Blake2bService_ComputeHash_ReturnsValidHash()
     {
         var service = new Blake2bHashingService();
@@ -54,7 +54,7 @@ public class Blake2bServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Blake2bService_VerifyHash_ValidatesCorrectly()
     {
         var service = new Blake2bHashingService();
@@ -67,7 +67,7 @@ public class Blake2bServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Blake2bService_VerifyHash_RejectsInvalidHash()
     {
         var service = new Blake2bHashingService();
@@ -81,7 +81,7 @@ public class Blake2bServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Blake2bService_ComputeLongHash_WorksCorrectly()
     {
         var service = new Blake2bHashingService();
@@ -93,7 +93,7 @@ public class Blake2bServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Blake2bCore_ThrowsOnInvalidOutputLength()
     {
         var data = Encoding.UTF8.GetBytes("Test data");
@@ -105,7 +105,7 @@ public class Blake2bServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Unit)]
+    [Trait("Category", TestCategories.UNIT)]
     public void Blake2bCore_ThrowsOnInvalidLongHashLength()
     {
         var data = Encoding.UTF8.GetBytes("Test data");
@@ -117,7 +117,7 @@ public class Blake2bServiceTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Compliance)]
+    [Trait("Category", TestCategories.COMPLIANCE)]
     public void Blake2bCore_ProducesKnownTestVector()
     {
         // RFC 7693 test vector: empty input

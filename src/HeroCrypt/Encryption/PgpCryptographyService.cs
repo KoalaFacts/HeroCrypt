@@ -33,14 +33,14 @@ internal sealed class PrivateKeyData
 /// </summary>
 public sealed class PgpCryptographyService : ICryptographyService, IPgpKeyGenerator
 {
-    private const string PublicKeyHeader = "-----BEGIN PGP PUBLIC KEY BLOCK-----";
-    private const string PublicKeyFooter = "-----END PGP PUBLIC KEY BLOCK-----";
-    private const string PrivateKeyHeader = "-----BEGIN PGP PRIVATE KEY BLOCK-----";
-    private const string PrivateKeyFooter = "-----END PGP PRIVATE KEY BLOCK-----";
-    private const string MessageHeader = "-----BEGIN PGP MESSAGE-----";
-    private const string MessageFooter = "-----END PGP MESSAGE-----";
+    private const string PUBLIC_KEY_HEADER = "-----BEGIN PGP PUBLIC KEY BLOCK-----";
+    private const string PUBLIC_KEY_FOOTER = "-----END PGP PUBLIC KEY BLOCK-----";
+    private const string PRIVATE_KEY_HEADER = "-----BEGIN PGP PRIVATE KEY BLOCK-----";
+    private const string PRIVATE_KEY_FOOTER = "-----END PGP PRIVATE KEY BLOCK-----";
+    private const string MESSAGE_HEADER = "-----BEGIN PGP MESSAGE-----";
+    private const string MESSAGE_FOOTER = "-----END PGP MESSAGE-----";
 
-    private static readonly char[] LineSeparators = { '\n' };
+    private static readonly char[] _lineSeparators = { '\n' };
 
     /// <summary>
     /// Encrypts data using PGP-compatible encryption with RSA and AES.
@@ -326,7 +326,7 @@ public sealed class PgpCryptographyService : ICryptographyService, IPgpKeyGenera
     private static string FormatPublicKey(PublicKeyData keyData)
     {
         var sb = new StringBuilder();
-        sb.AppendLine(PublicKeyHeader);
+        sb.AppendLine(PUBLIC_KEY_HEADER);
         sb.AppendLine();
         sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "Identity: {0}", keyData.Identity));
         sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "Created: {0:yyyy-MM-dd HH:mm:ss} UTC", keyData.Created));
@@ -335,14 +335,14 @@ public sealed class PgpCryptographyService : ICryptographyService, IPgpKeyGenera
         sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "Modulus: {0}", keyData.Modulus));
         sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "Exponent: {0}", keyData.Exponent));
         sb.AppendLine();
-        sb.AppendLine(PublicKeyFooter);
+        sb.AppendLine(PUBLIC_KEY_FOOTER);
         return sb.ToString();
     }
 
     private static string FormatPrivateKey(PrivateKeyData keyData, string passphrase)
     {
         var sb = new StringBuilder();
-        sb.AppendLine(PrivateKeyHeader);
+        sb.AppendLine(PRIVATE_KEY_HEADER);
         sb.AppendLine();
         sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "Identity: {0}", keyData.Identity));
         sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "Created: {0:yyyy-MM-dd HH:mm:ss} UTC", keyData.Created));
@@ -366,14 +366,14 @@ public sealed class PgpCryptographyService : ICryptographyService, IPgpKeyGenera
         }
 
         sb.AppendLine();
-        sb.AppendLine(PrivateKeyFooter);
+        sb.AppendLine(PRIVATE_KEY_FOOTER);
         return sb.ToString();
     }
 
     private static string FormatPgpMessage(byte[] data)
     {
         var sb = new StringBuilder();
-        sb.AppendLine(MessageHeader);
+        sb.AppendLine(MESSAGE_HEADER);
         sb.AppendLine();
 
         var base64 = Convert.ToBase64String(data);
@@ -383,24 +383,24 @@ public sealed class PgpCryptographyService : ICryptographyService, IPgpKeyGenera
         }
 
         sb.AppendLine();
-        sb.AppendLine(MessageFooter);
+        sb.AppendLine(MESSAGE_FOOTER);
         return sb.ToString();
     }
 
     private static byte[] ParsePgpMessage(string pgpMessage)
     {
-        var lines = pgpMessage.Split(LineSeparators, StringSplitOptions.RemoveEmptyEntries);
+        var lines = pgpMessage.Split(_lineSeparators, StringSplitOptions.RemoveEmptyEntries);
         var dataLines = new List<string>();
         var inData = false;
 
         foreach (var line in lines)
         {
-            if (line.Trim() == MessageHeader)
+            if (line.Trim() == MESSAGE_HEADER)
             {
                 inData = true;
                 continue;
             }
-            if (line.Trim() == MessageFooter)
+            if (line.Trim() == MESSAGE_FOOTER)
             {
                 break;
             }
@@ -416,7 +416,7 @@ public sealed class PgpCryptographyService : ICryptographyService, IPgpKeyGenera
 
     private static RsaPublicKey ParsePublicKey(string publicKeyString)
     {
-        var lines = publicKeyString.Split(LineSeparators, StringSplitOptions.RemoveEmptyEntries);
+        var lines = publicKeyString.Split(_lineSeparators, StringSplitOptions.RemoveEmptyEntries);
         string? modulus = null;
         string? exponent = null;
 
@@ -444,7 +444,7 @@ public sealed class PgpCryptographyService : ICryptographyService, IPgpKeyGenera
 
     private static RsaPrivateKey ParsePrivateKey(string privateKeyString, string? passphrase)
     {
-        var lines = privateKeyString.Split(LineSeparators, StringSplitOptions.RemoveEmptyEntries);
+        var lines = privateKeyString.Split(_lineSeparators, StringSplitOptions.RemoveEmptyEntries);
         string? modulus = null;
         string? d = null;
         string? p = null;

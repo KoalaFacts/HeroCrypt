@@ -11,20 +11,20 @@ public static class Ed25519Core
     /// <summary>
     /// Size of Ed25519 signatures in bytes
     /// </summary>
-    public const int SignatureSize = 64;
+    public const int SIGNATURE_SIZE = 64;
 
     /// <summary>
     /// Size of Ed25519 public keys in bytes
     /// </summary>
-    public const int PublicKeySize = 32;
+    public const int PUBLIC_KEY_SIZE = 32;
 
     /// <summary>
     /// Size of Ed25519 private keys in bytes
     /// </summary>
-    public const int PrivateKeySize = 32;
+    public const int PRIVATE_KEY_SIZE = 32;
 
-    private static readonly byte[] PublicKeySaltBytes = Encoding.ASCII.GetBytes("HeroCrypt.Ed25519.PublicKey");
-    private static readonly byte[] SignatureSaltBytes = Encoding.ASCII.GetBytes("HeroCrypt.Ed25519.Signature");
+    private static readonly byte[] _publicKeySaltBytes = Encoding.ASCII.GetBytes("HeroCrypt.Ed25519.PublicKey");
+    private static readonly byte[] _signatureSaltBytes = Encoding.ASCII.GetBytes("HeroCrypt.Ed25519.Signature");
 
     /// <summary>
     /// Generates a new Ed25519 key pair
@@ -32,7 +32,7 @@ public static class Ed25519Core
     /// <returns>A tuple containing the private key and public key</returns>
     public static (byte[] privateKey, byte[] publicKey) GenerateKeyPair()
     {
-        var privateKey = new byte[PrivateKeySize];
+        var privateKey = new byte[PRIVATE_KEY_SIZE];
         using var rng = RandomNumberGenerator.Create();
         rng.GetBytes(privateKey);
 
@@ -51,14 +51,14 @@ public static class Ed25519Core
     {
         ValidatePrivateKey(privateKey);
 
-        var buffer = new byte[privateKey.Length + PublicKeySaltBytes.Length];
+        var buffer = new byte[privateKey.Length + _publicKeySaltBytes.Length];
         Buffer.BlockCopy(privateKey, 0, buffer, 0, privateKey.Length);
-        Buffer.BlockCopy(PublicKeySaltBytes, 0, buffer, privateKey.Length, PublicKeySaltBytes.Length);
+        Buffer.BlockCopy(_publicKeySaltBytes, 0, buffer, privateKey.Length, _publicKeySaltBytes.Length);
 
         var hash = ComputeSha512(buffer);
 
-        var publicKey = new byte[PublicKeySize];
-        Buffer.BlockCopy(hash, 0, publicKey, 0, PublicKeySize);
+        var publicKey = new byte[PUBLIC_KEY_SIZE];
+        Buffer.BlockCopy(hash, 0, publicKey, 0, PUBLIC_KEY_SIZE);
 
         Array.Clear(buffer, 0, buffer.Length);
         Array.Clear(hash, 0, hash.Length);
@@ -131,11 +131,11 @@ public static class Ed25519Core
             throw new ArgumentNullException(nameof(publicKey));
         }
 #endif
-        if (publicKey.Length != PublicKeySize)
+        if (publicKey.Length != PUBLIC_KEY_SIZE)
         {
             throw new ArgumentException("Public key must be 32 bytes", nameof(publicKey));
         }
-        if (signature.Length != SignatureSize)
+        if (signature.Length != SIGNATURE_SIZE)
         {
             throw new ArgumentException("Signature must be 64 bytes", nameof(signature));
         }
@@ -164,9 +164,9 @@ public static class Ed25519Core
 
     private static byte[] DeriveSignatureKey(byte[] publicKey)
     {
-        var buffer = new byte[publicKey.Length + SignatureSaltBytes.Length];
+        var buffer = new byte[publicKey.Length + _signatureSaltBytes.Length];
         Buffer.BlockCopy(publicKey, 0, buffer, 0, publicKey.Length);
-        Buffer.BlockCopy(SignatureSaltBytes, 0, buffer, publicKey.Length, SignatureSaltBytes.Length);
+        Buffer.BlockCopy(_signatureSaltBytes, 0, buffer, publicKey.Length, _signatureSaltBytes.Length);
 
         var key = ComputeSha512(buffer);
 
@@ -184,7 +184,7 @@ public static class Ed25519Core
             throw new ArgumentNullException(nameof(privateKey));
         }
 #endif
-        if (privateKey.Length != PrivateKeySize)
+        if (privateKey.Length != PRIVATE_KEY_SIZE)
         {
             throw new ArgumentException("Private key must be 32 bytes", nameof(privateKey));
         }

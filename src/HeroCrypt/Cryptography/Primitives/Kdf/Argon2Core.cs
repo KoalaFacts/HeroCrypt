@@ -14,8 +14,8 @@ namespace HeroCrypt.Cryptography.Primitives.Kdf;
 /// </summary>
 public static class Argon2Core
 {
-    private const int BlockSize = 1024;
-    private const int Version = 0x13; // Argon2 version 19
+    private const int BLOCK_SIZE = 1024;
+    private const int VERSION = 0x13; // Argon2 VERSION 19
 
     /// <summary>
     /// Computes an Argon2 hash using the specified parameters
@@ -148,7 +148,7 @@ public static class Argon2Core
             BinaryPrimitives.WriteInt32LittleEndian(block0Input.AsSpan(h0.Length + 4), lane);
 #endif
 
-            var block0Data = Blake2bCore.ComputeLongHash(block0Input, BlockSize);
+            var block0Data = Blake2bCore.ComputeLongHash(block0Input, BLOCK_SIZE);
             BytesToBlock(block0Data, memory[startIdx]);
 
             // B[i][1] = H'^(1024)(H_0 || LE32(1) || LE32(i))
@@ -162,7 +162,7 @@ public static class Argon2Core
             BinaryPrimitives.WriteInt32LittleEndian(block1Input.AsSpan(h0.Length + 4), lane);
 #endif
 
-            var block1Data = Blake2bCore.ComputeLongHash(block1Input, BlockSize);
+            var block1Data = Blake2bCore.ComputeLongHash(block1Input, BLOCK_SIZE);
             BytesToBlock(block1Data, memory[startIdx + 1]);
         }
     }
@@ -210,11 +210,11 @@ public static class Argon2Core
 #endif
         ms.Write(buffer, 0, 4);
 
-        // v: version number (19 = 0x13)
+        // v: VERSION number (19 = 0x13)
 #if NETSTANDARD2_0
-        WriteInt32LittleEndian(buffer, 0, Version);
+        WriteInt32LittleEndian(buffer, 0, VERSION);
 #else
-        BinaryPrimitives.WriteInt32LittleEndian(buffer, Version);
+        BinaryPrimitives.WriteInt32LittleEndian(buffer, VERSION);
 #endif
         ms.Write(buffer, 0, 4);
 

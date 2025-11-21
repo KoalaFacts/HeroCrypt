@@ -13,37 +13,37 @@ internal static class ScryptCore
     /// <summary>
     /// Minimum recommended N parameter (CPU/memory cost)
     /// </summary>
-    public const int MinRecommendedN = 16384; // 2^14
+    public const int MIN_RECOMMENDED_N = 16384; // 2^14
 
     /// <summary>
     /// Default N parameter for general use
     /// </summary>
-    public const int DefaultN = 32768; // 2^15
+    public const int DEFAULT_N = 32768; // 2^15
 
     /// <summary>
     /// Recommended r parameter (block size)
     /// </summary>
-    public const int DefaultR = 8;
+    public const int DEFAULT_R = 8;
 
     /// <summary>
     /// Recommended p parameter (parallelization)
     /// </summary>
-    public const int DefaultP = 1;
+    public const int DEFAULT_P = 1;
 
     /// <summary>
     /// Minimum salt length in bytes
     /// </summary>
-    public const int MinSaltLength = 16;
+    public const int MIN_SALT_LENGTH = 16;
 
     /// <summary>
     /// Default salt length in bytes
     /// </summary>
-    public const int DefaultSaltLength = 32;
+    public const int DEFAULT_SALT_LENGTH = 32;
 
     /// <summary>
     /// Maximum memory usage limit (128 MB by default)
     /// </summary>
-    public const long DefaultMaxMemory = 128 * 1024 * 1024;
+    public const long DEFAULT_MAX_MEMORY = 128 * 1024 * 1024;
 
     /// <summary>
     /// Derives a key using scrypt
@@ -138,7 +138,7 @@ internal static class ScryptCore
         }
 
         // Don't enforce minimum N - allow test vectors and compatibility scenarios
-        // Production code should use MinRecommendedN (16384) or higher
+        // Production code should use MIN_RECOMMENDED_N (16384) or higher
 
         if (r <= 0)
         {
@@ -157,9 +157,9 @@ internal static class ScryptCore
 
         // Check memory requirements
         var memoryRequired = (long)128 * r * n * p;
-        if (memoryRequired > DefaultMaxMemory)
+        if (memoryRequired > DEFAULT_MAX_MEMORY)
         {
-            throw new ArgumentException($"Parameters require too much memory: {memoryRequired} bytes (max: {DefaultMaxMemory})", nameof(n));
+            throw new ArgumentException($"Parameters require too much memory: {memoryRequired} bytes (max: {DEFAULT_MAX_MEMORY})", nameof(n));
         }
 
         // RFC 7914 constraint: p <= (2^32 - 1) * 32 / (128 * r)
@@ -175,11 +175,11 @@ internal static class ScryptCore
     /// </summary>
     /// <param name="length">Salt length (default: 32 bytes)</param>
     /// <returns>Random salt</returns>
-    public static byte[] GenerateRandomSalt(int length = DefaultSaltLength)
+    public static byte[] GenerateRandomSalt(int length = DEFAULT_SALT_LENGTH)
     {
-        if (length < MinSaltLength)
+        if (length < MIN_SALT_LENGTH)
         {
-            throw new ArgumentException($"Salt length must be at least {MinSaltLength} bytes", nameof(length));
+            throw new ArgumentException($"Salt length must be at least {MIN_SALT_LENGTH} bytes", nameof(length));
         }
 
         var salt = new byte[length];
@@ -202,7 +202,7 @@ internal static class ScryptCore
                 N = 32768,      // 2^15
                 R = 8,
                 P = 1,
-                SaltLength = DefaultSaltLength,
+                SaltLength = DEFAULT_SALT_LENGTH,
                 OutputLength = 32,
                 Description = "Interactive login (fast)"
             },
@@ -211,7 +211,7 @@ internal static class ScryptCore
                 N = 1048576,    // 2^20
                 R = 8,
                 P = 1,
-                SaltLength = DefaultSaltLength,
+                SaltLength = DEFAULT_SALT_LENGTH,
                 OutputLength = 32,
                 Description = "Sensitive data (slow)"
             },
@@ -229,7 +229,7 @@ internal static class ScryptCore
                 N = 16384,      // 2^14
                 R = 8,
                 P = 1,
-                SaltLength = MinSaltLength,
+                SaltLength = MIN_SALT_LENGTH,
                 OutputLength = 32,
                 Description = "Legacy compatibility"
             },
@@ -262,8 +262,8 @@ internal static class ScryptCore
         }
 
         var targetBytes = (long)targetMemoryMB * 1024 * 1024;
-        var r = DefaultR;
-        var p = DefaultP;
+        var r = DEFAULT_R;
+        var p = DEFAULT_P;
 
         // Calculate N for target memory: N = targetBytes / (128 * r * p)
         var n = (int)(targetBytes / (128 * r * p));
@@ -276,7 +276,7 @@ internal static class ScryptCore
 #endif
 
         // Ensure minimum security
-        n = Math.Max(n, MinRecommendedN);
+        n = Math.Max(n, MIN_RECOMMENDED_N);
 
         return (n, r, p);
     }

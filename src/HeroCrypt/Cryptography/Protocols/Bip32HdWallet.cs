@@ -24,32 +24,32 @@ public static class Bip32HdWallet
     /// <summary>
     /// Minimum seed length in bytes
     /// </summary>
-    public const int MinSeedLength = 16; // 128 bits
+    public const int MIN_SEED_LENGTH = 16; // 128 bits
 
     /// <summary>
     /// Maximum seed length in bytes
     /// </summary>
-    public const int MaxSeedLength = 64; // 512 bits
+    public const int MAX_SEED_LENGTH = 64; // 512 bits
 
     /// <summary>
     /// Recommended seed length in bytes
     /// </summary>
-    public const int RecommendedSeedLength = 64; // 512 bits (BIP39 output)
+    public const int RECOMMENDED_SEED_LENGTH = 64; // 512 bits (BIP39 output)
 
     /// <summary>
     /// Extended key length (including chain code)
     /// </summary>
-    public const int ExtendedKeyLength = 78;
+    public const int EXTENDED_KEY_LENGTH = 78;
 
     /// <summary>
     /// Hardened key offset (2^31)
     /// </summary>
-    public const uint HardenedOffset = 0x80000000;
+    public const uint HARDENED_OFFSET = 0x80000000;
 
     /// <summary>
     /// Master key generation constant for Bitcoin
     /// </summary>
-    private const string BitcoinSeed = "Bitcoin seed";
+    private const string BITCOIN_SEED = "Bitcoin seed";
 
     /// <summary>
     /// Represents an extended key (public or private) with chain code
@@ -132,11 +132,11 @@ public static class Bip32HdWallet
     /// <param name="seed">Seed bytes (16-64 bytes, 64 recommended)</param>
     /// <param name="keyType">Key type identifier (default: "Bitcoin seed")</param>
     /// <returns>Master extended private key</returns>
-    public static ExtendedKey GenerateMasterKey(ReadOnlySpan<byte> seed, string keyType = BitcoinSeed)
+    public static ExtendedKey GenerateMasterKey(ReadOnlySpan<byte> seed, string keyType = BITCOIN_SEED)
     {
-        if (seed.Length < MinSeedLength || seed.Length > MaxSeedLength)
+        if (seed.Length < MIN_SEED_LENGTH || seed.Length > MAX_SEED_LENGTH)
         {
-            throw new ArgumentException($"Seed must be between {MinSeedLength} and {MaxSeedLength} bytes", nameof(seed));
+            throw new ArgumentException($"Seed must be between {MIN_SEED_LENGTH} and {MAX_SEED_LENGTH} bytes", nameof(seed));
         }
 
         // Compute I = HMAC-SHA512(Key = keyType, Data = seed)
@@ -175,7 +175,7 @@ public static class Bip32HdWallet
     /// Derives a child key from a parent key
     /// </summary>
     /// <param name="parent">Parent extended key</param>
-    /// <param name="index">Child index (use values >= HardenedOffset for hardened derivation)</param>
+    /// <param name="index">Child index (use values >= HARDENED_OFFSET for hardened derivation)</param>
     /// <returns>Derived child key</returns>
     public static ExtendedKey DeriveChild(ExtendedKey parent, uint index)
     {
@@ -188,7 +188,7 @@ public static class Bip32HdWallet
         }
 #endif
 
-        var isHardened = index >= HardenedOffset;
+        var isHardened = index >= HARDENED_OFFSET;
 
         // Hardened derivation requires private key
         if (isHardened && !parent.IsPrivate)
@@ -375,11 +375,11 @@ public static class Bip32HdWallet
 
             if (isHardened)
             {
-                if (index >= HardenedOffset)
+                if (index >= HARDENED_OFFSET)
                 {
                     throw new ArgumentException($"Index too large for hardened derivation: {index}", nameof(path));
                 }
-                index += HardenedOffset;
+                index += HARDENED_OFFSET;
             }
 
             indices[i] = index;
@@ -393,9 +393,9 @@ public static class Bip32HdWallet
     /// </summary>
     public static string FormatIndex(uint index)
     {
-        if (index >= HardenedOffset)
+        if (index >= HARDENED_OFFSET)
         {
-            return $"{index - HardenedOffset}'";
+            return $"{index - HARDENED_OFFSET}'";
         }
         return index.ToString(CultureInfo.InvariantCulture);
     }
@@ -546,7 +546,7 @@ public static class Bip32HdWallet
     public static string GetInfo()
     {
         return "BIP32 Hierarchical Deterministic Wallets - Derives child keys from master seed. " +
-               $"Supports normal and hardened derivation. Seed length: {MinSeedLength}-{MaxSeedLength} bytes.";
+               $"Supports normal and hardened derivation. Seed length: {MIN_SEED_LENGTH}-{MAX_SEED_LENGTH} bytes.";
     }
 
     /// <summary>

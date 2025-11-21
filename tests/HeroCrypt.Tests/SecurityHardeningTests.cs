@@ -530,7 +530,7 @@ public class SecurityHardeningTests
         Assert.Throws<ArgumentException>(() => service.Sign(new byte[] { 1, 2, 3 }, new byte[0]));
 
         // Test oversized data
-        var oversizedData = new byte[InputValidator.MaxArraySize + 1];
+        var oversizedData = new byte[InputValidator.MAX_ARRAY_SIZE + 1];
         Assert.Throws<ArgumentException>(() => service.Sign(oversizedData, new byte[] { 1, 2, 3 }));
     }
 

@@ -95,13 +95,13 @@ public class Bip32HdWalletTests
         var masterKey = Bip32HdWallet.GenerateMasterKey(seed);
 
         // Act - Derive hardened child (index >= 2^31)
-        var childKey = Bip32HdWallet.DeriveChild(masterKey, Bip32HdWallet.HardenedOffset);
+        var childKey = Bip32HdWallet.DeriveChild(masterKey, Bip32HdWallet.HARDENED_OFFSET);
 
         // Assert
         Assert.NotNull(childKey);
         Assert.Equal(32, childKey.Key.Length);
         Assert.Equal(1, childKey.Depth);
-        Assert.Equal(Bip32HdWallet.HardenedOffset, childKey.ChildIndex);
+        Assert.Equal(Bip32HdWallet.HARDENED_OFFSET, childKey.ChildIndex);
     }
 
     [Fact]
@@ -129,9 +129,9 @@ public class Bip32HdWalletTests
         // Act & Assert - Various valid paths
         var indices1 = Bip32HdWallet.ParsePath("m/44'/0'/0'/0/0");
         Assert.Equal(5, indices1.Length);
-        Assert.Equal(Bip32HdWallet.HardenedOffset + 44, indices1[0]);
-        Assert.Equal(Bip32HdWallet.HardenedOffset + 0, indices1[1]);
-        Assert.Equal(Bip32HdWallet.HardenedOffset + 0, indices1[2]);
+        Assert.Equal(Bip32HdWallet.HARDENED_OFFSET + 44, indices1[0]);
+        Assert.Equal(Bip32HdWallet.HARDENED_OFFSET + 0, indices1[1]);
+        Assert.Equal(Bip32HdWallet.HARDENED_OFFSET + 0, indices1[2]);
         Assert.Equal(0u, indices1[3]);
         Assert.Equal(0u, indices1[4]);
 
@@ -180,15 +180,15 @@ public class Bip32HdWalletTests
         // Act & Assert
         Assert.Equal("0", Bip32HdWallet.FormatIndex(0));
         Assert.Equal("1", Bip32HdWallet.FormatIndex(1));
-        Assert.Equal("44'", Bip32HdWallet.FormatIndex(Bip32HdWallet.HardenedOffset + 44));
-        Assert.Equal("0'", Bip32HdWallet.FormatIndex(Bip32HdWallet.HardenedOffset));
+        Assert.Equal("44'", Bip32HdWallet.FormatIndex(Bip32HdWallet.HARDENED_OFFSET + 44));
+        Assert.Equal("0'", Bip32HdWallet.FormatIndex(Bip32HdWallet.HARDENED_OFFSET));
     }
 
     [Fact]
     public void FormatPath_VariousPaths_Success()
     {
         // Arrange
-        var indices1 = new uint[] { Bip32HdWallet.HardenedOffset + 44, 0, 1 };
+        var indices1 = new uint[] { Bip32HdWallet.HARDENED_OFFSET + 44, 0, 1 };
         var indices2 = new uint[] { 0, 1, 2 };
         var indices3 = Array.Empty<uint>();
 

@@ -22,7 +22,7 @@ public class BalloonHashingTests
 
         // Assert
         Assert.NotNull(hash);
-        Assert.Equal(BalloonHashing.DefaultOutputLength, hash.Length);
+        Assert.Equal(BalloonHashing.DEFAULT_OUTPUT_LENGTH, hash.Length);
     }
 
     [Fact]
@@ -242,8 +242,8 @@ public class BalloonHashingTests
         for (var level = 1; level <= 5; level++)
         {
             var (spaceCost, timeCost) = BalloonHashing.GetRecommendedParameters(level);
-            Assert.True(spaceCost >= BalloonHashing.MinSpaceCost);
-            Assert.True(timeCost >= BalloonHashing.MinTimeCost);
+            Assert.True(spaceCost >= BalloonHashing.MIN_SPACE_COST);
+            Assert.True(timeCost >= BalloonHashing.MIN_TIME_COST);
         }
     }
 
@@ -283,7 +283,7 @@ public class BalloonHashingTests
 
         // Assert
         Assert.NotNull(hash);
-        Assert.Equal(BalloonHashing.DefaultOutputLength, hash.Length);
+        Assert.Equal(BalloonHashing.DEFAULT_OUTPUT_LENGTH, hash.Length);
     }
 
     [Fact]
@@ -297,7 +297,7 @@ public class BalloonHashingTests
 
         // Assert
         Assert.NotNull(hash);
-        Assert.Equal(BalloonHashing.DefaultOutputLength, hash.Length);
+        Assert.Equal(BalloonHashing.DEFAULT_OUTPUT_LENGTH, hash.Length);
     }
 
     [Fact]
@@ -318,15 +318,15 @@ public class BalloonHashingTests
     public void Hash_MinimumParameters_Success()
     {
         // Arrange
-        var spaceCost = BalloonHashing.MinSpaceCost;
-        var timeCost = BalloonHashing.MinTimeCost;
+        var spaceCost = BalloonHashing.MIN_SPACE_COST;
+        var timeCost = BalloonHashing.MIN_TIME_COST;
 
         // Act
         var hash = BalloonHashing.Hash(_testPassword, _testSalt, spaceCost, timeCost);
 
         // Assert
         Assert.NotNull(hash);
-        Assert.Equal(BalloonHashing.DefaultOutputLength, hash.Length);
+        Assert.Equal(BalloonHashing.DEFAULT_OUTPUT_LENGTH, hash.Length);
     }
 
     [Fact]
@@ -341,7 +341,7 @@ public class BalloonHashingTests
 
         // Assert
         Assert.NotNull(hash);
-        Assert.Equal(BalloonHashing.DefaultOutputLength, hash.Length);
+        Assert.Equal(BalloonHashing.DEFAULT_OUTPUT_LENGTH, hash.Length);
     }
 
     [Fact]
@@ -352,7 +352,7 @@ public class BalloonHashingTests
 
         // Assert
         Assert.NotNull(hash);
-        Assert.Equal(BalloonHashing.DefaultOutputLength, hash.Length);
+        Assert.Equal(BalloonHashing.DEFAULT_OUTPUT_LENGTH, hash.Length);
     }
 }
 #endif

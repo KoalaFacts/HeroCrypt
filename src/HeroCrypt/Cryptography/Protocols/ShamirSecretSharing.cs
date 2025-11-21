@@ -24,12 +24,12 @@ public static class ShamirSecretSharing
     /// <summary>
     /// Maximum number of shares that can be generated
     /// </summary>
-    public const int MaxShares = 255;
+    public const int MAX_SHARES = 255;
 
     /// <summary>
     /// Minimum threshold for reconstruction
     /// </summary>
-    public const int MinThreshold = 2;
+    public const int MIN_THRESHOLD = 2;
 
     /// <summary>
     /// Represents a single share in Shamir's Secret Sharing
@@ -132,9 +132,9 @@ public static class ShamirSecretSharing
     /// <returns>Reconstructed secret</returns>
     public static byte[] Reconstruct(ReadOnlySpan<Share> shares)
     {
-        if (shares.Length < MinThreshold)
+        if (shares.Length < MIN_THRESHOLD)
         {
-            throw new ArgumentException($"At least {MinThreshold} shares required", nameof(shares));
+            throw new ArgumentException($"At least {MIN_THRESHOLD} shares required", nameof(shares));
         }
 
         // Validate all shares have same length
@@ -321,14 +321,14 @@ public static class ShamirSecretSharing
             throw new ArgumentException("Secret cannot be empty", nameof(secretLength));
         }
 
-        if (threshold < MinThreshold)
+        if (threshold < MIN_THRESHOLD)
         {
-            throw new ArgumentException($"Threshold must be at least {MinThreshold}", nameof(threshold));
+            throw new ArgumentException($"Threshold must be at least {MIN_THRESHOLD}", nameof(threshold));
         }
 
-        if (shareCount > MaxShares)
+        if (shareCount > MAX_SHARES)
         {
-            throw new ArgumentException($"Share count cannot exceed {MaxShares}", nameof(shareCount));
+            throw new ArgumentException($"Share count cannot exceed {MAX_SHARES}", nameof(shareCount));
         }
 
         if (threshold > shareCount)
@@ -364,7 +364,7 @@ public static class ShamirSecretSharing
     public static string GetInfo()
     {
         return $"Shamir's Secret Sharing (SSS) - Information-theoretically secure secret splitting. " +
-               $"Max shares: {MaxShares}, Min threshold: {MinThreshold}. " +
+               $"Max shares: {MAX_SHARES}, Min threshold: {MIN_THRESHOLD}. " +
                $"Uses GF(256) arithmetic with AES reduction polynomial.";
     }
 }

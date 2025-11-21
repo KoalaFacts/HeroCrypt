@@ -31,7 +31,7 @@ public class AesSivTests
     {
         // Arrange
         var plaintext = _testPlaintext;
-        var ciphertext = new byte[plaintext.Length + AesSivCore.SivSize];
+        var ciphertext = new byte[plaintext.Length + AesSivCore.SIV_SIZE];
         var decrypted = new byte[plaintext.Length];
 
         // Act - Encrypt
@@ -41,10 +41,10 @@ public class AesSivTests
         var decryptedLength = AesSivCore.Decrypt(decrypted, ciphertext.AsSpan(0, encryptedLength), _testKey256, _testNonce, Array.Empty<byte>());
 
         // Assert
-        Assert.Equal(plaintext.Length + AesSivCore.SivSize, encryptedLength);
+        Assert.Equal(plaintext.Length + AesSivCore.SIV_SIZE, encryptedLength);
         Assert.Equal(plaintext.Length, decryptedLength);
         Assert.Equal(plaintext, decrypted);
-        Assert.NotEqual(plaintext, ciphertext.AsSpan(AesSivCore.SivSize, plaintext.Length).ToArray());
+        Assert.NotEqual(plaintext, ciphertext.AsSpan(AesSivCore.SIV_SIZE, plaintext.Length).ToArray());
     }
 
     [Fact]
@@ -53,7 +53,7 @@ public class AesSivTests
         // Arrange
         var plaintext = _testPlaintext;
         var associatedData = Encoding.UTF8.GetBytes("metadata");
-        var ciphertext = new byte[plaintext.Length + AesSivCore.SivSize];
+        var ciphertext = new byte[plaintext.Length + AesSivCore.SIV_SIZE];
         var decrypted = new byte[plaintext.Length];
 
         // Act - Encrypt
@@ -74,7 +74,7 @@ public class AesSivTests
         var plaintext = _testPlaintext;
         var associatedData = Encoding.UTF8.GetBytes("metadata");
         var wrongAssociatedData = Encoding.UTF8.GetBytes("wrong");
-        var ciphertext = new byte[plaintext.Length + AesSivCore.SivSize];
+        var ciphertext = new byte[plaintext.Length + AesSivCore.SIV_SIZE];
         var decrypted = new byte[plaintext.Length];
 
         // Act - Encrypt with correct AAD
@@ -92,14 +92,14 @@ public class AesSivTests
     {
         // Arrange
         var plaintext = _testPlaintext;
-        var ciphertext = new byte[plaintext.Length + AesSivCore.SivSize];
+        var ciphertext = new byte[plaintext.Length + AesSivCore.SIV_SIZE];
         var decrypted = new byte[plaintext.Length];
 
         // Act - Encrypt
         var encryptedLength = AesSivCore.Encrypt(ciphertext, plaintext, _testKey256, _testNonce, Array.Empty<byte>());
 
         // Tamper with ciphertext
-        ciphertext[AesSivCore.SivSize + 5] ^= 0xFF;
+        ciphertext[AesSivCore.SIV_SIZE + 5] ^= 0xFF;
 
         // Act - Decrypt
         var decryptedLength = AesSivCore.Decrypt(decrypted, ciphertext.AsSpan(0, encryptedLength), _testKey256, _testNonce, Array.Empty<byte>());
@@ -113,7 +113,7 @@ public class AesSivTests
     {
         // Arrange
         var plaintext = _testPlaintext;
-        var ciphertext = new byte[plaintext.Length + AesSivCore.SivSize];
+        var ciphertext = new byte[plaintext.Length + AesSivCore.SIV_SIZE];
         var decrypted = new byte[plaintext.Length];
 
         // Act - Encrypt
@@ -134,7 +134,7 @@ public class AesSivTests
     {
         // Arrange
         var plaintext = Array.Empty<byte>();
-        var ciphertext = new byte[AesSivCore.SivSize];
+        var ciphertext = new byte[AesSivCore.SIV_SIZE];
         var decrypted = Array.Empty<byte>();
 
         // Act - Encrypt
@@ -144,7 +144,7 @@ public class AesSivTests
         var decryptedLength = AesSivCore.Decrypt(decrypted, ciphertext.AsSpan(0, encryptedLength), _testKey256, _testNonce, Array.Empty<byte>());
 
         // Assert
-        Assert.Equal(AesSivCore.SivSize, encryptedLength);
+        Assert.Equal(AesSivCore.SIV_SIZE, encryptedLength);
         Assert.Equal(0, decryptedLength);
     }
 
@@ -154,7 +154,7 @@ public class AesSivTests
         // Arrange
         var invalidKey = new byte[16]; // Invalid - must be 32, 48, or 64 bytes
         var plaintext = _testPlaintext;
-        var ciphertext = new byte[plaintext.Length + AesSivCore.SivSize];
+        var ciphertext = new byte[plaintext.Length + AesSivCore.SIV_SIZE];
 
         // Act & Assert
         var ex = Assert.Throws<ArgumentException>(() =>
@@ -179,7 +179,7 @@ public class AesSivTests
     public void Decrypt_CiphertextTooShort_ThrowsException()
     {
         // Arrange
-        var ciphertext = new byte[AesSivCore.SivSize - 1]; // Too short
+        var ciphertext = new byte[AesSivCore.SIV_SIZE - 1]; // Too short
         var plaintext = Array.Empty<byte>();
 
         // Act & Assert
@@ -193,8 +193,8 @@ public class AesSivTests
     {
         // Arrange
         var plaintext = _testPlaintext;
-        var ciphertext1 = new byte[plaintext.Length + AesSivCore.SivSize];
-        var ciphertext2 = new byte[plaintext.Length + AesSivCore.SivSize];
+        var ciphertext1 = new byte[plaintext.Length + AesSivCore.SIV_SIZE];
+        var ciphertext2 = new byte[plaintext.Length + AesSivCore.SIV_SIZE];
         var nonce1 = new byte[12];
         var nonce2 = new byte[12];
 
@@ -217,8 +217,8 @@ public class AesSivTests
     {
         // Arrange
         var plaintext = _testPlaintext;
-        var ciphertext1 = new byte[plaintext.Length + AesSivCore.SivSize];
-        var ciphertext2 = new byte[plaintext.Length + AesSivCore.SivSize];
+        var ciphertext1 = new byte[plaintext.Length + AesSivCore.SIV_SIZE];
+        var ciphertext2 = new byte[plaintext.Length + AesSivCore.SIV_SIZE];
         var key1 = new byte[64];
         var key2 = new byte[64];
 
@@ -243,8 +243,8 @@ public class AesSivTests
         var plaintext1 = Encoding.UTF8.GetBytes("Message 1");
         var plaintext2 = Encoding.UTF8.GetBytes("Message 2");
         var sameNonce = new byte[12];
-        var ciphertext1 = new byte[plaintext1.Length + AesSivCore.SivSize];
-        var ciphertext2 = new byte[plaintext2.Length + AesSivCore.SivSize];
+        var ciphertext1 = new byte[plaintext1.Length + AesSivCore.SIV_SIZE];
+        var ciphertext2 = new byte[plaintext2.Length + AesSivCore.SIV_SIZE];
 
         // Act - Use same nonce for both encryptions
         AesSivCore.Encrypt(ciphertext1, plaintext1, _testKey256, sameNonce, Array.Empty<byte>());
@@ -268,8 +268,8 @@ public class AesSivTests
     {
         // Arrange - AES-SIV is deterministic (same inputs = same output)
         var plaintext = _testPlaintext;
-        var ciphertext1 = new byte[plaintext.Length + AesSivCore.SivSize];
-        var ciphertext2 = new byte[plaintext.Length + AesSivCore.SivSize];
+        var ciphertext1 = new byte[plaintext.Length + AesSivCore.SIV_SIZE];
+        var ciphertext2 = new byte[plaintext.Length + AesSivCore.SIV_SIZE];
 
         // Act - Encrypt same plaintext twice with same key and nonce
         AesSivCore.Encrypt(ciphertext1, plaintext, _testKey256, _testNonce, Array.Empty<byte>());
@@ -285,7 +285,7 @@ public class AesSivTests
         // Arrange - 1MB of data
         var largeData = new byte[1024 * 1024];
         new Random(42).NextBytes(largeData);
-        var ciphertext = new byte[largeData.Length + AesSivCore.SivSize];
+        var ciphertext = new byte[largeData.Length + AesSivCore.SIV_SIZE];
         var decrypted = new byte[largeData.Length];
 
         // Act
@@ -293,7 +293,7 @@ public class AesSivTests
         var decryptedLength = AesSivCore.Decrypt(decrypted, ciphertext.AsSpan(0, encryptedLength), _testKey256, _testNonce, Array.Empty<byte>());
 
         // Assert
-        Assert.Equal(largeData.Length + AesSivCore.SivSize, encryptedLength);
+        Assert.Equal(largeData.Length + AesSivCore.SIV_SIZE, encryptedLength);
         Assert.Equal(largeData.Length, decryptedLength);
         Assert.Equal(largeData, decrypted);
     }
@@ -340,7 +340,7 @@ public class AesSivTests
             "85632d07c6e8f37f950acd320a2ecc93" + // SIV
             "40c02b9690c4dc04daef7f6afe5c");     // Ciphertext
 
-        var ciphertext = new byte[plaintext.Length + AesSivCore.SivSize];
+        var ciphertext = new byte[plaintext.Length + AesSivCore.SIV_SIZE];
         var decrypted = new byte[plaintext.Length];
 
         // Act - Encrypt

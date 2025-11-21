@@ -32,18 +32,18 @@ public static class Bip39Mnemonic
     /// <summary>
     /// PBKDF2 iteration count for mnemonic to seed conversion
     /// </summary>
-    public const int Pbkdf2Iterations = 2048;
+    public const int PBKDF2_ITERATIONS = 2048;
 
     /// <summary>
     /// Seed output length in bytes
     /// </summary>
-    public const int SeedLength = 64; // 512 bits
+    public const int SEED_LENGTH = 64; // 512 bits
 
     /// <summary>
     /// BIP39 wordlist (simplified for demonstration - production should use full 2048-word list)
     /// This is a minimal wordlist for testing. A full implementation should load the complete BIP39 wordlist.
     /// </summary>
-    private static readonly string[] Wordlist = GenerateMinimalWordlist();
+    private static readonly string[] _wordlist = GenerateMinimalWordlist();
 
     /// <summary>
     /// Generates a mnemonic from entropy
@@ -98,7 +98,7 @@ public static class Bip39Mnemonic
                 }
             }
 
-            words[i] = Wordlist[index];
+            words[i] = _wordlist[index];
         }
 
         return string.Join(" ", words);
@@ -160,8 +160,8 @@ public static class Bip39Mnemonic
             return Pbkdf2Core.DeriveKey(
                 mnemonicBytes,
                 salt,
-                Pbkdf2Iterations,
-                SeedLength,
+                PBKDF2_ITERATIONS,
+                SEED_LENGTH,
                 HashAlgorithmName.SHA512,
                 allowWeakParameters: true  // BIP-39 compliance requires non-standard parameters
             );
@@ -194,10 +194,10 @@ public static class Bip39Mnemonic
             return false;
         }
 
-        // Check all words are in wordlist
+        // Check all words are in _wordlist
         foreach (var word in words)
         {
-            if (Array.IndexOf(Wordlist, word) == -1)
+            if (Array.IndexOf(_wordlist, word) == -1)
             {
                 return false;
             }
@@ -218,7 +218,7 @@ public static class Bip39Mnemonic
             var bits = new bool[totalBits];
             for (var i = 0; i < words.Length; i++)
             {
-                var index = Array.IndexOf(Wordlist, words[i]);
+                var index = Array.IndexOf(_wordlist, words[i]);
                 for (var j = 0; j < 11; j++)
                 {
                     bits[i * 11 + j] = ((index >> (10 - j)) & 1) == 1;
@@ -268,7 +268,7 @@ public static class Bip39Mnemonic
         // Convert words to bits
         for (var i = 0; i < words.Length; i++)
         {
-            var index = Array.IndexOf(Wordlist, words[i]);
+            var index = Array.IndexOf(_wordlist, words[i]);
             if (index == -1)
             {
                 throw new ArgumentException($"Invalid word in mnemonic: {words[i]}", nameof(mnemonic));
@@ -392,7 +392,7 @@ public static class Bip39Mnemonic
     {
         return $"BIP39 Mnemonic Codes - Converts entropy to human-readable phrases. " +
                $"Supported word counts: {string.Join(", ", WordCounts)}. " +
-               $"Uses PBKDF2-HMAC-SHA512 with {Pbkdf2Iterations} iterations for seed generation.";
+               $"Uses PBKDF2-HMAC-SHA512 with {PBKDF2_ITERATIONS} iterations for seed generation.";
     }
 }
 #endif

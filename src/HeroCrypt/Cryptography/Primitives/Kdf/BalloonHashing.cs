@@ -25,27 +25,27 @@ public static class BalloonHashing
     /// <summary>
     /// Minimum space cost (memory usage)
     /// </summary>
-    public const int MinSpaceCost = 1;
+    public const int MIN_SPACE_COST = 1;
 
     /// <summary>
     /// Minimum time cost (iterations)
     /// </summary>
-    public const int MinTimeCost = 1;
+    public const int MIN_TIME_COST = 1;
 
     /// <summary>
     /// Default space cost
     /// </summary>
-    public const int DefaultSpaceCost = 16; // 16 blocks
+    public const int DEFAULT_SPACE_COST = 16; // 16 blocks
 
     /// <summary>
     /// Default time cost
     /// </summary>
-    public const int DefaultTimeCost = 20; // 20 rounds
+    public const int DEFAULT_TIME_COST = 20; // 20 rounds
 
     /// <summary>
     /// Default output length in bytes
     /// </summary>
-    public const int DefaultOutputLength = 32;
+    public const int DEFAULT_OUTPUT_LENGTH = 32;
 
     /// <summary>
     /// Computes Balloon hash of a password
@@ -60,9 +60,9 @@ public static class BalloonHashing
     public static byte[] Hash(
         ReadOnlySpan<byte> password,
         ReadOnlySpan<byte> salt,
-        int spaceCost = DefaultSpaceCost,
-        int timeCost = DefaultTimeCost,
-        int outputLength = DefaultOutputLength,
+        int spaceCost = DEFAULT_SPACE_COST,
+        int timeCost = DEFAULT_TIME_COST,
+        int outputLength = DEFAULT_OUTPUT_LENGTH,
         HashAlgorithmName? hashAlgorithm = null)
     {
         ValidateParameters(spaceCost, timeCost, outputLength);
@@ -114,9 +114,9 @@ public static class BalloonHashing
     /// <returns>Hash with embedded salt (first 16 bytes are salt)</returns>
     public static byte[] HashWithRandomSalt(
         string password,
-        int spaceCost = DefaultSpaceCost,
-        int timeCost = DefaultTimeCost,
-        int outputLength = DefaultOutputLength)
+        int spaceCost = DEFAULT_SPACE_COST,
+        int timeCost = DEFAULT_TIME_COST,
+        int outputLength = DEFAULT_OUTPUT_LENGTH)
     {
         var passwordBytes = System.Text.Encoding.UTF8.GetBytes(password);
         var salt = new byte[16];
@@ -156,8 +156,8 @@ public static class BalloonHashing
     public static bool Verify(
         string password,
         byte[] hashWithSalt,
-        int spaceCost = DefaultSpaceCost,
-        int timeCost = DefaultTimeCost)
+        int spaceCost = DEFAULT_SPACE_COST,
+        int timeCost = DEFAULT_TIME_COST)
     {
         if (hashWithSalt.Length < 16)
         {
@@ -377,13 +377,13 @@ public static class BalloonHashing
     /// </summary>
     private static void ValidateParameters(int spaceCost, int timeCost, int outputLength)
     {
-        if (spaceCost < MinSpaceCost)
+        if (spaceCost < MIN_SPACE_COST)
         {
-            throw new ArgumentException($"Space cost must be at least {MinSpaceCost}", nameof(spaceCost));
+            throw new ArgumentException($"Space cost must be at least {MIN_SPACE_COST}", nameof(spaceCost));
         }
-        if (timeCost < MinTimeCost)
+        if (timeCost < MIN_TIME_COST)
         {
-            throw new ArgumentException($"Time cost must be at least {MinTimeCost}", nameof(timeCost));
+            throw new ArgumentException($"Time cost must be at least {MIN_TIME_COST}", nameof(timeCost));
         }
         if (outputLength <= 0)
         {
@@ -397,7 +397,7 @@ public static class BalloonHashing
     public static string GetInfo()
     {
         return $"Balloon Hashing - Memory-hard password hashing function. " +
-               $"Default space cost: {DefaultSpaceCost} blocks, time cost: {DefaultTimeCost} rounds. " +
+               $"Default space cost: {DEFAULT_SPACE_COST} blocks, time cost: {DEFAULT_TIME_COST} rounds. " +
                $"Resistant to cache-timing attacks and parallel attacks.";
     }
 

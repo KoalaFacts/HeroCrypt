@@ -222,10 +222,10 @@ public static class ThresholdSignatures
             // 4. Parties verify received shares against commitments
             // 5. Public key = sum of all parties' public polynomial commitments at 0
 
-            const int keySize = 32; // 256-bit keys
+            const int KeySize = 32; // 256-bit keys
 
             // Generate master secret key (in production: never exists in one place)
-            var masterSecretKey = RandomNumberGenerator.GetBytes(keySize);
+            var masterSecretKey = RandomNumberGenerator.GetBytes(KeySize);
 
             // Generate public key from secret key
             var publicKey = DerivePublicKey(masterSecretKey, scheme);

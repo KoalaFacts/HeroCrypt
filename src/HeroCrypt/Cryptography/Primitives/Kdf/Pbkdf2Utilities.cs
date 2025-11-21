@@ -116,7 +116,7 @@ public static class Pbkdf2Utilities
             throw new ArgumentException("Key specifications cannot be null or empty", nameof(keySpecs));
         }
 
-        var actualIterations = iterations > 0 ? iterations : Pbkdf2Core.DefaultIterations;
+        var actualIterations = iterations > 0 ? iterations : Pbkdf2Core.DEFAULT_ITERATIONS;
         var algorithm = hashAlgorithm == default ? HashAlgorithmName.SHA256 : hashAlgorithm;
 
         var keys = new byte[keySpecs.Length][];

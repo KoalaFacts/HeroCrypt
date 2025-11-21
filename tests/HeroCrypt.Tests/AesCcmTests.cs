@@ -24,7 +24,7 @@ public class AesCcmTests
     /// Packet Vector #1 - AES-128, 8-byte auth tag, 13-byte nonce
     /// </summary>
     [Fact]
-    [Trait("Category", TestCategories.Compliance)]
+    [Trait("Category", TestCategories.COMPLIANCE)]
     public void Rfc3610_TestVector1_Success()
     {
         // Arrange - From RFC 3610 Appendix A, Packet Vector #1
@@ -49,7 +49,7 @@ public class AesCcmTests
     /// RFC 3610 Test Vector #1 - Decryption
     /// </summary>
     [Fact]
-    [Trait("Category", TestCategories.Compliance)]
+    [Trait("Category", TestCategories.COMPLIANCE)]
     public void Rfc3610_TestVector1_Decrypt_Success()
     {
         // Arrange
@@ -73,7 +73,7 @@ public class AesCcmTests
     /// Packet Vector #2 - Shorter plaintext, different nonce
     /// </summary>
     [Fact]
-    [Trait("Category", TestCategories.Compliance)]
+    [Trait("Category", TestCategories.COMPLIANCE)]
     public void Rfc3610_TestVector2_Success()
     {
         // Arrange - From RFC 3610 Appendix A, Packet Vector #2
@@ -98,7 +98,7 @@ public class AesCcmTests
     /// Packet Vector #3 - 25-byte plaintext, 8-byte AD
     /// </summary>
     [Fact]
-    [Trait("Category", TestCategories.Compliance)]
+    [Trait("Category", TestCategories.COMPLIANCE)]
     public void Rfc3610_TestVector3_Success()
     {
         // Arrange - From RFC 3610 Appendix A, Packet Vector #3
@@ -123,7 +123,7 @@ public class AesCcmTests
     #region Basic Functionality Tests
 
     [Fact]
-    [Trait("Category", TestCategories.Fast)]
+    [Trait("Category", TestCategories.FAST)]
     public async Task AesCcm128_EncryptDecrypt_RoundTrip_Success()
     {
         // Arrange
@@ -144,7 +144,7 @@ public class AesCcmTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Fast)]
+    [Trait("Category", TestCategories.FAST)]
     public async Task AesCcm256_EncryptDecrypt_RoundTrip_Success()
     {
         // Arrange
@@ -164,7 +164,7 @@ public class AesCcmTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Fast)]
+    [Trait("Category", TestCategories.FAST)]
     public async Task AesCcm_WithoutAssociatedData_Success()
     {
         // Arrange
@@ -181,7 +181,7 @@ public class AesCcmTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Fast)]
+    [Trait("Category", TestCategories.FAST)]
     public async Task AesCcm_EmptyPlaintext_Success()
     {
         // Arrange
@@ -200,7 +200,7 @@ public class AesCcmTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Fast)]
+    [Trait("Category", TestCategories.FAST)]
     public async Task AesCcm_LargeData_Success()
     {
         // Arrange - 60 KB of data (within AES-CCM limit of 65,535 bytes for 13-byte nonce)
@@ -224,7 +224,7 @@ public class AesCcmTests
     #region Authentication Tests
 
     [Fact]
-    [Trait("Category", TestCategories.Fast)]
+    [Trait("Category", TestCategories.FAST)]
     public async Task AesCcm_TamperedCiphertext_FailsAuthentication()
     {
         // Arrange
@@ -244,7 +244,7 @@ public class AesCcmTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Fast)]
+    [Trait("Category", TestCategories.FAST)]
     public async Task AesCcm_WrongKey_FailsAuthentication()
     {
         // Arrange
@@ -261,7 +261,7 @@ public class AesCcmTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Fast)]
+    [Trait("Category", TestCategories.FAST)]
     public async Task AesCcm_WrongNonce_FailsAuthentication()
     {
         // Arrange
@@ -278,7 +278,7 @@ public class AesCcmTests
     }
 
     [Fact]
-    [Trait("Category", TestCategories.Fast)]
+    [Trait("Category", TestCategories.FAST)]
     public async Task AesCcm_WrongAssociatedData_FailsAuthentication()
     {
         // Arrange

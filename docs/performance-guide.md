@@ -112,7 +112,7 @@ var ciphertexts = await BatchOperations.EncryptBatchAsync(
     plaintexts,
     key,
     nonces,
-    algorithm: AeadAlgorithm.ChaCha20Poly1305
+    algorithm: EncryptionAlgorithm.ChaCha20Poly1305
 );
 
 // ❌ BAD: Individual encryption in a loop

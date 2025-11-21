@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using HeroCrypt.KeyManagement;
 using HeroCrypt.Security;
 using HeroCrypt.Signatures;
@@ -518,40 +519,26 @@ public class SecurityHardeningTests
     #region Integration Security Tests
 
     [Fact]
-    public void RsaDigitalSignatureService_WithInputValidation_RejectsInvalidInput()
+    public void DigitalSignature_WithInputValidation_RejectsInvalidInput()
     {
-        // Arrange
-        var service = new RsaDigitalSignatureService(2048);
+        // Empty data
+        Assert.ThrowsAny<ArgumentException>(() =>
+            Signatures.DigitalSignature.Sign([], [1, 2, 3], SignatureAlgorithm.Ed25519));
 
-        // Act & Assert - Invalid key size in constructor is already tested in constructor
+        // Empty key
+        Assert.ThrowsAny<ArgumentException>(() =>
+            Signatures.DigitalSignature.Sign([1, 2, 3], [], SignatureAlgorithm.Ed25519));
 
-        // Test invalid data
-        Assert.Throws<ArgumentException>(() => service.Sign([], [1, 2, 3]));
-        Assert.Throws<ArgumentException>(() => service.Sign([1, 2, 3], []));
-
-        // Test oversized data
+        // Oversized data (len > MAX_ARRAY_SIZE)
         var oversizedData = new byte[InputValidator.MAX_ARRAY_SIZE + 1];
-        Assert.Throws<ArgumentException>(() => service.Sign(oversizedData, [1, 2, 3]));
+        Assert.ThrowsAny<ArgumentException>(() =>
+            Signatures.DigitalSignature.Sign(oversizedData, [1, 2, 3], SignatureAlgorithm.Ed25519));
     }
 
     [Fact]
-    public async Task CryptographicKeyGenerationService_WithInputValidation_RejectsInvalidInput()
+    public void RandomMaterialGeneration_RejectsInvalidLengths()
     {
-        // Arrange
-        var service = new CryptographicKeyGenerator();
-
-        // Act & Assert
-        Assert.Throws<ArgumentException>(() => service.GenerateRandomBytes(-1));
-        Assert.Throws<ArgumentException>(() => service.GenerateSymmetricKey(-1));
-        Assert.Throws<ArgumentException>(() => service.GenerateRsaKeyPair(512)); // Too small
-
-        // Test that 0-length is allowed for random bytes (empty arrays are valid)
-        var emptyBytes = service.GenerateRandomBytes(0);
-        Assert.Empty(emptyBytes);
-
-        await Assert.ThrowsAsync<ArgumentException>(() => service.GenerateRandomBytesAsync(-1, TestContext.Current.CancellationToken));
-
-        service.Dispose();
+        Assert.Throws<ArgumentOutOfRangeException>(() => RandomNumberGenerator.GetBytes(-1));
     }
 
     [Fact]

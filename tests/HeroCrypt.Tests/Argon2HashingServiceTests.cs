@@ -1,5 +1,7 @@
+using System.Security.Cryptography;
+using System.Text;
 using HeroCrypt.Cryptography.Primitives.Kdf;
-using HeroCrypt.Hashing;
+using HeroCrypt.Security;
 
 namespace HeroCrypt.Tests;
 
@@ -7,130 +9,102 @@ namespace HeroCrypt.Tests;
 [Trait("Category", TestCategories.UNIT)]
 public class Argon2HashingServiceTests
 {
-    private readonly Argon2HashingService service;
+    private static readonly Argon2Parameters defaultParams = new(
+        Iterations: 2,
+        MemorySizeKb: 8192,
+        Parallelism: 2,
+        HashLength: 32,
+        Type: Argon2Type.Argon2id);
 
-    public Argon2HashingServiceTests()
+    [Fact]
+    public void Hash_WithSameSalt_IsDeterministic()
     {
-        service = new Argon2HashingService(new Argon2Options
-        {
-            Type = Argon2Type.Argon2id,
-            Iterations = 2,
-            MemorySize = 8192,
-            Parallelism = 2,
-            HashSize = 32,
-            SaltSize = 16
-        });
+        var password = Encoding.UTF8.GetBytes("TestPassword123!");
+        var salt = RandomNumberGenerator.GetBytes(16);
+
+        var hash1 = Hash(password, salt, defaultParams);
+        var hash2 = Hash(password, salt, defaultParams);
+
+        Assert.Equal(hash1, hash2);
     }
 
     [Fact]
-    public async Task HashAsyncWithStringReturnsValidHash()
+    public void Hash_WithDifferentSalt_ProducesDifferentHashes()
     {
-        var input = "TestPassword123!";
+        var password = Encoding.UTF8.GetBytes("TestPassword123!");
 
-        var hash = await service.HashAsync(input, TestContext.Current.CancellationToken);
-
-        Assert.NotNull(hash);
-        Assert.NotEmpty(hash);
-    }
-
-    [Fact]
-    public async Task HashAsyncSameInputProducesDifferentHashes()
-    {
-        var input = "TestPassword123!";
-
-        var hash1 = await service.HashAsync(input, TestContext.Current.CancellationToken);
-        var hash2 = await service.HashAsync(input, TestContext.Current.CancellationToken);
+        var hash1 = Hash(password, RandomNumberGenerator.GetBytes(16), defaultParams);
+        var hash2 = Hash(password, RandomNumberGenerator.GetBytes(16), defaultParams);
 
         Assert.NotEqual(hash1, hash2);
     }
 
     [Fact]
-    public async Task VerifyAsyncWithCorrectPasswordReturnsTrue()
+    public void Verify_WithCorrectPassword_Succeeds()
     {
-        var input = "TestPassword123!";
-        var hash = await service.HashAsync(input, TestContext.Current.CancellationToken);
+        var password = Encoding.UTF8.GetBytes("TestPassword123!");
+        var salt = RandomNumberGenerator.GetBytes(16);
 
-        var result = await service.VerifyAsync(input, hash, TestContext.Current.CancellationToken);
+        var expected = Hash(password, salt, defaultParams);
+        var actual = Hash(password, salt, defaultParams);
 
-        Assert.True(result);
+        Assert.True(SecureMemoryOperations.ConstantTimeEquals(expected, actual));
     }
 
     [Fact]
-    public async Task VerifyAsyncWithIncorrectPasswordReturnsFalse()
+    public void Verify_WithWrongPassword_Fails()
     {
-        var input = "TestPassword123!";
-        var wrongInput = "WrongPassword123!";
-        var hash = await service.HashAsync(input, TestContext.Current.CancellationToken);
+        var password = Encoding.UTF8.GetBytes("TestPassword123!");
+        var wrongPassword = Encoding.UTF8.GetBytes("WrongPassword!");
+        var salt = RandomNumberGenerator.GetBytes(16);
 
-        var result = await service.VerifyAsync(wrongInput, hash, TestContext.Current.CancellationToken);
+        var expected = Hash(password, salt, defaultParams);
+        var actual = Hash(wrongPassword, salt, defaultParams);
 
-        Assert.False(result);
-    }
-
-    [Fact]
-    public async Task HashAsyncWithBytesReturnsValidHash()
-    {
-        var input = new byte[] { 1, 2, 3, 4, 5 };
-
-        var hash = await service.HashAsync(input, TestContext.Current.CancellationToken);
-
-        Assert.NotNull(hash);
-        Assert.NotEmpty(hash);
-    }
-
-    [Fact]
-    public async Task VerifyAsyncWithBytesWorksCorrectly()
-    {
-        var input = new byte[] { 1, 2, 3, 4, 5 };
-        var hash = await service.HashAsync(input, TestContext.Current.CancellationToken);
-
-        var result = await service.VerifyAsync(input, hash, TestContext.Current.CancellationToken);
-
-        Assert.True(result);
+        Assert.False(SecureMemoryOperations.ConstantTimeEquals(expected, actual));
     }
 
     [Theory]
     [InlineData(Argon2Type.Argon2d)]
     [InlineData(Argon2Type.Argon2i)]
     [InlineData(Argon2Type.Argon2id)]
-    public async Task HashAsyncWithDifferentTypesWorksCorrectly(Argon2Type type)
+    public void Hash_AllVariants_Work(Argon2Type type)
     {
-        var service = new Argon2HashingService(new Argon2Options
-        {
-            Type = type,
-            Iterations = 2,
-            MemorySize = 8192,
-            Parallelism = 2
-        });
-        var input = "TestPassword";
+        var parameters = defaultParams with { Type = type };
+        var password = Encoding.UTF8.GetBytes("TestPassword");
+        var salt = RandomNumberGenerator.GetBytes(16);
 
-        var hash = await service.HashAsync(input, TestContext.Current.CancellationToken);
-        var result = await service.VerifyAsync(input, hash, TestContext.Current.CancellationToken);
+        var hash = Hash(password, salt, parameters);
 
-        Assert.True(result);
+        Assert.Equal(parameters.HashLength, hash.Length);
     }
 
     [Fact]
-    public async Task VerifyAsyncWithInvalidHashReturnsFalse()
+    public void Hash_WithInvalidParams_Throws()
     {
-        var input = "TestPassword";
-        var invalidHash = "InvalidBase64Hash!!!";
+        var password = Encoding.UTF8.GetBytes("TestPassword");
+        var salt = RandomNumberGenerator.GetBytes(16);
 
-        var result = await service.VerifyAsync(input, invalidHash, TestContext.Current.CancellationToken);
-
-        Assert.False(result);
+        Assert.Throws<ArgumentException>(() => Hash(password, salt, defaultParams with { Iterations = 0 }));
+        Assert.Throws<ArgumentException>(() => Hash(password, salt, defaultParams with { MemorySizeKb = 0 }));
+        Assert.Throws<ArgumentException>(() => Hash(password, salt, defaultParams with { Parallelism = 0 }));
+        Assert.Throws<ArgumentException>(() => Hash(password, salt, defaultParams with { HashLength = 0 }));
     }
 
-    [Fact]
-    public async Task VerifyAsyncWithEmptyHashReturnsFalse()
-    {
-        var input = "TestPassword";
+    private static byte[] Hash(byte[] password, byte[] salt, Argon2Parameters parameters) =>
+        Argon2Core.Hash(
+            password,
+            salt,
+            parameters.Iterations,
+            parameters.MemorySizeKb,
+            parameters.Parallelism,
+            parameters.HashLength,
+            parameters.Type);
 
-        var result = await service.VerifyAsync(input, "", TestContext.Current.CancellationToken);
-
-        Assert.False(result);
-    }
+    private readonly record struct Argon2Parameters(
+        int Iterations,
+        int MemorySizeKb,
+        int Parallelism,
+        int HashLength,
+        Argon2Type Type);
 }
-
-
-

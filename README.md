@@ -166,25 +166,37 @@ dotnet add package HeroCrypt
 ### Argon2 Password Hashing
 
 ```csharp
-using HeroCrypt.Services;
+using HeroCrypt;
+using System.Security.Cryptography;
+using System.Text;
 
-// Configure Argon2 options
-var options = new Argon2Options
-{
-    Type = Argon2Type.Argon2id,
-    Iterations = 3,
-    MemorySize = 65536,  // 64 MB
-    Parallelism = 4,
-    HashLength = 32
-};
+var salt = RandomNumberGenerator.GetBytes(16);
 
-var hashingService = new Argon2HashingService(options);
+// Hash a password (Argon2id via builder)
+var hashBytes = HeroCryptBuilder.DeriveKey()
+    .UseArgon2()
+    .WithPassword(Encoding.UTF8.GetBytes("mySecurePassword"))
+    .WithSalt(salt)
+    .WithIterations(3)
+    .WithParallelism(4)
+    .WithKeyLength(32)
+    .Build();
 
-// Hash a password
-string hash = await hashingService.HashAsync("mySecurePassword");
+var hash = Convert.ToBase64String(hashBytes);
 
 // Verify a password
-bool isValid = await hashingService.VerifyAsync("mySecurePassword", hash);
+var verifyBytes = HeroCryptBuilder.DeriveKey()
+    .UseArgon2()
+    .WithPassword(Encoding.UTF8.GetBytes("mySecurePassword"))
+    .WithSalt(salt)
+    .WithIterations(3)
+    .WithParallelism(4)
+    .WithKeyLength(32)
+    .Build();
+
+bool isValid = HeroCrypt.Security.SecureMemoryOperations.ConstantTimeEquals(
+    hashBytes,
+    verifyBytes);
 ```
 
 ### Blake2b Hashing
@@ -265,11 +277,10 @@ using var mlKemKey = MLKem.Create().WithSecurityBits(256).GenerateKeyPair();
 
 ## 🏗️ Architecture
 
-HeroCrypt is built with a modular architecture:
+HeroCrypt is built with a small, layered architecture:
 
+- **Fluent Builders** - High-level, easy-to-use APIs (`HeroCryptBuilder`)
 - **Core Implementations** - Low-level cryptographic primitives
-- **Service Layer** - High-level, easy-to-use APIs
-- **Abstractions** - Interfaces for dependency injection
 
 ## 📊 RFC Compliance
 

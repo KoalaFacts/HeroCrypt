@@ -6,10 +6,10 @@ using HeroCrypt.Security;
 namespace HeroCrypt.Encryption;
 
 /// <summary>
-/// High-performance AEAD (Authenticated Encryption with Associated Data) service
-/// Supports ChaCha20-Poly1305, AES-GCM, and XChaCha20-Poly1305
+/// High-performance AEAD (Authenticated Encryption with Associated Data) service.
+/// Supports ChaCha20-Poly1305, AES-GCM, and XChaCha20-Poly1305.
 /// </summary>
-public class AeadService : IAeadService
+public class AeadService
 {
     private readonly RandomNumberGenerator rng;
 

@@ -6,7 +6,7 @@ namespace HeroCrypt.Hashing;
 /// <summary>
 /// Service implementation for Blake2b hashing operations.
 /// </summary>
-public class Blake2bHashingService : IBlake2bService
+public class Blake2bHashingService
 {
     /// <summary>
     /// Initializes a new instance of the Blake2bHashingService.

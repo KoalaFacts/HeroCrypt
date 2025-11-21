@@ -6,9 +6,9 @@ using HeroCrypt.Security;
 namespace HeroCrypt.KeyManagement;
 
 /// <summary>
-/// Service implementation for generating cryptographically secure keys and key material
+/// Service implementation for generating cryptographically secure keys and key material.
 /// </summary>
-public sealed class CryptographicKeyGenerator : ICryptographicKeyGenerator
+public sealed class CryptographicKeyGenerator
 {
     private readonly RandomNumberGenerator rng;
 

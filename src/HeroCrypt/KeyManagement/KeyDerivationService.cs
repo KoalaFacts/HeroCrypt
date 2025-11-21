@@ -11,17 +11,17 @@ namespace HeroCrypt.KeyManagement;
 /// <summary>
 /// Service implementation for cryptographic key derivation operations.
 /// </summary>
-public class KeyDerivationService : IKeyDerivationService
+public class KeyDerivationService
 {
 #if !NET5_0_OR_GREATER
-    private readonly IBlake2bService? blake2bService;
+    private readonly Blake2bHashingService? blake2bService;
 #endif
 
     /// <summary>
     /// Initializes a new instance of the KeyDerivationService.
     /// </summary>
     /// <param name="blake2bService">Optional Blake2b service for Blake2b-based derivations.</param>
-    public KeyDerivationService(IBlake2bService? blake2bService = null)
+    public KeyDerivationService(Blake2bHashingService? blake2bService = null)
     {
 #if !NET5_0_OR_GREATER
         this.blake2bService = blake2bService;
@@ -276,14 +276,14 @@ public class KeyDerivationService : IKeyDerivationService
     /// </summary>
     private sealed class Blake2bHashAlgorithm : CryptoHashAlgorithm
     {
-        private readonly IBlake2bService blake2bService;
+        private readonly Blake2bHashingService blake2bService;
         private readonly MemoryStream buffer = new();
 
         /// <summary>
         /// Initializes a new instance of the Blake2bHashAlgorithm wrapper.
         /// </summary>
         /// <param name="blake2bService">The Blake2b service to use for hashing.</param>
-        public Blake2bHashAlgorithm(IBlake2bService blake2bService)
+        public Blake2bHashAlgorithm(Blake2bHashingService blake2bService)
         {
             this.blake2bService = blake2bService ?? throw new ArgumentNullException(nameof(blake2bService));
             HashSizeValue = 512; // Blake2b default

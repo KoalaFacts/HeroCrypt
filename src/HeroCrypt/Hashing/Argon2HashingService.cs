@@ -44,7 +44,7 @@ namespace HeroCrypt.Hashing;
 /// bool isValid = await service.VerifyAsync("userPassword", hash);
 /// </code>
 /// </example>
-public sealed class Argon2HashingService : IPasswordHashingService
+public sealed class Argon2HashingService
 {
     private readonly Argon2Options options;
 

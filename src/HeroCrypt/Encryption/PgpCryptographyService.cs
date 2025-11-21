@@ -31,7 +31,7 @@ internal sealed class PrivateKeyData
 /// <summary>
 /// PGP-compatible cryptography service that uses RSA for key encapsulation and AES for data encryption.
 /// </summary>
-public sealed class PgpCryptographyService : ICryptographyService, IPgpKeyGenerator
+public sealed class PgpCryptographyService
 {
     private const string PUBLIC_KEY_HEADER = "-----BEGIN PGP PUBLIC KEY BLOCK-----";
     private const string PUBLIC_KEY_FOOTER = "-----END PGP PUBLIC KEY BLOCK-----";

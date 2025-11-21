@@ -5,10 +5,10 @@ using HeroCrypt.Security;
 namespace HeroCrypt.Signatures;
 
 /// <summary>
-/// Service implementation for elliptic curve cryptographic operations
-/// Supports Curve25519, Ed25519, and secp256k1 curves
+/// Service implementation for elliptic curve cryptographic operations.
+/// Supports Curve25519, Ed25519, and secp256k1 curves.
 /// </summary>
-public class EllipticCurveService : IEllipticCurveService
+public class EllipticCurveService
 {
     /// <summary>
     /// Initializes a new instance of the EllipticCurveService

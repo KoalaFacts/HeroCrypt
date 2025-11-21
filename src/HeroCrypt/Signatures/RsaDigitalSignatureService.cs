@@ -6,9 +6,9 @@ using BigInteger = HeroCrypt.Cryptography.Primitives.Signature.Rsa.BigInteger;
 namespace HeroCrypt.Signatures;
 
 /// <summary>
-/// RSA digital signature service implementation
+/// RSA digital signature service implementation.
 /// </summary>
-public sealed class RsaDigitalSignatureService : IDigitalSignatureService
+public sealed class RsaDigitalSignatureService
 {
 
     /// <summary>

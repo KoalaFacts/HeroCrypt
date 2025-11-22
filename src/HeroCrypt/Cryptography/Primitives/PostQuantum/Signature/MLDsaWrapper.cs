@@ -44,7 +44,7 @@ public static class MLDsaWrapper
 
     public sealed class MLDsaKeyPair : IDisposable
     {
-        private System.Security.Cryptography.MLDsa? key;
+        private MLDsa? key;
         private bool disposed;
 
         /// <summary>
@@ -71,7 +71,7 @@ public static class MLDsaWrapper
         /// </summary>
         public SecurityLevel Level { get; }
 
-        internal MLDsaKeyPair(System.Security.Cryptography.MLDsa key, SecurityLevel level)
+        internal MLDsaKeyPair(MLDsa key, SecurityLevel level)
         {
             this.key = key ?? throw new ArgumentNullException(nameof(key));
             Level = level;
@@ -160,7 +160,7 @@ public static class MLDsaWrapper
     /// <returns>True if ML-DSA is available, false otherwise</returns>
     public static bool IsSupported()
     {
-        return System.Security.Cryptography.MLDsa.IsSupported;
+        return MLDsa.IsSupported;
     }
 
     /// <summary>
@@ -180,7 +180,7 @@ public static class MLDsaWrapper
         }
 
         var algorithm = ToMLDsaAlgorithm(level);
-        var key = System.Security.Cryptography.MLDsa.GenerateKey(algorithm);
+        var key = MLDsa.GenerateKey(algorithm);
         return new MLDsaKeyPair(key, level);
     }
 
@@ -217,7 +217,7 @@ public static class MLDsaWrapper
                 "Requires .NET 10+ with Windows CNG PQC support or OpenSSL 3.5+");
         }
 
-        using var key = System.Security.Cryptography.MLDsa.ImportFromPem(privateKeyPem);
+        using var key = MLDsa.ImportFromPem(privateKeyPem);
         return context == null || context.Length == 0
             ? key.SignData(data)
             : key.SignData(data, context);
@@ -264,7 +264,7 @@ public static class MLDsaWrapper
             throw new ArgumentException("Context must be 255 bytes or less", nameof(context));
         }
 
-        using var key = System.Security.Cryptography.MLDsa.ImportFromPem(publicKeyPem);
+        using var key = MLDsa.ImportFromPem(publicKeyPem);
 
         if (context == null || context.Length == 0)
         {
@@ -303,7 +303,7 @@ public static class MLDsaWrapper
             throw new ArgumentException("Context must be 255 bytes or less");
         }
 
-        using var key = System.Security.Cryptography.MLDsa.ImportFromPem(publicKeyPem);
+        using var key = MLDsa.ImportFromPem(publicKeyPem);
         return key.VerifyData(data, signature, context);
     }
 
@@ -315,7 +315,7 @@ public static class MLDsaWrapper
     /// <exception cref="ArgumentNullException">If publicKeyPem is null</exception>
     /// <exception cref="ArgumentException">If publicKeyPem is not valid PEM format</exception>
     /// <exception cref="PlatformNotSupportedException">If ML-DSA is not supported</exception>
-    public static System.Security.Cryptography.MLDsa ImportPublicKey(string publicKeyPem)
+    public static MLDsa ImportPublicKey(string publicKeyPem)
     {
         ValidatePemFormat(publicKeyPem, nameof(publicKeyPem));
 
@@ -326,7 +326,7 @@ public static class MLDsaWrapper
                 "Requires .NET 10+ with Windows CNG PQC support or OpenSSL 3.5+");
         }
 
-        return System.Security.Cryptography.MLDsa.ImportFromPem(publicKeyPem);
+        return MLDsa.ImportFromPem(publicKeyPem);
     }
 
     /// <summary>

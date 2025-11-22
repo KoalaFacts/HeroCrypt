@@ -44,7 +44,7 @@ public static class MLKemWrapper
 
     public sealed class MLKemKeyPair : IDisposable
     {
-        private System.Security.Cryptography.MLKem? key;
+        private MLKem? key;
         private bool disposed;
 
         /// <summary>
@@ -71,7 +71,7 @@ public static class MLKemWrapper
         /// </summary>
         public SecurityLevel Level { get; }
 
-        internal MLKemKeyPair(System.Security.Cryptography.MLKem key, SecurityLevel level)
+        internal MLKemKeyPair(MLKem key, SecurityLevel level)
         {
             this.key = key ?? throw new ArgumentNullException(nameof(key));
             Level = level;
@@ -181,7 +181,7 @@ public static class MLKemWrapper
     /// <returns>True if ML-KEM is available, false otherwise</returns>
     public static bool IsSupported()
     {
-        return System.Security.Cryptography.MLKem.IsSupported;
+        return MLKem.IsSupported;
     }
 
     /// <summary>
@@ -201,7 +201,7 @@ public static class MLKemWrapper
         }
 
         var algorithm = ToMLKemAlgorithm(level);
-        var key = System.Security.Cryptography.MLKem.GenerateKey(algorithm);
+        var key = MLKem.GenerateKey(algorithm);
         return new MLKemKeyPair(key, level);
     }
 
@@ -225,7 +225,7 @@ public static class MLKemWrapper
                 "Requires .NET 10+ with Windows CNG PQC support or OpenSSL 3.5+");
         }
 
-        using var key = System.Security.Cryptography.MLKem.ImportFromPem(publicKeyPem);
+        using var key = MLKem.ImportFromPem(publicKeyPem);
         var sharedSecret = new byte[32];
 
         // ML-KEM ciphertext size varies by algorithm - must be exact size
@@ -252,7 +252,7 @@ public static class MLKemWrapper
     /// <exception cref="ArgumentNullException">If publicKeyPem is null</exception>
     /// <exception cref="ArgumentException">If publicKeyPem is not valid PEM format</exception>
     /// <exception cref="PlatformNotSupportedException">If ML-KEM is not supported</exception>
-    public static System.Security.Cryptography.MLKem ImportPublicKey(string publicKeyPem, SecurityLevel level = SecurityLevel.MLKem768)
+    public static MLKem ImportPublicKey(string publicKeyPem, SecurityLevel level = SecurityLevel.MLKem768)
     {
         _ = level;
 
@@ -265,7 +265,7 @@ public static class MLKemWrapper
                 "Requires .NET 10+ with Windows CNG PQC support or OpenSSL 3.5+");
         }
 
-        return System.Security.Cryptography.MLKem.ImportFromPem(publicKeyPem);
+        return MLKem.ImportFromPem(publicKeyPem);
     }
 
     /// <summary>

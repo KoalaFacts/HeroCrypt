@@ -27,6 +27,20 @@ Progressive disclosure:
 
 Start with builders. Drop to core only when you need maximum control over buffers or algorithm parameters.
 
+```csharp
+// PGP-style hybrid envelope (RSA + AES-GCM)
+var keyPair = HeroCryptBuilder.Pgp()
+    .WithKeySize(2048)
+    .GenerateRsaKeyPair();
+
+var envelope = HeroCryptBuilder.Pgp()
+    .WithEncryptionAlgorithm(EncryptionAlgorithm.AesGcm)
+    .Encrypt("hello", keyPair.PublicKey);
+
+var plaintext = HeroCryptBuilder.Pgp()
+    .DecryptToString(envelope, keyPair.PrivateKey);
+```
+
 ## Fluent API Pattern
 
 Builders are concrete classes; they validate inputs and keep allocations predictable.

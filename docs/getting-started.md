@@ -87,33 +87,30 @@ var decrypted = ChaCha20Poly1305Cipher.Decrypt(
 Console.WriteLine($"Decrypted: {System.Text.Encoding.UTF8.GetString(decrypted)}");
 ```
 
-### 3. Using the Fluent API with Dependency Injection
+### 3. Using the Fluent Builders (no DI required)
 
 ```csharp
-using HeroCrypt.Abstractions;
-using HeroCrypt.Configuration;
-using HeroCrypt.Extensions;
-using Microsoft.Extensions.DependencyInjection;
+using HeroCrypt;
+using HeroCrypt.Encryption;
+using System.Security.Cryptography;
 
-// Setup DI container
-var services = new ServiceCollection();
+// Encrypt
+var key = RandomNumberGenerator.GetBytes(32);
+var plaintext = "Hello, HeroCrypt!"u8.ToArray();
 
-// Add HeroCrypt with High security level
-services.AddHeroCrypt(SecurityLevel.High);
+var encrypted = HeroCryptBuilder.Encrypt()
+    .WithAlgorithm(EncryptionAlgorithm.ChaCha20Poly1305)
+    .WithKey(key)
+    .Build(plaintext);
 
-var serviceProvider = services.BuildServiceProvider();
+// Decrypt
+var decrypted = HeroCryptBuilder.Decrypt()
+    .WithAlgorithm(EncryptionAlgorithm.ChaCha20Poly1305)
+    .WithKey(key)
+    .WithNonce(encrypted.Nonce)
+    .Build(encrypted.Ciphertext);
 
-// Get the main HeroCrypt service
-var heroCrypt = serviceProvider.GetRequiredService<IHeroCrypt>();
-
-// Hash a password using fluent API
-var hash = await heroCrypt.Argon2
-    .WithPassword("MySecurePassword")
-    .WithSecurityLevel(SecurityLevel.High)
-    .WithHardwareAcceleration()
-    .HashAsync();
-
-Console.WriteLine($"Password hash: {hash}");
+Console.WriteLine($"Round-trip OK: {plaintext.SequenceEqual(decrypted)}");
 ```
 
 ## Core Concepts
@@ -179,25 +176,23 @@ Console.WriteLine($"AES-NI: {capabilities.HasAesNi}");
 ### Secure Password Storage
 
 ```csharp
-// Registration: Hash the user's password
-var passwordHash = await heroCrypt.Argon2
-    .WithPassword(userPassword)
-    .WithSecurityLevel(SecurityLevel.High)
-    .HashAsync();
+using HeroCrypt.Cryptography.KeyDerivation;
 
-// Store passwordHash in database
+// Registration: Hash the user's password
+var passwordHash = Argon2.Hash(
+    password: userPassword,
+    salt: RandomNumberGenerator.GetBytes(16),
+    iterations: 3,
+    memorySizeKB: 65536,
+    parallelism: 4,
+    hashLength: 32,
+    type: Argon2Type.Argon2id);
+
 await SaveToDatabase(userId, passwordHash);
 
 // Login: Verify the password
 var storedHash = await GetFromDatabase(userId);
-var isValid = await heroCrypt.Argon2
-    .WithPassword(userPassword)
-    .VerifyAsync(storedHash);
-
-if (isValid)
-{
-    // Login successful
-}
+var isValid = Argon2.Verify(storedHash, userPassword);
 ```
 
 ### Encrypting User Data

@@ -422,7 +422,7 @@ internal static class Encryption
         var pem = System.Text.Encoding.UTF8.GetString(privateKeyPem);
 
         // Import private key and decapsulate shared secret
-        using var key = System.Security.Cryptography.MLKem.ImportFromPem(pem);
+        using var key = MLKem.ImportFromPem(pem);
         var sharedSecret = key.Decapsulate(keyCiphertext);
 
         // Use first 32 bytes of shared secret as AES-GCM key

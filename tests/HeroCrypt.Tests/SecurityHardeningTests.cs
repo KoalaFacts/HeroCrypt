@@ -523,16 +523,16 @@ public class SecurityHardeningTests
     {
         // Empty data
         Assert.ThrowsAny<ArgumentException>(() =>
-            Signatures.DigitalSignature.Sign([], [1, 2, 3], SignatureAlgorithm.Ed25519));
+            DigitalSignature.Sign([], [1, 2, 3], SignatureAlgorithm.Ed25519));
 
         // Empty key
         Assert.ThrowsAny<ArgumentException>(() =>
-            Signatures.DigitalSignature.Sign([1, 2, 3], [], SignatureAlgorithm.Ed25519));
+            DigitalSignature.Sign([1, 2, 3], [], SignatureAlgorithm.Ed25519));
 
         // Oversized data (len > MAX_ARRAY_SIZE)
         var oversizedData = new byte[InputValidator.MAX_ARRAY_SIZE + 1];
         Assert.ThrowsAny<ArgumentException>(() =>
-            Signatures.DigitalSignature.Sign(oversizedData, [1, 2, 3], SignatureAlgorithm.Ed25519));
+            DigitalSignature.Sign(oversizedData, [1, 2, 3], SignatureAlgorithm.Ed25519));
     }
 
     [Fact]

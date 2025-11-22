@@ -55,13 +55,15 @@ Console.WriteLine($"ARM NEON: {capabilities.HasNeon}");
 ### Enabling Hardware Acceleration
 
 ```csharp
-// Automatic detection and usage
-var heroCrypt = serviceProvider.GetRequiredService<IHeroCrypt>();
-
-var hash = await heroCrypt.Argon2
-    .WithPassword("password")
-    .WithHardwareAcceleration()  // Automatically uses available acceleration
-    .HashAsync();
+// Automatic detection and usage via builder
+var hash = HeroCryptBuilder.DeriveKey()
+    .UseArgon2()
+    .WithPassword("password"u8.ToArray())
+    .WithSalt(RandomNumberGenerator.GetBytes(16))
+    .WithIterations(3)
+    .WithParallelism(4)
+    .WithKeyLength(32)
+    .Build();
 ```
 
 ### Platform-Specific Optimizations
@@ -157,10 +159,14 @@ var hashes = new ConcurrentBag<string>();
 
 await Parallel.ForEachAsync(passwords, async (password, ct) =>
 {
-    var hash = await heroCrypt.Argon2
-        .WithPassword(password)
-        .WithSecurityLevel(SecurityLevel.Medium)  // Consider lower level for batch
-        .HashAsync();
+    var hash = Argon2.Hash(
+        password: password,
+        salt: RandomNumberGenerator.GetBytes(16),
+        iterations: 2,              // Consider lower level for batch
+        memorySizeKB: 19456,
+        parallelism: 2,
+        hashLength: 32,
+        type: Argon2Type.Argon2id);
 
     hashes.Add(hash);
 });
@@ -374,28 +380,6 @@ var hash = sha256.ComputeHash(data);
 
 ## Benchmarking
 
-### Using HeroCrypt Benchmarks
-
-```csharp
-using HeroCrypt.Performance;
-
-var heroCrypt = serviceProvider.GetRequiredService<IHeroCrypt>();
-
-var benchmarks = await heroCrypt.GetBenchmarksAsync();
-
-Console.WriteLine("Argon2 Benchmarks:");
-foreach (var (key, value) in benchmarks.Argon2Benchmarks)
-{
-    Console.WriteLine($"  {key}: {value:F2}ms");
-}
-
-Console.WriteLine("\nAEAD Benchmarks:");
-foreach (var (key, value) in benchmarks.AeadBenchmarks)
-{
-    Console.WriteLine($"  {key}: {value:F2}ms/MB");
-}
-```
-
 ### Custom Benchmarking
 
 ```csharp
@@ -480,21 +464,19 @@ BenchmarkRunner.Run<CryptoBenchmarks>();
 
 ## Common Pitfalls
 
-### 1. Not Using Hardware Acceleration
-
+### 1. Not Using Hardware Acceleration
+
 ```csharp
-// ❌ BAD: Missing hardware acceleration
-var hash = await heroCrypt.Argon2
-    .WithPassword("password")
-    .HashAsync();
-
-// ✅ GOOD: Enable hardware acceleration
-var hash = await heroCrypt.Argon2
-    .WithPassword("password")
-    .WithHardwareAcceleration()
-    .HashAsync();
+// Recommended: use strong parameters and let hardware acceleration kick in automatically
+var hash = Argon2.Hash(
+    password, salt,
+    iterations: 3,
+    memorySizeKB: 65536,
+    parallelism: 4,
+    hashLength: 32,
+    type: Argon2Type.Argon2id);
 ```
-
+
 ### 2. Allocating in Loops
 
 ```csharp

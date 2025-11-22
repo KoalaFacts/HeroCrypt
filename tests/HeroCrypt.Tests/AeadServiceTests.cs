@@ -7,15 +7,14 @@ namespace HeroCrypt.Tests;
 public class AeadServiceTests
 {
     public static IEnumerable<object[]> AeadCases =>
-        new[]
-        {
-            new object[] { EncryptionAlgorithm.ChaCha20Poly1305, 32 },
-            new object[] { EncryptionAlgorithm.XChaCha20Poly1305, 32 },
-            new object[] { EncryptionAlgorithm.AesGcm, 16 },
-            new object[] { EncryptionAlgorithm.AesGcm, 32 },
-            new object[] { EncryptionAlgorithm.AesCcm, 16 },
-            new object[] { EncryptionAlgorithm.AesCcm, 32 }
-        };
+    [
+        [EncryptionAlgorithm.ChaCha20Poly1305, 32],
+        [EncryptionAlgorithm.XChaCha20Poly1305, 32],
+        [EncryptionAlgorithm.AesGcm, 16],
+        [EncryptionAlgorithm.AesGcm, 32],
+        [EncryptionAlgorithm.AesCcm, 16],
+        [EncryptionAlgorithm.AesCcm, 32]
+    ];
 
     [Theory]
     [MemberData(nameof(AeadCases))]
@@ -40,6 +39,28 @@ public class AeadServiceTests
 
         Assert.Equal(plaintext, decrypted);
         Assert.NotEqual(plaintext, result.Ciphertext);
+    }
+
+    [Theory]
+    [MemberData(nameof(AeadCases))]
+    public void EncryptDecrypt_EmptyPlaintext_Succeeds(EncryptionAlgorithm algorithm, int keySize)
+    {
+        var plaintext = Array.Empty<byte>();
+        var key = RandomNumberGenerator.GetBytes(keySize);
+
+        var result = HeroCryptBuilder.Encrypt()
+            .WithAlgorithm(algorithm)
+            .WithKey(key)
+            .Build(plaintext);
+
+        var decrypted = HeroCryptBuilder.Decrypt()
+            .WithAlgorithm(algorithm)
+            .WithKey(key)
+            .WithNonce(result.Nonce)
+            .Build(result.Ciphertext);
+
+        Assert.Equal(plaintext, decrypted);
+        Assert.NotEmpty(result.Ciphertext); // tag present
     }
 
     [Theory]

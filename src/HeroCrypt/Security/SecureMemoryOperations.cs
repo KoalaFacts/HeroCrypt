@@ -260,7 +260,7 @@ public sealed class SecureByteArray : IDisposable
 #if NET9_0_OR_GREATER
     private LockScope EnterLock() => syncLock.EnterScope();
 #else
-    private IDisposable EnterLock() => new LockReleaser(@lock);
+    private LockReleaser EnterLock() => new(@lock);
 #endif
 
     /// <summary>

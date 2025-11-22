@@ -1,7 +1,11 @@
+using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 using HeroCrypt.Encryption;
 using HeroCrypt.Hashing;
 using HeroCrypt.Security;
 using HeroCrypt.Signatures;
+using HashAlgorithm = HeroCrypt.Hashing.HashAlgorithm;
 
 namespace HeroCrypt;
 
@@ -72,6 +76,11 @@ public static class HeroCryptBuilder
     /// Starts building a key derivation operation
     /// </summary>
     public static KeyDerivationBuilder DeriveKey() => new();
+
+    /// <summary>
+    /// Starts building a PGP-style hybrid encryption operation.
+    /// </summary>
+    public static PgpBuilder Pgp() => new();
 }
 
 /// <summary>
@@ -131,6 +140,33 @@ public class EncryptionBuilder
     public EncryptionBuilder WithAlgorithm(EncryptionAlgorithm algorithm)
     {
         this.algorithm = algorithm;
+        return this;
+    }
+
+    /// <summary>
+    /// Convenience for RSA-OAEP (SHA-256) hybrid encryption.
+    /// </summary>
+    public EncryptionBuilder WithRsaOaepSha256()
+    {
+        algorithm = EncryptionAlgorithm.RsaOaepSha256;
+        return this;
+    }
+
+    /// <summary>
+    /// Convenience for ChaCha20-Poly1305 AEAD.
+    /// </summary>
+    public EncryptionBuilder WithChaCha20Poly1305()
+    {
+        algorithm = EncryptionAlgorithm.ChaCha20Poly1305;
+        return this;
+    }
+
+    /// <summary>
+    /// Convenience for AES-GCM AEAD (256-bit key expected).
+    /// </summary>
+    public EncryptionBuilder WithAesGcm()
+    {
+        algorithm = EncryptionAlgorithm.AesGcm;
         return this;
     }
 
@@ -287,6 +323,60 @@ public class SignatureBuilder
     }
 
     /// <summary>
+    /// Use RSA-PSS with SHA-256 for signing.
+    /// </summary>
+    public SignatureBuilder WithRsaPssSha256()
+    {
+        algorithm = SignatureAlgorithm.RsaPssSha256;
+        return this;
+    }
+
+    /// <summary>
+    /// Use RSA-PKCS1 with SHA-256 for signing.
+    /// </summary>
+    public SignatureBuilder WithRsaSha256()
+    {
+        algorithm = SignatureAlgorithm.RsaSha256;
+        return this;
+    }
+
+    /// <summary>
+    /// Use Ed25519 for signing.
+    /// </summary>
+    public SignatureBuilder WithEd25519()
+    {
+        algorithm = SignatureAlgorithm.Ed25519;
+        return this;
+    }
+
+    /// <summary>
+    /// Use ECDSA P-256 with SHA-256.
+    /// </summary>
+    public SignatureBuilder WithEcdsaP256()
+    {
+        algorithm = SignatureAlgorithm.EcdsaP256Sha256;
+        return this;
+    }
+
+    /// <summary>
+    /// Use ECDSA P-384 with SHA-384.
+    /// </summary>
+    public SignatureBuilder WithEcdsaP384()
+    {
+        algorithm = SignatureAlgorithm.EcdsaP384Sha384;
+        return this;
+    }
+
+    /// <summary>
+    /// Use ECDSA P-521 with SHA-512.
+    /// </summary>
+    public SignatureBuilder WithEcdsaP521()
+    {
+        algorithm = SignatureAlgorithm.EcdsaP521Sha512;
+        return this;
+    }
+
+    /// <summary>
     /// Sets the private key for signing
     /// </summary>
     public SignatureBuilder WithPrivateKey(byte[] privateKey)
@@ -327,6 +417,60 @@ public class VerificationBuilder
     public VerificationBuilder WithAlgorithm(SignatureAlgorithm algorithm)
     {
         this.algorithm = algorithm;
+        return this;
+    }
+
+    /// <summary>
+    /// Use RSA-PSS with SHA-256 for verification.
+    /// </summary>
+    public VerificationBuilder WithRsaPssSha256()
+    {
+        algorithm = SignatureAlgorithm.RsaPssSha256;
+        return this;
+    }
+
+    /// <summary>
+    /// Use RSA-PKCS1 with SHA-256 for verification.
+    /// </summary>
+    public VerificationBuilder WithRsaSha256()
+    {
+        algorithm = SignatureAlgorithm.RsaSha256;
+        return this;
+    }
+
+    /// <summary>
+    /// Use Ed25519 for verification.
+    /// </summary>
+    public VerificationBuilder WithEd25519()
+    {
+        algorithm = SignatureAlgorithm.Ed25519;
+        return this;
+    }
+
+    /// <summary>
+    /// Use ECDSA P-256 with SHA-256.
+    /// </summary>
+    public VerificationBuilder WithEcdsaP256()
+    {
+        algorithm = SignatureAlgorithm.EcdsaP256Sha256;
+        return this;
+    }
+
+    /// <summary>
+    /// Use ECDSA P-384 with SHA-384.
+    /// </summary>
+    public VerificationBuilder WithEcdsaP384()
+    {
+        algorithm = SignatureAlgorithm.EcdsaP384Sha384;
+        return this;
+    }
+
+    /// <summary>
+    /// Use ECDSA P-521 with SHA-512.
+    /// </summary>
+    public VerificationBuilder WithEcdsaP521()
+    {
+        algorithm = SignatureAlgorithm.EcdsaP521Sha512;
         return this;
     }
 
@@ -643,4 +787,219 @@ public class KeyDerivationBuilder
             null,
             null);
     }
+}
+
+/// <summary>
+/// Fluent builder for simplified PGP-style hybrid encryption (RSA + AES-GCM).
+/// </summary>
+public class PgpBuilder
+{
+#if NETSTANDARD2_0
+#pragma warning disable CS1591
+#pragma warning disable IDE0060
+    public PgpBuilder WithKeySize(int size) => this;
+    public PgpBuilder WithEncryptionAlgorithm(EncryptionAlgorithm value) => this;
+    public KeyManagement.KeyPair GenerateRsaKeyPair() => throw new NotSupportedException("PGP builder is not supported on .NET Standard 2.0.");
+    public PgpEnvelope Encrypt(string plaintext, string publicKeyPem, byte[]? associatedData = null) => throw new NotSupportedException("PGP builder is not supported on .NET Standard 2.0.");
+    public PgpEnvelope Encrypt(byte[] data, string publicKeyPem, byte[]? associatedData = null) => throw new NotSupportedException("PGP builder is not supported on .NET Standard 2.0.");
+    public string DecryptToString(PgpEnvelope envelope, string privateKeyPem) => throw new NotSupportedException("PGP builder is not supported on .NET Standard 2.0.");
+    public byte[] DecryptToBytes(PgpEnvelope envelope, string privateKeyPem) => throw new NotSupportedException("PGP builder is not supported on .NET Standard 2.0.");
+#pragma warning restore IDE0060
+#pragma warning restore CS1591
+#else
+#pragma warning disable IDE0300 // keep explicit initializers for clarity
+#pragma warning disable IDE0301 // keep explicit object initialization style
+
+    private static readonly char[] pemSeparators = { '\r', '\n' };
+    private int keySize = 2048;
+    private EncryptionAlgorithm algorithm = EncryptionAlgorithm.AesGcm;
+
+    /// <summary>
+    /// Sets the RSA key size to use for new key pairs (defaults to 2048).
+    /// </summary>
+    public PgpBuilder WithKeySize(int size)
+    {
+        keySize = size;
+        return this;
+    }
+
+    /// <summary>
+    /// Sets the symmetric encryption algorithm to use for payload encryption.
+    /// </summary>
+    public PgpBuilder WithEncryptionAlgorithm(EncryptionAlgorithm value)
+    {
+        algorithm = value;
+        return this;
+    }
+
+    /// <summary>
+    /// Generates an RSA key pair encoded as PEM strings.
+    /// </summary>
+    public KeyManagement.KeyPair GenerateRsaKeyPair()
+    {
+        if (keySize < 2048 || keySize % 8 != 0)
+        {
+            throw new ArgumentException("RSA key size must be a multiple of 8 and at least 2048 bits.", nameof(keySize));
+        }
+
+        using var rsa = RSA.Create(keySize);
+        var publicKey = ToPem("PUBLIC KEY", rsa.ExportSubjectPublicKeyInfo());
+        var privateKey = ToPem("PRIVATE KEY", rsa.ExportPkcs8PrivateKey());
+        return new KeyManagement.KeyPair(publicKey, privateKey);
+    }
+
+    /// <summary>
+    /// Encrypts UTF-8 text using a hybrid RSA + AEAD scheme and returns a portable envelope.
+    /// </summary>
+    public PgpEnvelope Encrypt(string plaintext, string publicKeyPem, byte[]? associatedData = null)
+    {
+        ArgumentNullException.ThrowIfNull(plaintext);
+
+        var bytes = Encoding.UTF8.GetBytes(plaintext);
+        var envelope = Encrypt(bytes, publicKeyPem, associatedData);
+        envelope.IsText = true;
+        return envelope;
+    }
+
+    /// <summary>
+    /// Encrypts binary data using a hybrid RSA + AEAD scheme and returns a portable envelope.
+    /// </summary>
+    public PgpEnvelope Encrypt(byte[] data, string publicKeyPem, byte[]? associatedData = null)
+    {
+        InputValidator.ValidateByteArray(data, nameof(data), allowEmpty: false);
+
+        var symmetricKey = RandomNumberGenerator.GetBytes(32);
+
+        var encResult = HeroCryptBuilder.Encrypt()
+            .WithAlgorithm(algorithm)
+            .WithKey(symmetricKey)
+            .WithAssociatedData(associatedData ?? Array.Empty<byte>())
+            .Build(data);
+
+        var encryptedKey = EncryptKeyWithRsa(symmetricKey, publicKeyPem);
+
+        return new PgpEnvelope
+        {
+            Ciphertext = Convert.ToBase64String(encResult.Ciphertext),
+            Nonce = Convert.ToBase64String(encResult.Nonce),
+            EncryptedKey = Convert.ToBase64String(encryptedKey),
+            AssociatedData = associatedData is null ? null : Convert.ToBase64String(associatedData),
+            Algorithm = algorithm.ToString(),
+            IsText = false
+        };
+    }
+
+    /// <summary>
+    /// Decrypts a PGP envelope to UTF-8 text using the provided RSA private key.
+    /// </summary>
+    public string DecryptToString(PgpEnvelope envelope, string privateKeyPem)
+    {
+        var data = DecryptToBytes(envelope, privateKeyPem);
+        return Encoding.UTF8.GetString(data);
+    }
+
+    /// <summary>
+    /// Decrypts a PGP envelope to raw bytes using the provided RSA private key.
+    /// </summary>
+    public byte[] DecryptToBytes(PgpEnvelope envelope, string privateKeyPem)
+    {
+        ArgumentNullException.ThrowIfNull(envelope);
+
+        var symmetricKey = DecryptKeyWithRsa(Convert.FromBase64String(envelope.EncryptedKey), privateKeyPem);
+        var ciphertext = Convert.FromBase64String(envelope.Ciphertext);
+        var nonce = Convert.FromBase64String(envelope.Nonce);
+        var aad = envelope.AssociatedData is null ? Array.Empty<byte>() : Convert.FromBase64String(envelope.AssociatedData);
+
+        var alg = Enum.TryParse<EncryptionAlgorithm>(envelope.Algorithm, out var parsed) ? parsed : EncryptionAlgorithm.AesGcm;
+
+        return HeroCryptBuilder.Decrypt()
+            .WithAlgorithm(alg)
+            .WithKey(symmetricKey)
+            .WithNonce(nonce)
+            .WithAssociatedData(aad)
+            .Build(ciphertext);
+    }
+
+    private static byte[] EncryptKeyWithRsa(byte[] key, string publicKeyPem)
+    {
+        using var rsa = RSA.Create();
+        ImportPublicPem(rsa, publicKeyPem);
+        return rsa.Encrypt(key, RSAEncryptionPadding.OaepSHA256);
+    }
+
+    private static byte[] DecryptKeyWithRsa(byte[] encryptedKey, string privateKeyPem)
+    {
+        using var rsa = RSA.Create();
+        ImportPrivatePem(rsa, privateKeyPem);
+        return rsa.Decrypt(encryptedKey, RSAEncryptionPadding.OaepSHA256);
+    }
+
+    private static string ToPem(string header, byte[] data)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine("-----BEGIN " + header + "-----");
+        builder.AppendLine(Convert.ToBase64String(data, Base64FormattingOptions.InsertLineBreaks));
+        builder.AppendLine("-----END " + header + "-----");
+        return builder.ToString();
+    }
+
+    private static void ImportPublicPem(RSA rsa, string pem)
+    {
+        var raw = ExtractPemContent(pem);
+        rsa.ImportSubjectPublicKeyInfo(raw, out _);
+    }
+
+    private static void ImportPrivatePem(RSA rsa, string pem)
+    {
+        var raw = ExtractPemContent(pem);
+        rsa.ImportPkcs8PrivateKey(raw, out _);
+    }
+
+    private static byte[] ExtractPemContent(string pem)
+    {
+        var lines = pem.Split(pemSeparators, StringSplitOptions.RemoveEmptyEntries)
+            .Where(l => !l.StartsWith("-----", StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+        var base64 = string.Concat(lines);
+        return Convert.FromBase64String(base64);
+    }
+#pragma warning restore IDE0300
+#pragma warning restore IDE0301
+#endif
+}
+
+/// <summary>
+/// Represents a portable hybrid-encryption envelope (ciphertext + RSA-wrapped key).
+/// </summary>
+public class PgpEnvelope
+{
+    /// <summary>
+    /// Base64-encoded ciphertext bytes.
+    /// </summary>
+    public string Ciphertext { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Base64-encoded nonce/IV used for the symmetric cipher.
+    /// </summary>
+    public string Nonce { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Base64-encoded RSA-encrypted symmetric key.
+    /// </summary>
+    public string EncryptedKey { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Optional base64-encoded associated data used during encryption.
+    /// </summary>
+    public string? AssociatedData { get; init; }
+
+    /// <summary>
+    /// Name of the symmetric algorithm used (from <see cref="EncryptionAlgorithm"/>).
+    /// </summary>
+    public string Algorithm { get; init; } = EncryptionAlgorithm.AesGcm.ToString();
+
+    /// <summary>
+    /// Indicates whether the original payload was text.
+    /// </summary>
+    public bool IsText { get; set; }
 }

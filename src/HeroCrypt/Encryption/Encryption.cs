@@ -72,12 +72,9 @@ internal static class Encryption
             EncryptionAlgorithm.ChaCha20Poly1305 => EncryptChaCha20Poly1305(plaintext, key, associatedData ?? []),
             EncryptionAlgorithm.XChaCha20Poly1305 => EncryptXChaCha20Poly1305(plaintext, key, associatedData ?? []),
             EncryptionAlgorithm.RsaOaepSha256 => EncryptRsaOaep(plaintext, key),
-#if NET10_0_OR_GREATER
+#if NET10_OR_GREATER
             EncryptionAlgorithm.MLKem768AesGcm => EncryptMLKemHybrid(plaintext, key, 768, associatedData ?? []),
             EncryptionAlgorithm.MLKem1024AesGcm => EncryptMLKemHybrid(plaintext, key, 1024, associatedData ?? []),
-#else
-            EncryptionAlgorithm.MLKem768AesGcm or EncryptionAlgorithm.MLKem1024AesGcm =>
-                throw new NotSupportedException("ML-KEM algorithms require .NET 10 or greater"),
 #endif
             _ => throw new NotSupportedException($"Algorithm {algorithm} is not supported")
         };
@@ -125,12 +122,9 @@ internal static class Encryption
             EncryptionAlgorithm.ChaCha20Poly1305 => DecryptChaCha20Poly1305(ciphertext, key, nonce, associatedData ?? []),
             EncryptionAlgorithm.XChaCha20Poly1305 => DecryptXChaCha20Poly1305(ciphertext, key, nonce, associatedData ?? []),
             EncryptionAlgorithm.RsaOaepSha256 => DecryptRsaOaep(ciphertext, key),
-#if NET10_0_OR_GREATER
+#if NET10_OR_GREATER
             EncryptionAlgorithm.MLKem768AesGcm => DecryptMLKemHybrid(ciphertext, key, nonce, keyCiphertext!, 768, associatedData ?? []),
             EncryptionAlgorithm.MLKem1024AesGcm => DecryptMLKemHybrid(ciphertext, key, nonce, keyCiphertext!, 1024, associatedData ?? []),
-#else
-            EncryptionAlgorithm.MLKem768AesGcm or EncryptionAlgorithm.MLKem1024AesGcm =>
-                throw new NotSupportedException("ML-KEM algorithms require .NET 10 or greater"),
 #endif
             _ => throw new NotSupportedException($"Algorithm {algorithm} is not supported")
         };
@@ -382,7 +376,7 @@ internal static class Encryption
 
     #region ML-KEM Hybrid Encryption
 
-#if NET10_0_OR_GREATER
+#if NET10_OR_GREATER
 #pragma warning disable SYSLIB5006 // Experimental feature warnings
     private static EncryptionResult EncryptMLKemHybrid(byte[] plaintext, byte[] publicKeyPem, int securityBits, byte[] associatedData)
     {

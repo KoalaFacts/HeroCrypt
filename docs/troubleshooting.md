@@ -120,27 +120,36 @@ var plaintext = ChaCha20Poly1305Cipher.Decrypt(
 );
 ```
 
-### InvalidOperationException: Password not set
-
-**Problem**:
-```
-InvalidOperationException: Password not set. Call WithPassword() first.
-```
-
-**Solution**:
-```csharp
-// ❌ Missing WithPassword()
-var hash = await heroCrypt.Argon2
-    .WithSecurityLevel(SecurityLevel.High)
-    .HashAsync();  // Error!
-
-// ✅ Correct usage
-var hash = await heroCrypt.Argon2
-    .WithPassword("mypassword")  // Required!
-    .WithSecurityLevel(SecurityLevel.High)
-    .HashAsync();
-```
-
+### InvalidOperationException: Password not set
+
+**Problem**:
+`
+InvalidOperationException: Password not set. Call WithPassword() first.
+`
+
+**Solution**:
+`csharp
+// BAD: Missing password input
+var hash = Argon2.Hash(
+    password: Array.Empty<byte>(), // Error!
+    salt: RandomNumberGenerator.GetBytes(16),
+    iterations: 3,
+    memorySizeKB: 65536,
+    parallelism: 4,
+    hashLength: 32,
+    type: Argon2Type.Argon2id);
+
+// GOOD: Provide a password
+var hash = Argon2.Hash(
+    password: "mypassword"u8.ToArray(),
+    salt: RandomNumberGenerator.GetBytes(16),
+    iterations: 3,
+    memorySizeKB: 65536,
+    parallelism: 4,
+    hashLength: 32,
+    type: Argon2Type.Argon2id);
+`
+
 ### OutOfMemoryException during Argon2 hashing
 
 **Problem**:
@@ -189,12 +198,14 @@ var hash = Argon2.Hash(
     type: Argon2Type.Argon2id
 );
 
-// Option 2: Use hardware acceleration
-var hash = await heroCrypt.Argon2
-    .WithPassword(password)
-    .WithSecurityLevel(SecurityLevel.Medium)  // Lower than High
-    .WithHardwareAcceleration()
-    .HashAsync();
+// Option 2: Keep parameters strong; hardware acceleration is automatic when supported
+var hash = Argon2.Hash(
+    password, salt,
+    iterations: 3,
+    memorySizeKB: 65536,
+    parallelism: 4,
+    hashLength: 32,
+    type: Argon2Type.Argon2id);
 ```
 
 ### Slow Encryption
@@ -203,16 +214,7 @@ var hash = await heroCrypt.Argon2
 
 **Solutions**:
 
-1. **Enable hardware acceleration**:
-```csharp
-var encrypted = await heroCrypt.PGP
-    .WithData(plaintext)
-    .WithPublicKey(publicKey)
-    .WithHardwareAcceleration()  // Add this!
-    .EncryptAsync();
-```
-
-2. **Use batch operations**:
+1. **Use batch operations**:
 ```csharp
 // Instead of encrypting one by one
 var ciphertexts = await BatchOperations.EncryptBatchAsync(
@@ -222,7 +224,7 @@ var ciphertexts = await BatchOperations.EncryptBatchAsync(
 );
 ```
 
-3. **Use faster algorithm**:
+2. **Use a faster algorithm**:
 ```csharp
 // ChaCha20-Poly1305 is faster in software
 var encrypted = ChaCha20Poly1305Cipher.Encrypt(plaintext, key, nonce, aad);

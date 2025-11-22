@@ -305,7 +305,7 @@ public class KeyRotationManager : IDisposable
     private LockScope EnterLock() => syncLock.EnterScope();
 #else
     private readonly LockType syncLock = new();
-    private IDisposable EnterLock() => new LockReleaser(syncLock);
+    private LockReleaser EnterLock() => new(syncLock);
 #endif
 
     internal KeyRotationManager(byte[] masterKey, byte[] salt, TimeSpan rotationInterval, int keySize, int maxKeys)
@@ -448,7 +448,7 @@ public class KeyDerivationTree : IDisposable
     private readonly LockType syncLock = new();
 
 #if !NET9_0_OR_GREATER
-    private IDisposable EnterLock() => new LockReleaser(syncLock);
+    private LockReleaser EnterLock() => new(syncLock);
 #else
     private LockScope EnterLock() => syncLock.EnterScope();
 #endif

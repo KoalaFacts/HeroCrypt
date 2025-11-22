@@ -21,9 +21,8 @@ Welcome to the HeroCrypt documentation! This directory contains comprehensive gu
 
 2. **[API Patterns](api-patterns.md)**
    - API design principles
-   - Service layer patterns
-   - Fluent API usage
-   - Dependency injection
+   - Builder-first usage
+   - Fluent API examples
 
 ### For Production Deployment
 
@@ -73,8 +72,8 @@ Welcome to the HeroCrypt documentation! This directory contains comprehensive gu
 
 The [examples](../examples/) directory contains practical examples:
 
-- **[FluentApiDemo.cs](../examples/HeroCrypt.Examples/FluentApiDemo.cs)** - Fluent API and DI demonstration
-- **[Program.cs](../examples/HeroCrypt.Examples/Program.cs)** - Legacy API examples
+- **[FluentApiDemo.cs](../examples/HeroCrypt.Examples/FluentApiDemo.cs)** - Fluent builder demonstration
+- **[Program.cs](../examples/HeroCrypt.Examples/Program.cs)** - Legacy API examples (for comparison)
 - **[UseCases/](../examples/HeroCrypt.Examples/UseCases/)**
   - Password storage example
   - Data encryption example
@@ -151,19 +150,23 @@ Throughout this documentation, we use the following conventions:
 - 📚 **Reference** or **Educational** implementation
 - 🔒 **Security-critical** information
 
-### Code Examples
-
-```csharp
-// ✅ GOOD: Recommended pattern
-var hash = await heroCrypt.Argon2
-    .WithPassword("password")
-    .WithSecurityLevel(SecurityLevel.High)
-    .HashAsync();
-
-// ❌ BAD: Anti-pattern to avoid
-var hash = WeakHash(password);  // Don't do this!
-```
-
+### Code Examples
+
+`csharp
+// GOOD: Recommended pattern
+var hash = Argon2.Hash(
+    password: "password"u8.ToArray(),
+    salt: RandomNumberGenerator.GetBytes(16),
+    iterations: 3,
+    memorySizeKB: 65536,
+    parallelism: 4,
+    hashLength: 32,
+    type: Argon2Type.Argon2id);
+
+// BAD: Anti-pattern to avoid
+var hash = WeakHash(password);  // Don't do this!
+`
+
 ## Quick Reference
 
 ### Common Operations

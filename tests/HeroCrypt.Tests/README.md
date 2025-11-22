@@ -52,10 +52,9 @@ dotnet test --filter "FullyQualifiedName~StandardsComplianceTests"
 
 | Test Class | Categories | Description | Typical Duration |
 |------------|------------|-------------|------------------|
-| `Argon2HashingServiceTests` | Fast, Unit | Argon2 hashing with minimal parameters | < 100ms |
+| `Argon2HashingServiceTests` | Fast, Unit | Argon2 hashing (core) with minimal parameters | < 100ms |
 | `Blake2bTests` | Fast, Unit | Blake2b hash function tests | < 50ms |
 | `StandardsComplianceTests` | Fast, Compliance | RFC compliance verification | < 200ms |
-| `PgpCryptographyServiceTests` | Slow, Integration | RSA key generation and encryption | 10-30 seconds |
 
 ## CI/CD Recommendations
 

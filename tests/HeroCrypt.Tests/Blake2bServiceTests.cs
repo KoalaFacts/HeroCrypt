@@ -1,6 +1,5 @@
 using System.Text;
 using HeroCrypt.Cryptography.Primitives.Hash;
-using HeroCrypt.Hashing;
 
 namespace HeroCrypt.Tests;
 
@@ -38,58 +37,6 @@ public class Blake2bServiceTests
         var hash = Blake2bCore.ComputeLongHash(data, 128);
 
         Assert.Equal(128, hash.Length);
-    }
-
-    [Fact]
-    [Trait("Category", TestCategories.UNIT)]
-    public void Blake2bService_ComputeHash_ReturnsValidHash()
-    {
-        var service = new Blake2bHashingService();
-        var data = Encoding.UTF8.GetBytes("Test Blake2b Service");
-
-        var hash = service.ComputeHash(data, 64);
-
-        Assert.Equal(64, hash.Length);
-        Assert.NotEqual(new byte[64], hash);
-    }
-
-    [Fact]
-    [Trait("Category", TestCategories.UNIT)]
-    public void Blake2bService_VerifyHash_ValidatesCorrectly()
-    {
-        var service = new Blake2bHashingService();
-        var data = Encoding.UTF8.GetBytes("Test data for verification");
-
-        var hash = service.ComputeHash(data, 32);
-        var isValid = service.VerifyHash(data, hash);
-
-        Assert.True(isValid);
-    }
-
-    [Fact]
-    [Trait("Category", TestCategories.UNIT)]
-    public void Blake2bService_VerifyHash_RejectsInvalidHash()
-    {
-        var service = new Blake2bHashingService();
-        var data = Encoding.UTF8.GetBytes("Test data");
-        var wrongData = Encoding.UTF8.GetBytes("Wrong data");
-
-        var hash = service.ComputeHash(data, 32);
-        var isValid = service.VerifyHash(wrongData, hash);
-
-        Assert.False(isValid);
-    }
-
-    [Fact]
-    [Trait("Category", TestCategories.UNIT)]
-    public void Blake2bService_ComputeLongHash_WorksCorrectly()
-    {
-        var service = new Blake2bHashingService();
-        var data = Encoding.UTF8.GetBytes("Long hash test data");
-
-        var hash = service.ComputeLongHash(data, 256);
-
-        Assert.Equal(256, hash.Length);
     }
 
     [Fact]

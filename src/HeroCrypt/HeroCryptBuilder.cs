@@ -1,7 +1,11 @@
+using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 using HeroCrypt.Encryption;
 using HeroCrypt.Hashing;
 using HeroCrypt.Security;
 using HeroCrypt.Signatures;
+using HashAlgorithm = HeroCrypt.Hashing.HashAlgorithm;
 
 namespace HeroCrypt;
 
@@ -72,6 +76,13 @@ public static class HeroCryptBuilder
     /// Starts building a key derivation operation
     /// </summary>
     public static KeyDerivationBuilder DeriveKey() => new();
+
+#if !NETSTANDARD2_0
+    /// <summary>
+    /// Starts building a PGP-style hybrid encryption operation.
+    /// </summary>
+    public static PgpBuilder Pgp() => new();
+#endif
 }
 
 /// <summary>
@@ -135,6 +146,33 @@ public class EncryptionBuilder
     }
 
     /// <summary>
+    /// Convenience for RSA-OAEP (SHA-256) hybrid encryption.
+    /// </summary>
+    public EncryptionBuilder WithRsaOaepSha256()
+    {
+        algorithm = EncryptionAlgorithm.RsaOaepSha256;
+        return this;
+    }
+
+    /// <summary>
+    /// Convenience for ChaCha20-Poly1305 AEAD.
+    /// </summary>
+    public EncryptionBuilder WithChaCha20Poly1305()
+    {
+        algorithm = EncryptionAlgorithm.ChaCha20Poly1305;
+        return this;
+    }
+
+    /// <summary>
+    /// Convenience for AES-GCM AEAD (256-bit key expected).
+    /// </summary>
+    public EncryptionBuilder WithAesGcm()
+    {
+        algorithm = EncryptionAlgorithm.AesGcm;
+        return this;
+    }
+
+    /// <summary>
     /// Sets the encryption key
     /// </summary>
     public EncryptionBuilder WithKey(byte[] key)
@@ -162,7 +200,7 @@ public class EncryptionBuilder
             throw new InvalidOperationException("Encryption key must be set using WithKey()");
         }
 
-        InputValidator.ValidateByteArray(plaintext, nameof(plaintext));
+        InputValidator.ValidateByteArray(plaintext, nameof(plaintext), allowEmpty: true);
         InputValidator.ValidateByteArray(key, nameof(key));
         if (associatedData != null)
         {
@@ -287,6 +325,60 @@ public class SignatureBuilder
     }
 
     /// <summary>
+    /// Use RSA-PSS with SHA-256 for signing.
+    /// </summary>
+    public SignatureBuilder WithRsaPssSha256()
+    {
+        algorithm = SignatureAlgorithm.RsaPssSha256;
+        return this;
+    }
+
+    /// <summary>
+    /// Use RSA-PKCS1 with SHA-256 for signing.
+    /// </summary>
+    public SignatureBuilder WithRsaSha256()
+    {
+        algorithm = SignatureAlgorithm.RsaSha256;
+        return this;
+    }
+
+    /// <summary>
+    /// Use Ed25519 for signing.
+    /// </summary>
+    public SignatureBuilder WithEd25519()
+    {
+        algorithm = SignatureAlgorithm.Ed25519;
+        return this;
+    }
+
+    /// <summary>
+    /// Use ECDSA P-256 with SHA-256.
+    /// </summary>
+    public SignatureBuilder WithEcdsaP256()
+    {
+        algorithm = SignatureAlgorithm.EcdsaP256Sha256;
+        return this;
+    }
+
+    /// <summary>
+    /// Use ECDSA P-384 with SHA-384.
+    /// </summary>
+    public SignatureBuilder WithEcdsaP384()
+    {
+        algorithm = SignatureAlgorithm.EcdsaP384Sha384;
+        return this;
+    }
+
+    /// <summary>
+    /// Use ECDSA P-521 with SHA-512.
+    /// </summary>
+    public SignatureBuilder WithEcdsaP521()
+    {
+        algorithm = SignatureAlgorithm.EcdsaP521Sha512;
+        return this;
+    }
+
+    /// <summary>
     /// Sets the private key for signing
     /// </summary>
     public SignatureBuilder WithPrivateKey(byte[] privateKey)
@@ -327,6 +419,60 @@ public class VerificationBuilder
     public VerificationBuilder WithAlgorithm(SignatureAlgorithm algorithm)
     {
         this.algorithm = algorithm;
+        return this;
+    }
+
+    /// <summary>
+    /// Use RSA-PSS with SHA-256 for verification.
+    /// </summary>
+    public VerificationBuilder WithRsaPssSha256()
+    {
+        algorithm = SignatureAlgorithm.RsaPssSha256;
+        return this;
+    }
+
+    /// <summary>
+    /// Use RSA-PKCS1 with SHA-256 for verification.
+    /// </summary>
+    public VerificationBuilder WithRsaSha256()
+    {
+        algorithm = SignatureAlgorithm.RsaSha256;
+        return this;
+    }
+
+    /// <summary>
+    /// Use Ed25519 for verification.
+    /// </summary>
+    public VerificationBuilder WithEd25519()
+    {
+        algorithm = SignatureAlgorithm.Ed25519;
+        return this;
+    }
+
+    /// <summary>
+    /// Use ECDSA P-256 with SHA-256.
+    /// </summary>
+    public VerificationBuilder WithEcdsaP256()
+    {
+        algorithm = SignatureAlgorithm.EcdsaP256Sha256;
+        return this;
+    }
+
+    /// <summary>
+    /// Use ECDSA P-384 with SHA-384.
+    /// </summary>
+    public VerificationBuilder WithEcdsaP384()
+    {
+        algorithm = SignatureAlgorithm.EcdsaP384Sha384;
+        return this;
+    }
+
+    /// <summary>
+    /// Use ECDSA P-521 with SHA-512.
+    /// </summary>
+    public VerificationBuilder WithEcdsaP521()
+    {
+        algorithm = SignatureAlgorithm.EcdsaP521Sha512;
         return this;
     }
 
@@ -644,3 +790,4 @@ public class KeyDerivationBuilder
             null);
     }
 }
+

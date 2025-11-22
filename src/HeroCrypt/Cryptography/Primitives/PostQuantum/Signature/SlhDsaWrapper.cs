@@ -59,7 +59,7 @@ public static class SlhDsaWrapper
     [Experimental("SYSLIB5006")]
     public sealed class SlhDsaKeyPair : IDisposable
     {
-        private System.Security.Cryptography.SlhDsa? key;
+        private SlhDsa? key;
         private bool disposed;
 
         /// <summary>
@@ -86,7 +86,7 @@ public static class SlhDsaWrapper
         /// </summary>
         public SecurityLevel Level { get; }
 
-        internal SlhDsaKeyPair(System.Security.Cryptography.SlhDsa key, SecurityLevel level)
+        internal SlhDsaKeyPair(SlhDsa key, SecurityLevel level)
         {
             this.key = key ?? throw new ArgumentNullException(nameof(key));
             Level = level;
@@ -173,7 +173,7 @@ public static class SlhDsaWrapper
     /// <returns>True if SLH-DSA is available, false otherwise</returns>
     public static bool IsSupported()
     {
-        return System.Security.Cryptography.SlhDsa.IsSupported;
+        return SlhDsa.IsSupported;
     }
 
     /// <summary>
@@ -194,7 +194,7 @@ public static class SlhDsaWrapper
         }
 
         var algorithm = ToSlhDsaAlgorithm(level);
-        var key = System.Security.Cryptography.SlhDsa.GenerateKey(algorithm);
+        var key = SlhDsa.GenerateKey(algorithm);
         return new SlhDsaKeyPair(key, level);
     }
 
@@ -238,7 +238,7 @@ public static class SlhDsaWrapper
             throw new ArgumentException("Context must be 255 bytes or less", nameof(context));
         }
 
-        using var key = System.Security.Cryptography.SlhDsa.ImportFromPem(publicKeyPem);
+        using var key = SlhDsa.ImportFromPem(publicKeyPem);
 
         if (context == null || context.Length == 0)
         {
@@ -275,7 +275,7 @@ public static class SlhDsaWrapper
             throw new ArgumentException("Context must be 255 bytes or less");
         }
 
-        using var key = System.Security.Cryptography.SlhDsa.ImportFromPem(publicKeyPem);
+        using var key = SlhDsa.ImportFromPem(publicKeyPem);
         return key.VerifyData(data, signature, context);
     }
 
@@ -287,7 +287,7 @@ public static class SlhDsaWrapper
     /// <exception cref="ArgumentNullException">If publicKeyPem is null</exception>
     /// <exception cref="PlatformNotSupportedException">If SLH-DSA is not supported</exception>
     [Experimental("SYSLIB5006")]
-    public static System.Security.Cryptography.SlhDsa ImportPublicKey(string publicKeyPem)
+    public static SlhDsa ImportPublicKey(string publicKeyPem)
     {
         ArgumentNullException.ThrowIfNull(publicKeyPem);
 
@@ -298,7 +298,7 @@ public static class SlhDsaWrapper
                 "Requires .NET 10+ with Windows CNG PQC support or OpenSSL 3.5+");
         }
 
-        return System.Security.Cryptography.SlhDsa.ImportFromPem(publicKeyPem);
+        return SlhDsa.ImportFromPem(publicKeyPem);
     }
 
     /// <summary>

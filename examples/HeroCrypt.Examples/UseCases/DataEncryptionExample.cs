@@ -1,13 +1,15 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using HeroCrypt;
 using HeroCrypt.Encryption;
 using HeroCrypt.KeyManagement;
+using KdfHashAlgorithmName = HeroCrypt.KeyManagement.HashAlgorithmName;
 
 namespace HeroCrypt.Examples.UseCases;
 
 /// <summary>
-/// Demonstrates secure data encryption using ChaCha20-Poly1305 AEAD
+/// Demonstrates secure data encryption using the public fluent API.
 /// </summary>
 public static class DataEncryptionExample
 {
@@ -51,44 +53,33 @@ public static class DataEncryptionExample
         Console.WriteLine(jsonData);
         Console.WriteLine();
 
-        // Create AEAD service
-        var aeadService = new AeadService();
-
         // Generate a data encryption key (DEK)
         var dek = new byte[32];  // 256-bit key
         RandomNumberGenerator.Fill(dek);
         Console.WriteLine($"Generated DEK: {Convert.ToBase64String(dek)[..40]}...");
 
-        // Generate a unique nonce for this encryption
-        var nonce = new byte[12];  // 96-bit nonce for ChaCha20-Poly1305
-        RandomNumberGenerator.Fill(nonce);
-        Console.WriteLine($"Generated nonce: {Convert.ToBase64String(nonce)}");
-
         // Use user ID as associated data for context binding
         var associatedData = Encoding.UTF8.GetBytes(userData.UserId);
 
-        // Encrypt the data
+        // Encrypt the data via fluent builder (nonce is generated automatically)
         var plaintext = Encoding.UTF8.GetBytes(jsonData);
-        var ciphertext = await aeadService.EncryptAsync(
-            plaintext,
-            dek,
-            nonce,
-            associatedData,
-            AeadAlgorithm.ChaCha20Poly1305
-        );
+        var encryptionResult = HeroCryptBuilder.Encrypt()
+            .WithAlgorithm(EncryptionAlgorithm.ChaCha20Poly1305)
+            .WithKey(dek)
+            .WithAssociatedData(associatedData)
+            .Build(plaintext);
 
-        Console.WriteLine($"Encrypted data: {Convert.ToBase64String(ciphertext)[..60]}...");
-        Console.WriteLine($"Ciphertext size: {ciphertext.Length} bytes (original: {plaintext.Length} bytes)");
+        Console.WriteLine($"Encrypted data: {Convert.ToBase64String(encryptionResult.Ciphertext)[..60]}...");
+        Console.WriteLine($"Ciphertext size: {encryptionResult.Ciphertext.Length} bytes (original: {plaintext.Length} bytes)");
         Console.WriteLine();
 
-        // Decrypt the data
-        var decrypted = await aeadService.DecryptAsync(
-            ciphertext,
-            dek,
-            nonce,
-            associatedData,
-            AeadAlgorithm.ChaCha20Poly1305
-        );
+        // Decrypt the data using the captured nonce
+        var decrypted = HeroCryptBuilder.Decrypt()
+            .WithAlgorithm(EncryptionAlgorithm.ChaCha20Poly1305)
+            .WithKey(dek)
+            .WithNonce(encryptionResult.Nonce)
+            .WithAssociatedData(associatedData)
+            .Build(encryptionResult.Ciphertext);
 
         var decryptedJson = Encoding.UTF8.GetString(decrypted);
         var decryptedData = JsonSerializer.Deserialize<UserData>(decryptedJson);
@@ -99,12 +90,6 @@ public static class DataEncryptionExample
         Console.WriteLine($"Credit Card: {decryptedData?.CreditCard}");
         Console.WriteLine($"SSN: {decryptedData?.SSN}");
         Console.WriteLine();
-
-        // In production, you would:
-        // 1. Encrypt the DEK with a master key (KEK - Key Encryption Key)
-        // 2. Store the encrypted DEK with the ciphertext
-        // 3. Store the nonce with the ciphertext
-        // 4. Never reuse the same nonce with the same key
 
         await Task.CompletedTask;
     }
@@ -122,54 +107,44 @@ public static class DataEncryptionExample
         Console.WriteLine($"File size: {fileData.Length} bytes");
         Console.WriteLine();
 
-        // Create AEAD service
-        var aeadService = new AeadService();
-
         // Generate encryption key
         var key = new byte[32];
         RandomNumberGenerator.Fill(key);
-
-        // Generate nonce
-        var nonce = new byte[12];
-        RandomNumberGenerator.Fill(nonce);
 
         // Use filename as associated data
         var filename = "sensitive-document.txt";
         var associatedData = Encoding.UTF8.GetBytes(filename);
 
         // Encrypt the file
-        var encryptedFile = await aeadService.EncryptAsync(
-            fileData,
-            key,
-            nonce,
-            associatedData,
-            AeadAlgorithm.ChaCha20Poly1305
-        );
+        var encryptedFile = HeroCryptBuilder.Encrypt()
+            .WithAlgorithm(EncryptionAlgorithm.ChaCha20Poly1305)
+            .WithKey(key)
+            .WithAssociatedData(associatedData)
+            .Build(fileData);
 
-        Console.WriteLine($"Encrypted file size: {encryptedFile.Length} bytes");
+        Console.WriteLine($"Encrypted file size: {encryptedFile.Ciphertext.Length} bytes");
         Console.WriteLine();
 
         // Create encrypted file package
         var filePackage = new EncryptedFilePackage
         {
             Filename = filename,
-            Nonce = nonce,
-            Ciphertext = encryptedFile,
+            Nonce = encryptedFile.Nonce,
+            Ciphertext = encryptedFile.Ciphertext,
             // In production, EncryptedKey would be the DEK encrypted with KEK
         };
 
         Console.WriteLine("File encrypted successfully!");
-        Console.WriteLine($"Package: {filename}, Nonce: {Convert.ToBase64String(nonce)[..20]}...");
+        Console.WriteLine($"Package: {filename}, Nonce: {Convert.ToBase64String(filePackage.Nonce)[..20]}...");
         Console.WriteLine();
 
         // Decrypt the file
-        var decryptedFile = await aeadService.DecryptAsync(
-            filePackage.Ciphertext,
-            key,
-            filePackage.Nonce,
-            Encoding.UTF8.GetBytes(filePackage.Filename),
-            AeadAlgorithm.ChaCha20Poly1305
-        );
+        var decryptedFile = HeroCryptBuilder.Decrypt()
+            .WithAlgorithm(EncryptionAlgorithm.ChaCha20Poly1305)
+            .WithKey(key)
+            .WithNonce(filePackage.Nonce)
+            .WithAssociatedData(Encoding.UTF8.GetBytes(filePackage.Filename))
+            .Build(filePackage.Ciphertext);
 
         var decryptedContent = Encoding.UTF8.GetString(decryptedFile);
         Console.WriteLine($"Decrypted file content: {decryptedContent}");
@@ -188,29 +163,28 @@ public static class DataEncryptionExample
         RandomNumberGenerator.Fill(masterKey);
         Console.WriteLine($"Master key: {Convert.ToBase64String(masterKey)[..40]}...");
 
-        // Create key derivation service
-        var keyDerivationService = new KeyDerivationService();
+        // Derive separate keys for different purposes using HKDF via fluent builder
+        var encryptionKey = HeroCryptBuilder.DeriveKey()
+            .UseHKDF()
+            .WithInputKeyingMaterial(masterKey)
+            .WithInfo(Encoding.UTF8.GetBytes("encryption-key-v1"))
+            .WithHashAlgorithm(KdfHashAlgorithmName.SHA256)
+            .WithKeyLength(32)
+            .Build();
 
-        // Derive separate keys for different purposes using HKDF
-        var encryptionKey = keyDerivationService.DeriveHkdf(
-            masterKey,
-            keyLength: 32,
-            info: Encoding.UTF8.GetBytes("encryption-key-v1"),
-            salt: null
-        );
-
-        var authenticationKey = keyDerivationService.DeriveHkdf(
-            masterKey,
-            keyLength: 32,
-            info: Encoding.UTF8.GetBytes("authentication-key-v1"),
-            salt: null
-        );
+        var authenticationKey = HeroCryptBuilder.DeriveKey()
+            .UseHKDF()
+            .WithInputKeyingMaterial(masterKey)
+            .WithInfo(Encoding.UTF8.GetBytes("authentication-key-v1"))
+            .WithHashAlgorithm(KdfHashAlgorithmName.SHA256)
+            .WithKeyLength(32)
+            .Build();
 
         Console.WriteLine($"Derived encryption key: {Convert.ToBase64String(encryptionKey)[..40]}...");
         Console.WriteLine($"Derived authentication key: {Convert.ToBase64String(authenticationKey)[..40]}...");
         Console.WriteLine();
 
-        Console.WriteLine("✅ Best Practices:");
+        Console.WriteLine("Best Practices:");
         Console.WriteLine("  - Use separate keys for encryption and authentication");
         Console.WriteLine("  - Derive keys from a master key using HKDF");
         Console.WriteLine("  - Include context-specific info in key derivation");

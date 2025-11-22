@@ -32,7 +32,7 @@ public sealed class SecureRandomNumberGenerator : IDisposable
 #if NET9_0_OR_GREATER
     private LockScope EnterEntropyLock() => entropyLock.EnterScope();
 #else
-    private IDisposable EnterEntropyLock() => new LockReleaser(entropyLock);
+    private LockReleaser EnterEntropyLock() => new(entropyLock);
 #endif
 
     /// <summary>

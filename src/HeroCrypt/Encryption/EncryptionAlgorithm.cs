@@ -29,7 +29,7 @@ public enum EncryptionAlgorithm
     /// RSA-OAEP with SHA-256 - Asymmetric encryption
     /// </summary>
     RsaOaepSha256,
-
+#if NET10_OR_GREATER
     /// <summary>
     /// ML-KEM-768 + AES-GCM hybrid encryption (.NET 10+)
     /// Post-quantum hybrid: ML-KEM for key encapsulation, AES-GCM for data
@@ -41,4 +41,5 @@ public enum EncryptionAlgorithm
     /// Post-quantum hybrid: ML-KEM for key encapsulation, AES-GCM for data
     /// </summary>
     MLKem1024AesGcm
+#endif
 }

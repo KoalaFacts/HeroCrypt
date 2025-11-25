@@ -2,13 +2,14 @@ name: Build and Test
 
 on:
   push:
-    branches: ['*']
-    tags: ['v*']
+    branches: [ '*' ]
+    tags: [ 'v*' ]  # Run on version tags for artifact generation
   pull_request:
-    branches: [main, develop]
+    branches: [ main, develop ]
   merge_group:
   workflow_dispatch:
 
+# Cancel in-progress runs for the same workflow and ref
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -17,7 +18,7 @@ permissions:
   contents: read
   checks: write
   pull-requests: write
-  security-events: write
+  security-events: write  # For dependency review
 
 env:
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
@@ -40,57 +41,58 @@ jobs:
         uses: ./.github/actions/extract-build-config
 
   build-and-test:
-    name: Build and Test (${{ matrix.os }})
+    name: Build and Test
     needs: setup
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
+        framework: ${{ fromJSON(needs.setup.outputs.frameworks) }}
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
+    - name: Checkout code
+      uses: actions/checkout@v5
+      with:
+        fetch-depth: 0  # Full history for Source Link
 
-      - name: Setup .NET SDKs
-        uses: ./.github/actions/setup-dotnet-sdks
-        with:
-          dotnet-version: ${{ needs.setup.outputs.versions }}
+    - name: Setup .NET SDKs
+      uses: ./.github/actions/setup-dotnet-sdks
+      with:
+        dotnet-version: ${{ needs.setup.outputs.versions }}
 
-      - name: Restore dependencies
-        run: dotnet restore
+    - name: Restore dependencies
+      run: dotnet restore
 
-      - name: Build
-        run: dotnet build --configuration Release --no-restore
+    - name: Build
+      run: dotnet build --configuration Release --no-restore --framework ${{ matrix.framework }}
 
-      - name: Run tests
-        run: dotnet test --configuration Release --no-build --verbosity normal --logger "trx;LogFileName=test-results.trx" --collect:"XPlat Code Coverage" --results-directory ./TestResults
+    - name: Run tests
+      run: dotnet test --configuration Release --no-build --framework ${{ matrix.framework }} --verbosity normal --logger "trx;LogFileName=test-results.trx" --collect:"XPlat Code Coverage" --results-directory ./TestResults
 
-      - name: Publish test results
-        uses: EnricoMi/publish-unit-test-result-action@v2
-        if: always() && matrix.os == 'ubuntu-latest'
-        with:
-          files: 'TestResults/**/*.trx'
-          check_name: 'Test Results (${{ matrix.os }})'
+    - name: Publish test results
+      uses: EnricoMi/publish-unit-test-result-action@v2
+      if: always() && matrix.os == 'ubuntu-latest' && matrix.framework == 'net10.0'
+      with:
+        files: 'TestResults/**/*.trx'
+        check_name: 'Test Results (${{ matrix.os }} - ${{ matrix.framework }})'
 
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v5
-        with:
-          name: test-results-${{ matrix.os }}
-          path: TestResults/**/*.trx
-          retention-days: 30
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v5
+      with:
+        name: test-results-${{ matrix.os }}-${{ matrix.framework }}
+        path: TestResults/**/*.trx
+        retention-days: 30
 
-      - name: Upload coverage to Codecov
-        if: matrix.os == 'ubuntu-latest'
-        uses: codecov/codecov-action@v5
-        with:
-          files: 'TestResults/**/coverage.cobertura.xml'
-          fail_ci_if_error: false
-          flags: unittests
-          name: codecov-${{ matrix.os }}
+    - name: Upload coverage to Codecov
+      if: matrix.os == 'ubuntu-latest' && matrix.framework == 'net10.0'
+      uses: codecov/codecov-action@v5
+      with:
+        files: 'TestResults/**/coverage.cobertura.xml'
+        fail_ci_if_error: false
+        flags: unittests
+        name: codecov-${{ matrix.os }}
 
   code-quality:
     name: Code Quality
@@ -98,140 +100,43 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
+    - name: Checkout code
+      uses: actions/checkout@v5
+      with:
+        fetch-depth: 0
 
-      - name: Setup .NET SDKs
-        uses: ./.github/actions/setup-dotnet-sdks
-        with:
-          dotnet-version: ${{ needs.setup.outputs.versions }}
+    - name: Setup .NET SDKs
+      uses: ./.github/actions/setup-dotnet-sdks
+      with:
+        dotnet-version: ${{ needs.setup.outputs.versions }}
 
-      - name: Restore dependencies
-        run: dotnet restore
+    - name: Restore dependencies
+      run: dotnet restore
 
-      - name: Build (with warnings as errors)
-        run: dotnet build --configuration Release --no-restore /p:TreatWarningsAsErrors=true
+    - name: Build (with warnings as errors)
+      run: dotnet build --configuration Release --no-restore /p:TreatWarningsAsErrors=true
 
-      - name: Check formatting
-        run: dotnet format --verify-no-changes --verbosity diagnostic
+    - name: Check formatting
+      run: dotnet format --verify-no-changes --verbosity diagnostic
 
   dependency-review:
     name: Dependency Review
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
+    - name: Checkout code
+      uses: actions/checkout@v5
+      with:
+        fetch-depth: 0  # Need full history for comparing commits on push events
 
-      - name: Dependency Review
-        uses: actions/dependency-review-action@v4
-        with:
-          fail-on-severity: high
-          deny-licenses: GPL-2.0, GPL-3.0, AGPL-3.0
-          comment-summary-in-pr: always
-
-  package:
-    name: Create Release Package
-    runs-on: ubuntu-latest
-    needs: [setup, build-and-test, code-quality]
-    if: success()
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-
-      - name: Setup .NET SDKs
-        uses: ./.github/actions/setup-dotnet-sdks
-        with:
-          dotnet-version: ${{ needs.setup.outputs.versions }}
-
-      - name: Calculate build number
-        id: build-number
-        shell: bash
-        run: |
-          BRANCH_NAME="${{ github.ref_name }}"
-          BRANCH_SAFE=$(echo "$BRANCH_NAME" | sed 's/[^a-zA-Z0-9-]/-/g' | sed 's/--*/-/g')
-          BUILD_DATE=$(date -u +%Y%m%d)
-          RUN_NUMBER="${{ github.run_number }}"
-          COMMIT_HASH=$(git rev-parse --short=7 HEAD)
-          BUILD_NUMBER="${BRANCH_SAFE}-${BUILD_DATE}.${RUN_NUMBER}.${COMMIT_HASH}"
-
-          echo "build-number=${BUILD_NUMBER}" >> $GITHUB_OUTPUT
-          echo "Build Number: ${BUILD_NUMBER}"
-
-      - name: Restore dependencies
-        run: dotnet restore
-
-      - name: Build Release
-        run: dotnet build --configuration Release --no-restore /p:BUILD_NUMBER=${{ github.run_number }}
-        env:
-          BUILD_NUMBER: ${{ github.run_number }}
-
-      - name: Run RFC Compliance Tests
-        run: dotnet test --filter "Category=Compliance" --configuration Release --no-build --logger "console;verbosity=detailed"
-
-      - name: Run Security Validation Tests
-        run: dotnet test --filter "Category=Security|Category=Critical" --configuration Release --no-build --logger "console;verbosity=detailed"
-
-      - name: Create NuGet package
-        run: dotnet pack --configuration Release --no-build --output ./artifacts /p:BUILD_NUMBER=${{ github.run_number }}
-        env:
-          BUILD_NUMBER: ${{ github.run_number }}
-
-      - name: Create build manifest
-        shell: bash
-        run: |
-          cat > ./artifacts/build-manifest.json << EOF
-          {
-            "buildNumber": "${{ steps.build-number.outputs.build-number }}",
-            "branchName": "${{ github.ref_name }}",
-            "commitHash": "$(git rev-parse HEAD)",
-            "commitHashShort": "$(git rev-parse --short=7 HEAD)",
-            "buildDate": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-            "runNumber": "${{ github.run_number }}",
-            "runId": "${{ github.run_id }}",
-            "actor": "${{ github.actor }}",
-            "repository": "${{ github.repository }}",
-            "frameworks": ${{ needs.setup.outputs.frameworks }},
-            "platforms": ["ubuntu-latest", "windows-latest", "macos-latest"]
-          }
-          EOF
-
-          cat ./artifacts/build-manifest.json
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v5
-        with:
-          name: herocrypt-${{ steps.build-number.outputs.build-number }}
-          path: |
-            ./artifacts/*.nupkg
-            ./artifacts/*.snupkg
-            ./artifacts/build-manifest.json
-          retention-days: 90
-          if-no-files-found: error
-
-      - name: Build summary
-        shell: bash
-        run: |
-          echo "## Build Completed Successfully" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Build Number:** \`${{ steps.build-number.outputs.build-number }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Build Date:** $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Artifacts" >> $GITHUB_STEP_SUMMARY
-          echo "Package artifacts are available for download and can be used to create a release." >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Validation" >> $GITHUB_STEP_SUMMARY
-          echo "- .NET 8.0, 9.0, 10.0, Standard 2.0" >> $GITHUB_STEP_SUMMARY
-          echo "- Ubuntu, Windows, macOS" >> $GITHUB_STEP_SUMMARY
-          echo "- RFC Compliance Tests Passed" >> $GITHUB_STEP_SUMMARY
-          echo "- Security Validation Tests Passed" >> $GITHUB_STEP_SUMMARY
+    - name: Dependency Review
+      uses: actions/dependency-review-action@v4
+      with:
+        fail-on-severity: high
+        deny-licenses: GPL-2.0, GPL-3.0, AGPL-3.0
+        comment-summary-in-pr: ${{ github.event_name == 'pull_request' && 'always' || 'never' }}
+        # For push events, compare against previous commit
+        # For PRs, these are automatically detected
+        base-ref: ${{ github.event_name == 'push' && github.event.before || '' }}
+        head-ref: ${{ github.event_name == 'push' && github.sha || '' }}

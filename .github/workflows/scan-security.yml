@@ -4,9 +4,9 @@ name: Scan Security
 
 on:
   push:
-    branches: [main, develop]
+    branches: [ main, develop ]
   pull_request:
-    branches: [main, develop]
+    branches: [ main, develop ]
   schedule:
     # Run weekly on Monday at 00:00 UTC
     - cron: '0 0 * * 1'
@@ -21,7 +21,7 @@ permissions:
   actions: read
   contents: read
   security-events: write
-  id-token: write
+  id-token: write  # May be used by security tools for authentication
 
 env:
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
@@ -45,9 +45,13 @@ jobs:
 
   # NuGet package vulnerability scanning
   nuget-audit:
-    name: NuGet Audit
+    name: NuGet Audit (${{ matrix.framework }})
     needs: setup
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        framework: ${{ fromJSON(needs.setup.outputs.frameworks) }}
 
     steps:
       - name: Checkout code
@@ -61,11 +65,11 @@ jobs:
       - name: Restore and audit dependencies
         run: |
           dotnet restore
-          dotnet list package --vulnerable --include-transitive 2>&1 | tee audit.log
+          dotnet list package --vulnerable --include-transitive 2>&1 | tee audit-${{ matrix.framework }}.log
 
-          if grep -q "has the following vulnerable packages" audit.log; then
+          if grep -q "has the following vulnerable packages" audit-${{ matrix.framework }}.log; then
             echo "::error::Vulnerable packages detected!"
-            cat audit.log
+            cat audit-${{ matrix.framework }}.log
             exit 1
           else
             echo "No vulnerable packages detected."
@@ -73,25 +77,28 @@ jobs:
 
       - name: Upload audit results
         uses: actions/upload-artifact@v5
-        if: always()
         with:
-          name: nuget-audit
-          path: audit.log
+          name: nuget-audit-${{ matrix.framework }}
+          path: audit-${{ matrix.framework }}.log
           retention-days: 30
 
   # Microsoft Security DevOps analysis (BinSkim, CredScan, etc.)
   microsoft-security-devops:
-    name: Microsoft Security DevOps
+    name: Microsoft Security DevOps (${{ matrix.framework }})
     needs: setup
     runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        framework: ${{ fromJSON(needs.setup.outputs.frameworks) }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
         with:
-          fetch-depth: 0
+          fetch-depth: 0  # Full history for better analysis
 
-      - name: Setup all .NET SDKs
+      - name: Setup all .NET SDKs (including 6.0 for Security DevOps tools)
         uses: ./.github/actions/setup-dotnet-sdks
         with:
           dotnet-version: ${{ needs.setup.outputs.versions }}
@@ -101,11 +108,11 @@ jobs:
         with:
           dotnet-version: '6.0.x'
 
-      - name: Restore dependencies
+      - name: Restore dependencies (all frameworks, locked mode)
         run: dotnet restore
 
-      - name: Build project
-        run: dotnet build src/HeroCrypt/HeroCrypt.csproj --configuration Release --no-restore
+      - name: Build main project only
+        run: dotnet build src/HeroCrypt/HeroCrypt.csproj --configuration Release --no-restore --framework ${{ matrix.framework }}
 
       - name: Run Microsoft Security DevOps
         uses: microsoft/security-devops-action@v1
@@ -115,7 +122,7 @@ jobs:
           tools: 'binskim,credscan'
 
       - name: Upload SARIF to GitHub Security
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always() && steps.msdo.outputs.sarifFile != ''
         with:
           sarif_file: ${{ steps.msdo.outputs.sarifFile }}
@@ -124,7 +131,7 @@ jobs:
         uses: actions/upload-artifact@v5
         if: always() && steps.msdo.outputs.sarifFile != ''
         with:
-          name: security-devops-sarif
+          name: security-devops-${{ matrix.framework }}
           path: ${{ steps.msdo.outputs.sarifFile }}
           retention-days: 90
           if-no-files-found: warn
@@ -156,7 +163,7 @@ jobs:
 
           echo "### Scan Details" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **NuGet Audit**: Scans for vulnerable NuGet packages" >> $GITHUB_STEP_SUMMARY
+          echo "- **NuGet Audit**: Scans for vulnerable NuGet packages across .NET 8.0, 9.0, and 10.0" >> $GITHUB_STEP_SUMMARY
           echo "- **Microsoft Security DevOps**: Runs BinSkim (binary analysis) and CredScan (credential scanning)" >> $GITHUB_STEP_SUMMARY
           echo "- **CodeQL**: Automated code scanning via GitHub default setup" >> $GITHUB_STEP_SUMMARY
           echo "- **Secret Scanning**: Automated credential leak detection via GitHub" >> $GITHUB_STEP_SUMMARY

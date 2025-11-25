@@ -689,20 +689,20 @@ public class KeyDerivationBuilder
         // Call PBKDF2 primitive directly
         var hashName = hashAlgorithm.Name switch
         {
-            "SHA256" => System.Security.Cryptography.HashAlgorithmName.SHA256,
-            "SHA384" => System.Security.Cryptography.HashAlgorithmName.SHA384,
-            "SHA512" => System.Security.Cryptography.HashAlgorithmName.SHA512,
-            _ => System.Security.Cryptography.HashAlgorithmName.SHA256
+            "SHA256" => HashAlgorithmName.SHA256,
+            "SHA384" => HashAlgorithmName.SHA384,
+            "SHA512" => HashAlgorithmName.SHA512,
+            _ => HashAlgorithmName.SHA256
         };
 
 #if !NETSTANDARD2_0
-        return System.Security.Cryptography.Rfc2898DeriveBytes.Pbkdf2(password, salt, iterations, hashName, keyLength);
+        return Rfc2898DeriveBytes.Pbkdf2(password, salt, iterations, hashName, keyLength);
 #else
         // Use Rfc2898DeriveBytes for .NET Standard 2.0
         // Note: netstandard2.0 constructor doesn't support HashAlgorithmName parameter,
         // so we suppress the analyzer warning
 #pragma warning disable CA5379 // Do not use weak key derivation function algorithm
-        using var pbkdf2 = new System.Security.Cryptography.Rfc2898DeriveBytes(password, salt, iterations);
+        using var pbkdf2 = new Rfc2898DeriveBytes(password, salt, iterations);
 #pragma warning restore CA5379
         return pbkdf2.GetBytes(keyLength);
 #endif
@@ -720,14 +720,14 @@ public class KeyDerivationBuilder
 
         var hashName = hashAlgorithm.Name switch
         {
-            "SHA256" => System.Security.Cryptography.HashAlgorithmName.SHA256,
-            "SHA384" => System.Security.Cryptography.HashAlgorithmName.SHA384,
-            "SHA512" => System.Security.Cryptography.HashAlgorithmName.SHA512,
-            _ => System.Security.Cryptography.HashAlgorithmName.SHA256
+            "SHA256" => HashAlgorithmName.SHA256,
+            "SHA384" => HashAlgorithmName.SHA384,
+            "SHA512" => HashAlgorithmName.SHA512,
+            _ => HashAlgorithmName.SHA256
         };
 
 #if !NETSTANDARD2_0
-        return System.Security.Cryptography.HKDF.DeriveKey(hashName, ikm, keyLength, salt, info);
+        return HKDF.DeriveKey(hashName, ikm, keyLength, salt, info);
 #else
         // Use HeroCrypt's HKDF implementation for .NET Standard 2.0
         return Cryptography.Primitives.Kdf.HkdfCore.DeriveKey(ikm, salt ?? [], info ?? [], keyLength, hashName);

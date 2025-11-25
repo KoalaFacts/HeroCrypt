@@ -20,6 +20,12 @@ public class AeadServiceTests
     [MemberData(nameof(AeadCases))]
     public void EncryptDecrypt_RoundTrip_Succeeds(EncryptionAlgorithm algorithm, int keySize)
     {
+        if (algorithm == EncryptionAlgorithm.AesCcm && OperatingSystem.IsMacOS())
+        {
+            Assert.Skip("AES-CCM not supported on macOS");
+            return;
+        }
+
         var plaintext = "Hello, AEAD World!"u8.ToArray();
         var key = RandomNumberGenerator.GetBytes(keySize);
         var associatedData = "metadata"u8.ToArray();
@@ -45,6 +51,12 @@ public class AeadServiceTests
     [MemberData(nameof(AeadCases))]
     public void EncryptDecrypt_EmptyPlaintext_Succeeds(EncryptionAlgorithm algorithm, int keySize)
     {
+        if (algorithm == EncryptionAlgorithm.AesCcm && OperatingSystem.IsMacOS())
+        {
+            Assert.Skip("AES-CCM not supported on macOS");
+            return;
+        }
+
         var plaintext = Array.Empty<byte>();
         var key = RandomNumberGenerator.GetBytes(keySize);
 
@@ -67,6 +79,12 @@ public class AeadServiceTests
     [MemberData(nameof(AeadCases))]
     public void Decrypt_TamperedCiphertext_Fails(EncryptionAlgorithm algorithm, int keySize)
     {
+        if (algorithm == EncryptionAlgorithm.AesCcm && OperatingSystem.IsMacOS())
+        {
+            Assert.Skip("AES-CCM not supported on macOS");
+            return;
+        }
+
         var plaintext = "Hello, AEAD World!"u8.ToArray();
         var key = RandomNumberGenerator.GetBytes(keySize);
 
@@ -90,6 +108,12 @@ public class AeadServiceTests
     [MemberData(nameof(AeadCases))]
     public void Decrypt_WrongKey_Fails(EncryptionAlgorithm algorithm, int keySize)
     {
+        if (algorithm == EncryptionAlgorithm.AesCcm && OperatingSystem.IsMacOS())
+        {
+            Assert.Skip("AES-CCM not supported on macOS");
+            return;
+        }
+
         var plaintext = "Hello, AEAD World!"u8.ToArray();
         var key = RandomNumberGenerator.GetBytes(keySize);
         var wrongKey = RandomNumberGenerator.GetBytes(keySize);
@@ -111,6 +135,12 @@ public class AeadServiceTests
     [MemberData(nameof(AeadCases))]
     public void Decrypt_WrongNonce_Fails(EncryptionAlgorithm algorithm, int keySize)
     {
+        if (algorithm == EncryptionAlgorithm.AesCcm && OperatingSystem.IsMacOS())
+        {
+            Assert.Skip("AES-CCM not supported on macOS");
+            return;
+        }
+
         var plaintext = "Hello, AEAD World!"u8.ToArray();
         var key = RandomNumberGenerator.GetBytes(keySize);
 
@@ -133,6 +163,12 @@ public class AeadServiceTests
     [MemberData(nameof(AeadCases))]
     public void Decrypt_WrongAssociatedData_Fails(EncryptionAlgorithm algorithm, int keySize)
     {
+        if (algorithm == EncryptionAlgorithm.AesCcm && OperatingSystem.IsMacOS())
+        {
+            Assert.Skip("AES-CCM not supported on macOS");
+            return;
+        }
+
         var plaintext = "Hello, AEAD World!"u8.ToArray();
         var key = RandomNumberGenerator.GetBytes(keySize);
         var aad = "metadata"u8.ToArray();
@@ -157,6 +193,12 @@ public class AeadServiceTests
     [MemberData(nameof(AeadCases))]
     public void Encrypt_SamePlaintextDifferentNonce_ProducesDifferentCiphertext(EncryptionAlgorithm algorithm, int keySize)
     {
+        if (algorithm == EncryptionAlgorithm.AesCcm && OperatingSystem.IsMacOS())
+        {
+            Assert.Skip("AES-CCM not supported on macOS");
+            return;
+        }
+
         var plaintext = "Same plaintext, different nonce"u8.ToArray();
         var key = RandomNumberGenerator.GetBytes(keySize);
 

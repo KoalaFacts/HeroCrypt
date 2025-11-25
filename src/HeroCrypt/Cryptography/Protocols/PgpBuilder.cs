@@ -2,8 +2,8 @@ using System;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using HeroCrypt.Cryptography.Protocols.KeyManagement;
 using HeroCrypt.Encryption;
-using HeroCrypt.KeyManagement;
 using HeroCrypt.Security;
 
 namespace HeroCrypt.Cryptography.Protocols;

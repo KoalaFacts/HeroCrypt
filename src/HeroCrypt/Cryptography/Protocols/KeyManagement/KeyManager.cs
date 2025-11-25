@@ -1,7 +1,8 @@
 using System.Security.Cryptography;
 using HeroCrypt.Cryptography.Primitives.Kdf;
-using HeroCrypt.KeyManagement;
 using HeroCrypt.Security;
+using HeroCrypt.Cryptography.Protocols.KeyManagement;
+
 #if NET9_0_OR_GREATER
 using LockType = System.Threading.Lock;
 using LockScope = System.Threading.Lock.Scope;

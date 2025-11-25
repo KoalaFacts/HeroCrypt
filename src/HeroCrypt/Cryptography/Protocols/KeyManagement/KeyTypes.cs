@@ -1,7 +1,7 @@
 using System;
 using System.Diagnostics.CodeAnalysis;
 
-namespace HeroCrypt.KeyManagement;
+namespace HeroCrypt.Cryptography.Protocols.KeyManagement;
 
 /// <summary>
 /// Supported symmetric algorithms for key generation.
@@ -58,11 +58,11 @@ public enum NonceAlgorithm
 /// <summary>
 /// Hash algorithm names used by key derivation routines.
 /// </summary>
-public readonly struct HashAlgorithmName : IEquatable<HashAlgorithmName>
+public readonly struct CryptographicHashName : IEquatable<CryptographicHashName>
 {
     private readonly string? name;
 
-    private HashAlgorithmName(string? name)
+    private CryptographicHashName(string? name)
     {
         this.name = name;
     }
@@ -70,37 +70,37 @@ public readonly struct HashAlgorithmName : IEquatable<HashAlgorithmName>
     /// <summary>
     /// SHA-256 hash algorithm.
     /// </summary>
-    public static HashAlgorithmName SHA256 { get; } = new("SHA256");
+    public static CryptographicHashName SHA256 { get; } = new("SHA256");
 
     /// <summary>
     /// SHA-384 hash algorithm.
     /// </summary>
-    public static HashAlgorithmName SHA384 { get; } = new("SHA384");
+    public static CryptographicHashName SHA384 { get; } = new("SHA384");
 
     /// <summary>
     /// SHA-512 hash algorithm.
     /// </summary>
-    public static HashAlgorithmName SHA512 { get; } = new("SHA512");
+    public static CryptographicHashName SHA512 { get; } = new("SHA512");
 
     /// <summary>
     /// SHA3-256 hash algorithm.
     /// </summary>
-    public static HashAlgorithmName SHA3256 { get; } = new("SHA3-256");
+    public static CryptographicHashName SHA3256 { get; } = new("SHA3-256");
 
     /// <summary>
     /// SHA3-384 hash algorithm.
     /// </summary>
-    public static HashAlgorithmName SHA3384 { get; } = new("SHA3-384");
+    public static CryptographicHashName SHA3384 { get; } = new("SHA3-384");
 
     /// <summary>
     /// SHA3-512 hash algorithm.
     /// </summary>
-    public static HashAlgorithmName SHA3512 { get; } = new("SHA3-512");
+    public static CryptographicHashName SHA3512 { get; } = new("SHA3-512");
 
     /// <summary>
     /// Blake2b hash algorithm.
     /// </summary>
-    public static HashAlgorithmName Blake2b { get; } = new("Blake2b");
+    public static CryptographicHashName Blake2b { get; } = new("Blake2b");
 
     /// <summary>
     /// Gets the canonical name of the hash algorithm.
@@ -112,21 +112,21 @@ public readonly struct HashAlgorithmName : IEquatable<HashAlgorithmName>
     /// </summary>
     /// <param name="value">Algorithm name to wrap.</param>
     /// <returns>Wrapped hash algorithm name.</returns>
-    public static HashAlgorithmName Create(string value) => new(value);
+    public static CryptographicHashName Create(string value) => new(value);
 
     /// <inheritdoc />
     public override string ToString() => Name;
 
     /// <inheritdoc />
     public override bool Equals([NotNullWhen(true)] object? obj) =>
-        obj is HashAlgorithmName other && Equals(other);
+        obj is CryptographicHashName other && Equals(other);
 
     /// <summary>
     /// Compares two hash algorithm names using a case-insensitive comparison.
     /// </summary>
     /// <param name="other">Other instance to compare.</param>
     /// <returns><see langword="true" /> when the names match; otherwise <see langword="false" />.</returns>
-    public bool Equals(HashAlgorithmName other) =>
+    public bool Equals(CryptographicHashName other) =>
         string.Equals(name, other.name, StringComparison.OrdinalIgnoreCase);
 
     /// <inheritdoc />
@@ -145,7 +145,7 @@ public readonly struct HashAlgorithmName : IEquatable<HashAlgorithmName>
     /// <param name="left">Left value to compare.</param>
     /// <param name="right">Right value to compare.</param>
     /// <returns><see langword="true" /> when the names match; otherwise <see langword="false" />.</returns>
-    public static bool operator ==(HashAlgorithmName left, HashAlgorithmName right) => left.Equals(right);
+    public static bool operator ==(CryptographicHashName left, CryptographicHashName right) => left.Equals(right);
 
     /// <summary>
     /// Determines whether two hash algorithm names differ.
@@ -153,7 +153,7 @@ public readonly struct HashAlgorithmName : IEquatable<HashAlgorithmName>
     /// <param name="left">Left value to compare.</param>
     /// <param name="right">Right value to compare.</param>
     /// <returns><see langword="true" /> when the names differ; otherwise <see langword="false" />.</returns>
-    public static bool operator !=(HashAlgorithmName left, HashAlgorithmName right) => !left.Equals(right);
+    public static bool operator !=(CryptographicHashName left, CryptographicHashName right) => !left.Equals(right);
 }
 
 /// <summary>

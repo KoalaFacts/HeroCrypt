@@ -1,5 +1,4 @@
 using System.Security.Cryptography;
-using HeroCrypt.KeyManagement;
 using HeroCrypt.Security;
 using HeroCrypt.Signatures;
 using Microsoft.Extensions.Logging;

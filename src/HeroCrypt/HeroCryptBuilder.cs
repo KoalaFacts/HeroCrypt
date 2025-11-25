@@ -2,6 +2,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using HeroCrypt.Cryptography.Protocols;
+using HeroCrypt.Cryptography.Protocols.KeyManagement;
 using HeroCrypt.Encryption;
 using HeroCrypt.Hashing;
 using HeroCrypt.Security;
@@ -530,7 +531,7 @@ public class KeyDerivationBuilder
     private int keyLength = 32;
     private int blockSize = 8;
     private int parallelism = 1;
-    private KeyManagement.HashAlgorithmName hashAlgorithm = KeyManagement.HashAlgorithmName.SHA256;
+    private CryptographicHashName hashAlgorithm = CryptographicHashName.SHA256;
     private KeyDerivationType derivationType = KeyDerivationType.PBKDF2;
 
     private enum KeyDerivationType
@@ -598,7 +599,7 @@ public class KeyDerivationBuilder
     /// <summary>
     /// Sets the hash algorithm to use
     /// </summary>
-    public KeyDerivationBuilder WithHashAlgorithm(KeyManagement.HashAlgorithmName hashAlgorithm)
+    public KeyDerivationBuilder WithHashAlgorithm(CryptographicHashName hashAlgorithm)
     {
         this.hashAlgorithm = hashAlgorithm;
         return this;

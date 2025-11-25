@@ -1,6 +1,6 @@
 using System.Text;
 using HeroCrypt;
-using HeroCrypt.KeyManagement;
+using HeroCrypt.Cryptography.Protocols.KeyManagement;
 
 namespace HeroCrypt.Tests.Cryptography.Primitives.Kdf;
 
@@ -22,7 +22,7 @@ public class KeyDerivationTests
             .WithSalt(salt)
             .WithIterations(1000)
             .WithKeyLength(32)
-            .WithHashAlgorithm(HashAlgorithmName.SHA256)
+            .WithHashAlgorithm(CryptographicHashName.SHA256)
             .Build();
 
         Assert.Equal(32, key.Length);
@@ -67,7 +67,7 @@ public class KeyDerivationTests
             .WithInputKeyingMaterial(ikm)
             .WithSalt(salt)
             .WithInfo(info)
-            .WithHashAlgorithm(HashAlgorithmName.SHA256)
+            .WithHashAlgorithm(CryptographicHashName.SHA256)
             .WithKeyLength(32)
             .Build();
 

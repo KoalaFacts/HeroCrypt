@@ -3,8 +3,7 @@ using System.Text;
 using System.Text.Json;
 using HeroCrypt;
 using HeroCrypt.Encryption;
-using HeroCrypt.KeyManagement;
-using KdfHashAlgorithmName = HeroCrypt.KeyManagement.HashAlgorithmName;
+using KdfHashAlgorithmName = HeroCrypt.Cryptography.Protocols.KeyManagement.CryptographicHashName;
 
 namespace HeroCrypt.Examples.UseCases;
 

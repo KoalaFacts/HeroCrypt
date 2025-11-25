@@ -600,7 +600,7 @@ public class PostQuantumNet10Tests
         }
 
         var builder = MLKemBuilder.Create();
-        Assert.Throws<InvalidOperationException>(() => builder.Encapsulate());
+        Assert.Throws<InvalidOperationException>(builder.Encapsulate);
     }
 
     [Fact]

@@ -1,12 +1,12 @@
 using System.Text;
 using HeroCrypt.Cryptography.Primitives.Hash;
 
-namespace HeroCrypt.Tests;
+namespace HeroCrypt.Tests.Cryptography.Primitives.Hash;
 
 /// <summary>
 /// Unit tests for Blake2b functionality
 /// </summary>
-public class Blake2bServiceTests
+public class Blake2bTests
 {
     [Fact]
     [Trait("Category", TestCategories.UNIT)]

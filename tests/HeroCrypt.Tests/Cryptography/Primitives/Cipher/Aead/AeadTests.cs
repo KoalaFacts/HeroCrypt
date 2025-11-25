@@ -2,7 +2,7 @@ using System.Security.Cryptography;
 using HeroCrypt;
 using HeroCrypt.Encryption;
 
-namespace HeroCrypt.Tests;
+namespace HeroCrypt.Tests.Cryptography.Primitives.Cipher.Aead;
 
 /// <summary>
 /// Tests for AEAD (Authenticated Encryption with Associated Data) algorithms.
@@ -32,7 +32,7 @@ namespace HeroCrypt.Tests;
 ///   </item>
 /// </list>
 /// </remarks>
-public class AeadServiceTests
+public class AeadTests
 {
     public static IEnumerable<object[]> AeadCases =>
     [

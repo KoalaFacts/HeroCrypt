@@ -1,7 +1,7 @@
 using System.Text;
 using static HeroCrypt.Cryptography.Primitives.Cipher.Stream.ChaChaVariants;
 
-namespace HeroCrypt.Tests;
+namespace HeroCrypt.Tests.Cryptography.Primitives.Cipher.Stream;
 
 /// <summary>
 /// Tests for ChaCha20 variants (ChaCha8, ChaCha12, ChaCha20)

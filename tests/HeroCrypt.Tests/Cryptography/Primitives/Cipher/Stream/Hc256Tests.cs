@@ -1,7 +1,7 @@
 using System.Text;
 using HeroCrypt.Cryptography.Primitives.Cipher.Stream;
 
-namespace HeroCrypt.Tests;
+namespace HeroCrypt.Tests.Cryptography.Primitives.Cipher.Stream;
 
 /// <summary>
 /// Tests for HC-256 stream cipher

@@ -3,11 +3,11 @@ using System.Text;
 using HeroCrypt.Cryptography.Primitives.Kdf;
 using HeroCrypt.Security;
 
-namespace HeroCrypt.Tests;
+namespace HeroCrypt.Tests.Cryptography.Primitives.Kdf;
 
 [Trait("Category", TestCategories.FAST)]
 [Trait("Category", TestCategories.UNIT)]
-public class Argon2HashingServiceTests
+public class Argon2Tests
 {
     private static readonly Argon2Parameters defaultParams = new(
         Iterations: 2,

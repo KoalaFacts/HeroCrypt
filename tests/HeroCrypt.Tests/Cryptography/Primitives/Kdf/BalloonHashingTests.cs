@@ -2,7 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using HeroCrypt.Cryptography.Primitives.Kdf;
 
-namespace HeroCrypt.Tests;
+namespace HeroCrypt.Tests.Cryptography.Primitives.Kdf;
 
 #if !NETSTANDARD2_0
 

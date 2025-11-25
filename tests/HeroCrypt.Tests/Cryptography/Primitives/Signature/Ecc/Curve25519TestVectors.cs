@@ -1,6 +1,6 @@
 using HeroCrypt.Cryptography.Primitives.Signature.Ecc;
 
-namespace HeroCrypt.Tests;
+namespace HeroCrypt.Tests.Cryptography.Primitives.Signature.Ecc;
 
 /// <summary>
 /// RFC 7748 test vectors for Curve25519 (X25519)

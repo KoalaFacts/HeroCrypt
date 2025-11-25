@@ -4,7 +4,7 @@ using System.Text;
 using HeroCrypt.Cryptography.Primitives.PostQuantum.Kem;
 using HeroCrypt.Cryptography.Primitives.PostQuantum.Signature;
 
-namespace HeroCrypt.Tests;
+namespace HeroCrypt.Tests.Cryptography.Primitives.PostQuantum;
 
 /// <summary>
 /// Comprehensive integration tests for Post-Quantum Cryptography features

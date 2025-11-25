@@ -6,7 +6,7 @@ using HeroCrypt.Signatures;
 using HeroCrypt.Cryptography.Primitives.PostQuantum.Signature;
 #endif
 
-namespace HeroCrypt.Tests;
+namespace HeroCrypt.Tests.Signatures;
 
 public class DigitalSignatureTests
 {

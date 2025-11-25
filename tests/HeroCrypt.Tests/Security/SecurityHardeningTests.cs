@@ -4,7 +4,7 @@ using HeroCrypt.Security;
 using HeroCrypt.Signatures;
 using Microsoft.Extensions.Logging;
 
-namespace HeroCrypt.Tests;
+namespace HeroCrypt.Tests.Security;
 
 /// <summary>
 /// Comprehensive security hardening tests

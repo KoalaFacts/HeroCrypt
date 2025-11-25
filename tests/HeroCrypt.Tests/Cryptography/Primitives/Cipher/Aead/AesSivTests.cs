@@ -1,7 +1,7 @@
 using System.Text;
 using HeroCrypt.Cryptography.Primitives.Cipher.Aead;
 
-namespace HeroCrypt.Tests;
+namespace HeroCrypt.Tests.Cryptography.Primitives.Cipher.Aead;
 
 /// <summary>
 /// Tests for AES-SIV (Synthetic IV) implementation

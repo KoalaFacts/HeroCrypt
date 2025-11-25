@@ -3,7 +3,7 @@ using System.Text;
 using HeroCrypt.Cryptography.Primitives.PostQuantum.Signature;
 using HeroCrypt.Cryptography.Primitives.PostQuantum.Kem;
 
-namespace HeroCrypt.Tests;
+namespace HeroCrypt.Tests.Cryptography.Primitives.PostQuantum;
 
 /// <summary>
 /// Tests for .NET 10+ Post-Quantum Cryptography (PQC) native implementations.

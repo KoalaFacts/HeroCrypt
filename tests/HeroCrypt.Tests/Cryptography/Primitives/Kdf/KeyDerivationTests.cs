@@ -2,12 +2,12 @@ using System.Text;
 using HeroCrypt;
 using HeroCrypt.KeyManagement;
 
-namespace HeroCrypt.Tests;
+namespace HeroCrypt.Tests.Cryptography.Primitives.Kdf;
 
 /// <summary>
 /// Unit tests for key derivation using the fluent builders and core primitives (no services).
 /// </summary>
-public class KeyDerivationServiceTests
+public class KeyDerivationTests
 {
     [Fact]
     [Trait("Category", TestCategories.UNIT)]

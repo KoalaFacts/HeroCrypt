@@ -1,7 +1,7 @@
 using System.Text;
 using HeroCrypt.Cryptography.Primitives.Cipher.Aead;
 
-namespace HeroCrypt.Tests;
+namespace HeroCrypt.Tests.Cryptography.Primitives.Cipher.Aead;
 
 /// <summary>
 /// Tests for AES-CCM (Counter with CBC-MAC) implementation using RFC 3610 vectors and validation cases.

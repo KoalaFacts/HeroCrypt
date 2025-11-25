@@ -1,6 +1,6 @@
 using HeroCrypt.Cryptography.Protocols;
 
-namespace HeroCrypt.Tests;
+namespace HeroCrypt.Tests.Cryptography.Protocols;
 
 #if !NETSTANDARD2_0
 

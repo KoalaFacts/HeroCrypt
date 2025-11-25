@@ -1,6 +1,7 @@
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using HeroCrypt.Cryptography.Protocols;
 using HeroCrypt.Encryption;
 using HeroCrypt.Hashing;
 using HeroCrypt.Security;

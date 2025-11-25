@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
+using HeroCrypt.Cryptography.Primitives.Kdf;
+using HeroCrypt.KeyManagement;
 using HeroCrypt.Security;
-
 #if NET9_0_OR_GREATER
 using LockType = System.Threading.Lock;
 using LockScope = System.Threading.Lock.Scope;
@@ -8,12 +9,12 @@ using LockScope = System.Threading.Lock.Scope;
 using LockType = System.Object;
 #endif
 
-namespace HeroCrypt.Cryptography.Primitives.Kdf;
+namespace HeroCrypt.Cryptography.Protocols.KeyManagement;
 
 /// <summary>
 /// Key management utilities for key rotation, derivation trees, and policies
 /// </summary>
-public static class KeyManagement
+public static class KeyManager
 {
     internal static readonly char[] PathSeparator = ['/'];
 
@@ -474,7 +475,7 @@ public class KeyDerivationTree : IDisposable
             throw new ArgumentException("Path cannot be null or empty", nameof(path));
         }
 
-        var pathParts = path.Split(KeyManagement.PathSeparator, StringSplitOptions.RemoveEmptyEntries);
+        var pathParts = path.Split(KeyManager.PathSeparator, StringSplitOptions.RemoveEmptyEntries);
         if (pathParts.Length > maxDepth)
         {
             throw new ArgumentException($"Path depth exceeds maximum ({maxDepth})", nameof(path));
@@ -632,7 +633,7 @@ public class KeyPolicyManager
         // Validate entropy if enforcing secure generation
         if (policy.EnforceSecureGeneration)
         {
-            var validation = KeyManagement.ValidateKey(keyMaterial);
+            var validation = KeyManager.ValidateKey(keyMaterial);
             if (validation.Entropy < policy.MinEntropy)
             {
                 issues.Add($"Key entropy too low ({validation.Entropy:F2}, min: {policy.MinEntropy})");
@@ -667,7 +668,7 @@ public class KeyPolicyManager
 
         do
         {
-            key = KeyManagement.GenerateSecureKey(keySize);
+            key = KeyManager.GenerateSecureKey(keySize);
             var validation = ValidateKey(key, DateTimeOffset.UtcNow);
 
             if (validation.IsValid)

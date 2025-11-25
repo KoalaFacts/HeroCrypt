@@ -6,7 +6,7 @@ using HeroCrypt.Encryption;
 using HeroCrypt.KeyManagement;
 using HeroCrypt.Security;
 
-namespace HeroCrypt;
+namespace HeroCrypt.Cryptography.Protocols;
 
 #if !NETSTANDARD2_0
 /// <summary>

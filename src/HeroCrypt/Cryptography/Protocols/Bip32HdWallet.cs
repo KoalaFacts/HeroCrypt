@@ -10,15 +10,48 @@ namespace HeroCrypt.Cryptography.Protocols;
 #if !NETSTANDARD2_0
 
 /// <summary>
-/// BIP32 Hierarchical Deterministic Wallet implementation
-/// Implements BIP-0032 specification for deriving child keys from master keys
-///
-/// Key features:
-/// - Master key generation from seed
-/// - Child key derivation (normal and hardened)
-/// - Extended key serialization (xprv/xpub format)
-/// - Support for key paths (m/44'/0'/0'/0/0)
+/// BIP32 Hierarchical Deterministic Wallet implementation.
+/// Implements BIP-0032 specification for deriving child keys from master keys.
 /// </summary>
+/// <remarks>
+/// <para><b>Key Features:</b></para>
+/// <list type="bullet">
+///   <item>Master key generation from seed (HMAC-SHA512)</item>
+///   <item>Child key derivation (normal and hardened)</item>
+///   <item>Extended key serialization (xprv/xpub format)</item>
+///   <item>Support for key paths (e.g., m/44'/0'/0'/0/0)</item>
+/// </list>
+/// <para><b>Standard:</b> BIP-0032 (https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki)</para>
+/// <para><b>Platform Support:</b></para>
+/// <list type="bullet">
+///   <item>
+///     <term>Master Key Generation</term>
+///     <description>
+///       Uses HMAC-SHA512, which is supported on all platforms.
+///       <see cref="GenerateMasterKey"/> works on Windows, Linux, and macOS.
+///     </description>
+///   </item>
+///   <item>
+///     <term>Child Key Derivation (Windows/Linux)</term>
+///     <description>
+///       Fully supported. Uses secp256k1 elliptic curve operations.
+///     </description>
+///   </item>
+///   <item>
+///     <term>Child Key Derivation (macOS)</term>
+///     <description>
+///       <b>Not supported.</b> The secp256k1 elliptic curve (OID 1.3.132.0.10) is not
+///       supported by Apple's Security framework. macOS only supports NIST curves
+///       (P-256, P-384, P-521). <see cref="DeriveChild"/> will throw
+///       <see cref="CryptographicException"/> on macOS.
+///     </description>
+///   </item>
+/// </list>
+/// <para>
+/// For production use on macOS, consider using a software implementation of secp256k1
+/// (e.g., libsecp256k1 via P/Invoke or a managed implementation like NBitcoin).
+/// </para>
+/// </remarks>
 public static class Bip32HdWallet
 {
     /// <summary>

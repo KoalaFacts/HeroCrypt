@@ -7,19 +7,46 @@ using HeroCrypt.Security;
 namespace HeroCrypt.Cryptography.Primitives.PostQuantum.Kem;
 
 /// <summary>
-/// ML-KEM (Module-Lattice-Based Key Encapsulation Mechanism) wrapper for .NET 10+
+/// ML-KEM (Module-Lattice-Based Key Encapsulation Mechanism) wrapper for .NET 10+.
 /// Implements NIST FIPS 203 standard using .NET's native post-quantum cryptography support.
-///
+/// </summary>
+/// <remarks>
+/// <para>
 /// ML-KEM (formerly CRYSTALS-Kyber) provides quantum-resistant key encapsulation for secure
 /// key exchange, protecting against "harvest now, decrypt later" attacks.
-///
-/// Based on: FIPS 203 (ML-KEM)
-/// Security: Module Learning With Errors (MLWE) problem
-///
-/// Availability: Requires .NET 10+ with:
-/// - Windows: CNG with PQC support
-/// - Linux: OpenSSL 3.5 or newer
-/// </summary>
+/// </para>
+/// <para><b>Standard:</b> NIST FIPS 203</para>
+/// <para><b>Security Basis:</b> Module Learning With Errors (MLWE) problem</para>
+/// <para><b>Platform Support:</b></para>
+/// <list type="bullet">
+///   <item>
+///     <term>Windows</term>
+///     <description>
+///       Requires Windows CNG (Cryptography Next Generation) with PQC support.
+///       Available in Windows 11 version 24H2 or later, and Windows Server 2025+.
+///       Earlier Windows versions will return <c>IsSupported() = false</c>.
+///     </description>
+///   </item>
+///   <item>
+///     <term>Linux</term>
+///     <description>
+///       Requires OpenSSL 3.5+ with the PQC (oqsprovider) enabled.
+///       Most distributions ship with older OpenSSL versions; check with <c>openssl version</c>.
+///     </description>
+///   </item>
+///   <item>
+///     <term>macOS</term>
+///     <description>
+///       <b>Not supported.</b> Apple's Security framework does not include post-quantum
+///       cryptographic algorithms. <c>IsSupported()</c> will return <c>false</c>.
+///     </description>
+///   </item>
+/// </list>
+/// <para>
+/// Always check <see cref="IsSupported"/> before using ML-KEM operations to ensure
+/// the current platform has the required cryptographic support.
+/// </para>
+/// </remarks>
 
 public static class MLKemWrapper
 {

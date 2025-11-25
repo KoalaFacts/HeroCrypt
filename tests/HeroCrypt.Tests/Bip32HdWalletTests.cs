@@ -5,8 +5,34 @@ namespace HeroCrypt.Tests;
 #if !NETSTANDARD2_0
 
 /// <summary>
-/// Tests for BIP32 Hierarchical Deterministic Wallets
+/// Tests for BIP32 Hierarchical Deterministic Wallets.
 /// </summary>
+/// <remarks>
+/// <para><b>Platform Support Notes:</b></para>
+/// <list type="bullet">
+///   <item>
+///     <term>secp256k1 on macOS</term>
+///     <description>
+///       The secp256k1 elliptic curve (OID 1.3.132.0.10) used by Bitcoin and BIP32 is not
+///       supported by the macOS Security framework. Apple's CommonCrypto only supports
+///       NIST curves (P-256, P-384, P-521). Tests that require child key derivation
+///       (which uses secp256k1 for public key computation) are automatically skipped on
+///       macOS using <c>Assert.Skip()</c>.
+///     </description>
+///   </item>
+///   <item>
+///     <term>Master key generation</term>
+///     <description>
+///       Master key generation uses HMAC-SHA512 which is supported on all platforms.
+///       Only child key derivation requires secp256k1.
+///     </description>
+///   </item>
+/// </list>
+/// <para>
+/// For production use on macOS, consider using a software implementation of secp256k1
+/// (e.g., libsecp256k1 via P/Invoke or a managed implementation).
+/// </para>
+/// </remarks>
 public class Bip32HdWalletTests
 {
     [Fact]

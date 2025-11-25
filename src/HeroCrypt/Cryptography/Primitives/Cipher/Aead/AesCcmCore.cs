@@ -5,10 +5,34 @@ using HeroCrypt.Security;
 namespace HeroCrypt.Cryptography.Primitives.Cipher.Aead;
 
 /// <summary>
-/// AES-CCM (Counter with CBC-MAC) implementation
-/// RFC 3610 compliant AEAD cipher
-/// Widely used in IoT protocols (Bluetooth LE, Zigbee, Thread, 802.15.4)
+/// AES-CCM (Counter with CBC-MAC) implementation.
+/// RFC 3610 compliant AEAD cipher.
 /// </summary>
+/// <remarks>
+/// <para>
+/// AES-CCM is widely used in IoT protocols including Bluetooth LE, Zigbee, Thread, and 802.15.4.
+/// </para>
+/// <para><b>Standard:</b> RFC 3610, NIST SP 800-38C</para>
+/// <para><b>Platform Support:</b></para>
+/// <list type="bullet">
+///   <item>
+///     <term>Windows</term>
+///     <description>Fully supported via Windows CNG.</description>
+///   </item>
+///   <item>
+///     <term>Linux</term>
+///     <description>Fully supported via OpenSSL.</description>
+///   </item>
+///   <item>
+///     <term>macOS</term>
+///     <description>
+///       <b>Not supported.</b> The macOS Security framework (CommonCrypto) does not implement
+///       the CCM (Counter with CBC-MAC) mode. Operations will throw
+///       <see cref="PlatformNotSupportedException"/>. Use AES-GCM as an alternative on macOS.
+///     </description>
+///   </item>
+/// </list>
+/// </remarks>
 internal static class AesCcmCore
 {
     /// <summary>

@@ -5,9 +5,47 @@ using System.Text;
 namespace HeroCrypt.Cryptography.Primitives.Signature.Ecc;
 
 /// <summary>
-/// Core secp256k1 implementation for blockchain applications
-/// Used by Bitcoin, Ethereum, and many other cryptocurrencies
+/// Core secp256k1 implementation for blockchain applications.
+/// Used by Bitcoin, Ethereum, and many other cryptocurrencies.
 /// </summary>
+/// <remarks>
+/// <para>
+/// The secp256k1 curve is defined by the SEC (Standards for Efficient Cryptography) group
+/// and is the elliptic curve used by Bitcoin and Ethereum for digital signatures.
+/// </para>
+/// <para><b>Curve Parameters:</b></para>
+/// <list type="bullet">
+///   <item>OID: 1.3.132.0.10</item>
+///   <item>Field: 256-bit prime field</item>
+///   <item>Security: ~128-bit symmetric equivalent</item>
+/// </list>
+/// <para><b>Platform Support:</b></para>
+/// <list type="bullet">
+///   <item>
+///     <term>Windows</term>
+///     <description>
+///       Supported via Windows CNG. The secp256k1 curve is available through
+///       <see cref="ECDsa"/> with the appropriate OID.
+///     </description>
+///   </item>
+///   <item>
+///     <term>Linux</term>
+///     <description>
+///       Supported via OpenSSL. Most distributions include secp256k1 support.
+///     </description>
+///   </item>
+///   <item>
+///     <term>macOS</term>
+///     <description>
+///       <b>Not supported natively.</b> Apple's Security framework (CommonCrypto)
+///       only supports NIST curves (P-256, P-384, P-521). The secp256k1 curve
+///       (OID 1.3.132.0.10) is not recognized. Operations will throw
+///       <see cref="CryptographicException"/> with message about unsupported OID.
+///       Consider using libsecp256k1 via P/Invoke for macOS support.
+///     </description>
+///   </item>
+/// </list>
+/// </remarks>
 public static class Secp256k1Core
 {
     /// <summary>

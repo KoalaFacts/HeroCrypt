@@ -213,6 +213,22 @@ public class DigitalSignatureTests
 
     #region ML-DSA Tests (Post-Quantum)
 
+    // =====================================================================================
+    // ML-DSA (Module-Lattice Digital Signature Algorithm) Platform Support
+    // =====================================================================================
+    // ML-DSA is a post-quantum cryptographic signature algorithm standardized by NIST.
+    //
+    // Platform Requirements:
+    // - .NET 10 or later is required for ML-DSA support
+    // - Windows: Requires Windows CNG (Cryptography Next Generation) with PQC support
+    //   (available in Windows 11 24H2+ or Windows Server 2025+)
+    // - Linux: Requires OpenSSL 3.5+ with PQC provider enabled
+    // - macOS: Not currently supported (no native PQC implementation)
+    //
+    // Tests are automatically skipped on unsupported platforms using MLDsaWrapper.IsSupported()
+    // which checks for runtime availability of the underlying cryptographic primitives.
+    // =====================================================================================
+
 #if NET10_0_OR_GREATER
     [Theory]
     [InlineData(SignatureAlgorithm.MLDsa65, MLDsaWrapper.SecurityLevel.MLDsa65)]

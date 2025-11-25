@@ -6,8 +6,50 @@ using HeroCrypt.Cryptography.Primitives.PostQuantum.Kem;
 namespace HeroCrypt.Tests;
 
 /// <summary>
-/// Tests for .NET 10+ Post-Quantum Cryptography native implementations
+/// Tests for .NET 10+ Post-Quantum Cryptography (PQC) native implementations.
 /// </summary>
+/// <remarks>
+/// <para><b>Platform Support Notes:</b></para>
+/// <para>
+/// Post-quantum cryptography algorithms (ML-KEM, ML-DSA) require specific platform support:
+/// </para>
+/// <list type="bullet">
+///   <item>
+///     <term>Windows</term>
+///     <description>
+///       Requires Windows CNG (Cryptography Next Generation) with PQC support.
+///       Available in Windows 11 version 24H2 or later, and Windows Server 2025+.
+///       Earlier Windows versions do not have native PQC support.
+///     </description>
+///   </item>
+///   <item>
+///     <term>Linux</term>
+///     <description>
+///       Requires OpenSSL 3.5+ with the PQC provider enabled.
+///       Most Linux distributions ship with older OpenSSL versions.
+///       Ubuntu 24.04+ and similar recent distributions may have support.
+///     </description>
+///   </item>
+///   <item>
+///     <term>macOS</term>
+///     <description>
+///       Not currently supported. Apple's Security framework does not include
+///       post-quantum cryptographic algorithms as of macOS 14 (Sonoma).
+///     </description>
+///   </item>
+/// </list>
+/// <para>
+/// Tests automatically detect platform support using <c>MLKemWrapper.IsSupported()</c>
+/// and <c>MLDsaWrapper.IsSupported()</c> and skip gracefully on unsupported platforms.
+/// </para>
+/// <para>
+/// <b>Algorithms tested:</b>
+/// </para>
+/// <list type="bullet">
+///   <item><term>ML-KEM</term><description>Module-Lattice Key Encapsulation Mechanism (NIST FIPS 203)</description></item>
+///   <item><term>ML-DSA</term><description>Module-Lattice Digital Signature Algorithm (NIST FIPS 204)</description></item>
+/// </list>
+/// </remarks>
 public class PostQuantumNet10Tests
 {
     #region ML-KEM Tests

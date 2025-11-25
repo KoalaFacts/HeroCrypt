@@ -4,6 +4,34 @@ using HeroCrypt.Encryption;
 
 namespace HeroCrypt.Tests;
 
+/// <summary>
+/// Tests for AEAD (Authenticated Encryption with Associated Data) algorithms.
+/// </summary>
+/// <remarks>
+/// <para><b>Platform Support Notes:</b></para>
+/// <list type="bullet">
+///   <item>
+///     <term>AES-CCM on macOS</term>
+///     <description>
+///       AES-CCM is not supported on macOS. The macOS Security framework does not implement
+///       the CCM (Counter with CBC-MAC) mode. Tests using AES-CCM are automatically skipped
+///       on macOS using <c>Assert.Skip()</c>. Use AES-GCM as an alternative on macOS.
+///     </description>
+///   </item>
+///   <item>
+///     <term>ChaCha20-Poly1305</term>
+///     <description>Supported on all platforms (.NET 6+).</description>
+///   </item>
+///   <item>
+///     <term>XChaCha20-Poly1305</term>
+///     <description>Custom implementation, supported on all platforms.</description>
+///   </item>
+///   <item>
+///     <term>AES-GCM</term>
+///     <description>Supported on all platforms.</description>
+///   </item>
+/// </list>
+/// </remarks>
 public class AeadServiceTests
 {
     public static IEnumerable<object[]> AeadCases =>

@@ -5,9 +5,23 @@ namespace HeroCrypt.Tests;
 #if !NETSTANDARD2_0
 
 /// <summary>
-/// BIP-0032 test vectors for Hierarchical Deterministic Wallets
+/// BIP-0032 test vectors for Hierarchical Deterministic Wallets.
 /// Test vectors from https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki
 /// </summary>
+/// <remarks>
+/// <para><b>Platform Support Notes:</b></para>
+/// <list type="bullet">
+///   <item>
+///     <term>secp256k1 on macOS</term>
+///     <description>
+///       The secp256k1 elliptic curve (OID 1.3.132.0.10) is not supported by macOS.
+///       Apple's Security framework only supports NIST curves. Tests requiring child
+///       key derivation are skipped on macOS using <c>Assert.Skip()</c>.
+///       Master key generation tests work on all platforms as they only use HMAC-SHA512.
+///     </description>
+///   </item>
+/// </list>
+/// </remarks>
 public class Bip32TestVectors
 {
     /// <summary>

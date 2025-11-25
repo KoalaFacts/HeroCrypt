@@ -40,14 +40,13 @@ jobs:
         uses: ./.github/actions/extract-build-config
 
   build-and-test:
-    name: Build and Test
+    name: Build and Test (${{ matrix.os }})
     needs: setup
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        framework: ${{ fromJSON(needs.setup.outputs.frameworks) }}
 
     steps:
       - name: Checkout code
@@ -64,28 +63,28 @@ jobs:
         run: dotnet restore
 
       - name: Build
-        run: dotnet build --configuration Release --no-restore --framework ${{ matrix.framework }}
+        run: dotnet build --configuration Release --no-restore
 
       - name: Run tests
-        run: dotnet test --configuration Release --no-build --framework ${{ matrix.framework }} --verbosity normal --logger "trx;LogFileName=test-results.trx" --collect:"XPlat Code Coverage" --results-directory ./TestResults
+        run: dotnet test --configuration Release --no-build --verbosity normal --logger "trx;LogFileName=test-results.trx" --collect:"XPlat Code Coverage" --results-directory ./TestResults
 
       - name: Publish test results
         uses: EnricoMi/publish-unit-test-result-action@v2
-        if: always() && matrix.os == 'ubuntu-latest' && matrix.framework == 'net10.0'
+        if: always() && matrix.os == 'ubuntu-latest'
         with:
           files: 'TestResults/**/*.trx'
-          check_name: 'Test Results (${{ matrix.os }} - ${{ matrix.framework }})'
+          check_name: 'Test Results (${{ matrix.os }})'
 
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v5
         with:
-          name: test-results-${{ matrix.os }}-${{ matrix.framework }}
+          name: test-results-${{ matrix.os }}
           path: TestResults/**/*.trx
           retention-days: 30
 
       - name: Upload coverage to Codecov
-        if: matrix.os == 'ubuntu-latest' && matrix.framework == 'net10.0'
+        if: matrix.os == 'ubuntu-latest'
         uses: codecov/codecov-action@v5
         with:
           files: 'TestResults/**/coverage.cobertura.xml'
@@ -121,7 +120,7 @@ jobs:
   dependency-review:
     name: Dependency Review
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+    if: github.event_name == 'pull_request'
 
     steps:
       - name: Checkout code
@@ -134,9 +133,7 @@ jobs:
         with:
           fail-on-severity: high
           deny-licenses: GPL-2.0, GPL-3.0, AGPL-3.0
-          comment-summary-in-pr: ${{ github.event_name == 'pull_request' && 'always' || 'never' }}
-          base-ref: ${{ github.event_name == 'push' && github.event.before || '' }}
-          head-ref: ${{ github.event_name == 'push' && github.sha || '' }}
+          comment-summary-in-pr: always
 
   package:
     name: Create Release Package

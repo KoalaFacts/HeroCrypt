@@ -142,37 +142,39 @@ jobs:
         id: release-notes
         run: |
           VERSION="${{ inputs.version }}"
+          REPO="${{ github.repository }}"
 
-          # Create footer with installation and package info
-          cat > release-footer.md <<EOF
+          # Create footer with installation and package info using echo
+          {
+            echo ""
+            echo "---"
+            echo ""
+            echo "### Installation"
+            echo "\`\`\`bash"
+            echo "dotnet add package HeroCrypt --version ${VERSION}"
+            echo "\`\`\`"
+            echo ""
+            echo "### Package Details"
+            echo "- **NuGet**: [HeroCrypt v${VERSION}](https://www.nuget.org/packages/HeroCrypt/${VERSION})"
+            echo "- **Frameworks**: netstandard2.0, net8.0, net9.0, net10.0"
+            echo "- **Dependencies**: Microsoft.Bcl.Memory (netstandard2.0, net8.0)"
+            echo ""
+            echo "### Security & Compliance"
+            echo "- RFC 9106 (Argon2): Fully compliant"
+            echo "- RFC 7693 (Blake2b): Fully compliant"
+            echo "- RFC 8439 (ChaCha20-Poly1305): Fully compliant"
+            echo "- RFC 7748 (Curve25519): Fully compliant"
+            echo ""
+            echo "### SBOMs (Software Bill of Materials)"
+            echo "Per-framework SBOMs included in this release:"
+            echo "- SPDX 2.2 format (net8.0, net9.0, net10.0)"
+            echo "- SPDX 3.0 format (net8.0, net9.0, net10.0)"
+            echo ""
+            echo "### Documentation"
+            echo "- [README](https://github.com/${REPO}/blob/main/README.md)"
+            echo "- [Full Changelog](https://github.com/${REPO}/blob/main/CHANGELOG.md)"
+          } > release-footer.md
 
-          ---
-
-          ### Installation
-          \`\`\`bash
-          dotnet add package HeroCrypt --version ${VERSION}
-          \`\`\`
-
-          ### Package Details
-          - **NuGet**: [HeroCrypt v${VERSION}](https://www.nuget.org/packages/HeroCrypt/${VERSION})
-          - **Frameworks**: netstandard2.0, net8.0, net9.0, net10.0
-          - **Dependencies**: Microsoft.Bcl.Memory (netstandard2.0, net8.0)
-
-          ### Security & Compliance
-          - RFC 9106 (Argon2): Fully compliant
-          - RFC 7693 (Blake2b): Fully compliant
-          - RFC 8439 (ChaCha20-Poly1305): Fully compliant
-          - RFC 7748 (Curve25519): Fully compliant
-
-          ### SBOMs (Software Bill of Materials)
-          Per-framework SBOMs included in this release:
-          - SPDX 2.2 format (net8.0, net9.0, net10.0)
-          - SPDX 3.0 format (net8.0, net9.0, net10.0)
-
-          ### Documentation
-          - [README](https://github.com/${{ github.repository }}/blob/main/README.md)
-          - [Full Changelog](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md)
-          EOF
           echo "Release footer created with installation and package details"
 
       - name: Generate release notes (auto + footer)

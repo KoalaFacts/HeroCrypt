@@ -219,6 +219,12 @@ public class DigitalSignatureTests
     [InlineData(SignatureAlgorithm.MLDsa87, MLDsaWrapper.SecurityLevel.MLDsa87)]
     public void MLDsa_Sign_And_Verify_Success(SignatureAlgorithm algorithm, MLDsaWrapper.SecurityLevel securityLevel)
     {
+        if (!MLDsaWrapper.IsSupported())
+        {
+            Assert.Skip("ML-DSA not supported on this platform");
+            return;
+        }
+
         // Arrange
         using var keyPair = MLDsaWrapper.GenerateKeyPair(securityLevel);
         var privateKey = Encoding.UTF8.GetBytes(keyPair.SecretKeyPem);
@@ -236,6 +242,12 @@ public class DigitalSignatureTests
     [Fact]
     public void MLDsa65_Verify_With_Wrong_PublicKey_Returns_False()
     {
+        if (!MLDsaWrapper.IsSupported())
+        {
+            Assert.Skip("ML-DSA not supported on this platform");
+            return;
+        }
+
         // Arrange
         using var keyPair1 = MLDsaWrapper.GenerateKeyPair(MLDsaWrapper.SecurityLevel.MLDsa65);
         using var keyPair2 = MLDsaWrapper.GenerateKeyPair(MLDsaWrapper.SecurityLevel.MLDsa65);

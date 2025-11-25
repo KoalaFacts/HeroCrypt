@@ -2,62 +2,52 @@ name: Build and Test
 
 on:
   push:
-    branches: ["**"]
+    branches: ['*']
+    tags: ['v*']
   pull_request:
-    branches: ["**"]
+    branches: [main, develop]
+  merge_group:
   workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+  security-events: write
 
 env:
-  DOTNET_NOLOGO: true
-  DOTNET_CLI_TELEMETRY_OPTOUT: true
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
   CI: true
 
 jobs:
-  prepare:
-    name: Extract build configuration
+  setup:
+    name: Extract Build Configuration
     runs-on: ubuntu-latest
     outputs:
-      frameworks: ${{ steps.extract.outputs.frameworks }}
-      versions: ${{ steps.extract.outputs.versions }}
+      versions: ${{ steps.config.outputs.versions }}
+      frameworks: ${{ steps.config.outputs.frameworks }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
 
-      - name: Extract build config
-        id: extract
+      - name: Extract configuration
+        id: config
         uses: ./.github/actions/extract-build-config
 
   build-and-test:
-    name: Build ${{ matrix.framework }} on ${{ matrix.os }}
+    name: Build and Test
+    needs: setup
     runs-on: ${{ matrix.os }}
-    needs: prepare
-    timeout-minutes: 20
-
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        framework: ${{ fromJson(needs.prepare.outputs.frameworks) }}
-        include:
-          - framework: net10.0
-            run-tests: true
-            sdk: 10.0.x
-          - framework: net9.0
-            run-tests: true
-            sdk: 9.0.x
-          - framework: net8.0
-            run-tests: true
-            sdk: 8.0.x
-          - framework: netstandard2.0
-            run-tests: false
-            sdk: 8.0.x
+        framework: ${{ fromJSON(needs.setup.outputs.frameworks) }}
 
     steps:
       - name: Checkout code
@@ -68,68 +58,90 @@ jobs:
       - name: Setup .NET SDKs
         uses: ./.github/actions/setup-dotnet-sdks
         with:
-          dotnet-version: ${{ matrix.sdk }}
-
-      - name: Calculate build number
-        id: build-number
-        shell: bash
-        run: |
-          BRANCH_NAME="${{ github.ref_name }}"
-          BRANCH_SAFE=$(echo "$BRANCH_NAME" | sed 's/[^a-zA-Z0-9-]/-/g' | sed 's/--*/-/g')
-          BUILD_DATE=$(date -u +%Y%m%d)
-          RUN_NUMBER="${{ github.run_number }}"
-          COMMIT_HASH=$(git rev-parse --short=7 HEAD)
-          BUILD_NUMBER="${BRANCH_SAFE}-${BUILD_DATE}.${RUN_NUMBER}.${COMMIT_HASH}"
-
-          echo "build-number=${BUILD_NUMBER}" >> $GITHUB_OUTPUT
-          echo "branch-safe=${BRANCH_SAFE}" >> $GITHUB_OUTPUT
-          echo "build-date=${BUILD_DATE}" >> $GITHUB_OUTPUT
-          echo "run-number=${RUN_NUMBER}" >> $GITHUB_OUTPUT
-          echo "commit-hash=${COMMIT_HASH}" >> $GITHUB_OUTPUT
-
-          echo "Build Number: ${BUILD_NUMBER}"
+          dotnet-version: ${{ needs.setup.outputs.versions }}
 
       - name: Restore dependencies
-        run: dotnet restore /p:TargetFrameworks=${{ matrix.framework }}
+        run: dotnet restore
 
-      - name: Build library for ${{ matrix.framework }}
-        if: matrix.run-tests != true
-        run: dotnet build src/HeroCrypt/HeroCrypt.csproj /p:Configuration=Release /p:TargetFrameworks=${{ matrix.framework }} /p:BUILD_NUMBER=${{ steps.build-number.outputs.run-number }}
-        env:
-          BUILD_NUMBER: ${{ steps.build-number.outputs.run-number }}
+      - name: Build
+        run: dotnet build --configuration Release --no-restore --framework ${{ matrix.framework }}
 
-      - name: Build solution for ${{ matrix.framework }}
-        if: matrix.run-tests == true
-        run: dotnet build /p:Configuration=Release /p:TargetFrameworks=${{ matrix.framework }} /p:BUILD_NUMBER=${{ steps.build-number.outputs.run-number }}
-        env:
-          BUILD_NUMBER: ${{ steps.build-number.outputs.run-number }}
+      - name: Run tests
+        run: dotnet test --configuration Release --no-build --framework ${{ matrix.framework }} --verbosity normal --logger "trx;LogFileName=test-results.trx" --collect:"XPlat Code Coverage" --results-directory ./TestResults
 
-      - name: Run tests (excluding slow)
-        if: matrix.run-tests == true
-        run: dotnet test /p:TargetFrameworks=${{ matrix.framework }} /p:Configuration=Release --no-build --filter "Category!=Slow" --logger "trx;LogFileName=test-results-${{ matrix.framework }}-${{ matrix.os }}.trx" --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura,opencover
-        env:
-          BUILD_NUMBER: ${{ steps.build-number.outputs.run-number }}
+      - name: Publish test results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always() && matrix.os == 'ubuntu-latest' && matrix.framework == 'net10.0'
+        with:
+          files: 'TestResults/**/*.trx'
+          check_name: 'Test Results (${{ matrix.os }} - ${{ matrix.framework }})'
 
       - name: Upload test results
+        if: always()
         uses: actions/upload-artifact@v5
-        if: always() && matrix.run-tests == true
         with:
-          name: test-results-${{ matrix.os }}-${{ matrix.framework }}-${{ steps.build-number.outputs.build-number }}
-          path: "**/test-results-*.trx"
+          name: test-results-${{ matrix.os }}-${{ matrix.framework }}
+          path: TestResults/**/*.trx
           retention-days: 30
 
-      - name: Upload code coverage
-        uses: actions/upload-artifact@v5
-        if: always() && matrix.run-tests == true
+      - name: Upload coverage to Codecov
+        if: matrix.os == 'ubuntu-latest' && matrix.framework == 'net10.0'
+        uses: codecov/codecov-action@v5
         with:
-          name: code-coverage-${{ matrix.os }}-${{ matrix.framework }}-${{ steps.build-number.outputs.build-number }}
-          path: "**/coverage.cobertura.xml"
-          retention-days: 30
+          files: 'TestResults/**/coverage.cobertura.xml'
+          fail_ci_if_error: false
+          flags: unittests
+          name: codecov-${{ matrix.os }}
+
+  code-quality:
+    name: Code Quality
+    needs: setup
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET SDKs
+        uses: ./.github/actions/setup-dotnet-sdks
+        with:
+          dotnet-version: ${{ needs.setup.outputs.versions }}
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build (with warnings as errors)
+        run: dotnet build --configuration Release --no-restore /p:TreatWarningsAsErrors=true
+
+      - name: Check formatting
+        run: dotnet format --verify-no-changes --verbosity diagnostic
+
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+          deny-licenses: GPL-2.0, GPL-3.0, AGPL-3.0
+          comment-summary-in-pr: ${{ github.event_name == 'pull_request' && 'always' || 'never' }}
+          base-ref: ${{ github.event_name == 'push' && github.event.before || '' }}
+          head-ref: ${{ github.event_name == 'push' && github.sha || '' }}
 
   package:
     name: Create Release Package
     runs-on: ubuntu-latest
-    needs: [prepare, build-and-test]
+    needs: [setup, build-and-test, code-quality]
     if: success()
 
     steps:
@@ -138,10 +150,10 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup .NET
+      - name: Setup .NET SDKs
         uses: ./.github/actions/setup-dotnet-sdks
         with:
-          dotnet-version: ${{ needs.prepare.outputs.versions }}
+          dotnet-version: ${{ needs.setup.outputs.versions }}
 
       - name: Calculate build number
         id: build-number
@@ -190,7 +202,7 @@ jobs:
             "runId": "${{ github.run_id }}",
             "actor": "${{ github.actor }}",
             "repository": "${{ github.repository }}",
-            "frameworks": ${{ needs.prepare.outputs.frameworks }},
+            "frameworks": ${{ needs.setup.outputs.frameworks }},
             "platforms": ["ubuntu-latest", "windows-latest", "macos-latest"]
           }
           EOF

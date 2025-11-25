@@ -4,29 +4,15 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release version (e.g., 1.0.0)'
+        description: 'Version number (e.g., 1.0.0)'
         required: true
-        type: string
-      build-number:
-        description: 'Build number to release (e.g., main-20241025.123.abc1234)'
-        required: true
-        type: string
-      prerelease:
-        description: 'Mark as pre-release'
-        required: false
-        type: boolean
-        default: false
-      release-notes:
-        description: 'Additional release notes (optional)'
-        required: false
         type: string
 
 permissions:
   contents: write
-  actions: read
 
 env:
-  DOTNET_NOLOGO: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
   CI: true
 
@@ -34,161 +20,215 @@ jobs:
   create-release:
     name: Create Release v${{ inputs.version }}
     runs-on: ubuntu-latest
-    environment:
-      name: production
-      url: https://github.com/${{ github.repository }}/releases/tag/v${{ inputs.version }}
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v5
+      - name: Validate version format
+        run: |
+          VERSION="${{ inputs.version }}"
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+)?$ ]]; then
+            echo "Error: Invalid version format: $VERSION"
+            echo "Expected format: X.Y.Z or X.Y.Z-prerelease"
+            exit 1
+          fi
+          echo "Version validated: $VERSION"
 
-    - name: Validate version format
-      run: |
-        if ! [[ "${{ inputs.version }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]; then
-          echo "❌ Error: Version must be in format x.y.z or x.y.z-prerelease"
-          echo "Examples: 1.0.0, 1.2.3-beta.1, 2.0.0-rc.2"
-          exit 1
-        fi
-        echo "✅ Version format valid: ${{ inputs.version }}"
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
 
-    - name: Check if tag already exists
-      run: |
-        git fetch --tags
-        if git tag -l | grep -q "^v${{ inputs.version }}$"; then
-          echo "❌ Error: Tag v${{ inputs.version }} already exists"
-          echo "Existing tags:"
-          git tag -l | grep "^v" | sort -V | tail -10
-          exit 1
-        fi
-        echo "✅ Tag v${{ inputs.version }} is available"
+      - name: Extract build configuration
+        id: config
+        uses: ./.github/actions/extract-build-config
 
-    - name: Download build artifacts
-      uses: actions/download-artifact@v6
-      with:
-        name: herocrypt-${{ inputs.build-number }}
-        path: ./release-artifacts
+      - name: Setup .NET SDKs
+        uses: ./.github/actions/setup-dotnet-sdks
+        with:
+          dotnet-version: ${{ steps.config.outputs.versions }}
 
-    - name: Verify artifacts
-      run: |
-        echo "📦 Verifying downloaded artifacts..."
-        ls -lah ./release-artifacts/
+      - name: Restore dependencies
+        run: dotnet restore
 
-        # Check for required files
-        if [ ! -f ./release-artifacts/build-manifest.json ]; then
-          echo "❌ Error: build-manifest.json not found"
-          exit 1
-        fi
+      - name: Build Release
+        run: dotnet build --configuration Release --no-restore
 
-        NUPKG_COUNT=$(find ./release-artifacts -name "*.nupkg" -not -name "*.symbols.nupkg" | wc -l)
-        SNUPKG_COUNT=$(find ./release-artifacts -name "*.snupkg" | wc -l)
+      - name: Run tests
+        run: dotnet test --configuration Release --no-build --verbosity normal
 
-        echo "Found $NUPKG_COUNT .nupkg files"
-        echo "Found $SNUPKG_COUNT .snupkg files"
+      - name: Update CHANGELOG.md
+        run: |
+          VERSION="${{ inputs.version }}"
+          DATE=$(date +%Y-%m-%d)
 
-        if [ "$NUPKG_COUNT" -eq 0 ]; then
-          echo "❌ Error: No .nupkg files found"
-          exit 1
-        fi
+          # Insert new version entry after "# Changelog" title
+          sed -i "/# Changelog/a\\\\n## [$VERSION] - $DATE\\n\\nSee [GitHub Release](https://github.com/${{ github.repository }}/releases/tag/v$VERSION) for details.\\n" CHANGELOG.md
 
-        echo "✅ Artifacts verified"
+          echo "Updated CHANGELOG.md with version $VERSION"
 
-        # Display build manifest
-        echo "📋 Build Manifest:"
-        cat ./release-artifacts/build-manifest.json
+          # Commit the CHANGELOG update
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md
+          git commit -m "chore: release v$VERSION [skip ci]"
 
-    - name: Generate release notes
-      id: release-notes
-      run: |
-        # Read build manifest
-        BUILD_COMMIT=$(jq -r '.commitHash' ./release-artifacts/build-manifest.json)
-        BUILD_DATE=$(jq -r '.buildDate' ./release-artifacts/build-manifest.json)
-        BUILD_ACTOR=$(jq -r '.actor' ./release-artifacts/build-manifest.json)
+          # Pull any new changes before pushing
+          git pull --rebase origin main
+          git push
 
-        # Create release notes
-        cat > release-notes.md << 'EOF'
-        ## HeroCrypt v${{ inputs.version }}
+          echo "CHANGELOG.md committed and pushed"
 
-        ### 🎉 What's New
-        ${{ inputs.release-notes }}
+      - name: Pack NuGet packages
+        run: |
+          dotnet pack src/HeroCrypt/HeroCrypt.csproj \
+            --configuration Release \
+            -p:PackageVersion=${{ inputs.version }} \
+            -p:Version=${{ inputs.version }}
 
-        ### 📦 Package Information
-        - **Version:** ${{ inputs.version }}
-        - **Build Number:** ${{ inputs.build-number }}
-        - **Build Date:** ${BUILD_DATE}
-        - **NuGet:** [HeroCrypt ${{ inputs.version }}](https://www.nuget.org/packages/HeroCrypt/${{ inputs.version }})
+      - name: Verify packages were created
+        run: |
+          if [ ! -f "src/HeroCrypt/bin/Release/HeroCrypt.${{ inputs.version }}.nupkg" ]; then
+            echo "Error: Main package not found"
+            exit 1
+          fi
+          if [ ! -f "src/HeroCrypt/bin/Release/HeroCrypt.${{ inputs.version }}.snupkg" ]; then
+            echo "Error: Symbol package not found"
+            exit 1
+          fi
+          echo "Packages verified:"
+          ls -lh src/HeroCrypt/bin/Release/HeroCrypt.${{ inputs.version }}.*
 
-        ### 🔒 Security & Compliance
-        - ✅ RFC 9106 (Argon2): Fully compliant
-        - ✅ RFC 7693 (Blake2b): Fully compliant
-        - ✅ RFC 8439 (ChaCha20-Poly1305): Fully compliant
-        - ✅ RFC 7748 (Curve25519): Fully compliant
+      - name: Install Microsoft SBOM tool
+        run: dotnet tool install --global Microsoft.Sbom.DotNetTool
 
-        ### 🎯 Target Frameworks
-        - .NET Standard 2.0
-        - .NET 8.0, 9.0, 10.0
+      - name: Generate SBOMs
+        run: |
+          mkdir -p release-sboms
 
-        ### 📥 Installation
-        ```bash
-        dotnet add package HeroCrypt --version ${{ inputs.version }}
-        ```
+          # Generate SBOMs for each framework and SPDX version
+          for framework in net8.0 net9.0 net10.0; do
+            for spdx_version in 2.2 3.0; do
+              echo "Generating SBOM for $framework, SPDX $spdx_version..."
 
-        Or via Package Manager:
-        ```powershell
-        Install-Package HeroCrypt -Version ${{ inputs.version }}
-        ```
+              mkdir -p sbom-output-$framework-$spdx_version
 
-        ### 🔗 Links
-        - [Documentation](https://github.com/${{ github.repository }})
-        - [Release Notes](https://github.com/${{ github.repository }}/releases/tag/v${{ inputs.version }})
-        - [NuGet Package](https://www.nuget.org/packages/HeroCrypt/${{ inputs.version }})
+              sbom-tool generate \
+                -b src/HeroCrypt/bin/Release/$framework \
+                -bc src/HeroCrypt \
+                -pn HeroCrypt \
+                -pv ${{ inputs.version }} \
+                -ps KoalaFacts \
+                -nsb https://github.com/${{ github.repository }} \
+                -mi SPDX:$spdx_version \
+                -m sbom-output-$framework-$spdx_version \
+                -V Verbose
 
-        ### 📊 Build Details
-        - **Build Commit:** ${BUILD_COMMIT}
-        - **Built By:** ${BUILD_ACTOR}
-        - **Released By:** ${{ github.actor }}
+              # Find and copy SBOM file
+              SBOM_FILE=$(find sbom-output-$framework-$spdx_version -type f -name "*.spdx.json" | head -n 1)
+              if [ -n "$SBOM_FILE" ]; then
+                cp "$SBOM_FILE" release-sboms/HeroCrypt.${{ inputs.version }}.$framework.spdx-$spdx_version.json
+                echo "Created: HeroCrypt.${{ inputs.version }}.$framework.spdx-$spdx_version.json"
+              else
+                echo "Error: No SBOM file found for $framework SPDX $spdx_version"
+                exit 1
+              fi
+            done
+          done
 
-        ---
+          echo "All SBOMs generated:"
+          ls -lh release-sboms/
 
-        🤖 Generated with [Claude Code](https://claude.com/claude-code)
-        EOF
+      - name: Create release description footer
+        id: release-notes
+        run: |
+          VERSION="${{ inputs.version }}"
 
-        cat release-notes.md
+          # Create footer with installation and package info
+          cat > release-footer.md <<EOF
 
-    - name: Create GitHub Release
-      uses: softprops/action-gh-release@v2
-      with:
-        tag_name: v${{ inputs.version }}
-        name: HeroCrypt v${{ inputs.version }}
-        body_path: release-notes.md
-        prerelease: ${{ inputs.prerelease }}
-        draft: false
-        files: |
-          ./release-artifacts/*.nupkg
-          ./release-artifacts/*.snupkg
-          ./release-artifacts/build-manifest.json
-        fail_on_unmatched_files: true
+          ---
 
-    - name: Release summary
-      run: |
-        echo "# ✅ Release Created Successfully" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "## Release Information" >> $GITHUB_STEP_SUMMARY
-        echo "- **Version:** v${{ inputs.version }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Build Number:** ${{ inputs.build-number }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Pre-release:** ${{ inputs.prerelease }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Released by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Release Date:** $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "## Links" >> $GITHUB_STEP_SUMMARY
-        echo "- 🔗 [GitHub Release](https://github.com/${{ github.repository }}/releases/tag/v${{ inputs.version }})" >> $GITHUB_STEP_SUMMARY
-        echo "- 📦 [NuGet Package](https://www.nuget.org/packages/HeroCrypt/${{ inputs.version }}) (available after publishing)" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "## Next Steps" >> $GITHUB_STEP_SUMMARY
-        echo "The **Publish to NuGet** workflow will automatically trigger to publish this release to NuGet.org" >> $GITHUB_STEP_SUMMARY
+          ### Installation
+          \`\`\`bash
+          dotnet add package HeroCrypt --version ${VERSION}
+          \`\`\`
 
-    - name: Trigger notification
-      if: success()
-      run: |
-        echo "🎉 Release v${{ inputs.version }} created successfully!"
-        echo "📦 GitHub Release: https://github.com/${{ github.repository }}/releases/tag/v${{ inputs.version }}"
-        echo "⏳ NuGet publishing workflow will start automatically..."
+          ### Package Details
+          - **NuGet**: [HeroCrypt v${VERSION}](https://www.nuget.org/packages/HeroCrypt/${VERSION})
+          - **Frameworks**: netstandard2.0, net8.0, net9.0, net10.0
+          - **Dependencies**: Microsoft.Bcl.Memory (netstandard2.0, net8.0)
+
+          ### Security & Compliance
+          - RFC 9106 (Argon2): Fully compliant
+          - RFC 7693 (Blake2b): Fully compliant
+          - RFC 8439 (ChaCha20-Poly1305): Fully compliant
+          - RFC 7748 (Curve25519): Fully compliant
+
+          ### SBOMs (Software Bill of Materials)
+          Per-framework SBOMs included in this release:
+          - SPDX 2.2 format (net8.0, net9.0, net10.0)
+          - SPDX 3.0 format (net8.0, net9.0, net10.0)
+
+          ### Documentation
+          - [README](https://github.com/${{ github.repository }}/blob/main/README.md)
+          - [Full Changelog](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md)
+          EOF
+          echo "Release footer created with installation and package details"
+
+      - name: Generate release notes (auto + footer)
+        run: |
+          VERSION="${{ inputs.version }}"
+          TAG="v${VERSION}"
+
+          # Generate GitHub release notes body
+          gh api repos/${{ github.repository }}/releases/generate-notes \
+            -f tag_name="${TAG}" \
+            -f target_commitish="${GITHUB_SHA}" \
+            --jq .body > auto-notes.md
+
+          # Combine auto-notes with footer
+          cat auto-notes.md release-footer.md > release-notes.md
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create GitHub Release
+        run: |
+          echo "Creating release v${{ inputs.version }}..."
+
+          gh release create v${{ inputs.version }} \
+            --title "Release v${{ inputs.version }}" \
+            --notes-file release-notes.md \
+            src/HeroCrypt/bin/Release/HeroCrypt.${{ inputs.version }}.nupkg \
+            src/HeroCrypt/bin/Release/HeroCrypt.${{ inputs.version }}.snupkg \
+            release-sboms/*.json
+
+          echo "Release created with auto-generated notes and published!"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify release was created
+        run: |
+          echo "Verifying release v${{ inputs.version }}..."
+          gh release view v${{ inputs.version }} --json assets --jq '.assets[].name'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Release summary
+        run: |
+          echo "## Release Created Successfully!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version**: v${{ inputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Release URL**: https://github.com/${{ github.repository }}/releases/tag/v${{ inputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Artifacts Published" >> $GITHUB_STEP_SUMMARY
+          echo "**NuGet Packages:**" >> $GITHUB_STEP_SUMMARY
+          echo "- HeroCrypt.${{ inputs.version }}.nupkg" >> $GITHUB_STEP_SUMMARY
+          echo "- HeroCrypt.${{ inputs.version }}.snupkg (symbols)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**SBOMs (Software Bill of Materials):**" >> $GITHUB_STEP_SUMMARY
+          echo "- 6 SBOMs total (3 frameworks × 2 SPDX formats)" >> $GITHUB_STEP_SUMMARY
+          echo "- Per-framework dependency tracking" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "The publish-nuget workflow will automatically trigger to publish packages to NuGet.org" >> $GITHUB_STEP_SUMMARY
+run-name: Create Release v${{ inputs.version }}

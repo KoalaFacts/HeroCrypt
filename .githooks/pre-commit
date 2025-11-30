@@ -1,0 +1,35 @@
+#!/bin/sh
+# Pre-commit hook to run dotnet format on staged C# files
+
+# Get list of staged .cs files
+STAGED_CS_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep '\.cs$')
+
+if [ -z "$STAGED_CS_FILES" ]; then
+    # No C# files staged, skip formatting
+    exit 0
+fi
+
+echo "Running dotnet format on staged C# files..."
+
+# Run dotnet format on the solution/project
+# Use --verify-no-changes to check if formatting is needed
+if ! dotnet format --verify-no-changes --verbosity quiet 2>/dev/null; then
+    echo ""
+    echo "Code formatting issues detected. Running dotnet format..."
+    dotnet format --verbosity minimal
+
+    # Re-stage the formatted files
+    for file in $STAGED_CS_FILES; do
+        if [ -f "$file" ]; then
+            git add "$file"
+        fi
+    done
+
+    echo ""
+    echo "Files have been formatted and re-staged."
+    echo "Please review the changes and commit again."
+    exit 1
+fi
+
+echo "Code formatting check passed."
+exit 0

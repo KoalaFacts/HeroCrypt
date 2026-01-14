@@ -232,5 +232,5 @@ jobs:
           echo "- Per-framework dependency tracking" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
-          echo "The publish-nuget workflow will automatically trigger to publish packages to NuGet.org" >> $GITHUB_STEP_SUMMARY
+          echo "The publish-nuget workflow will automatically trigger when this release is published" >> $GITHUB_STEP_SUMMARY
 run-name: Create Release v${{ inputs.version }}

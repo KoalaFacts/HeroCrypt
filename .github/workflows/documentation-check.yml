@@ -35,7 +35,6 @@ jobs:
   verify-documentation-quality:
     name: Spot Check Documentation Quality
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
 
     steps:
       - name: Checkout code

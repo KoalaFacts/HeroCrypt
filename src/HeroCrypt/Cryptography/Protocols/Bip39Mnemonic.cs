@@ -168,8 +168,8 @@ public static class Bip39Mnemonic
         }
         finally
         {
-            Array.Clear(mnemonicBytes, 0, mnemonicBytes.Length);
-            Array.Clear(salt, 0, salt.Length);
+            SecureMemoryOperations.SecureClear(mnemonicBytes);
+            SecureMemoryOperations.SecureClear(salt);
         }
     }
 

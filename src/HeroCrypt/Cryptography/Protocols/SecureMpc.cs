@@ -401,7 +401,7 @@ public static class SecureMpc
         for (int i = 0; i < party1Set.Length; i++)
         {
             var hash1 = set1Hashes[i];
-            if (set2Hashes.Any(hash2 => hash1.SequenceEqual(hash2)))
+            if (set2Hashes.Any(hash2 => SecureMemoryOperations.ConstantTimeEquals(hash1, hash2)))
             {
                 intersection.Add(party1Set[i]);
             }

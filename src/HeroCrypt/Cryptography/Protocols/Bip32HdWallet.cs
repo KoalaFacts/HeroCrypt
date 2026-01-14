@@ -200,7 +200,7 @@ public static class Bip32HdWallet
         finally
         {
             SecureMemoryOperations.SecureClear(hmacResult);
-            Array.Clear(hmacKey, 0, hmacKey.Length);
+            SecureMemoryOperations.SecureClear(hmacKey);
         }
     }
 

@@ -348,8 +348,8 @@ public static class ShamirSecretSharing
         try
         {
             var reconstructed = Reconstruct(shares);
-            var result = reconstructed.AsSpan().SequenceEqual(expectedSecret);
-            Array.Clear(reconstructed, 0, reconstructed.Length);
+            var result = SecureMemoryOperations.ConstantTimeEquals(reconstructed.AsSpan(), expectedSecret);
+            SecureMemoryOperations.SecureClear(reconstructed);
             return result;
         }
         catch (ArgumentException)

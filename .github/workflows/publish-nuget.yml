@@ -1,9 +1,11 @@
 name: Publish to NuGet
 
 on:
-  # Trigger when a new release is published
-  release:
-    types: [published]
+  # Trigger when create-release workflow completes successfully
+  workflow_run:
+    workflows: ["Create Release"]
+    types: [completed]
+    branches: [main]
   # Keep manual trigger for emergency republishing
   workflow_dispatch:
     inputs:
@@ -30,6 +32,8 @@ env:
 jobs:
   get-version:
     runs-on: ubuntu-latest
+    # Only run if create-release workflow succeeded (or if manually triggered)
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     outputs:
       version: ${{ steps.version.outputs.VERSION }}
       tag: ${{ steps.version.outputs.TAG }}
@@ -37,22 +41,33 @@ jobs:
       - name: Determine version from release
         id: version
         run: |
-          if [ "${{ github.event_name }}" == "release" ]; then
-            # Get version from the release event
-            TAG="${{ github.event.release.tag_name }}"
+          if [ "${{ github.event_name }}" == "workflow_run" ]; then
+            # Get the latest release (most recently created)
+            echo "Finding latest release from create-release workflow..."
+
+            TAG=$(gh api repos/${GITHUB_REPOSITORY}/releases \
+              --jq ".[0].tag_name" | head -n 1)
+
+            if [ -z "${TAG}" ]; then
+              echo "Error: Could not find any releases"
+              exit 1
+            fi
+
             VERSION="${TAG#v}"
-            echo "Using release: ${TAG}"
+            echo "Using latest release: ${TAG}"
           elif [ -n "${{ inputs.version }}" ]; then
             VERSION="${{ inputs.version }}"
             TAG="v${VERSION}"
           else
-            echo "Error: No version specified and not triggered by release"
+            echo "Error: No version specified and not triggered by workflow_run"
             exit 1
           fi
 
           echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
           echo "TAG=$TAG" >> $GITHUB_OUTPUT
           echo "Publishing version: $VERSION (tag: $TAG)"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   publish:
     runs-on: ubuntu-latest
@@ -187,4 +202,4 @@ jobs:
           echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
           echo "- Package will be available on NuGet.org within 5-10 minutes" >> $GITHUB_STEP_SUMMARY
           echo "- Verify at: https://www.nuget.org/packages/HeroCrypt" >> $GITHUB_STEP_SUMMARY
-run-name: ${{ github.event_name == 'release' && format('Publish NuGet v{0}', github.event.release.tag_name) || github.event_name == 'workflow_dispatch' && format('Publish NuGet v{0}', inputs.version || 'unspecified') || 'Publish NuGet' }}
+run-name: ${{ github.event_name == 'workflow_dispatch' && format('Publish NuGet v{0}', inputs.version || 'unspecified') || 'Publish NuGet' }}

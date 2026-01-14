@@ -120,36 +120,36 @@ var plaintext = ChaCha20Poly1305Cipher.Decrypt(
 );
 ```
 
-### InvalidOperationException: Password not set
-
-**Problem**:
-`
-InvalidOperationException: Password not set. Call WithPassword() first.
-`
-
-**Solution**:
-`csharp
-// BAD: Missing password input
-var hash = Argon2.Hash(
-    password: Array.Empty<byte>(), // Error!
-    salt: RandomNumberGenerator.GetBytes(16),
-    iterations: 3,
-    memorySizeKB: 65536,
-    parallelism: 4,
-    hashLength: 32,
-    type: Argon2Type.Argon2id);
-
-// GOOD: Provide a password
-var hash = Argon2.Hash(
-    password: "mypassword"u8.ToArray(),
-    salt: RandomNumberGenerator.GetBytes(16),
-    iterations: 3,
-    memorySizeKB: 65536,
-    parallelism: 4,
-    hashLength: 32,
-    type: Argon2Type.Argon2id);
-`
-
+### InvalidOperationException: Password not set
+
+**Problem**:
+`
+InvalidOperationException: Password not set. Call WithPassword() first.
+`
+
+**Solution**:
+`csharp
+// BAD: Missing password input
+var hash = Argon2.Hash(
+    password: Array.Empty<byte>(), // Error!
+    salt: RandomNumberGenerator.GetBytes(16),
+    iterations: 3,
+    memorySizeKB: 65536,
+    parallelism: 4,
+    hashLength: 32,
+    type: Argon2Type.Argon2id);
+
+// GOOD: Provide a password
+var hash = Argon2.Hash(
+    password: "mypassword"u8.ToArray(),
+    salt: RandomNumberGenerator.GetBytes(16),
+    iterations: 3,
+    memorySizeKB: 65536,
+    parallelism: 4,
+    hashLength: 32,
+    type: Argon2Type.Argon2id);
+`
+
 ### OutOfMemoryException during Argon2 hashing
 
 **Problem**:

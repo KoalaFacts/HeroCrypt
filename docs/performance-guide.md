@@ -464,8 +464,8 @@ BenchmarkRunner.Run<CryptoBenchmarks>();
 
 ## Common Pitfalls
 
-### 1. Not Using Hardware Acceleration
-
+### 1. Not Using Hardware Acceleration
+
 ```csharp
 // Recommended: use strong parameters and let hardware acceleration kick in automatically
 var hash = Argon2.Hash(
@@ -476,7 +476,7 @@ var hash = Argon2.Hash(
     hashLength: 32,
     type: Argon2Type.Argon2id);
 ```
-
+
 ### 2. Allocating in Loops
 
 ```csharp

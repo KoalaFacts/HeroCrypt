@@ -150,23 +150,23 @@ Throughout this documentation, we use the following conventions:
 - 📚 **Reference** or **Educational** implementation
 - 🔒 **Security-critical** information
 
-### Code Examples
-
-`csharp
-// GOOD: Recommended pattern
-var hash = Argon2.Hash(
-    password: "password"u8.ToArray(),
-    salt: RandomNumberGenerator.GetBytes(16),
-    iterations: 3,
-    memorySizeKB: 65536,
-    parallelism: 4,
-    hashLength: 32,
-    type: Argon2Type.Argon2id);
-
-// BAD: Anti-pattern to avoid
-var hash = WeakHash(password);  // Don't do this!
-`
-
+### Code Examples
+
+`csharp
+// GOOD: Recommended pattern
+var hash = Argon2.Hash(
+    password: "password"u8.ToArray(),
+    salt: RandomNumberGenerator.GetBytes(16),
+    iterations: 3,
+    memorySizeKB: 65536,
+    parallelism: 4,
+    hashLength: 32,
+    type: Argon2Type.Argon2id);
+
+// BAD: Anti-pattern to avoid
+var hash = WeakHash(password);  // Don't do this!
+`
+
 ## Quick Reference
 
 ### Common Operations

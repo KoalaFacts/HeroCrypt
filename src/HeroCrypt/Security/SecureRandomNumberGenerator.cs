@@ -115,7 +115,6 @@ public sealed class SecureRandomNumberGenerator : IDisposable
 
         if (!healthCheckPassed)
         {
-
             PerformImmediateHealthCheck();
 
             if (!healthCheckPassed)
@@ -124,36 +123,27 @@ public sealed class SecureRandomNumberGenerator : IDisposable
             }
         }
 
-        try
-        {
 #if !NETSTANDARD2_0
-            // Use primary RNG
-            primaryRng.GetBytes(span);
+        // Use primary RNG
+        primaryRng.GetBytes(span);
 
-            // XOR with entropy pool for additional security
-            XorWithEntropyPool(span);
+        // XOR with entropy pool for additional security
+        XorWithEntropyPool(span);
 
-            // Update statistics
-            Interlocked.Add(ref bytesGenerated, span.Length);
+        // Update statistics
+        Interlocked.Add(ref bytesGenerated, span.Length);
 #else
-            // .NET Standard 2.0: Convert span to array
-            var buffer = span.ToArray();
-            primaryRng.GetBytes(buffer);
+        // .NET Standard 2.0: Convert span to array
+        var buffer = span.ToArray();
+        primaryRng.GetBytes(buffer);
 
-            // XOR with entropy pool for additional security
-            XorWithEntropyPool(buffer);
-            buffer.CopyTo(span);
+        // XOR with entropy pool for additional security
+        XorWithEntropyPool(buffer);
+        buffer.CopyTo(span);
 
-            // Update statistics
-            Interlocked.Add(ref bytesGenerated, span.Length);
+        // Update statistics
+        Interlocked.Add(ref bytesGenerated, span.Length);
 #endif
-
-        }
-        catch
-        {
-
-            throw;
-        }
     }
 
     /// <summary>
@@ -186,10 +176,6 @@ public sealed class SecureRandomNumberGenerator : IDisposable
         }
 
         var range = (uint)(maxValue - minValue);
-        if (range == 0)
-        {
-            return minValue;
-        }
 
         // Use rejection sampling to avoid modulo bias
         var mask = uint.MaxValue - (uint.MaxValue % range);

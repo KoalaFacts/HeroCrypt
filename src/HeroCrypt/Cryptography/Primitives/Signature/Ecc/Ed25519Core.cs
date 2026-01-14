@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using HeroCrypt.Security;
 
 namespace HeroCrypt.Cryptography.Primitives.Signature.Ecc;
 
@@ -140,6 +141,47 @@ public static class Ed25519Core
 /// </summary>
 internal static class Ed25519Impl
 {
+    // Static readonly constants for Ed25519 curve (avoid allocation on every call)
+    private static readonly long[] GfDConst =
+    [
+        0x78a3, 0x1359, 0x4dca, 0x75eb,
+        0xd8ab, 0x4141, 0x0a4d, 0x0070,
+        0xe898, 0x7779, 0x4079, 0x8cc7,
+        0xfe73, 0x2b6f, 0x6cee, 0x5203
+    ];
+
+    private static readonly long[] GfD2Const =
+    [
+        0xf159, 0x26b2, 0x9b94, 0xebd6,
+        0xb156, 0x8283, 0x149a, 0x00e0,
+        0xd130, 0xeef3, 0x80f2, 0x198e,
+        0xfce7, 0x56df, 0xd9dc, 0x2406
+    ];
+
+    private static readonly long[] GfXConst =
+    [
+        0xd51a, 0x8f25, 0x2d60, 0xc956,
+        0xa7b2, 0x9525, 0xc760, 0x692c,
+        0xdc5c, 0xfdd6, 0xe231, 0xc0a4,
+        0x53fe, 0xcd6e, 0x36d3, 0x2169
+    ];
+
+    private static readonly long[] GfYConst =
+    [
+        0x6658, 0x6666, 0x6666, 0x6666,
+        0x6666, 0x6666, 0x6666, 0x6666,
+        0x6666, 0x6666, 0x6666, 0x6666,
+        0x6666, 0x6666, 0x6666, 0x6666
+    ];
+
+    private static readonly long[] GfIConst =
+    [
+        0xa0b0, 0x4a0e, 0x1b27, 0xc4ee,
+        0xe478, 0xad2f, 0x1806, 0x2f43,
+        0xd7a7, 0x3dfb, 0x0099, 0x2b4d,
+        0xdf0b, 0x4fc1, 0x2480, 0x2b83
+    ];
+
     // The group order L (as bytes)
     private static readonly byte[] L =
     [
@@ -696,57 +738,27 @@ internal static class Ed25519Impl
 
     private static long[] GfD()
     {
-        return
-        [
-            0x78a3, 0x1359, 0x4dca, 0x75eb,
-            0xd8ab, 0x4141, 0x0a4d, 0x0070,
-            0xe898, 0x7779, 0x4079, 0x8cc7,
-            0xfe73, 0x2b6f, 0x6cee, 0x5203
-        ];
+        return (long[])GfDConst.Clone();
     }
 
     private static long[] GfD2()
     {
-        return
-        [
-            0xf159, 0x26b2, 0x9b94, 0xebd6,
-            0xb156, 0x8283, 0x149a, 0x00e0,
-            0xd130, 0xeef3, 0x80f2, 0x198e,
-            0xfce7, 0x56df, 0xd9dc, 0x2406
-        ];
+        return (long[])GfD2Const.Clone();
     }
 
     private static long[] GfX()
     {
-        return
-        [
-            0xd51a, 0x8f25, 0x2d60, 0xc956,
-            0xa7b2, 0x9525, 0xc760, 0x692c,
-            0xdc5c, 0xfdd6, 0xe231, 0xc0a4,
-            0x53fe, 0xcd6e, 0x36d3, 0x2169
-        ];
+        return (long[])GfXConst.Clone();
     }
 
     private static long[] GfY()
     {
-        return
-        [
-            0x6658, 0x6666, 0x6666, 0x6666,
-            0x6666, 0x6666, 0x6666, 0x6666,
-            0x6666, 0x6666, 0x6666, 0x6666,
-            0x6666, 0x6666, 0x6666, 0x6666
-        ];
+        return (long[])GfYConst.Clone();
     }
 
     private static long[] GfI()
     {
-        return
-        [
-            0xa0b0, 0x4a0e, 0x1b27, 0xc4ee,
-            0xe478, 0xad2f, 0x1806, 0x2f43,
-            0xd7a7, 0x3dfb, 0x0099, 0x2b4d,
-            0xdf0b, 0x4fc1, 0x2480, 0x2b83
-        ];
+        return (long[])GfIConst.Clone();
     }
 
     #endregion
@@ -775,12 +787,12 @@ internal static class Ed25519Impl
 
     private static void ClearArray(byte[] a)
     {
-        Array.Clear(a, 0, a.Length);
+        SecureMemoryOperations.SecureClear(a);
     }
 
     private static void ClearLongArray(long[] a)
     {
-        Array.Clear(a, 0, a.Length);
+        SecureMemoryOperations.SecureClear(a.AsSpan());
     }
 
     #endregion

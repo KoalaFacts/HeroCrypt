@@ -153,9 +153,10 @@ internal static class Poly1305Core
     {
         number.Clear();
 
-        // Copy block data
-        var blockBytes = new byte[17]; // 16 bytes + padding
-        block.CopyTo(blockBytes.AsSpan(0, block.Length));
+        // Use stackalloc for small fixed-size buffer
+        Span<byte> blockBytes = stackalloc byte[17]; // 16 bytes + padding
+        blockBytes.Clear();
+        block.CopyTo(blockBytes.Slice(0, block.Length));
 
         // Add padding bit
         if (block.Length < 16)
@@ -168,8 +169,13 @@ internal static class Poly1305Core
         }
 
         // Convert to little-endian uint64
-        number[0] = BitConverter.ToUInt64(blockBytes, 0);
-        number[1] = BitConverter.ToUInt64(blockBytes, 8);
+#if NET5_0_OR_GREATER
+        number[0] = BitConverter.ToUInt64(blockBytes.Slice(0, 8));
+        number[1] = BitConverter.ToUInt64(blockBytes.Slice(8, 8));
+#else
+        number[0] = BitConverter.ToUInt64(blockBytes.Slice(0, 8).ToArray(), 0);
+        number[1] = BitConverter.ToUInt64(blockBytes.Slice(8, 8).ToArray(), 0);
+#endif
         number[2] = blockBytes[16];
     }
 

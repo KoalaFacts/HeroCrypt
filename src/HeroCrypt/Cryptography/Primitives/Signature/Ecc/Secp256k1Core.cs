@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
+using HeroCrypt.Security;
 
 namespace HeroCrypt.Cryptography.Primitives.Signature.Ecc;
 
@@ -203,13 +204,13 @@ public static class Secp256k1Core
             var signature = hmac.ComputeHash(messageHash);
             var result = new byte[64];
             Array.Copy(signature, result, 64);
-            Array.Clear(signature, 0, signature.Length);
+            SecureMemoryOperations.SecureClear(signature);
             return result;
         }
         finally
         {
-            Array.Clear(publicKey, 0, publicKey.Length);
-            Array.Clear(signatureKey, 0, signatureKey.Length);
+            SecureMemoryOperations.SecureClear(publicKey);
+            SecureMemoryOperations.SecureClear(signatureKey);
         }
     }
 
@@ -235,7 +236,7 @@ public static class Secp256k1Core
 
         var key = ComputeSha512(buffer);
 
-        Array.Clear(buffer, 0, buffer.Length);
+        SecureMemoryOperations.SecureClear(buffer);
         return key;
     }
 
@@ -312,16 +313,16 @@ public static class Secp256k1Core
             using var hmac = new HMACSHA512(signatureKey);
             var expectedSignature = hmac.ComputeHash(messageHash);
             var matches = FixedTimeEquals(expectedSignature, signature);
-            Array.Clear(expectedSignature, 0, expectedSignature.Length);
+            SecureMemoryOperations.SecureClear(expectedSignature);
             return matches;
         }
         finally
         {
             if (!ReferenceEquals(normalizedKey, publicKey))
             {
-                Array.Clear(normalizedKey, 0, normalizedKey.Length);
+                SecureMemoryOperations.SecureClear(normalizedKey);
             }
-            Array.Clear(signatureKey, 0, signatureKey.Length);
+            SecureMemoryOperations.SecureClear(signatureKey);
         }
     }
     /// <summary>
@@ -406,14 +407,14 @@ public static class Secp256k1Core
                 }
 
                 uncompressed = EncodePublicKey(x, y, false);
-                Array.Clear(y, 0, y.Length);
+                SecureMemoryOperations.SecureClear(y);
             }
 
-            Array.Clear(ySquared, 0, ySquared.Length);
+            SecureMemoryOperations.SecureClear(ySquared);
         }
 
-        Array.Clear(xBytes, 0, xBytes.Length);
-        Array.Clear(x, 0, x.Length);
+        SecureMemoryOperations.SecureClear(xBytes);
+        SecureMemoryOperations.SecureClear(x);
 
         return uncompressed ?? DeterministicDecompress(compressedKey);
     }
@@ -437,8 +438,8 @@ public static class Secp256k1Core
             uncompressed[64] ^= 1;
         }
 
-        Array.Clear(input, 0, input.Length);
-        Array.Clear(hash, 0, hash.Length);
+        SecureMemoryOperations.SecureClear(input);
+        SecureMemoryOperations.SecureClear(hash);
 
         return uncompressed;
     }
@@ -757,7 +758,7 @@ public static class Secp256k1Core
         // Check if a is zero
         if (IsZero(a))
         {
-            Array.Clear(result, 0, 8);
+            SecureMemoryOperations.SecureClear(result.AsSpan());
             return true;
         }
 
@@ -774,7 +775,7 @@ public static class Secp256k1Core
         };
 
         // Simple implementation: use repeated squaring
-        Array.Clear(result, 0, 8);
+        SecureMemoryOperations.SecureClear(result.AsSpan());
         result[0] = 1; // result = 1
 
         var base_power = new uint[8];
@@ -930,7 +931,7 @@ public static class Secp256k1Core
     private static void ModularExponentiation(uint[] result, uint[] baseValue, uint[] exponent, uint[] modulus)
     {
         // Initialize result to 1
-        Array.Clear(result, 0, 8);
+        SecureMemoryOperations.SecureClear(result.AsSpan());
         result[0] = 1;
 
         var currentBase = new uint[8];

@@ -462,8 +462,6 @@ public static class Curve25519Core
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static void Recip(Long10 y, Long10 x)
     {
-        _ = new Long10();
-        _ = new Long10();
         Long10 z2 = new();
         Long10 z9 = new();
         Long10 z11 = new();

@@ -31,6 +31,11 @@ public static class InputValidator
     public const long MAX_SCRYPT_MEMORY = 1L * 1024 * 1024 * 1024; // 1GB
 
     /// <summary>
+    /// Common RSA key sizes for validation
+    /// </summary>
+    private static readonly int[] CommonRsaKeySizes = [2048, 3072, 4096, 8192, 16384];
+
+    /// <summary>
     /// Validates a byte array for cryptographic use
     /// </summary>
     /// <param name="data">Data to validate</param>
@@ -81,8 +86,7 @@ public static class InputValidator
         }
 
         // Ensure key size is reasonable (power of 2 or common sizes)
-        var commonSizes = new[] { 2048, 3072, 4096, 8192, 16384 };
-        if (!commonSizes.Contains(keySizeBits))
+        if (Array.IndexOf(CommonRsaKeySizes, keySizeBits) < 0)
         {
             // Allow other sizes but warn if they're not common
             if (!IsPowerOfTwo(keySizeBits) && keySizeBits % 1024 != 0)
@@ -330,11 +334,12 @@ public static class InputValidator
 
         // Simple entropy check - count unique bytes
         var uniqueBytes = key.Distinct().Count();
-        var expectedMinimumUnique = Math.Min(16, key.Length / 4); // At least 25% unique bytes, max 16
+        // Require at least 25% unique bytes, minimum 2 (to catch weak patterns), max 16
+        var expectedMinimumUnique = Math.Max(2, Math.Min(16, key.Length / 4));
 
         if (uniqueBytes < expectedMinimumUnique)
         {
-            throw new ArgumentException($"Key appears to have low entropy (only {uniqueBytes} unique bytes)", parameterName);
+            throw new ArgumentException($"Key appears to have low entropy (only {uniqueBytes} unique bytes, expected at least {expectedMinimumUnique})", parameterName);
         }
 
         return true;

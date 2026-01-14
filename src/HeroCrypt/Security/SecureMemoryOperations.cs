@@ -96,10 +96,14 @@ public static class SecureMemoryOperations
             return;
         }
 
+        // Use volatile writes to prevent JIT optimization from removing the clearing
         for (var i = 0; i < sensitiveData.Length; i++)
         {
-            sensitiveData[i] = 0;
+            Volatile.Write(ref sensitiveData[i], 0);
         }
+
+        // Memory barrier to ensure writes are not reordered
+        Thread.MemoryBarrier();
     }
 
     /// <summary>
@@ -113,10 +117,35 @@ public static class SecureMemoryOperations
             return;
         }
 
+        // Use volatile writes to prevent JIT optimization from removing the clearing
         for (var i = 0; i < sensitiveData.Length; i++)
         {
-            sensitiveData[i] = 0;
+            Volatile.Write(ref sensitiveData[i], 0);
         }
+
+        // Memory barrier to ensure writes are not reordered
+        Thread.MemoryBarrier();
+    }
+
+    /// <summary>
+    /// Securely clears a span of long values
+    /// </summary>
+    /// <param name="sensitiveData">The sensitive data span to clear</param>
+    public static void SecureClear(Span<long> sensitiveData)
+    {
+        if (sensitiveData.Length == 0)
+        {
+            return;
+        }
+
+        // Use volatile writes to prevent JIT optimization from removing the clearing
+        for (var i = 0; i < sensitiveData.Length; i++)
+        {
+            Volatile.Write(ref sensitiveData[i], 0);
+        }
+
+        // Memory barrier to ensure writes are not reordered
+        Thread.MemoryBarrier();
     }
 
     /// <summary>
@@ -265,8 +294,9 @@ public sealed class SecureByteArray : IDisposable
     {
         get
         {
+            using var guard = EnterLock();
             ThrowIfDisposed();
-            return data?.Length ?? 0;
+            return data.Length;
         }
     }
 
@@ -278,11 +308,13 @@ public sealed class SecureByteArray : IDisposable
     {
         get
         {
+            using var guard = EnterLock();
             ThrowIfDisposed();
             return data[index];
         }
         set
         {
+            using var guard = EnterLock();
             ThrowIfDisposed();
             data[index] = value;
         }

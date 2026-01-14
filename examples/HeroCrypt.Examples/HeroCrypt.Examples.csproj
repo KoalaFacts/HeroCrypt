@@ -4,6 +4,7 @@
     <OutputType>Exe</OutputType>
     <TargetFrameworks>$(SupportedApplicationTargetFrameworks)</TargetFrameworks>
     <NoWarn>$(NoWarn);SYSLIB5006</NoWarn>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
   
   <ItemGroup>

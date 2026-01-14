@@ -10,7 +10,6 @@ namespace HeroCrypt.Hardware;
 /// </summary>
 internal static class HardwareAccelerationDetector
 {
-
     /// <summary>
     /// Checks if Intel AES-NI is available
     /// </summary>

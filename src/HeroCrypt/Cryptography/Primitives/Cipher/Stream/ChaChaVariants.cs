@@ -66,7 +66,7 @@ public static class ChaChaVariants
         }
         if (output.Length < input.Length)
         {
-            throw new ArgumentException("Output buffer too small", nameof(output));
+            throw new ArgumentException($"Output buffer must be at least {input.Length} bytes, but was {output.Length} bytes", nameof(output));
         }
 
         Span<uint> state = stackalloc uint[16];

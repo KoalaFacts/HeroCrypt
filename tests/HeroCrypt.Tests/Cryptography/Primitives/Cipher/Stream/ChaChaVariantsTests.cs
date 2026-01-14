@@ -164,7 +164,7 @@ public class ChaChaVariantsTests
         // Act & Assert
         var ex = Assert.Throws<ArgumentException>(() =>
             Transform(ciphertext, plaintext, testKey, testNonce, 0, ChaChaVariant.ChaCha20));
-        Assert.Contains("too small", ex.Message);
+        Assert.Contains("Output buffer must be at least", ex.Message);
     }
 
     [Fact]

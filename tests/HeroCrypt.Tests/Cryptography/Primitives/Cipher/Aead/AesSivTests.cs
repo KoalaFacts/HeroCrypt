@@ -172,7 +172,7 @@ public class AesSivTests
         // Act & Assert
         var ex = Assert.Throws<ArgumentException>(() =>
             AesSivCore.Encrypt(ciphertext, plaintext, testKey256, testNonce, []));
-        Assert.Contains("too small", ex.Message);
+        Assert.Contains("Ciphertext buffer must be at least", ex.Message);
     }
 
     [Fact]

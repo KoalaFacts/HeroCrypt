@@ -94,7 +94,7 @@ public class Hc128Tests
         // Act & Assert
         var ex = Assert.Throws<ArgumentException>(() =>
             Hc128Core.Transform(ciphertext, plaintext, testKey, testIv));
-        Assert.Contains("too small", ex.Message);
+        Assert.Contains("Output buffer must be at least", ex.Message);
     }
 
     [Fact]

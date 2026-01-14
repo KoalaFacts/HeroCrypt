@@ -94,7 +94,7 @@ public class XSalsa20Tests
         // Act & Assert
         var ex = Assert.Throws<ArgumentException>(() =>
             XSalsa20Core.Transform(ciphertext, plaintext, testKey, testNonce));
-        Assert.Contains("too small", ex.Message);
+        Assert.Contains("Output buffer must be at least", ex.Message);
     }
 
     [Fact]

@@ -202,4 +202,4 @@ jobs:
           echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
           echo "- Package will be available on NuGet.org within 5-10 minutes" >> $GITHUB_STEP_SUMMARY
           echo "- Verify at: https://www.nuget.org/packages/HeroCrypt" >> $GITHUB_STEP_SUMMARY
-run-name: ${{ github.event_name == 'workflow_dispatch' && format('Publish NuGet v{0}', inputs.version || 'unspecified') || 'Publish NuGet' }}
+run-name: ${{ github.event_name == 'workflow_dispatch' && format('Publish NuGet v{0}', inputs.version || 'unspecified') || github.event_name == 'workflow_run' && format('Publish NuGet ({0})', github.event.workflow_run.display_title) || 'Publish NuGet' }}

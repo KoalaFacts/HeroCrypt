@@ -18,7 +18,7 @@ public static class SimdConstantTimeOperations
     /// Checks if SIMD acceleration is available
     /// </summary>
 #if NET5_0_OR_GREATER
-    public static bool IsAvailable => Avx2.IsSupported || Sse2.IsSupported;
+    public static bool IsAvailable => Avx2.IsSupported || Avx.IsSupported || Sse2.IsSupported;
 #else
     public static bool IsAvailable => false;
 #endif
@@ -72,12 +72,12 @@ public static class SimdConstantTimeOperations
         fixed (byte* ptrA = a)
         fixed (byte* ptrB = b)
         {
-            Vector256<byte> accumulator256 = Vector256<byte>.Zero;
-            Vector128<byte> accumulator128 = Vector128<byte>.Zero;
+            var result128 = Vector128<byte>.Zero;
 
             // Process 32-byte chunks with AVX2 if available
             if (Avx2.IsSupported && length >= 32)
             {
+                var accumulator256 = Vector256<byte>.Zero;
                 var chunks = length / 32;
                 for (var i = 0; i < chunks; i++)
                 {
@@ -87,11 +87,17 @@ public static class SimdConstantTimeOperations
                     accumulator256 = Avx2.Or(accumulator256, diff);
                     offset += 32;
                 }
+
+                // Extract high and low 128-bit parts from AVX2 accumulator and combine
+                var high = Avx2.ExtractVector128(accumulator256, 1);
+                var low = Avx2.ExtractVector128(accumulator256, 0);
+                result128 = Sse2.Or(high, low);
             }
 
             // Process 16-byte chunks with SSE2
             if (Sse2.IsSupported && (length - offset) >= 16)
             {
+                var accumulator128 = Vector128<byte>.Zero;
                 var chunks = (length - offset) / 16;
                 for (var i = 0; i < chunks; i++)
                 {
@@ -101,6 +107,9 @@ public static class SimdConstantTimeOperations
                     accumulator128 = Sse2.Or(accumulator128, diff);
                     offset += 16;
                 }
+
+                // Combine with any AVX2 results
+                result128 = Sse2.Or(result128, accumulator128);
             }
 
             // Process remaining bytes
@@ -110,32 +119,15 @@ public static class SimdConstantTimeOperations
                 scalarAccumulator |= (byte)(ptrA[i] ^ ptrB[i]);
             }
 
-            // Combine all accumulators
-            var result128 = accumulator128;
+            // Reduce 128-bit result to scalar (SSE2 is always available when we reach here via IsAvailable)
+            // Horizontal OR reduction
+            var temp = Sse2.Or(result128, Sse2.ShiftRightLogical128BitLane(result128, 8));
+            temp = Sse2.Or(temp, Sse2.ShiftRightLogical128BitLane(temp, 4));
+            temp = Sse2.Or(temp, Sse2.ShiftRightLogical128BitLane(temp, 2));
+            temp = Sse2.Or(temp, Sse2.ShiftRightLogical128BitLane(temp, 1));
 
-            if (Avx2.IsSupported)
-            {
-                // Extract high and low 128-bit parts from AVX2 accumulator and combine
-                var high = Avx2.ExtractVector128(accumulator256, 1);
-                var low = Avx2.ExtractVector128(accumulator256, 0);
-                // Combine AVX2 result with SSE2 accumulator (for bytes processed in 16-byte chunks)
-                result128 = Sse2.Or(Sse2.Or(high, low), accumulator128);
-            }
-
-            // Reduce 128-bit result to scalar
-            if (Sse2.IsSupported)
-            {
-                // Horizontal OR reduction
-                var temp = Sse2.Or(result128, Sse2.ShiftRightLogical128BitLane(result128, 8));
-                temp = Sse2.Or(temp, Sse2.ShiftRightLogical128BitLane(temp, 4));
-                temp = Sse2.Or(temp, Sse2.ShiftRightLogical128BitLane(temp, 2));
-                temp = Sse2.Or(temp, Sse2.ShiftRightLogical128BitLane(temp, 1));
-
-                var finalResult = Sse2.Extract(temp.AsUInt16(), 0);
-                return (finalResult | scalarAccumulator) == 0;
-            }
-
-            return scalarAccumulator == 0;
+            var finalResult = Sse2.Extract(temp.AsUInt16(), 0);
+            return (finalResult | scalarAccumulator) == 0;
         }
     }
 #endif
@@ -155,9 +147,13 @@ public static class SimdConstantTimeOperations
         {
             throw new ArgumentException("Length cannot be negative", nameof(length));
         }
-        if (source.Length < length || destination.Length < length)
+        if (source.Length < length)
         {
-            throw new ArgumentException("Arrays are too small for the specified length");
+            throw new ArgumentException("Source array is too small for the specified length", nameof(source));
+        }
+        if (destination.Length < length)
+        {
+            throw new ArgumentException("Destination array is too small for the specified length", nameof(destination));
         }
 
         // Ensure condition is 0 or 1
@@ -187,10 +183,7 @@ public static class SimdConstantTimeOperations
     private static unsafe void ConditionalCopySimd(byte condition, ReadOnlySpan<byte> source, Span<byte> destination, int length)
     {
         var offset = 0;
-
-        // Create condition mask for SIMD operations
-        var conditionMask256 = Vector256.Create((byte)(-(sbyte)condition));
-        var conditionMask128 = Vector128.Create((byte)(-(sbyte)condition));
+        var mask = (byte)(-(sbyte)condition);
 
         fixed (byte* ptrSrc = source)
         fixed (byte* ptrDst = destination)
@@ -198,6 +191,7 @@ public static class SimdConstantTimeOperations
             // Process 32-byte chunks with AVX2
             if (Avx2.IsSupported && length >= 32)
             {
+                var conditionMask256 = Vector256.Create(mask);
                 var chunks = length / 32;
                 for (var i = 0; i < chunks; i++)
                 {
@@ -218,6 +212,7 @@ public static class SimdConstantTimeOperations
             // Process 16-byte chunks with SSE2
             if (Sse2.IsSupported && (length - offset) >= 16)
             {
+                var conditionMask128 = Vector128.Create(mask);
                 var chunks = (length - offset) / 16;
                 for (var i = 0; i < chunks; i++)
                 {
@@ -236,7 +231,6 @@ public static class SimdConstantTimeOperations
             }
 
             // Process remaining bytes with scalar operations
-            var mask = (byte)(-(sbyte)condition);
             for (var i = offset; i < length; i++)
             {
                 ptrDst[i] = (byte)((ptrSrc[i] & mask) | (ptrDst[i] & ~mask));
@@ -280,14 +274,12 @@ public static class SimdConstantTimeOperations
         var length = data.Length;
         var offset = 0;
 
-        var zero256 = Vector256<byte>.Zero;
-        var zero128 = Vector128<byte>.Zero;
-
         fixed (byte* ptr = data)
         {
-            // Clear 32-byte chunks with AVX2
-            if (Avx2.IsSupported && length >= 32)
+            // Clear 32-byte chunks with AVX (only needs AVX, not AVX2)
+            if (Avx.IsSupported && length >= 32)
             {
+                var zero256 = Vector256<byte>.Zero;
                 var chunks = length / 32;
                 for (var i = 0; i < chunks; i++)
                 {
@@ -299,6 +291,7 @@ public static class SimdConstantTimeOperations
             // Clear 16-byte chunks with SSE2
             if (Sse2.IsSupported && (length - offset) >= 16)
             {
+                var zero128 = Vector128<byte>.Zero;
                 var chunks = (length - offset) / 16;
                 for (var i = 0; i < chunks; i++)
                 {

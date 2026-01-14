@@ -38,7 +38,7 @@ internal static class AesCcmCore
     /// <summary>
     /// Supported key sizes in bytes
     /// </summary>
-    public static readonly int[] SupportedKeySizes = [16, 24, 32]; // AES-128, AES-192, AES-256
+    public static readonly int[] SupportedKeySizes = AesConstants.StandardKeySizes;
 
     /// <summary>
     /// Minimum nonce size in bytes (RFC 3610: 7-13 bytes)
@@ -73,7 +73,7 @@ internal static class AesCcmCore
     /// <summary>
     /// AES block size in bytes
     /// </summary>
-    private const int BLOCK_SIZE = 16;
+    private const int BLOCK_SIZE = AesConstants.BlockSize;
 
     /// <summary>
     /// Encrypts plaintext using AES-CCM
@@ -97,7 +97,7 @@ internal static class AesCcmCore
 
         if (ciphertext.Length < plaintext.Length + tagSize)
         {
-            throw new ArgumentException("Ciphertext buffer too small", nameof(ciphertext));
+            throw new ArgumentException($"Ciphertext buffer must be at least {plaintext.Length + tagSize} bytes, but was {ciphertext.Length} bytes", nameof(ciphertext));
         }
 
         // Create key array once and clear it in finally block (avoid memory leak)
@@ -154,7 +154,7 @@ internal static class AesCcmCore
     {
         if (ciphertext.Length < tagSize)
         {
-            throw new ArgumentException("Ciphertext too short", nameof(ciphertext));
+            throw new ArgumentException($"Ciphertext must be at least {tagSize} bytes, but was {ciphertext.Length} bytes", nameof(ciphertext));
         }
 
         var plaintextLength = ciphertext.Length - tagSize;
@@ -162,7 +162,7 @@ internal static class AesCcmCore
 
         if (plaintext.Length < plaintextLength)
         {
-            throw new ArgumentException("Plaintext buffer too small", nameof(plaintext));
+            throw new ArgumentException($"Plaintext buffer must be at least {plaintextLength} bytes, but was {plaintext.Length} bytes", nameof(plaintext));
         }
 
         // Create key array once and clear it in finally block (avoid memory leak)
@@ -513,17 +513,17 @@ internal static class AesCcmCore
     {
         if (!SupportedKeySizes.Contains(key.Length))
         {
-            throw new ArgumentException($"Key must be 16, 24, or 32 bytes (AES-128/192/256)", nameof(key));
+            throw new ArgumentException($"Key must be 16, 24, or 32 bytes (AES-128/192/256), but was {key.Length} bytes", nameof(key));
         }
 
         if (nonce.Length < MIN_NONCE_SIZE || nonce.Length > MAX_NONCE_SIZE)
         {
-            throw new ArgumentException($"Nonce must be {MIN_NONCE_SIZE}-{MAX_NONCE_SIZE} bytes", nameof(nonce));
+            throw new ArgumentException($"Nonce must be {MIN_NONCE_SIZE}-{MAX_NONCE_SIZE} bytes, but was {nonce.Length} bytes", nameof(nonce));
         }
 
         if (tagSize < MIN_TAG_SIZE || tagSize > MAX_TAG_SIZE || tagSize % 2 != 0)
         {
-            throw new ArgumentException($"Tag size must be an even number between {MIN_TAG_SIZE} and {MAX_TAG_SIZE} bytes", nameof(tagSize));
+            throw new ArgumentException($"Tag size must be an even number between {MIN_TAG_SIZE} and {MAX_TAG_SIZE} bytes, but was {tagSize} bytes", nameof(tagSize));
         }
 
         var L = 15 - nonce.Length;
@@ -531,7 +531,7 @@ internal static class AesCcmCore
 
         if (plaintextLength > maxPlaintextLength)
         {
-            throw new ArgumentException($"Plaintext too long for nonce size (max {maxPlaintextLength} bytes)", nameof(plaintextLength));
+            throw new ArgumentException($"Plaintext length {plaintextLength} exceeds maximum {maxPlaintextLength} bytes for nonce size {nonce.Length}", nameof(plaintextLength));
         }
     }
 
@@ -542,7 +542,7 @@ internal static class AesCcmCore
     {
         if (nonceSize < MIN_NONCE_SIZE || nonceSize > MAX_NONCE_SIZE)
         {
-            throw new ArgumentException($"Nonce size must be {MIN_NONCE_SIZE}-{MAX_NONCE_SIZE} bytes");
+            throw new ArgumentException($"Nonce size must be {MIN_NONCE_SIZE}-{MAX_NONCE_SIZE} bytes, but was {nonceSize} bytes", nameof(nonceSize));
         }
 
         var L = 15 - nonceSize;

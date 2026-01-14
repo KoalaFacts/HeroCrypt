@@ -16,7 +16,7 @@ internal static class AesSivCore
     /// <summary>
     /// AES block size in bytes
     /// </summary>
-    private const int BLOCK_SIZE = 16;
+    private const int BLOCK_SIZE = AesConstants.BlockSize;
 
     /// <summary>
     /// SIV (Synthetic IV) size in bytes
@@ -26,7 +26,7 @@ internal static class AesSivCore
     /// <summary>
     /// Supported key sizes in bytes (doubled because SIV uses two keys)
     /// </summary>
-    public static readonly int[] SupportedKeySizes = [32, 48, 64]; // AES-SIV-128, AES-SIV-192, AES-SIV-256
+    public static readonly int[] SupportedKeySizes = AesConstants.SivKeySizes;
 
     /// <summary>
     /// Encrypts plaintext using AES-SIV
@@ -48,7 +48,7 @@ internal static class AesSivCore
 
         if (ciphertext.Length < SIV_SIZE + plaintext.Length)
         {
-            throw new ArgumentException("Ciphertext buffer too small", nameof(ciphertext));
+            throw new ArgumentException($"Ciphertext buffer must be at least {SIV_SIZE + plaintext.Length} bytes, but was {ciphertext.Length} bytes", nameof(ciphertext));
         }
 
         // Split key into K1 (MAC key) and K2 (CTR key)

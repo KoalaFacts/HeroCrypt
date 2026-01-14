@@ -68,15 +68,15 @@ internal static class RabbitCore
     {
         if (key.Length != KEY_SIZE)
         {
-            throw new ArgumentException($"Key must be {KEY_SIZE} bytes", nameof(key));
+            throw new ArgumentException($"Key must be {KEY_SIZE} bytes, but was {key.Length} bytes", nameof(key));
         }
         if (iv.Length != 0 && iv.Length != IV_SIZE)
         {
-            throw new ArgumentException($"IV must be {IV_SIZE} bytes or empty for key-only mode", nameof(iv));
+            throw new ArgumentException($"IV must be {IV_SIZE} bytes or empty for key-only mode, but was {iv.Length} bytes", nameof(iv));
         }
         if (output.Length < input.Length)
         {
-            throw new ArgumentException("Output buffer too small", nameof(output));
+            throw new ArgumentException($"Output buffer must be at least {input.Length} bytes, but was {output.Length} bytes", nameof(output));
         }
 
         var state = new RabbitState();

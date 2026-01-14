@@ -81,14 +81,9 @@ internal static class HkdfCore
             // Clear sensitive key material
             SecureMemoryOperations.SecureClear(ikmArray);
 
-            if (salt.IsEmpty)
-            {
-                SecureMemoryOperations.SecureClear(actualSalt);
-            }
-            else
-            {
-                SecureMemoryOperations.SecureClear(actualSalt);
-            }
+            // Always clear actualSalt - it's always a new allocation
+            // (either zero-filled array or copy via ToArray())
+            SecureMemoryOperations.SecureClear(actualSalt);
         }
     }
 

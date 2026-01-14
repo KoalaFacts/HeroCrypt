@@ -44,15 +44,15 @@ public static class XSalsa20Core
     {
         if (key.Length != KEY_SIZE)
         {
-            throw new ArgumentException($"Key must be {KEY_SIZE} bytes", nameof(key));
+            throw new ArgumentException($"Key must be {KEY_SIZE} bytes, but was {key.Length} bytes", nameof(key));
         }
         if (nonce.Length != NONCE_SIZE)
         {
-            throw new ArgumentException($"Nonce must be {NONCE_SIZE} bytes", nameof(nonce));
+            throw new ArgumentException($"Nonce must be {NONCE_SIZE} bytes, but was {nonce.Length} bytes", nameof(nonce));
         }
         if (output.Length < input.Length)
         {
-            throw new ArgumentException("Output buffer too small", nameof(output));
+            throw new ArgumentException($"Output buffer must be at least {input.Length} bytes, but was {output.Length} bytes", nameof(output));
         }
 
         // Derive Salsa20 key and nonce from XSalsa20 parameters using HSalsa20

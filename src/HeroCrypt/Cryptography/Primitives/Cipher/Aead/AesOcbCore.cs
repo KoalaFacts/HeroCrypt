@@ -17,12 +17,12 @@ internal static class AesOcbCore
     /// <summary>
     /// AES block size in bytes
     /// </summary>
-    private const int BLOCK_SIZE = 16;
+    private const int BLOCK_SIZE = AesConstants.BlockSize;
 
     /// <summary>
     /// Supported key sizes in bytes
     /// </summary>
-    public static readonly int[] SupportedKeySizes = [16, 24, 32]; // AES-128, AES-192, AES-256
+    public static readonly int[] SupportedKeySizes = AesConstants.StandardKeySizes;
 
     /// <summary>
     /// Supported nonce sizes in bytes (1-15 bytes per RFC 7253)

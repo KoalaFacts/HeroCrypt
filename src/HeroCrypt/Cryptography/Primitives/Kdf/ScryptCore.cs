@@ -33,12 +33,12 @@ internal static class ScryptCore
     /// <summary>
     /// Minimum salt length in bytes
     /// </summary>
-    public const int MIN_SALT_LENGTH = 16;
+    public const int MIN_SALT_LENGTH = KdfConstants.MinSaltLength;
 
     /// <summary>
     /// Default salt length in bytes
     /// </summary>
-    public const int DEFAULT_SALT_LENGTH = 32;
+    public const int DEFAULT_SALT_LENGTH = KdfConstants.DefaultSaltLength;
 
     /// <summary>
     /// Maximum memory usage limit (128 MB by default)
@@ -176,17 +176,7 @@ internal static class ScryptCore
     /// <param name="length">Salt length (default: 32 bytes)</param>
     /// <returns>Random salt</returns>
     public static byte[] GenerateRandomSalt(int length = DEFAULT_SALT_LENGTH)
-    {
-        if (length < MIN_SALT_LENGTH)
-        {
-            throw new ArgumentException($"Salt length must be at least {MIN_SALT_LENGTH} bytes", nameof(length));
-        }
-
-        var salt = new byte[length];
-        using var rng = RandomNumberGenerator.Create();
-        rng.GetBytes(salt);
-        return salt;
-    }
+        => KdfConstants.GenerateRandomSalt(length);
 
     /// <summary>
     /// Gets recommended parameters for different use cases

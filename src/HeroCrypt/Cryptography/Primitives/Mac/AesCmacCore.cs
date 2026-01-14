@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
+using HeroCrypt.Cryptography.Primitives.Cipher;
 using HeroCrypt.Security;
 
 namespace HeroCrypt.Cryptography.Primitives.Mac;
@@ -14,12 +15,12 @@ internal static class AesCmacCore
     /// <summary>
     /// AES block size in bytes
     /// </summary>
-    private const int BLOCK_SIZE = 16;
+    private const int BLOCK_SIZE = AesConstants.BlockSize;
 
     /// <summary>
     /// Supported key sizes in bytes
     /// </summary>
-    public static readonly int[] SupportedKeySizes = [16, 24, 32]; // AES-128, AES-192, AES-256
+    public static readonly int[] SupportedKeySizes = AesConstants.StandardKeySizes;
 
     /// <summary>
     /// Computes AES-CMAC tag for given data

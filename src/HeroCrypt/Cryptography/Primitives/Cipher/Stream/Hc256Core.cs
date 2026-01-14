@@ -54,15 +54,15 @@ internal static class Hc256Core
     {
         if (key.Length != KEY_SIZE)
         {
-            throw new ArgumentException($"Key must be {KEY_SIZE} bytes", nameof(key));
+            throw new ArgumentException($"Key must be {KEY_SIZE} bytes, but was {key.Length} bytes", nameof(key));
         }
         if (iv.Length != IV_SIZE)
         {
-            throw new ArgumentException($"IV must be {IV_SIZE} bytes", nameof(iv));
+            throw new ArgumentException($"IV must be {IV_SIZE} bytes, but was {iv.Length} bytes", nameof(iv));
         }
         if (output.Length < input.Length)
         {
-            throw new ArgumentException("Output buffer too small", nameof(output));
+            throw new ArgumentException($"Output buffer must be at least {input.Length} bytes, but was {output.Length} bytes", nameof(output));
         }
 
         var state = new Hc256State();

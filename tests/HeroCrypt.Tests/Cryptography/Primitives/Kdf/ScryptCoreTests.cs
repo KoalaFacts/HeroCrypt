@@ -54,7 +54,7 @@ public class ScryptCoreTests
         [Fact]
         public void DeriveKey_DifferentSalt_ProducesDifferentKeys()
         {
-             // Arrange
+            // Arrange
             var password = Encoding.UTF8.GetBytes("password");
             var salt1 = Encoding.UTF8.GetBytes("salt1");
             var salt2 = Encoding.UTF8.GetBytes("salt2");
@@ -78,7 +78,7 @@ public class ScryptCoreTests
         [Fact]
         public void DeriveKey_EmptyPassword_Success()
         {
-             // Arrange
+            // Arrange
             var password = Array.Empty<byte>();
             var salt = Encoding.UTF8.GetBytes("salt");
 
@@ -92,7 +92,7 @@ public class ScryptCoreTests
         [Fact]
         public void DeriveKey_EmptySalt_Success()
         {
-             // Arrange
+            // Arrange
             var password = Encoding.UTF8.GetBytes("password");
             var salt = Array.Empty<byte>();
 
@@ -118,12 +118,12 @@ public class ScryptCoreTests
             var salt = Encoding.UTF8.GetBytes("salt");
 
             // N must be power of 2
-            Assert.Throws<ArgumentException>(() => 
+            Assert.Throws<ArgumentException>(() =>
                 ScryptCore.DeriveKey(password, salt, 14, R, P, OUTPUT_LEN));
-            
+
             // N must be positive
-             Assert.Throws<ArgumentException>(() => 
-                ScryptCore.DeriveKey(password, salt, 0, R, P, OUTPUT_LEN));
+            Assert.Throws<ArgumentException>(() =>
+               ScryptCore.DeriveKey(password, salt, 0, R, P, OUTPUT_LEN));
         }
 
         [Fact]
@@ -132,7 +132,7 @@ public class ScryptCoreTests
             var password = Encoding.UTF8.GetBytes("password");
             var salt = Encoding.UTF8.GetBytes("salt");
 
-            Assert.Throws<ArgumentException>(() => 
+            Assert.Throws<ArgumentException>(() =>
                 ScryptCore.DeriveKey(password, salt, N, 0, P, OUTPUT_LEN));
         }
 
@@ -142,17 +142,17 @@ public class ScryptCoreTests
             var password = Encoding.UTF8.GetBytes("password");
             var salt = Encoding.UTF8.GetBytes("salt");
 
-            Assert.Throws<ArgumentException>(() => 
+            Assert.Throws<ArgumentException>(() =>
                 ScryptCore.DeriveKey(password, salt, N, R, 0, OUTPUT_LEN));
         }
-        
+
         [Fact]
         public void DeriveKey_InvalidOutputLength_ThrowsArgumentException()
         {
             var password = Encoding.UTF8.GetBytes("password");
             var salt = Encoding.UTF8.GetBytes("salt");
 
-            Assert.Throws<ArgumentException>(() => 
+            Assert.Throws<ArgumentException>(() =>
                 ScryptCore.DeriveKey(password, salt, N, R, P, 0));
         }
     }
@@ -170,12 +170,12 @@ public class ScryptCoreTests
         {
             var password = Array.Empty<byte>();
             var salt = Array.Empty<byte>();
-            
+
             // Vector 1 parameters: N=16, r=1, p=1
             var key = ScryptCore.DeriveKey(password, salt, 16, 1, 1, 64);
 
             var expected = Convert.FromHexString("77d6576238657b203b19ca42c18a0497f16b4844e3074ae8dfdffa3fede21442fcd0069ded0948f8326a753a0fc81f17e8d3e0fb2e0d3628cf35e20c38d18906");
-            
+
             Assert.Equal(expected, key);
         }
     }

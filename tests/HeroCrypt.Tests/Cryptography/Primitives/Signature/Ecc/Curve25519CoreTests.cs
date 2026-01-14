@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using HeroCrypt.Cryptography.Primitives.Signature.Ecc;
 using HeroCrypt.Tests.Infrastructure;
 
@@ -29,7 +28,7 @@ public class Curve25519CoreTests
         [Fact]
         public void Connect_AliceAndBob_Success()
         {
-             // Arrange
+            // Arrange
             var alicePrivate = Curve25519Core.GeneratePrivateKey();
             var bobPrivate = Curve25519Core.GeneratePrivateKey();
 
@@ -55,7 +54,7 @@ public class Curve25519CoreTests
 
             CryptoAssertions.AssertBytesEqual(pub1, pub2);
         }
-        
+
         [Fact]
         public void DerivePublicKey_DifferentKeys_ProduceDifferentPublicKeys()
         {
@@ -79,11 +78,11 @@ public class Curve25519CoreTests
     [Trait("Category", TestCategories.FAST)]
     public class ParameterValidation
     {
-         [Fact]
+        [Fact]
         public void ComputeSharedSecret_NullKeys_ThrowsArgumentNullException()
         {
             var key = new byte[KEY_SIZE];
-            
+
             Assert.Throws<ArgumentNullException>(() => Curve25519Core.ComputeSharedSecret(null!, key));
             Assert.Throws<ArgumentNullException>(() => Curve25519Core.ComputeSharedSecret(key, null!));
         }
@@ -91,18 +90,18 @@ public class Curve25519CoreTests
         [Fact]
         public void ComputeSharedSecret_InvalidLength_ThrowsArgumentException()
         {
-             var valid = new byte[KEY_SIZE];
-             var invalid = new byte[KEY_SIZE - 1];
+            var valid = new byte[KEY_SIZE];
+            var invalid = new byte[KEY_SIZE - 1];
 
-             Assert.Throws<ArgumentException>(() => Curve25519Core.ComputeSharedSecret(invalid, valid));
-             Assert.Throws<ArgumentException>(() => Curve25519Core.ComputeSharedSecret(valid, invalid));
+            Assert.Throws<ArgumentException>(() => Curve25519Core.ComputeSharedSecret(invalid, valid));
+            Assert.Throws<ArgumentException>(() => Curve25519Core.ComputeSharedSecret(valid, invalid));
         }
 
         [Fact]
         public void DerivePublicKey_NullOrInvalid_ThrowsException()
         {
-             Assert.Throws<ArgumentNullException>(() => Curve25519Core.DerivePublicKey(null!));
-             Assert.Throws<ArgumentException>(() => Curve25519Core.DerivePublicKey(new byte[10]));
+            Assert.Throws<ArgumentNullException>(() => Curve25519Core.DerivePublicKey(null!));
+            Assert.Throws<ArgumentException>(() => Curve25519Core.DerivePublicKey(new byte[10]));
         }
     }
 

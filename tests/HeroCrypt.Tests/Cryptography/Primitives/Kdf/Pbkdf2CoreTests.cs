@@ -54,7 +54,7 @@ public class Pbkdf2CoreTests
         [Fact]
         public void DeriveKey_DifferentSalt_ProducesDifferentKeys()
         {
-             // Arrange
+            // Arrange
             var password = Encoding.UTF8.GetBytes("password");
             var salt1 = Encoding.UTF8.GetBytes("salt1234");
             var salt2 = Encoding.UTF8.GetBytes("salt5678");
@@ -66,7 +66,7 @@ public class Pbkdf2CoreTests
             // Assert
             Assert.NotEqual(key1, key2);
         }
-        
+
         [Fact]
         public void GetRecommendedParameters_ReturnsValidParams()
         {
@@ -86,7 +86,7 @@ public class Pbkdf2CoreTests
         [Fact]
         public void DeriveKey_EmptyPassword_Success_WhenWeakParamsAllowed()
         {
-             // Arrange
+            // Arrange
             var password = Array.Empty<byte>();
             var salt = Encoding.UTF8.GetBytes("salt1234");
 
@@ -112,21 +112,21 @@ public class Pbkdf2CoreTests
             var salt = Encoding.UTF8.GetBytes("salt1234");
 
             // Should throw if weak params not allowed (default iterations check)
-            Assert.Throws<ArgumentException>(() => 
+            Assert.Throws<ArgumentException>(() =>
                 Pbkdf2Core.DeriveKey(password, salt, 1000, OUTPUT_LEN, HashAlgorithmName.SHA256, allowWeakParameters: false));
-                
+
             // Should NOT throw if weak params allowed
             var key = Pbkdf2Core.DeriveKey(password, salt, 1000, OUTPUT_LEN, HashAlgorithmName.SHA256, allowWeakParameters: true);
             Assert.NotNull(key);
         }
-        
+
         [Fact]
         public void DeriveKey_ShortSalt_ThrowsArgumentException()
         {
             var password = Encoding.UTF8.GetBytes("password");
             var salt = new byte[2]; // Too short
 
-            Assert.Throws<ArgumentException>(() => 
+            Assert.Throws<ArgumentException>(() =>
                 Pbkdf2Core.DeriveKey(password, salt, TEST_ITERATIONS, OUTPUT_LEN, HashAlgorithmName.SHA256, allowWeakParameters: false));
         }
 
@@ -136,7 +136,7 @@ public class Pbkdf2CoreTests
             var password = Encoding.UTF8.GetBytes("password");
             var salt = Encoding.UTF8.GetBytes("salt1234");
 
-            Assert.Throws<ArgumentException>(() => 
+            Assert.Throws<ArgumentException>(() =>
                 Pbkdf2Core.DeriveKey(password, salt, TEST_ITERATIONS, 0, HashAlgorithmName.SHA256, allowWeakParameters: true));
         }
     }

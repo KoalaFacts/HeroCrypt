@@ -147,20 +147,20 @@ public class HkdfCoreTests
         {
             var ikm = Encoding.UTF8.GetBytes("input_key_material");
             var salt = Encoding.UTF8.GetBytes("salt");
-            
+
             var key = HkdfCore.DeriveKey(ikm, salt, [], 32, HashAlgorithmName.SHA256);
-            
+
             Assert.Equal(32, key.Length);
         }
-        
+
         [Fact]
         public void DeriveKey_EmptySalt_Success()
         {
             var ikm = Encoding.UTF8.GetBytes("input_key_material");
             var info = Encoding.UTF8.GetBytes("info");
-            
+
             var key = HkdfCore.DeriveKey(ikm, [], info, 32, HashAlgorithmName.SHA256);
-            
+
             Assert.Equal(32, key.Length);
         }
     }
@@ -177,19 +177,19 @@ public class HkdfCoreTests
         {
             var ikm = Encoding.UTF8.GetBytes("ikm");
             var salt = Encoding.UTF8.GetBytes("salt");
-            
-            Assert.Throws<ArgumentException>(() => 
+
+            Assert.Throws<ArgumentException>(() =>
                 HkdfCore.DeriveKey(ikm, salt, [], 0, HashAlgorithmName.SHA256));
-                
-            Assert.Throws<ArgumentException>(() => 
+
+            Assert.Throws<ArgumentException>(() =>
                 HkdfCore.DeriveKey(ikm, salt, [], -1, HashAlgorithmName.SHA256));
         }
 
         [Fact]
         public void Extract_EmptyIkm_ThrowsArgumentException()
         {
-             Assert.Throws<ArgumentException>(() => 
-                HkdfCore.Extract([], [], HashAlgorithmName.SHA256));
+            Assert.Throws<ArgumentException>(() =>
+               HkdfCore.Extract([], [], HashAlgorithmName.SHA256));
         }
     }
 }

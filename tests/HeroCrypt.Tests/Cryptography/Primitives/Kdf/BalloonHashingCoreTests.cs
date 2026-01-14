@@ -1,7 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
 using HeroCrypt.Cryptography.Primitives.Kdf;
-using HeroCrypt.Tests.Infrastructure;
 
 namespace HeroCrypt.Tests.Cryptography.Primitives.Kdf;
 

@@ -5,6 +5,12 @@ namespace HeroCrypt.Signatures;
 
 internal static class EccCurveSelector
 {
+    /// <summary>
+    /// Gets the appropriate NIST EC curve for the specified key size.
+    /// </summary>
+    /// <param name="curveSizeBits">The curve size in bits (256, 384, or 521).</param>
+    /// <returns>The corresponding <see cref="ECCurve"/>.</returns>
+    /// <exception cref="ArgumentException">Thrown when an unsupported curve size is specified.</exception>
     public static ECCurve GetECCurve(int curveSizeBits)
     {
         return curveSizeBits switch

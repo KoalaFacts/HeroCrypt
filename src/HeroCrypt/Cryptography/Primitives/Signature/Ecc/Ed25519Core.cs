@@ -149,6 +149,11 @@ internal static class Ed25519Impl
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10
     ];
 
+    /// <summary>
+    /// Derives a public key from the given seed using Ed25519 curve operations.
+    /// </summary>
+    /// <param name="seed">The 32-byte seed to derive the public key from.</param>
+    /// <returns>The 32-byte public key.</returns>
     public static byte[] DerivePublicKey(byte[] seed)
     {
         var h = Sha512(seed);
@@ -170,6 +175,12 @@ internal static class Ed25519Impl
         return pk;
     }
 
+    /// <summary>
+    /// Signs a message using the Ed25519 signature algorithm.
+    /// </summary>
+    /// <param name="m">The message to sign.</param>
+    /// <param name="sk">The 32-byte secret key (seed).</param>
+    /// <returns>The 64-byte signature.</returns>
     public static byte[] Sign(byte[] m, byte[] sk)
     {
         var h = Sha512(sk);
@@ -233,6 +244,13 @@ internal static class Ed25519Impl
         return sig;
     }
 
+    /// <summary>
+    /// Verifies an Ed25519 signature.
+    /// </summary>
+    /// <param name="m">The original message.</param>
+    /// <param name="sm">The 64-byte signature to verify.</param>
+    /// <param name="pk">The 32-byte public key.</param>
+    /// <returns>True if the signature is valid; otherwise, false.</returns>
     public static bool Verify(byte[] m, byte[] sm, byte[] pk)
     {
         var t = new byte[32];

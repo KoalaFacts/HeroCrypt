@@ -14,6 +14,9 @@ internal sealed class LockReleaser : IDisposable
         Monitor.Enter(this.target);
     }
 
+    /// <summary>
+    /// Releases the monitor lock acquired during construction.
+    /// </summary>
     public void Dispose()
     {
         Monitor.Exit(target);

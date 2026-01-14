@@ -69,11 +69,11 @@ jobs:
           # Commit the CHANGELOG update
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add CHANGELOG.md
+          # Use git add -A to catch any line-ending normalization changes from .gitattributes
+          git add -A
           git commit -m "chore: release v$VERSION [skip ci]"
 
-          # Pull any new changes before pushing
-          git pull --rebase origin main
+          # Push changes (we just checked out fresh, so should be up to date)
           git push
 
           echo "CHANGELOG.md committed and pushed"

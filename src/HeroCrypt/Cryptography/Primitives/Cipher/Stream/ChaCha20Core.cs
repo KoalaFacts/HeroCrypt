@@ -202,52 +202,7 @@ internal static class ChaCha20Core
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void ChaCha20Round(Span<uint> state)
     {
-        for (int i = 0; i < 10; i++)
-        {
-            // Odd round - column rounds
-            QuarterRound(state, 0, 4, 8, 12);
-            QuarterRound(state, 1, 5, 9, 13);
-            QuarterRound(state, 2, 6, 10, 14);
-            QuarterRound(state, 3, 7, 11, 15);
-
-            // Even round - diagonal rounds
-            QuarterRound(state, 0, 5, 10, 15);
-            QuarterRound(state, 1, 6, 11, 12);
-            QuarterRound(state, 2, 7, 8, 13);
-            QuarterRound(state, 3, 4, 9, 14);
-        }
-    }
-
-    /// <summary>
-    /// ChaCha20 quarter round function
-    /// </summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void QuarterRound(Span<uint> state, int a, int b, int c, int d)
-    {
-        state[a] += state[b];
-        state[d] ^= state[a];
-        state[d] = RotateLeft(state[d], 16);
-
-        state[c] += state[d];
-        state[b] ^= state[c];
-        state[b] = RotateLeft(state[b], 12);
-
-        state[a] += state[b];
-        state[d] ^= state[a];
-        state[d] = RotateLeft(state[d], 8);
-
-        state[c] += state[d];
-        state[b] ^= state[c];
-        state[b] = RotateLeft(state[b], 7);
-    }
-
-    /// <summary>
-    /// Left rotation with constant time guarantee
-    /// </summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static uint RotateLeft(uint value, int bits)
-    {
-        return (value << bits) | (value >> (32 - bits));
+        ChaChaUtils.DoubleRound(state);
     }
 
     /// <summary>

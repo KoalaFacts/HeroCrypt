@@ -3,26 +3,6 @@ using Primitives = HeroCrypt.Cryptography.Primitives;
 
 namespace HeroCrypt.Signatures;
 
-internal static class EccCurveSelector
-{
-    /// <summary>
-    /// Gets the appropriate NIST EC curve for the specified key size.
-    /// </summary>
-    /// <param name="curveSizeBits">The curve size in bits (256, 384, or 521).</param>
-    /// <returns>The corresponding <see cref="ECCurve"/>.</returns>
-    /// <exception cref="ArgumentException">Thrown when an unsupported curve size is specified.</exception>
-    public static ECCurve GetECCurve(int curveSizeBits)
-    {
-        return curveSizeBits switch
-        {
-            256 => ECCurve.NamedCurves.nistP256,
-            384 => ECCurve.NamedCurves.nistP384,
-            521 => ECCurve.NamedCurves.nistP521,
-            _ => throw new ArgumentException($"Unsupported curve size: {curveSizeBits}", nameof(curveSizeBits))
-        };
-    }
-}
-
 /// <summary>
 /// Provides digital signature and MAC operations for various algorithms
 /// </summary>
@@ -193,7 +173,7 @@ internal static class DigitalSignature
 #if !NETSTANDARD2_0
     private static byte[] SignEcdsa(byte[] data, byte[] privateKey, HashAlgorithmName hashAlgorithm, int curveSizeBits)
     {
-        using var ecdsa = ECDsa.Create(EccCurveSelector.GetECCurve(curveSizeBits));
+        using var ecdsa = ECDsa.Create(Primitives.Signature.Ecc.EccCurveSelector.GetECCurve(curveSizeBits));
         ecdsa.ImportECPrivateKey(privateKey, out _);
         return ecdsa.SignData(data, hashAlgorithm);
     }
@@ -202,7 +182,7 @@ internal static class DigitalSignature
     {
         try
         {
-            using var ecdsa = ECDsa.Create(EccCurveSelector.GetECCurve(curveSizeBits));
+            using var ecdsa = ECDsa.Create(Primitives.Signature.Ecc.EccCurveSelector.GetECCurve(curveSizeBits));
             ecdsa.ImportSubjectPublicKeyInfo(publicKey, out _);
             return ecdsa.VerifyData(data, signature, hashAlgorithm);
         }

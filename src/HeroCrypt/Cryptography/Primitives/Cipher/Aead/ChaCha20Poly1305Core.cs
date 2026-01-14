@@ -1,7 +1,8 @@
 using System.Runtime.CompilerServices;
 using HeroCrypt.Cryptography.Primitives.Cipher.Stream;
-using HeroCrypt.Cryptography.Primitives.Mac;
+#if NETSTANDARD2_0
 using HeroCrypt.Polyfills;
+#endif
 using HeroCrypt.Security;
 
 namespace HeroCrypt.Cryptography.Primitives.Cipher.Aead;
@@ -41,15 +42,15 @@ internal static class ChaCha20Poly1305Core
     {
         if (key.Length != KEY_SIZE)
         {
-            throw new ArgumentException($"Key must be {KEY_SIZE} bytes", nameof(key));
+            throw new ArgumentException($"Key must be {KEY_SIZE} bytes, but was {key.Length} bytes", nameof(key));
         }
         if (nonce.Length != NONCE_SIZE)
         {
-            throw new ArgumentException($"Nonce must be {NONCE_SIZE} bytes", nameof(nonce));
+            throw new ArgumentException($"Nonce must be {NONCE_SIZE} bytes, but was {nonce.Length} bytes", nameof(nonce));
         }
         if (ciphertext.Length < plaintext.Length + TAG_SIZE)
         {
-            throw new ArgumentException("Ciphertext buffer too small", nameof(ciphertext));
+            throw new ArgumentException($"Ciphertext buffer must be at least {plaintext.Length + TAG_SIZE} bytes, but was {ciphertext.Length} bytes", nameof(ciphertext));
         }
 
         var ciphertextWithoutTag = ciphertext[..plaintext.Length];
@@ -87,21 +88,21 @@ internal static class ChaCha20Poly1305Core
     {
         if (key.Length != KEY_SIZE)
         {
-            throw new ArgumentException($"Key must be {KEY_SIZE} bytes", nameof(key));
+            throw new ArgumentException($"Key must be {KEY_SIZE} bytes, but was {key.Length} bytes", nameof(key));
         }
         if (nonce.Length != NONCE_SIZE)
         {
-            throw new ArgumentException($"Nonce must be {NONCE_SIZE} bytes", nameof(nonce));
+            throw new ArgumentException($"Nonce must be {NONCE_SIZE} bytes, but was {nonce.Length} bytes", nameof(nonce));
         }
         if (ciphertext.Length < TAG_SIZE)
         {
-            throw new ArgumentException("Ciphertext too short", nameof(ciphertext));
+            throw new ArgumentException($"Ciphertext must be at least {TAG_SIZE} bytes, but was {ciphertext.Length} bytes", nameof(ciphertext));
         }
 
         var ciphertextLength = ciphertext.Length - TAG_SIZE;
         if (plaintext.Length < ciphertextLength)
         {
-            throw new ArgumentException("Plaintext buffer too small", nameof(plaintext));
+            throw new ArgumentException($"Plaintext buffer must be at least {ciphertextLength} bytes, but was {plaintext.Length} bytes", nameof(plaintext));
         }
 
         var ciphertextWithoutTag = ciphertext[..ciphertextLength];
@@ -148,59 +149,7 @@ internal static class ChaCha20Poly1305Core
     private static void ComputeTag(Span<byte> tag, ReadOnlySpan<byte> associatedData,
         ReadOnlySpan<byte> ciphertext, ReadOnlySpan<byte> poly1305Key)
     {
-        // Calculate lengths
-        var aadLength = associatedData.Length;
-        var ciphertextLength = ciphertext.Length;
-
-        // Calculate padding
-        var aadPadding = (16 - (aadLength % 16)) % 16;
-        var ciphertextPadding = (16 - (ciphertextLength % 16)) % 16;
-
-        // Total message length for Poly1305
-        var totalLength = aadLength + aadPadding + ciphertextLength + ciphertextPadding + 16;
-
-        // Build message for Poly1305
-        Span<byte> message = totalLength <= 1024 ? stackalloc byte[totalLength] : new byte[totalLength];
-        var offset = 0;
-
-        // Copy associated data
-        if (aadLength > 0)
-        {
-            associatedData.CopyTo(message.Slice(offset, aadLength));
-            offset += aadLength;
-        }
-
-        // Add AAD padding
-        if (aadPadding > 0)
-        {
-            message.Slice(offset, aadPadding).Clear();
-            offset += aadPadding;
-        }
-
-        // Copy ciphertext
-        if (ciphertextLength > 0)
-        {
-            ciphertext.CopyTo(message.Slice(offset, ciphertextLength));
-            offset += ciphertextLength;
-        }
-
-        // Add ciphertext padding
-        if (ciphertextPadding > 0)
-        {
-            message.Slice(offset, ciphertextPadding).Clear();
-            offset += ciphertextPadding;
-        }
-
-        // Add lengths in little-endian format
-        var lengthBytes = message.Slice(offset, 16);
-        BinaryHelpers.WriteUInt64LittleEndian(lengthBytes[..8], (ulong)aadLength);
-        BinaryHelpers.WriteUInt64LittleEndian(lengthBytes.Slice(8, 8), (ulong)ciphertextLength);
-
-        // Compute Poly1305 MAC
-        Poly1305Core.ComputeMac(tag, message, poly1305Key);
-
-        // Clear message to prevent sensitive data from remaining in memory
-        SecureMemoryOperations.SecureClear(message);
+        Poly1305TagComputation.ComputeTag(tag, associatedData, ciphertext, poly1305Key);
     }
 
     /// <summary>
@@ -213,7 +162,7 @@ internal static class ChaCha20Poly1305Core
     {
         if (poly1305Key.Length != 32)
         {
-            throw new ArgumentException("Poly1305 key must be 32 bytes", nameof(poly1305Key));
+            throw new ArgumentException($"Poly1305 key must be 32 bytes, but was {poly1305Key.Length} bytes", nameof(poly1305Key));
         }
 
         Span<byte> zeroBlock = stackalloc byte[32];
@@ -230,11 +179,11 @@ internal static class ChaCha20Poly1305Core
     {
         if (key.Length != KEY_SIZE)
         {
-            throw new ArgumentException($"Key must be {KEY_SIZE} bytes", nameof(key));
+            throw new ArgumentException($"Key must be {KEY_SIZE} bytes, but was {key.Length} bytes", nameof(key));
         }
         if (nonce.Length != NONCE_SIZE)
         {
-            throw new ArgumentException($"Nonce must be {NONCE_SIZE} bytes", nameof(nonce));
+            throw new ArgumentException($"Nonce must be {NONCE_SIZE} bytes, but was {nonce.Length} bytes", nameof(nonce));
         }
     }
 

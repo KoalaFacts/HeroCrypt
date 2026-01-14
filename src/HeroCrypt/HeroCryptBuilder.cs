@@ -22,7 +22,7 @@ namespace HeroCrypt;
 /// // Hashing
 /// var hash = HeroCryptBuilder.Hash()
 ///     .WithAlgorithm(HashAlgorithm.Sha256)
-///     .Compute(data);
+///     .Build(data);
 ///
 /// // Encryption
 /// var result = HeroCryptBuilder.Encrypt()
@@ -112,9 +112,9 @@ public class HashBuilder
     }
 
     /// <summary>
-    /// Computes the hash
+    /// Computes the hash and returns the result
     /// </summary>
-    public byte[] Compute(byte[] data)
+    public byte[] Build(byte[] data)
     {
         InputValidator.ValidateByteArray(data, nameof(data));
 

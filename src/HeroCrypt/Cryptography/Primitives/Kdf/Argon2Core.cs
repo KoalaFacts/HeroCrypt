@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using HeroCrypt.Cryptography.Primitives.Hash;
 using HeroCrypt.Polyfills;
+using HeroCrypt.Security;
 
 namespace HeroCrypt.Cryptography.Primitives.Kdf;
 
@@ -505,13 +506,13 @@ public static class Argon2Core
     private static void GB(ulong[] v, int a, int b, int c, int d)
     {
         v[a] = v[a] + v[b] + 2 * Mul(v[a], v[b]);
-        v[d] = RotateRight(v[d] ^ v[a], 32);
+        v[d] = BitOperations.RotateRight(v[d] ^ v[a], 32);
         v[c] = v[c] + v[d] + 2 * Mul(v[c], v[d]);
-        v[b] = RotateRight(v[b] ^ v[c], 24);
+        v[b] = BitOperations.RotateRight(v[b] ^ v[c], 24);
         v[a] = v[a] + v[b] + 2 * Mul(v[a], v[b]);
-        v[d] = RotateRight(v[d] ^ v[a], 16);
+        v[d] = BitOperations.RotateRight(v[d] ^ v[a], 16);
         v[c] = v[c] + v[d] + 2 * Mul(v[c], v[d]);
-        v[b] = RotateRight(v[b] ^ v[c], 63);
+        v[b] = BitOperations.RotateRight(v[b] ^ v[c], 63);
     }
 
     /// <summary>
@@ -521,14 +522,6 @@ public static class Argon2Core
     private static ulong Mul(ulong x, ulong y)
     {
         return (x & 0xFFFFFFFFUL) * (y & 0xFFFFFFFFUL);
-    }
-
-
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static ulong RotateRight(ulong value, int bits)
-    {
-        return (value >> bits) | (value << (64 - bits));
     }
 
     /// <summary>

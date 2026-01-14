@@ -89,7 +89,7 @@ public static class InputValidator
         if (Array.IndexOf(CommonRsaKeySizes, keySizeBits) < 0)
         {
             // Allow other sizes but warn if they're not common
-            if (!IsPowerOfTwo(keySizeBits) && keySizeBits % 1024 != 0)
+            if (!BitOperations.IsPowerOfTwo(keySizeBits) && keySizeBits % 1024 != 0)
             {
                 throw new ArgumentException($"RSA key size {keySizeBits} is not a standard size. Use 2048, 3072, 4096, 8192, or 16384", parameterName);
             }
@@ -392,13 +392,4 @@ public static class InputValidator
         }
     }
 
-    /// <summary>
-    /// Checks if a number is a power of two
-    /// </summary>
-    /// <param name="value">Value to check</param>
-    /// <returns>True if value is a power of two</returns>
-    private static bool IsPowerOfTwo(int value)
-    {
-        return value > 0 && (value & (value - 1)) == 0;
-    }
 }

@@ -383,18 +383,12 @@ public static class Blake2bCore
     private static void G(ulong[] v, int a, int b, int c, int d, ulong x, ulong y)
     {
         v[a] = v[a] + v[b] + x;
-        v[d] = RotateRight(v[d] ^ v[a], 32);
+        v[d] = BitOperations.RotateRight(v[d] ^ v[a], 32);
         v[c] = v[c] + v[d];
-        v[b] = RotateRight(v[b] ^ v[c], 24);
+        v[b] = BitOperations.RotateRight(v[b] ^ v[c], 24);
         v[a] = v[a] + v[b] + y;
-        v[d] = RotateRight(v[d] ^ v[a], 16);
+        v[d] = BitOperations.RotateRight(v[d] ^ v[a], 16);
         v[c] = v[c] + v[d];
-        v[b] = RotateRight(v[b] ^ v[c], 63);
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static ulong RotateRight(ulong value, int bits)
-    {
-        return (value >> bits) | (value << (64 - bits));
+        v[b] = BitOperations.RotateRight(v[b] ^ v[c], 63);
     }
 }

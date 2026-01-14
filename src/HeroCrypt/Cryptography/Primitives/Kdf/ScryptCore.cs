@@ -132,7 +132,7 @@ internal static class ScryptCore
         // Note: Allow empty passwords and salts for RFC test vectors
         // Note: Allow low N values for test vectors and compatibility, but production should use N >= 16384
 
-        if (n <= 0 || !IsPowerOfTwo(n))
+        if (n <= 0 || !BitOperations.IsPowerOfTwo(n))
         {
             throw new ArgumentException("N must be a power of 2 greater than 0", nameof(n));
         }
@@ -418,18 +418,10 @@ internal static class ScryptCore
     /// </summary>
     private static void QuarterRound(Span<uint> x, int a, int b, int c, int d)
     {
-        x[b] ^= RotateLeft(x[a] + x[d], 7);
-        x[c] ^= RotateLeft(x[b] + x[a], 9);
-        x[d] ^= RotateLeft(x[c] + x[b], 13);
-        x[a] ^= RotateLeft(x[d] + x[c], 18);
-    }
-
-    /// <summary>
-    /// Left rotation
-    /// </summary>
-    private static uint RotateLeft(uint value, int bits)
-    {
-        return (value << bits) | (value >> (32 - bits));
+        x[b] ^= BitOperations.RotateLeft(x[a] + x[d], 7);
+        x[c] ^= BitOperations.RotateLeft(x[b] + x[a], 9);
+        x[d] ^= BitOperations.RotateLeft(x[c] + x[b], 13);
+        x[a] ^= BitOperations.RotateLeft(x[d] + x[c], 18);
     }
 
     /// <summary>
@@ -457,15 +449,6 @@ internal static class ScryptCore
         }
     }
 
-    /// <summary>
-    /// Checks if a number is a power of 2
-    /// </summary>
-    /// <param name="n">Number to check</param>
-    /// <returns>True if power of 2</returns>
-    private static bool IsPowerOfTwo(int n)
-    {
-        return n > 0 && (n & (n - 1)) == 0;
-    }
 }
 
 /// <summary>

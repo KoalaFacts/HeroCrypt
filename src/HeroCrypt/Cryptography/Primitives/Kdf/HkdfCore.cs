@@ -79,7 +79,7 @@ internal static class HkdfCore
         finally
         {
             // Clear sensitive key material
-            Array.Clear(ikmArray, 0, ikmArray.Length);
+            SecureMemoryOperations.SecureClear(ikmArray);
 
             if (salt.IsEmpty)
             {
@@ -87,7 +87,7 @@ internal static class HkdfCore
             }
             else
             {
-                Array.Clear(actualSalt, 0, actualSalt.Length);
+                SecureMemoryOperations.SecureClear(actualSalt);
             }
         }
     }
@@ -157,10 +157,10 @@ internal static class HkdfCore
         finally
         {
             // Clear sensitive key material
-            Array.Clear(prkArray, 0, prkArray.Length);
+            SecureMemoryOperations.SecureClear(prkArray);
             if (infoArray != null)
             {
-                Array.Clear(infoArray, 0, infoArray.Length);
+                SecureMemoryOperations.SecureClear(infoArray);
             }
             SecureMemoryOperations.SecureClear(t);
         }

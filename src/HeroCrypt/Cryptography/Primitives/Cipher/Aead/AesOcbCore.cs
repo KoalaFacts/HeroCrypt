@@ -160,9 +160,9 @@ internal static class AesOcbCore
             SecureMemoryOperations.SecureClear(l_dollar);
             SecureMemoryOperations.SecureClear(offset);
             SecureMemoryOperations.SecureClear(checksum);
-            Array.Clear(inputBuffer, 0, inputBuffer.Length);
-            Array.Clear(outputBuffer, 0, outputBuffer.Length);
-            Array.Clear(keyArray, 0, keyArray.Length);
+            SecureMemoryOperations.SecureClear(inputBuffer);
+            SecureMemoryOperations.SecureClear(outputBuffer);
+            SecureMemoryOperations.SecureClear(keyArray);
         }
     }
 
@@ -308,9 +308,9 @@ internal static class AesOcbCore
             SecureMemoryOperations.SecureClear(l_dollar);
             SecureMemoryOperations.SecureClear(offset);
             SecureMemoryOperations.SecureClear(checksum);
-            Array.Clear(inputBuffer, 0, inputBuffer.Length);
-            Array.Clear(outputBuffer, 0, outputBuffer.Length);
-            Array.Clear(keyArray, 0, keyArray.Length);
+            SecureMemoryOperations.SecureClear(inputBuffer);
+            SecureMemoryOperations.SecureClear(outputBuffer);
+            SecureMemoryOperations.SecureClear(keyArray);
         }
     }
 

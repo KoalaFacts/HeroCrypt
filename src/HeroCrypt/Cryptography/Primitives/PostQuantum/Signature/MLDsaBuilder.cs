@@ -1,6 +1,7 @@
 #if NET10_0_OR_GREATER
 using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography;
+using HeroCrypt.Security;
 
 #pragma warning disable SYSLIB5006 // ML-DSA APIs are experimental in .NET 10 preview
 namespace HeroCrypt.Cryptography.Primitives.PostQuantum.Signature;
@@ -278,13 +279,13 @@ public class MLDsaBuilder : IDisposable
             // Clear sensitive data
             if (data != null)
             {
-                Array.Clear(data, 0, data.Length);
+                SecureMemoryOperations.SecureClear(data);
                 data = null;
             }
 
             if (context != null)
             {
-                Array.Clear(context, 0, context.Length);
+                SecureMemoryOperations.SecureClear(context);
                 context = null;
             }
 

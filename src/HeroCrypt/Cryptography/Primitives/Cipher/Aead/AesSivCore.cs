@@ -198,7 +198,7 @@ internal static class AesSivCore
             }
             finally
             {
-                Array.Clear(combined, 0, combinedLength);
+                SecureMemoryOperations.SecureClear(combined.AsSpan(0, combinedLength));
                 ArrayPool<byte>.Shared.Return(combined);
             }
         }
@@ -277,9 +277,9 @@ internal static class AesSivCore
         finally
         {
             // Clear sensitive data
-            Array.Clear(keyArray, 0, keyArray.Length);
-            Array.Clear(counterArray, 0, counterArray.Length);
-            Array.Clear(keystreamArray, 0, keystreamArray.Length);
+            SecureMemoryOperations.SecureClear(keyArray);
+            SecureMemoryOperations.SecureClear(counterArray);
+            SecureMemoryOperations.SecureClear(keystreamArray);
         }
     }
 

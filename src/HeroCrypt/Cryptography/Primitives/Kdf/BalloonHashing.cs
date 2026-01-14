@@ -136,13 +136,13 @@ public static class BalloonHashing
             salt.CopyTo(result, 0);
             hash.CopyTo(result, salt.Length);
 
-            Array.Clear(hash, 0, hash.Length);
+            SecureMemoryOperations.SecureClear(hash);
             return result;
         }
         finally
         {
-            Array.Clear(passwordBytes, 0, passwordBytes.Length);
-            Array.Clear(salt, 0, salt.Length);
+            SecureMemoryOperations.SecureClear(passwordBytes);
+            SecureMemoryOperations.SecureClear(salt);
         }
     }
 
@@ -175,12 +175,12 @@ public static class BalloonHashing
 
             var result = SecureMemoryOperations.ConstantTimeEquals(computedHash, expectedHash);
 
-            Array.Clear(computedHash, 0, computedHash.Length);
+            SecureMemoryOperations.SecureClear(computedHash);
             return result;
         }
         finally
         {
-            Array.Clear(passwordBytes, 0, passwordBytes.Length);
+            SecureMemoryOperations.SecureClear(passwordBytes);
         }
     }
 
@@ -238,7 +238,7 @@ public static class BalloonHashing
                 buffer[m].CopyTo(input[(8 + buffer[prev].Length)..]);
 
                 var newValue = ComputeHash(input, algo);
-                Array.Clear(buffer[m], 0, buffer[m].Length);
+                SecureMemoryOperations.SecureClear(buffer[m]);
                 buffer[m] = newValue;
 
                 // Compute other = to_int(buffer[m]) mod space_cost
@@ -250,7 +250,7 @@ public static class BalloonHashing
                 buffer[other].CopyTo(input[(8 + buffer[m].Length)..]);
 
                 newValue = ComputeHash(input, algo);
-                Array.Clear(buffer[m], 0, buffer[m].Length);
+                SecureMemoryOperations.SecureClear(buffer[m]);
                 buffer[m] = newValue;
             }
         }
@@ -288,12 +288,12 @@ public static class BalloonHashing
 
             if (pos < outputLength)
             {
-                Array.Clear(lastBlock, 0, lastBlock.Length);
+                SecureMemoryOperations.SecureClear(lastBlock);
                 lastBlock = chunk;
             }
             else
             {
-                Array.Clear(chunk, 0, chunk.Length);
+                SecureMemoryOperations.SecureClear(chunk);
             }
         }
 

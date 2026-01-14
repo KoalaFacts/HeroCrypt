@@ -130,7 +130,7 @@ internal static class AesCcmCore
         }
         finally
         {
-            Array.Clear(keyArray, 0, keyArray.Length);
+            SecureMemoryOperations.SecureClear(keyArray);
         }
     }
 
@@ -209,7 +209,7 @@ internal static class AesCcmCore
         }
         finally
         {
-            Array.Clear(keyArray, 0, keyArray.Length);
+            SecureMemoryOperations.SecureClear(keyArray);
         }
     }
 

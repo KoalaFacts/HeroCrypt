@@ -65,7 +65,7 @@ internal static class AesCmacCore
         }
         finally
         {
-            Array.Clear(keyArray, 0, keyArray.Length);
+            SecureMemoryOperations.SecureClear(keyArray);
         }
     }
 

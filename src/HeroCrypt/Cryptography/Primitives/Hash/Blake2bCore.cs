@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using HeroCrypt.Polyfills;
+using HeroCrypt.Security;
 
 namespace HeroCrypt.Cryptography.Primitives.Hash;
 
@@ -306,7 +307,7 @@ public static class Blake2bCore
                 bytesCompressed += 128;
                 Compress(h, buffer, bytesCompressed, false);
                 bufferLength = 0;
-                Array.Clear(buffer, 0, 128);
+                SecureMemoryOperations.SecureClear(buffer);
             }
             buffer[bufferLength++] = input[i];
         }

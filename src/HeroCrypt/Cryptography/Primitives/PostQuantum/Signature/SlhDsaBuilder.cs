@@ -1,6 +1,7 @@
 #if NET10_0_OR_GREATER
 #pragma warning disable SYSLIB5006 // SLH-DSA wrapper uses experimental APIs in .NET 10 preview
 using System.Security.Cryptography;
+using HeroCrypt.Security;
 
 namespace HeroCrypt.Cryptography.Primitives.PostQuantum.Signature;
 
@@ -294,13 +295,13 @@ public class SlhDsaBuilder : IDisposable
             // Clear sensitive data
             if (data != null)
             {
-                Array.Clear(data, 0, data.Length);
+                SecureMemoryOperations.SecureClear(data);
                 data = null;
             }
 
             if (context != null)
             {
-                Array.Clear(context, 0, context.Length);
+                SecureMemoryOperations.SecureClear(context);
                 context = null;
             }
 

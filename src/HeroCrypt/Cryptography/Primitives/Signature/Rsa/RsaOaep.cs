@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using HeroCrypt.Security;
 
 namespace HeroCrypt.Cryptography.Primitives.Signature.Rsa;
 
@@ -21,54 +22,69 @@ internal static class RsaOaep
             throw new ArgumentException($"Message too long. Maximum length is {maxMessageLength} bytes.");
         }
 
-        // Hash the label (default is empty string)
-        byte[] lHash = hash.ComputeHash(label ?? []);
+        byte[]? db = null;
+        byte[]? seed = null;
+        byte[]? dbMask = null;
+        byte[]? seedMask = null;
 
-        // Create PS (padding string) of zeros
-        int psLength = modulusLength - message.Length - (2 * hLen) - 2;
-        byte[] ps = new byte[psLength];
-
-        // Construct DB = lHash || PS || 0x01 || M
-        byte[] db = new byte[modulusLength - hLen - 1];
-        Array.Copy(lHash, 0, db, 0, hLen);
-        // PS is already zeros
-        db[hLen + psLength] = 0x01;
-        Array.Copy(message, 0, db, hLen + psLength + 1, message.Length);
-
-        // Generate random seed
-        byte[] seed = new byte[hLen];
-        using (RandomNumberGenerator rng = RandomNumberGenerator.Create())
+        try
         {
-            rng.GetBytes(seed);
+            // Hash the label (default is empty string)
+            byte[] lHash = hash.ComputeHash(label ?? []);
+
+            // Create PS (padding string) of zeros
+            int psLength = modulusLength - message.Length - (2 * hLen) - 2;
+
+            // Construct DB = lHash || PS || 0x01 || M
+            db = new byte[modulusLength - hLen - 1];
+            Array.Copy(lHash, 0, db, 0, hLen);
+            // PS is already zeros
+            db[hLen + psLength] = 0x01;
+            Array.Copy(message, 0, db, hLen + psLength + 1, message.Length);
+
+            // Generate random seed
+            seed = new byte[hLen];
+            using (RandomNumberGenerator rng = RandomNumberGenerator.Create())
+            {
+                rng.GetBytes(seed);
+            }
+
+            // dbMask = MGF(seed, k - hLen - 1)
+            dbMask = Mgf1(seed, modulusLength - hLen - 1, hash);
+
+            // maskedDB = DB xor dbMask
+            byte[] maskedDb = new byte[db.Length];
+            for (int i = 0; i < db.Length; i++)
+            {
+                maskedDb[i] = (byte)(db[i] ^ dbMask[i]);
+            }
+
+            // seedMask = MGF(maskedDB, hLen)
+            seedMask = Mgf1(maskedDb, hLen, hash);
+
+            // maskedSeed = seed xor seedMask
+            byte[] maskedSeed = new byte[hLen];
+            for (int i = 0; i < hLen; i++)
+            {
+                maskedSeed[i] = (byte)(seed[i] ^ seedMask[i]);
+            }
+
+            // EM = 0x00 || maskedSeed || maskedDB
+            byte[] em = new byte[modulusLength];
+            em[0] = 0x00;
+            Array.Copy(maskedSeed, 0, em, 1, hLen);
+            Array.Copy(maskedDb, 0, em, hLen + 1, maskedDb.Length);
+
+            return em;
         }
-
-        // dbMask = MGF(seed, k - hLen - 1)
-        byte[] dbMask = Mgf1(seed, modulusLength - hLen - 1, hash);
-
-        // maskedDB = DB xor dbMask
-        byte[] maskedDb = new byte[db.Length];
-        for (int i = 0; i < db.Length; i++)
+        finally
         {
-            maskedDb[i] = (byte)(db[i] ^ dbMask[i]);
+            // Clear sensitive intermediate buffers
+            if (db != null) SecureMemoryOperations.SecureClear(db);
+            if (seed != null) SecureMemoryOperations.SecureClear(seed);
+            if (dbMask != null) SecureMemoryOperations.SecureClear(dbMask);
+            if (seedMask != null) SecureMemoryOperations.SecureClear(seedMask);
         }
-
-        // seedMask = MGF(maskedDB, hLen)
-        byte[] seedMask = Mgf1(maskedDb, hLen, hash);
-
-        // maskedSeed = seed xor seedMask
-        byte[] maskedSeed = new byte[hLen];
-        for (int i = 0; i < hLen; i++)
-        {
-            maskedSeed[i] = (byte)(seed[i] ^ seedMask[i]);
-        }
-
-        // EM = 0x00 || maskedSeed || maskedDB
-        byte[] em = new byte[modulusLength];
-        em[0] = 0x00;
-        Array.Copy(maskedSeed, 0, em, 1, hLen);
-        Array.Copy(maskedDb, 0, em, hLen + 1, maskedDb.Length);
-
-        return em;
     }
 
     /// <summary>
@@ -84,74 +100,105 @@ internal static class RsaOaep
             throw new ArgumentException("Invalid padded message length");
         }
 
-        if (paddedMessage[0] != 0x00)
+        byte[]? maskedSeed = null;
+        byte[]? maskedDb = null;
+        byte[]? seedMask = null;
+        byte[]? seed = null;
+        byte[]? dbMask = null;
+        byte[]? db = null;
+
+        try
         {
-            throw new CryptographicException("Decryption error");
-        }
+            // Accumulate errors in constant-time to prevent timing attacks
+            int errorFlags = 0;
 
-        // Extract maskedSeed and maskedDB
-        byte[] maskedSeed = new byte[hLen];
-        Array.Copy(paddedMessage, 1, maskedSeed, 0, hLen);
+            // Check first byte (should be 0x00)
+            errorFlags |= paddedMessage[0];
 
-        byte[] maskedDb = new byte[modulusLength - hLen - 1];
-        Array.Copy(paddedMessage, hLen + 1, maskedDb, 0, maskedDb.Length);
+            // Extract maskedSeed and maskedDB
+            maskedSeed = new byte[hLen];
+            Array.Copy(paddedMessage, 1, maskedSeed, 0, hLen);
 
-        // seedMask = MGF(maskedDB, hLen)
-        byte[] seedMask = Mgf1(maskedDb, hLen, hash);
+            maskedDb = new byte[modulusLength - hLen - 1];
+            Array.Copy(paddedMessage, hLen + 1, maskedDb, 0, maskedDb.Length);
 
-        // seed = maskedSeed xor seedMask
-        byte[] seed = new byte[hLen];
-        for (int i = 0; i < hLen; i++)
-        {
-            seed[i] = (byte)(maskedSeed[i] ^ seedMask[i]);
-        }
+            // seedMask = MGF(maskedDB, hLen)
+            seedMask = Mgf1(maskedDb, hLen, hash);
 
-        // dbMask = MGF(seed, k - hLen - 1)
-        byte[] dbMask = Mgf1(seed, modulusLength - hLen - 1, hash);
+            // seed = maskedSeed xor seedMask
+            seed = new byte[hLen];
+            for (int i = 0; i < hLen; i++)
+            {
+                seed[i] = (byte)(maskedSeed[i] ^ seedMask[i]);
+            }
 
-        // DB = maskedDB xor dbMask
-        byte[] db = new byte[maskedDb.Length];
-        for (int i = 0; i < maskedDb.Length; i++)
-        {
-            db[i] = (byte)(maskedDb[i] ^ dbMask[i]);
-        }
+            // dbMask = MGF(seed, k - hLen - 1)
+            dbMask = Mgf1(seed, modulusLength - hLen - 1, hash);
 
-        // Verify lHash
-        byte[] lHash = hash.ComputeHash(label ?? []);
-        for (int i = 0; i < hLen; i++)
-        {
-            if (db[i] != lHash[i])
+            // DB = maskedDB xor dbMask
+            db = new byte[maskedDb.Length];
+            for (int i = 0; i < maskedDb.Length; i++)
+            {
+                db[i] = (byte)(maskedDb[i] ^ dbMask[i]);
+            }
+
+            // Constant-time lHash verification
+            byte[] lHash = hash.ComputeHash(label ?? []);
+            if (!SecureMemoryOperations.ConstantTimeEquals(db.AsSpan(0, hLen), lHash))
+            {
+                errorFlags |= 1;
+            }
+
+            // Constant-time separator search
+            // We need to find 0x01 while ensuring PS is all zeros
+            int separatorIndex = -1;
+            int foundSeparator = 0;
+            int invalidPadding = 0;
+
+            for (int i = hLen; i < db.Length; i++)
+            {
+                // Check if this is the first 0x01 we've seen (and we haven't found one yet)
+                int isSeparator = ConstantTimeOperations.ConstantTimeEquals(db[i], 0x01) & (1 - foundSeparator);
+
+                // Update separator index only when we find the first 0x01
+                // Using constant-time conditional: separatorIndex = isSeparator ? i : separatorIndex
+                separatorIndex = (isSeparator * i) | ((1 - isSeparator) * separatorIndex);
+                foundSeparator |= isSeparator;
+
+                // Before finding separator, all bytes must be 0x00
+                // After finding separator, any byte is valid (it's the message)
+                int beforeSeparator = 1 - foundSeparator;
+                int isInvalidPs = beforeSeparator & (1 - ConstantTimeOperations.ConstantTimeEquals(db[i], 0x00)) & (1 - isSeparator);
+                invalidPadding |= isInvalidPs;
+            }
+
+            // Check for errors: no separator found, or invalid PS bytes
+            errorFlags |= (1 - foundSeparator);
+            errorFlags |= invalidPadding;
+
+            // Throw if any errors occurred (constant-time check accumulation, but single branch at the end)
+            if (errorFlags != 0)
             {
                 throw new CryptographicException("Decryption error");
             }
-        }
 
-        // Find the 0x01 separator
-        int separatorIndex = -1;
-        for (int i = hLen; i < db.Length; i++)
+            // Extract message
+            int messageLength = db.Length - separatorIndex - 1;
+            byte[] message = new byte[messageLength];
+            Array.Copy(db, separatorIndex + 1, message, 0, messageLength);
+
+            return message;
+        }
+        finally
         {
-            if (db[i] == 0x01)
-            {
-                separatorIndex = i;
-                break;
-            }
-            else if (db[i] != 0x00)
-            {
-                throw new CryptographicException("Decryption error");
-            }
+            // Clear sensitive intermediate buffers
+            if (maskedSeed != null) SecureMemoryOperations.SecureClear(maskedSeed);
+            if (maskedDb != null) SecureMemoryOperations.SecureClear(maskedDb);
+            if (seedMask != null) SecureMemoryOperations.SecureClear(seedMask);
+            if (seed != null) SecureMemoryOperations.SecureClear(seed);
+            if (dbMask != null) SecureMemoryOperations.SecureClear(dbMask);
+            if (db != null) SecureMemoryOperations.SecureClear(db);
         }
-
-        if (separatorIndex == -1)
-        {
-            throw new CryptographicException("Decryption error");
-        }
-
-        // Extract message
-        int messageLength = db.Length - separatorIndex - 1;
-        byte[] message = new byte[messageLength];
-        Array.Copy(db, separatorIndex + 1, message, 0, messageLength);
-
-        return message;
     }
 
     /// <summary>

@@ -2,6 +2,7 @@ using System.Buffers;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text;
+using HeroCrypt.Security;
 
 namespace HeroCrypt.Cryptography.Primitives.Signature.Rsa;
 
@@ -507,7 +508,7 @@ internal sealed class BigInteger : IComparable<BigInteger>
 
         try
         {
-            Array.Clear(result, 0, maxLength + 1);
+            SecureMemoryOperations.SecureClear(result.AsSpan(0, maxLength + 1));
             ulong carry = 0;
 
             for (int i = 0; i < maxLength; i++)
@@ -543,7 +544,7 @@ internal sealed class BigInteger : IComparable<BigInteger>
 
         try
         {
-            Array.Clear(result, 0, left.Length);
+            SecureMemoryOperations.SecureClear(result.AsSpan(0, left.Length));
             long borrow = 0;
 
             for (int i = 0; i < left.Length; i++)
@@ -588,7 +589,7 @@ internal sealed class BigInteger : IComparable<BigInteger>
 
         try
         {
-            Array.Clear(result, 0, left.Length + right.Length);
+            SecureMemoryOperations.SecureClear(result.AsSpan(0, left.Length + right.Length));
 
             for (int i = 0; i < left.Length; i++)
             {

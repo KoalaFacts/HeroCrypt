@@ -16,16 +16,16 @@ public static class DigitalSignaturesExample
         Console.WriteLine();
 
         // Example 1: RSA digital signatures
-        await RsaSignatureExample();
+        await RsaSignatureExampleAsync();
 
         // Example 2: ECDSA digital signatures
-        await EcdsaSignatureExample();
+        await EcdsaSignatureExampleAsync();
 
         // Example 3: Document signing workflow
-        await DocumentSigningWorkflow();
+        await DocumentSigningWorkflowAsync();
     }
 
-    private static async Task RsaSignatureExample()
+    private static async Task RsaSignatureExampleAsync()
     {
         Console.WriteLine("1. RSA Digital Signatures (PSS Padding)");
         Console.WriteLine("-".PadRight(60, '-'));
@@ -85,7 +85,7 @@ public static class DigitalSignaturesExample
         await Task.CompletedTask;
     }
 
-    private static async Task EcdsaSignatureExample()
+    private static async Task EcdsaSignatureExampleAsync()
     {
         Console.WriteLine("2. ECDSA Digital Signatures (P-256)");
         Console.WriteLine("-".PadRight(60, '-'));
@@ -132,7 +132,7 @@ public static class DigitalSignaturesExample
         await Task.CompletedTask;
     }
 
-    private static async Task DocumentSigningWorkflow()
+    private static async Task DocumentSigningWorkflowAsync()
     {
         Console.WriteLine("3. Document Signing Workflow");
         Console.WriteLine("-".PadRight(60, '-'));

@@ -1,6 +1,4 @@
-using System.Linq;
 using System.Security.Cryptography;
-using System.Text;
 using HeroCrypt.Cryptography.Protocols;
 using HeroCrypt.Cryptography.Protocols.KeyManagement;
 using HeroCrypt.Encryption;
@@ -396,7 +394,7 @@ public class SignatureBuilder
     {
         if (privateKey == null)
         {
-            throw new InvalidOperationException("Private key must be set using WithKey()");
+            throw new InvalidOperationException("Private key must be set using WithPrivateKey()");
         }
 
         InputValidator.ValidateByteArray(data, nameof(data));
@@ -523,6 +521,12 @@ public class VerificationBuilder
 /// </summary>
 public class KeyDerivationBuilder
 {
+    /// <summary>
+    /// Default Argon2 memory size in KB. 64 MB (65536 KB) is OWASP recommended
+    /// minimum for password hashing that provides resistance against GPU attacks.
+    /// </summary>
+    private const int DefaultArgon2MemorySizeKB = 65536;
+
     private byte[]? password;
     private byte[]? salt;
     private byte[]? ikm;
@@ -784,7 +788,7 @@ public class KeyDerivationBuilder
             password,
             salt,
             iterations,
-            65536, // memory size in KB
+            DefaultArgon2MemorySizeKB,
             parallelism,
             keyLength,
             Cryptography.Primitives.Kdf.Argon2Type.Argon2id,

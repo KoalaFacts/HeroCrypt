@@ -120,7 +120,8 @@ public static class SecureMemoryOperations
     }
 
     /// <summary>
-    /// Performs constant-time comparison of two byte arrays to prevent timing attacks
+    /// Performs constant-time comparison of two byte arrays to prevent timing attacks.
+    /// Uses CryptographicOperations.FixedTimeEquals (built-in on .NET 5+, polyfill on older frameworks).
     /// </summary>
     /// <param name="a">First array to compare</param>
     /// <param name="b">Second array to compare</param>
@@ -132,59 +133,20 @@ public static class SecureMemoryOperations
             return a == b;
         }
 
-        if (a.Length != b.Length)
-        {
-            return false;
-        }
-
-#if NET5_0_OR_GREATER
         return CryptographicOperations.FixedTimeEquals(a, b);
-#else
-        return ConstantTimeEqualsLegacy(a, b);
-#endif
     }
 
     /// <summary>
-    /// Performs constant-time comparison of two spans to prevent timing attacks
+    /// Performs constant-time comparison of two spans to prevent timing attacks.
+    /// Uses CryptographicOperations.FixedTimeEquals (built-in on .NET 5+, polyfill on older frameworks).
     /// </summary>
     /// <param name="a">First span to compare</param>
     /// <param name="b">Second span to compare</param>
     /// <returns>True if spans are equal, false otherwise</returns>
     public static bool ConstantTimeEquals(ReadOnlySpan<byte> a, ReadOnlySpan<byte> b)
     {
-        if (a.Length != b.Length)
-        {
-            return false;
-        }
-
-#if NET5_0_OR_GREATER
         return CryptographicOperations.FixedTimeEquals(a, b);
-#else
-        // Convert spans to arrays for legacy framework compatibility
-        return ConstantTimeEqualsLegacy(a.ToArray(), b.ToArray());
-#endif
     }
-
-#if !NET5_0_OR_GREATER
-    /// <summary>
-    /// Legacy implementation of constant-time comparison for older .NET frameworks
-    /// </summary>
-    private static bool ConstantTimeEqualsLegacy(byte[] a, byte[] b)
-    {
-        if (a.Length != b.Length)
-        {
-            return false;
-        }
-
-        var result = 0;
-        for (var i = 0; i < a.Length; i++)
-        {
-            result |= a[i] ^ b[i];
-        }
-
-        return result == 0;
-    }
-#endif
 
     /// <summary>
     /// Creates a secure copy of sensitive data with automatic cleanup

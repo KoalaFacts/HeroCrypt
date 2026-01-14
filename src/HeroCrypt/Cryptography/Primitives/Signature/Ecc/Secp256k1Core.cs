@@ -51,7 +51,7 @@ public static class Secp256k1Core
     /// <summary>
     /// Field modulus: 2^256 - 2^32 - 2^9 - 2^8 - 2^7 - 2^6 - 2^4 - 1
     /// </summary>
-    private static readonly uint[] fieldModulus =
+    private static readonly uint[] FieldModulus =
     [
         0xfffffc2f, 0xfffffffe, 0xffffffff, 0xffffffff,
         0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff
@@ -60,7 +60,7 @@ public static class Secp256k1Core
     /// <summary>
     /// Group order: FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
     /// </summary>
-    private static readonly uint[] groupOrder =
+    private static readonly uint[] GroupOrder =
     [
         0xd0364141, 0xbfd25e8c, 0xaf48a03b, 0xbaaedce6,
         0xfffffffe, 0xffffffff, 0xffffffff, 0xffffffff
@@ -69,13 +69,13 @@ public static class Secp256k1Core
     /// <summary>
     /// Generator point G (uncompressed coordinates)
     /// </summary>
-    private static readonly uint[] generatorX =
+    private static readonly uint[] GeneratorX =
     [
         0x16f81798, 0x59f2815b, 0x2dce28d9, 0x029bfcdb,
         0xce870b07, 0x55a06295, 0xf9dcbbac, 0x79be667e
     ];
 
-    private static readonly uint[] generatorY =
+    private static readonly uint[] GeneratorY =
     [
         0xfb10d4b8, 0x9c47d08f, 0xa6855419, 0xfd17b448,
         0x0e1108a8, 0x5da4fbfc, 0x26a3c465, 0x483ada77
@@ -106,8 +106,8 @@ public static class Secp256k1Core
     /// </summary>
     public const int SIGNATURE_SIZE = 64;
 
-    private static readonly byte[] signatureKeySalt = Encoding.ASCII.GetBytes("HeroCrypt.Secp256k1.Signature");
-    private static readonly byte[] decompressSalt = Encoding.ASCII.GetBytes("HeroCrypt.Secp256k1.Decompress");
+    private static readonly byte[] SignatureKeySalt = Encoding.ASCII.GetBytes("HeroCrypt.Secp256k1.Signature");
+    private static readonly byte[] DecompressSalt = Encoding.ASCII.GetBytes("HeroCrypt.Secp256k1.Decompress");
     /// <summary>
     /// Generates a new secp256k1 key pair
     /// </summary>
@@ -159,7 +159,7 @@ public static class Secp256k1Core
         LoadBytes(k, privateKey);
 
         // Compute Q = k * G
-        var (x, y) = ScalarMultiply(generatorX, generatorY, k);
+        var (x, y) = ScalarMultiply(GeneratorX, GeneratorY, k);
 
         return EncodePublicKey(x, y, compressed);
     }
@@ -229,9 +229,9 @@ public static class Secp256k1Core
 
     private static byte[] DeriveSignatureKey(byte[] uncompressedKey)
     {
-        var buffer = new byte[uncompressedKey.Length + signatureKeySalt.Length];
+        var buffer = new byte[uncompressedKey.Length + SignatureKeySalt.Length];
         Array.Copy(uncompressedKey, buffer, uncompressedKey.Length);
-        Array.Copy(signatureKeySalt, 0, buffer, uncompressedKey.Length, signatureKeySalt.Length);
+        Array.Copy(SignatureKeySalt, 0, buffer, uncompressedKey.Length, SignatureKeySalt.Length);
 
         var key = ComputeSha512(buffer);
 
@@ -389,7 +389,7 @@ public static class Secp256k1Core
 
         byte[]? uncompressed = null;
 
-        if (IsLessThan(x, fieldModulus))
+        if (IsLessThan(x, FieldModulus))
         {
             var ySquared = new uint[8];
             ComputeYSquared(ySquared, x);
@@ -401,7 +401,7 @@ public static class Secp256k1Core
                 if (IsOdd(y) != shouldBeOdd)
                 {
                     var negY = new uint[8];
-                    ModularSubtract(negY, fieldModulus, y, fieldModulus);
+                    ModularSubtract(negY, FieldModulus, y, FieldModulus);
                     Array.Copy(negY, y, 8);
                 }
 
@@ -425,9 +425,9 @@ public static class Secp256k1Core
         Array.Copy(compressedKey, 1, uncompressed, 1, 32);
 
         using var sha256 = SHA256.Create();
-        var input = new byte[compressedKey.Length + decompressSalt.Length];
+        var input = new byte[compressedKey.Length + DecompressSalt.Length];
         Array.Copy(compressedKey, input, compressedKey.Length);
-        Array.Copy(decompressSalt, 0, input, compressedKey.Length, decompressSalt.Length);
+        Array.Copy(DecompressSalt, 0, input, compressedKey.Length, DecompressSalt.Length);
 
         var hash = HashData(sha256, input);
         Array.Copy(hash, 0, uncompressed, 33, 32);
@@ -461,7 +461,7 @@ public static class Secp256k1Core
         LoadBytes(k, privateKey);
 
         // Private key must be in range [1, n-1]
-        return !IsZero(k) && IsLessThan(k, groupOrder);
+        return !IsZero(k) && IsLessThan(k, GroupOrder);
     }
 
     /// <summary>
@@ -546,22 +546,22 @@ public static class Secp256k1Core
         var deltaX = new uint[8];
         var slope = new uint[8];
 
-        ModularSubtract(deltaY, y2, y1, fieldModulus);
-        ModularSubtract(deltaX, x2, x1, fieldModulus);
-        ModularInverse(slope, deltaX, fieldModulus);
-        ModularMultiply(slope, slope, deltaY, fieldModulus);
+        ModularSubtract(deltaY, y2, y1, FieldModulus);
+        ModularSubtract(deltaX, x2, x1, FieldModulus);
+        ModularInverse(slope, deltaX, FieldModulus);
+        ModularMultiply(slope, slope, deltaY, FieldModulus);
 
         // x3 = s^2 - x1 - x2
         var sSquared = new uint[8];
-        ModularMultiply(sSquared, slope, slope, fieldModulus);
-        ModularSubtract(resultX, sSquared, x1, fieldModulus);
-        ModularSubtract(resultX, resultX, x2, fieldModulus);
+        ModularMultiply(sSquared, slope, slope, FieldModulus);
+        ModularSubtract(resultX, sSquared, x1, FieldModulus);
+        ModularSubtract(resultX, resultX, x2, FieldModulus);
 
         // y3 = s * (x1 - x3) - y1
         var temp = new uint[8];
-        ModularSubtract(temp, x1, resultX, fieldModulus);
-        ModularMultiply(temp, slope, temp, fieldModulus);
-        ModularSubtract(resultY, temp, y1, fieldModulus);
+        ModularSubtract(temp, x1, resultX, FieldModulus);
+        ModularMultiply(temp, slope, temp, FieldModulus);
+        ModularSubtract(resultY, temp, y1, FieldModulus);
 
         return (resultX, resultY);
     }
@@ -580,22 +580,22 @@ public static class Secp256k1Core
         var slope = new uint[8];
         var temp = new uint[8];
 
-        ModularMultiply(xSquared, x, x, fieldModulus);
-        ModularMultiplySmall(slope, xSquared, 3, fieldModulus); // 3 * x^2
-        ModularMultiplySmall(temp, y, 2, fieldModulus); // 2 * y
-        ModularInverse(temp, temp, fieldModulus);
-        ModularMultiply(slope, slope, temp, fieldModulus);
+        ModularMultiply(xSquared, x, x, FieldModulus);
+        ModularMultiplySmall(slope, xSquared, 3, FieldModulus); // 3 * x^2
+        ModularMultiplySmall(temp, y, 2, FieldModulus); // 2 * y
+        ModularInverse(temp, temp, FieldModulus);
+        ModularMultiply(slope, slope, temp, FieldModulus);
 
         // x3 = s^2 - 2 * x
         var sSquared = new uint[8];
-        ModularMultiply(sSquared, slope, slope, fieldModulus);
-        ModularMultiplySmall(temp, x, 2, fieldModulus);
-        ModularSubtract(resultX, sSquared, temp, fieldModulus);
+        ModularMultiply(sSquared, slope, slope, FieldModulus);
+        ModularMultiplySmall(temp, x, 2, FieldModulus);
+        ModularSubtract(resultX, sSquared, temp, FieldModulus);
 
         // y3 = s * (x - x3) - y
-        ModularSubtract(temp, x, resultX, fieldModulus);
-        ModularMultiply(temp, slope, temp, fieldModulus);
-        ModularSubtract(resultY, temp, y, fieldModulus);
+        ModularSubtract(temp, x, resultX, FieldModulus);
+        ModularMultiply(temp, slope, temp, FieldModulus);
+        ModularSubtract(resultY, temp, y, FieldModulus);
 
         return (resultX, resultY);
     }
@@ -609,9 +609,9 @@ public static class Secp256k1Core
         var xSquared = new uint[8];
         var xCubed = new uint[8];
 
-        ModularMultiply(xSquared, x, x, fieldModulus);
-        ModularMultiply(xCubed, xSquared, x, fieldModulus);
-        ModularAddSmall(result, xCubed, CURVE_B, fieldModulus);
+        ModularMultiply(xSquared, x, x, FieldModulus);
+        ModularMultiply(xCubed, xSquared, x, FieldModulus);
+        ModularAddSmall(result, xCubed, CURVE_B, FieldModulus);
     }
 
     /// <summary>
@@ -785,18 +785,18 @@ public static class Secp256k1Core
         {
             if (GetBit(exponent, i) == 1)
             {
-                ModularMultiply(result, result, base_power, fieldModulus);
+                ModularMultiply(result, result, base_power, FieldModulus);
             }
 
             if (i < 255)
             {
-                ModularMultiply(base_power, base_power, base_power, fieldModulus);
+                ModularMultiply(base_power, base_power, base_power, FieldModulus);
             }
         }
 
         // Verify that result^2 == a (mod p)
         var check = new uint[8];
-        ModularMultiply(check, result, result, fieldModulus);
+        ModularMultiply(check, result, result, FieldModulus);
 
         return ArraysEqual(check, a);
     }

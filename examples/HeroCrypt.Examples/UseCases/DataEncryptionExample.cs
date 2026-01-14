@@ -1,7 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using HeroCrypt;
 using HeroCrypt.Encryption;
 using KdfHashAlgorithmName = HeroCrypt.Cryptography.Protocols.KeyManagement.CryptographicHashName;
 
@@ -26,7 +25,7 @@ public static class DataEncryptionExample
         await EncryptFileAsync();
 
         // Example 3: Key derivation for encryption
-        await KeyDerivationExample();
+        await KeyDerivationExampleAsync();
     }
 
     private static async Task EncryptUserDataAsync()
@@ -152,7 +151,7 @@ public static class DataEncryptionExample
         await Task.CompletedTask;
     }
 
-    private static async Task KeyDerivationExample()
+    private static async Task KeyDerivationExampleAsync()
     {
         Console.WriteLine("3. Key Derivation for Encryption");
         Console.WriteLine("-".PadRight(60, '-'));

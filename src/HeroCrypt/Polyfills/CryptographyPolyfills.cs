@@ -67,21 +67,25 @@ namespace System.Security.Cryptography
     internal static class CryptographicOperations
     {
         /// <summary>
-        /// Constant-time equality comparison
+        /// Constant-time equality comparison that minimizes timing side-channels.
+        /// Always performs a comparison loop regardless of length mismatch.
         /// </summary>
         public static bool FixedTimeEquals(ReadOnlySpan<byte> left, ReadOnlySpan<byte> right)
         {
-            if (left.Length != right.Length)
-            {
-                return false;
-            }
+            // Include length difference in the result using constant-time comparison
+            var lengthDiff = left.Length ^ right.Length;
 
-            int result = 0;
-            for (int i = 0; i < left.Length; i++)
+            // Compare up to the shorter length
+            var minLength = left.Length < right.Length ? left.Length : right.Length;
+
+            var result = 0;
+            for (var i = 0; i < minLength; i++)
             {
                 result |= left[i] ^ right[i];
             }
-            return result == 0;
+
+            // Combine content comparison with length comparison
+            return (result | lengthDiff) == 0;
         }
     }
 
@@ -90,7 +94,7 @@ namespace System.Security.Cryptography
     /// </summary>
     internal static class RandomNumberGeneratorExtensions
     {
-        private static readonly RandomNumberGenerator globalRng = RandomNumberGenerator.Create();
+        private static readonly RandomNumberGenerator GlobalRng = RandomNumberGenerator.Create();
 
         /// <summary>
         /// Static Fill method like .NET Core 3.0+
@@ -98,7 +102,7 @@ namespace System.Security.Cryptography
         public static void Fill(Span<byte> data)
         {
             var array = new byte[data.Length];
-            globalRng.GetBytes(array);
+            GlobalRng.GetBytes(array);
             array.AsSpan().CopyTo(data);
         }
 

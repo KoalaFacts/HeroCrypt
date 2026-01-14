@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using HeroCrypt.Polyfills;
 using HeroCrypt.Security;
 
 namespace HeroCrypt.Cryptography.Primitives.Cipher.Stream;
@@ -13,7 +14,7 @@ public static class XSalsa20Core
     /// <summary>
     /// Salsa20 constants "expand 32-byte k"
     /// </summary>
-    private static readonly uint[] constants = [0x61707865, 0x3320646e, 0x79622d32, 0x6b206574];
+    private static readonly uint[] Constants = [0x61707865, 0x3320646e, 0x79622d32, 0x6b206574];
 
     /// <summary>
     /// Key size in bytes
@@ -142,10 +143,10 @@ public static class XSalsa20Core
         Span<uint> state = stackalloc uint[16];
 
         // constants
-        state[0] = constants[0];
-        state[1] = constants[1];
-        state[2] = constants[2];
-        state[3] = constants[3];
+        state[0] = Constants[0];
+        state[1] = Constants[1];
+        state[2] = Constants[2];
+        state[3] = Constants[3];
 
 #if !NET5_0_OR_GREATER
         // Create reusable arrays for .NET Standard 2.0 (avoid memory leaks in loops)
@@ -157,7 +158,7 @@ public static class XSalsa20Core
         for (var i = 0; i < 8; i++)
         {
 #if NET5_0_OR_GREATER
-            state[4 + i] = System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(key.Slice(i * 4, 4));
+            state[4 + i] = BinaryHelpers.ReadUInt32LittleEndian(key.Slice(i * 4, 4));
 #else
             key.Slice(i * 4, 4).CopyTo(keySlice);
             state[4 + i] = BitConverter.ToUInt32(keySlice, 0);
@@ -168,7 +169,7 @@ public static class XSalsa20Core
         for (var i = 0; i < 4; i++)
         {
 #if NET5_0_OR_GREATER
-            state[12 + i] = System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(nonce.Slice(i * 4, 4));
+            state[12 + i] = BinaryHelpers.ReadUInt32LittleEndian(nonce.Slice(i * 4, 4));
 #else
             nonce.Slice(i * 4, 4).CopyTo(nonceSlice);
             state[12 + i] = BitConverter.ToUInt32(nonceSlice, 0);
@@ -192,14 +193,14 @@ public static class XSalsa20Core
         }
 
         // Output only state[0], state[5], state[10], state[15], state[6], state[7], state[8], state[9]
-        WriteUInt32LittleEndian(output[..4], state[0]);
-        WriteUInt32LittleEndian(output.Slice(4, 4), state[5]);
-        WriteUInt32LittleEndian(output.Slice(8, 4), state[10]);
-        WriteUInt32LittleEndian(output.Slice(12, 4), state[15]);
-        WriteUInt32LittleEndian(output.Slice(16, 4), state[6]);
-        WriteUInt32LittleEndian(output.Slice(20, 4), state[7]);
-        WriteUInt32LittleEndian(output.Slice(24, 4), state[8]);
-        WriteUInt32LittleEndian(output.Slice(28, 4), state[9]);
+        BinaryHelpers.WriteUInt32LittleEndian(output[..4], state[0]);
+        BinaryHelpers.WriteUInt32LittleEndian(output.Slice(4, 4), state[5]);
+        BinaryHelpers.WriteUInt32LittleEndian(output.Slice(8, 4), state[10]);
+        BinaryHelpers.WriteUInt32LittleEndian(output.Slice(12, 4), state[15]);
+        BinaryHelpers.WriteUInt32LittleEndian(output.Slice(16, 4), state[6]);
+        BinaryHelpers.WriteUInt32LittleEndian(output.Slice(20, 4), state[7]);
+        BinaryHelpers.WriteUInt32LittleEndian(output.Slice(24, 4), state[8]);
+        BinaryHelpers.WriteUInt32LittleEndian(output.Slice(28, 4), state[9]);
 
         // Clear state
         SecureMemoryOperations.SecureClear(state);
@@ -212,10 +213,10 @@ public static class XSalsa20Core
     private static void InitializeSalsa20State(Span<uint> state, ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce, uint counter)
     {
         // constants
-        state[0] = constants[0];
-        state[1] = constants[1];
-        state[2] = constants[2];
-        state[3] = constants[3];
+        state[0] = Constants[0];
+        state[1] = Constants[1];
+        state[2] = Constants[2];
+        state[3] = Constants[3];
 
 #if !NET5_0_OR_GREATER
         // Create reusable arrays for .NET Standard 2.0 (avoid memory leaks in loops)
@@ -227,7 +228,7 @@ public static class XSalsa20Core
         for (var i = 0; i < 4; i++)
         {
 #if NET5_0_OR_GREATER
-            state[4 + i] = System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(key.Slice(i * 4, 4));
+            state[4 + i] = BinaryHelpers.ReadUInt32LittleEndian(key.Slice(i * 4, 4));
 #else
             key.Slice(i * 4, 4).CopyTo(keySlice);
             state[4 + i] = BitConverter.ToUInt32(keySlice, 0);
@@ -239,8 +240,8 @@ public static class XSalsa20Core
         state[9] = 0; // High part of counter for 64-bit counter
 
 #if NET5_0_OR_GREATER
-        state[10] = System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(nonce[..4]);
-        state[11] = System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(nonce.Slice(4, 4));
+        state[10] = BinaryHelpers.ReadUInt32LittleEndian(nonce[..4]);
+        state[11] = BinaryHelpers.ReadUInt32LittleEndian(nonce.Slice(4, 4));
 #else
         nonce[..4].CopyTo(nonceSlice);
         state[10] = BitConverter.ToUInt32(nonceSlice, 0);
@@ -252,7 +253,7 @@ public static class XSalsa20Core
         for (var i = 0; i < 4; i++)
         {
 #if NET5_0_OR_GREATER
-            state[12 + i] = System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(key.Slice((i + 4) * 4, 4));
+            state[12 + i] = BinaryHelpers.ReadUInt32LittleEndian(key.Slice((i + 4) * 4, 4));
 #else
             key.Slice((i + 4) * 4, 4).CopyTo(keySlice);
             state[12 + i] = BitConverter.ToUInt32(keySlice, 0);
@@ -295,7 +296,7 @@ public static class XSalsa20Core
         // Convert to bytes (little-endian)
         for (var i = 0; i < 16; i++)
         {
-            WriteUInt32LittleEndian(keystream.Slice(i * 4, 4), workingState[i]);
+            BinaryHelpers.WriteUInt32LittleEndian(keystream.Slice(i * 4, 4), workingState[i]);
         }
 
         // Clear working state
@@ -321,18 +322,6 @@ public static class XSalsa20Core
     private static uint RotateLeft(uint value, int bits)
     {
         return (value << bits) | (value >> (32 - bits));
-    }
-
-    /// <summary>
-    /// Writes a uint32 value in little-endian format
-    /// </summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void WriteUInt32LittleEndian(Span<byte> buffer, uint value)
-    {
-        buffer[0] = (byte)value;
-        buffer[1] = (byte)(value >> 8);
-        buffer[2] = (byte)(value >> 16);
-        buffer[3] = (byte)(value >> 24);
     }
 
     /// <summary>

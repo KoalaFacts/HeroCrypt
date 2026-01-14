@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using HeroCrypt.Polyfills;
 using HeroCrypt.Security;
 
 namespace HeroCrypt.Cryptography.Primitives.Cipher.Stream;
@@ -118,13 +119,13 @@ internal static class Hc128Core
             // Expand key into first 4 words (128 bits)
             for (var i = 0; i < 4; i++)
             {
-                w[i] = ReadUInt32LittleEndian(key.Slice(i * 4, 4));
+                w[i] = BinaryHelpers.ReadUInt32LittleEndian(key.Slice(i * 4, 4));
             }
 
             // Expand IV into next 4 words (128 bits)
             for (var i = 0; i < 4; i++)
             {
-                w[i + 4] = ReadUInt32LittleEndian(iv.Slice(i * 4, 4));
+                w[i + 4] = BinaryHelpers.ReadUInt32LittleEndian(iv.Slice(i * 4, 4));
             }
 
             // Fill rest with copies of key and IV
@@ -262,15 +263,6 @@ internal static class Hc128Core
     private static uint RotateLeft(uint value, int bits)
     {
         return (value << bits) | (value >> (32 - bits));
-    }
-
-    /// <summary>
-    /// Reads a uint32 value in little-endian format
-    /// </summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static uint ReadUInt32LittleEndian(ReadOnlySpan<byte> buffer)
-    {
-        return (uint)(buffer[0] | (buffer[1] << 8) | (buffer[2] << 16) | (buffer[3] << 24));
     }
 
     /// <summary>

@@ -1,5 +1,6 @@
 using System.Buffers;
 using System.Security.Cryptography;
+using HeroCrypt.Polyfills;
 using HeroCrypt.Security;
 
 namespace HeroCrypt.Cryptography.Primitives.Kdf;
@@ -68,7 +69,7 @@ public static class BalloonHashing
         ValidateParameters(spaceCost, timeCost, outputLength);
 
         var algo = hashAlgorithm ?? HashAlgorithmName.SHA256;
-        var hashLength = GetHashLength(algo);
+        var hashLength = HashAlgorithmHelper.GetHashLength(algo);
 
         // Allocate buffer (space_cost blocks of hash_length bytes)
         var buffer = new byte[spaceCost][];
@@ -350,26 +351,6 @@ public static class BalloonHashing
 #else
         return SHA384.HashData(input);
 #endif
-    }
-
-    /// <summary>
-    /// Gets hash output length for algorithm
-    /// </summary>
-    private static int GetHashLength(HashAlgorithmName algo)
-    {
-        if (algo == HashAlgorithmName.SHA256)
-        {
-            return 32;
-        }
-        if (algo == HashAlgorithmName.SHA384)
-        {
-            return 48;
-        }
-        if (algo == HashAlgorithmName.SHA512)
-        {
-            return 64;
-        }
-        throw new NotSupportedException($"Hash algorithm {algo.Name} not supported");
     }
 
     /// <summary>

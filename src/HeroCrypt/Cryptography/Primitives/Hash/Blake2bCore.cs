@@ -1,9 +1,5 @@
-#if NETSTANDARD2_0
-using System;
-#else
-using System.Buffers.Binary;
-#endif
 using System.Runtime.CompilerServices;
+using HeroCrypt.Polyfills;
 
 namespace HeroCrypt.Cryptography.Primitives.Hash;
 
@@ -136,13 +132,8 @@ public static class Blake2bCore
             paramBytes[2] = FanOut;
             paramBytes[3] = Depth;
 
-#if NETSTANDARD2_0
-            WriteUInt32LittleEndian(paramBytes, 4, LeafLength);
-            WriteUInt64LittleEndian(paramBytes, 8, NodeOffset);
-#else
-            BinaryPrimitives.WriteUInt32LittleEndian(paramBytes.AsSpan(4), LeafLength);
-            BinaryPrimitives.WriteUInt64LittleEndian(paramBytes.AsSpan(8), NodeOffset);
-#endif
+            BinaryHelpers.WriteUInt32LittleEndian(paramBytes, 4, LeafLength);
+            BinaryHelpers.WriteUInt64LittleEndian(paramBytes, 8, NodeOffset);
 
             paramBytes[16] = NodeDepth;
             paramBytes[17] = InnerLength;
@@ -167,11 +158,7 @@ public static class Blake2bCore
 
             for (int i = 0; i < 8; i++)
             {
-#if NETSTANDARD2_0
-                words[i] = ReadUInt64LittleEndian(paramBytes, i * 8);
-#else
-                words[i] = BinaryPrimitives.ReadUInt64LittleEndian(paramBytes.AsSpan(i * 8));
-#endif
+                words[i] = BinaryHelpers.ReadUInt64LittleEndian(paramBytes, i * 8);
             }
 
             return words;
@@ -248,11 +235,7 @@ public static class Blake2bCore
 
         // Create input with prepended length: LE32(T) || A
         byte[] inputWithLength = new byte[4 + input.Length];
-#if NETSTANDARD2_0
-        WriteInt32LittleEndian(inputWithLength, 0, outputLength);
-#else
-        BinaryPrimitives.WriteInt32LittleEndian(inputWithLength.AsSpan(0), outputLength);
-#endif
+        BinaryHelpers.WriteInt32LittleEndian(inputWithLength, 0, outputLength);
         Array.Copy(input, 0, inputWithLength, 4, input.Length);
 
         if (outputLength <= 64)
@@ -336,22 +319,14 @@ public static class Blake2bCore
         byte[] output = new byte[parameters.DigestSize];
         for (int i = 0; i < parameters.DigestSize / 8; i++)
         {
-#if NETSTANDARD2_0
-            WriteUInt64LittleEndian(output, i * 8, h[i]);
-#else
-            BinaryPrimitives.WriteUInt64LittleEndian(output.AsSpan(i * 8), h[i]);
-#endif
+            BinaryHelpers.WriteUInt64LittleEndian(output, i * 8, h[i]);
         }
 
         // Handle remaining bytes
         if (parameters.DigestSize % 8 != 0)
         {
             byte[] lastBytes = new byte[8];
-#if NETSTANDARD2_0
-            WriteUInt64LittleEndian(lastBytes, 0, h[parameters.DigestSize / 8]);
-#else
-            BinaryPrimitives.WriteUInt64LittleEndian(lastBytes, h[parameters.DigestSize / 8]);
-#endif
+            BinaryHelpers.WriteUInt64LittleEndian(lastBytes, 0, h[parameters.DigestSize / 8]);
             Array.Copy(lastBytes, 0, output, parameters.DigestSize / 8 * 8, parameters.DigestSize % 8);
         }
 
@@ -364,11 +339,7 @@ public static class Blake2bCore
         ulong[] m = new ulong[16];
         for (int i = 0; i < 16; i++)
         {
-#if NETSTANDARD2_0
-            m[i] = ReadUInt64LittleEndian(messageBlock, i * 8);
-#else
-            m[i] = BinaryPrimitives.ReadUInt64LittleEndian(messageBlock.AsSpan(i * 8));
-#endif
+            m[i] = BinaryHelpers.ReadUInt64LittleEndian(messageBlock, i * 8);
         }
 
         // Initialize working vector
@@ -425,47 +396,4 @@ public static class Blake2bCore
     {
         return (value >> bits) | (value << (64 - bits));
     }
-
-#if NETSTANDARD2_0
-    // Helper methods for .NET Standard 2.0 compatibility
-    private static void WriteInt32LittleEndian(byte[] destination, int offset, int value)
-    {
-        destination[offset] = (byte)value;
-        destination[offset + 1] = (byte)(value >> 8);
-        destination[offset + 2] = (byte)(value >> 16);
-        destination[offset + 3] = (byte)(value >> 24);
-    }
-
-    private static void WriteUInt32LittleEndian(byte[] destination, int offset, uint value)
-    {
-        destination[offset] = (byte)value;
-        destination[offset + 1] = (byte)(value >> 8);
-        destination[offset + 2] = (byte)(value >> 16);
-        destination[offset + 3] = (byte)(value >> 24);
-    }
-
-    private static void WriteUInt64LittleEndian(byte[] destination, int offset, ulong value)
-    {
-        destination[offset] = (byte)value;
-        destination[offset + 1] = (byte)(value >> 8);
-        destination[offset + 2] = (byte)(value >> 16);
-        destination[offset + 3] = (byte)(value >> 24);
-        destination[offset + 4] = (byte)(value >> 32);
-        destination[offset + 5] = (byte)(value >> 40);
-        destination[offset + 6] = (byte)(value >> 48);
-        destination[offset + 7] = (byte)(value >> 56);
-    }
-
-    private static ulong ReadUInt64LittleEndian(byte[] source, int offset)
-    {
-        return source[offset] |
-               ((ulong)source[offset + 1] << 8) |
-               ((ulong)source[offset + 2] << 16) |
-               ((ulong)source[offset + 3] << 24) |
-               ((ulong)source[offset + 4] << 32) |
-               ((ulong)source[offset + 5] << 40) |
-               ((ulong)source[offset + 6] << 48) |
-               ((ulong)source[offset + 7] << 56);
-    }
-#endif
 }

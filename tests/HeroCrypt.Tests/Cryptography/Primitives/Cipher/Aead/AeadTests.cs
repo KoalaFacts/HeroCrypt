@@ -1,5 +1,4 @@
 using System.Security.Cryptography;
-using HeroCrypt;
 using HeroCrypt.Encryption;
 
 namespace HeroCrypt.Tests.Cryptography.Primitives.Cipher.Aead;

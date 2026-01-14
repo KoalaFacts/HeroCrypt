@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using HeroCrypt.Polyfills;
 using HeroCrypt.Security;
 
 namespace HeroCrypt.Cryptography.Primitives.Kdf;
@@ -31,7 +32,7 @@ internal static class HkdfCore
             throw new ArgumentException("Length must be positive", nameof(length));
         }
 
-        int hashLength = GetHashLength(hashAlgorithm);
+        int hashLength = HashAlgorithmHelper.GetHashLength(hashAlgorithm);
         if (length > 255 * hashLength)
         {
             throw new ArgumentException($"Length too large for hash algorithm (max: {255 * hashLength})", nameof(length));
@@ -67,12 +68,12 @@ internal static class HkdfCore
         }
 
         // If salt is empty, use zero-filled salt of hash length
-        byte[] actualSalt = salt.IsEmpty ? new byte[GetHashLength(hashAlgorithm)] : salt.ToArray();
+        byte[] actualSalt = salt.IsEmpty ? new byte[HashAlgorithmHelper.GetHashLength(hashAlgorithm)] : salt.ToArray();
         byte[] ikmArray = ikm.ToArray();
 
         try
         {
-            using var hmac = CreateHmac(hashAlgorithm, actualSalt);
+            using var hmac = HashAlgorithmHelper.CreateHmac(hashAlgorithm, actualSalt);
             return hmac.ComputeHash(ikmArray);
         }
         finally
@@ -110,7 +111,7 @@ internal static class HkdfCore
             throw new ArgumentException("Length must be positive", nameof(length));
         }
 
-        int hashLength = GetHashLength(hashAlgorithm);
+        int hashLength = HashAlgorithmHelper.GetHashLength(hashAlgorithm);
         if (length > 255 * hashLength)
         {
             throw new ArgumentException($"Length too large (max: {255 * hashLength})", nameof(length));
@@ -126,7 +127,7 @@ internal static class HkdfCore
 
         try
         {
-            using var hmac = CreateHmac(hashAlgorithm, prkArray);
+            using var hmac = HashAlgorithmHelper.CreateHmac(hashAlgorithm, prkArray);
 
             for (int i = 1; i <= n; i++)
             {
@@ -166,50 +167,6 @@ internal static class HkdfCore
     }
 
     /// <summary>
-    /// Creates HMAC instance for specified hash algorithm
-    /// </summary>
-    private static HMAC CreateHmac(HashAlgorithmName hashAlgorithm, byte[] key)
-    {
-        // SHA1 support is intentional for RFC 5869 HKDF compatibility
-        // Users should prefer SHA256 or higher, but SHA1 is allowed per the standard
-#pragma warning disable CA5350 // Do Not Use Weak Cryptographic Algorithms
-        if (hashAlgorithm == HashAlgorithmName.SHA1)
-        {
-            return new HMACSHA1(key);
-        }
-#pragma warning restore CA5350
-        if (hashAlgorithm == HashAlgorithmName.SHA256)
-        {
-            return new HMACSHA256(key);
-        }
-        return hashAlgorithm == HashAlgorithmName.SHA384
-            ? new HMACSHA384(key)
-            : hashAlgorithm == HashAlgorithmName.SHA512
-            ? (HMAC)new HMACSHA512(key)
-            : throw new ArgumentException($"Unsupported hash algorithm: {hashAlgorithm}", nameof(hashAlgorithm));
-    }
-
-    /// <summary>
-    /// Gets hash output length for specified algorithm
-    /// </summary>
-    private static int GetHashLength(HashAlgorithmName hashAlgorithm)
-    {
-        if (hashAlgorithm == HashAlgorithmName.SHA1)
-        {
-            return 20;
-        }
-        if (hashAlgorithm == HashAlgorithmName.SHA256)
-        {
-            return 32;
-        }
-        return hashAlgorithm == HashAlgorithmName.SHA384
-            ? 48
-            : hashAlgorithm == HashAlgorithmName.SHA512
-            ? 64
-            : throw new ArgumentException($"Unsupported hash algorithm: {hashAlgorithm}", nameof(hashAlgorithm));
-    }
-
-    /// <summary>
     /// Validates HKDF parameters
     /// </summary>
     public static void ValidateParameters(ReadOnlySpan<byte> ikm, int length, HashAlgorithmName hashAlgorithm)
@@ -223,7 +180,7 @@ internal static class HkdfCore
             throw new ArgumentException("Length must be positive", nameof(length));
         }
 
-        int hashLength = GetHashLength(hashAlgorithm);
+        int hashLength = HashAlgorithmHelper.GetHashLength(hashAlgorithm);
         if (length > 255 * hashLength)
         {
             throw new ArgumentException($"Length too large for {hashAlgorithm} (max: {255 * hashLength})", nameof(length));
@@ -235,7 +192,7 @@ internal static class HkdfCore
     /// </summary>
     public static int GetMAX_OUTPUT_LENGTH(HashAlgorithmName hashAlgorithm)
     {
-        return 255 * GetHashLength(hashAlgorithm);
+        return 255 * HashAlgorithmHelper.GetHashLength(hashAlgorithm);
     }
 
     /// <summary>

@@ -40,10 +40,10 @@ public static class Bip39Mnemonic
     public const int SEED_LENGTH = 64; // 512 bits
 
     /// <summary>
-    /// BIP39 wordlist (simplified for demonstration - production should use full 2048-word list)
-    /// This is a minimal wordlist for testing. A full implementation should load the complete BIP39 wordlist.
+    /// BIP39 Wordlist (simplified for demonstration - production should use full 2048-word list)
+    /// This is a minimal Wordlist for testing. A full implementation should load the complete BIP39 Wordlist.
     /// </summary>
-    private static readonly string[] wordlist = GenerateMinimalWordlist();
+    private static readonly string[] Wordlist = GenerateMinimalWordlist();
 
     /// <summary>
     /// Generates a mnemonic from entropy
@@ -98,7 +98,7 @@ public static class Bip39Mnemonic
                 }
             }
 
-            words[i] = wordlist[index];
+            words[i] = Wordlist[index];
         }
 
         return string.Join(" ", words);
@@ -194,10 +194,10 @@ public static class Bip39Mnemonic
             return false;
         }
 
-        // Check all words are in wordlist
+        // Check all words are in Wordlist
         foreach (var word in words)
         {
-            if (Array.IndexOf(wordlist, word) == -1)
+            if (Array.IndexOf(Wordlist, word) == -1)
             {
                 return false;
             }
@@ -218,7 +218,7 @@ public static class Bip39Mnemonic
             var bits = new bool[totalBits];
             for (var i = 0; i < words.Length; i++)
             {
-                var index = Array.IndexOf(wordlist, words[i]);
+                var index = Array.IndexOf(Wordlist, words[i]);
                 for (var j = 0; j < 11; j++)
                 {
                     bits[i * 11 + j] = ((index >> (10 - j)) & 1) == 1;
@@ -268,7 +268,7 @@ public static class Bip39Mnemonic
         // Convert words to bits
         for (var i = 0; i < words.Length; i++)
         {
-            var index = Array.IndexOf(wordlist, words[i]);
+            var index = Array.IndexOf(Wordlist, words[i]);
             if (index == -1)
             {
                 throw new ArgumentException($"Invalid word in mnemonic: {words[i]}", nameof(mnemonic));
@@ -356,13 +356,13 @@ public static class Bip39Mnemonic
     }
 
     /// <summary>
-    /// Generates a minimal wordlist for demonstration
-    /// NOTE: Production implementation should use the full BIP39 wordlist (2048 words)
+    /// Generates a minimal Wordlist for demonstration
+    /// NOTE: Production implementation should use the full BIP39 Wordlist (2048 words)
     /// </summary>
     private static string[] GenerateMinimalWordlist()
     {
         // Generate 2048 unique words for demonstration
-        // In production, use the official BIP39 wordlist from:
+        // In production, use the official BIP39 Wordlist from:
         // https://github.com/bitcoin/bips/blob/master/bip-0039/english.txt
 
         var words = new string[2048];

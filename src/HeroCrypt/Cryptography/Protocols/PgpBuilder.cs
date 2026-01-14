@@ -1,5 +1,3 @@
-using System;
-using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using HeroCrypt.Cryptography.Protocols.KeyManagement;
@@ -14,7 +12,7 @@ namespace HeroCrypt.Cryptography.Protocols;
 /// </summary>
 public class PgpBuilder
 {
-    private static readonly char[] pemSeparators = ['\r', '\n'];
+    private static readonly char[] PemSeparators = ['\r', '\n'];
     private int keySize = 2048;
     private EncryptionAlgorithm algorithm = EncryptionAlgorithm.AesGcm;
 
@@ -161,7 +159,7 @@ public class PgpBuilder
 
     private static byte[] ExtractPemContent(string pem)
     {
-        var lines = pem.Split(pemSeparators, StringSplitOptions.RemoveEmptyEntries)
+        var lines = pem.Split(PemSeparators, StringSplitOptions.RemoveEmptyEntries)
             .Where(l => !l.StartsWith("-----", StringComparison.OrdinalIgnoreCase))
             .ToArray();
         var base64 = string.Concat(lines);

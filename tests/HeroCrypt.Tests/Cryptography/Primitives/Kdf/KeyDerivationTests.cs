@@ -1,5 +1,4 @@
 using System.Text;
-using HeroCrypt;
 using HeroCrypt.Cryptography.Protocols.KeyManagement;
 
 namespace HeroCrypt.Tests.Cryptography.Primitives.Kdf;

@@ -1,5 +1,4 @@
 using System.Security.Cryptography;
-using System.Text;
 using Primitives = HeroCrypt.Cryptography.Primitives;
 
 namespace HeroCrypt.Signatures;
@@ -243,7 +242,7 @@ internal static class DigitalSignature
 #pragma warning disable SYSLIB5006 // Experimental feature warnings
     private static byte[] SignMLDsa(byte[] data, byte[] privateKeyPem, int parameterSet)
     {
-        var pem = Encoding.UTF8.GetString(privateKeyPem);
+        var pem = System.Text.Encoding.UTF8.GetString(privateKeyPem);
 
         return parameterSet switch
         {
@@ -257,7 +256,7 @@ internal static class DigitalSignature
     {
         try
         {
-            var pem = Encoding.UTF8.GetString(publicKeyPem);
+            var pem = System.Text.Encoding.UTF8.GetString(publicKeyPem);
 
             return parameterSet switch
             {

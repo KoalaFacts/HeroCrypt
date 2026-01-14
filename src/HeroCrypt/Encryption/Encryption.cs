@@ -1,6 +1,5 @@
 using System.Security.Cryptography;
 using HeroCrypt.Cryptography.Primitives.Cipher.Aead;
-using Primitives = HeroCrypt.Cryptography.Primitives;
 
 namespace HeroCrypt.Encryption;
 
@@ -390,18 +389,26 @@ internal static class Encryption
 
         // Use first 32 bytes of shared secret as AES-GCM key
         var aesKey = new byte[32];
-        Array.Copy(sharedSecret, aesKey, 32);
-
-        // Encrypt with AES-GCM
-        var result = EncryptAesGcm(plaintext, aesKey, associatedData);
-
-        // Include the ML-KEM ciphertext (encapsulated key) in result
-        return new EncryptionResult
+        try
         {
-            Ciphertext = result.Ciphertext,
-            Nonce = result.Nonce,
-            KeyCiphertext = encapsulation.Ciphertext
-        };
+            Array.Copy(sharedSecret, aesKey, 32);
+
+            // Encrypt with AES-GCM
+            var result = EncryptAesGcm(plaintext, aesKey, associatedData);
+
+            // Include the ML-KEM ciphertext (encapsulated key) in result
+            return new EncryptionResult
+            {
+                Ciphertext = result.Ciphertext,
+                Nonce = result.Nonce,
+                KeyCiphertext = encapsulation.Ciphertext
+            };
+        }
+        finally
+        {
+            // Securely clear the derived AES key from memory
+            Security.SecureMemoryOperations.SecureClear(aesKey);
+        }
     }
 
     private static byte[] DecryptMLKemHybrid(byte[] ciphertext, byte[] privateKeyPem, byte[] nonce, byte[] keyCiphertext, int securityBits, byte[] associatedData)
@@ -421,10 +428,18 @@ internal static class Encryption
 
         // Use first 32 bytes of shared secret as AES-GCM key
         var aesKey = new byte[32];
-        Array.Copy(sharedSecret, aesKey, 32);
+        try
+        {
+            Array.Copy(sharedSecret, aesKey, 32);
 
-        // Decrypt with AES-GCM
-        return DecryptAesGcm(ciphertext, aesKey, nonce, associatedData);
+            // Decrypt with AES-GCM
+            return DecryptAesGcm(ciphertext, aesKey, nonce, associatedData);
+        }
+        finally
+        {
+            // Securely clear sensitive key material from memory
+            Security.SecureMemoryOperations.SecureClear(sharedSecret, aesKey);
+        }
     }
 #endif
 

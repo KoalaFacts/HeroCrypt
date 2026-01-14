@@ -89,6 +89,8 @@
 
   <PropertyGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
     <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
+    <!-- Suppress IDE0005 (unnecessary using) for netstandard2.0 which doesn't support implicit usings -->
+    <NoWarn>$(NoWarn);IDE0005</NoWarn>
   </PropertyGroup>
 
   <!-- Examples: disable trim/AOT analyzers and documentation requirements -->

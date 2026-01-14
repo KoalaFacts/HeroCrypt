@@ -1,6 +1,5 @@
 using System.Runtime.CompilerServices;
 #if NET5_0_OR_GREATER
-using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.X86;
 #endif
 using HeroCrypt.Security;
@@ -16,7 +15,7 @@ internal static class ChaCha20Core
     /// <summary>
     /// ChaCha20 constants "expand 32-byte k"
     /// </summary>
-    private static readonly uint[] constants = [0x61707865, 0x3320646e, 0x79622d32, 0x6b206574];
+    private static readonly uint[] Constants = [0x61707865, 0x3320646e, 0x79622d32, 0x6b206574];
 
     /// <summary>
     /// Key size in bytes
@@ -168,10 +167,10 @@ internal static class ChaCha20Core
     private static void InitializeState(Span<uint> state, ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce, uint counter)
     {
         // constants
-        state[0] = constants[0];
-        state[1] = constants[1];
-        state[2] = constants[2];
-        state[3] = constants[3];
+        state[0] = Constants[0];
+        state[1] = Constants[1];
+        state[2] = Constants[2];
+        state[3] = Constants[3];
 
         // Key
         for (int i = 0; i < 8; i++)

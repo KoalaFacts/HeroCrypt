@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using HeroCrypt.Cryptography.Primitives.Cipher.Stream;
 using HeroCrypt.Cryptography.Primitives.Mac;
+using HeroCrypt.Polyfills;
 using HeroCrypt.Security;
 
 namespace HeroCrypt.Cryptography.Primitives.Cipher.Aead;
@@ -29,7 +30,7 @@ internal static class XChaCha20Poly1305Core
     /// <summary>
     /// HChaCha20 constants
     /// </summary>
-    private static readonly uint[] hChaCha20Constants = [0x61707865, 0x3320646e, 0x79622d32, 0x6b206574];
+    private static readonly uint[] HChaCha20Constants = [0x61707865, 0x3320646e, 0x79622d32, 0x6b206574];
 
     /// <summary>
     /// Encrypts plaintext using XChaCha20-Poly1305
@@ -216,10 +217,10 @@ internal static class XChaCha20Poly1305Core
         Span<uint> state = stackalloc uint[16];
 
         // Constants
-        state[0] = hChaCha20Constants[0];
-        state[1] = hChaCha20Constants[1];
-        state[2] = hChaCha20Constants[2];
-        state[3] = hChaCha20Constants[3];
+        state[0] = HChaCha20Constants[0];
+        state[1] = HChaCha20Constants[1];
+        state[2] = HChaCha20Constants[2];
+        state[3] = HChaCha20Constants[3];
 
 #if !NET5_0_OR_GREATER
         // Create reusable arrays for .NET Standard 2.0 (avoid memory leaks in loops)
@@ -363,37 +364,14 @@ internal static class XChaCha20Poly1305Core
 
         // Add lengths in little-endian format
         var lengthBytes = message.Slice(offset, 16);
-        WriteUInt64LittleEndian(lengthBytes[..8], (ulong)aadLength);
-        WriteUInt64LittleEndian(lengthBytes.Slice(8, 8), (ulong)ciphertextLength);
+        BinaryHelpers.WriteUInt64LittleEndian(lengthBytes[..8], (ulong)aadLength);
+        BinaryHelpers.WriteUInt64LittleEndian(lengthBytes.Slice(8, 8), (ulong)ciphertextLength);
 
         // Compute Poly1305 MAC
         Poly1305Core.ComputeMac(tag, message, poly1305Key);
 
-        // Clear message if allocated on heap
-        if (totalLength > 1024)
-        {
-            SecureMemoryOperations.SecureClear(message);
-        }
-        else
-        {
-            SecureMemoryOperations.SecureClear(message);
-        }
-    }
-
-    /// <summary>
-    /// Writes a uint64 value in little-endian format
-    /// </summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void WriteUInt64LittleEndian(Span<byte> buffer, ulong value)
-    {
-        buffer[0] = (byte)value;
-        buffer[1] = (byte)(value >> 8);
-        buffer[2] = (byte)(value >> 16);
-        buffer[3] = (byte)(value >> 24);
-        buffer[4] = (byte)(value >> 32);
-        buffer[5] = (byte)(value >> 40);
-        buffer[6] = (byte)(value >> 48);
-        buffer[7] = (byte)(value >> 56);
+        // Clear message to prevent sensitive data from remaining in memory
+        SecureMemoryOperations.SecureClear(message);
     }
 
     /// <summary>

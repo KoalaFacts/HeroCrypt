@@ -1,7 +1,6 @@
 using System.Security.Cryptography;
 using HeroCrypt.Cryptography.Primitives.Kdf;
 using HeroCrypt.Security;
-using HeroCrypt.Cryptography.Protocols.KeyManagement;
 
 #if NET9_0_OR_GREATER
 using LockType = System.Threading.Lock;
@@ -151,7 +150,7 @@ public static class KeyManager
         }
 
         // Simple entropy estimation
-        var entropy = CalculateShannonnEntropy(keyMaterial);
+        var entropy = CalculateShannonEntropy(keyMaterial);
         if (entropy < 6.0)
         {
             issues.Add($"Low entropy detected ({entropy:F2} bits per byte, should be > 6.0)");
@@ -243,7 +242,7 @@ public static class KeyManager
     /// <summary>
     /// Calculates Shannon entropy of byte array
     /// </summary>
-    private static double CalculateShannonnEntropy(ReadOnlySpan<byte> data)
+    private static double CalculateShannonEntropy(ReadOnlySpan<byte> data)
     {
         var frequency = new int[256];
         foreach (var b in data)

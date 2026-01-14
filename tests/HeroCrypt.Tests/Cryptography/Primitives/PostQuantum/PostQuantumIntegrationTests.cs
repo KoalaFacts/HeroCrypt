@@ -419,7 +419,7 @@ public class PostQuantumIntegrationTests
     }
 
     [Fact]
-    public async Task Integration_ConcurrentOperations_ThreadSafety()
+    public async Task Integration_ConcurrentOperations_ThreadSafetyAsync()
     {
         if (!MLKemWrapper.IsSupported())
         {

@@ -9,7 +9,7 @@ namespace HeroCrypt.Tests.Cryptography.Primitives.Kdf;
 [Trait("Category", TestCategories.UNIT)]
 public class Argon2Tests
 {
-    private static readonly Argon2Parameters defaultParams = new(
+    private static readonly Argon2Parameters DefaultParams = new(
         Iterations: 2,
         MemorySizeKb: 8192,
         Parallelism: 2,
@@ -22,8 +22,8 @@ public class Argon2Tests
         var password = Encoding.UTF8.GetBytes("TestPassword123!");
         var salt = RandomNumberGenerator.GetBytes(16);
 
-        var hash1 = Hash(password, salt, defaultParams);
-        var hash2 = Hash(password, salt, defaultParams);
+        var hash1 = Hash(password, salt, DefaultParams);
+        var hash2 = Hash(password, salt, DefaultParams);
 
         Assert.Equal(hash1, hash2);
     }
@@ -33,8 +33,8 @@ public class Argon2Tests
     {
         var password = Encoding.UTF8.GetBytes("TestPassword123!");
 
-        var hash1 = Hash(password, RandomNumberGenerator.GetBytes(16), defaultParams);
-        var hash2 = Hash(password, RandomNumberGenerator.GetBytes(16), defaultParams);
+        var hash1 = Hash(password, RandomNumberGenerator.GetBytes(16), DefaultParams);
+        var hash2 = Hash(password, RandomNumberGenerator.GetBytes(16), DefaultParams);
 
         Assert.NotEqual(hash1, hash2);
     }
@@ -45,8 +45,8 @@ public class Argon2Tests
         var password = Encoding.UTF8.GetBytes("TestPassword123!");
         var salt = RandomNumberGenerator.GetBytes(16);
 
-        var expected = Hash(password, salt, defaultParams);
-        var actual = Hash(password, salt, defaultParams);
+        var expected = Hash(password, salt, DefaultParams);
+        var actual = Hash(password, salt, DefaultParams);
 
         Assert.True(SecureMemoryOperations.ConstantTimeEquals(expected, actual));
     }
@@ -58,8 +58,8 @@ public class Argon2Tests
         var wrongPassword = Encoding.UTF8.GetBytes("WrongPassword!");
         var salt = RandomNumberGenerator.GetBytes(16);
 
-        var expected = Hash(password, salt, defaultParams);
-        var actual = Hash(wrongPassword, salt, defaultParams);
+        var expected = Hash(password, salt, DefaultParams);
+        var actual = Hash(wrongPassword, salt, DefaultParams);
 
         Assert.False(SecureMemoryOperations.ConstantTimeEquals(expected, actual));
     }
@@ -70,7 +70,7 @@ public class Argon2Tests
     [InlineData(Argon2Type.Argon2id)]
     public void Hash_AllVariants_Work(Argon2Type type)
     {
-        var parameters = defaultParams with { Type = type };
+        var parameters = DefaultParams with { Type = type };
         var password = Encoding.UTF8.GetBytes("TestPassword");
         var salt = RandomNumberGenerator.GetBytes(16);
 
@@ -85,10 +85,10 @@ public class Argon2Tests
         var password = Encoding.UTF8.GetBytes("TestPassword");
         var salt = RandomNumberGenerator.GetBytes(16);
 
-        Assert.Throws<ArgumentException>(() => Hash(password, salt, defaultParams with { Iterations = 0 }));
-        Assert.Throws<ArgumentException>(() => Hash(password, salt, defaultParams with { MemorySizeKb = 0 }));
-        Assert.Throws<ArgumentException>(() => Hash(password, salt, defaultParams with { Parallelism = 0 }));
-        Assert.Throws<ArgumentException>(() => Hash(password, salt, defaultParams with { HashLength = 0 }));
+        Assert.Throws<ArgumentException>(() => Hash(password, salt, DefaultParams with { Iterations = 0 }));
+        Assert.Throws<ArgumentException>(() => Hash(password, salt, DefaultParams with { MemorySizeKb = 0 }));
+        Assert.Throws<ArgumentException>(() => Hash(password, salt, DefaultParams with { Parallelism = 0 }));
+        Assert.Throws<ArgumentException>(() => Hash(password, salt, DefaultParams with { HashLength = 0 }));
     }
 
     private static byte[] Hash(byte[] password, byte[] salt, Argon2Parameters parameters) =>

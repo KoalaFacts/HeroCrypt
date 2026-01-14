@@ -12,6 +12,12 @@ namespace HeroCrypt.Security;
 /// </summary>
 public sealed class SecureRandomNumberGenerator : IDisposable
 {
+    /// <summary>
+    /// Size of the entropy pool in bytes. Larger pools provide more randomness mixing
+    /// but consume more memory. 4096 bytes provides good security margin.
+    /// </summary>
+    private const int EntropyPoolSize = 4096;
+
     private readonly RandomNumberGenerator primaryRng;
     private readonly RandomNumberGenerator secondaryRng;
     private readonly Timer healthCheckTimer;
@@ -19,7 +25,7 @@ public sealed class SecureRandomNumberGenerator : IDisposable
     private volatile bool healthCheckPassed = true;
 
     // Entropy pool for additional randomness
-    private readonly byte[] entropyPool = new byte[4096];
+    private readonly byte[] entropyPool = new byte[EntropyPoolSize];
 #if NET9_0_OR_GREATER
     private readonly Lock entropyLock = new();
 #else
@@ -84,21 +90,14 @@ public sealed class SecureRandomNumberGenerator : IDisposable
             }
         }
 
-        try
-        {
-            // Use primary RNG
-            primaryRng.GetBytes(buffer);
+        // Use primary RNG
+        primaryRng.GetBytes(buffer);
 
-            // XOR with entropy pool for additional security
-            XorWithEntropyPool(buffer);
+        // XOR with entropy pool for additional security
+        XorWithEntropyPool(buffer);
 
-            // Update statistics
-            Interlocked.Add(ref bytesGenerated, buffer.Length);
-        }
-        catch
-        {
-            throw;
-        }
+        // Update statistics
+        Interlocked.Add(ref bytesGenerated, buffer.Length);
     }
 
     /// <summary>
@@ -183,7 +182,7 @@ public sealed class SecureRandomNumberGenerator : IDisposable
     {
         if (minValue >= maxValue)
         {
-            throw new ArgumentException("minValue must be less than maxValue");
+            throw new ArgumentException("minValue must be less than maxValue", nameof(minValue));
         }
 
         var range = (uint)(maxValue - minValue);

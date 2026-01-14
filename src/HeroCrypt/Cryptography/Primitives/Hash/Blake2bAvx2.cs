@@ -1,6 +1,4 @@
 #if NET5_0_OR_GREATER
-using System;
-using System.Runtime.CompilerServices;
 
 namespace HeroCrypt.Cryptography.Primitives.Hash;
 

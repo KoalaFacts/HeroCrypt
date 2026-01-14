@@ -155,8 +155,8 @@ internal static class ScryptCore
             throw new ArgumentException("Output length must be positive", nameof(outputLength));
         }
 
-        // Check memory requirements
-        var memoryRequired = (long)128 * r * n * p;
+        // Check memory requirements (use 128L to ensure long arithmetic and prevent overflow)
+        var memoryRequired = 128L * r * n * p;
         if (memoryRequired > DEFAULT_MAX_MEMORY)
         {
             throw new ArgumentException($"Parameters require too much memory: {memoryRequired} bytes (max: {DEFAULT_MAX_MEMORY})", nameof(n));

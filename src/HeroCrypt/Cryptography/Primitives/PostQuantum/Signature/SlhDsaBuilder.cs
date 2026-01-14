@@ -1,6 +1,5 @@
 #if NET10_0_OR_GREATER
 #pragma warning disable SYSLIB5006 // SLH-DSA wrapper uses experimental APIs in .NET 10 preview
-using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography;
 
 namespace HeroCrypt.Cryptography.Primitives.PostQuantum.Signature;

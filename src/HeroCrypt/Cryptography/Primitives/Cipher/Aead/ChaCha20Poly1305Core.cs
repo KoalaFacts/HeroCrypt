@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using HeroCrypt.Cryptography.Primitives.Cipher.Stream;
 using HeroCrypt.Cryptography.Primitives.Mac;
+using HeroCrypt.Polyfills;
 using HeroCrypt.Security;
 
 namespace HeroCrypt.Cryptography.Primitives.Cipher.Aead;
@@ -192,37 +193,14 @@ internal static class ChaCha20Poly1305Core
 
         // Add lengths in little-endian format
         var lengthBytes = message.Slice(offset, 16);
-        WriteUInt64LittleEndian(lengthBytes[..8], (ulong)aadLength);
-        WriteUInt64LittleEndian(lengthBytes.Slice(8, 8), (ulong)ciphertextLength);
+        BinaryHelpers.WriteUInt64LittleEndian(lengthBytes[..8], (ulong)aadLength);
+        BinaryHelpers.WriteUInt64LittleEndian(lengthBytes.Slice(8, 8), (ulong)ciphertextLength);
 
         // Compute Poly1305 MAC
         Poly1305Core.ComputeMac(tag, message, poly1305Key);
 
-        // Clear message if allocated on heap
-        if (totalLength > 1024)
-        {
-            SecureMemoryOperations.SecureClear(message);
-        }
-        else
-        {
-            SecureMemoryOperations.SecureClear(message);
-        }
-    }
-
-    /// <summary>
-    /// Writes a uint64 value in little-endian format
-    /// </summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void WriteUInt64LittleEndian(Span<byte> buffer, ulong value)
-    {
-        buffer[0] = (byte)value;
-        buffer[1] = (byte)(value >> 8);
-        buffer[2] = (byte)(value >> 16);
-        buffer[3] = (byte)(value >> 24);
-        buffer[4] = (byte)(value >> 32);
-        buffer[5] = (byte)(value >> 40);
-        buffer[6] = (byte)(value >> 48);
-        buffer[7] = (byte)(value >> 56);
+        // Clear message to prevent sensitive data from remaining in memory
+        SecureMemoryOperations.SecureClear(message);
     }
 
     /// <summary>

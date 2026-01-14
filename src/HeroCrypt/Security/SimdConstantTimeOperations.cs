@@ -50,8 +50,13 @@ public static class SimdConstantTimeOperations
         }
 #endif
 
-        // Fallback to scalar implementation
-        return ConstantTimeOperations.ConstantTimeArrayEquals(a.ToArray(), b.ToArray()) == 1;
+        // Fallback to scalar implementation (avoid allocation by using inline comparison)
+        byte result = 1;
+        for (var i = 0; i < a.Length; i++)
+        {
+            result &= ConstantTimeOperations.ConstantTimeEquals(a[i], b[i]);
+        }
+        return result == 1;
     }
 
 #if NET5_0_OR_GREATER
@@ -106,20 +111,15 @@ public static class SimdConstantTimeOperations
             }
 
             // Combine all accumulators
-            var result256 = Vector256<byte>.Zero;
-            var result128 = Vector128<byte>.Zero;
+            var result128 = accumulator128;
 
             if (Avx2.IsSupported)
             {
-                result256 = accumulator256;
-                // Extract high and low 128-bit parts and combine
-                var high = Avx2.ExtractVector128(result256, 1);
-                var low = Avx2.ExtractVector128(result256, 0);
-                result128 = Sse2.Or(high, low);
-            }
-            else
-            {
-                result128 = accumulator128;
+                // Extract high and low 128-bit parts from AVX2 accumulator and combine
+                var high = Avx2.ExtractVector128(accumulator256, 1);
+                var low = Avx2.ExtractVector128(accumulator256, 0);
+                // Combine AVX2 result with SSE2 accumulator (for bytes processed in 16-byte chunks)
+                result128 = Sse2.Or(Sse2.Or(high, low), accumulator128);
             }
 
             // Reduce 128-bit result to scalar
@@ -172,7 +172,11 @@ public static class SimdConstantTimeOperations
 #endif
 
         // Fallback to scalar implementation
-        ConstantTimeOperations.ConditionalCopy(condition, source.ToArray(), destination.ToArray(), length);
+        var mask = (byte)(-(sbyte)condition);
+        for (var i = 0; i < length; i++)
+        {
+            destination[i] = (byte)((source[i] & mask) | (destination[i] & ~mask));
+        }
     }
 
 #if NET5_0_OR_GREATER

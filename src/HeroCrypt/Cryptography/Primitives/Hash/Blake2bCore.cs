@@ -239,41 +239,59 @@ public static class Blake2bCore
         BinaryHelpers.WriteInt32LittleEndian(inputWithLength, 0, outputLength);
         Array.Copy(input, 0, inputWithLength, 4, input.Length);
 
-        if (outputLength <= 64)
+        try
         {
-            // For T <= 64: H'(A) = H^T(LE32(T) || A)
-            return ComputeHash(inputWithLength, outputLength);
+            if (outputLength <= 64)
+            {
+                // For T <= 64: H'(A) = H^T(LE32(T) || A)
+                return ComputeHash(inputWithLength, outputLength);
+            }
+            else
+            {
+                // For T > 64: Use multi-stage approach
+                byte[] output = new byte[outputLength];
+                int r = ((outputLength + 31) / 32) - 2;
+
+                // V_1 = H^(64)(LE32(T) || A)
+                byte[] v = ComputeHash(inputWithLength, 64);
+
+                try
+                {
+                    // W_1: first 32 bytes of V_1
+                    Array.Copy(v, 0, output, 0, 32);
+                    int position = 32;
+
+                    // Generate V_2, V_3, ..., V_r
+                    for (int i = 1; i < r; i++)
+                    {
+                        var oldV = v;
+                        v = ComputeHash(oldV, 64);
+                        SecureMemoryOperations.SecureClear(oldV);
+
+                        Array.Copy(v, 0, output, position, 32);
+                        position += 32;
+                    }
+
+                    // Final block V_{r+1} with reduced length
+                    int finalLength = outputLength - (32 * r);
+                    if (finalLength > 0)
+                    {
+                        byte[] finalBlock = ComputeHash(v, finalLength);
+                        Array.Copy(finalBlock, 0, output, position, finalLength);
+                        SecureMemoryOperations.SecureClear(finalBlock);
+                    }
+                }
+                finally
+                {
+                    SecureMemoryOperations.SecureClear(v);
+                }
+
+                return output;
+            }
         }
-        else
+        finally
         {
-            // For T > 64: Use multi-stage approach
-            byte[] output = new byte[outputLength];
-            int r = ((outputLength + 31) / 32) - 2;
-
-            // V_1 = H^(64)(LE32(T) || A)
-            byte[] v = ComputeHash(inputWithLength, 64);
-
-            // W_1: first 32 bytes of V_1
-            Array.Copy(v, 0, output, 0, 32);
-            int position = 32;
-
-            // Generate V_2, V_3, ..., V_r
-            for (int i = 1; i < r; i++)
-            {
-                v = ComputeHash(v, 64);
-                Array.Copy(v, 0, output, position, 32);
-                position += 32;
-            }
-
-            // Final block V_{r+1} with reduced length
-            int finalLength = outputLength - (32 * r);
-            if (finalLength > 0)
-            {
-                byte[] finalBlock = ComputeHash(v, finalLength);
-                Array.Copy(finalBlock, 0, output, position, finalLength);
-            }
-
-            return output;
+            SecureMemoryOperations.SecureClear(inputWithLength);
         }
     }
 
@@ -292,59 +310,71 @@ public static class Blake2bCore
         byte[] buffer = new byte[128];
         int bufferLength = 0;
 
-        // If keyed, process the key as the first block
-        if (key != null && key.Length > 0)
-        {
-            Array.Copy(key, buffer, key.Length);
-            bufferLength = 128; // Key block is always padded to 128 bytes
-        }
+        ulong[] m = new ulong[16];
+        ulong[] v = new ulong[16];
 
-        // Process input
-        for (int i = 0; i < input.Length; i++)
+        try
         {
-            if (bufferLength == 128)
+            // If keyed, process the key as the first block
+            if (key != null && key.Length > 0)
             {
-                bytesCompressed += 128;
-                Compress(h, buffer, bytesCompressed, false);
-                bufferLength = 0;
-                SecureMemoryOperations.SecureClear(buffer);
+                Array.Copy(key, buffer, key.Length);
+                bufferLength = 128; // Key block is always padded to 128 bytes
             }
-            buffer[bufferLength++] = input[i];
+
+            // Process input
+            for (int i = 0; i < input.Length; i++)
+            {
+                if (bufferLength == 128)
+                {
+                    bytesCompressed += 128;
+                    Compress(h, buffer, bytesCompressed, false, m, v);
+                    bufferLength = 0;
+                    SecureMemoryOperations.SecureClear(buffer);
+                }
+                buffer[bufferLength++] = input[i];
+            }
+
+            // Process final block
+            bytesCompressed += bufferLength;
+            Compress(h, buffer, bytesCompressed, true, m, v);
+
+            // Output hash bytes
+            byte[] output = new byte[parameters.DigestSize];
+            for (int i = 0; i < parameters.DigestSize / 8; i++)
+            {
+                BinaryHelpers.WriteUInt64LittleEndian(output, i * 8, h[i]);
+            }
+
+            // Handle remaining bytes
+            if (parameters.DigestSize % 8 != 0)
+            {
+                byte[] lastBytes = new byte[8];
+                BinaryHelpers.WriteUInt64LittleEndian(lastBytes, 0, h[parameters.DigestSize / 8]);
+                Array.Copy(lastBytes, 0, output, parameters.DigestSize / 8 * 8, parameters.DigestSize % 8);
+            }
+
+            return output;
         }
-
-        // Process final block
-        bytesCompressed += bufferLength;
-        Compress(h, buffer, bytesCompressed, true);
-
-        // Output hash bytes
-        byte[] output = new byte[parameters.DigestSize];
-        for (int i = 0; i < parameters.DigestSize / 8; i++)
+        finally
         {
-            BinaryHelpers.WriteUInt64LittleEndian(output, i * 8, h[i]);
+            SecureMemoryOperations.SecureClear(h);
+            SecureMemoryOperations.SecureClear(buffer);
+            SecureMemoryOperations.SecureClear(m);
+            SecureMemoryOperations.SecureClear(v);
+            SecureMemoryOperations.SecureClear(paramWords);
         }
-
-        // Handle remaining bytes
-        if (parameters.DigestSize % 8 != 0)
-        {
-            byte[] lastBytes = new byte[8];
-            BinaryHelpers.WriteUInt64LittleEndian(lastBytes, 0, h[parameters.DigestSize / 8]);
-            Array.Copy(lastBytes, 0, output, parameters.DigestSize / 8 * 8, parameters.DigestSize % 8);
-        }
-
-        return output;
     }
 
-    private static void Compress(ulong[] h, byte[] messageBlock, int bytesCompressed, bool isLastBlock)
+    private static void Compress(ulong[] h, byte[] messageBlock, int bytesCompressed, bool isLastBlock, ulong[] m, ulong[] v)
     {
         // Convert message block to 16 64-bit words
-        ulong[] m = new ulong[16];
         for (int i = 0; i < 16; i++)
         {
             m[i] = BinaryHelpers.ReadUInt64LittleEndian(messageBlock, i * 8);
         }
 
         // Initialize working vector
-        ulong[] v = new ulong[16];
         Array.Copy(h, v, 8);
         Array.Copy(Blake2bIv, 0, v, 8, 8);
 

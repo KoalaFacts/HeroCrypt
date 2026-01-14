@@ -125,55 +125,63 @@ internal static class AesCmacCore
         Span<byte> block = stackalloc byte[BLOCK_SIZE];
         var macArray = new byte[BLOCK_SIZE];
 
-        // Process all blocks except the last
-        for (var i = 0; i < n - 1; i++)
+        try
         {
-            var blockStart = i * BLOCK_SIZE;
-            data.Slice(blockStart, BLOCK_SIZE).CopyTo(block);
+            // Process all blocks except the last
+            for (var i = 0; i < n - 1; i++)
+            {
+                var blockStart = i * BLOCK_SIZE;
+                data.Slice(blockStart, BLOCK_SIZE).CopyTo(block);
 
-            // XOR with previous MAC
+                // XOR with previous MAC
+                XorBlock(mac, block);
+
+                // Encrypt
+                mac.CopyTo(macArray);
+                aes.TransformBlock(macArray, 0, BLOCK_SIZE, macArray, 0);
+                macArray.CopyTo(mac);
+            }
+
+            // Process last block
+            block.Clear();
+            var lastBlockStart = (n - 1) * BLOCK_SIZE;
+            var lastBlockLength = data.Length - lastBlockStart;
+
+            if (lastBlockLength > 0)
+            {
+                data.Slice(lastBlockStart, lastBlockLength).CopyTo(block);
+            }
+
+            if (lastBlockComplete)
+            {
+                // Last block is complete: M_last := M_n XOR K1
+                XorBlock(block, k1);
+            }
+            else
+            {
+                // Last block is incomplete: M_last := padding(M_n) XOR K2
+                // Padding: append single '1' bit followed by zeros
+                if (lastBlockLength < BLOCK_SIZE)
+                {
+                    block[lastBlockLength] = 0x80; // Padding: 10000000
+                }
+                XorBlock(block, k2);
+            }
+
+            // Final XOR and encryption
             XorBlock(mac, block);
-
-            // Encrypt
             mac.CopyTo(macArray);
             aes.TransformBlock(macArray, 0, BLOCK_SIZE, macArray, 0);
             macArray.CopyTo(mac);
+
+            // Output tag
+            mac.CopyTo(tag);
         }
-
-        // Process last block
-        block.Clear();
-        var lastBlockStart = (n - 1) * BLOCK_SIZE;
-        var lastBlockLength = data.Length - lastBlockStart;
-
-        if (lastBlockLength > 0)
+        finally
         {
-            data.Slice(lastBlockStart, lastBlockLength).CopyTo(block);
+            SecureMemoryOperations.SecureClear(macArray);
+            SecureMemoryOperations.SecureClear(block);
         }
-
-        if (lastBlockComplete)
-        {
-            // Last block is complete: M_last := M_n XOR K1
-            XorBlock(block, k1);
-        }
-        else
-        {
-            // Last block is incomplete: M_last := padding(M_n) XOR K2
-            // Padding: append single '1' bit followed by zeros
-            if (lastBlockLength < BLOCK_SIZE)
-            {
-                block[lastBlockLength] = 0x80; // Padding: 10000000
-            }
-            XorBlock(block, k2);
-        }
-
-        // Final XOR and encryption
-        XorBlock(mac, block);
-        mac.CopyTo(macArray);
-        aes.TransformBlock(macArray, 0, BLOCK_SIZE, macArray, 0);
-        macArray.CopyTo(mac);
-
-        // Output tag
-        mac.CopyTo(tag);
     }
 
     /// <summary>

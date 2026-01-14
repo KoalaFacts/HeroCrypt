@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using System.Security.Cryptography;
 #if NET5_0_OR_GREATER
 using System.Runtime.Intrinsics.X86;
 #endif
@@ -88,7 +89,7 @@ internal static class ChaCha20Core
                 inputOffset += BLOCK_SIZE * 4;
                 outputOffset += BLOCK_SIZE * 4;
                 remaining -= BLOCK_SIZE * 4;
-                IncrementCounter(state, 4);
+                // Counter already incremented by ProcessFourBlocksSIMD
             }
             else
             {
@@ -206,12 +207,21 @@ internal static class ChaCha20Core
     }
 
     /// <summary>
-    /// Increments the counter in the state
+    /// Increments the counter in the state with overflow detection
     /// </summary>
+    /// <exception cref="CryptographicException">Thrown when counter would overflow and cause keystream reuse</exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void IncrementCounter(Span<uint> state, uint increment)
     {
-        state[12] += increment;
+        // Check for counter overflow to prevent keystream reuse (catastrophic security failure)
+        // ChaCha20 counter is 32-bit, wrapping would cause same keystream to be generated
+        var currentCounter = state[12];
+        if (currentCounter > uint.MaxValue - increment)
+        {
+            throw new CryptographicException(
+                "ChaCha20 counter overflow: cannot encrypt more than 256GB with a single key/nonce pair.");
+        }
+        state[12] = currentCounter + increment;
     }
 
     /// <summary>
@@ -234,7 +244,8 @@ internal static class ChaCha20Core
     }
 
     /// <summary>
-    /// Processes four blocks in parallel using SIMD
+    /// Processes four blocks in parallel using SIMD.
+    /// NOTE: This method increments the counter internally by 4 after processing.
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static void ProcessFourBlocksSIMD(Span<byte> output, ReadOnlySpan<byte> input, Span<uint> state)

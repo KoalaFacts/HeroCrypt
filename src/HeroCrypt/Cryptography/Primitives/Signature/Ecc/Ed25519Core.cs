@@ -325,7 +325,7 @@ internal static class Ed25519Impl
         Add(p, q);
         Pack(t, p);
 
-        if (CryptoVerify32(sm, t) != 0)
+        if (!SecureMemoryOperations.ConstantTimeEquals(sm.AsSpan(0, 32), t))
         {
             return false;
         }
@@ -590,7 +590,7 @@ internal static class Ed25519Impl
         var d = new byte[32];
         Pack25519(c, a);
         Pack25519(d, b);
-        return CryptoVerify32(c, d) == 0;
+        return CryptoVerify32(c, d);
     }
 
     private static void Add(long[][] p, long[][] q)
@@ -765,14 +765,13 @@ internal static class Ed25519Impl
 
     #region Utilities
 
-    private static int CryptoVerify32(byte[] x, byte[] y)
+    /// <summary>
+    /// Performs constant-time comparison of two 32-byte arrays.
+    /// Uses SecureMemoryOperations.ConstantTimeEquals for timing attack resistance.
+    /// </summary>
+    private static bool CryptoVerify32(ReadOnlySpan<byte> x, ReadOnlySpan<byte> y)
     {
-        uint d = 0;
-        for (var i = 0; i < 32; i++)
-        {
-            d |= (uint)(x[i] ^ y[i]);
-        }
-        return (int)((1 & ((d - 1) >> 8)) - 1);
+        return SecureMemoryOperations.ConstantTimeEquals(x[..32], y[..32]);
     }
 
     private static byte[] Sha512(byte[] m)

@@ -6,26 +6,38 @@ using HeroCrypt.Security;
 
 namespace HeroCrypt.Cryptography.Primitives.Signature.Rsa;
 
-internal sealed class BigInteger : IComparable<BigInteger>
+internal sealed class BigInteger : IComparable<BigInteger>, IDisposable
 {
     private uint[] dataWords;
 
     /// <summary>
-    /// Represents the value zero.
+    /// Indicates whether this instance is immutable and should not be disposed.
+    /// Static singleton instances (Zero, One) are marked immutable to prevent corruption.
     /// </summary>
-    public static readonly BigInteger Zero = new(0);
+    private readonly bool isImmutable;
 
     /// <summary>
-    /// Represents the value one.
+    /// Represents the value zero. This is an immutable singleton - do not dispose.
     /// </summary>
-    public static readonly BigInteger One = new(1);
+    public static readonly BigInteger Zero = new(0, isImmutable: true);
+
+    /// <summary>
+    /// Represents the value one. This is an immutable singleton - do not dispose.
+    /// </summary>
+    public static readonly BigInteger One = new(1, isImmutable: true);
 
     /// <summary>
     /// Initializes a new instance of the <see cref="BigInteger"/> class from a 64-bit signed integer.
     /// </summary>
     /// <param name="value">The 64-bit signed integer value.</param>
-    public BigInteger(long value)
+    public BigInteger(long value) : this(value, isImmutable: false)
     {
+    }
+
+    private BigInteger(long value, bool isImmutable)
+    {
+        this.isImmutable = isImmutable;
+
         if (value == 0)
         {
             dataWords = [0];
@@ -73,6 +85,7 @@ internal sealed class BigInteger : IComparable<BigInteger>
 
     private BigInteger(uint[] data, int sign)
     {
+        isImmutable = false;
         dataWords = data;
         Sign = sign;
         Normalize();
@@ -163,7 +176,10 @@ internal sealed class BigInteger : IComparable<BigInteger>
     /// <returns>The result of the subtraction.</returns>
     public static BigInteger operator -(BigInteger left, BigInteger right)
     {
-        return left + new BigInteger(right.dataWords, -right.Sign);
+        // Clone the data array to prevent shared reference corruption
+        // when memory hygiene operations clear intermediate values
+        var clonedData = (uint[])right.dataWords.Clone();
+        return left + new BigInteger(clonedData, -right.Sign);
     }
 
     /// <summary>
@@ -887,5 +903,32 @@ internal sealed class BigInteger : IComparable<BigInteger>
             _ = hex.Append(dataWords[i].ToString("X8", CultureInfo.InvariantCulture));
         }
         return hex.ToString().TrimStart('0');
+    }
+
+    public void Clear()
+    {
+        // Prevent clearing immutable singleton instances (Zero, One)
+        if (isImmutable)
+        {
+            return;
+        }
+
+        if (dataWords != null)
+        {
+            SecureMemoryOperations.SecureClear(dataWords.AsSpan());
+            dataWords = [0];
+        }
+        Sign = 0;
+    }
+
+    public void Dispose()
+    {
+        // Prevent disposing immutable singleton instances (Zero, One)
+        if (isImmutable)
+        {
+            return;
+        }
+
+        Clear();
     }
 }

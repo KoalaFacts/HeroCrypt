@@ -253,10 +253,16 @@ internal static class RsaCore
 /// </summary>
 /// <param name="publicKey">The RSA public key.</param>
 /// <param name="privateKey">The RSA private key.</param>
-internal sealed class RsaKeyPair(RsaPublicKey publicKey, RsaPrivateKey privateKey)
+internal sealed class RsaKeyPair(RsaPublicKey publicKey, RsaPrivateKey privateKey) : IDisposable
 {
     public RsaPublicKey PublicKey { get; } = publicKey;
     public RsaPrivateKey PrivateKey { get; } = privateKey;
+
+    public void Dispose()
+    {
+        PublicKey?.Dispose();
+        PrivateKey?.Dispose();
+    }
 }
 
 /// <summary>
@@ -264,10 +270,16 @@ internal sealed class RsaKeyPair(RsaPublicKey publicKey, RsaPrivateKey privateKe
 /// </summary>
 /// <param name="modulus">The RSA modulus (n).</param>
 /// <param name="exponent">The public exponent (e).</param>
-internal sealed class RsaPublicKey(BigInteger modulus, BigInteger exponent)
+internal sealed class RsaPublicKey(BigInteger modulus, BigInteger exponent) : IDisposable
 {
     public BigInteger Modulus { get; } = modulus;
     public BigInteger Exponent { get; } = exponent;
+
+    public void Dispose()
+    {
+        Modulus?.Dispose();
+        Exponent?.Dispose();
+    }
 }
 
 /// <summary>
@@ -278,11 +290,20 @@ internal sealed class RsaPublicKey(BigInteger modulus, BigInteger exponent)
 /// <param name="p">The first prime factor of n.</param>
 /// <param name="q">The second prime factor of n.</param>
 /// <param name="e">The public exponent (e).</param>
-internal sealed class RsaPrivateKey(BigInteger modulus, BigInteger d, BigInteger p, BigInteger q, BigInteger e)
+internal sealed class RsaPrivateKey(BigInteger modulus, BigInteger d, BigInteger p, BigInteger q, BigInteger e) : IDisposable
 {
     public BigInteger Modulus { get; } = modulus;
     public BigInteger D { get; } = d;
     public BigInteger P { get; } = p;
     public BigInteger Q { get; } = q;
     public BigInteger E { get; } = e;
+
+    public void Dispose()
+    {
+        Modulus?.Dispose();
+        D?.Dispose();
+        P?.Dispose();
+        Q?.Dispose();
+        E?.Dispose();
+    }
 }

@@ -100,20 +100,31 @@ public static class Argon2Core
             memory[i] = new Block();
         }
 
-        InitializeMemory(context, memory);
-
-        for (var pass = 0; pass < context.Iterations; pass++)
+        try
         {
-            for (var slice = 0; slice < 4; slice++)
+            InitializeMemory(context, memory);
+
+            for (var pass = 0; pass < context.Iterations; pass++)
             {
-                for (var lane = 0; lane < context.Lanes; lane++)
+                for (var slice = 0; slice < 4; slice++)
                 {
-                    FillSegment(context, memory, pass, lane, slice, segmentLength);
+                    for (var lane = 0; lane < context.Lanes; lane++)
+                    {
+                        FillSegment(context, memory, pass, lane, slice, segmentLength);
+                    }
                 }
             }
-        }
 
-        return Finalize(context, memory);
+            return Finalize(context, memory);
+        }
+        finally
+        {
+            // Clear memory
+            foreach (var block in memory)
+            {
+                block?.Clear();
+            }
+        }
     }
 
     /// <summary>
@@ -124,8 +135,16 @@ public static class Argon2Core
     {
         // Calculate H_0 as per RFC 9106 Section 3.2
         var h0Input = BuildH0Input(context);
+        byte[] h0;
 
-        var h0 = Blake2bCore.ComputeHash(h0Input, 64);
+        try
+        {
+            h0 = Blake2bCore.ComputeHash(h0Input, 64);
+        }
+        finally
+        {
+            SecureMemoryOperations.SecureClear(h0Input);
+        }
 
         var blocksPerLane = context.Memory / context.Lanes;
 
@@ -142,6 +161,8 @@ public static class Argon2Core
 
             var block0Data = Blake2bCore.ComputeLongHash(block0Input, BLOCK_SIZE);
             BytesToBlock(block0Data, memory[startIdx]);
+            SecureMemoryOperations.SecureClear(block0Input);
+            SecureMemoryOperations.SecureClear(block0Data);
 
             // B[i][1] = H'^(1024)(H_0 || LE32(1) || LE32(i))
             var block1Input = new byte[h0.Length + 8];
@@ -151,7 +172,11 @@ public static class Argon2Core
 
             var block1Data = Blake2bCore.ComputeLongHash(block1Input, BLOCK_SIZE);
             BytesToBlock(block1Data, memory[startIdx + 1]);
+            SecureMemoryOperations.SecureClear(block1Input);
+            SecureMemoryOperations.SecureClear(block1Data);
         }
+
+        SecureMemoryOperations.SecureClear(h0);
     }
 
     /// <summary>
@@ -162,54 +187,63 @@ public static class Argon2Core
     /// </summary>
     private static byte[] BuildH0Input(Argon2Context context)
     {
-        using var ms = new MemoryStream();
-        var buffer = new byte[4];
+        var length = 40 +
+                     context.Password.Length +
+                     context.Salt.Length +
+                     context.Secret.Length +
+                     context.AssociatedData.Length;
+
+        var buffer = new byte[length];
+        var offset = 0;
 
         // p: parallelism degree
-        BinaryHelpers.WriteInt32LittleEndian(buffer, 0, context.Lanes);
-        ms.Write(buffer, 0, 4);
+        BinaryHelpers.WriteInt32LittleEndian(buffer, offset, context.Lanes);
+        offset += 4;
 
         // T: tag length in bytes
-        BinaryHelpers.WriteInt32LittleEndian(buffer, 0, context.HashLength);
-        ms.Write(buffer, 0, 4);
+        BinaryHelpers.WriteInt32LittleEndian(buffer, offset, context.HashLength);
+        offset += 4;
 
         // m: memory size in KB
-        BinaryHelpers.WriteInt32LittleEndian(buffer, 0, context.Memory);
-        ms.Write(buffer, 0, 4);
+        BinaryHelpers.WriteInt32LittleEndian(buffer, offset, context.Memory);
+        offset += 4;
 
         // t: number of iterations
-        BinaryHelpers.WriteInt32LittleEndian(buffer, 0, context.Iterations);
-        ms.Write(buffer, 0, 4);
+        BinaryHelpers.WriteInt32LittleEndian(buffer, offset, context.Iterations);
+        offset += 4;
 
         // v: VERSION number (19 = 0x13)
-        BinaryHelpers.WriteInt32LittleEndian(buffer, 0, VERSION);
-        ms.Write(buffer, 0, 4);
+        BinaryHelpers.WriteInt32LittleEndian(buffer, offset, VERSION);
+        offset += 4;
 
         // y: Argon2 type (0=Argon2d, 1=Argon2i, 2=Argon2id)
-        BinaryHelpers.WriteInt32LittleEndian(buffer, 0, (int)context.Type);
-        ms.Write(buffer, 0, 4);
+        BinaryHelpers.WriteInt32LittleEndian(buffer, offset, (int)context.Type);
+        offset += 4;
 
         // Password with length prefix
-        BinaryHelpers.WriteInt32LittleEndian(buffer, 0, context.Password.Length);
-        ms.Write(buffer, 0, 4);
-        ms.Write(context.Password, 0, context.Password.Length);
+        BinaryHelpers.WriteInt32LittleEndian(buffer, offset, context.Password.Length);
+        offset += 4;
+        Array.Copy(context.Password, 0, buffer, offset, context.Password.Length);
+        offset += context.Password.Length;
 
         // Salt with length prefix
-        BinaryHelpers.WriteInt32LittleEndian(buffer, 0, context.Salt.Length);
-        ms.Write(buffer, 0, 4);
-        ms.Write(context.Salt, 0, context.Salt.Length);
+        BinaryHelpers.WriteInt32LittleEndian(buffer, offset, context.Salt.Length);
+        offset += 4;
+        Array.Copy(context.Salt, 0, buffer, offset, context.Salt.Length);
+        offset += context.Salt.Length;
 
         // Secret with length prefix
-        BinaryHelpers.WriteInt32LittleEndian(buffer, 0, context.Secret.Length);
-        ms.Write(buffer, 0, 4);
-        ms.Write(context.Secret, 0, context.Secret.Length);
+        BinaryHelpers.WriteInt32LittleEndian(buffer, offset, context.Secret.Length);
+        offset += 4;
+        Array.Copy(context.Secret, 0, buffer, offset, context.Secret.Length);
+        offset += context.Secret.Length;
 
         // Associated data with length prefix
-        BinaryHelpers.WriteInt32LittleEndian(buffer, 0, context.AssociatedData.Length);
-        ms.Write(buffer, 0, 4);
-        ms.Write(context.AssociatedData, 0, context.AssociatedData.Length);
+        BinaryHelpers.WriteInt32LittleEndian(buffer, offset, context.AssociatedData.Length);
+        offset += 4;
+        Array.Copy(context.AssociatedData, 0, buffer, offset, context.AssociatedData.Length);
 
-        return ms.ToArray();
+        return buffer;
     }
 
     /// <summary>
@@ -237,11 +271,21 @@ public static class Argon2Core
         Block? inputBlock = null;
         Block? zeroBlock = null;
 
+        // Reusable blocks for FillBlock
+        Block blockR = new Block(); // Initialize to avoid null checks (optimized out if not used? No, must initialize)
+        Block blockZ = new Block();
+        ulong[] permBuffer = new ulong[16];
+
         if (dataIndependentAddressing)
         {
             addressBlock = new Block();
             inputBlock = new Block();
             zeroBlock = new Block();
+
+            // Temp blocks for FillBlock reused across iterations
+            blockR = new Block();
+            blockZ = new Block();
+            permBuffer = new ulong[16];
 
             // Initialize input block for address generation
             inputBlock.Data[0] = (ulong)pass;
@@ -259,60 +303,81 @@ public static class Argon2Core
             }
 
             // Generate initial addresses
-            GenerateAddresses(inputBlock, zeroBlock, addressBlock);
+            GenerateAddresses(inputBlock, zeroBlock, addressBlock, blockR, blockZ, permBuffer);
         }
 
         // Process each block in the segment
         var endIndex = startingIndex + segmentLength;
-        for (var i = currentIndex; i < endIndex; i++)
+
+        // Pre-allocate originalNext if needed (only if Pass > 0)
+        Block? originalNext = null;
+        if (pass > 0)
         {
-            ulong pseudoRandom;
+            originalNext = new Block();
+        }
 
-            if (dataIndependentAddressing)
+        try
+        {
+            for (var i = currentIndex; i < endIndex; i++)
             {
-                var addressIndex = (i - currentIndex) % 128;
-                if (addressIndex == 0 && i != currentIndex)
+                ulong pseudoRandom;
+
+                if (dataIndependentAddressing)
                 {
-                    // Generate new addresses when needed
-                    GenerateAddresses(inputBlock!, zeroBlock!, addressBlock!);
+                    var addressIndex = (i - currentIndex) % 128;
+                    if (addressIndex == 0 && i != currentIndex)
+                    {
+                        // Generate new addresses when needed
+                        GenerateAddresses(inputBlock!, zeroBlock!, addressBlock!, blockR, blockZ, permBuffer);
+                    }
+                    pseudoRandom = addressBlock!.Data[addressIndex];
                 }
-                pseudoRandom = addressBlock!.Data[addressIndex];
-            }
-            else
-            {
-                // Data-dependent addressing: use previous block's first word
-                var prevIndex = i - 1;
-                if (prevIndex < lane * blocksPerLane)
+                else
                 {
-                    prevIndex = (lane + 1) * blocksPerLane - 1; // Wrap to end of lane
+                    // Data-dependent addressing: use previous block's first word
+                    var prevIndex = i - 1;
+                    if (prevIndex < lane * blocksPerLane)
+                    {
+                        prevIndex = (lane + 1) * blocksPerLane - 1; // Wrap to end of lane
+                    }
+                    pseudoRandom = memory[prevIndex].Data[0];
                 }
-                pseudoRandom = memory[prevIndex].Data[0];
+
+                // Determine reference lane
+                var refLane = (int)((pseudoRandom >> 32) % (ulong)context.Lanes);
+
+                // First slice of first pass can only reference same lane
+                if (pass == 0 && slice == 0)
+                {
+                    refLane = lane;
+                }
+
+                // Calculate reference block index
+                var segmentIndex = i - startingIndex;
+                var refIndex = IndexAlpha(context, pass, lane, slice, segmentIndex, (uint)pseudoRandom, refLane == lane);
+                var refBlock = memory[refLane * blocksPerLane + refIndex];
+
+                // Get previous block
+                var prevBlockIndex = i - 1;
+                if (prevBlockIndex < lane * blocksPerLane)
+                {
+                    prevBlockIndex = (lane + 1) * blocksPerLane - 1; // Wrap to end of lane
+                }
+                var prevBlock = memory[prevBlockIndex];
+
+                // Fill the current block
+                FillBlock(prevBlock, refBlock, memory[i], pass > 0, blockR, blockZ, originalNext, permBuffer);
             }
-
-            // Determine reference lane
-            var refLane = (int)((pseudoRandom >> 32) % (ulong)context.Lanes);
-
-            // First slice of first pass can only reference same lane
-            if (pass == 0 && slice == 0)
-            {
-                refLane = lane;
-            }
-
-            // Calculate reference block index
-            var segmentIndex = i - startingIndex;
-            var refIndex = IndexAlpha(context, pass, lane, slice, segmentIndex, (uint)pseudoRandom, refLane == lane);
-            var refBlock = memory[refLane * blocksPerLane + refIndex];
-
-            // Get previous block
-            var prevBlockIndex = i - 1;
-            if (prevBlockIndex < lane * blocksPerLane)
-            {
-                prevBlockIndex = (lane + 1) * blocksPerLane - 1; // Wrap to end of lane
-            }
-            var prevBlock = memory[prevBlockIndex];
-
-            // Fill the current block
-            FillBlock(prevBlock, refBlock, memory[i], pass > 0);
+        }
+        finally
+        {
+            blockR.Clear();
+            blockZ.Clear();
+            originalNext?.Clear();
+            addressBlock?.Clear();
+            inputBlock?.Clear();
+            zeroBlock?.Clear();
+            Array.Clear(permBuffer, 0, permBuffer.Length);
         }
     }
 
@@ -393,13 +458,10 @@ public static class Argon2Core
     /// FillBlock: Argon2 compression function
     /// RFC 9106 Section 3.4
     /// </summary>
-    private static void FillBlock(Block prevBlock, Block refBlock, Block nextBlock, bool withXor)
+    private static void FillBlock(Block prevBlock, Block refBlock, Block nextBlock, bool withXor,
+        Block blockR, Block blockZ, Block? originalNext, ulong[] permBuffer)
     {
-        var blockR = new Block();
-        var blockZ = new Block();
-
         // Save original nextBlock content if needed for XOR
-        var originalNext = withXor ? new Block() : null;
         if (withXor)
         {
             Array.Copy(nextBlock.Data, originalNext!.Data, 128);
@@ -415,7 +477,7 @@ public static class Argon2Core
         Array.Copy(blockR.Data, blockZ.Data, 128);
 
         // Step 3: Apply permutation P
-        ApplyBlake2bPermutation(blockZ);
+        ApplyBlake2bPermutation(blockZ, permBuffer);
 
         // Step 4: Final result = Z XOR R
         for (var i = 0; i < 128; i++)
@@ -437,44 +499,41 @@ public static class Argon2Core
     /// Apply Blake2b-based permutation P to a block
     /// RFC 9106 Section 3.4
     /// </summary>
-    private static void ApplyBlake2bPermutation(Block block)
+    private static void ApplyBlake2bPermutation(Block block, ulong[] tempBuffer)
     {
         // Apply column-wise mixing (8 columns of 16 elements each)
         for (var col = 0; col < 8; col++)
         {
-            var column = new ulong[16];
             for (var i = 0; i < 16; i++)
             {
-                column[i] = block.Data[col * 16 + i];
+                tempBuffer[i] = block.Data[col * 16 + i];
             }
 
-            Blake2bRoundFunction(column);
+            Blake2bRoundFunction(tempBuffer);
 
             for (var i = 0; i < 16; i++)
             {
-                block.Data[col * 16 + i] = column[i];
+                block.Data[col * 16 + i] = tempBuffer[i];
             }
         }
 
         // Apply row-wise mixing (8 rows of 16 elements each)
         for (var row = 0; row < 8; row++)
         {
-            var rowData = new ulong[16];
-
             // Extract row elements (2 elements from each column)
             for (var col = 0; col < 8; col++)
             {
-                rowData[col * 2] = block.Data[col * 16 + row * 2];
-                rowData[col * 2 + 1] = block.Data[col * 16 + row * 2 + 1];
+                tempBuffer[col * 2] = block.Data[col * 16 + row * 2];
+                tempBuffer[col * 2 + 1] = block.Data[col * 16 + row * 2 + 1];
             }
 
-            Blake2bRoundFunction(rowData);
+            Blake2bRoundFunction(tempBuffer);
 
             // Write back row elements
             for (var col = 0; col < 8; col++)
             {
-                block.Data[col * 16 + row * 2] = rowData[col * 2];
-                block.Data[col * 16 + row * 2 + 1] = rowData[col * 2 + 1];
+                block.Data[col * 16 + row * 2] = tempBuffer[col * 2];
+                block.Data[col * 16 + row * 2 + 1] = tempBuffer[col * 2 + 1];
             }
         }
     }
@@ -528,10 +587,11 @@ public static class Argon2Core
     /// Generate addresses for data-independent addressing (Argon2i)
     /// RFC 9106 Section 3.4
     /// </summary>
-    private static void GenerateAddresses(Block input, Block zero, Block output)
+    private static void GenerateAddresses(Block input, Block zero, Block output,
+        Block blockR, Block blockZ, ulong[] permBuffer)
     {
-        FillBlock(zero, input, output, false);
-        FillBlock(zero, output, output, false);
+        FillBlock(zero, input, output, false, blockR, blockZ, null, permBuffer);
+        FillBlock(zero, output, output, false, blockR, blockZ, null, permBuffer);
         input.Data[6]++; // Increment counter after generating addresses
     }
 
@@ -550,7 +610,15 @@ public static class Argon2Core
         }
 
         var finalBlockBytes = BlockToBytes(finalBlock);
-        return Blake2bCore.ComputeLongHash(finalBlockBytes, context.HashLength);
+        try
+        {
+            return Blake2bCore.ComputeLongHash(finalBlockBytes, context.HashLength);
+        }
+        finally
+        {
+            finalBlock.Clear();
+            SecureMemoryOperations.SecureClear(finalBlockBytes);
+        }
     }
 
     private static byte[] BlockToBytes(Block block)
@@ -579,14 +647,6 @@ public static class Argon2Core
     /// the fundamental unit of memory manipulation in Argon2. Blocks are used
     /// for mixing operations during the memory-hard hashing process.
     /// </remarks>
-    private sealed class Block
-    {
-        /// <summary>
-        /// Block data as an array of 128 64-bit unsigned integers (1024 bytes total).
-        /// </summary>
-        public readonly ulong[] Data = new ulong[128];
-    }
-
     internal sealed class Argon2Context
     {
         public byte[] Password { get; init; } = [];
@@ -598,5 +658,21 @@ public static class Argon2Core
         public int Lanes { get; init; }
         public int HashLength { get; init; }
         public Argon2Type Type { get; init; }
+    }
+
+    /// <summary>
+    /// Represents a 1024-byte Argon2 memory block.
+    /// </summary>
+    private sealed class Block
+    {
+        /// <summary>
+        /// Block data as an array of 128 64-bit unsigned integers (1024 bytes total).
+        /// </summary>
+        public readonly ulong[] Data = new ulong[128];
+
+        public void Clear()
+        {
+            Array.Clear(Data, 0, Data.Length);
+        }
     }
 }

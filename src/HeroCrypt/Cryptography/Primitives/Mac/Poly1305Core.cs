@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using HeroCrypt.Polyfills;
 using HeroCrypt.Security;
 
 namespace HeroCrypt.Cryptography.Primitives.Mac;
@@ -55,53 +56,61 @@ internal static class Poly1305Core
         key[..16].CopyTo(rBytes);
         key.Slice(16, 16).CopyTo(sBytes);
 
-        // Clamp r
-        ClampR(rBytes);
-
-        // Convert to little-endian uint64 arrays
-        Span<ulong> r = stackalloc ulong[3];
-        Span<ulong> s = stackalloc ulong[2];
-
-        BytesToUInt64LE(rBytes, r[..2]);
-        r[2] = 0; // High part of r is always 0 after clamping
-
-        BytesToUInt64LE(sBytes, s);
-
-        // Initialize accumulator
-        Span<ulong> h = stackalloc ulong[3];
-        h.Clear();
-
-        // Process message in 16-byte blocks
-        // Move stackalloc outside the loop to prevent stack overflow
-        Span<ulong> blockNum = stackalloc ulong[3];
-        var offset = 0;
-        while (offset < message.Length)
+        try
         {
-            var blockSize = Math.Min(BLOCK_SIZE, message.Length - offset);
-            var block = message.Slice(offset, blockSize);
+            // Clamp r
+            ClampR(rBytes);
 
-            // Convert block to number with padding bit (reuse the blockNum buffer)
-            BlockToNumber(block, blockNum);
+            // Convert to little-endian uint64 arrays
+            Span<ulong> r = stackalloc ulong[3];
+            Span<ulong> s = stackalloc ulong[2];
 
-            // h = (h + blockNum) * r mod p
-            AddModP(h, blockNum);
-            MultiplyModP(h, r);
+            BytesToUInt64LE(rBytes, r[..2]);
+            r[2] = 0; // High part of r is always 0 after clamping
 
-            offset += blockSize;
+            BytesToUInt64LE(sBytes, s);
+
+            // Initialize accumulator
+            Span<ulong> h = stackalloc ulong[3];
+            h.Clear();
+
+            // Process message in 16-byte blocks
+            // Move stackalloc outside the loop to prevent stack overflow
+            Span<ulong> blockNum = stackalloc ulong[3];
+            var offset = 0;
+            while (offset < message.Length)
+            {
+                var blockSize = Math.Min(BLOCK_SIZE, message.Length - offset);
+                var block = message.Slice(offset, blockSize);
+
+                // Convert block to number with padding bit (reuse the blockNum buffer)
+                BlockToNumber(block, blockNum);
+
+                // h = (h + blockNum) * r mod p
+                AddModP(h, blockNum);
+                MultiplyModP(h, r);
+
+                offset += blockSize;
+            }
+
+            // Add s
+            AddS(h, s);
+
+            // Convert to bytes
+            UInt64LEToBytes(h[..2], tag);
+
+            // Clear sensitive data
+            SecureMemoryOperations.SecureClear(r);
+            SecureMemoryOperations.SecureClear(s);
+            SecureMemoryOperations.SecureClear(h);
+            SecureMemoryOperations.SecureClear(blockNum);
         }
-
-        // Add s
-        AddS(h, s);
-
-        // Convert to bytes
-        UInt64LEToBytes(h[..2], tag);
-
-        // Clear sensitive data
-        SecureMemoryOperations.SecureClear(rBytes);
-        SecureMemoryOperations.SecureClear(sBytes);
-        SecureMemoryOperations.SecureClear(r);
-        SecureMemoryOperations.SecureClear(s);
-        SecureMemoryOperations.SecureClear(h);
+        finally
+        {
+            // Always clear key material, even on exceptions
+            SecureMemoryOperations.SecureClear(rBytes);
+            SecureMemoryOperations.SecureClear(sBytes);
+        }
     }
 
     /// <summary>
@@ -168,15 +177,12 @@ internal static class Poly1305Core
             blockBytes[16] = 1;
         }
 
-        // Convert to little-endian uint64
-#if NET5_0_OR_GREATER
-        number[0] = BitConverter.ToUInt64(blockBytes.Slice(0, 8));
-        number[1] = BitConverter.ToUInt64(blockBytes.Slice(8, 8));
-#else
-        number[0] = BitConverter.ToUInt64(blockBytes.Slice(0, 8).ToArray(), 0);
-        number[1] = BitConverter.ToUInt64(blockBytes.Slice(8, 8).ToArray(), 0);
-#endif
+        // Convert to little-endian uint64 using endianness-safe helper
+        number[0] = BinaryHelpers.ReadUInt64LittleEndian(blockBytes.Slice(0, 8));
+        number[1] = BinaryHelpers.ReadUInt64LittleEndian(blockBytes.Slice(8, 8));
         number[2] = blockBytes[16];
+
+        SecureMemoryOperations.SecureClear(blockBytes);
     }
 
     /// <summary>
@@ -188,23 +194,13 @@ internal static class Poly1305Core
         // Move stackalloc outside the loop to prevent stack overflow
         Span<byte> temp = stackalloc byte[8];
 
-#if !NET5_0_OR_GREATER
-        // Create reusable arrays for .NET Standard 2.0 (avoid memory leaks in loop)
-        var byteArray = new byte[8];
-        var tempArray = new byte[8];
-#endif
-
         for (var i = 0; i < numbers.Length; i++)
         {
             var offset = i * 8;
             if (offset + 8 <= bytes.Length)
             {
-#if NET5_0_OR_GREATER
-                numbers[i] = BitConverter.ToUInt64(bytes.Slice(offset, 8));
-#else
-                bytes.Slice(offset, 8).CopyTo(byteArray);
-                numbers[i] = BitConverter.ToUInt64(byteArray, 0);
-#endif
+                // Use endianness-safe helper
+                numbers[i] = BinaryHelpers.ReadUInt64LittleEndian(bytes.Slice(offset, 8));
             }
             else
             {
@@ -212,12 +208,7 @@ internal static class Poly1305Core
                 temp.Clear();
                 var remaining = bytes.Length - offset;
                 bytes.Slice(offset, remaining).CopyTo(temp);
-#if NET5_0_OR_GREATER
-                numbers[i] = BitConverter.ToUInt64(temp);
-#else
-                temp.CopyTo(tempArray);
-                numbers[i] = BitConverter.ToUInt64(tempArray, 0);
-#endif
+                numbers[i] = BinaryHelpers.ReadUInt64LittleEndian(temp);
             }
         }
     }
@@ -233,7 +224,8 @@ internal static class Poly1305Core
             var offset = i * 8;
             if (offset + 8 <= bytes.Length)
             {
-                BitConverter.GetBytes(numbers[i]).CopyTo(bytes.Slice(offset, 8));
+                // Use endianness-safe helper
+                BinaryHelpers.WriteUInt64LittleEndian(bytes.Slice(offset, 8), numbers[i]);
             }
         }
     }

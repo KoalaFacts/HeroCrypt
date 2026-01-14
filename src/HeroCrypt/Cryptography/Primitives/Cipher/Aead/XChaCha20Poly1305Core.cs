@@ -1,8 +1,6 @@
 using System.Runtime.CompilerServices;
 using HeroCrypt.Cryptography.Primitives.Cipher.Stream;
-#if NETSTANDARD2_0
 using HeroCrypt.Polyfills;
-#endif
 using HeroCrypt.Security;
 
 namespace HeroCrypt.Cryptography.Primitives.Cipher.Aead;
@@ -223,46 +221,31 @@ internal static class XChaCha20Poly1305Core
         state[2] = HChaCha20Constants[2];
         state[3] = HChaCha20Constants[3];
 
-#if !NET5_0_OR_GREATER
-        // Create reusable arrays for .NET Standard 2.0 (avoid memory leaks in loops)
-        var keyBytes = new byte[4];
-        var nonceBytes = new byte[4];
-#endif
-
-        // Key
+        // Key - use explicit little-endian reads for platform independence
         for (var i = 0; i < 8; i++)
         {
-#if NET5_0_OR_GREATER
-            state[4 + i] = BitConverter.ToUInt32(key.Slice(i * 4, 4));
-#else
-            key.Slice(i * 4, 4).CopyTo(keyBytes);
-            state[4 + i] = BitConverter.ToUInt32(keyBytes, 0);
-#endif
+            state[4 + i] = BinaryHelpers.ReadUInt32LittleEndian(key.Slice(i * 4, 4));
         }
 
-        // Nonce
+        // Nonce - use explicit little-endian reads for platform independence
         for (var i = 0; i < 4; i++)
         {
-#if NET5_0_OR_GREATER
-            state[12 + i] = BitConverter.ToUInt32(nonce.Slice(i * 4, 4));
-#else
-            nonce.Slice(i * 4, 4).CopyTo(nonceBytes);
-            state[12 + i] = BitConverter.ToUInt32(nonceBytes, 0);
-#endif
+            state[12 + i] = BinaryHelpers.ReadUInt32LittleEndian(nonce.Slice(i * 4, 4));
         }
 
         // Perform 20 rounds (same as ChaCha20)
         ChaChaUtils.DoubleRound(state);
 
         // Output only state[0], state[1], state[2], state[3], state[12], state[13], state[14], state[15]
-        BitConverter.GetBytes(state[0]).CopyTo(output[..4]);
-        BitConverter.GetBytes(state[1]).CopyTo(output.Slice(4, 4));
-        BitConverter.GetBytes(state[2]).CopyTo(output.Slice(8, 4));
-        BitConverter.GetBytes(state[3]).CopyTo(output.Slice(12, 4));
-        BitConverter.GetBytes(state[12]).CopyTo(output.Slice(16, 4));
-        BitConverter.GetBytes(state[13]).CopyTo(output.Slice(20, 4));
-        BitConverter.GetBytes(state[14]).CopyTo(output.Slice(24, 4));
-        BitConverter.GetBytes(state[15]).CopyTo(output.Slice(28, 4));
+        // Use explicit little-endian writes for platform independence
+        BinaryHelpers.WriteUInt32LittleEndian(output.Slice(0, 4), state[0]);
+        BinaryHelpers.WriteUInt32LittleEndian(output.Slice(4, 4), state[1]);
+        BinaryHelpers.WriteUInt32LittleEndian(output.Slice(8, 4), state[2]);
+        BinaryHelpers.WriteUInt32LittleEndian(output.Slice(12, 4), state[3]);
+        BinaryHelpers.WriteUInt32LittleEndian(output.Slice(16, 4), state[12]);
+        BinaryHelpers.WriteUInt32LittleEndian(output.Slice(20, 4), state[13]);
+        BinaryHelpers.WriteUInt32LittleEndian(output.Slice(24, 4), state[14]);
+        BinaryHelpers.WriteUInt32LittleEndian(output.Slice(28, 4), state[15]);
 
         // Clear state
         SecureMemoryOperations.SecureClear(state);

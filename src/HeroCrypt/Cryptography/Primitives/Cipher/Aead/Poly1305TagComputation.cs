@@ -40,46 +40,55 @@ internal static class Poly1305TagComputation
         var totalLength = aadLength + aadPadding + ciphertextLength + ciphertextPadding + 16;
 
         // Build message for Poly1305 (use stackalloc for small messages)
-        Span<byte> message = totalLength <= StackAllocThreshold ? stackalloc byte[totalLength] : new byte[totalLength];
-        var offset = 0;
+        // For heap allocations, use try/finally to ensure cleanup on exception
+        var useHeapAllocation = totalLength > StackAllocThreshold;
+        Span<byte> message = useHeapAllocation ? new byte[totalLength] : stackalloc byte[totalLength];
 
-        // Copy associated data
-        if (aadLength > 0)
+        try
         {
-            associatedData.CopyTo(message.Slice(offset, aadLength));
-            offset += aadLength;
-        }
+            var offset = 0;
 
-        // Add AAD padding (zeros)
-        if (aadPadding > 0)
+            // Copy associated data
+            if (aadLength > 0)
+            {
+                associatedData.CopyTo(message.Slice(offset, aadLength));
+                offset += aadLength;
+            }
+
+            // Add AAD padding (zeros)
+            if (aadPadding > 0)
+            {
+                message.Slice(offset, aadPadding).Clear();
+                offset += aadPadding;
+            }
+
+            // Copy ciphertext
+            if (ciphertextLength > 0)
+            {
+                ciphertext.CopyTo(message.Slice(offset, ciphertextLength));
+                offset += ciphertextLength;
+            }
+
+            // Add ciphertext padding (zeros)
+            if (ciphertextPadding > 0)
+            {
+                message.Slice(offset, ciphertextPadding).Clear();
+                offset += ciphertextPadding;
+            }
+
+            // Add lengths in little-endian format (8 bytes each)
+            var lengthBytes = message.Slice(offset, 16);
+            BinaryHelpers.WriteUInt64LittleEndian(lengthBytes[..8], (ulong)aadLength);
+            BinaryHelpers.WriteUInt64LittleEndian(lengthBytes.Slice(8, 8), (ulong)ciphertextLength);
+
+            // Compute Poly1305 MAC
+            Poly1305Core.ComputeMac(tag, message, poly1305Key);
+        }
+        finally
         {
-            message.Slice(offset, aadPadding).Clear();
-            offset += aadPadding;
+            // Clear message to prevent sensitive data from remaining in memory
+            // This is especially important for heap-allocated buffers
+            SecureMemoryOperations.SecureClear(message);
         }
-
-        // Copy ciphertext
-        if (ciphertextLength > 0)
-        {
-            ciphertext.CopyTo(message.Slice(offset, ciphertextLength));
-            offset += ciphertextLength;
-        }
-
-        // Add ciphertext padding (zeros)
-        if (ciphertextPadding > 0)
-        {
-            message.Slice(offset, ciphertextPadding).Clear();
-            offset += ciphertextPadding;
-        }
-
-        // Add lengths in little-endian format (8 bytes each)
-        var lengthBytes = message.Slice(offset, 16);
-        BinaryHelpers.WriteUInt64LittleEndian(lengthBytes[..8], (ulong)aadLength);
-        BinaryHelpers.WriteUInt64LittleEndian(lengthBytes.Slice(8, 8), (ulong)ciphertextLength);
-
-        // Compute Poly1305 MAC
-        Poly1305Core.ComputeMac(tag, message, poly1305Key);
-
-        // Clear message to prevent sensitive data from remaining in memory
-        SecureMemoryOperations.SecureClear(message);
     }
 }

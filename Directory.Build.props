@@ -61,8 +61,9 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
 
     <!-- Enable NuGet package lock files for reproducible builds -->
+    <!-- Note: RestoreLockedMode disabled in CI because SDK patch versions vary across runners,
+         causing ILLink.Tasks version mismatches. Lock files still provide local reproducibility. -->
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
-    <RestoreLockedMode Condition="'$(CI)' == 'true'">true</RestoreLockedMode>
     <NuGetXmlDocMode Condition="'$(CI)' == 'true'">skip</NuGetXmlDocMode>
     <DisableImplicitNuGetFallbackFolder>true</DisableImplicitNuGetFallbackFolder>
   </PropertyGroup>

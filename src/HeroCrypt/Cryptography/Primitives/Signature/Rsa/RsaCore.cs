@@ -258,6 +258,7 @@ internal sealed class RsaKeyPair(RsaPublicKey publicKey, RsaPrivateKey privateKe
     public RsaPublicKey PublicKey { get; } = publicKey;
     public RsaPrivateKey PrivateKey { get; } = privateKey;
 
+    /// <inheritdoc />
     public void Dispose()
     {
         PublicKey?.Dispose();
@@ -275,6 +276,7 @@ internal sealed class RsaPublicKey(BigInteger modulus, BigInteger exponent) : ID
     public BigInteger Modulus { get; } = modulus;
     public BigInteger Exponent { get; } = exponent;
 
+    /// <inheritdoc />
     public void Dispose()
     {
         Modulus?.Dispose();
@@ -298,6 +300,7 @@ internal sealed class RsaPrivateKey(BigInteger modulus, BigInteger d, BigInteger
     public BigInteger Q { get; } = q;
     public BigInteger E { get; } = e;
 
+    /// <inheritdoc />
     public void Dispose()
     {
         Modulus?.Dispose();

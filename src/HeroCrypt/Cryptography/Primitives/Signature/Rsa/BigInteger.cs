@@ -905,6 +905,9 @@ internal sealed class BigInteger : IComparable<BigInteger>, IDisposable
         return hex.ToString().TrimStart('0');
     }
 
+    /// <summary>
+    /// Securely clears the internal data of this BigInteger instance.
+    /// </summary>
     public void Clear()
     {
         // Prevent clearing immutable singleton instances (Zero, One)
@@ -921,6 +924,7 @@ internal sealed class BigInteger : IComparable<BigInteger>, IDisposable
         Sign = 0;
     }
 
+    /// <inheritdoc />
     public void Dispose()
     {
         // Prevent disposing immutable singleton instances (Zero, One)

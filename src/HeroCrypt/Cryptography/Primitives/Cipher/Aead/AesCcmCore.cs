@@ -332,6 +332,10 @@ internal static class AesCcmCore
 
         // Final MAC is the tag
         mac.CopyTo(tag);
+
+        // Clear sensitive intermediate arrays
+        SecureMemoryOperations.SecureClear(macArray);
+        SecureMemoryOperations.SecureClear(blockArray);
     }
 
     /// <summary>
@@ -406,6 +410,8 @@ internal static class AesCcmCore
         // Clear sensitive data
         SecureMemoryOperations.SecureClear(counter);
         SecureMemoryOperations.SecureClear(keystream);
+        SecureMemoryOperations.SecureClear(keystreamArray);
+        SecureMemoryOperations.SecureClear(counterArray);
     }
 
     /// <summary>
@@ -479,6 +485,8 @@ internal static class AesCcmCore
         // Clear sensitive data
         SecureMemoryOperations.SecureClear(counter);
         SecureMemoryOperations.SecureClear(keystream);
+        SecureMemoryOperations.SecureClear(keystreamArray);
+        SecureMemoryOperations.SecureClear(counterArray);
     }
 
     /// <summary>

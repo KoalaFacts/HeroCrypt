@@ -70,6 +70,14 @@ public static class XSalsa20Core
 
             for (var blockIndex = 0; blockIndex < blocks; blockIndex++)
             {
+                // Check for counter overflow to prevent keystream reuse
+                var effectiveCounter = counter + (uint)blockIndex;
+                if (effectiveCounter < counter && blockIndex > 0)
+                {
+                    throw new System.Security.Cryptography.CryptographicException(
+                        "XSalsa20 counter overflow: cannot encrypt more than 256GB with a single key/nonce pair.");
+                }
+
                 var blockStart = blockIndex * BLOCK_SIZE;
                 var blockSize = Math.Min(BLOCK_SIZE, input.Length - blockStart);
 
@@ -77,7 +85,7 @@ public static class XSalsa20Core
                 var outputBlock = output.Slice(blockStart, blockSize);
 
                 // Initialize state for this block
-                InitializeSalsa20State(state, derivedKey, derivedNonce, counter + (uint)blockIndex);
+                InitializeSalsa20State(state, derivedKey, derivedNonce, effectiveCounter);
 
                 // Generate keystream block (reuse the keystream buffer)
                 GenerateKeystreamBlock(keystream, state);

@@ -31,7 +31,7 @@ namespace HeroCrypt.Tests.Cryptography.Primitives.Cipher.Aead;
 ///   </item>
 /// </list>
 /// </remarks>
-public class AeadTests
+public class AeadIntegrationTests
 {
     public static IEnumerable<object[]> AeadCases =>
     [

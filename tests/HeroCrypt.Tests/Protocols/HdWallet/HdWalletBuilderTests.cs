@@ -165,6 +165,10 @@ public class HdWalletBuilderTests
     /// <summary>
     /// Tests for derivation paths.
     /// </summary>
+    /// <remarks>
+    /// Tests that use derivation paths require secp256k1 curve support, which is not
+    /// available on macOS. These tests are skipped on unsupported platforms.
+    /// </remarks>
     [Trait("Category", TestCategories.UNIT)]
     [Trait("Category", TestCategories.FAST)]
     public class DerivationPathTests
@@ -174,6 +178,8 @@ public class HdWalletBuilderTests
         [Fact]
         public void WithPath_ValidPath_DerivesKey()
         {
+            if (OperatingSystem.IsMacOS()) { Assert.Skip("secp256k1 not supported on macOS"); return; }
+
             var result = new HdWalletBuilder()
                 .FromMnemonic(TestMnemonic)
                 .WithPath("m/44'/0'/0'/0/0")
@@ -186,6 +192,8 @@ public class HdWalletBuilderTests
         [Fact]
         public void WithPath_DifferentPaths_ProduceDifferentKeys()
         {
+            if (OperatingSystem.IsMacOS()) { Assert.Skip("secp256k1 not supported on macOS"); return; }
+
             var result1 = new HdWalletBuilder()
                 .FromMnemonic(TestMnemonic)
                 .WithPath("m/44'/0'/0'/0/0")
@@ -254,6 +262,8 @@ public class HdWalletBuilderTests
         [Fact]
         public void FluentChaining_Works()
         {
+            if (OperatingSystem.IsMacOS()) { Assert.Skip("secp256k1 not supported on macOS"); return; }
+
             var result = new HdWalletBuilder()
                 .GenerateMnemonic(12)
                 .WithPassphrase("test")

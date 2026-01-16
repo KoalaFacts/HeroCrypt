@@ -1,6 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
-using HeroCrypt.Cryptography.Primitives.Kdf;
+using HeroCrypt.Primitives.Argon2;
 using HeroCrypt.Security;
 
 namespace HeroCrypt.Examples.UseCases;
@@ -107,16 +107,15 @@ public static class PasswordStorageExample
         var salt = RandomNumberGenerator.GetBytes(16);
         var passwordBytes = Encoding.UTF8.GetBytes(password);
 
-        var hashBytes = Argon2Core.Hash(
-            passwordBytes,
-            salt,
-            ARGON_ITERATIONS,
-            ARGON_MEMORY_SIZE_KB,
-            ARGON_PARALLELISM,
-            ARGON_HASH_LENGTH,
-            Argon2Type.Argon2id,
-            secret: null,
-            associatedData: null);
+        using var builder = Argon2Builder.Create()
+            .WithPassword(passwordBytes)
+            .WithSalt(salt)
+            .WithIterations(ARGON_ITERATIONS)
+            .WithMemorySize(ARGON_MEMORY_SIZE_KB)
+            .WithParallelism(ARGON_PARALLELISM)
+            .WithOutputLength(ARGON_HASH_LENGTH)
+            .WithType(Argon2Type.Argon2id);
+        var hashBytes = builder.DeriveKey();
 
         return new PasswordHash(
             Convert.ToBase64String(salt),
@@ -133,16 +132,15 @@ public static class PasswordStorageExample
         var expectedHash = Convert.FromBase64String(stored.Hash);
         var passwordBytes = Encoding.UTF8.GetBytes(password);
 
-        var computed = Argon2Core.Hash(
-            passwordBytes,
-            salt,
-            stored.Iterations,
-            stored.MemorySizeKb,
-            stored.Parallelism,
-            stored.HashLength,
-            Argon2Type.Argon2id,
-            secret: null,
-            associatedData: null);
+        using var builder = Argon2Builder.Create()
+            .WithPassword(passwordBytes)
+            .WithSalt(salt)
+            .WithIterations(stored.Iterations)
+            .WithMemorySize(stored.MemorySizeKb)
+            .WithParallelism(stored.Parallelism)
+            .WithOutputLength(stored.HashLength)
+            .WithType(Argon2Type.Argon2id);
+        var computed = builder.DeriveKey();
 
         return SecureMemoryOperations.ConstantTimeEquals(computed, expectedHash);
     }

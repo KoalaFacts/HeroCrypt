@@ -1,7 +1,7 @@
 #if NET10_0_OR_GREATER
 using System.Security.Cryptography;
 using System.Text;
-using HeroCrypt.Cryptography.Primitives.PostQuantum.Kem;
+using HeroCrypt.Primitives.MLKem;
 
 namespace HeroCrypt.Examples.PostQuantum;
 
@@ -14,7 +14,7 @@ public static class HybridEncryptionExample
     {
         Console.WriteLine("=== Hybrid Encryption: ML-KEM + AES-GCM ===");
 
-        if (!MLKemWrapper.IsSupported())
+        if (!MLKemCore.IsSupported())
         {
             Console.WriteLine("ML-KEM not supported on this platform.");
             return;
@@ -64,7 +64,7 @@ public static class HybridEncryptionExample
     {
         Console.WriteLine("=== Hybrid Encryption: Multiple messages ===");
 
-        if (!MLKemWrapper.IsSupported())
+        if (!MLKemCore.IsSupported())
         {
             Console.WriteLine("ML-KEM not supported on this platform.");
             return;

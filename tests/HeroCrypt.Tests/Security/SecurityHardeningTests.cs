@@ -1,6 +1,5 @@
 using System.Security.Cryptography;
 using HeroCrypt.Security;
-using HeroCrypt.Signatures;
 using Microsoft.Extensions.Logging;
 
 namespace HeroCrypt.Tests.Security;
@@ -270,13 +269,6 @@ public class SecurityHardeningTests
     }
 
     [Fact]
-    public void ValidateByteArray_NullArray_ThrowsArgumentNullException()
-    {
-        // Act & Assert
-        Assert.Throws<ArgumentNullException>(() => InputValidator.ValidateByteArray(null!, "test"));
-    }
-
-    [Fact]
     public void ValidateByteArray_EmptyArrayNotAllowed_ThrowsArgumentException()
     {
         // Arrange
@@ -522,16 +514,16 @@ public class SecurityHardeningTests
     {
         // Empty data
         Assert.ThrowsAny<ArgumentException>(() =>
-            DigitalSignature.Sign([], [1, 2, 3], SignatureAlgorithm.Ed25519));
+            HeroCryptBuilder.Sign().WithEd25519().WithPrivateKey([1, 2, 3]).Sign([]));
 
         // Empty key
         Assert.ThrowsAny<ArgumentException>(() =>
-            DigitalSignature.Sign([1, 2, 3], [], SignatureAlgorithm.Ed25519));
+            HeroCryptBuilder.Sign().WithEd25519().WithPrivateKey([]).Sign([1, 2, 3]));
 
         // Oversized data (len > MAX_ARRAY_SIZE)
         var oversizedData = new byte[InputValidator.MAX_ARRAY_SIZE + 1];
         Assert.ThrowsAny<ArgumentException>(() =>
-            DigitalSignature.Sign(oversizedData, [1, 2, 3], SignatureAlgorithm.Ed25519));
+            HeroCryptBuilder.Sign().WithEd25519().WithPrivateKey([1, 2, 3]).Sign(oversizedData));
     }
 
     [Fact]

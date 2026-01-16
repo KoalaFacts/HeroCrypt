@@ -1,6 +1,6 @@
 using System.Globalization;
 using System.Text;
-using HeroCrypt.Cryptography.Primitives.Kdf;
+using HeroCrypt.Primitives.Argon2;
 
 namespace HeroCrypt.Tests;
 

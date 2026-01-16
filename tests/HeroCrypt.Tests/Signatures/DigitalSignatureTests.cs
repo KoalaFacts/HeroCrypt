@@ -1,9 +1,9 @@
 using System.Security.Cryptography;
 using System.Text;
-using HeroCrypt.Cryptography.Primitives.Signature.Ecc;
-using HeroCrypt.Signatures;
+using HeroCrypt.Operations;
+using HeroCrypt.Primitives.Ed25519;
 #if NET10_0_OR_GREATER
-using HeroCrypt.Cryptography.Primitives.PostQuantum.Signature;
+using HeroCrypt.Primitives.MLDsa;
 #endif
 
 namespace HeroCrypt.Tests.Signatures;
@@ -25,9 +25,16 @@ public class DigitalSignatureTests
         RandomNumberGenerator.Fill(key);
 
         // Act
-        var signature = DigitalSignature.Sign(testData, key, algorithm);
+        var signature = HeroCryptBuilder.Sign()
+            .WithAlgorithm(algorithm)
+            .WithPrivateKey(key)
+            .Sign(testData);
 
-        var isValid = DigitalSignature.Verify(testData, signature, key, algorithm);
+        var isValid = HeroCryptBuilder.Verify()
+            .WithAlgorithm(algorithm)
+            .WithPublicKey(key)
+            .WithSignature(signature)
+            .Verify(testData);
 
         // Assert
         Assert.NotNull(signature);
@@ -45,8 +52,16 @@ public class DigitalSignatureTests
         RandomNumberGenerator.Fill(key2);
 
         // Act
-        var signature = DigitalSignature.Sign(testData, key1, SignatureAlgorithm.HmacSha256);
-        var isValid = DigitalSignature.Verify(testData, signature, key2, SignatureAlgorithm.HmacSha256);
+        var signature = HeroCryptBuilder.Sign()
+            .WithHmacSha256()
+            .WithPrivateKey(key1)
+            .Sign(testData);
+
+        var isValid = HeroCryptBuilder.Verify()
+            .WithHmacSha256()
+            .WithPublicKey(key2)
+            .WithSignature(signature)
+            .Verify(testData);
 
         // Assert
         Assert.False(isValid);
@@ -61,8 +76,16 @@ public class DigitalSignatureTests
         var tamperedData = Encoding.UTF8.GetBytes("Tampered data");
 
         // Act
-        var signature = DigitalSignature.Sign(testData, key, SignatureAlgorithm.HmacSha256);
-        var isValid = DigitalSignature.Verify(tamperedData, signature, key, SignatureAlgorithm.HmacSha256);
+        var signature = HeroCryptBuilder.Sign()
+            .WithHmacSha256()
+            .WithPrivateKey(key)
+            .Sign(testData);
+
+        var isValid = HeroCryptBuilder.Verify()
+            .WithHmacSha256()
+            .WithPublicKey(key)
+            .WithSignature(signature)
+            .Verify(tamperedData);
 
         // Assert
         Assert.False(isValid);
@@ -83,8 +106,16 @@ public class DigitalSignatureTests
         var publicKey = rsa.ExportSubjectPublicKeyInfo();
 
         // Act
-        var signature = DigitalSignature.Sign(testData, privateKey, algorithm);
-        var isValid = DigitalSignature.Verify(testData, signature, publicKey, algorithm);
+        var signature = HeroCryptBuilder.Sign()
+            .WithAlgorithm(algorithm)
+            .WithPrivateKey(privateKey)
+            .Sign(testData);
+
+        var isValid = HeroCryptBuilder.Verify()
+            .WithAlgorithm(algorithm)
+            .WithPublicKey(publicKey)
+            .WithSignature(signature)
+            .Verify(testData);
 
         // Assert
         Assert.NotNull(signature);
@@ -101,8 +132,16 @@ public class DigitalSignatureTests
         var publicKey2 = rsa2.ExportSubjectPublicKeyInfo();
 
         // Act
-        var signature = DigitalSignature.Sign(testData, privateKey1, SignatureAlgorithm.RsaSha256);
-        var isValid = DigitalSignature.Verify(testData, signature, publicKey2, SignatureAlgorithm.RsaSha256);
+        var signature = HeroCryptBuilder.Sign()
+            .WithRsaSha256()
+            .WithPrivateKey(privateKey1)
+            .Sign(testData);
+
+        var isValid = HeroCryptBuilder.Verify()
+            .WithRsaSha256()
+            .WithPublicKey(publicKey2)
+            .WithSignature(signature)
+            .Verify(testData);
 
         // Assert
         Assert.False(isValid);
@@ -117,9 +156,18 @@ public class DigitalSignatureTests
         var publicKey = rsa.ExportSubjectPublicKeyInfo();
 
         // Act
-        var signature = DigitalSignature.Sign(testData, privateKey, SignatureAlgorithm.RsaSha256);
+        var signature = HeroCryptBuilder.Sign()
+            .WithRsaSha256()
+            .WithPrivateKey(privateKey)
+            .Sign(testData);
+
         signature[0] ^= 0xFF; // Tamper with signature
-        var isValid = DigitalSignature.Verify(testData, signature, publicKey, SignatureAlgorithm.RsaSha256);
+
+        var isValid = HeroCryptBuilder.Verify()
+            .WithRsaSha256()
+            .WithPublicKey(publicKey)
+            .WithSignature(signature)
+            .Verify(testData);
 
         // Assert
         Assert.False(isValid);
@@ -149,8 +197,16 @@ public class DigitalSignatureTests
         var publicKey = ecdsa.ExportSubjectPublicKeyInfo();
 
         // Act
-        var signature = DigitalSignature.Sign(testData, privateKey, algorithm);
-        var isValid = DigitalSignature.Verify(testData, signature, publicKey, algorithm);
+        var signature = HeroCryptBuilder.Sign()
+            .WithAlgorithm(algorithm)
+            .WithPrivateKey(privateKey)
+            .Sign(testData);
+
+        var isValid = HeroCryptBuilder.Verify()
+            .WithAlgorithm(algorithm)
+            .WithPublicKey(publicKey)
+            .WithSignature(signature)
+            .Verify(testData);
 
         // Assert
         Assert.NotNull(signature);
@@ -167,8 +223,16 @@ public class DigitalSignatureTests
         var publicKey2 = ecdsa2.ExportSubjectPublicKeyInfo();
 
         // Act
-        var signature = DigitalSignature.Sign(testData, privateKey1, SignatureAlgorithm.EcdsaP256Sha256);
-        var isValid = DigitalSignature.Verify(testData, signature, publicKey2, SignatureAlgorithm.EcdsaP256Sha256);
+        var signature = HeroCryptBuilder.Sign()
+            .WithEcdsaP256()
+            .WithPrivateKey(privateKey1)
+            .Sign(testData);
+
+        var isValid = HeroCryptBuilder.Verify()
+            .WithEcdsaP256()
+            .WithPublicKey(publicKey2)
+            .WithSignature(signature)
+            .Verify(testData);
 
         // Assert
         Assert.False(isValid);
@@ -185,8 +249,16 @@ public class DigitalSignatureTests
         var (privateKey, publicKey) = Ed25519Core.GenerateKeyPair();
 
         // Act
-        var signature = DigitalSignature.Sign(testData, privateKey, SignatureAlgorithm.Ed25519);
-        var isValid = DigitalSignature.Verify(testData, signature, publicKey, SignatureAlgorithm.Ed25519);
+        var signature = HeroCryptBuilder.Sign()
+            .WithEd25519()
+            .WithPrivateKey(privateKey)
+            .Sign(testData);
+
+        var isValid = HeroCryptBuilder.Verify()
+            .WithEd25519()
+            .WithPublicKey(publicKey)
+            .WithSignature(signature)
+            .Verify(testData);
 
         // Assert
         Assert.NotNull(signature);
@@ -202,8 +274,16 @@ public class DigitalSignatureTests
         var (_, publicKey2) = Ed25519Core.GenerateKeyPair();
 
         // Act
-        var signature = DigitalSignature.Sign(testData, privateKey1, SignatureAlgorithm.Ed25519);
-        var isValid = DigitalSignature.Verify(testData, signature, publicKey2, SignatureAlgorithm.Ed25519);
+        var signature = HeroCryptBuilder.Sign()
+            .WithEd25519()
+            .WithPrivateKey(privateKey1)
+            .Sign(testData);
+
+        var isValid = HeroCryptBuilder.Verify()
+            .WithEd25519()
+            .WithPublicKey(publicKey2)
+            .WithSignature(signature)
+            .Verify(testData);
 
         // Assert
         Assert.False(isValid);
@@ -391,20 +471,6 @@ public class DigitalSignatureTests
     }
 
     [Fact]
-    public void Ed25519_Null_Parameters_Throw()
-    {
-        var (privateKey, publicKey) = Ed25519Core.GenerateKeyPair();
-        var signature = new byte[64];
-
-        Assert.Throws<ArgumentNullException>(() => Ed25519Core.Sign(null!, privateKey));
-        Assert.Throws<ArgumentNullException>(() => Ed25519Core.Sign(testData, null!));
-        Assert.Throws<ArgumentNullException>(() => Ed25519Core.DerivePublicKey(null!));
-        Assert.Throws<ArgumentNullException>(() => Ed25519Core.Verify(null!, signature, publicKey));
-        Assert.Throws<ArgumentNullException>(() => Ed25519Core.Verify(testData, null!, publicKey));
-        Assert.Throws<ArgumentNullException>(() => Ed25519Core.Verify(testData, signature, null!));
-    }
-
-    [Fact]
     public void Ed25519_Multiple_KeyPairs_Are_Different()
     {
         var (privateKey1, publicKey1) = Ed25519Core.GenerateKeyPair();
@@ -430,30 +496,38 @@ public class DigitalSignatureTests
     // - Linux: Requires OpenSSL 3.5+ with PQC provider enabled
     // - macOS: Not currently supported (no native PQC implementation)
     //
-    // Tests are automatically skipped on unsupported platforms using MLDsaWrapper.IsSupported()
+    // Tests are automatically skipped on unsupported platforms using MLDsaCore.IsSupported()
     // which checks for runtime availability of the underlying cryptographic primitives.
     // =====================================================================================
 
 #if NET10_0_OR_GREATER
     [Theory]
-    [InlineData(SignatureAlgorithm.MLDsa65, MLDsaWrapper.SecurityLevel.MLDsa65)]
-    [InlineData(SignatureAlgorithm.MLDsa87, MLDsaWrapper.SecurityLevel.MLDsa87)]
-    public void MLDsa_Sign_And_Verify_Success(SignatureAlgorithm algorithm, MLDsaWrapper.SecurityLevel securityLevel)
+    [InlineData(SignatureAlgorithm.MLDsa65, MLDsaCore.SecurityLevel.MLDsa65)]
+    [InlineData(SignatureAlgorithm.MLDsa87, MLDsaCore.SecurityLevel.MLDsa87)]
+    public void MLDsa_Sign_And_Verify_Success(SignatureAlgorithm algorithm, MLDsaCore.SecurityLevel securityLevel)
     {
-        if (!MLDsaWrapper.IsSupported())
+        if (!MLDsaCore.IsSupported())
         {
             Assert.Skip("ML-DSA not supported on this platform");
             return;
         }
 
         // Arrange
-        using var keyPair = MLDsaWrapper.GenerateKeyPair(securityLevel);
+        using var keyPair = MLDsaCore.GenerateKeyPair(securityLevel);
         var privateKey = Encoding.UTF8.GetBytes(keyPair.SecretKeyPem);
         var publicKey = Encoding.UTF8.GetBytes(keyPair.PublicKeyPem);
 
         // Act
-        var signature = DigitalSignature.Sign(testData, privateKey, algorithm);
-        var isValid = DigitalSignature.Verify(testData, signature, publicKey, algorithm);
+        var signature = HeroCryptBuilder.Sign()
+            .WithAlgorithm(algorithm)
+            .WithPrivateKey(privateKey)
+            .Sign(testData);
+
+        var isValid = HeroCryptBuilder.Verify()
+            .WithAlgorithm(algorithm)
+            .WithPublicKey(publicKey)
+            .WithSignature(signature)
+            .Verify(testData);
 
         // Assert
         Assert.NotNull(signature);
@@ -463,21 +537,29 @@ public class DigitalSignatureTests
     [Fact]
     public void MLDsa65_Verify_With_Wrong_PublicKey_Returns_False()
     {
-        if (!MLDsaWrapper.IsSupported())
+        if (!MLDsaCore.IsSupported())
         {
             Assert.Skip("ML-DSA not supported on this platform");
             return;
         }
 
         // Arrange
-        using var keyPair1 = MLDsaWrapper.GenerateKeyPair(MLDsaWrapper.SecurityLevel.MLDsa65);
-        using var keyPair2 = MLDsaWrapper.GenerateKeyPair(MLDsaWrapper.SecurityLevel.MLDsa65);
+        using var keyPair1 = MLDsaCore.GenerateKeyPair(MLDsaCore.SecurityLevel.MLDsa65);
+        using var keyPair2 = MLDsaCore.GenerateKeyPair(MLDsaCore.SecurityLevel.MLDsa65);
         var privateKey1 = Encoding.UTF8.GetBytes(keyPair1.SecretKeyPem);
         var publicKey2 = Encoding.UTF8.GetBytes(keyPair2.PublicKeyPem);
 
         // Act
-        var signature = DigitalSignature.Sign(testData, privateKey1, SignatureAlgorithm.MLDsa65);
-        var isValid = DigitalSignature.Verify(testData, signature, publicKey2, SignatureAlgorithm.MLDsa65);
+        var signature = HeroCryptBuilder.Sign()
+            .WithMLDsa65()
+            .WithPrivateKey(privateKey1)
+            .Sign(testData);
+
+        var isValid = HeroCryptBuilder.Verify()
+            .WithMLDsa65()
+            .WithPublicKey(publicKey2)
+            .WithSignature(signature)
+            .Verify(testData);
 
         // Assert
         Assert.False(isValid);
@@ -496,10 +578,17 @@ public class DigitalSignatureTests
         RandomNumberGenerator.Fill(key);
 
         // Act - Sign
-        var signature = DigitalSignature.Sign(testData, key, SignatureAlgorithm.HmacSha256);
+        var signature = HeroCryptBuilder.Sign()
+            .WithHmacSha256()
+            .WithPrivateKey(key)
+            .Sign(testData);
 
         // Act - Verify
-        var isValid = DigitalSignature.Verify(testData, signature, key, SignatureAlgorithm.HmacSha256);
+        var isValid = HeroCryptBuilder.Verify()
+            .WithHmacSha256()
+            .WithPublicKey(key)
+            .WithSignature(signature)
+            .Verify(testData);
 
         // Assert
         Assert.True(isValid);
@@ -514,7 +603,10 @@ public class DigitalSignatureTests
 
         // Act
         var testData = Encoding.UTF8.GetBytes("test message");
-        var signature = DigitalSignature.Sign(testData, key, SignatureAlgorithm.HmacSha256);
+        var signature = HeroCryptBuilder.Sign()
+            .WithHmacSha256()
+            .WithPrivateKey(key)
+            .Sign(testData);
 
         // Assert
         Assert.NotNull(signature);
@@ -526,51 +618,56 @@ public class DigitalSignatureTests
     #region Error Handling Tests
 
     [Fact]
-    public void Sign_With_Null_Data_Throws_ArgumentNullException()
+    public void Sign_With_Empty_Data_Throws_ArgumentException()
     {
         // Arrange
         var key = new byte[32];
 
-        // Act & Assert
-        Assert.Throws<ArgumentNullException>(() => DigitalSignature.Sign(null!, key, SignatureAlgorithm.HmacSha256));
+        // Act & Assert - Empty data should throw ArgumentException
+        Assert.Throws<ArgumentException>(() =>
+            HeroCryptBuilder.Sign().WithHmacSha256().WithPrivateKey(key).Sign([]));
     }
 
     [Fact]
-    public void Sign_With_Null_Key_Throws_ArgumentNullException()
+    public void Sign_Without_Key_Throws_InvalidOperationException()
     {
         // Act & Assert
-        Assert.Throws<ArgumentNullException>(() => DigitalSignature.Sign(testData, null!, SignatureAlgorithm.HmacSha256));
+        Assert.Throws<InvalidOperationException>(() =>
+            HeroCryptBuilder.Sign().WithHmacSha256().Sign(testData));
     }
 
     [Fact]
-    public void Verify_With_Null_Data_Throws_ArgumentNullException()
+    public void Verify_With_Empty_Data_Throws_ArgumentException()
     {
         // Arrange
         var key = new byte[32];
         var signature = new byte[32];
 
-        // Act & Assert
-        Assert.Throws<ArgumentNullException>(() => DigitalSignature.Verify(null!, signature, key, SignatureAlgorithm.HmacSha256));
+        // Act & Assert - Empty data (null converts to empty span) should throw ArgumentException
+        Assert.Throws<ArgumentException>(() =>
+            HeroCryptBuilder.Verify().WithHmacSha256().WithPublicKey(key).WithSignature(signature).Verify([]));
     }
 
     [Fact]
-    public void Verify_With_Null_Signature_Throws_ArgumentNullException()
+    public void Verify_Without_Signature_Throws_InvalidOperationException()
     {
         // Arrange
         var key = new byte[32];
 
         // Act & Assert
-        Assert.Throws<ArgumentNullException>(() => DigitalSignature.Verify(testData, null!, key, SignatureAlgorithm.HmacSha256));
+        Assert.Throws<InvalidOperationException>(() =>
+            HeroCryptBuilder.Verify().WithHmacSha256().WithPublicKey(key).Verify(testData));
     }
 
     [Fact]
-    public void Verify_With_Null_Key_Throws_ArgumentNullException()
+    public void Verify_Without_Key_Throws_InvalidOperationException()
     {
         // Arrange
         var signature = new byte[32];
 
         // Act & Assert
-        Assert.Throws<ArgumentNullException>(() => DigitalSignature.Verify(testData, signature, null!, SignatureAlgorithm.HmacSha256));
+        Assert.Throws<InvalidOperationException>(() =>
+            HeroCryptBuilder.Verify().WithHmacSha256().WithSignature(signature).Verify(testData));
     }
 
     #endregion
@@ -585,9 +682,9 @@ public class DigitalSignatureTests
         RandomNumberGenerator.Fill(key);
 
         // Act
-        var sig256 = DigitalSignature.Sign(testData, key, SignatureAlgorithm.HmacSha256);
-        var sig384 = DigitalSignature.Sign(testData, key, SignatureAlgorithm.HmacSha384);
-        var sig512 = DigitalSignature.Sign(testData, key, SignatureAlgorithm.HmacSha512);
+        var sig256 = HeroCryptBuilder.Sign().WithHmacSha256().WithPrivateKey(key).Sign(testData);
+        var sig384 = HeroCryptBuilder.Sign().WithHmacSha384().WithPrivateKey(key).Sign(testData);
+        var sig512 = HeroCryptBuilder.Sign().WithHmacSha512().WithPrivateKey(key).Sign(testData);
 
         // Assert
         Assert.NotEqual(sig256, sig384);

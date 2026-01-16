@@ -36,29 +36,23 @@ public static class InputValidator
     private static readonly int[] CommonRsaKeySizes = [2048, 3072, 4096, 8192, 16384];
 
     /// <summary>
-    /// Validates a byte array for cryptographic use
+    /// Validates a byte span for cryptographic use
     /// </summary>
     /// <param name="data">Data to validate</param>
     /// <param name="parameterName">Parameter name for exception messages</param>
-    /// <param name="allowEmpty">Whether to allow empty arrays</param>
+    /// <param name="allowEmpty">Whether to allow empty spans</param>
     /// <param name="maxSize">Maximum allowed size</param>
-    /// <exception cref="ArgumentNullException">When data is null</exception>
     /// <exception cref="ArgumentException">When data fails validation</exception>
-    public static void ValidateByteArray(byte[] data, string parameterName, bool allowEmpty = false, int maxSize = MAX_ARRAY_SIZE)
+    public static void ValidateByteArray(ReadOnlySpan<byte> data, string parameterName, bool allowEmpty = false, int maxSize = MAX_ARRAY_SIZE)
     {
-        if (data == null)
-        {
-            throw new ArgumentNullException(parameterName);
-        }
-
         if (!allowEmpty && data.Length == 0)
         {
-            throw new ArgumentException("Array cannot be empty", parameterName);
+            throw new ArgumentException("Data cannot be empty", parameterName);
         }
 
         if (data.Length > maxSize)
         {
-            throw new ArgumentException($"Array size {data.Length} exceeds maximum allowed size {maxSize}", parameterName);
+            throw new ArgumentException($"Data size {data.Length} exceeds maximum allowed size {maxSize}", parameterName);
         }
     }
 
@@ -103,7 +97,7 @@ public static class InputValidator
     /// <param name="salt">Salt data</param>
     /// <param name="iterations">Iteration count</param>
     /// <param name="keyLength">Desired key length</param>
-    public static void ValidatePbkdf2Parameters(byte[] password, byte[] salt, int iterations, int keyLength)
+    public static void ValidatePbkdf2Parameters(ReadOnlySpan<byte> password, ReadOnlySpan<byte> salt, int iterations, int keyLength)
     {
         ValidateByteArray(password, nameof(password), allowEmpty: true);
         ValidateByteArray(salt, nameof(salt), allowEmpty: false, maxSize: 1024);
@@ -144,22 +138,16 @@ public static class InputValidator
     /// Validates HKDF parameters
     /// </summary>
     /// <param name="ikm">Input key material</param>
-    /// <param name="salt">Salt (optional)</param>
-    /// <param name="info">Info parameter (optional)</param>
+    /// <param name="salt">Salt (optional, can be empty)</param>
+    /// <param name="info">Info parameter (optional, can be empty)</param>
     /// <param name="keyLength">Desired output length</param>
-    public static void ValidateHkdfParameters(byte[] ikm, byte[] salt, byte[] info, int keyLength)
+    public static void ValidateHkdfParameters(ReadOnlySpan<byte> ikm, ReadOnlySpan<byte> salt, ReadOnlySpan<byte> info, int keyLength)
     {
         ValidateByteArray(ikm, nameof(ikm), allowEmpty: false);
 
-        if (salt != null)
-        {
-            ValidateByteArray(salt, nameof(salt), allowEmpty: true, maxSize: 1024);
-        }
-
-        if (info != null)
-        {
-            ValidateByteArray(info, nameof(info), allowEmpty: true, maxSize: 1024);
-        }
+        // Salt and info are optional (can be empty), just validate size limits
+        ValidateByteArray(salt, nameof(salt), allowEmpty: true, maxSize: 1024);
+        ValidateByteArray(info, nameof(info), allowEmpty: true, maxSize: 1024);
 
         if (keyLength < 1)
         {
@@ -181,7 +169,7 @@ public static class InputValidator
     /// <param name="r">Block size parameter</param>
     /// <param name="p">Parallelization parameter</param>
     /// <param name="keyLength">Desired key length</param>
-    public static void ValidateScryptParameters(byte[] password, byte[] salt, int n, int r, int p, int keyLength)
+    public static void ValidateScryptParameters(ReadOnlySpan<byte> password, ReadOnlySpan<byte> salt, int n, int r, int p, int keyLength)
     {
         ValidateByteArray(password, nameof(password), allowEmpty: true);
         ValidateByteArray(salt, nameof(salt), allowEmpty: true, maxSize: 1024);
@@ -308,32 +296,56 @@ public static class InputValidator
     /// <param name="key">Key to validate</param>
     /// <param name="parameterName">Parameter name for exceptions</param>
     /// <returns>True if key appears to have sufficient entropy</returns>
-    public static bool ValidateKeyEntropy(byte[] key, string parameterName)
+    public static bool ValidateKeyEntropy(ReadOnlySpan<byte> key, string parameterName)
     {
-        if (key == null)
-        {
-            throw new ArgumentNullException(parameterName);
-        }
-
         if (key.Length == 0)
         {
             return false;
         }
 
         // Check for all-zero key
-        if (key.All(b => b == 0))
+        var allZero = true;
+        for (var i = 0; i < key.Length; i++)
+        {
+            if (key[i] != 0)
+            {
+                allZero = false;
+                break;
+            }
+        }
+        if (allZero)
         {
             throw new ArgumentException("Key cannot be all zeros", parameterName);
         }
 
         // Check for all-same bytes
-        if (key.All(b => b == key[0]))
+        var firstByte = key[0];
+        var allSame = true;
+        for (var i = 1; i < key.Length; i++)
+        {
+            if (key[i] != firstByte)
+            {
+                allSame = false;
+                break;
+            }
+        }
+        if (allSame)
         {
             throw new ArgumentException("Key cannot contain all identical bytes", parameterName);
         }
 
-        // Simple entropy check - count unique bytes
-        var uniqueBytes = key.Distinct().Count();
+        // Simple entropy check - count unique bytes using a bitset
+        Span<bool> seen = stackalloc bool[256];
+        var uniqueBytes = 0;
+        for (var i = 0; i < key.Length; i++)
+        {
+            if (!seen[key[i]])
+            {
+                seen[key[i]] = true;
+                uniqueBytes++;
+            }
+        }
+
         // Require at least 25% unique bytes, minimum 2 (to catch weak patterns), max 16
         var expectedMinimumUnique = Math.Max(2, Math.Min(16, key.Length / 4));
 
@@ -352,13 +364,8 @@ public static class InputValidator
     /// <param name="parameterName">Parameter name for exceptions</param>
     /// <param name="minLength">Minimum password length</param>
     /// <returns>True if password meets minimum requirements</returns>
-    public static bool ValidatePasswordStrength(byte[] password, string parameterName, int minLength = 8)
+    public static bool ValidatePasswordStrength(ReadOnlySpan<byte> password, string parameterName, int minLength = 8)
     {
-        if (password == null)
-        {
-            throw new ArgumentNullException(parameterName);
-        }
-
         if (password.Length < minLength)
         {
             throw new ArgumentException($"Password must be at least {minLength} bytes", parameterName);

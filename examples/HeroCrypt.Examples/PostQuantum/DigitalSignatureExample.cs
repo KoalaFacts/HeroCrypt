@@ -1,7 +1,8 @@
 #if NET10_0_OR_GREATER
 using System.Text;
 using System.Text.Json;
-using HeroCrypt.Cryptography.Primitives.PostQuantum.Signature;
+using HeroCrypt.Primitives.MLDsa;
+using HeroCrypt.Primitives.SlhDsa;
 
 namespace HeroCrypt.Examples.PostQuantum;
 
@@ -14,7 +15,7 @@ public static class DigitalSignatureExample
     {
         Console.WriteLine("=== ML-DSA Digital Signatures ===");
 
-        if (!MLDsaWrapper.IsSupported())
+        if (!MLDsaCore.IsSupported())
         {
             Console.WriteLine("ML-DSA not supported on this platform.");
             return;
@@ -31,7 +32,7 @@ public static class DigitalSignatureExample
         var documentBytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(document));
 
         using var signingKey = MLDsaBuilder.Create()
-            .WithSecurityLevel(MLDsaWrapper.SecurityLevel.MLDsa65)
+            .WithSecurityLevel(MLDsaCore.SecurityLevel.MLDsa65)
             .GenerateKeyPair();
 
         var signature = MLDsaBuilder.Create()
@@ -54,7 +55,7 @@ public static class DigitalSignatureExample
     {
         Console.WriteLine("=== SLH-DSA Code Signing ===");
 
-        if (!SlhDsaWrapper.IsSupported())
+        if (!SlhDsaCore.IsSupported())
         {
             Console.WriteLine("SLH-DSA not supported on this platform.");
             return;
@@ -92,7 +93,7 @@ public static class DigitalSignatureExample
     {
         Console.WriteLine("=== ML-DSA Multi-Party Approval ===");
 
-        if (!MLDsaWrapper.IsSupported())
+        if (!MLDsaCore.IsSupported())
         {
             Console.WriteLine("ML-DSA not supported on this platform.");
             return;
@@ -102,7 +103,7 @@ public static class DigitalSignatureExample
 
         using var managerKey = MLDsaBuilder.Create().GenerateKeyPair();
         using var directorKey = MLDsaBuilder.Create().GenerateKeyPair();
-        using var cfoKey = MLDsaBuilder.Create().WithSecurityLevel(MLDsaWrapper.SecurityLevel.MLDsa87).GenerateKeyPair();
+        using var cfoKey = MLDsaBuilder.Create().WithSecurityLevel(MLDsaCore.SecurityLevel.MLDsa87).GenerateKeyPair();
 
         byte[] managerSig = MLDsaBuilder.Create().WithKeyPair(managerKey).WithData(proposalBytes).Sign();
         bool managerApproved = MLDsaBuilder.Create().WithPublicKey(managerKey.PublicKeyPem).WithData(proposalBytes).Verify(managerSig);

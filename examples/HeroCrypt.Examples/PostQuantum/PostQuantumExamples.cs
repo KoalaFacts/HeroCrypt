@@ -1,6 +1,7 @@
 #if NET10_0_OR_GREATER
-using HeroCrypt.Cryptography.Primitives.PostQuantum.Kem;
-using HeroCrypt.Cryptography.Primitives.PostQuantum.Signature;
+using HeroCrypt.Primitives.MLDsa;
+using HeroCrypt.Primitives.MLKem;
+using HeroCrypt.Primitives.SlhDsa;
 
 namespace HeroCrypt.Examples.PostQuantum;
 
@@ -12,7 +13,7 @@ public static class PostQuantumExamples
     public static void RunAll()
     {
         Console.WriteLine("HeroCrypt Post-Quantum Examples");
-        if (!MLKemWrapper.IsSupported() && !MLDsaWrapper.IsSupported() && !SlhDsaWrapper.IsSupported())
+        if (!MLKemCore.IsSupported() && !MLDsaCore.IsSupported() && !SlhDsaCore.IsSupported())
         {
             Console.WriteLine("PQC not supported on this platform (.NET 10+ with PQC-capable crypto is required).");
             return;

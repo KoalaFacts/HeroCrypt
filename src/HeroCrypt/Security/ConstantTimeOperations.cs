@@ -62,30 +62,17 @@ public static class ConstantTimeOperations
     }
 
     /// <summary>
-    /// Performs constant-time conditional swap of two byte arrays
+    /// Performs constant-time conditional swap of two byte spans
     /// </summary>
     /// <param name="condition">Condition value (0 or 1)</param>
-    /// <param name="a">First array</param>
-    /// <param name="b">Second array</param>
+    /// <param name="a">First span</param>
+    /// <param name="b">Second span</param>
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
-    public static void ConditionalSwap(byte condition, byte[] a, byte[] b)
+    public static void ConditionalSwap(byte condition, Span<byte> a, Span<byte> b)
     {
-#if !NETSTANDARD2_0
-        ArgumentNullException.ThrowIfNull(a);
-        ArgumentNullException.ThrowIfNull(b);
-#else
-        if (a == null)
-        {
-            throw new ArgumentNullException(nameof(a));
-        }
-        if (b == null)
-        {
-            throw new ArgumentNullException(nameof(b));
-        }
-#endif
         if (a.Length != b.Length)
         {
-            throw new ArgumentException("Arrays must have the same length");
+            throw new ArgumentException("Spans must have the same length");
         }
 
         // Ensure condition is 0 or 1
@@ -145,13 +132,8 @@ public static class ConstantTimeOperations
     /// <param name="expectedLength">Expected message length</param>
     /// <returns>1 if padding is valid, 0 otherwise</returns>
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
-    public static byte ValidatePkcs1Padding(byte[] paddedMessage, int expectedLength)
+    public static byte ValidatePkcs1Padding(ReadOnlySpan<byte> paddedMessage, int expectedLength)
     {
-        if (paddedMessage == null)
-        {
-            return 0;
-        }
-
         if (paddedMessage.Length < 11) // Minimum padding length
         {
             return 0;
@@ -242,40 +224,26 @@ public static class ConstantTimeOperations
     }
 
     /// <summary>
-    /// Performs constant-time array copying with conditional execution
+    /// Performs constant-time copying with conditional execution
     /// </summary>
     /// <param name="condition">Condition value (0 or 1)</param>
-    /// <param name="source">Source array</param>
-    /// <param name="destination">Destination array</param>
+    /// <param name="source">Source span</param>
+    /// <param name="destination">Destination span</param>
     /// <param name="length">Number of bytes to copy</param>
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
-    public static void ConditionalCopy(byte condition, byte[] source, byte[] destination, int length)
+    public static void ConditionalCopy(byte condition, ReadOnlySpan<byte> source, Span<byte> destination, int length)
     {
-#if !NETSTANDARD2_0
-        ArgumentNullException.ThrowIfNull(source);
-        ArgumentNullException.ThrowIfNull(destination);
-#else
-        if (source == null)
-        {
-            throw new ArgumentNullException(nameof(source));
-        }
-        if (destination == null)
-        {
-            throw new ArgumentNullException(nameof(destination));
-        }
-#endif
         if (length < 0)
         {
             throw new ArgumentException("Length cannot be negative", nameof(length));
         }
         if (source.Length < length || destination.Length < length)
         {
-            throw new ArgumentException("Arrays are too small for the specified length");
+            throw new ArgumentException("Spans are too small for the specified length");
         }
 
         // Ensure condition is 0 or 1
         condition = (byte)(condition & 1);
-        var mask = (byte)(-(sbyte)condition);
 
         for (var i = 0; i < length; i++)
         {
@@ -284,19 +252,14 @@ public static class ConstantTimeOperations
     }
 
     /// <summary>
-    /// Performs constant-time byte array comparison
+    /// Performs constant-time byte span comparison
     /// </summary>
-    /// <param name="a">First array</param>
-    /// <param name="b">Second array</param>
-    /// <returns>1 if arrays are equal, 0 otherwise</returns>
+    /// <param name="a">First span</param>
+    /// <param name="b">Second span</param>
+    /// <returns>1 if spans are equal, 0 otherwise</returns>
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
-    public static byte ConstantTimeArrayEquals(byte[] a, byte[] b)
+    public static byte ConstantTimeArrayEquals(ReadOnlySpan<byte> a, ReadOnlySpan<byte> b)
     {
-        if (a == null || b == null)
-        {
-            return (byte)(a == b ? 1 : 0);
-        }
-
         if (a.Length != b.Length)
         {
             return 0;
@@ -312,32 +275,24 @@ public static class ConstantTimeOperations
     }
 
     /// <summary>
-    /// Performs constant-time lookup in a byte array
+    /// Performs constant-time lookup in a byte span
     /// </summary>
-    /// <param name="array">Array to search in</param>
+    /// <param name="data">Span to search in</param>
     /// <param name="index">Index to lookup</param>
     /// <returns>Value at the specified index</returns>
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
-    public static byte ConstantTimeLookup(byte[] array, int index)
+    public static byte ConstantTimeLookup(ReadOnlySpan<byte> data, int index)
     {
-#if !NETSTANDARD2_0
-        ArgumentNullException.ThrowIfNull(array);
-#else
-        if (array == null)
-        {
-            throw new ArgumentNullException(nameof(array));
-        }
-#endif
-        if (index < 0 || index >= array.Length)
+        if (index < 0 || index >= data.Length)
         {
             throw new ArgumentOutOfRangeException(nameof(index));
         }
 
         byte result = 0;
-        for (var i = 0; i < array.Length; i++)
+        for (var i = 0; i < data.Length; i++)
         {
             var isTarget = ConstantTimeEquals((uint)i, (uint)index);
-            result = ConditionalSelect((byte)isTarget, array[i], result);
+            result = ConditionalSelect((byte)isTarget, data[i], result);
         }
 
         return result;

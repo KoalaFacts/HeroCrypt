@@ -98,4 +98,25 @@ internal static class ArgumentHelper
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(value, paramName);
 #endif
     }
+
+    /// <summary>
+    /// Throws an <see cref="ObjectDisposedException"/> if the condition is true.
+    /// </summary>
+    /// <param name="condition">The condition to check.</param>
+    /// <param name="instance">The object that has been disposed.</param>
+    /// <exception cref="ObjectDisposedException">Thrown when <paramref name="condition"/> is true.</exception>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#pragma warning disable CA1513 // Use ObjectDisposedException.ThrowIf - this IS the polyfill
+    public static void ThrowIfDisposed(bool condition, object instance)
+    {
+#if NETSTANDARD2_0 || NET8_0
+        if (condition)
+        {
+            throw new ObjectDisposedException(instance.GetType().FullName);
+        }
+#else
+        ObjectDisposedException.ThrowIf(condition, instance);
+#endif
+    }
+#pragma warning restore CA1513
 }

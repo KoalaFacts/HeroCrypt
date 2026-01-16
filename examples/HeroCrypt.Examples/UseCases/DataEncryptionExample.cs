@@ -1,8 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using HeroCrypt.Encryption;
-using KdfHashAlgorithmName = HeroCrypt.Cryptography.Protocols.KeyManagement.CryptographicHashName;
+using HeroCrypt.Primitives.Hkdf;
 
 namespace HeroCrypt.Examples.UseCases;
 
@@ -59,13 +58,13 @@ public static class DataEncryptionExample
         // Use user ID as associated data for context binding
         var associatedData = Encoding.UTF8.GetBytes(userData.UserId);
 
-        // Encrypt the data via fluent builder (nonce is generated automatically)
+        // Encrypt the data using the fluent API
         var plaintext = Encoding.UTF8.GetBytes(jsonData);
         var encryptionResult = HeroCryptBuilder.Encrypt()
-            .WithAlgorithm(EncryptionAlgorithm.ChaCha20Poly1305)
+            .WithChaCha20Poly1305()
             .WithKey(dek)
             .WithAssociatedData(associatedData)
-            .Build(plaintext);
+            .Encrypt(plaintext);
 
         Console.WriteLine($"Encrypted data: {Convert.ToBase64String(encryptionResult.Ciphertext)[..60]}...");
         Console.WriteLine($"Ciphertext size: {encryptionResult.Ciphertext.Length} bytes (original: {plaintext.Length} bytes)");
@@ -73,11 +72,11 @@ public static class DataEncryptionExample
 
         // Decrypt the data using the captured nonce
         var decrypted = HeroCryptBuilder.Decrypt()
-            .WithAlgorithm(EncryptionAlgorithm.ChaCha20Poly1305)
+            .WithChaCha20Poly1305()
             .WithKey(dek)
             .WithNonce(encryptionResult.Nonce)
             .WithAssociatedData(associatedData)
-            .Build(encryptionResult.Ciphertext);
+            .Decrypt(encryptionResult.Ciphertext);
 
         var decryptedJson = Encoding.UTF8.GetString(decrypted);
         var decryptedData = JsonSerializer.Deserialize<UserData>(decryptedJson);
@@ -113,12 +112,12 @@ public static class DataEncryptionExample
         var filename = "sensitive-document.txt";
         var associatedData = Encoding.UTF8.GetBytes(filename);
 
-        // Encrypt the file
+        // Encrypt the file using fluent API
         var encryptedFile = HeroCryptBuilder.Encrypt()
-            .WithAlgorithm(EncryptionAlgorithm.ChaCha20Poly1305)
+            .WithChaCha20Poly1305()
             .WithKey(key)
             .WithAssociatedData(associatedData)
-            .Build(fileData);
+            .Encrypt(fileData);
 
         Console.WriteLine($"Encrypted file size: {encryptedFile.Ciphertext.Length} bytes");
         Console.WriteLine();
@@ -138,11 +137,11 @@ public static class DataEncryptionExample
 
         // Decrypt the file
         var decryptedFile = HeroCryptBuilder.Decrypt()
-            .WithAlgorithm(EncryptionAlgorithm.ChaCha20Poly1305)
+            .WithChaCha20Poly1305()
             .WithKey(key)
             .WithNonce(filePackage.Nonce)
             .WithAssociatedData(Encoding.UTF8.GetBytes(filePackage.Filename))
-            .Build(filePackage.Ciphertext);
+            .Decrypt(filePackage.Ciphertext);
 
         var decryptedContent = Encoding.UTF8.GetString(decryptedFile);
         Console.WriteLine($"Decrypted file content: {decryptedContent}");
@@ -161,22 +160,20 @@ public static class DataEncryptionExample
         RandomNumberGenerator.Fill(masterKey);
         Console.WriteLine($"Master key: {Convert.ToBase64String(masterKey)[..40]}...");
 
-        // Derive separate keys for different purposes using HKDF via fluent builder
-        var encryptionKey = HeroCryptBuilder.DeriveKey()
-            .UseHKDF()
-            .WithInputKeyingMaterial(masterKey)
-            .WithInfo(Encoding.UTF8.GetBytes("encryption-key-v1"))
-            .WithHashAlgorithm(KdfHashAlgorithmName.SHA256)
-            .WithKeyLength(32)
-            .Build();
+        // Derive separate keys for different purposes using HKDF via primitive builder
+        using var encryptionKdf = HkdfBuilder.Create()
+            .WithInputKeyMaterial(masterKey)
+            .WithInfo("encryption-key-v1")
+            .WithHashAlgorithm(HashAlgorithmName.SHA256)
+            .WithOutputLength(32);
+        var encryptionKey = encryptionKdf.DeriveKey();
 
-        var authenticationKey = HeroCryptBuilder.DeriveKey()
-            .UseHKDF()
-            .WithInputKeyingMaterial(masterKey)
-            .WithInfo(Encoding.UTF8.GetBytes("authentication-key-v1"))
-            .WithHashAlgorithm(KdfHashAlgorithmName.SHA256)
-            .WithKeyLength(32)
-            .Build();
+        using var authKdf = HkdfBuilder.Create()
+            .WithInputKeyMaterial(masterKey)
+            .WithInfo("authentication-key-v1")
+            .WithHashAlgorithm(HashAlgorithmName.SHA256)
+            .WithOutputLength(32);
+        var authenticationKey = authKdf.DeriveKey();
 
         Console.WriteLine($"Derived encryption key: {Convert.ToBase64String(encryptionKey)[..40]}...");
         Console.WriteLine($"Derived authentication key: {Convert.ToBase64String(authenticationKey)[..40]}...");

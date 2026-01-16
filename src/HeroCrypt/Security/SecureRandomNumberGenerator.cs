@@ -8,10 +8,40 @@ using LockScope = System.Threading.Lock.Scope;
 namespace HeroCrypt.Security;
 
 /// <summary>
-/// Enhanced secure random number generator with entropy pooling and health monitoring
+/// Enhanced secure random number generator with entropy pooling and health monitoring.
 /// </summary>
 public sealed class SecureRandomNumberGenerator : IDisposable
 {
+    /// <summary>
+    /// Fills a byte array with cryptographically secure random bytes.
+    /// </summary>
+    /// <param name="buffer">The buffer to fill with random bytes.</param>
+    public static void Fill(byte[] buffer)
+    {
+#if NETSTANDARD2_0
+        using var rng = RandomNumberGenerator.Create();
+        rng.GetBytes(buffer);
+#else
+        RandomNumberGenerator.Fill(buffer);
+#endif
+    }
+
+    /// <summary>
+    /// Fills a span with cryptographically secure random bytes.
+    /// </summary>
+    /// <param name="buffer">The span to fill with random bytes.</param>
+    public static void Fill(Span<byte> buffer)
+    {
+#if NETSTANDARD2_0
+        var array = new byte[buffer.Length];
+        using var rng = RandomNumberGenerator.Create();
+        rng.GetBytes(array);
+        array.CopyTo(buffer);
+#else
+        RandomNumberGenerator.Fill(buffer);
+#endif
+    }
+
     /// <summary>
     /// Size of the entropy pool in bytes. Larger pools provide more randomness mixing
     /// but consume more memory. 4096 bytes provides good security margin.

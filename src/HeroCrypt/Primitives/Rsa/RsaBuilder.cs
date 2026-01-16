@@ -286,13 +286,14 @@ public sealed class RsaBuilder : IDisposable
 
     private void ClearPrivateKey()
     {
-        privateKey?.Dispose();
+        // Note: System.Numerics.BigInteger is immutable, so we cannot securely clear it.
+        // The .NET runtime's RSA implementation handles its own key material securely.
         privateKey = null;
     }
 
     private void ClearPublicKey()
     {
-        publicKey?.Dispose();
+        // Note: System.Numerics.BigInteger is immutable, so we cannot securely clear it.
         publicKey = null;
     }
 

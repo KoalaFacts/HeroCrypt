@@ -349,6 +349,10 @@ dotnet_diagnostic.IDE0090.severity = suggestion
 # IDE0290: Use primary constructor
 dotnet_diagnostic.IDE0290.severity = suggestion
 
+# IDE analyzers - UTF-8 string literals
+# IDE0230: Use UTF-8 string literal (disabled for crypto test code where bytes are arbitrary values, not text)
+dotnet_diagnostic.IDE0230.severity = suggestion
+
 # IDE analyzers - collection expressions (C# 12+)
 # IDE0300: Use collection expression for array
 dotnet_diagnostic.IDE0300.severity = warning

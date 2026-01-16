@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
@@ -7,7 +9,7 @@ namespace HeroCrypt.Primitives.Secp256k1;
 
 /// <summary>
 /// Core secp256k1 implementation for blockchain applications.
-/// Used by Bitcoin, Ethereum, and many other cryptocurrencies.
+/// Uses System.Numerics.BigInteger for correct elliptic curve arithmetic.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -20,72 +22,50 @@ namespace HeroCrypt.Primitives.Secp256k1;
 ///   <item>Field: 256-bit prime field</item>
 ///   <item>Security: ~128-bit symmetric equivalent</item>
 /// </list>
-/// <para><b>Platform Support:</b></para>
-/// <list type="bullet">
-///   <item>
-///     <term>Windows</term>
-///     <description>
-///       Supported via Windows CNG. The secp256k1 curve is available through
-///       <see cref="ECDsa"/> with the appropriate OID.
-///     </description>
-///   </item>
-///   <item>
-///     <term>Linux</term>
-///     <description>
-///       Supported via OpenSSL. Most distributions include secp256k1 support.
-///     </description>
-///   </item>
-///   <item>
-///     <term>macOS</term>
-///     <description>
-///       <b>Not supported natively.</b> Apple's Security framework (CommonCrypto)
-///       only supports NIST curves (P-256, P-384, P-521). The secp256k1 curve
-///       (OID 1.3.132.0.10) is not recognized. Operations will throw
-///       <see cref="CryptographicException"/> with message about unsupported OID.
-///       Consider using libsecp256k1 via P/Invoke for macOS support.
-///     </description>
-///   </item>
-/// </list>
 /// </remarks>
 internal static class Secp256k1Core
 {
     /// <summary>
-    /// Field modulus: 2^256 - 2^32 - 2^9 - 2^8 - 2^7 - 2^6 - 2^4 - 1
+    /// Field prime: p = 2^256 - 2^32 - 977
     /// </summary>
-    private static readonly uint[] FieldModulus =
-    [
-        0xfffffc2f, 0xfffffffe, 0xffffffff, 0xffffffff,
-        0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff
-    ];
+    private static readonly BigInteger FieldPrime = BigInteger.Parse(
+        "0FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F",
+        NumberStyles.HexNumber,
+        CultureInfo.InvariantCulture);
 
     /// <summary>
-    /// Group order: FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
+    /// Group order: n
     /// </summary>
-    private static readonly uint[] GroupOrder =
-    [
-        0xd0364141, 0xbfd25e8c, 0xaf48a03b, 0xbaaedce6,
-        0xfffffffe, 0xffffffff, 0xffffffff, 0xffffffff
-    ];
+    private static readonly BigInteger GroupOrderN = BigInteger.Parse(
+        "0FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141",
+        NumberStyles.HexNumber,
+        CultureInfo.InvariantCulture);
 
     /// <summary>
-    /// Generator point G (uncompressed coordinates)
+    /// Exponent for square root: (p + 1) / 4
     /// </summary>
-    private static readonly uint[] GeneratorX =
-    [
-        0x16f81798, 0x59f2815b, 0x2dce28d9, 0x029bfcdb,
-        0xce870b07, 0x55a06295, 0xf9dcbbac, 0x79be667e
-    ];
-
-    private static readonly uint[] GeneratorY =
-    [
-        0xfb10d4b8, 0x9c47d08f, 0xa6855419, 0xfd17b448,
-        0x0e1108a8, 0x5da4fbfc, 0x26a3c465, 0x483ada77
-    ];
+    private static readonly BigInteger SqrtExponent = (FieldPrime + 1) / 4;
 
     /// <summary>
-    /// Curve parameter b = 7 for secp256k1
+    /// Generator point G x-coordinate
     /// </summary>
-    private const uint CURVE_B = 7;
+    private static readonly BigInteger GeneratorX = BigInteger.Parse(
+        "079BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798",
+        NumberStyles.HexNumber,
+        CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// Generator point G y-coordinate
+    /// </summary>
+    private static readonly BigInteger GeneratorY = BigInteger.Parse(
+        "0483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8",
+        NumberStyles.HexNumber,
+        CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// Curve parameter b = 7 for secp256k1 (y² = x³ + 7)
+    /// </summary>
+    private static readonly BigInteger CurveB = 7;
 
     /// <summary>
     /// Private key size in bytes
@@ -103,12 +83,12 @@ internal static class Secp256k1Core
     public const int COMPRESSED_PUBLIC_KEY_SIZE = 33;
 
     /// <summary>
-    /// Signature size in bytes (DER encoding can vary, but raw r,s is 64 bytes)
+    /// Signature size in bytes (r || s)
     /// </summary>
     public const int SIGNATURE_SIZE = 64;
 
     private static readonly byte[] SignatureKeySalt = Encoding.ASCII.GetBytes("HeroCrypt.Secp256k1.Signature");
-    private static readonly byte[] DecompressSalt = Encoding.ASCII.GetBytes("HeroCrypt.Secp256k1.Decompress");
+
     /// <summary>
     /// Generates a new secp256k1 key pair
     /// </summary>
@@ -155,14 +135,13 @@ internal static class Secp256k1Core
             throw new ArgumentException("Invalid private key", nameof(privateKey));
         }
 
-        // Convert private key to field element
-        var k = new uint[8];
-        LoadBytes(k, privateKey);
+        // Convert private key to BigInteger
+        var k = BytesToBigInteger(privateKey);
 
-        // Compute Q = k * G
-        var (x, y) = ScalarMultiply(GeneratorX, GeneratorY, k);
+        // Compute Q = k * G using BigInteger arithmetic
+        var (qx, qy) = ScalarMultiply(GeneratorX, GeneratorY, k);
 
-        return EncodePublicKey(x, y, compressed);
+        return EncodePublicKey(qx, qy, compressed);
     }
 
     /// <summary>
@@ -214,57 +193,6 @@ internal static class Secp256k1Core
         }
     }
 
-    private static byte[] NormalizePublicKey(byte[] publicKey)
-    {
-        if (publicKey.Length == 65)
-        {
-            if (publicKey[0] != 0x04)
-            {
-                throw new ArgumentException("Invalid public key format", nameof(publicKey));
-            }
-            return publicKey;
-        }
-
-        return DecompressPublicKey(publicKey);
-    }
-
-    private static byte[] DeriveSignatureKey(byte[] uncompressedKey)
-    {
-        var buffer = new byte[uncompressedKey.Length + SignatureKeySalt.Length];
-        Array.Copy(uncompressedKey, buffer, uncompressedKey.Length);
-        Array.Copy(SignatureKeySalt, 0, buffer, uncompressedKey.Length, SignatureKeySalt.Length);
-
-        var key = ComputeSha512(buffer);
-
-        SecureMemoryOperations.SecureClear(buffer);
-        return key;
-    }
-
-    private static byte[] ComputeSha512(ReadOnlySpan<byte> data)
-    {
-#if NETSTANDARD2_0
-        using var sha = SHA512.Create();
-        return sha.ComputeHash(data.ToArray());
-#else
-        return SHA512.HashData(data);
-#endif
-    }
-
-    private static bool FixedTimeEquals(ReadOnlySpan<byte> left, ReadOnlySpan<byte> right)
-    {
-        if (left.Length != right.Length)
-        {
-            return false;
-        }
-
-        var diff = 0;
-        for (var i = 0; i < left.Length; i++)
-        {
-            diff |= left[i] ^ right[i];
-        }
-
-        return diff == 0;
-    }
     /// <summary>
     /// Verifies an ECDSA signature over secp256k1.
     /// </summary>
@@ -325,6 +253,7 @@ internal static class Secp256k1Core
             SecureMemoryOperations.SecureClear(signatureKey);
         }
     }
+
     /// <summary>
     /// Compresses a public key
     /// </summary>
@@ -345,17 +274,19 @@ internal static class Secp256k1Core
             throw new ArgumentException("Invalid uncompressed public key", nameof(uncompressedKey));
         }
 
-        var compressed = new byte[33];
+        // Extract x and y coordinates
+        var xBytes = new byte[32];
+        var yBytes = new byte[32];
+        Array.Copy(uncompressedKey, 1, xBytes, 0, 32);
+        Array.Copy(uncompressedKey, 33, yBytes, 0, 32);
 
+        var y = BytesToBigInteger(yBytes);
+
+        var compressed = new byte[33];
+        // Set prefix based on y-coordinate parity
+        compressed[0] = (byte)(y.IsEven ? 0x02 : 0x03);
         // Copy x-coordinate
         Array.Copy(uncompressedKey, 1, compressed, 1, 32);
-
-        // Set prefix based on y-coordinate parity
-        // Y coordinate starts at byte 33, and with little-endian word storage:
-        // - bytes[33..36] = y[7] (MSW) in little-endian
-        // - bytes[61..64] = y[0] (LSW) in little-endian
-        // So byte[61] contains the LSB of y[0], which has the parity bit
-        compressed[0] = (byte)(0x02 + (uncompressedKey[61] & 1));
 
         return compressed;
     }
@@ -377,690 +308,357 @@ internal static class Secp256k1Core
 #endif
         if (compressedKey.Length != 33)
         {
-            return DeterministicDecompress(compressedKey);
+            throw new ArgumentException("Compressed public key must be 33 bytes", nameof(compressedKey));
         }
 
         var prefix = compressedKey[0];
         if (prefix is not 0x02 and not 0x03)
         {
-            return DeterministicDecompress(compressedKey);
+            throw new ArgumentException("Invalid compressed public key prefix", nameof(compressedKey));
         }
 
+        // Extract x-coordinate
         var xBytes = new byte[32];
         Array.Copy(compressedKey, 1, xBytes, 0, 32);
+        var x = BytesToBigInteger(xBytes);
 
-        var x = new uint[8];
-        LoadBytes(x, xBytes);
-
-        byte[]? uncompressed = null;
-
-        if (IsLessThan(x, FieldModulus))
+        // Validate x < p
+        if (x >= FieldPrime)
         {
-            var ySquared = new uint[8];
-            ComputeYSquared(ySquared, x);
-
-            var y = new uint[8];
-            if (ModularSquareRoot(y, ySquared))
-            {
-                var shouldBeOdd = (prefix & 1) == 1;
-                if (IsOdd(y) != shouldBeOdd)
-                {
-                    var negY = new uint[8];
-                    ModularSubtract(negY, FieldModulus, y, FieldModulus);
-                    Array.Copy(negY, y, 8);
-                }
-
-                uncompressed = EncodePublicKey(x, y, false);
-                SecureMemoryOperations.SecureClear(y);
-            }
-
-            SecureMemoryOperations.SecureClear(ySquared);
+            throw new ArgumentException("Invalid x-coordinate", nameof(compressedKey));
         }
 
-        SecureMemoryOperations.SecureClear(xBytes);
-        SecureMemoryOperations.SecureClear(x);
+        // Compute y² = x³ + 7 mod p
+        var ySquared = (BigInteger.ModPow(x, 3, FieldPrime) + CurveB) % FieldPrime;
 
-        return uncompressed ?? DeterministicDecompress(compressedKey);
-    }
+        // Compute y = sqrt(y²) mod p using Tonelli-Shanks (for p ≡ 3 mod 4: y = y²^((p+1)/4))
+        var y = BigInteger.ModPow(ySquared, SqrtExponent, FieldPrime);
 
-    private static byte[] DeterministicDecompress(byte[] compressedKey)
-    {
-        var uncompressed = new byte[65];
-        uncompressed[0] = 0x04;
-        Array.Copy(compressedKey, 1, uncompressed, 1, 32);
-
-        using var sha256 = SHA256.Create();
-        var input = new byte[compressedKey.Length + DecompressSalt.Length];
-        Array.Copy(compressedKey, input, compressedKey.Length);
-        Array.Copy(DecompressSalt, 0, input, compressedKey.Length, DecompressSalt.Length);
-
-        var hash = HashData(sha256, input);
-        Array.Copy(hash, 0, uncompressed, 33, 32);
-
-        // With little-endian storage, the parity bit is in byte 61, not 64
-        if (((compressedKey[0] & 1) == 1) != ((uncompressed[61] & 1) == 1))
+        // Verify the square root is valid
+        if ((y * y) % FieldPrime != ySquared)
         {
-            uncompressed[61] ^= 1;
+            throw new ArgumentException("No valid y-coordinate exists for this x", nameof(compressedKey));
         }
 
-        SecureMemoryOperations.SecureClear(input);
-        SecureMemoryOperations.SecureClear(hash);
+        // Adjust y based on the prefix (even/odd)
+        var shouldBeOdd = prefix == 0x03;
+        var yIsOdd = !y.IsEven;
 
-        return uncompressed;
-    }
+        if (yIsOdd != shouldBeOdd)
+        {
+            // Negate: y = p - y
+            y = FieldPrime - y;
+        }
 
-    private static byte[] HashData(SHA256 sha256, byte[] input)
-    {
-#if NETSTANDARD2_0
-        return sha256.ComputeHash(input);
-#else
-        return SHA256.HashData(input);
-#endif
-    }
-    /// <summary>
-    /// Checks if a private key is valid
-    /// </summary>
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static bool IsValidPrivateKey(byte[] privateKey)
-    {
-        var k = new uint[8];
-        LoadBytes(k, privateKey);
-
-        // Private key must be in range [1, n-1]
-        return !IsZero(k) && IsLessThan(k, GroupOrder);
+        return EncodePublicKey(x, y, false);
     }
 
     /// <summary>
-    /// Scalar multiplication using windowed method
+    /// Scalar multiplication using double-and-add with BigInteger arithmetic
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static (uint[] x, uint[] y) ScalarMultiply(uint[] px, uint[] py, uint[] scalar)
+    private static (BigInteger x, BigInteger y) ScalarMultiply(BigInteger px, BigInteger py, BigInteger scalar)
     {
-        var resultX = new uint[8];
-        var resultY = new uint[8];
+        // Handle edge cases
+        if (scalar == BigInteger.Zero)
+        {
+            return (BigInteger.Zero, BigInteger.Zero);
+        }
+
+        BigInteger resultX = BigInteger.Zero;
+        BigInteger resultY = BigInteger.Zero;
         var isInfinity = true;
 
-        var currentX = new uint[8];
-        var currentY = new uint[8];
-        Array.Copy(px, currentX, 8);
-        Array.Copy(py, currentY, 8);
+        var currentX = px;
+        var currentY = py;
 
-        // Simple double-and-add method
-        for (var i = 0; i < 256; i++)
+        // Double-and-add method
+        while (scalar > BigInteger.Zero)
         {
-            var bit = GetBit(scalar, i);
-
-            if (bit == 1)
+            if (!scalar.IsEven) // scalar & 1 == 1
             {
                 if (isInfinity)
                 {
-                    Array.Copy(currentX, resultX, 8);
-                    Array.Copy(currentY, resultY, 8);
+                    resultX = currentX;
+                    resultY = currentY;
                     isInfinity = false;
                 }
                 else
                 {
-                    var sum = PointAdd(resultX, resultY, currentX, currentY);
-                    Array.Copy(sum.x, resultX, 8);
-                    Array.Copy(sum.y, resultY, 8);
+                    (resultX, resultY) = PointAdd(resultX, resultY, currentX, currentY);
                 }
             }
 
-            if (i < 255) // Don't double on last iteration
-            {
-                var doubled = PointDouble(currentX, currentY);
-                Array.Copy(doubled.x, currentX, 8);
-                Array.Copy(doubled.y, currentY, 8);
-            }
+            // Double the current point
+            (currentX, currentY) = PointDouble(currentX, currentY);
+
+            // Shift scalar right by 1
+            scalar >>= 1;
         }
 
         return (resultX, resultY);
     }
 
     /// <summary>
-    /// Point addition on secp256k1
+    /// Point addition on secp256k1 using BigInteger
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static (uint[] x, uint[] y) PointAdd(uint[] x1, uint[] y1, uint[] x2, uint[] y2)
+    private static (BigInteger x, BigInteger y) PointAdd(BigInteger x1, BigInteger y1, BigInteger x2, BigInteger y2)
     {
         // Handle point at infinity cases
-        if (IsZero(x1) && IsZero(y1))
+        if (x1 == BigInteger.Zero && y1 == BigInteger.Zero)
         {
             return (x2, y2);
         }
-        if (IsZero(x2) && IsZero(y2))
+        if (x2 == BigInteger.Zero && y2 == BigInteger.Zero)
         {
             return (x1, y1);
         }
 
-        var resultX = new uint[8];
-        var resultY = new uint[8];
-
         // Check if points are the same
-        if (ArraysEqual(x1, x2))
+        if (x1 == x2)
         {
-            if (ArraysEqual(y1, y2))
+            if (y1 == y2)
             {
                 return PointDouble(x1, y1);
             }
-
-            return (new uint[8], new uint[8]); // Point at infinity
+            // Points are inverses, return point at infinity
+            return (BigInteger.Zero, BigInteger.Zero);
         }
 
-        // Compute slope: s = (y2 - y1) / (x2 - x1)
-        var deltaY = new uint[8];
-        var deltaX = new uint[8];
-        var slope = new uint[8];
+        // Compute slope: s = (y2 - y1) / (x2 - x1) mod p
+        var deltaY = ModSub(y2, y1, FieldPrime);
+        var deltaX = ModSub(x2, x1, FieldPrime);
+        var deltaXInverse = ModInverse(deltaX, FieldPrime);
+        var slope = (deltaY * deltaXInverse) % FieldPrime;
+        if (slope < 0) slope += FieldPrime;
 
-        ModularSubtract(deltaY, y2, y1, FieldModulus);
-        ModularSubtract(deltaX, x2, x1, FieldModulus);
-        ModularInverse(slope, deltaX, FieldModulus);
-        ModularMultiply(slope, slope, deltaY, FieldModulus);
+        // x3 = s² - x1 - x2 mod p
+        var x3 = (slope * slope) % FieldPrime;
+        x3 = ModSub(x3, x1, FieldPrime);
+        x3 = ModSub(x3, x2, FieldPrime);
 
-        // x3 = s^2 - x1 - x2
-        var sSquared = new uint[8];
-        ModularMultiply(sSquared, slope, slope, FieldModulus);
-        ModularSubtract(resultX, sSquared, x1, FieldModulus);
-        ModularSubtract(resultX, resultX, x2, FieldModulus);
+        // y3 = s * (x1 - x3) - y1 mod p
+        var y3 = ModSub(x1, x3, FieldPrime);
+        y3 = (slope * y3) % FieldPrime;
+        y3 = ModSub(y3, y1, FieldPrime);
 
-        // y3 = s * (x1 - x3) - y1
-        var temp = new uint[8];
-        ModularSubtract(temp, x1, resultX, FieldModulus);
-        ModularMultiply(temp, slope, temp, FieldModulus);
-        ModularSubtract(resultY, temp, y1, FieldModulus);
-
-        return (resultX, resultY);
+        return (x3, y3);
     }
 
     /// <summary>
-    /// Point doubling on secp256k1
+    /// Point doubling on secp256k1 using BigInteger
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static (uint[] x, uint[] y) PointDouble(uint[] x, uint[] y)
+    private static (BigInteger x, BigInteger y) PointDouble(BigInteger x, BigInteger y)
     {
-        var resultX = new uint[8];
-        var resultY = new uint[8];
+        // Handle point at infinity
+        if (x == BigInteger.Zero && y == BigInteger.Zero)
+        {
+            return (BigInteger.Zero, BigInteger.Zero);
+        }
 
-        // Compute slope: s = (3 * x^2 + a) / (2 * y) = 3 * x^2 / (2 * y) since a = 0
-        var xSquared = new uint[8];
-        var slope = new uint[8];
-        var temp = new uint[8];
+        // Handle y = 0 case (tangent is vertical)
+        if (y == BigInteger.Zero)
+        {
+            return (BigInteger.Zero, BigInteger.Zero);
+        }
 
-        ModularMultiply(xSquared, x, x, FieldModulus);
-        ModularMultiplySmall(slope, xSquared, 3, FieldModulus); // 3 * x^2
-        ModularMultiplySmall(temp, y, 2, FieldModulus); // 2 * y
-        ModularInverse(temp, temp, FieldModulus);
-        ModularMultiply(slope, slope, temp, FieldModulus);
+        // Compute slope: s = (3 * x² + a) / (2 * y) mod p
+        // For secp256k1, a = 0, so s = 3 * x² / (2 * y)
+        var xSquared = (x * x) % FieldPrime;
+        var numerator = (3 * xSquared) % FieldPrime;
+        var denominator = (2 * y) % FieldPrime;
+        var denominatorInverse = ModInverse(denominator, FieldPrime);
+        var slope = (numerator * denominatorInverse) % FieldPrime;
+        if (slope < 0) slope += FieldPrime;
 
-        // x3 = s^2 - 2 * x
-        var sSquared = new uint[8];
-        ModularMultiply(sSquared, slope, slope, FieldModulus);
-        ModularMultiplySmall(temp, x, 2, FieldModulus);
-        ModularSubtract(resultX, sSquared, temp, FieldModulus);
+        // x3 = s² - 2x mod p
+        var x3 = (slope * slope) % FieldPrime;
+        x3 = ModSub(x3, x, FieldPrime);
+        x3 = ModSub(x3, x, FieldPrime);
 
-        // y3 = s * (x - x3) - y
-        ModularSubtract(temp, x, resultX, FieldModulus);
-        ModularMultiply(temp, slope, temp, FieldModulus);
-        ModularSubtract(resultY, temp, y, FieldModulus);
+        // y3 = s * (x - x3) - y mod p
+        var y3 = ModSub(x, x3, FieldPrime);
+        y3 = (slope * y3) % FieldPrime;
+        y3 = ModSub(y3, y, FieldPrime);
 
-        return (resultX, resultY);
+        return (x3, y3);
     }
 
     /// <summary>
-    /// Computes y^2 = x^3 + 7 for point decompression
+    /// Modular subtraction: (a - b) mod p, ensuring positive result
     /// </summary>
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static void ComputeYSquared(uint[] result, uint[] x)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static BigInteger ModSub(BigInteger a, BigInteger b, BigInteger p)
     {
-        var xSquared = new uint[8];
-        var xCubed = new uint[8];
-
-        ModularMultiply(xSquared, x, x, FieldModulus);
-        ModularMultiply(xCubed, xSquared, x, FieldModulus);
-        ModularAddSmall(result, xCubed, CURVE_B, FieldModulus);
+        var result = (a - b) % p;
+        if (result < 0) result += p;
+        return result;
     }
 
     /// <summary>
-    /// Encodes a public key point
+    /// Modular multiplicative inverse using extended Euclidean algorithm
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static byte[] EncodePublicKey(uint[] x, uint[] y, bool compressed)
+    private static BigInteger ModInverse(BigInteger a, BigInteger p)
+    {
+        // Extended Euclidean algorithm
+        BigInteger t = 0, newT = 1;
+        BigInteger r = p, newR = a % p;
+        if (newR < 0) newR += p;
+
+        while (newR != BigInteger.Zero)
+        {
+            var quotient = r / newR;
+
+            var tempT = t;
+            t = newT;
+            newT = tempT - quotient * newT;
+
+            var tempR = r;
+            r = newR;
+            newR = tempR - quotient * newR;
+        }
+
+        if (r > BigInteger.One)
+        {
+            throw new ArithmeticException("Value is not invertible");
+        }
+
+        if (t < 0) t += p;
+        return t;
+    }
+
+    /// <summary>
+    /// Encodes a public key point to bytes
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static byte[] EncodePublicKey(BigInteger x, BigInteger y, bool compressed)
     {
         if (compressed)
         {
             var result = new byte[33];
-            result[0] = (byte)(0x02 + (IsOdd(y) ? 1 : 0));
-            StoreBytes(result, 1, x);
+            result[0] = (byte)(y.IsEven ? 0x02 : 0x03);
+            BigIntegerToBytes(x, result, 1);
             return result;
         }
         else
         {
             var result = new byte[65];
             result[0] = 0x04;
-            StoreBytes(result, 1, x);
-            StoreBytes(result, 33, y);
+            BigIntegerToBytes(x, result, 1);
+            BigIntegerToBytes(y, result, 33);
             return result;
         }
     }
 
+    /// <summary>
+    /// Converts a big-endian byte array to BigInteger
+    /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static void ModularAddSmall(uint[] result, uint[] a, uint small, uint[] modulus)
+    private static BigInteger BytesToBigInteger(byte[] bytes)
     {
-        Array.Copy(a, result, 8);
-        var carry = (ulong)small;
-
-        for (var i = 0; i < 8 && carry > 0; i++)
+        // BigInteger constructor expects little-endian with optional sign byte
+        var leBytes = new byte[bytes.Length + 1];
+        for (var i = 0; i < bytes.Length; i++)
         {
-            carry += result[i];
-            result[i] = (uint)carry;
-            carry >>= 32;
+            leBytes[bytes.Length - 1 - i] = bytes[i];
         }
-
-        if (carry > 0 || IsGreaterOrEqual(result, modulus))
-        {
-            SubtractModulus(result, modulus);
-        }
+        leBytes[bytes.Length] = 0; // Ensure positive
+        return new BigInteger(leBytes);
     }
 
+    /// <summary>
+    /// Converts a BigInteger to big-endian bytes at the specified offset
+    /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static void ModularSubtract(uint[] result, uint[] a, uint[] b, uint[] modulus)
+    private static void BigIntegerToBytes(BigInteger value, byte[] destination, int offset)
     {
-        long borrow = 0;
-        for (var i = 0; i < 8; i++)
+        var bytes = value.ToByteArray(); // Little-endian, may have sign byte
+
+        // Clear destination first
+        for (var i = 0; i < 32; i++)
         {
-            borrow += (long)a[i] - b[i];
-            result[i] = (uint)borrow;
-            borrow >>= 32;
+            destination[offset + i] = 0;
         }
 
-        if (borrow < 0)
-        {
-            AddModulus(result, modulus);
-        }
-    }
+        // Copy bytes in reverse order (little-endian to big-endian)
+        // Skip sign byte if present (when bytes.Length > 32 or last byte is 0x00 for positive numbers)
+        var bytesToCopy = Math.Min(bytes.Length, 32);
 
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static void ModularMultiply(uint[] result, uint[] a, uint[] b, uint[] modulus)
-    {
-        // Schoolbook multiplication with carry propagation to prevent overflow
-        var temp = new ulong[17];
-
-        for (var i = 0; i < 8; i++)
+        // Handle case where there's a sign byte we should skip
+        if (bytes.Length == 33 && bytes[32] == 0)
         {
-            ulong carry = 0;
-            for (var j = 0; j < 8; j++)
-            {
-                var product = (ulong)a[i] * b[j];
-                temp[i + j] += product + carry;
-                carry = temp[i + j] >> 32;
-                temp[i + j] &= 0xFFFFFFFF;
-            }
-            temp[i + 8] += carry;
+            bytesToCopy = 32;
         }
 
-        // Propagate any remaining carries
-        for (var i = 0; i < 16; i++)
+        for (var i = 0; i < bytesToCopy; i++)
         {
-            temp[i + 1] += temp[i] >> 32;
-            temp[i] &= 0xFFFFFFFF;
-        }
-
-        // Reduce the 512-bit result
-        ReduceWide(result, temp, modulus);
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static void ModularMultiplySmall(uint[] result, uint[] a, uint multiplier, uint[] modulus)
-    {
-        ulong carry = 0;
-        for (var i = 0; i < 8; i++)
-        {
-            carry += (ulong)a[i] * multiplier;
-            result[i] = (uint)carry;
-            carry >>= 32;
-        }
-
-        while (carry > 0 || IsGreaterOrEqual(result, modulus))
-        {
-            if (carry > 0)
-            {
-                var temp = carry;
-                for (var i = 0; i < 8; i++)
-                {
-                    temp += result[i];
-                    result[i] = (uint)temp;
-                    temp >>= 32;
-                }
-                carry = temp;
-            }
-
-            if (IsGreaterOrEqual(result, modulus))
-            {
-                SubtractModulus(result, modulus);
-            }
-        }
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static void ModularInverse(uint[] result, uint[] a, uint[] modulus)
-    {
-        // Fermat's little theorem: a^(-1) = a^(p-2) mod p for prime p
-        // This works for both field modulus (prime) and group order (prime)
-        var exponent = new uint[8];
-        Array.Copy(modulus, exponent, 8);
-
-        // Subtract 2 from modulus to get p-2
-        var borrow = 2ul;
-        for (var i = 0; i < 8; i++)
-        {
-            if (exponent[i] >= borrow)
-            {
-                exponent[i] -= (uint)borrow;
-                borrow = 0;
-            }
-            else
-            {
-                exponent[i] = (uint)(0x100000000ul + exponent[i] - borrow);
-                borrow = 1;
-            }
-        }
-
-        // Compute a^(p-2) mod p using binary exponentiation
-        ModularExponentiation(result, a, exponent, modulus);
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static bool ModularSquareRoot(uint[] result, uint[] a)
-    {
-        // Check if a is zero
-        if (IsZero(a))
-        {
-            SecureMemoryOperations.SecureClear(result.AsSpan());
-            return true;
-        }
-
-        // For secp256k1 we have p mod 4 == 3, so we can use the simple formula:
-        // sqrt(a) = a^((p+1)/4) mod p
-
-        // For secp256k1 field prime: p = 2^256 - 2^32 - 977
-        // (p+1)/4 = (2^256 - 2^32 - 976)/4 = 2^254 - 2^30 - 244
-        // In hex: 0x3FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFBFFFFF0C
-
-        var exponent = new uint[] {
-            0xbfffff0c, 0xffffffff, 0xffffffff, 0xffffffff,
-            0xffffffff, 0xffffffff, 0xffffffff, 0x3fffffff
-        };
-
-        // Simple implementation: use repeated squaring
-        SecureMemoryOperations.SecureClear(result.AsSpan());
-        result[0] = 1; // result = 1
-
-        var base_power = new uint[8];
-        Array.Copy(a, base_power, 8); // base_power = a
-
-        // Process each bit of the exponent
-        for (var i = 0; i < 256; i++)
-        {
-            if (GetBit(exponent, i) == 1)
-            {
-                ModularMultiply(result, result, base_power, FieldModulus);
-            }
-
-            if (i < 255)
-            {
-                ModularMultiply(base_power, base_power, base_power, FieldModulus);
-            }
-        }
-
-        // Verify that result^2 == a (mod p)
-        var check = new uint[8];
-        ModularMultiply(check, result, result, FieldModulus);
-
-        return ArraysEqual(check, a);
-    }
-
-    // Utility helper methods
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static void LoadBytes(uint[] element, byte[] bytes)
-    {
-        for (var i = 0; i < 8; i++)
-        {
-            element[i] = BitConverter.ToUInt32(bytes, (7 - i) * 4);
-        }
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static void StoreBytes(byte[] bytes, int offset, uint[] element)
-    {
-        for (var i = 0; i < 8; i++)
-        {
-            var elementBytes = BitConverter.GetBytes(element[7 - i]);
-            elementBytes.CopyTo(bytes, offset + i * 4);
-        }
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static bool IsZero(uint[] a)
-    {
-        for (var i = 0; i < 8; i++)
-        {
-            if (a[i] != 0)
-            {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static bool IsOdd(uint[] a)
-    {
-        return (a[0] & 1) == 1;
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static bool IsLessThan(uint[] a, uint[] b)
-    {
-        for (var i = 7; i >= 0; i--)
-        {
-            if (a[i] < b[i])
-            {
-                return true;
-            }
-            if (a[i] > b[i])
-            {
-                return false;
-            }
-        }
-        return false; // Equal
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static bool IsGreaterOrEqual(uint[] a, uint[] b)
-    {
-        return !IsLessThan(a, b);
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static bool ArraysEqual(uint[] a, uint[] b)
-    {
-        for (var i = 0; i < 8; i++)
-        {
-            if (a[i] != b[i])
-            {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static int GetBit(uint[] a, int index)
-    {
-        var wordIndex = index / 32;
-        var bitIndex = index % 32;
-        return (int)((a[wordIndex] >> bitIndex) & 1);
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static void SubtractModulus(uint[] a, uint[] modulus)
-    {
-        long borrow = 0;
-        for (var i = 0; i < 8; i++)
-        {
-            borrow += (long)a[i] - modulus[i];
-            a[i] = (uint)borrow;
-            borrow >>= 32;
-        }
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static void AddModulus(uint[] a, uint[] modulus)
-    {
-        ulong carry = 0;
-        for (var i = 0; i < 8; i++)
-        {
-            carry += (ulong)a[i] + modulus[i];
-            a[i] = (uint)carry;
-            carry >>= 32;
-        }
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static void ReduceWide(uint[] result, ulong[] wide, uint[] modulus)
-    {
-        // First, propagate carries in the wide array to get proper 32-bit words
-        var temp = new ulong[17];
-        Array.Copy(wide, temp, 16);
-
-        for (var i = 0; i < 16; i++)
-        {
-            temp[i + 1] += temp[i] >> 32;
-            temp[i] &= 0xFFFFFFFF;
-        }
-
-        // secp256k1 prime: p = 2^256 - 2^32 - 977
-        // Therefore: 2^256 ≡ 2^32 + 977 (mod p)
-        // For a 512-bit value N = H * 2^256 + L, we have N ≡ H * (2^32 + 977) + L (mod p)
-
-        // Reduce high words (words 8-16) by multiplying by (2^32 + 977) and adding to low words
-        // Repeat until no high words remain
-        for (var round = 0; round < 3; round++)
-        {
-            // Check if we have any high words
-            var hasHigh = false;
-            for (var i = 8; i < 17; i++)
-            {
-                if (temp[i] != 0)
-                {
-                    hasHigh = true;
-                    break;
-                }
-            }
-
-            if (!hasHigh)
-            {
-                break;
-            }
-
-            // Process each high word and add its reduction to the low part
-            // high[8+i] * 2^(256 + 32*i) ≡ high[8+i] * (2^32 + 977) * 2^(32*i) (mod p)
-            // = high[8+i] * 977 * 2^(32*i) + high[8+i] * 2^(32*(i+1))
-            for (var i = 8; i < 17; i++)
-            {
-                if (temp[i] == 0)
-                {
-                    continue;
-                }
-
-                var highWord = temp[i];
-                temp[i] = 0;
-
-                // Add highWord * 977 at position (i - 8)
-                temp[i - 8] += highWord * 977;
-
-                // Add highWord * 2^32 at position (i - 7)
-                if (i - 7 < 17)
-                {
-                    temp[i - 7] += highWord;
-                }
-            }
-
-            // Propagate carries
-            for (var i = 0; i < 16; i++)
-            {
-                temp[i + 1] += temp[i] >> 32;
-                temp[i] &= 0xFFFFFFFF;
-            }
-        }
-
-        // Copy result to output
-        for (var i = 0; i < 8; i++)
-        {
-            result[i] = (uint)temp[i];
-        }
-
-        // Final modular reduction if result >= p
-        while (IsGreaterOrEqual(result, modulus))
-        {
-            SubtractModulus(result, modulus);
+            destination[offset + 32 - 1 - i] = bytes[i];
         }
     }
 
     /// <summary>
-    /// Modular exponentiation using binary method
+    /// Checks if a private key is valid
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static void ModularExponentiation(uint[] result, uint[] baseValue, uint[] exponent, uint[] modulus)
+    private static bool IsValidPrivateKey(byte[] privateKey)
     {
-        // Initialize result to 1
-        SecureMemoryOperations.SecureClear(result.AsSpan());
-        result[0] = 1;
+        var k = BytesToBigInteger(privateKey);
+        // Private key must be in range [1, n-1]
+        return k > BigInteger.Zero && k < GroupOrderN;
+    }
 
-        var currentBase = new uint[8];
-        Array.Copy(baseValue, currentBase, 8);
-
-        // Binary exponentiation
-        for (var i = 0; i < 256; i++)
+    private static byte[] NormalizePublicKey(byte[] publicKey)
+    {
+        if (publicKey.Length == 65)
         {
-            var bit = GetBit(exponent, i);
-            if (bit == 1)
+            if (publicKey[0] != 0x04)
             {
-                ModularMultiply(result, result, currentBase, modulus);
+                throw new ArgumentException("Invalid public key format", nameof(publicKey));
             }
-
-            if (i < 255) // Don't square on last iteration
-            {
-                ModularMultiply(currentBase, currentBase, currentBase, modulus);
-            }
+            return publicKey;
         }
+
+        return DecompressPublicKey(publicKey);
+    }
+
+    private static byte[] DeriveSignatureKey(byte[] uncompressedKey)
+    {
+        var buffer = new byte[uncompressedKey.Length + SignatureKeySalt.Length];
+        Array.Copy(uncompressedKey, buffer, uncompressedKey.Length);
+        Array.Copy(SignatureKeySalt, 0, buffer, uncompressedKey.Length, SignatureKeySalt.Length);
+
+        var key = ComputeSha512(buffer);
+
+        SecureMemoryOperations.SecureClear(buffer);
+        return key;
+    }
+
+    private static byte[] ComputeSha512(ReadOnlySpan<byte> data)
+    {
+#if NETSTANDARD2_0
+        using var sha = SHA512.Create();
+        return sha.ComputeHash(data.ToArray());
+#else
+        return SHA512.HashData(data);
+#endif
+    }
+
+    private static bool FixedTimeEquals(ReadOnlySpan<byte> left, ReadOnlySpan<byte> right)
+    {
+        if (left.Length != right.Length)
+        {
+            return false;
+        }
+
+        var diff = 0;
+        for (var i = 0; i < left.Length; i++)
+        {
+            diff |= left[i] ^ right[i];
+        }
+
+        return diff == 0;
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

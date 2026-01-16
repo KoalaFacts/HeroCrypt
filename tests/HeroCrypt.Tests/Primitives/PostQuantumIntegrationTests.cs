@@ -42,13 +42,12 @@ public class PostQuantumIntegrationTests
         var message = "Top secret quantum-resistant message! 🔐";
         var messageBytes = Encoding.UTF8.GetBytes(message);
 
-        byte[] nonce = new byte[AesGcm.NonceByteSizes.MaxSize];
+        byte[] nonce = new byte[System.Security.Cryptography.AesGcm.NonceByteSizes.MaxSize];
         RandomNumberGenerator.Fill(nonce);
 
         byte[] encrypted = new byte[messageBytes.Length];
-        byte[] tag = new byte[AesGcm.TagByteSizes.MaxSize];
-
-        using (var aes = new AesGcm(sharedSecret, AesGcm.TagByteSizes.MaxSize))
+        byte[] tag = new byte[System.Security.Cryptography.AesGcm.TagByteSizes.MaxSize];
+        using (var aes = new System.Security.Cryptography.AesGcm(sharedSecret, System.Security.Cryptography.AesGcm.TagByteSizes.MaxSize))
         {
             aes.Encrypt(nonce, messageBytes, encrypted, tag);
         }
@@ -64,7 +63,7 @@ public class PostQuantumIntegrationTests
         // Step 6: Bob decrypts message using AES-GCM
         byte[] decrypted = new byte[encrypted.Length];
 
-        using (var aes = new AesGcm(recoveredSecret, AesGcm.TagByteSizes.MaxSize))
+        using (var aes = new System.Security.Cryptography.AesGcm(recoveredSecret, System.Security.Cryptography.AesGcm.TagByteSizes.MaxSize))
         {
             aes.Decrypt(nonce, encrypted, tag, decrypted);
         }
@@ -110,7 +109,7 @@ public class PostQuantumIntegrationTests
                 byte[] encrypted = new byte[messageBytes.Length];
                 byte[] tag = new byte[16];
 
-                using var aes = new AesGcm(enc.SharedSecret, 16);
+                using var aes = new System.Security.Cryptography.AesGcm(enc.SharedSecret, 16);
                 aes.Encrypt(nonce, messageBytes, encrypted, tag);
 
                 encryptedPackages.Add((enc.Ciphertext, nonce, encrypted, tag));
@@ -123,7 +122,7 @@ public class PostQuantumIntegrationTests
                 var secret = recipients[i].Decapsulate(package.ciphertext);
 
                 byte[] decrypted = new byte[package.encrypted.Length];
-                using var aes = new AesGcm(secret, 16);
+                using var aes = new System.Security.Cryptography.AesGcm(secret, 16);
                 aes.Decrypt(package.nonce, package.encrypted, package.tag, decrypted);
 
                 Assert.Equal(message, Encoding.UTF8.GetString(decrypted));
@@ -558,7 +557,7 @@ public class PostQuantumIntegrationTests
         byte[] encrypted = new byte[messageBytes.Length];
         byte[] tag = new byte[16];
 
-        using (var aes = new AesGcm(encResult.SharedSecret, 16))
+        using (var aes = new System.Security.Cryptography.AesGcm(encResult.SharedSecret, 16))
         {
             aes.Encrypt(nonce, messageBytes, encrypted, tag);
         }
@@ -580,7 +579,7 @@ public class PostQuantumIntegrationTests
 
         // 6. Bob decrypts message
         byte[] decrypted = new byte[encrypted.Length];
-        using (var aes = new AesGcm(sharedSecret, 16))
+        using (var aes = new System.Security.Cryptography.AesGcm(sharedSecret, 16))
         {
             aes.Decrypt(nonce, encrypted, tag, decrypted);
         }

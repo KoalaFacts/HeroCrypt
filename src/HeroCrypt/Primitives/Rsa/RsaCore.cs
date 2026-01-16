@@ -1,6 +1,6 @@
+using System.Numerics;
 using System.Security.Cryptography;
-using SystemNumericsBigInteger = System.Numerics.BigInteger;
-using SystemSecurityRSA = System.Security.Cryptography.RSA;
+
 namespace HeroCrypt.Primitives.Rsa;
 
 internal static class RsaCore
@@ -12,7 +12,7 @@ internal static class RsaCore
     /// <returns>An <see cref="RsaKeyPair"/> containing the generated public and private keys.</returns>
     public static RsaKeyPair GenerateKeyPair(int keySize)
     {
-        using var rsa = SystemSecurityRSA.Create();
+        using var rsa = RSA.Create();
         rsa.KeySize = keySize;
         var parameters = rsa.ExportParameters(includePrivateParameters: true);
 
@@ -20,15 +20,15 @@ internal static class RsaCore
 
         return new RsaKeyPair(
             new RsaPublicKey(
-                new BigInteger(parameters.Modulus!),
-                new BigInteger(parameters.Exponent!)
+                BytesToBigInteger(parameters.Modulus!),
+                BytesToBigInteger(parameters.Exponent!)
             ),
             new RsaPrivateKey(
-                new BigInteger(parameters.Modulus!),
-                new BigInteger(parameters.D!),
-                new BigInteger(parameters.P!),
-                new BigInteger(parameters.Q!),
-                new BigInteger(parameters.Exponent!)
+                BytesToBigInteger(parameters.Modulus!),
+                BytesToBigInteger(parameters.D!),
+                BytesToBigInteger(parameters.P!),
+                BytesToBigInteger(parameters.Q!),
+                BytesToBigInteger(parameters.Exponent!)
             )
         );
     }
@@ -47,7 +47,7 @@ internal static class RsaCore
         RsaPaddingMode padding = RsaPaddingMode.Pkcs1,
         HashAlgorithmName? hashAlgorithm = null)
     {
-        using var rsa = SystemSecurityRSA.Create();
+        using var rsa = RSA.Create();
         rsa.ImportParameters(ToRsaParameters(publicKey));
         return rsa.Encrypt(data, ResolveEncryptionPadding(padding, hashAlgorithm));
     }
@@ -66,7 +66,7 @@ internal static class RsaCore
         RsaPaddingMode padding = RsaPaddingMode.Pkcs1,
         HashAlgorithmName? hashAlgorithm = null)
     {
-        using var rsa = SystemSecurityRSA.Create();
+        using var rsa = RSA.Create();
         rsa.ImportParameters(ToRsaParameters(privateKey));
         return rsa.Decrypt(encryptedData, ResolveEncryptionPadding(padding, hashAlgorithm));
     }
@@ -79,7 +79,7 @@ internal static class RsaCore
     /// <returns>The digital signature.</returns>
     public static byte[] Sign(byte[] data, RsaPrivateKey privateKey)
     {
-        using var rsa = SystemSecurityRSA.Create();
+        using var rsa = RSA.Create();
         rsa.ImportParameters(ToRsaParameters(privateKey));
         return rsa.SignData(data, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
     }
@@ -93,7 +93,7 @@ internal static class RsaCore
     /// <returns>true if the signature is valid; otherwise, false.</returns>
     public static bool Verify(byte[] data, byte[] signature, RsaPublicKey publicKey)
     {
-        using var rsa = SystemSecurityRSA.Create();
+        using var rsa = RSA.Create();
         rsa.ImportParameters(ToRsaParameters(publicKey));
         return rsa.VerifyData(data, signature, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
     }
@@ -102,33 +102,28 @@ internal static class RsaCore
     {
         return new RSAParameters
         {
-            Modulus = ToUnsignedBigEndian(publicKey.Modulus),
-            Exponent = ToUnsignedBigEndian(publicKey.Exponent)
+            Modulus = BigIntegerToBytes(publicKey.Modulus),
+            Exponent = BigIntegerToBytes(publicKey.Exponent)
         };
     }
 
     internal static RSAParameters ToRsaParameters(RsaPrivateKey privateKey)
     {
-        var modulusBytes = ToUnsignedBigEndian(privateKey.Modulus);
-        var exponentBytes = ToUnsignedBigEndian(privateKey.E);
-        var dBytes = PadLeft(ToUnsignedBigEndian(privateKey.D), modulusBytes.Length);
+        var modulusBytes = BigIntegerToBytes(privateKey.Modulus);
+        var exponentBytes = BigIntegerToBytes(privateKey.E);
+        var dBytes = PadLeft(BigIntegerToBytes(privateKey.D), modulusBytes.Length);
 
-        var pBytes = ToUnsignedBigEndian(privateKey.P);
-        var qBytes = ToUnsignedBigEndian(privateKey.Q);
+        var pBytes = BigIntegerToBytes(privateKey.P);
+        var qBytes = BigIntegerToBytes(privateKey.Q);
 
-        var sysP = ToSystemBigInteger(privateKey.P);
-        var sysQ = ToSystemBigInteger(privateKey.Q);
-        var sysD = ToSystemBigInteger(privateKey.D);
+        var pMinusOne = privateKey.P - BigInteger.One;
+        var qMinusOne = privateKey.Q - BigInteger.One;
 
-        var sysPMinusOne = sysP - SystemNumericsBigInteger.One;
-        var sysQMinusOne = sysQ - SystemNumericsBigInteger.One;
+        var dpBytes = PadLeft(BigIntegerToBytes(PositiveModulo(privateKey.D, pMinusOne)), pBytes.Length);
+        var dqBytes = PadLeft(BigIntegerToBytes(PositiveModulo(privateKey.D, qMinusOne)), qBytes.Length);
 
-        var dpBytes = PadLeft(ToBigEndianBytes(PositiveModulo(sysD, sysPMinusOne)), pBytes.Length);
-        var dqBytes = PadLeft(ToBigEndianBytes(PositiveModulo(sysD, sysQMinusOne)), qBytes.Length);
-
-        var sysTwo = new SystemNumericsBigInteger(2);
-        var inverseQValue = SystemNumericsBigInteger.ModPow(sysQ, sysP - sysTwo, sysP);
-        var inverseQBytes = PadLeft(ToBigEndianBytes(inverseQValue), pBytes.Length);
+        var inverseQValue = BigInteger.ModPow(privateKey.Q, privateKey.P - 2, privateKey.P);
+        var inverseQBytes = PadLeft(BigIntegerToBytes(inverseQValue), pBytes.Length);
 
         return new RSAParameters
         {
@@ -143,23 +138,46 @@ internal static class RsaCore
         };
     }
 
-    private static byte[] ToUnsignedBigEndian(BigInteger value)
+    /// <summary>
+    /// Converts a big-endian byte array to BigInteger
+    /// </summary>
+    private static BigInteger BytesToBigInteger(byte[] bytes)
     {
-        var bytes = value.ToByteArray();
-        var index = 0;
-
-        while (index < bytes.Length - 1 && bytes[index] == 0)
+        // BigInteger constructor expects little-endian with optional sign byte
+        var leBytes = new byte[bytes.Length + 1];
+        for (var i = 0; i < bytes.Length; i++)
         {
-            index++;
+            leBytes[bytes.Length - 1 - i] = bytes[i];
+        }
+        leBytes[bytes.Length] = 0; // Ensure positive
+        return new BigInteger(leBytes);
+    }
+
+    /// <summary>
+    /// Converts a BigInteger to big-endian bytes (unsigned)
+    /// </summary>
+    private static byte[] BigIntegerToBytes(BigInteger value)
+    {
+        if (value.IsZero)
+        {
+            return [0];
         }
 
-        if (index == 0)
+        var littleEndian = value.ToByteArray();
+        var length = littleEndian.Length;
+
+        // Skip sign byte if present
+        while (length > 1 && littleEndian[length - 1] == 0)
         {
-            return bytes;
+            length--;
         }
 
-        var result = new byte[bytes.Length - index];
-        Array.Copy(bytes, index, result, 0, result.Length);
+        var result = new byte[length];
+        for (var i = 0; i < length; i++)
+        {
+            result[i] = littleEndian[length - 1 - i];
+        }
+
         return result;
     }
 
@@ -182,57 +200,17 @@ internal static class RsaCore
         return padded;
     }
 
-    private static SystemNumericsBigInteger PositiveModulo(SystemNumericsBigInteger value, SystemNumericsBigInteger modulus)
+    private static BigInteger PositiveModulo(BigInteger value, BigInteger modulus)
     {
         if (modulus.IsZero)
         {
             throw new DivideByZeroException();
         }
 
-        var result = SystemNumericsBigInteger.Remainder(value, modulus);
+        var result = BigInteger.Remainder(value, modulus);
         return result.Sign < 0 ? result + modulus : result;
     }
 
-    private static SystemNumericsBigInteger ToSystemBigInteger(BigInteger value)
-    {
-        var bytes = ToUnsignedBigEndian(value);
-        if (bytes.Length == 0)
-        {
-            return SystemNumericsBigInteger.Zero;
-        }
-
-        var buffer = new byte[bytes.Length + 1];
-        for (var i = 0; i < bytes.Length; i++)
-        {
-            buffer[i] = bytes[bytes.Length - 1 - i];
-        }
-
-        return new SystemNumericsBigInteger(buffer);
-    }
-
-    private static byte[] ToBigEndianBytes(SystemNumericsBigInteger value)
-    {
-        if (value.IsZero)
-        {
-            return [0];
-        }
-
-        var littleEndian = value.ToByteArray();
-        var length = littleEndian.Length;
-
-        while (length > 1 && littleEndian[length - 1] == 0)
-        {
-            length--;
-        }
-
-        var result = new byte[length];
-        for (var i = 0; i < length; i++)
-        {
-            result[i] = littleEndian[length - 1 - i];
-        }
-
-        return result;
-    }
     private static RSAEncryptionPadding ResolveEncryptionPadding(RsaPaddingMode padding, HashAlgorithmName? hashAlgorithm)
     {
         return padding switch
@@ -261,7 +239,7 @@ internal static class RsaCore
 /// </summary>
 /// <param name="publicKey">The RSA public key.</param>
 /// <param name="privateKey">The RSA private key.</param>
-public sealed class RsaKeyPair(RsaPublicKey publicKey, RsaPrivateKey privateKey) : IDisposable
+public sealed class RsaKeyPair(RsaPublicKey publicKey, RsaPrivateKey privateKey)
 {
     /// <summary>
     /// Gets the RSA public key.
@@ -272,13 +250,6 @@ public sealed class RsaKeyPair(RsaPublicKey publicKey, RsaPrivateKey privateKey)
     /// Gets the RSA private key.
     /// </summary>
     public RsaPrivateKey PrivateKey { get; } = privateKey;
-
-    /// <inheritdoc />
-    public void Dispose()
-    {
-        PublicKey?.Dispose();
-        PrivateKey?.Dispose();
-    }
 }
 
 /// <summary>
@@ -286,7 +257,7 @@ public sealed class RsaKeyPair(RsaPublicKey publicKey, RsaPrivateKey privateKey)
 /// </summary>
 /// <param name="modulus">The RSA modulus (n).</param>
 /// <param name="exponent">The public exponent (e).</param>
-public sealed class RsaPublicKey(BigInteger modulus, BigInteger exponent) : IDisposable
+public sealed class RsaPublicKey(BigInteger modulus, BigInteger exponent)
 {
     /// <summary>
     /// Gets the RSA modulus (n).
@@ -297,13 +268,6 @@ public sealed class RsaPublicKey(BigInteger modulus, BigInteger exponent) : IDis
     /// Gets the public exponent (e).
     /// </summary>
     public BigInteger Exponent { get; } = exponent;
-
-    /// <inheritdoc />
-    public void Dispose()
-    {
-        Modulus?.Dispose();
-        Exponent?.Dispose();
-    }
 }
 
 /// <summary>
@@ -314,7 +278,7 @@ public sealed class RsaPublicKey(BigInteger modulus, BigInteger exponent) : IDis
 /// <param name="p">The first prime factor of n.</param>
 /// <param name="q">The second prime factor of n.</param>
 /// <param name="e">The public exponent (e).</param>
-public sealed class RsaPrivateKey(BigInteger modulus, BigInteger d, BigInteger p, BigInteger q, BigInteger e) : IDisposable
+public sealed class RsaPrivateKey(BigInteger modulus, BigInteger d, BigInteger p, BigInteger q, BigInteger e)
 {
     /// <summary>
     /// Gets the RSA modulus (n).
@@ -340,14 +304,4 @@ public sealed class RsaPrivateKey(BigInteger modulus, BigInteger d, BigInteger p
     /// Gets the public exponent (e).
     /// </summary>
     public BigInteger E { get; } = e;
-
-    /// <inheritdoc />
-    public void Dispose()
-    {
-        Modulus?.Dispose();
-        D?.Dispose();
-        P?.Dispose();
-        Q?.Dispose();
-        E?.Dispose();
-    }
 }

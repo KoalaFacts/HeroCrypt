@@ -73,7 +73,7 @@ public class Secp256k1CoreTests
             Assert.True(isValid);
         }
 
-        [Fact(Skip = "Known issue: secp256k1 modular arithmetic has subtle bugs affecting key decompression. Core operations (uncompressed keys) work correctly.")]
+        [Fact]
         public void Sign_And_Verify_CompressedKey_Success()
         {
             // Arrange
@@ -121,7 +121,7 @@ public class Secp256k1CoreTests
             Assert.False(isValid);
         }
 
-        [Fact(Skip = "Known issue: secp256k1 modular arithmetic has subtle bugs affecting key decompression. Core operations (uncompressed keys) work correctly.")]
+        [Fact]
         public void Compress_And_Decompress_Roundtrip()
         {
             var (_, uncompressed) = Secp256k1Core.GenerateKeyPair();

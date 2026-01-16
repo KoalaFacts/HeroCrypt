@@ -21,22 +21,22 @@ public class RsaCoreTests
         [Fact]
         public void GenerateKeyPair_ValidKeySize_ReturnsKeys()
         {
-            using var keyPair = RsaCore.GenerateKeyPair(2048);
+            var keyPair = RsaCore.GenerateKeyPair(2048);
 
             Assert.NotNull(keyPair);
             Assert.NotNull(keyPair.PublicKey);
             Assert.NotNull(keyPair.PrivateKey);
 
-            // Basic parameter checks
-            Assert.NotNull(keyPair.PublicKey.Modulus);
-            Assert.NotNull(keyPair.PublicKey.Exponent);
-            Assert.NotNull(keyPair.PrivateKey.D);
+            // Basic parameter checks - verify non-zero values
+            Assert.NotEqual(System.Numerics.BigInteger.Zero, keyPair.PublicKey.Modulus);
+            Assert.NotEqual(System.Numerics.BigInteger.Zero, keyPair.PublicKey.Exponent);
+            Assert.NotEqual(System.Numerics.BigInteger.Zero, keyPair.PrivateKey.D);
         }
 
         [Fact]
         public void EncryptDecrypt_RoundTrip_Success()
         {
-            using var keyPair = RsaCore.GenerateKeyPair(2048);
+            var keyPair = RsaCore.GenerateKeyPair(2048);
             var plaintext = Encoding.UTF8.GetBytes("Hello RSA World!");
 
             var ciphertext = RsaCore.Encrypt(plaintext, keyPair.PublicKey);
@@ -48,7 +48,7 @@ public class RsaCoreTests
         [Fact]
         public void SignVerify_RoundTrip_Success()
         {
-            using var keyPair = RsaCore.GenerateKeyPair(2048);
+            var keyPair = RsaCore.GenerateKeyPair(2048);
             var data = Encoding.UTF8.GetBytes("Data to sign");
 
             var signature = RsaCore.Sign(data, keyPair.PrivateKey);
@@ -60,7 +60,7 @@ public class RsaCoreTests
         [Fact]
         public void Verify_InvalidSignature_ReturnsFalse()
         {
-            using var keyPair = RsaCore.GenerateKeyPair(2048);
+            var keyPair = RsaCore.GenerateKeyPair(2048);
             var data = Encoding.UTF8.GetBytes("Data to sign");
 
             var signature = RsaCore.Sign(data, keyPair.PrivateKey);
@@ -82,7 +82,7 @@ public class RsaCoreTests
         [Fact]
         public void EncryptDecrypt_OaepSha256_Success()
         {
-            using var keyPair = RsaCore.GenerateKeyPair(2048);
+            var keyPair = RsaCore.GenerateKeyPair(2048);
             var plaintext = TestHelpers.RandomBytes(32);
 
             var ciphertext = RsaCore.Encrypt(plaintext, keyPair.PublicKey, RsaPaddingMode.Oaep, HashAlgorithmName.SHA256);
@@ -94,7 +94,7 @@ public class RsaCoreTests
         [Fact]
         public void EncryptDecrypt_OaepSha512_Success()
         {
-            using var keyPair = RsaCore.GenerateKeyPair(2048);
+            var keyPair = RsaCore.GenerateKeyPair(2048);
             var plaintext = TestHelpers.RandomBytes(32);
 
             var ciphertext = RsaCore.Encrypt(plaintext, keyPair.PublicKey, RsaPaddingMode.Oaep, HashAlgorithmName.SHA512);
@@ -114,7 +114,7 @@ public class RsaCoreTests
         [Fact]
         public void Encrypt_EmptyPlaintext_Success()
         {
-            using var keyPair = RsaCore.GenerateKeyPair(2048);
+            var keyPair = RsaCore.GenerateKeyPair(2048);
             var plaintext = Array.Empty<byte>();
 
             var ciphertext = RsaCore.Encrypt(plaintext, keyPair.PublicKey);
@@ -126,7 +126,7 @@ public class RsaCoreTests
         [Fact]
         public void Encrypt_MaxPlaintextSize_Success()
         {
-            using var keyPair = RsaCore.GenerateKeyPair(2048);
+            var keyPair = RsaCore.GenerateKeyPair(2048);
             // PKCS1 v1.5: max plaintext = keysize - 11 bytes = 256 - 11 = 245
             var plaintext = TestHelpers.RandomBytes(245);
 
@@ -147,8 +147,8 @@ public class RsaCoreTests
         [Fact]
         public void Decrypt_WrongKey_ThrowsCryptographicException()
         {
-            using var keyPair1 = RsaCore.GenerateKeyPair(2048);
-            using var keyPair2 = RsaCore.GenerateKeyPair(2048);
+            var keyPair1 = RsaCore.GenerateKeyPair(2048);
+            var keyPair2 = RsaCore.GenerateKeyPair(2048);
             var plaintext = Encoding.UTF8.GetBytes("Hello RSA");
 
             var ciphertext = RsaCore.Encrypt(plaintext, keyPair1.PublicKey);
@@ -160,8 +160,8 @@ public class RsaCoreTests
         [Fact]
         public void Verify_WrongKey_ReturnsFalse()
         {
-            using var keyPair1 = RsaCore.GenerateKeyPair(2048);
-            using var keyPair2 = RsaCore.GenerateKeyPair(2048);
+            var keyPair1 = RsaCore.GenerateKeyPair(2048);
+            var keyPair2 = RsaCore.GenerateKeyPair(2048);
             var data = Encoding.UTF8.GetBytes("Data to sign");
 
             var signature = RsaCore.Sign(data, keyPair1.PrivateKey);
@@ -174,7 +174,7 @@ public class RsaCoreTests
         public void Encrypt_SameInputDifferentCiphertext()
         {
             // OAEP padding is randomized, so same input produces different ciphertext
-            using var keyPair = RsaCore.GenerateKeyPair(2048);
+            var keyPair = RsaCore.GenerateKeyPair(2048);
             var plaintext = Encoding.UTF8.GetBytes("Hello RSA");
 
             var ciphertext1 = RsaCore.Encrypt(plaintext, keyPair.PublicKey, RsaPaddingMode.Oaep);
@@ -203,7 +203,7 @@ public class RsaCoreTests
         {
             // Note: Generating keys is slow, but necessary for valid inputs.
             // Mocking internal classes might be hard, so using real generation.
-            using var keyPair = RsaCore.GenerateKeyPair(2048);
+            var keyPair = RsaCore.GenerateKeyPair(2048);
             var plaintext = new byte[16];
 
             // Encrypt with PKCS1
@@ -228,7 +228,7 @@ public class RsaCoreTests
         public void Pkcs1_SignVerify_Sha256_Deterministic()
         {
             // Verify RSA-PKCS1-SHA256 signatures are deterministic
-            using var keyPair = RsaCore.GenerateKeyPair(2048);
+            var keyPair = RsaCore.GenerateKeyPair(2048);
             var message = Encoding.UTF8.GetBytes("Test message for RSA-PKCS1 signature");
 
             var signature1 = RsaCore.Sign(message, keyPair.PrivateKey);
@@ -240,7 +240,7 @@ public class RsaCoreTests
         [Fact]
         public void Pkcs1_SignVerify_DifferentMessages_DifferentSignatures()
         {
-            using var keyPair = RsaCore.GenerateKeyPair(2048);
+            var keyPair = RsaCore.GenerateKeyPair(2048);
             var message1 = Encoding.UTF8.GetBytes("Message one");
             var message2 = Encoding.UTF8.GetBytes("Message two");
 
@@ -259,7 +259,7 @@ public class RsaCoreTests
 
             foreach (var keySize in keySizes)
             {
-                using var keyPair = RsaCore.GenerateKeyPair(keySize);
+                var keyPair = RsaCore.GenerateKeyPair(keySize);
 
                 var ciphertext = RsaCore.Encrypt(plaintext, keyPair.PublicKey, RsaPaddingMode.Pkcs1);
                 var decrypted = RsaCore.Decrypt(ciphertext, keyPair.PrivateKey, RsaPaddingMode.Pkcs1);
@@ -272,7 +272,7 @@ public class RsaCoreTests
         [Fact]
         public void Oaep_EncryptDecrypt_DifferentHashAlgorithms()
         {
-            using var keyPair = RsaCore.GenerateKeyPair(2048);
+            var keyPair = RsaCore.GenerateKeyPair(2048);
             var plaintext = Encoding.UTF8.GetBytes("OAEP test");
 
             // Test with SHA-256
@@ -289,7 +289,7 @@ public class RsaCoreTests
         [Fact]
         public void SignVerify_RoundTrip_VariousMessages()
         {
-            using var keyPair = RsaCore.GenerateKeyPair(2048);
+            var keyPair = RsaCore.GenerateKeyPair(2048);
 
             // Test empty message
             var emptyMessage = Array.Empty<byte>();

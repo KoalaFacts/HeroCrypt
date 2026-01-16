@@ -2,7 +2,7 @@ using System.Security.Cryptography;
 using HeroCrypt.Primitives.AesGcm;
 using HeroCrypt.Tests.Infrastructure;
 
-namespace HeroCrypt.Tests.Primitives.AesGcmCipher;
+namespace HeroCrypt.Tests.Primitives.AesGcm;
 
 /// <summary>
 /// Comprehensive tests for AES-GCM (Galois/Counter Mode) implementation.

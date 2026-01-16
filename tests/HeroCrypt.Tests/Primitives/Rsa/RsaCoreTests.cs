@@ -153,7 +153,8 @@ public class RsaCoreTests
 
             var ciphertext = RsaCore.Encrypt(plaintext, keyPair1.PublicKey);
 
-            Assert.Throws<CryptographicException>(() =>
+            // Use ThrowsAny because Linux/OpenSSL throws OpenSslCryptographicException (a subclass)
+            Assert.ThrowsAny<CryptographicException>(() =>
                 RsaCore.Decrypt(ciphertext, keyPair2.PrivateKey));
         }
 

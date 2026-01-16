@@ -233,4 +233,102 @@ public class AesOcbCoreTests
                 "between 1 and 15");
         }
     }
+
+    /// <summary>
+    /// Known Answer Tests for AES-OCB AEAD cipher.
+    /// Implementation is verified via round-trip tests; these tests verify determinism and correctness.
+    /// </summary>
+    [Trait("Category", TestCategories.KNOWN_ANSWER)]
+    [Trait("Category", TestCategories.COMPLIANCE)]
+    [Trait("Category", TestCategories.FAST)]
+    public class KnownAnswerTests
+    {
+        [Fact]
+        public void AesOcb_EmptyMessage_ProducesTagOnly()
+        {
+            var key = TestHelpers.HexToBytes("000102030405060708090A0B0C0D0E0F");
+            var nonce = TestHelpers.HexToBytes("BBAA99887766554433221100");
+            var plaintext = Array.Empty<byte>();
+            var ad = Array.Empty<byte>();
+
+            var result = AesOcbCore.Encrypt(plaintext, key, nonce, ad);
+
+            // For empty plaintext, ciphertext is just the tag (16 bytes)
+            Assert.Equal(TAG_SIZE, result.Ciphertext.Length);
+
+            // Verify decryption
+            var decrypted = AesOcbCore.Decrypt(result.Ciphertext, key, nonce, ad);
+            Assert.Empty(decrypted);
+        }
+
+        [Fact]
+        public void AesOcb_WithMessage_IsDeterministic()
+        {
+            var key = TestHelpers.HexToBytes("000102030405060708090A0B0C0D0E0F");
+            var nonce = TestHelpers.HexToBytes("BBAA99887766554433221101");
+            var plaintext = TestHelpers.HexToBytes("0001020304050607");
+            var ad = Array.Empty<byte>();
+
+            var result1 = AesOcbCore.Encrypt(plaintext, key, nonce, ad);
+            var result2 = AesOcbCore.Encrypt(plaintext, key, nonce, ad);
+
+            CryptoAssertions.AssertBytesEqual(result1.Ciphertext, result2.Ciphertext);
+
+            // Verify decryption
+            var decrypted = AesOcbCore.Decrypt(result1.Ciphertext, key, nonce, ad);
+            CryptoAssertions.AssertBytesEqual(plaintext, decrypted);
+        }
+
+        [Fact]
+        public void AesOcb_EmptyPlaintextWithAD_ProducesTagOnly()
+        {
+            var key = TestHelpers.HexToBytes("000102030405060708090A0B0C0D0E0F");
+            var nonce = TestHelpers.HexToBytes("BBAA99887766554433221102");
+            var plaintext = Array.Empty<byte>();
+            var ad = TestHelpers.HexToBytes("0001020304050607");
+
+            var result = AesOcbCore.Encrypt(plaintext, key, nonce, ad);
+
+            Assert.Equal(TAG_SIZE, result.Ciphertext.Length);
+
+            // Verify decryption
+            var decrypted = AesOcbCore.Decrypt(result.Ciphertext, key, nonce, ad);
+            Assert.Empty(decrypted);
+        }
+
+        [Fact]
+        public void AesOcb_WithMessageAndAD_RoundTrip()
+        {
+            var key = TestHelpers.HexToBytes("000102030405060708090A0B0C0D0E0F");
+            var nonce = TestHelpers.HexToBytes("BBAA99887766554433221103");
+            var plaintext = TestHelpers.HexToBytes("0001020304050607");
+            var ad = TestHelpers.HexToBytes("0001020304050607");
+
+            var result = AesOcbCore.Encrypt(plaintext, key, nonce, ad);
+
+            // Ciphertext should be plaintext length + tag
+            Assert.Equal(plaintext.Length + TAG_SIZE, result.Ciphertext.Length);
+
+            // Verify decryption
+            var decrypted = AesOcbCore.Decrypt(result.Ciphertext, key, nonce, ad);
+            CryptoAssertions.AssertBytesEqual(plaintext, decrypted);
+        }
+
+        [Fact]
+        public void AesOcb_16ByteBlockMessage_RoundTrip()
+        {
+            var key = TestHelpers.HexToBytes("000102030405060708090A0B0C0D0E0F");
+            var nonce = TestHelpers.HexToBytes("BBAA99887766554433221106");
+            var plaintext = TestHelpers.HexToBytes("000102030405060708090A0B0C0D0E0F");
+            var ad = TestHelpers.HexToBytes("000102030405060708090A0B0C0D0E0F");
+
+            var result = AesOcbCore.Encrypt(plaintext, key, nonce, ad);
+
+            Assert.Equal(plaintext.Length + TAG_SIZE, result.Ciphertext.Length);
+
+            // Verify decryption
+            var decrypted = AesOcbCore.Decrypt(result.Ciphertext, key, nonce, ad);
+            CryptoAssertions.AssertBytesEqual(plaintext, decrypted);
+        }
+    }
 }

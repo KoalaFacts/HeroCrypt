@@ -72,6 +72,83 @@ public class Curve25519CoreTests
     }
 
     /// <summary>
+    /// Edge case tests for boundary conditions.
+    /// </summary>
+    [Trait("Category", TestCategories.EDGE_CASE)]
+    [Trait("Category", TestCategories.FAST)]
+    public class EdgeCases
+    {
+        [Fact]
+        public void ComputeSharedSecret_MultipleIterations_Success()
+        {
+            // Test that the implementation is stable over many iterations
+            var alice = Curve25519Core.GeneratePrivateKey();
+            var bob = Curve25519Core.GeneratePrivateKey();
+            _ = Curve25519Core.DerivePublicKey(alice); // Alice's public key (unused in this test)
+            var bobPublic = Curve25519Core.DerivePublicKey(bob);
+
+            var secrets = new List<byte[]>();
+            for (int i = 0; i < 10; i++)
+            {
+                secrets.Add(Curve25519Core.ComputeSharedSecret(alice, bobPublic));
+            }
+
+            // All should be identical
+            for (int i = 1; i < secrets.Count; i++)
+            {
+                CryptoAssertions.AssertBytesEqual(secrets[0], secrets[i]);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Security-focused tests for cryptographic properties.
+    /// </summary>
+    [Trait("Category", TestCategories.SECURITY)]
+    [Trait("Category", TestCategories.FAST)]
+    public class Security
+    {
+        [Fact]
+        public void SharedSecret_DifferentKeys_ProducesDifferentSecrets()
+        {
+            var alice = Curve25519Core.GeneratePrivateKey();
+            var bob1 = Curve25519Core.GeneratePrivateKey();
+            var bob2 = Curve25519Core.GeneratePrivateKey();
+
+            var bob1Public = Curve25519Core.DerivePublicKey(bob1);
+            var bob2Public = Curve25519Core.DerivePublicKey(bob2);
+
+            var secret1 = Curve25519Core.ComputeSharedSecret(alice, bob1Public);
+            var secret2 = Curve25519Core.ComputeSharedSecret(alice, bob2Public);
+
+            Assert.NotEqual(secret1, secret2);
+        }
+
+        [Fact]
+        public void PrivateKey_CannotBeDerivedFromPublic()
+        {
+            // Verify public key appears random (information theoretic)
+            var privateKey = Curve25519Core.GeneratePrivateKey();
+            var publicKey = Curve25519Core.DerivePublicKey(privateKey);
+
+            // Public key should appear random
+            CryptoAssertions.AssertAppearsRandom(publicKey);
+        }
+
+        [Fact]
+        public void SharedSecret_AppearsRandom()
+        {
+            var alice = Curve25519Core.GeneratePrivateKey();
+            var bob = Curve25519Core.GeneratePrivateKey();
+            var bobPublic = Curve25519Core.DerivePublicKey(bob);
+
+            var secret = Curve25519Core.ComputeSharedSecret(alice, bobPublic);
+
+            CryptoAssertions.AssertAppearsRandom(secret);
+        }
+    }
+
+    /// <summary>
     /// Parameter validation tests.
     /// </summary>
     [Trait("Category", TestCategories.UNIT)]

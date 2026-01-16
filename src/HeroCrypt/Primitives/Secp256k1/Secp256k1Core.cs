@@ -351,7 +351,11 @@ internal static class Secp256k1Core
         Array.Copy(uncompressedKey, 1, compressed, 1, 32);
 
         // Set prefix based on y-coordinate parity
-        compressed[0] = (byte)(0x02 + (uncompressedKey[64] & 1));
+        // Y coordinate starts at byte 33, and with little-endian word storage:
+        // - bytes[33..36] = y[7] (MSW) in little-endian
+        // - bytes[61..64] = y[0] (LSW) in little-endian
+        // So byte[61] contains the LSB of y[0], which has the parity bit
+        compressed[0] = (byte)(0x02 + (uncompressedKey[61] & 1));
 
         return compressed;
     }
@@ -433,9 +437,10 @@ internal static class Secp256k1Core
         var hash = HashData(sha256, input);
         Array.Copy(hash, 0, uncompressed, 33, 32);
 
-        if (((compressedKey[0] & 1) == 1) != ((uncompressed[64] & 1) == 1))
+        // With little-endian storage, the parity bit is in byte 61, not 64
+        if (((compressedKey[0] & 1) == 1) != ((uncompressed[61] & 1) == 1))
         {
-            uncompressed[64] ^= 1;
+            uncompressed[61] ^= 1;
         }
 
         SecureMemoryOperations.SecureClear(input);
@@ -677,15 +682,27 @@ internal static class Secp256k1Core
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static void ModularMultiply(uint[] result, uint[] a, uint[] b, uint[] modulus)
     {
-        // Simplified multiplication with reduction
-        var temp = new ulong[16];
+        // Schoolbook multiplication with carry propagation to prevent overflow
+        var temp = new ulong[17];
 
         for (var i = 0; i < 8; i++)
         {
+            ulong carry = 0;
             for (var j = 0; j < 8; j++)
             {
-                temp[i + j] += (ulong)a[i] * b[j];
+                var product = (ulong)a[i] * b[j];
+                temp[i + j] += product + carry;
+                carry = temp[i + j] >> 32;
+                temp[i + j] &= 0xFFFFFFFF;
             }
+            temp[i + 8] += carry;
+        }
+
+        // Propagate any remaining carries
+        for (var i = 0; i < 16; i++)
+        {
+            temp[i + 1] += temp[i] >> 32;
+            temp[i] &= 0xFFFFFFFF;
         }
 
         // Reduce the 512-bit result
@@ -808,7 +825,7 @@ internal static class Secp256k1Core
     {
         for (var i = 0; i < 8; i++)
         {
-            element[i] = BitConverter.ToUInt32(bytes, (7 - i) * 4); // Big-endian
+            element[i] = BitConverter.ToUInt32(bytes, (7 - i) * 4);
         }
     }
 
@@ -817,7 +834,7 @@ internal static class Secp256k1Core
     {
         for (var i = 0; i < 8; i++)
         {
-            var elementBytes = BitConverter.GetBytes(element[7 - i]); // Big-endian
+            var elementBytes = BitConverter.GetBytes(element[7 - i]);
             elementBytes.CopyTo(bytes, offset + i * 4);
         }
     }
@@ -912,12 +929,78 @@ internal static class Secp256k1Core
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static void ReduceWide(uint[] result, ulong[] wide, uint[] modulus)
     {
-        // Simplified wide reduction
-        for (var i = 0; i < 8; i++)
+        // First, propagate carries in the wide array to get proper 32-bit words
+        var temp = new ulong[17];
+        Array.Copy(wide, temp, 16);
+
+        for (var i = 0; i < 16; i++)
         {
-            result[i] = (uint)wide[i];
+            temp[i + 1] += temp[i] >> 32;
+            temp[i] &= 0xFFFFFFFF;
         }
 
+        // secp256k1 prime: p = 2^256 - 2^32 - 977
+        // Therefore: 2^256 ≡ 2^32 + 977 (mod p)
+        // For a 512-bit value N = H * 2^256 + L, we have N ≡ H * (2^32 + 977) + L (mod p)
+
+        // Reduce high words (words 8-16) by multiplying by (2^32 + 977) and adding to low words
+        // Repeat until no high words remain
+        for (var round = 0; round < 3; round++)
+        {
+            // Check if we have any high words
+            var hasHigh = false;
+            for (var i = 8; i < 17; i++)
+            {
+                if (temp[i] != 0)
+                {
+                    hasHigh = true;
+                    break;
+                }
+            }
+
+            if (!hasHigh)
+            {
+                break;
+            }
+
+            // Process each high word and add its reduction to the low part
+            // high[8+i] * 2^(256 + 32*i) ≡ high[8+i] * (2^32 + 977) * 2^(32*i) (mod p)
+            // = high[8+i] * 977 * 2^(32*i) + high[8+i] * 2^(32*(i+1))
+            for (var i = 8; i < 17; i++)
+            {
+                if (temp[i] == 0)
+                {
+                    continue;
+                }
+
+                var highWord = temp[i];
+                temp[i] = 0;
+
+                // Add highWord * 977 at position (i - 8)
+                temp[i - 8] += highWord * 977;
+
+                // Add highWord * 2^32 at position (i - 7)
+                if (i - 7 < 17)
+                {
+                    temp[i - 7] += highWord;
+                }
+            }
+
+            // Propagate carries
+            for (var i = 0; i < 16; i++)
+            {
+                temp[i + 1] += temp[i] >> 32;
+                temp[i] &= 0xFFFFFFFF;
+            }
+        }
+
+        // Copy result to output
+        for (var i = 0; i < 8; i++)
+        {
+            result[i] = (uint)temp[i];
+        }
+
+        // Final modular reduction if result >= p
         while (IsGreaterOrEqual(result, modulus))
         {
             SubtractModulus(result, modulus);

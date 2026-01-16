@@ -85,6 +85,162 @@ public class ChaCha20Poly1305CoreTests
     }
 
     /// <summary>
+    /// Edge case tests for boundary conditions.
+    /// </summary>
+    [Trait("Category", TestCategories.EDGE_CASE)]
+    [Trait("Category", TestCategories.FAST)]
+    public class EdgeCases
+    {
+        [Fact]
+        public void Encrypt_EmptyPlaintext_Success()
+        {
+            var key = TestHelpers.RandomBytes(KEY_SIZE);
+            var nonce = TestHelpers.RandomBytes(NONCE_SIZE);
+            var plaintext = Array.Empty<byte>();
+
+            var result = ChaCha20Poly1305Core.Encrypt(plaintext, key, nonce);
+            var decrypted = ChaCha20Poly1305Core.Decrypt(result.Ciphertext, key, result.Nonce);
+
+            Assert.Equal(TAG_SIZE, result.Ciphertext.Length);
+            Assert.Empty(decrypted);
+        }
+
+        [Fact]
+        public void Encrypt_SingleByte_Success()
+        {
+            var key = TestHelpers.RandomBytes(KEY_SIZE);
+            var nonce = TestHelpers.RandomBytes(NONCE_SIZE);
+            var plaintext = new byte[] { 0x42 };
+
+            var result = ChaCha20Poly1305Core.Encrypt(plaintext, key, nonce);
+            var decrypted = ChaCha20Poly1305Core.Decrypt(result.Ciphertext, key, result.Nonce);
+
+            Assert.Equal(1 + TAG_SIZE, result.Ciphertext.Length);
+            CryptoAssertions.AssertBytesEqual(plaintext, decrypted);
+        }
+
+        [Fact]
+        public void Encrypt_ExactBlockSize_Success()
+        {
+            var key = TestHelpers.RandomBytes(KEY_SIZE);
+            var nonce = TestHelpers.RandomBytes(NONCE_SIZE);
+            var plaintext = TestHelpers.RandomBytes(64); // ChaCha20 block size
+
+            var result = ChaCha20Poly1305Core.Encrypt(plaintext, key, nonce);
+            var decrypted = ChaCha20Poly1305Core.Decrypt(result.Ciphertext, key, result.Nonce);
+
+            CryptoAssertions.AssertBytesEqual(plaintext, decrypted);
+        }
+
+        [Fact]
+        [Trait("Category", TestCategories.SLOW)]
+        public void Encrypt_LargeData_Success()
+        {
+            var key = TestHelpers.RandomBytes(KEY_SIZE);
+            var nonce = TestHelpers.RandomBytes(NONCE_SIZE);
+            var plaintext = TestHelpers.RandomBytes(TestDataSizes.VeryLarge);
+
+            var result = ChaCha20Poly1305Core.Encrypt(plaintext, key, nonce);
+            var decrypted = ChaCha20Poly1305Core.Decrypt(result.Ciphertext, key, result.Nonce);
+
+            CryptoAssertions.AssertBytesEqual(plaintext, decrypted);
+        }
+
+        [Fact]
+        public void Encrypt_EmptyAssociatedData_Success()
+        {
+            var key = TestHelpers.RandomBytes(KEY_SIZE);
+            var nonce = TestHelpers.RandomBytes(NONCE_SIZE);
+            var plaintext = TestHelpers.RandomBytes(TestDataSizes.Small);
+            var emptyAd = Array.Empty<byte>();
+
+            var result = ChaCha20Poly1305Core.Encrypt(plaintext, key, nonce, emptyAd);
+            var decrypted = ChaCha20Poly1305Core.Decrypt(result.Ciphertext, key, result.Nonce, emptyAd);
+
+            CryptoAssertions.AssertBytesEqual(plaintext, decrypted);
+        }
+    }
+
+    /// <summary>
+    /// Security-focused tests for cryptographic properties.
+    /// </summary>
+    [Trait("Category", TestCategories.SECURITY)]
+    [Trait("Category", TestCategories.FAST)]
+    public class Security
+    {
+        [Fact]
+        public void Decrypt_ModifiedCiphertext_ThrowsCryptographicException()
+        {
+            var key = TestHelpers.RandomBytes(KEY_SIZE);
+            var nonce = TestHelpers.RandomBytes(NONCE_SIZE);
+            var plaintext = TestHelpers.RandomBytes(TestDataSizes.Medium);
+
+            var result = ChaCha20Poly1305Core.Encrypt(plaintext, key, nonce);
+
+            var tamperedCiphertext = (byte[])result.Ciphertext.Clone();
+            tamperedCiphertext[0] ^= 0xFF;
+
+            Assert.Throws<CryptographicException>(() =>
+                ChaCha20Poly1305Core.Decrypt(tamperedCiphertext, key, result.Nonce));
+        }
+
+        [Fact]
+        public void Decrypt_WrongKey_ThrowsCryptographicException()
+        {
+            var key = TestHelpers.RandomBytes(KEY_SIZE);
+            var wrongKey = TestHelpers.RandomBytes(KEY_SIZE);
+            var nonce = TestHelpers.RandomBytes(NONCE_SIZE);
+            var plaintext = TestHelpers.RandomBytes(TestDataSizes.Medium);
+
+            var result = ChaCha20Poly1305Core.Encrypt(plaintext, key, nonce);
+
+            Assert.Throws<CryptographicException>(() =>
+                ChaCha20Poly1305Core.Decrypt(result.Ciphertext, wrongKey, result.Nonce));
+        }
+
+        [Fact]
+        public void Decrypt_WrongNonce_ThrowsCryptographicException()
+        {
+            var key = TestHelpers.RandomBytes(KEY_SIZE);
+            var nonce = TestHelpers.RandomBytes(NONCE_SIZE);
+            var wrongNonce = TestHelpers.RandomBytes(NONCE_SIZE);
+            var plaintext = TestHelpers.RandomBytes(TestDataSizes.Medium);
+
+            var result = ChaCha20Poly1305Core.Encrypt(plaintext, key, nonce);
+
+            Assert.Throws<CryptographicException>(() =>
+                ChaCha20Poly1305Core.Decrypt(result.Ciphertext, key, wrongNonce));
+        }
+
+        [Fact]
+        public void Encrypt_SameInputDifferentNonce_ProducesDifferentCiphertext()
+        {
+            var key = TestHelpers.RandomBytes(KEY_SIZE);
+            var nonce1 = TestHelpers.RandomBytes(NONCE_SIZE);
+            var nonce2 = TestHelpers.RandomBytes(NONCE_SIZE);
+            var plaintext = TestHelpers.RandomBytes(TestDataSizes.Medium);
+
+            var result1 = ChaCha20Poly1305Core.Encrypt(plaintext, key, nonce1);
+            var result2 = ChaCha20Poly1305Core.Encrypt(plaintext, key, nonce2);
+
+            Assert.NotEqual(result1.Ciphertext, result2.Ciphertext);
+        }
+
+        [Fact]
+        public void Encrypt_OutputAppearsRandom()
+        {
+            var key = TestHelpers.RandomBytes(KEY_SIZE);
+            var nonce = TestHelpers.RandomBytes(NONCE_SIZE);
+            var plaintext = TestHelpers.RandomBytes(TestDataSizes.Medium);
+
+            var result = ChaCha20Poly1305Core.Encrypt(plaintext, key, nonce);
+
+            var ciphertextOnly = result.Ciphertext.AsSpan(0, plaintext.Length).ToArray();
+            CryptoAssertions.AssertAppearsRandom(ciphertextOnly);
+        }
+    }
+
+    /// <summary>
     /// Parameter validation tests.
     /// </summary>
     [Trait("Category", TestCategories.UNIT)]

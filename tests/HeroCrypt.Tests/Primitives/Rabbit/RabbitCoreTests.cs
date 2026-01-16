@@ -131,6 +131,111 @@ public class RabbitCoreTests
             // Assert
             CryptoAssertions.AssertBytesEqual(plaintext, decrypted);
         }
+
+        [Fact]
+        public void Transform_SingleByte_Success()
+        {
+            var key = TestHelpers.RandomBytes(KEY_SIZE);
+            var iv = TestHelpers.RandomBytes(IV_SIZE);
+            var plaintext = new byte[] { 0x42 };
+            var ciphertext = new byte[plaintext.Length];
+            var decrypted = new byte[plaintext.Length];
+
+            RabbitCore.Transform(ciphertext, plaintext, key, iv);
+            RabbitCore.Transform(decrypted, ciphertext, key, iv);
+
+            CryptoAssertions.AssertBytesEqual(plaintext, decrypted);
+        }
+    }
+
+    /// <summary>
+    /// Security-focused tests for cryptographic properties.
+    /// </summary>
+    [Trait("Category", TestCategories.SECURITY)]
+    [Trait("Category", TestCategories.FAST)]
+    public class Security
+    {
+        [Fact]
+        public void Transform_KeyIvReuse_ProducesSameKeystream()
+        {
+            var key = TestHelpers.RandomBytes(KEY_SIZE);
+            var iv = TestHelpers.RandomBytes(IV_SIZE);
+            var plaintext1 = TestHelpers.RandomBytes(64);
+            var plaintext2 = TestHelpers.RandomBytes(64);
+            var ciphertext1 = new byte[64];
+            var ciphertext2 = new byte[64];
+
+            RabbitCore.Transform(ciphertext1, plaintext1, key, iv);
+            RabbitCore.Transform(ciphertext2, plaintext2, key, iv);
+
+            // Same key/IV should produce same keystream
+            // Decrypt first ciphertext with second keystream should equal second plaintext XOR first plaintext
+            var keystream1 = new byte[64];
+            var keystream2 = new byte[64];
+            for (int i = 0; i < 64; i++)
+            {
+                keystream1[i] = (byte)(ciphertext1[i] ^ plaintext1[i]);
+                keystream2[i] = (byte)(ciphertext2[i] ^ plaintext2[i]);
+            }
+
+            CryptoAssertions.AssertBytesEqual(keystream1, keystream2);
+        }
+
+        [Fact]
+        public void Transform_DifferentKey_ProducesDifferentCiphertext()
+        {
+            var key1 = TestHelpers.RandomBytes(KEY_SIZE);
+            var key2 = TestHelpers.RandomBytes(KEY_SIZE);
+            var iv = TestHelpers.RandomBytes(IV_SIZE);
+            var plaintext = TestHelpers.RandomBytes(64);
+            var ciphertext1 = new byte[64];
+            var ciphertext2 = new byte[64];
+
+            RabbitCore.Transform(ciphertext1, plaintext, key1, iv);
+            RabbitCore.Transform(ciphertext2, plaintext, key2, iv);
+
+            Assert.NotEqual(ciphertext1, ciphertext2);
+        }
+
+        [Fact]
+        public void Transform_OutputAppearsRandom()
+        {
+            var key = TestHelpers.RandomBytes(KEY_SIZE);
+            var iv = TestHelpers.RandomBytes(IV_SIZE);
+            var plaintext = new byte[64]; // All zeros
+            var ciphertext = new byte[64];
+
+            RabbitCore.Transform(ciphertext, plaintext, key, iv);
+
+            CryptoAssertions.AssertAppearsRandom(ciphertext);
+        }
+
+        [Fact]
+        public void Transform_SingleBitChange_CompletelyDifferentOutput()
+        {
+            var key1 = TestHelpers.RandomBytes(KEY_SIZE);
+            var key2 = (byte[])key1.Clone();
+            key2[0] ^= 0x01; // Flip one bit
+
+            var iv = TestHelpers.RandomBytes(IV_SIZE);
+            var plaintext = new byte[64];
+            var ciphertext1 = new byte[64];
+            var ciphertext2 = new byte[64];
+
+            RabbitCore.Transform(ciphertext1, plaintext, key1, iv);
+            RabbitCore.Transform(ciphertext2, plaintext, key2, iv);
+
+            Assert.NotEqual(ciphertext1, ciphertext2);
+
+            // Count differing bits - should be roughly half
+            int diffBits = 0;
+            for (int i = 0; i < ciphertext1.Length; i++)
+            {
+                diffBits += System.Numerics.BitOperations.PopCount((uint)(ciphertext1[i] ^ ciphertext2[i]));
+            }
+            int totalBits = ciphertext1.Length * 8;
+            Assert.InRange(diffBits, totalBits / 4, totalBits * 3 / 4);
+        }
     }
 
     /// <summary>

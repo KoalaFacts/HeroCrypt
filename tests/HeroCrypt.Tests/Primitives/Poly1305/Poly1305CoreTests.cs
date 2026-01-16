@@ -228,7 +228,7 @@ public class Poly1305CoreTests
     [Trait("Category", TestCategories.FAST)]
     public class KnownAnswerTests
     {
-        [Fact(Skip = "Known issue: Poly1305Core implementation fails RFC test vector due to arithmetic bug")]
+        [Fact]
         public void RFC7539_Section252_TestVector()
         {
             // RFC 7539 Section 2.5.2

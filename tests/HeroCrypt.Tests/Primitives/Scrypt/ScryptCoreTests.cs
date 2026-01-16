@@ -105,6 +105,70 @@ public class ScryptCoreTests
     }
 
     /// <summary>
+    /// Security-focused tests for cryptographic properties.
+    /// </summary>
+    [Trait("Category", TestCategories.SECURITY)]
+    [Trait("Category", TestCategories.FAST)]
+    public class Security
+    {
+        [Fact]
+        public void DeriveKey_CorrectPassword_Matches()
+        {
+            var password = Encoding.UTF8.GetBytes("test_password");
+            var salt = TestHelpers.RandomBytes(16);
+
+            var key1 = ScryptCore.DeriveKey(password, salt, N, R, P, OUTPUT_LEN);
+            var key2 = ScryptCore.DeriveKey(password, salt, N, R, P, OUTPUT_LEN);
+
+            CryptoAssertions.AssertBytesEqual(key1, key2);
+        }
+
+        [Fact]
+        public void DeriveKey_WrongPassword_DoesNotMatch()
+        {
+            var password = Encoding.UTF8.GetBytes("test_password");
+            var wrongPassword = Encoding.UTF8.GetBytes("wrong_password");
+            var salt = TestHelpers.RandomBytes(16);
+
+            var key1 = ScryptCore.DeriveKey(password, salt, N, R, P, OUTPUT_LEN);
+            var key2 = ScryptCore.DeriveKey(wrongPassword, salt, N, R, P, OUTPUT_LEN);
+
+            Assert.NotEqual(key1, key2);
+        }
+
+        [Fact]
+        public void DeriveKey_OutputAppearsRandom()
+        {
+            var password = Encoding.UTF8.GetBytes("test_password");
+            var salt = TestHelpers.RandomBytes(16);
+
+            var key = ScryptCore.DeriveKey(password, salt, N, R, P, OUTPUT_LEN);
+
+            CryptoAssertions.AssertAppearsRandom(key);
+        }
+
+        [Fact]
+        public void DeriveKey_SingleBitDifference_CompletelyDifferentOutput()
+        {
+            var password1 = Encoding.UTF8.GetBytes("password1");
+            var password2 = Encoding.UTF8.GetBytes("password2");
+            var salt = TestHelpers.RandomBytes(16);
+
+            var key1 = ScryptCore.DeriveKey(password1, salt, N, R, P, OUTPUT_LEN);
+            var key2 = ScryptCore.DeriveKey(password2, salt, N, R, P, OUTPUT_LEN);
+
+            Assert.NotEqual(key1, key2);
+            int diffBits = 0;
+            for (int i = 0; i < key1.Length; i++)
+            {
+                diffBits += System.Numerics.BitOperations.PopCount((uint)(key1[i] ^ key2[i]));
+            }
+            int totalBits = key1.Length * 8;
+            Assert.InRange(diffBits, totalBits / 4, totalBits * 3 / 4);
+        }
+    }
+
+    /// <summary>
     /// Parameter validation tests.
     /// </summary>
     [Trait("Category", TestCategories.UNIT)]

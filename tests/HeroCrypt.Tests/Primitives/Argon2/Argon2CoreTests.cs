@@ -156,7 +156,8 @@ public class Argon2CoreTests
     }
 
     /// <summary>
-    /// Known Answer Tests using official test vectors.
+    /// Known Answer Tests using RFC 9106 test vectors.
+    /// See: https://datatracker.ietf.org/doc/html/rfc9106#appendix-A
     /// </summary>
     [Trait("Category", TestCategories.KNOWN_ANSWER)]
     [Trait("Category", TestCategories.COMPLIANCE)]
@@ -164,12 +165,108 @@ public class Argon2CoreTests
     public class KnownAnswerTests
     {
         [Fact]
-        public void RFC9106_TestVector()
+        public void Rfc9106_AppendixA1_Argon2d()
         {
-            // Note: Full Argon2 test vectors are complex to setup here due to parameter encoding
-            // but we can add a simple known-answer test if we had a reference implementation output.
-            // For now, we trust the internal Blake2b correctness which is tested separately.
-            Assert.True(true);
+            // RFC 9106 Appendix A.1 - Argon2d Test Vector
+            var password = new byte[] {
+                0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+                0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+                0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+                0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01
+            };
+            var salt = new byte[] {
+                0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02,
+                0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02
+            };
+            var secret = new byte[] { 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03 };
+            var ad = new byte[] {
+                0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04,
+                0x04, 0x04, 0x04, 0x04
+            };
+            var expected = TestHelpers.HexToBytes("512b391b6f1162975371d30919734294f868e3be3984f3c1a13a4db9fabe4acb");
+
+            var result = Argon2Core.Hash(
+                password: password,
+                salt: salt,
+                iterations: 3,
+                memorySize: 32,
+                parallelism: 4,
+                hashLength: 32,
+                type: Argon2Type.Argon2d,
+                associatedData: ad,
+                secret: secret);
+
+            CryptoAssertions.AssertBytesEqual(expected, result);
+        }
+
+        [Fact]
+        public void Rfc9106_AppendixA2_Argon2i()
+        {
+            // RFC 9106 Appendix A.2 - Argon2i Test Vector
+            var password = new byte[] {
+                0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+                0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+                0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+                0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01
+            };
+            var salt = new byte[] {
+                0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02,
+                0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02
+            };
+            var secret = new byte[] { 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03 };
+            var ad = new byte[] {
+                0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04,
+                0x04, 0x04, 0x04, 0x04
+            };
+            var expected = TestHelpers.HexToBytes("c814d9d1dc7f37aa13f0d77f2494bda1c8de6b016dd388d29952a4c4672b6ce8");
+
+            var result = Argon2Core.Hash(
+                password: password,
+                salt: salt,
+                iterations: 3,
+                memorySize: 32,
+                parallelism: 4,
+                hashLength: 32,
+                type: Argon2Type.Argon2i,
+                associatedData: ad,
+                secret: secret);
+
+            CryptoAssertions.AssertBytesEqual(expected, result);
+        }
+
+        [Fact]
+        public void Rfc9106_AppendixA3_Argon2id()
+        {
+            // RFC 9106 Appendix A.3 - Argon2id Test Vector
+            var password = new byte[] {
+                0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+                0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+                0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+                0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01
+            };
+            var salt = new byte[] {
+                0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02,
+                0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02
+            };
+            var secret = new byte[] { 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03 };
+            var ad = new byte[] {
+                0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04,
+                0x04, 0x04, 0x04, 0x04
+            };
+            var expected = TestHelpers.HexToBytes("0d640df58d78766c08c037a34a8b53c9d01ef0452d75b65eb52520e96b01e659");
+
+            var result = Argon2Core.Hash(
+                password: password,
+                salt: salt,
+                iterations: 3,
+                memorySize: 32,
+                parallelism: 4,
+                hashLength: 32,
+                type: Argon2Type.Argon2id,
+                associatedData: ad,
+                secret: secret);
+
+            CryptoAssertions.AssertBytesEqual(expected, result);
         }
     }
 

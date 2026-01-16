@@ -61,6 +61,154 @@ public class AesCmacCoreTests
     }
 
     /// <summary>
+    /// Edge case tests for boundary conditions.
+    /// </summary>
+    [Trait("Category", TestCategories.EDGE_CASE)]
+    [Trait("Category", TestCategories.FAST)]
+    public class EdgeCases
+    {
+        [Fact]
+        public void ComputeTag_EmptyData_Success()
+        {
+            var key = TestHelpers.RandomBytes(KEY_SIZE_128);
+            var data = Array.Empty<byte>();
+            var tag = new byte[BLOCK_SIZE];
+
+            AesCmacCore.ComputeTag(tag, data, key);
+
+            Assert.NotEqual(new byte[BLOCK_SIZE], tag);
+        }
+
+        [Fact]
+        public void ComputeTag_SingleByte_Success()
+        {
+            var key = TestHelpers.RandomBytes(KEY_SIZE_128);
+            var data = new byte[] { 0x42 };
+            var tag = new byte[BLOCK_SIZE];
+
+            AesCmacCore.ComputeTag(tag, data, key);
+
+            Assert.NotEqual(new byte[BLOCK_SIZE], tag);
+        }
+
+        [Fact]
+        public void ComputeTag_ExactBlockSize_Success()
+        {
+            var key = TestHelpers.RandomBytes(KEY_SIZE_128);
+            var data = TestHelpers.RandomBytes(BLOCK_SIZE);
+            var tag = new byte[BLOCK_SIZE];
+
+            AesCmacCore.ComputeTag(tag, data, key);
+
+            var isValid = AesCmacCore.VerifyTag(tag, data, key);
+            Assert.True(isValid);
+        }
+
+        [Fact]
+        public void ComputeTag_MultipleBlocks_Success()
+        {
+            var key = TestHelpers.RandomBytes(KEY_SIZE_128);
+            var data = TestHelpers.RandomBytes(BLOCK_SIZE * 5);
+            var tag = new byte[BLOCK_SIZE];
+
+            AesCmacCore.ComputeTag(tag, data, key);
+
+            var isValid = AesCmacCore.VerifyTag(tag, data, key);
+            Assert.True(isValid);
+        }
+
+        [Fact]
+        public void ComputeTag_NonBlockAligned_Success()
+        {
+            var key = TestHelpers.RandomBytes(KEY_SIZE_128);
+            var data = TestHelpers.RandomBytes(BLOCK_SIZE * 2 + 7); // Not block-aligned
+            var tag = new byte[BLOCK_SIZE];
+
+            AesCmacCore.ComputeTag(tag, data, key);
+
+            var isValid = AesCmacCore.VerifyTag(tag, data, key);
+            Assert.True(isValid);
+        }
+    }
+
+    /// <summary>
+    /// Security-focused tests for cryptographic properties.
+    /// </summary>
+    [Trait("Category", TestCategories.SECURITY)]
+    [Trait("Category", TestCategories.FAST)]
+    public class Security
+    {
+        [Fact]
+        public void ComputeTag_IsDeterministic()
+        {
+            var key = TestHelpers.RandomBytes(KEY_SIZE_128);
+            var data = TestHelpers.RandomBytes(32);
+            var tag1 = new byte[BLOCK_SIZE];
+            var tag2 = new byte[BLOCK_SIZE];
+
+            AesCmacCore.ComputeTag(tag1, data, key);
+            AesCmacCore.ComputeTag(tag2, data, key);
+
+            CryptoAssertions.AssertBytesEqual(tag1, tag2);
+        }
+
+        [Fact]
+        public void ComputeTag_DifferentKey_ProducesDifferentTag()
+        {
+            var key1 = TestHelpers.RandomBytes(KEY_SIZE_128);
+            var key2 = TestHelpers.RandomBytes(KEY_SIZE_128);
+            var data = TestHelpers.RandomBytes(32);
+            var tag1 = new byte[BLOCK_SIZE];
+            var tag2 = new byte[BLOCK_SIZE];
+
+            AesCmacCore.ComputeTag(tag1, data, key1);
+            AesCmacCore.ComputeTag(tag2, data, key2);
+
+            Assert.NotEqual(tag1, tag2);
+        }
+
+        [Fact]
+        public void ComputeTag_DifferentData_ProducesDifferentTag()
+        {
+            var key = TestHelpers.RandomBytes(KEY_SIZE_128);
+            var data1 = TestHelpers.RandomBytes(32);
+            var data2 = TestHelpers.RandomBytes(32);
+            var tag1 = new byte[BLOCK_SIZE];
+            var tag2 = new byte[BLOCK_SIZE];
+
+            AesCmacCore.ComputeTag(tag1, data1, key);
+            AesCmacCore.ComputeTag(tag2, data2, key);
+
+            Assert.NotEqual(tag1, tag2);
+        }
+
+        [Fact]
+        public void ComputeTag_OutputAppearsRandom()
+        {
+            var key = TestHelpers.RandomBytes(KEY_SIZE_128);
+            var data = TestHelpers.RandomBytes(32);
+            var tag = new byte[BLOCK_SIZE];
+
+            AesCmacCore.ComputeTag(tag, data, key);
+
+            CryptoAssertions.AssertAppearsRandom(tag);
+        }
+
+        [Fact]
+        public void VerifyTag_WrongKey_ReturnsFalse()
+        {
+            var key1 = TestHelpers.RandomBytes(KEY_SIZE_128);
+            var key2 = TestHelpers.RandomBytes(KEY_SIZE_128);
+            var data = TestHelpers.RandomBytes(32);
+            var tag = new byte[BLOCK_SIZE];
+
+            AesCmacCore.ComputeTag(tag, data, key1);
+
+            Assert.False(AesCmacCore.VerifyTag(tag, data, key2));
+        }
+    }
+
+    /// <summary>
     /// Parameter validation tests.
     /// </summary>
     [Trait("Category", TestCategories.UNIT)]

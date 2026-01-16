@@ -13,22 +13,23 @@ public static partial class HeroCryptBuilder
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// <summary>
-    /// Starts building a PGP-style hybrid encryption operation.
+    /// Starts building a hybrid encryption operation (RSA + AEAD).
     /// </summary>
     /// <remarks>
-    /// PGP-style encryption uses RSA for key exchange and a symmetric AEAD cipher
+    /// Hybrid encryption uses RSA for key exchange and a symmetric AEAD cipher
     /// for data encryption. This provides the benefits of asymmetric cryptography
     /// (key distribution) with the efficiency of symmetric encryption.
     /// </remarks>
     /// <example>
     /// <code>
-    /// var encrypted = HeroCryptBuilder.Pgp()
-    ///     .WithRecipientPublicKey(publicKey)
-    ///     .Encrypt(plaintext);
+    /// var builder = HeroCryptBuilder.HybridEncryption();
+    /// var keyPair = builder.GenerateRsaKeyPair();
+    /// var envelope = builder.Encrypt("secret", keyPair.PublicKey);
+    /// var decrypted = HybridEncryptionBuilder.DecryptToString(envelope, keyPair.PrivateKey);
     /// </code>
     /// </example>
-    /// <returns>A new PGP builder.</returns>
-    public static PgpBuilder Pgp() => new();
+    /// <returns>A new hybrid encryption builder.</returns>
+    public static HybridEncryptionBuilder HybridEncryption() => new();
 
     // ═══════════════════════════════════════════════════════════════════════════
     // HD Wallets (BIP32/BIP39)

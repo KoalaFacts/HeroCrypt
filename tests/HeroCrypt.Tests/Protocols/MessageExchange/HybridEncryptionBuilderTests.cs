@@ -8,14 +8,14 @@ namespace HeroCrypt.Tests.Protocols.MessageExchange;
 #if !NETSTANDARD2_0
 
 /// <summary>
-/// Shared fixture for PGP tests that generates RSA key pairs once.
+/// Shared fixture for hybrid encryption tests that generates RSA key pairs once.
 /// </summary>
-public class PgpKeyFixture
+public class HybridEncryptionKeyFixture
 {
-    public PgpBuilder Builder { get; } = new PgpBuilder();
+    public HybridEncryptionBuilder Builder { get; } = new HybridEncryptionBuilder();
     public KeyPair KeyPair { get; }
 
-    public PgpKeyFixture()
+    public HybridEncryptionKeyFixture()
     {
         // Generate once for all tests in the collection
         KeyPair = Builder.GenerateRsaKeyPair();
@@ -23,9 +23,9 @@ public class PgpKeyFixture
 }
 
 /// <summary>
-/// Comprehensive tests for PgpBuilder hybrid encryption.
+/// Comprehensive tests for HybridEncryptionBuilder hybrid encryption.
 /// </summary>
-public class PgpBuilderTests
+public class HybridEncryptionBuilderTests
 {
     /// <summary>
     /// Tests for RSA key pair generation.
@@ -37,7 +37,7 @@ public class PgpBuilderTests
         [Fact]
         public void GenerateRsaKeyPair_Default_ReturnsValidKeyPair()
         {
-            var builder = new PgpBuilder();
+            var builder = new HybridEncryptionBuilder();
 
             var keyPair = builder.GenerateRsaKeyPair();
 
@@ -51,7 +51,7 @@ public class PgpBuilderTests
         [Fact]
         public void GenerateRsaKeyPair_TooSmallKeySize_ThrowsArgumentException()
         {
-            var builder = new PgpBuilder().WithKeySize(1024);
+            var builder = new HybridEncryptionBuilder().WithKeySize(1024);
 
             Assert.Throws<ArgumentException>(builder.GenerateRsaKeyPair);
         }
@@ -59,7 +59,7 @@ public class PgpBuilderTests
         [Fact]
         public void GenerateRsaKeyPair_InvalidKeySize_ThrowsArgumentException()
         {
-            var builder = new PgpBuilder().WithKeySize(2047);
+            var builder = new HybridEncryptionBuilder().WithKeySize(2047);
 
             Assert.Throws<ArgumentException>(builder.GenerateRsaKeyPair);
         }
@@ -70,11 +70,11 @@ public class PgpBuilderTests
     /// </summary>
     [Trait("Category", TestCategories.UNIT)]
     [Trait("Category", TestCategories.FAST)]
-    public class TextEncryptionTests : IClassFixture<PgpKeyFixture>
+    public class TextEncryptionTests : IClassFixture<HybridEncryptionKeyFixture>
     {
-        private readonly PgpKeyFixture fixture;
+        private readonly HybridEncryptionKeyFixture fixture;
 
-        public TextEncryptionTests(PgpKeyFixture fixture)
+        public TextEncryptionTests(HybridEncryptionKeyFixture fixture)
         {
             this.fixture = fixture;
         }
@@ -82,10 +82,10 @@ public class PgpBuilderTests
         [Fact]
         public void EncryptDecrypt_StringRoundTrip_Succeeds()
         {
-            var plaintext = "Hello, PGP World!";
+            var plaintext = "Hello, Hybrid Encryption!";
 
             var envelope = fixture.Builder.Encrypt(plaintext, fixture.KeyPair.PublicKey);
-            var decrypted = PgpBuilder.DecryptToString(envelope, fixture.KeyPair.PrivateKey);
+            var decrypted = HybridEncryptionBuilder.DecryptToString(envelope, fixture.KeyPair.PrivateKey);
 
             Assert.Equal(plaintext, decrypted);
             Assert.True(envelope.IsText);
@@ -97,7 +97,7 @@ public class PgpBuilderTests
             var plaintext = new string('A', 10000);
 
             var envelope = fixture.Builder.Encrypt(plaintext, fixture.KeyPair.PublicKey);
-            var decrypted = PgpBuilder.DecryptToString(envelope, fixture.KeyPair.PrivateKey);
+            var decrypted = HybridEncryptionBuilder.DecryptToString(envelope, fixture.KeyPair.PrivateKey);
 
             Assert.Equal(plaintext, decrypted);
         }
@@ -108,7 +108,7 @@ public class PgpBuilderTests
             var plaintext = "Hello, \u4e16\u754c! \ud83d\udd10";
 
             var envelope = fixture.Builder.Encrypt(plaintext, fixture.KeyPair.PublicKey);
-            var decrypted = PgpBuilder.DecryptToString(envelope, fixture.KeyPair.PrivateKey);
+            var decrypted = HybridEncryptionBuilder.DecryptToString(envelope, fixture.KeyPair.PrivateKey);
 
             Assert.Equal(plaintext, decrypted);
         }
@@ -119,11 +119,11 @@ public class PgpBuilderTests
     /// </summary>
     [Trait("Category", TestCategories.UNIT)]
     [Trait("Category", TestCategories.FAST)]
-    public class BinaryEncryptionTests : IClassFixture<PgpKeyFixture>
+    public class BinaryEncryptionTests : IClassFixture<HybridEncryptionKeyFixture>
     {
-        private readonly PgpKeyFixture fixture;
+        private readonly HybridEncryptionKeyFixture fixture;
 
-        public BinaryEncryptionTests(PgpKeyFixture fixture)
+        public BinaryEncryptionTests(HybridEncryptionKeyFixture fixture)
         {
             this.fixture = fixture;
         }
@@ -134,7 +134,7 @@ public class PgpBuilderTests
             var plaintext = TestHelpers.RandomBytes(256);
 
             var envelope = fixture.Builder.Encrypt(plaintext, fixture.KeyPair.PublicKey);
-            var decrypted = PgpBuilder.DecryptToBytes(envelope, fixture.KeyPair.PrivateKey);
+            var decrypted = HybridEncryptionBuilder.DecryptToBytes(envelope, fixture.KeyPair.PrivateKey);
 
             Assert.Equal(plaintext, decrypted);
             Assert.False(envelope.IsText);
@@ -146,7 +146,7 @@ public class PgpBuilderTests
             var plaintext = TestHelpers.RandomBytes(100000);
 
             var envelope = fixture.Builder.Encrypt(plaintext, fixture.KeyPair.PublicKey);
-            var decrypted = PgpBuilder.DecryptToBytes(envelope, fixture.KeyPair.PrivateKey);
+            var decrypted = HybridEncryptionBuilder.DecryptToBytes(envelope, fixture.KeyPair.PrivateKey);
 
             Assert.Equal(plaintext, decrypted);
         }
@@ -157,11 +157,11 @@ public class PgpBuilderTests
     /// </summary>
     [Trait("Category", TestCategories.UNIT)]
     [Trait("Category", TestCategories.FAST)]
-    public class AssociatedDataTests : IClassFixture<PgpKeyFixture>
+    public class AssociatedDataTests : IClassFixture<HybridEncryptionKeyFixture>
     {
-        private readonly PgpKeyFixture fixture;
+        private readonly HybridEncryptionKeyFixture fixture;
 
-        public AssociatedDataTests(PgpKeyFixture fixture)
+        public AssociatedDataTests(HybridEncryptionKeyFixture fixture)
         {
             this.fixture = fixture;
         }
@@ -173,7 +173,7 @@ public class PgpBuilderTests
             var aad = "metadata"u8.ToArray();
 
             var envelope = fixture.Builder.Encrypt(plaintext, fixture.KeyPair.PublicKey, aad);
-            var decrypted = PgpBuilder.DecryptToString(envelope, fixture.KeyPair.PrivateKey);
+            var decrypted = HybridEncryptionBuilder.DecryptToString(envelope, fixture.KeyPair.PrivateKey);
 
             Assert.Equal(plaintext, decrypted);
             Assert.NotNull(envelope.AssociatedData);
@@ -188,7 +188,7 @@ public class PgpBuilderTests
             var envelope = fixture.Builder.Encrypt(plaintext, fixture.KeyPair.PublicKey, aad);
 
             // Tamper with AAD by creating a new envelope without it
-            var tamperedEnvelope = new PgpEnvelope
+            var tamperedEnvelope = new HybridEncryptionEnvelope
             {
                 Ciphertext = envelope.Ciphertext,
                 Nonce = envelope.Nonce,
@@ -199,7 +199,7 @@ public class PgpBuilderTests
             };
 
             Assert.ThrowsAny<System.Security.Cryptography.CryptographicException>(() =>
-                PgpBuilder.DecryptToString(tamperedEnvelope, fixture.KeyPair.PrivateKey));
+                HybridEncryptionBuilder.DecryptToString(tamperedEnvelope, fixture.KeyPair.PrivateKey));
         }
     }
 
@@ -208,11 +208,11 @@ public class PgpBuilderTests
     /// </summary>
     [Trait("Category", TestCategories.UNIT)]
     [Trait("Category", TestCategories.FAST)]
-    public class AlgorithmSelectionTests : IClassFixture<PgpKeyFixture>
+    public class AlgorithmSelectionTests : IClassFixture<HybridEncryptionKeyFixture>
     {
-        private readonly PgpKeyFixture fixture;
+        private readonly HybridEncryptionKeyFixture fixture;
 
-        public AlgorithmSelectionTests(PgpKeyFixture fixture)
+        public AlgorithmSelectionTests(HybridEncryptionKeyFixture fixture)
         {
             this.fixture = fixture;
         }
@@ -223,11 +223,11 @@ public class PgpBuilderTests
         [InlineData(EncryptionAlgorithm.XChaCha20Poly1305)]
         public void EncryptDecrypt_DifferentAlgorithms_Succeed(EncryptionAlgorithm algorithm)
         {
-            var builder = new PgpBuilder().WithEncryptionAlgorithm(algorithm);
+            var builder = new HybridEncryptionBuilder().WithEncryptionAlgorithm(algorithm);
             var plaintext = "Test with different algorithms";
 
             var envelope = builder.Encrypt(plaintext, fixture.KeyPair.PublicKey);
-            var decrypted = PgpBuilder.DecryptToString(envelope, fixture.KeyPair.PrivateKey);
+            var decrypted = HybridEncryptionBuilder.DecryptToString(envelope, fixture.KeyPair.PrivateKey);
 
             Assert.Equal(plaintext, decrypted);
             Assert.Equal(algorithm.ToString(), envelope.Algorithm);
@@ -239,11 +239,11 @@ public class PgpBuilderTests
     /// </summary>
     [Trait("Category", TestCategories.UNIT)]
     [Trait("Category", TestCategories.FAST)]
-    public class EnvelopeTests : IClassFixture<PgpKeyFixture>
+    public class EnvelopeTests : IClassFixture<HybridEncryptionKeyFixture>
     {
-        private readonly PgpKeyFixture fixture;
+        private readonly HybridEncryptionKeyFixture fixture;
 
-        public EnvelopeTests(PgpKeyFixture fixture)
+        public EnvelopeTests(HybridEncryptionKeyFixture fixture)
         {
             this.fixture = fixture;
         }
@@ -280,11 +280,11 @@ public class PgpBuilderTests
     /// </summary>
     [Trait("Category", TestCategories.UNIT)]
     [Trait("Category", TestCategories.FAST)]
-    public class ErrorHandlingTests : IClassFixture<PgpKeyFixture>
+    public class ErrorHandlingTests : IClassFixture<HybridEncryptionKeyFixture>
     {
-        private readonly PgpKeyFixture fixture;
+        private readonly HybridEncryptionKeyFixture fixture;
 
-        public ErrorHandlingTests(PgpKeyFixture fixture)
+        public ErrorHandlingTests(HybridEncryptionKeyFixture fixture)
         {
             this.fixture = fixture;
         }
@@ -307,7 +307,7 @@ public class PgpBuilderTests
         public void Decrypt_NullEnvelope_ThrowsArgumentNullException()
         {
             Assert.Throws<ArgumentNullException>(() =>
-                PgpBuilder.DecryptToString(null!, fixture.KeyPair.PrivateKey));
+                HybridEncryptionBuilder.DecryptToString(null!, fixture.KeyPair.PrivateKey));
         }
 
         [Fact]
@@ -318,7 +318,7 @@ public class PgpBuilderTests
             var envelope = fixture.Builder.Encrypt(plaintext, fixture.KeyPair.PublicKey);
             var tamperedCiphertext = Convert.FromBase64String(envelope.Ciphertext);
             tamperedCiphertext[0] ^= 0xFF;
-            var tamperedEnvelope = new PgpEnvelope
+            var tamperedEnvelope = new HybridEncryptionEnvelope
             {
                 Ciphertext = Convert.ToBase64String(tamperedCiphertext),
                 Nonce = envelope.Nonce,
@@ -329,7 +329,7 @@ public class PgpBuilderTests
             };
 
             Assert.ThrowsAny<System.Security.Cryptography.CryptographicException>(() =>
-                PgpBuilder.DecryptToString(tamperedEnvelope, fixture.KeyPair.PrivateKey));
+                HybridEncryptionBuilder.DecryptToString(tamperedEnvelope, fixture.KeyPair.PrivateKey));
         }
     }
 
@@ -343,7 +343,7 @@ public class PgpBuilderTests
         [Fact]
         public void Decrypt_WrongPrivateKey_ThrowsCryptographicException()
         {
-            var builder = new PgpBuilder();
+            var builder = new HybridEncryptionBuilder();
             var keyPair1 = builder.GenerateRsaKeyPair();
             var keyPair2 = builder.GenerateRsaKeyPair();
             var plaintext = "Secret message";
@@ -351,7 +351,7 @@ public class PgpBuilderTests
             var envelope = builder.Encrypt(plaintext, keyPair1.PublicKey);
 
             Assert.ThrowsAny<System.Security.Cryptography.CryptographicException>(() =>
-                PgpBuilder.DecryptToString(envelope, keyPair2.PrivateKey));
+                HybridEncryptionBuilder.DecryptToString(envelope, keyPair2.PrivateKey));
         }
     }
 
@@ -360,11 +360,11 @@ public class PgpBuilderTests
     /// </summary>
     [Trait("Category", TestCategories.UNIT)]
     [Trait("Category", TestCategories.FAST)]
-    public class FluentApiTests : IClassFixture<PgpKeyFixture>
+    public class FluentApiTests : IClassFixture<HybridEncryptionKeyFixture>
     {
-        private readonly PgpKeyFixture fixture;
+        private readonly HybridEncryptionKeyFixture fixture;
 
-        public FluentApiTests(PgpKeyFixture fixture)
+        public FluentApiTests(HybridEncryptionKeyFixture fixture)
         {
             this.fixture = fixture;
         }
@@ -372,7 +372,7 @@ public class PgpBuilderTests
         [Fact]
         public void FluentChaining_Works()
         {
-            var builder = new PgpBuilder()
+            var builder = new HybridEncryptionBuilder()
                 .WithEncryptionAlgorithm(EncryptionAlgorithm.ChaCha20Poly1305);
 
             var envelope = builder.Encrypt("Test", fixture.KeyPair.PublicKey);

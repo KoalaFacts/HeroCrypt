@@ -8,9 +8,21 @@ namespace HeroCrypt.Protocols.MessageExchange;
 
 #if !NETSTANDARD2_0
 /// <summary>
-/// Fluent builder for simplified PGP-style hybrid encryption (RSA + AEAD).
+/// Fluent builder for hybrid encryption (RSA key exchange + AEAD symmetric encryption).
 /// </summary>
-public class PgpBuilder
+/// <remarks>
+/// <para>
+/// This builder provides a secure hybrid encryption scheme that combines:
+/// </para>
+/// <list type="bullet">
+///   <item><description>RSA-OAEP (SHA-256) for asymmetric key exchange</description></item>
+///   <item><description>AEAD ciphers (AES-GCM, ChaCha20-Poly1305, XChaCha20-Poly1305) for data encryption</description></item>
+/// </list>
+/// <para>
+/// For OpenPGP (RFC 4880) compatible operations, use <c>HeroCryptBuilder.Pgp()</c> instead.
+/// </para>
+/// </remarks>
+public class HybridEncryptionBuilder
 {
     private static readonly char[] PemSeparators = ['\r', '\n'];
     private int keySize = 2048;
@@ -19,7 +31,7 @@ public class PgpBuilder
     /// <summary>
     /// Sets the RSA key size to use for new key pairs (defaults to 2048).
     /// </summary>
-    public PgpBuilder WithKeySize(int size)
+    public HybridEncryptionBuilder WithKeySize(int size)
     {
         keySize = size;
         return this;
@@ -28,7 +40,7 @@ public class PgpBuilder
     /// <summary>
     /// Sets the symmetric encryption algorithm to use for payload encryption.
     /// </summary>
-    public PgpBuilder WithEncryptionAlgorithm(EncryptionAlgorithm value)
+    public HybridEncryptionBuilder WithEncryptionAlgorithm(EncryptionAlgorithm value)
     {
         algorithm = value;
         return this;
@@ -53,7 +65,7 @@ public class PgpBuilder
     /// <summary>
     /// Encrypts UTF-8 text using a hybrid RSA + AEAD scheme and returns a portable envelope.
     /// </summary>
-    public PgpEnvelope Encrypt(string plaintext, string publicKeyPem, byte[]? associatedData = null)
+    public HybridEncryptionEnvelope Encrypt(string plaintext, string publicKeyPem, byte[]? associatedData = null)
     {
         ArgumentNullException.ThrowIfNull(plaintext);
 
@@ -66,7 +78,7 @@ public class PgpBuilder
     /// <summary>
     /// Encrypts binary data using a hybrid RSA + AEAD scheme and returns a portable envelope.
     /// </summary>
-    public PgpEnvelope Encrypt(byte[] data, string publicKeyPem, byte[]? associatedData = null)
+    public HybridEncryptionEnvelope Encrypt(byte[] data, string publicKeyPem, byte[]? associatedData = null)
     {
         InputValidator.ValidateByteArray(data, nameof(data), allowEmpty: false);
 
@@ -80,7 +92,7 @@ public class PgpBuilder
 
         var encryptedKey = EncryptKeyWithRsa(symmetricKey, publicKeyPem);
 
-        return new PgpEnvelope
+        return new HybridEncryptionEnvelope
         {
             Ciphertext = Convert.ToBase64String(encResult.Ciphertext),
             Nonce = Convert.ToBase64String(encResult.Nonce),
@@ -92,18 +104,18 @@ public class PgpBuilder
     }
 
     /// <summary>
-    /// Decrypts a PGP envelope to UTF-8 text using the provided RSA private key.
+    /// Decrypts a hybrid encryption envelope to UTF-8 text using the provided RSA private key.
     /// </summary>
-    public static string DecryptToString(PgpEnvelope envelope, string privateKeyPem)
+    public static string DecryptToString(HybridEncryptionEnvelope envelope, string privateKeyPem)
     {
         var data = DecryptToBytes(envelope, privateKeyPem);
         return Encoding.UTF8.GetString(data);
     }
 
     /// <summary>
-    /// Decrypts a PGP envelope to raw bytes using the provided RSA private key.
+    /// Decrypts a hybrid encryption envelope to raw bytes using the provided RSA private key.
     /// </summary>
-    public static byte[] DecryptToBytes(PgpEnvelope envelope, string privateKeyPem)
+    public static byte[] DecryptToBytes(HybridEncryptionEnvelope envelope, string privateKeyPem)
     {
         ArgumentNullException.ThrowIfNull(envelope);
 
@@ -171,7 +183,12 @@ public class PgpBuilder
 /// <summary>
 /// Represents a portable hybrid-encryption envelope (ciphertext + RSA-wrapped key).
 /// </summary>
-public class PgpEnvelope
+/// <remarks>
+/// This envelope contains all the data needed to decrypt a message:
+/// the encrypted symmetric key (wrapped with RSA), the ciphertext,
+/// the nonce/IV, and optional associated data for AEAD authentication.
+/// </remarks>
+public class HybridEncryptionEnvelope
 {
     /// <summary>
     /// Base64-encoded ciphertext bytes.

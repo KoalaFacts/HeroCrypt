@@ -230,6 +230,12 @@ public class HashBuilderTests
         [InlineData(HashingAlgorithm.Sha3_512, 64)]
         public void ComputeHash_Sha3_ReturnsCorrectLength(HashingAlgorithm algorithm, int expectedLength)
         {
+            if (!System.Security.Cryptography.SHA3_256.IsSupported)
+            {
+                Assert.Skip("SHA-3 not supported on this platform (e.g., macOS)");
+                return;
+            }
+
             // Act
             var hash = HeroCryptBuilder.Hash()
                 .WithAlgorithm(algorithm)
@@ -243,6 +249,12 @@ public class HashBuilderTests
         [Fact]
         public void ComputeHash_Sha3_256_IsDeterministic()
         {
+            if (!System.Security.Cryptography.SHA3_256.IsSupported)
+            {
+                Assert.Skip("SHA-3 not supported on this platform (e.g., macOS)");
+                return;
+            }
+
             // Act
             var hash1 = HeroCryptBuilder.Hash().WithSha3_256().ComputeHash(TestData);
             var hash2 = HeroCryptBuilder.Hash().WithSha3_256().ComputeHash(TestData);
@@ -267,6 +279,12 @@ public class HashBuilderTests
         [InlineData(128)]
         public void ComputeHash_Shake128_ReturnsRequestedLength(int outputLength)
         {
+            if (!System.Security.Cryptography.Shake128.IsSupported)
+            {
+                Assert.Skip("SHAKE not supported on this platform (e.g., macOS)");
+                return;
+            }
+
             // Act
             var hash = HeroCryptBuilder.Hash()
                 .WithShake128(outputLength)
@@ -284,6 +302,12 @@ public class HashBuilderTests
         [InlineData(128)]
         public void ComputeHash_Shake256_ReturnsRequestedLength(int outputLength)
         {
+            if (!System.Security.Cryptography.Shake256.IsSupported)
+            {
+                Assert.Skip("SHAKE not supported on this platform (e.g., macOS)");
+                return;
+            }
+
             // Act
             var hash = HeroCryptBuilder.Hash()
                 .WithShake256(outputLength)
@@ -297,6 +321,12 @@ public class HashBuilderTests
         [Fact]
         public void ComputeHash_Shake_IsDeterministic()
         {
+            if (!System.Security.Cryptography.Shake256.IsSupported)
+            {
+                Assert.Skip("SHAKE not supported on this platform (e.g., macOS)");
+                return;
+            }
+
             // Act
             var hash1 = HeroCryptBuilder.Hash().WithShake256(64).ComputeHash(TestData);
             var hash2 = HeroCryptBuilder.Hash().WithShake256(64).ComputeHash(TestData);

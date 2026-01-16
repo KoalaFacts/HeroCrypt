@@ -481,17 +481,20 @@ public class KeyDerivationTree : IDisposable
             throw new ArgumentException($"Path depth exceeds maximum ({maxDepth})", nameof(path));
         }
 
+        // Normalize path by removing empty segments (handles trailing slashes, double slashes, etc.)
+        var normalizedPath = string.Join("/", pathParts);
+
         using var guard = EnterLock();
-        if (derivedKeys.TryGetValue(path, out var existingKey))
+        if (derivedKeys.TryGetValue(normalizedPath, out var existingKey))
         {
             return existingKey;
         }
 
-        // Derive key using full path as context
-        var context = System.Text.Encoding.UTF8.GetBytes(path);
+        // Derive key using normalized path as context
+        var context = System.Text.Encoding.UTF8.GetBytes(normalizedPath);
         var derivedKey = HkdfCore.DeriveKey(rootKey, salt, context, keySize, HashAlgorithmName.SHA256);
 
-        derivedKeys[path] = derivedKey;
+        derivedKeys[normalizedPath] = derivedKey;
         return derivedKey;
     }
 

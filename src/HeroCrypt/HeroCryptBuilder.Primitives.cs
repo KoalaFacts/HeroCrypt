@@ -27,6 +27,7 @@ using HeroCrypt.Primitives.SlhDsa;
 
 namespace HeroCrypt;
 
+/// <inheritdoc/>
 public static partial class HeroCryptBuilder
 {
     // ═══════════════════════════════════════════════════════════════════════════

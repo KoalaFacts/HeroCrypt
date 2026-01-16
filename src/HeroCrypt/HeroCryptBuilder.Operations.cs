@@ -2,6 +2,7 @@ using HeroCrypt.Operations;
 
 namespace HeroCrypt;
 
+/// <inheritdoc/>
 public static partial class HeroCryptBuilder
 {
     /// <summary>

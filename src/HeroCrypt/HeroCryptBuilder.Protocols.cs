@@ -4,6 +4,7 @@ using HeroCrypt.Protocols.SecretSharing;
 
 namespace HeroCrypt;
 
+/// <inheritdoc/>
 public static partial class HeroCryptBuilder
 {
 #if !NETSTANDARD2_0

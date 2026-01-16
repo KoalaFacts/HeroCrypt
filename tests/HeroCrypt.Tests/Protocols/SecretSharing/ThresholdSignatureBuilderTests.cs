@@ -1,6 +1,5 @@
 using System.Text;
 using HeroCrypt.Protocols.SecretSharing;
-using HeroCrypt.Tests.Infrastructure;
 
 namespace HeroCrypt.Tests.Protocols.SecretSharing;
 
@@ -103,7 +102,7 @@ public class ThresholdSignatureBuilderTests
                 .WithKeyShare(keyResult.KeyShares[0])
                 .WithSigners([0, 1, 2]);
 
-            Assert.Throws<InvalidOperationException>(() => builder.SignPartial());
+            Assert.Throws<InvalidOperationException>(builder.SignPartial);
         }
 
         [Fact]
@@ -113,7 +112,7 @@ public class ThresholdSignatureBuilderTests
                 .WithMessage(TestMessage)
                 .WithSigners([0, 1, 2]);
 
-            Assert.Throws<InvalidOperationException>(() => builder.SignPartial());
+            Assert.Throws<InvalidOperationException>(builder.SignPartial);
         }
 
         [Fact]
@@ -128,7 +127,7 @@ public class ThresholdSignatureBuilderTests
                 .WithMessage(TestMessage)
                 .WithKeyShare(keyResult.KeyShares[0]);
 
-            Assert.Throws<InvalidOperationException>(() => builder.SignPartial());
+            Assert.Throws<InvalidOperationException>(builder.SignPartial);
         }
     }
 
@@ -190,7 +189,7 @@ public class ThresholdSignatureBuilderTests
                 .WithMessage(TestMessage)
                 .WithPublicKey(keyResult.PublicKey);
 
-            Assert.Throws<InvalidOperationException>(() => builder.CombineSignatures());
+            Assert.Throws<InvalidOperationException>(builder.CombineSignatures);
         }
     }
 

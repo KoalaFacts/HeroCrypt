@@ -1,5 +1,4 @@
 using HeroCrypt.Protocols.SecretSharing;
-using HeroCrypt.Tests.Infrastructure;
 
 namespace HeroCrypt.Tests.Protocols.SecretSharing;
 
@@ -53,7 +52,7 @@ public class MpcBuilderTests
             var builder = new MpcBuilder()
                 .WithThreshold(2);
 
-            Assert.Throws<InvalidOperationException>(() => builder.ComputeSum());
+            Assert.Throws<InvalidOperationException>(builder.ComputeSum);
         }
 
         [Theory]
@@ -61,7 +60,7 @@ public class MpcBuilderTests
         [InlineData(SecureMpc.SecurityModel.Malicious)]
         public void ComputeSum_DifferentSecurityModels_Succeeds(SecureMpc.SecurityModel model)
         {
-            var inputs = new[] { new byte[] { 1 }, new byte[] { 2 }, new byte[] { 3 } };
+            var inputs = new[] { new byte[] { 1 }, [2], [3] };
 
             var result = new MpcBuilder()
                 .WithThreshold(2)
@@ -86,14 +85,14 @@ public class MpcBuilderTests
             var set1 = new[]
             {
                 new byte[] { 1, 2, 3 },
-                new byte[] { 4, 5, 6 },
-                new byte[] { 7, 8, 9 }
+                [4, 5, 6],
+                [7, 8, 9]
             };
             var set2 = new[]
             {
                 new byte[] { 4, 5, 6 },
-                new byte[] { 7, 8, 9 },
-                new byte[] { 10, 11, 12 }
+                [7, 8, 9],
+                [10, 11, 12]
             };
 
             var intersection = new MpcBuilder()
@@ -111,12 +110,12 @@ public class MpcBuilderTests
             var set1 = new[]
             {
                 new byte[] { 1, 2, 3 },
-                new byte[] { 4, 5, 6 }
+                [4, 5, 6]
             };
             var set2 = new[]
             {
                 new byte[] { 7, 8, 9 },
-                new byte[] { 10, 11, 12 }
+                [10, 11, 12]
             };
 
             var intersection = new MpcBuilder()
@@ -133,7 +132,7 @@ public class MpcBuilderTests
             var set = new[]
             {
                 new byte[] { 1, 2, 3 },
-                new byte[] { 4, 5, 6 }
+                [4, 5, 6]
             };
 
             var intersection = new MpcBuilder()
@@ -164,7 +163,7 @@ public class MpcBuilderTests
             var builder = new MpcBuilder()
                 .WithParty2Set(set2);
 
-            Assert.Throws<InvalidOperationException>(() => builder.ComputeIntersection());
+            Assert.Throws<InvalidOperationException>(builder.ComputeIntersection);
         }
 
         [Fact]
@@ -175,7 +174,7 @@ public class MpcBuilderTests
             var builder = new MpcBuilder()
                 .WithParty1Set(set1);
 
-            Assert.Throws<InvalidOperationException>(() => builder.ComputeIntersection());
+            Assert.Throws<InvalidOperationException>(builder.ComputeIntersection);
         }
     }
 
@@ -230,8 +229,8 @@ public class MpcBuilderTests
             var inputs = new[]
             {
                 new byte[] { 1 },
-                new byte[] { 2 },
-                new byte[] { 3 }
+                [2],
+                [3]
             };
 
             var result = new MpcBuilder()
@@ -269,7 +268,7 @@ public class MpcBuilderTests
         [Fact]
         public void WithSecurityModel_SemiHonest_IsDefault()
         {
-            var inputs = new[] { new byte[] { 1 }, new byte[] { 2 }, new byte[] { 3 } };
+            var inputs = new[] { new byte[] { 1 }, [2], [3] };
 
             // Default should work without explicitly setting security model
             var result = new MpcBuilder()
@@ -283,7 +282,7 @@ public class MpcBuilderTests
         [Fact]
         public void WithSecurityModel_Malicious_Succeeds()
         {
-            var inputs = new[] { new byte[] { 1 }, new byte[] { 2 }, new byte[] { 3 } };
+            var inputs = new[] { new byte[] { 1 }, [2], [3] };
 
             var result = new MpcBuilder()
                 .WithThreshold(2)

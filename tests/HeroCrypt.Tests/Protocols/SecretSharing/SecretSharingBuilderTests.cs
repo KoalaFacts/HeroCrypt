@@ -188,7 +188,7 @@ public class SecretSharingBuilderTests
         {
             var builder = new SecretSharingBuilder();
 
-            Assert.Throws<InvalidOperationException>(() => builder.Reconstruct());
+            Assert.Throws<InvalidOperationException>(builder.Reconstruct);
         }
 
         [Fact]

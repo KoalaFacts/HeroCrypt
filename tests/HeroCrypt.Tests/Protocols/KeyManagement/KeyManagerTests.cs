@@ -96,7 +96,7 @@ public class KeyManagerTests
         [Fact]
         public void ValidateKey_EmptyKey_ReturnsInvalid()
         {
-            var result = KeyManager.ValidateKey(ReadOnlySpan<byte>.Empty);
+            var result = KeyManager.ValidateKey([]);
 
             Assert.False(result.IsValid);
             Assert.Contains(result.Issues, i => i.Contains("empty"));
@@ -176,7 +176,7 @@ public class KeyManagerTests
             var salt = TestHelpers.RandomBytes(16);
 
             Assert.Throws<ArgumentException>(() =>
-                KeyManager.CreateKeyRotation(ReadOnlySpan<byte>.Empty, salt, TimeSpan.FromHours(1)));
+                KeyManager.CreateKeyRotation([], salt, TimeSpan.FromHours(1)));
         }
 
         [Fact]
@@ -185,7 +185,7 @@ public class KeyManagerTests
             var masterKey = TestHelpers.RandomBytes(32);
 
             Assert.Throws<ArgumentException>(() =>
-                KeyManager.CreateKeyRotation(masterKey, ReadOnlySpan<byte>.Empty, TimeSpan.FromHours(1)));
+                KeyManager.CreateKeyRotation(masterKey, [], TimeSpan.FromHours(1)));
         }
 
         [Fact]
@@ -294,7 +294,7 @@ public class KeyManagerTests
             var salt = TestHelpers.RandomBytes(16);
 
             Assert.Throws<ArgumentException>(() =>
-                KeyManager.CreateDerivationTree(ReadOnlySpan<byte>.Empty, salt));
+                KeyManager.CreateDerivationTree([], salt));
         }
 
         [Fact]
@@ -414,13 +414,15 @@ public class KeyManagerTests
         [Fact]
         public void ValidateKey_ValidKey_ReturnsValid()
         {
-            var policy = new KeyPolicy { MinKeySize = 32, MinEntropy = 6.0 };
+            // Use MinKeySize=128 to reliably achieve >6.0 bits Shannon entropy
+            // (smaller samples have more variance in entropy measurement)
+            var policy = new KeyPolicy { MinKeySize = 128, MinEntropy = 6.0 };
             var manager = KeyManager.CreateKeyPolicy(policy);
-            var key = KeyManager.GenerateSecureKey(32);
+            var key = KeyManager.GenerateSecureKey(128);
 
             var result = manager.ValidateKey(key, DateTimeOffset.UtcNow);
 
-            Assert.True(result.IsValid);
+            Assert.True(result.IsValid, $"Validation failed with issues: {string.Join(", ", result.Issues)}");
             Assert.Empty(result.Issues);
         }
 
@@ -472,16 +474,17 @@ public class KeyManagerTests
         [Fact]
         public void GenerateCompliantKey_ReturnsValidKey()
         {
-            var policy = new KeyPolicy { MinKeySize = 32, MinEntropy = 6.0 };
+            // Use MinKeySize=128 to reliably achieve >6.0 bits Shannon entropy
+            var policy = new KeyPolicy { MinKeySize = 128, MinEntropy = 6.0 };
             var manager = KeyManager.CreateKeyPolicy(policy);
 
             var key = manager.GenerateCompliantKey();
 
             Assert.NotNull(key);
-            Assert.True(key.Length >= 32);
+            Assert.True(key.Length >= 128);
 
             var validation = manager.ValidateKey(key, DateTimeOffset.UtcNow);
-            Assert.True(validation.IsValid);
+            Assert.True(validation.IsValid, $"Validation failed with issues: {string.Join(", ", validation.Issues)}");
         }
 
         [Fact]

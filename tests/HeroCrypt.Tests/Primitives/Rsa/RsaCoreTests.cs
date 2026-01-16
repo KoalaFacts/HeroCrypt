@@ -210,7 +210,8 @@ public class RsaCoreTests
             var ciphertext = RsaCore.Encrypt(plaintext, keyPair.PublicKey, RsaPaddingMode.Pkcs1);
 
             // Try to decrypt with OAEP (should fail)
-            Assert.Throws<CryptographicException>(() =>
+            // Use ThrowsAny because Linux/OpenSSL throws OpenSslCryptographicException (a subclass)
+            Assert.ThrowsAny<CryptographicException>(() =>
                 RsaCore.Decrypt(ciphertext, keyPair.PrivateKey, RsaPaddingMode.Oaep));
         }
     }

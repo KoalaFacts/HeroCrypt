@@ -34,6 +34,34 @@ namespace System.Security.Cryptography
     }
 
     /// <summary>
+    /// Polyfills for SHA384.HashData (not available in .NET Standard 2.0)
+    /// </summary>
+    internal static class Sha384Extensions
+    {
+        /// <summary>
+        /// Computes the SHA384 hash of the specified data.
+        /// </summary>
+        /// <param name="source">The data to hash.</param>
+        /// <returns>The computed SHA384 hash.</returns>
+        public static byte[] HashData(byte[] source)
+        {
+            using var sha384 = SHA384.Create();
+            return sha384.ComputeHash(source);
+        }
+
+        /// <summary>
+        /// Computes the SHA384 hash of the specified data span.
+        /// </summary>
+        /// <param name="source">The data span to hash.</param>
+        /// <returns>The computed SHA384 hash.</returns>
+        public static byte[] HashData(ReadOnlySpan<byte> source)
+        {
+            using var sha384 = SHA384.Create();
+            return sha384.ComputeHash(source.ToArray());
+        }
+    }
+
+    /// <summary>
     /// Polyfills for SHA512.HashData (not available in .NET Standard 2.0)
     /// </summary>
     internal static class Sha512Extensions

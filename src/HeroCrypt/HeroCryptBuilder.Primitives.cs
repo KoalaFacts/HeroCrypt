@@ -3,10 +3,13 @@ using HeroCrypt.Primitives.AesCmac;
 using HeroCrypt.Primitives.AesOcb;
 using HeroCrypt.Primitives.AesSiv;
 using HeroCrypt.Primitives.Argon2;
+using HeroCrypt.Primitives.Armor;
 using HeroCrypt.Primitives.Blake2b;
 using HeroCrypt.Primitives.ChaCha20;
 using HeroCrypt.Primitives.ChaCha20Poly1305;
+using HeroCrypt.Primitives.Crc24;
 using HeroCrypt.Primitives.Curve25519;
+using HeroCrypt.Primitives.Ecdsa;
 using HeroCrypt.Primitives.Ed25519;
 using HeroCrypt.Primitives.Hc128;
 using HeroCrypt.Primitives.Hc256;
@@ -15,6 +18,7 @@ using HeroCrypt.Primitives.Pbkdf2;
 using HeroCrypt.Primitives.Poly1305;
 using HeroCrypt.Primitives.Rabbit;
 using HeroCrypt.Primitives.Rsa;
+using HeroCrypt.Primitives.S2K;
 using HeroCrypt.Primitives.Scrypt;
 using HeroCrypt.Primitives.Secp256k1;
 using HeroCrypt.Primitives.XChaCha20Poly1305;
@@ -149,6 +153,27 @@ public static partial class HeroCryptBuilder
     public static Blake2bBuilder Blake2b() => Blake2bBuilder.Create();
 
     /// <summary>
+    /// Creates a CRC24 checksum builder.
+    /// </summary>
+    /// <remarks>
+    /// CRC24 is the checksum algorithm used in OpenPGP ASCII Armor (RFC 4880).
+    /// It is NOT a cryptographic checksum and should only be used for error detection,
+    /// not security purposes.
+    /// </remarks>
+    /// <returns>A CRC24 builder instance.</returns>
+    public static Crc24Builder Crc24() => Crc24Builder.Create();
+
+    /// <summary>
+    /// Creates an ASCII Armor encoding builder.
+    /// </summary>
+    /// <remarks>
+    /// ASCII Armor (RFC 4880 Section 6) provides a portable text representation
+    /// of binary OpenPGP data with Base64 encoding and CRC24 checksum.
+    /// </remarks>
+    /// <returns>An ASCII Armor builder instance.</returns>
+    public static ArmorBuilder Armor() => ArmorBuilder.Create();
+
+    /// <summary>
     /// Creates an AES-CMAC builder.
     /// </summary>
     /// <remarks>
@@ -205,6 +230,16 @@ public static partial class HeroCryptBuilder
     public static ScryptBuilder Scrypt() => ScryptBuilder.Create();
 
     /// <summary>
+    /// Creates an OpenPGP S2K (String-to-Key) builder.
+    /// </summary>
+    /// <remarks>
+    /// S2K (RFC 4880 Section 3.7) derives symmetric keys from passphrases in OpenPGP.
+    /// Use Iterated S2K (Type 3) for legacy compatibility or Argon2 for stronger protection.
+    /// </remarks>
+    /// <returns>An S2K builder instance.</returns>
+    public static S2KBuilder S2K() => S2KBuilder.Create();
+
+    /// <summary>
     /// Creates an HKDF builder.
     /// </summary>
     /// <remarks>
@@ -227,6 +262,17 @@ public static partial class HeroCryptBuilder
     /// </remarks>
     /// <returns>An Ed25519 builder instance.</returns>
     public static Ed25519Builder Ed25519() => Ed25519Builder.Create();
+
+    /// <summary>
+    /// Creates an ECDSA builder for NIST curves.
+    /// </summary>
+    /// <remarks>
+    /// ECDSA (Elliptic Curve Digital Signature Algorithm) with NIST curves P-256, P-384, P-521.
+    /// Used in OpenPGP (RFC 6637) and provides strong digital signatures compatible with
+    /// government standards and many protocols.
+    /// </remarks>
+    /// <returns>An ECDSA builder instance.</returns>
+    public static EcdsaBuilder Ecdsa() => EcdsaBuilder.Create();
 
     /// <summary>
     /// Creates a Secp256k1 builder.

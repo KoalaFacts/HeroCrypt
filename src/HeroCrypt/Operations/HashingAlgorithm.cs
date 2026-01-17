@@ -54,6 +54,7 @@ public enum HashingAlgorithm
     /// Provides 128-bit security level against collision attacks.
     /// </para>
     /// </remarks>
+    [PgpAlgorithmId(8, Rfc = "RFC 4880")]
     Sha256,
 
     /// <summary>
@@ -70,6 +71,7 @@ public enum HashingAlgorithm
     /// Provides 192-bit security level against collision attacks.
     /// </para>
     /// </remarks>
+    [PgpAlgorithmId(9, Rfc = "RFC 4880")]
     Sha384,
 
     /// <summary>
@@ -85,6 +87,7 @@ public enum HashingAlgorithm
     /// due to 64-bit word operations. Provides 256-bit security level.
     /// </para>
     /// </remarks>
+    [PgpAlgorithmId(10, Rfc = "RFC 4880")]
     Sha512,
 
     /// <summary>
@@ -100,6 +103,7 @@ public enum HashingAlgorithm
     /// Provides 112-bit security level. Used when shorter hashes are needed.
     /// </para>
     /// </remarks>
+    [PgpAlgorithmId(11, Rfc = "RFC 4880")]
     [NotImplemented("SHA-224 truncated variant", Priority = 4)]
     Sha224,
 
@@ -137,6 +141,7 @@ public enum HashingAlgorithm
     /// when SHA-3 compatibility is required.
     /// </para>
     /// </remarks>
+    [PgpAlgorithmId(12, Rfc = "RFC 9580")]
     Sha3_256,
 
     /// <summary>
@@ -165,6 +170,7 @@ public enum HashingAlgorithm
     /// Maximum security SHA-3 variant. Provides 256-bit security level.
     /// </para>
     /// </remarks>
+    [PgpAlgorithmId(14, Rfc = "RFC 9580")]
     Sha3_512,
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -285,6 +291,7 @@ public enum HashingAlgorithm
     /// Also used in PGP and some other cryptocurrency protocols.
     /// </para>
     /// </remarks>
+    [PgpAlgorithmId(3, Rfc = "RFC 4880")]
     [NotImplemented("RIPEMD-160 for Bitcoin/cryptocurrency compatibility", Priority = 3)]
     Ripemd160,
 
@@ -306,6 +313,7 @@ public enum HashingAlgorithm
     /// Prefer SHA-256 or SHA-3 for new applications.
     /// </para>
     /// </remarks>
+    [PgpAlgorithmId(2, Rfc = "RFC 4880")]
     Sha1,
 
     /// <summary>
@@ -321,5 +329,6 @@ public enum HashingAlgorithm
     /// Only use for non-security purposes (checksums, cache keys, legacy compatibility).
     /// </para>
     /// </remarks>
+    [PgpAlgorithmId(1, Rfc = "RFC 4880")]
     Md5,
 }

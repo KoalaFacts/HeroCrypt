@@ -30,26 +30,35 @@ public enum SignatureAlgorithm
 
     // RSA-PKCS#1 v1.5 Signatures (Legacy)
     /// <summary>RSASSA-PKCS1-v1_5 using SHA-256.</summary>
+    [PgpAlgorithmId(1, Rfc = "RFC 4880")]
     RsaSha256,
     /// <summary>RSASSA-PKCS1-v1_5 using SHA-384.</summary>
+    [PgpAlgorithmId(1, Rfc = "RFC 4880")]
     RsaSha384,
     /// <summary>RSASSA-PKCS1-v1_5 using SHA-512.</summary>
+    [PgpAlgorithmId(1, Rfc = "RFC 4880")]
     RsaSha512,
 
     // RSA-PSS Signatures (Recommended)
     /// <summary>RSASSA-PSS using SHA-256 (recommended over PKCS#1 v1.5).</summary>
+    [PgpAlgorithmId(1, Rfc = "RFC 4880")]
     RsaPssSha256,
     /// <summary>RSASSA-PSS using SHA-384.</summary>
+    [PgpAlgorithmId(1, Rfc = "RFC 4880")]
     RsaPssSha384,
     /// <summary>RSASSA-PSS using SHA-512.</summary>
+    [PgpAlgorithmId(1, Rfc = "RFC 4880")]
     RsaPssSha512,
 
     // ECDSA NIST Curves
     /// <summary>ECDSA using P-256 curve and SHA-256 (128-bit security).</summary>
+    [PgpAlgorithmId(19, Rfc = "RFC 6637")]
     EcdsaP256Sha256,
     /// <summary>ECDSA using P-384 curve and SHA-384 (192-bit security).</summary>
+    [PgpAlgorithmId(19, Rfc = "RFC 6637")]
     EcdsaP384Sha384,
     /// <summary>ECDSA using P-521 curve and SHA-512 (256-bit security).</summary>
+    [PgpAlgorithmId(19, Rfc = "RFC 6637")]
     EcdsaP521Sha512,
 
     // ECDSA Blockchain Curves
@@ -58,8 +67,10 @@ public enum SignatureAlgorithm
 
     // EdDSA (Edwards-curve Digital Signature Algorithm)
     /// <summary>EdDSA signature using Ed25519 (128-bit security, recommended).</summary>
+    [PgpAlgorithmId(27, Rfc = "RFC 9580")]
     Ed25519,
     /// <summary>EdDSA signature using Ed448 (224-bit security).</summary>
+    [PgpAlgorithmId(28, Rfc = "RFC 9580")]
     [NotImplemented("Higher security EdDSA curve")]
     Ed448,
 

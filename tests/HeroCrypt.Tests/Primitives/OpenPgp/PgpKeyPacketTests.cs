@@ -542,7 +542,9 @@ public class PgpKeyPacketTests
 
             Assert.Equal(PgpS2KUsage.None, packet.S2KUsage);
             Assert.False(packet.IsEncrypted);
-            Assert.Equal(secretMaterial, packet.SecretKeyMaterial.ToArray());
+            // SecretKeyMaterial includes the original data + 2-byte checksum
+            Assert.Equal(secretMaterial.Length + 2, packet.SecretKeyMaterial.Length);
+            Assert.Equal(secretMaterial, packet.SecretKeyMaterial.Slice(0, secretMaterial.Length).ToArray());
         }
 
         [Fact]
@@ -693,7 +695,9 @@ public class PgpKeyPacketTests
 
             Assert.Equal(6, decoded.Version);
             Assert.Equal(PgpPublicKeyAlgorithm.Ed25519, decoded.Algorithm);
-            Assert.Equal(secretMaterial, decoded.SecretKeyMaterial.ToArray());
+            // SecretKeyMaterial includes the original data + 2-byte checksum
+            Assert.Equal(secretMaterial.Length + 2, decoded.SecretKeyMaterial.Length);
+            Assert.Equal(secretMaterial, decoded.SecretKeyMaterial.Slice(0, secretMaterial.Length).ToArray());
         }
     }
 
@@ -723,6 +727,24 @@ public class PgpKeyPacketTests
 
             Assert.False(success);
             Assert.Contains("Unsupported", error);
+        }
+
+        [Fact]
+        public void TryRead_InvalidChecksum_ReturnsFalse()
+        {
+            // Create a valid unencrypted secret key packet using Ed25519 (fixed-size key material)
+            var publicKey = PgpPublicKeyPacket.CreateEd25519(DateTimeOffset.UtcNow, TestHelpers.RandomBytes(32));
+            var secretKey = PgpSecretKeyPacket.CreateUnencrypted(publicKey, TestHelpers.RandomBytes(32));
+            var encoded = secretKey.ToArray();
+
+            // Corrupt the checksum (last 2 bytes)
+            encoded[^1] = (byte)(encoded[^1] ^ 0xFF);
+            encoded[^2] = (byte)(encoded[^2] ^ 0xFF);
+
+            var success = PgpSecretKeyPacket.TryRead(encoded, false, out _, out var error);
+
+            Assert.False(success);
+            Assert.Contains("checksum mismatch", error);
         }
 
         [Fact]

@@ -328,7 +328,15 @@ public readonly struct PgpPublicKeyPacket
         uint keyLength = BinaryPrimitives.ReadUInt32BigEndian(source.Slice(offset));
         offset += 4;
 
-        if (keyLength > int.MaxValue || source.Length < offset + (int)keyLength)
+        // Reasonable maximum key length to prevent denial-of-service (64KB should cover any practical key)
+        const int MaxKeyLength = 65536;
+        if (keyLength > MaxKeyLength)
+        {
+            error = $"Key material length {keyLength} exceeds maximum allowed size of {MaxKeyLength} bytes.";
+            return false;
+        }
+
+        if (source.Length < offset + (int)keyLength)
         {
             error = $"Source too short for key material. Expected {keyLength} bytes.";
             return false;
@@ -439,6 +447,14 @@ public readonly struct PgpPublicKeyPacket
     {
         // V4 fingerprint = SHA-1(0x99 || 2-byte packet length || packet body)
         byte[] body = ToArray();
+
+        // RFC 4880 uses 2-byte length field - reject oversized keys to prevent truncation attacks
+        if (body.Length > ushort.MaxValue)
+        {
+            throw new InvalidOperationException(
+                $"V4 key packet body too large for fingerprint calculation: {body.Length} bytes exceeds maximum of {ushort.MaxValue}.");
+        }
+
         byte[] hashInput = new byte[3 + body.Length];
 
         hashInput[0] = 0x99;

@@ -261,9 +261,11 @@ public readonly struct PgpS2KSpecifier
         switch (Type)
         {
             case S2KType.Simple:
-            case S2KType.Reserved:
                 // No additional data to write
                 break;
+
+            case S2KType.Reserved:
+                throw new InvalidOperationException("Cannot write reserved S2K type. This type is not valid for use.");
 
             case S2KType.Salted:
                 Salt.Span.CopyTo(destination.Slice(2, 8));
@@ -407,19 +409,31 @@ public readonly struct PgpSecretKeyPacket
     /// Creates an unencrypted secret key packet.
     /// </summary>
     /// <param name="publicKey">The public key portion.</param>
-    /// <param name="secretKeyMaterial">The plaintext secret key MPIs with checksum.</param>
+    /// <param name="secretKeyMaterial">The plaintext secret key MPIs (checksum will be calculated automatically).</param>
     /// <returns>A new unencrypted secret key packet.</returns>
     public static PgpSecretKeyPacket CreateUnencrypted(
         PgpPublicKeyPacket publicKey,
         ReadOnlyMemory<byte> secretKeyMaterial)
     {
+        // Calculate checksum: sum of all bytes mod 65536
+        ushort checksum = 0;
+        foreach (byte b in secretKeyMaterial.Span)
+        {
+            checksum = (ushort)((checksum + b) & 0xFFFF);
+        }
+
+        // Append checksum to secret key material
+        var materialWithChecksum = new byte[secretKeyMaterial.Length + 2];
+        secretKeyMaterial.Span.CopyTo(materialWithChecksum);
+        BinaryPrimitives.WriteUInt16BigEndian(materialWithChecksum.AsSpan(secretKeyMaterial.Length), checksum);
+
         return new PgpSecretKeyPacket(
             publicKey,
             PgpS2KUsage.None,
             0,
             null,
             Array.Empty<byte>(),
-            secretKeyMaterial);
+            materialWithChecksum);
     }
 
     /// <summary>
@@ -543,7 +557,29 @@ public readonly struct PgpSecretKeyPacket
         if (s2kUsage == PgpS2KUsage.None)
         {
             // Unencrypted: remaining is MPIs + 2-byte checksum
-            var secretMaterial = source.Slice(offset).ToArray();
+            var remaining = source.Slice(offset);
+            if (remaining.Length < 2)
+            {
+                error = "Source too short for unencrypted secret key checksum.";
+                return false;
+            }
+
+            // Validate checksum: sum of all MPI bytes mod 65536
+            var mpiData = remaining.Slice(0, remaining.Length - 2);
+            var expectedChecksum = BinaryPrimitives.ReadUInt16BigEndian(remaining.Slice(remaining.Length - 2));
+            ushort actualChecksum = 0;
+            foreach (byte b in mpiData)
+            {
+                actualChecksum = (ushort)((actualChecksum + b) & 0xFFFF);
+            }
+
+            if (actualChecksum != expectedChecksum)
+            {
+                error = $"Secret key checksum mismatch. Expected {expectedChecksum:X4}, got {actualChecksum:X4}.";
+                return false;
+            }
+
+            var secretMaterial = remaining.ToArray();
             packet = new PgpSecretKeyPacket(publicKey, s2kUsage, 0, null, Array.Empty<byte>(), secretMaterial);
             return true;
         }
@@ -622,7 +658,29 @@ public readonly struct PgpSecretKeyPacket
         if (s2kUsage == 0)
         {
             // V6 unencrypted: 1-byte count of optional S2K data (0), then plaintext + checksum
-            var secretMaterial = source.Slice(offset).ToArray();
+            var remaining = source.Slice(offset);
+            if (remaining.Length < 2)
+            {
+                error = "Source too short for unencrypted secret key checksum.";
+                return false;
+            }
+
+            // Validate checksum: sum of all MPI bytes mod 65536
+            var mpiData = remaining.Slice(0, remaining.Length - 2);
+            var expectedChecksum = BinaryPrimitives.ReadUInt16BigEndian(remaining.Slice(remaining.Length - 2));
+            ushort actualChecksum = 0;
+            foreach (byte b in mpiData)
+            {
+                actualChecksum = (ushort)((actualChecksum + b) & 0xFFFF);
+            }
+
+            if (actualChecksum != expectedChecksum)
+            {
+                error = $"Secret key checksum mismatch. Expected {expectedChecksum:X4}, got {actualChecksum:X4}.";
+                return false;
+            }
+
+            var secretMaterial = remaining.ToArray();
             packet = new PgpSecretKeyPacket(publicKey, PgpS2KUsage.None, 0, null, Array.Empty<byte>(), secretMaterial);
             return true;
         }
@@ -805,7 +863,7 @@ public readonly struct PgpSecretKeyPacket
             11 => 16, // Camellia-128
             12 => 16, // Camellia-192
             13 => 16, // Camellia-256
-            _ => 16  // Default to 16 for unknown
+            _ => throw new ArgumentException($"Unknown cipher algorithm: {cipherAlgorithm}. Cannot determine block size.", nameof(cipherAlgorithm))
         };
     }
 

@@ -93,4 +93,50 @@ public static class BitOperations
     {
         return value > 0 && (value & (value - 1)) == 0;
     }
+
+    /// <summary>
+    /// Returns the number of leading zero bits in a 32-bit unsigned integer.
+    /// </summary>
+    /// <param name="value">The value to count leading zeros in</param>
+    /// <returns>The number of leading zero bits (0-32)</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static int LeadingZeroCount(uint value)
+    {
+#if NET5_0_OR_GREATER
+        return System.Numerics.BitOperations.LeadingZeroCount(value);
+#else
+        if (value == 0)
+        {
+            return 32;
+        }
+
+        int count = 0;
+        if ((value & 0xFFFF0000) == 0) { count += 16; value <<= 16; }
+        if ((value & 0xFF000000) == 0) { count += 8; value <<= 8; }
+        if ((value & 0xF0000000) == 0) { count += 4; value <<= 4; }
+        if ((value & 0xC0000000) == 0) { count += 2; value <<= 2; }
+        if ((value & 0x80000000) == 0) { count += 1; }
+        return count;
+#endif
+    }
+
+    /// <summary>
+    /// Returns the integer (floor) base 2 logarithm of a 32-bit integer.
+    /// </summary>
+    /// <param name="value">The value (must be greater than 0)</param>
+    /// <returns>The floor of log2(value)</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static int Log2(int value)
+    {
+#if NET5_0_OR_GREATER
+        return System.Numerics.BitOperations.Log2((uint)value);
+#else
+        if (value <= 0)
+        {
+            return 0;
+        }
+
+        return 31 - LeadingZeroCount((uint)value);
+#endif
+    }
 }

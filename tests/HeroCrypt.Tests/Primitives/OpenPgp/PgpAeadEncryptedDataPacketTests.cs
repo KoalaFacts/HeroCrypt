@@ -263,7 +263,7 @@ public class PgpAeadEncryptedDataPacketTests
         [InlineData(10000)]
         public void RoundTrip_VariousDataSizes_Succeed(int size)
         {
-            var data = size > 0 ? TestHelpers.RandomBytes(size) : Array.Empty<byte>();
+            byte[] data = size > 0 ? TestHelpers.RandomBytes(size) : [];
             var original = new PgpAeadEncryptedDataPacket(
                 SymmetricCipherAlgorithm.Aes256,
                 AeadAlgorithm.Gcm,
@@ -495,9 +495,9 @@ public class PgpAeadEncryptedDataPacketTests
         public void Equals_DifferentData_ReturnsFalse()
         {
             var packet1 = new PgpAeadEncryptedDataPacket(
-                SymmetricCipherAlgorithm.Aes256, AeadAlgorithm.Gcm, 6, [1, 2, 3]);
+                SymmetricCipherAlgorithm.Aes256, AeadAlgorithm.Gcm, 6, (byte[])[1, 2, 3]);
             var packet2 = new PgpAeadEncryptedDataPacket(
-                SymmetricCipherAlgorithm.Aes256, AeadAlgorithm.Gcm, 6, [4, 5, 6]);
+                SymmetricCipherAlgorithm.Aes256, AeadAlgorithm.Gcm, 6, (byte[])[4, 5, 6]);
 
             Assert.False(packet1.Equals(packet2));
         }
@@ -506,7 +506,7 @@ public class PgpAeadEncryptedDataPacketTests
         public void Equals_Object_WorksCorrectly()
         {
             var packet = new PgpAeadEncryptedDataPacket(
-                SymmetricCipherAlgorithm.Aes256, AeadAlgorithm.Gcm, 6, [1, 2, 3]);
+                SymmetricCipherAlgorithm.Aes256, AeadAlgorithm.Gcm, 6, (byte[])[1, 2, 3]);
 
             Assert.False(packet.Equals(null));
             Assert.False(packet.Equals("not a packet"));
@@ -528,9 +528,9 @@ public class PgpAeadEncryptedDataPacketTests
         public void GetHashCode_DifferentValues_LikelyDifferentHash()
         {
             var packet1 = new PgpAeadEncryptedDataPacket(
-                SymmetricCipherAlgorithm.Aes256, AeadAlgorithm.Gcm, 6, [1, 2, 3]);
+                SymmetricCipherAlgorithm.Aes256, AeadAlgorithm.Gcm, 6, (byte[])[1, 2, 3]);
             var packet2 = new PgpAeadEncryptedDataPacket(
-                SymmetricCipherAlgorithm.Aes128, AeadAlgorithm.Ocb, 10, [4, 5, 6]);
+                SymmetricCipherAlgorithm.Aes128, AeadAlgorithm.Ocb, 10, (byte[])[4, 5, 6]);
 
             Assert.NotEqual(packet1.GetHashCode(), packet2.GetHashCode());
         }

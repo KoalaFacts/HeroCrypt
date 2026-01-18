@@ -83,6 +83,7 @@ public class PgpCompressedDataPacketTests
         [Theory]
         [InlineData(CompressionLevel.Fastest)]
         [InlineData(CompressionLevel.Optimal)]
+        [InlineData(CompressionLevel.SmallestSize)]
         public void Create_Zip_DifferentLevels_AllDecompress(CompressionLevel level)
         {
             var packet = PgpCompressedDataPacket.Create(TestData, PgpCompressionAlgorithm.Zip, level);
@@ -94,6 +95,7 @@ public class PgpCompressedDataPacketTests
         [Theory]
         [InlineData(CompressionLevel.Fastest)]
         [InlineData(CompressionLevel.Optimal)]
+        [InlineData(CompressionLevel.SmallestSize)]
         public void Create_Zlib_DifferentLevels_AllDecompress(CompressionLevel level)
         {
             var packet = PgpCompressedDataPacket.Create(TestData, PgpCompressionAlgorithm.Zlib, level);

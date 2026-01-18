@@ -457,4 +457,166 @@ public class PgpLiteralDataPacketTests
             Assert.Equal("Hello", result);
         }
     }
+
+    /// <summary>
+    /// TryWrite tests.
+    /// </summary>
+    [Trait("Category", TestCategories.UNIT)]
+    [Trait("Category", TestCategories.FAST)]
+    public class TryWriteTests
+    {
+        [Fact]
+        public void TryWrite_SufficientSpace_ReturnsTrue()
+        {
+            var packet = PgpLiteralDataPacket.CreateBinary(new byte[] { 1, 2, 3 }, "test.bin");
+            var buffer = new byte[100];
+
+            var result = packet.TryWrite(buffer, out var bytesWritten);
+
+            Assert.True(result);
+            Assert.Equal(packet.GetEncodedLength(), bytesWritten);
+        }
+
+        [Fact]
+        public void TryWrite_InsufficientSpace_ReturnsFalse()
+        {
+            var packet = PgpLiteralDataPacket.CreateBinary(new byte[100], "test.bin");
+            var smallBuffer = new byte[10];
+
+            var result = packet.TryWrite(smallBuffer, out var bytesWritten);
+
+            Assert.False(result);
+            Assert.Equal(0, bytesWritten);
+        }
+
+        [Fact]
+        public void TryWrite_ExactSpace_ReturnsTrue()
+        {
+            var packet = PgpLiteralDataPacket.CreateBinary(new byte[] { 1 });
+            var exactBuffer = new byte[packet.GetEncodedLength()];
+
+            var result = packet.TryWrite(exactBuffer, out var bytesWritten);
+
+            Assert.True(result);
+            Assert.Equal(packet.GetEncodedLength(), bytesWritten);
+        }
+
+        [Fact]
+        public void TryWrite_RoundTrip_PreservesData()
+        {
+            var original = PgpLiteralDataPacket.CreateText("Hello, World!", "message.txt");
+            var buffer = new byte[original.GetEncodedLength()];
+
+            var writeResult = original.TryWrite(buffer, out _);
+            Assert.True(writeResult);
+
+            var decoded = PgpLiteralDataPacket.Read(buffer);
+            Assert.Equal(original.Format, decoded.Format);
+            Assert.Equal(original.FileName, decoded.FileName);
+            Assert.Equal(original.GetDataAsString(), decoded.GetDataAsString());
+        }
+    }
+
+    /// <summary>
+    /// Equality tests.
+    /// </summary>
+    [Trait("Category", TestCategories.UNIT)]
+    [Trait("Category", TestCategories.FAST)]
+    public class EqualityTests
+    {
+        private static readonly DateTimeOffset TestDate = new(2024, 6, 15, 12, 0, 0, TimeSpan.Zero);
+
+        [Fact]
+        public void Equals_SamePackets_ReturnsTrue()
+        {
+            var packet1 = new PgpLiteralDataPacket(PgpLiteralDataFormat.Binary, "test.bin", TestDate, new byte[] { 1, 2, 3 });
+            var packet2 = new PgpLiteralDataPacket(PgpLiteralDataFormat.Binary, "test.bin", TestDate, new byte[] { 1, 2, 3 });
+
+            Assert.True(packet1.Equals(packet2));
+            Assert.True(packet1 == packet2);
+            Assert.False(packet1 != packet2);
+        }
+
+        [Fact]
+        public void Equals_DifferentFormat_ReturnsFalse()
+        {
+            var packet1 = new PgpLiteralDataPacket(PgpLiteralDataFormat.Binary, "test.bin", TestDate, new byte[] { 1, 2, 3 });
+            var packet2 = new PgpLiteralDataPacket(PgpLiteralDataFormat.Text, "test.bin", TestDate, new byte[] { 1, 2, 3 });
+
+            Assert.False(packet1.Equals(packet2));
+            Assert.False(packet1 == packet2);
+            Assert.True(packet1 != packet2);
+        }
+
+        [Fact]
+        public void Equals_DifferentFileName_ReturnsFalse()
+        {
+            var packet1 = new PgpLiteralDataPacket(PgpLiteralDataFormat.Binary, "test1.bin", TestDate, new byte[] { 1, 2, 3 });
+            var packet2 = new PgpLiteralDataPacket(PgpLiteralDataFormat.Binary, "test2.bin", TestDate, new byte[] { 1, 2, 3 });
+
+            Assert.False(packet1.Equals(packet2));
+        }
+
+        [Fact]
+        public void Equals_DifferentDate_ReturnsFalse()
+        {
+            var date1 = new DateTimeOffset(2024, 6, 15, 12, 0, 0, TimeSpan.Zero);
+            var date2 = new DateTimeOffset(2024, 6, 16, 12, 0, 0, TimeSpan.Zero);
+            var packet1 = new PgpLiteralDataPacket(PgpLiteralDataFormat.Binary, "test.bin", date1, new byte[] { 1, 2, 3 });
+            var packet2 = new PgpLiteralDataPacket(PgpLiteralDataFormat.Binary, "test.bin", date2, new byte[] { 1, 2, 3 });
+
+            Assert.False(packet1.Equals(packet2));
+        }
+
+        [Fact]
+        public void Equals_DifferentData_ReturnsFalse()
+        {
+            var packet1 = new PgpLiteralDataPacket(PgpLiteralDataFormat.Binary, "test.bin", TestDate, new byte[] { 1, 2, 3 });
+            var packet2 = new PgpLiteralDataPacket(PgpLiteralDataFormat.Binary, "test.bin", TestDate, new byte[] { 1, 2, 4 });
+
+            Assert.False(packet1.Equals(packet2));
+        }
+
+        [Fact]
+        public void Equals_Object_WorksCorrectly()
+        {
+            var packet1 = new PgpLiteralDataPacket(PgpLiteralDataFormat.Binary, "test.bin", TestDate, new byte[] { 1, 2, 3 });
+            var packet2 = new PgpLiteralDataPacket(PgpLiteralDataFormat.Binary, "test.bin", TestDate, new byte[] { 1, 2, 3 });
+
+            Assert.True(packet1.Equals((object)packet2));
+            Assert.False(packet1.Equals(null));
+            Assert.False(packet1.Equals("not a packet"));
+        }
+
+        [Fact]
+        public void GetHashCode_SamePackets_ReturnsSameHash()
+        {
+            var packet1 = new PgpLiteralDataPacket(PgpLiteralDataFormat.Binary, "test.bin", TestDate, new byte[] { 1, 2, 3 });
+            var packet2 = new PgpLiteralDataPacket(PgpLiteralDataFormat.Binary, "test.bin", TestDate, new byte[] { 1, 2, 3 });
+
+            Assert.Equal(packet1.GetHashCode(), packet2.GetHashCode());
+        }
+
+        [Fact]
+        public void GetHashCode_DifferentPackets_LikelyDifferentHash()
+        {
+            var packet1 = new PgpLiteralDataPacket(PgpLiteralDataFormat.Binary, "test1.bin", TestDate, new byte[] { 1, 2, 3 });
+            var packet2 = new PgpLiteralDataPacket(PgpLiteralDataFormat.Binary, "test2.bin", TestDate, new byte[] { 1, 2, 3 });
+
+            // Different packets should likely have different hash codes (not guaranteed, but very likely)
+            Assert.NotEqual(packet1.GetHashCode(), packet2.GetHashCode());
+        }
+
+        [Fact]
+        public void Equals_SameDateDifferentOffset_Equal()
+        {
+            // Same Unix timestamp but different timezone offset should be equal
+            var date1 = DateTimeOffset.FromUnixTimeSeconds(1718452800);
+            var date2 = DateTimeOffset.FromUnixTimeSeconds(1718452800).ToOffset(TimeSpan.FromHours(5));
+            var packet1 = new PgpLiteralDataPacket(PgpLiteralDataFormat.Binary, "test.bin", date1, new byte[] { 1 });
+            var packet2 = new PgpLiteralDataPacket(PgpLiteralDataFormat.Binary, "test.bin", date2, new byte[] { 1 });
+
+            Assert.True(packet1.Equals(packet2));
+        }
+    }
 }

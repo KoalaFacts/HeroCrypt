@@ -27,7 +27,7 @@ namespace HeroCrypt.Primitives.OpenPgp;
 /// </code>
 /// </para>
 /// </remarks>
-public readonly struct PgpLiteralDataPacket
+public readonly struct PgpLiteralDataPacket : IEquatable<PgpLiteralDataPacket>
 {
     /// <summary>
     /// Gets the data format indicator.
@@ -257,6 +257,25 @@ public readonly struct PgpLiteralDataPacket
     }
 
     /// <summary>
+    /// Tries to write the packet body to a span.
+    /// </summary>
+    /// <param name="destination">The destination span.</param>
+    /// <param name="bytesWritten">The number of bytes written if successful.</param>
+    /// <returns>True if the write was successful; false if the destination is too small.</returns>
+    public bool TryWrite(Span<byte> destination, out int bytesWritten)
+    {
+        bytesWritten = 0;
+        int encodedLength = GetEncodedLength();
+        if (destination.Length < encodedLength)
+        {
+            return false;
+        }
+
+        bytesWritten = Write(destination);
+        return true;
+    }
+
+    /// <summary>
     /// Writes the packet body to a byte array.
     /// </summary>
     /// <returns>The encoded packet body.</returns>
@@ -303,4 +322,44 @@ public readonly struct PgpLiteralDataPacket
         var fileNamePart = string.IsNullOrEmpty(FileName) ? "no filename" : $"\"{FileName}\"";
         return $"LiteralData({Format}, {fileNamePart}, {Data.Length} bytes)";
     }
+
+    /// <inheritdoc />
+    public bool Equals(PgpLiteralDataPacket other)
+    {
+        return Format == other.Format
+            && FileName == other.FileName
+            && Date.ToUnixTimeSeconds() == other.Date.ToUnixTimeSeconds()
+            && Data.Span.SequenceEqual(other.Data.Span);
+    }
+
+    /// <inheritdoc />
+    public override bool Equals(object? obj) => obj is PgpLiteralDataPacket other && Equals(other);
+
+    /// <inheritdoc />
+    public override int GetHashCode()
+    {
+        unchecked
+        {
+            int hash = 17;
+            hash = hash * 31 + Format.GetHashCode();
+            hash = hash * 31 + FileName.GetHashCode();
+            hash = hash * 31 + Date.ToUnixTimeSeconds().GetHashCode();
+            foreach (var b in Data.Span)
+            {
+                hash = hash * 31 + b;
+            }
+
+            return hash;
+        }
+    }
+
+    /// <summary>
+    /// Equality operator.
+    /// </summary>
+    public static bool operator ==(PgpLiteralDataPacket left, PgpLiteralDataPacket right) => left.Equals(right);
+
+    /// <summary>
+    /// Inequality operator.
+    /// </summary>
+    public static bool operator !=(PgpLiteralDataPacket left, PgpLiteralDataPacket right) => !left.Equals(right);
 }

@@ -308,7 +308,15 @@ public readonly struct PgpSignatureSubpacket
                 return false;
             }
 
-            length = (source[1] << 24) | (source[2] << 16) | (source[3] << 8) | source[4];
+            // Read as uint first to avoid signed overflow, then validate
+            uint lengthU = ((uint)source[1] << 24) | ((uint)source[2] << 16) | ((uint)source[3] << 8) | source[4];
+            if (lengthU > int.MaxValue)
+            {
+                error = "Subpacket length exceeds maximum supported size.";
+                return false;
+            }
+
+            length = (int)lengthU;
             lengthBytes = 5;
         }
 
@@ -318,10 +326,17 @@ public readonly struct PgpSignatureSubpacket
             return false;
         }
 
+        // Check for overflow in total length calculation
+        if (length > int.MaxValue - lengthBytes)
+        {
+            error = "Subpacket length would cause overflow.";
+            return false;
+        }
+
         int totalLength = lengthBytes + length;
         if (source.Length < totalLength)
         {
-            error = $"Source too short for subpacket data. Expected {totalLength} bytes, got {source.Length}.";
+            error = "Source too short for subpacket data.";
             return false;
         }
 
@@ -367,8 +382,15 @@ public readonly struct PgpSignatureSubpacket
     /// Gets the encoded length of this subpacket.
     /// </summary>
     /// <returns>The number of bytes needed to encode this subpacket.</returns>
+    /// <exception cref="OverflowException">If the encoded length would overflow.</exception>
     public int GetEncodedLength()
     {
+        // Check for overflow: 1 (type) + Data.Length + 5 (max length encoding)
+        if (Data.Length > int.MaxValue - 6)
+        {
+            throw new OverflowException("Subpacket data is too large to encode.");
+        }
+
         int contentLength = 1 + Data.Length; // type + data
         return GetLengthEncodingSize(contentLength) + contentLength;
     }
@@ -416,17 +438,24 @@ public readonly struct PgpSignatureSubpacket
     /// </summary>
     /// <param name="subpackets">The subpackets to write.</param>
     /// <returns>The encoded subpackets.</returns>
+    /// <exception cref="OverflowException">If the total length would overflow.</exception>
     public static byte[] WriteAll(IEnumerable<PgpSignatureSubpacket> subpackets)
     {
-        var totalLength = 0;
-        foreach (var sp in subpackets)
+        long totalLength = 0;
+        var subpacketList = subpackets as IReadOnlyList<PgpSignatureSubpacket> ?? subpackets.ToList();
+
+        foreach (var sp in subpacketList)
         {
             totalLength += sp.GetEncodedLength();
+            if (totalLength > int.MaxValue)
+            {
+                throw new OverflowException("Total subpacket length exceeds maximum supported size.");
+            }
         }
 
         var result = new byte[totalLength];
         var offset = 0;
-        foreach (var sp in subpackets)
+        foreach (var sp in subpacketList)
         {
             offset += sp.Write(result.AsSpan(offset));
         }

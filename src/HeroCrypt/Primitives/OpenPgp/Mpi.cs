@@ -46,7 +46,7 @@ public static class Mpi
 
         if (source.Length < 2 + byteCount)
         {
-            throw new ArgumentException($"Source too short for MPI data. Expected {2 + byteCount} bytes, got {source.Length}.", nameof(source));
+            throw new ArgumentException("Source too short for MPI data.", nameof(source));
         }
 
         bytesConsumed = 2 + byteCount;
@@ -94,7 +94,7 @@ public static class Mpi
 
         if (source.Length < 2 + byteCount)
         {
-            throw new ArgumentException($"Source too short for MPI data. Expected {2 + byteCount} bytes, got {source.Length}.", nameof(source));
+            throw new ArgumentException("Source too short for MPI data.", nameof(source));
         }
 
         bytesConsumed = 2 + byteCount;
@@ -228,12 +228,8 @@ public static class Mpi
     /// <exception cref="ArgumentException">If the destination is too small.</exception>
     public static int Write(ReadOnlySpan<byte> value, Span<byte> destination)
     {
-        // Skip leading zeros
-        int offset = 0;
-        while (offset < value.Length && value[offset] == 0)
-        {
-            offset++;
-        }
+        // Skip leading zeros using constant-time counting to prevent timing attacks
+        int offset = CountLeadingZerosConstantTime(value);
 
         if (offset == value.Length)
         {
@@ -293,12 +289,8 @@ public static class Mpi
     /// <returns>The total encoded length in bytes (2 + data length without leading zeros).</returns>
     public static int GetEncodedLength(ReadOnlySpan<byte> value)
     {
-        // Skip leading zeros
-        int offset = 0;
-        while (offset < value.Length && value[offset] == 0)
-        {
-            offset++;
-        }
+        // Skip leading zeros using constant-time counting to prevent timing attacks
+        int offset = CountLeadingZerosConstantTime(value);
 
         if (offset == value.Length)
         {
@@ -326,5 +318,31 @@ public static class Mpi
         int bitsInFirstByte = 32 - CryptoBitOps.LeadingZeroCount(firstByte);
 
         return bitsInFirstByte + (bytes.Length - 1) * 8;
+    }
+
+    /// <summary>
+    /// Counts leading zero bytes in constant time.
+    /// </summary>
+    /// <param name="data">The data to scan.</param>
+    /// <returns>The number of leading zero bytes.</returns>
+    /// <remarks>
+    /// This method always scans all bytes to prevent timing attacks that could
+    /// leak information about the position of the first non-zero byte.
+    /// </remarks>
+    private static int CountLeadingZerosConstantTime(ReadOnlySpan<byte> data)
+    {
+        int count = 0;
+        int stillLeading = 1; // 1 = still counting leading zeros, 0 = found non-zero
+
+        for (int i = 0; i < data.Length; i++)
+        {
+            // stillLeading becomes 0 when we hit first non-zero byte and stays 0
+            // Using bitwise AND to avoid branching
+            int isZero = ((data[i] - 1) >> 8) & 1; // 1 if data[i]==0, 0 otherwise
+            stillLeading &= isZero;
+            count += stillLeading;
+        }
+
+        return count;
     }
 }

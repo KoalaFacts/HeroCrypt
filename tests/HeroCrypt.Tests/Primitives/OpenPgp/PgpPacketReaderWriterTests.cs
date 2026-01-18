@@ -676,4 +676,95 @@ public class PgpPacketReaderWriterTests
             Assert.Throws<InvalidDataException>(() => reader.ReadNextPacket(out _, out _));
         }
     }
+
+    /// <summary>
+    /// Tests for max packet size validation (DoS protection).
+    /// </summary>
+    [Trait("Category", TestCategories.UNIT)]
+    [Trait("Category", TestCategories.FAST)]
+    public class MaxPacketSizeTests
+    {
+        [Fact]
+        public void DefaultMaxPacketSize_Is256MB()
+        {
+            Assert.Equal(256 * 1024 * 1024, PgpPacketReader.DefaultMaxPacketSize);
+        }
+
+        [Fact]
+        public void Constructor_SetsDefaultMaxPacketSize()
+        {
+            using var stream = new MemoryStream();
+            using var reader = new PgpPacketReader(stream, leaveOpen: true);
+
+            Assert.Equal(PgpPacketReader.DefaultMaxPacketSize, reader.MaxPacketSize);
+        }
+
+        [Fact]
+        public void Constructor_WithCustomMaxPacketSize_SetsValue()
+        {
+            using var stream = new MemoryStream();
+            using var reader = new PgpPacketReader(stream, leaveOpen: true, maxPacketSize: 1000);
+
+            Assert.Equal(1000, reader.MaxPacketSize);
+        }
+
+        [Fact]
+        public void ReadNextPacket_ExceedsMaxSize_ThrowsInvalidDataException()
+        {
+            // Create a packet claiming 1000 bytes
+            using var stream = new MemoryStream();
+            using var writer = new PgpPacketWriter(stream, leaveOpen: true);
+            writer.WritePacket(PgpPacketTag.LiteralData, new byte[1000]);
+
+            stream.Position = 0;
+            using var reader = new PgpPacketReader(stream, leaveOpen: true, maxPacketSize: 500);
+
+            var ex = Assert.Throws<InvalidDataException>(() => reader.ReadNextPacket(out _, out _));
+            Assert.Contains("exceeds maximum", ex.Message);
+        }
+
+        [Fact]
+        public void ReadNextPacket_WithinMaxSize_Succeeds()
+        {
+            using var stream = new MemoryStream();
+            using var writer = new PgpPacketWriter(stream, leaveOpen: true);
+            writer.WritePacket(PgpPacketTag.LiteralData, new byte[100]);
+
+            stream.Position = 0;
+            using var reader = new PgpPacketReader(stream, leaveOpen: true, maxPacketSize: 500);
+
+            var result = reader.ReadNextPacket(out var tag, out var body);
+
+            Assert.True(result);
+            Assert.Equal(PgpPacketTag.LiteralData, tag);
+            Assert.Equal(100, body.Length);
+        }
+
+        [Fact]
+        public void ReadNextPacket_MaxSizeDisabled_AllowsLargePackets()
+        {
+            using var stream = new MemoryStream();
+            using var writer = new PgpPacketWriter(stream, leaveOpen: true);
+            writer.WritePacket(PgpPacketTag.LiteralData, new byte[10000]);
+
+            stream.Position = 0;
+            using var reader = new PgpPacketReader(stream, leaveOpen: true, maxPacketSize: 0);
+
+            var result = reader.ReadNextPacket(out var tag, out var body);
+
+            Assert.True(result);
+            Assert.Equal(10000, body.Length);
+        }
+
+        [Fact]
+        public void MaxPacketSize_CanBeChangedAfterConstruction()
+        {
+            using var stream = new MemoryStream();
+            using var reader = new PgpPacketReader(stream, leaveOpen: true);
+
+            reader.MaxPacketSize = 1024;
+
+            Assert.Equal(1024, reader.MaxPacketSize);
+        }
+    }
 }

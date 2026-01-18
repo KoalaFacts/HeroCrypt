@@ -430,4 +430,52 @@ public class MpiTests
             Assert.Equal(7, bitCount); // 0x7F has 7 significant bits
         }
     }
+
+    /// <summary>
+    /// Tests for leading zero handling (constant-time behavior verification).
+    /// </summary>
+    [Trait("Category", TestCategories.UNIT)]
+    [Trait("Category", TestCategories.FAST)]
+    public class LeadingZeroHandlingTests
+    {
+        [Theory]
+        [InlineData(new byte[] { 0, 0, 0, 1 }, 3)] // 3 leading zeros trimmed, 2 header + 1 data
+        [InlineData(new byte[] { 0, 1 }, 3)]       // 1 leading zero trimmed, 2 header + 1 data
+        [InlineData(new byte[] { 1 }, 3)]          // No leading zeros, 2 header + 1 data
+        [InlineData(new byte[] { 0, 0, 0, 0 }, 2)] // All zeros, just header
+        [InlineData(new byte[] { }, 2)]            // Empty, just header
+        public void Write_LeadingZeros_ProducesCorrectLength(byte[] input, int expectedWritten)
+        {
+            var buffer = new byte[20];
+            var written = Mpi.Write(input, buffer);
+            Assert.Equal(expectedWritten, written);
+        }
+
+        [Theory]
+        [InlineData(new byte[] { 0, 0, 0, 1 }, 3)] // 3 leading zeros trimmed, 2 header + 1 data
+        [InlineData(new byte[] { 0, 0, 0, 0, 0xFF }, 3)] // 4 leading zeros trimmed, 2 header + 1 data
+        [InlineData(new byte[] { 0xFF }, 3)]       // No leading zeros, 2 header + 1 data
+        [InlineData(new byte[] { 0, 0, 0, 0 }, 2)] // All zeros, just header
+        public void GetEncodedLength_LeadingZeros_ReturnsCorrectLength(byte[] input, int expectedLength)
+        {
+            var length = Mpi.GetEncodedLength(input);
+            Assert.Equal(expectedLength, length);
+        }
+
+        [Fact]
+        public void Write_ManyLeadingZeros_ProducesCorrectResult()
+        {
+            // 100 leading zeros followed by 0x42
+            var input = new byte[101];
+            input[100] = 0x42;
+            var buffer = new byte[10];
+
+            var written = Mpi.Write(input, buffer);
+
+            Assert.Equal(3, written); // 2 header + 1 data
+            Assert.Equal(0, buffer[0]); // High byte of bit count
+            Assert.Equal(7, buffer[1]); // 0x42 has 7 significant bits
+            Assert.Equal(0x42, buffer[2]);
+        }
+    }
 }

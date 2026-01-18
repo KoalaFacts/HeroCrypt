@@ -358,7 +358,7 @@ public readonly struct PgpCompressedDataPacket : IEquatable<PgpCompressedDataPac
 
         if (expectedAdler != actualAdler)
         {
-            throw new InvalidDataException($"Zlib checksum mismatch. Expected 0x{expectedAdler:X8}, got 0x{actualAdler:X8}.");
+            throw new InvalidDataException("Zlib checksum mismatch.");
         }
 
         return decompressed;

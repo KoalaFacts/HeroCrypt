@@ -1,6 +1,8 @@
 using System.Buffers.Binary;
 using System.Globalization;
 using System.Numerics;
+using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using HeroCrypt.Primitives.S2K;
 
 namespace HeroCrypt.Primitives.OpenPgp;
@@ -64,6 +66,40 @@ public enum PgpS2KUsage : byte
 /// </remarks>
 public readonly struct PgpS2KSpecifier
 {
+    /// <summary>
+    /// Minimum allowed memory exponent for Argon2 (2^16 KB = 64 MB).
+    /// </summary>
+    /// <remarks>
+    /// RFC 9580 Section 3.7.1.4 requires the memory exponent to be within [3, 31].
+    /// Values below 16 (64 MB) are considered too weak for modern security.
+    /// </remarks>
+    public const byte MinArgon2MemoryExponent = 3;
+
+    /// <summary>
+    /// Maximum allowed memory exponent for Argon2 (2^31 KB).
+    /// </summary>
+    public const byte MaxArgon2MemoryExponent = 31;
+
+    /// <summary>
+    /// Minimum allowed passes (iterations) for Argon2.
+    /// </summary>
+    public const byte MinArgon2Passes = 1;
+
+    /// <summary>
+    /// Maximum allowed passes (iterations) for Argon2.
+    /// </summary>
+    public const byte MaxArgon2Passes = 255;
+
+    /// <summary>
+    /// Minimum allowed parallelism for Argon2.
+    /// </summary>
+    public const byte MinArgon2Parallelism = 1;
+
+    /// <summary>
+    /// Maximum allowed parallelism for Argon2.
+    /// </summary>
+    public const byte MaxArgon2Parallelism = 255;
+
     /// <summary>
     /// Gets the S2K type.
     /// </summary>
@@ -141,6 +177,69 @@ public readonly struct PgpS2KSpecifier
     }
 
     /// <summary>
+    /// Creates an Argon2 S2K specifier (recommended for modern use).
+    /// </summary>
+    /// <param name="hashAlgorithm">The hash algorithm ID.</param>
+    /// <param name="salt">The 16-byte salt.</param>
+    /// <param name="passes">Number of passes (iterations). Must be at least 1.</param>
+    /// <param name="parallelism">Degree of parallelism. Must be at least 1.</param>
+    /// <param name="memoryExponent">Memory exponent (memory = 2^exponent KB). Must be in [3, 31].</param>
+    /// <returns>A new Argon2 S2K specifier.</returns>
+    /// <exception cref="ArgumentException">If parameters are invalid.</exception>
+    public static PgpS2KSpecifier CreateArgon2(
+        byte hashAlgorithm,
+        ReadOnlySpan<byte> salt,
+        byte passes,
+        byte parallelism,
+        byte memoryExponent)
+    {
+        if (salt.Length != 16)
+        {
+            throw new ArgumentException("Argon2 salt must be 16 bytes.", nameof(salt));
+        }
+
+        ValidateArgon2Parameters(passes, parallelism, memoryExponent);
+
+        return new PgpS2KSpecifier(
+            S2KType.Argon2,
+            hashAlgorithm,
+            salt.ToArray(),
+            0,
+            (passes, parallelism, memoryExponent));
+    }
+
+    /// <summary>
+    /// Validates Argon2 parameters according to RFC 9580 Section 3.7.1.4.
+    /// </summary>
+    /// <param name="passes">Number of passes (iterations).</param>
+    /// <param name="parallelism">Degree of parallelism.</param>
+    /// <param name="memoryExponent">Memory exponent.</param>
+    /// <exception cref="ArgumentOutOfRangeException">If any parameter is out of valid range.</exception>
+    public static void ValidateArgon2Parameters(byte passes, byte parallelism, byte memoryExponent)
+    {
+        if (memoryExponent < MinArgon2MemoryExponent || memoryExponent > MaxArgon2MemoryExponent)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(memoryExponent),
+                $"Memory exponent must be between {MinArgon2MemoryExponent} and {MaxArgon2MemoryExponent}.");
+        }
+
+        if (passes < MinArgon2Passes)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(passes),
+                $"Passes must be at least {MinArgon2Passes}.");
+        }
+
+        if (parallelism < MinArgon2Parallelism)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(parallelism),
+                $"Parallelism must be at least {MinArgon2Parallelism}.");
+        }
+    }
+
+    /// <summary>
     /// Reads an S2K specifier from a span.
     /// </summary>
     /// <param name="source">The source span.</param>
@@ -208,19 +307,43 @@ public readonly struct PgpS2KSpecifier
                 return true;
 
             case S2KType.Argon2:
-                if (source.Length < 20)
+                if (source.Length < 21)
                 {
                     error = "Source too short for Argon2 S2K specifier.";
                     return false;
                 }
 
-                bytesConsumed = 20;
+                // Validate Argon2 parameters per RFC 9580 Section 3.7.1.4
+                // Format: type(1) + hash(1) + salt(16) + memExp(1) + passes(1) + parallelism(1) = 21 bytes
+                byte memoryExponent = source[18];
+                byte passes = source[19];
+                byte parallelism = source[20];
+
+                if (memoryExponent < MinArgon2MemoryExponent || memoryExponent > MaxArgon2MemoryExponent)
+                {
+                    error = "Invalid Argon2 memory exponent.";
+                    return false;
+                }
+
+                if (passes < MinArgon2Passes)
+                {
+                    error = "Invalid Argon2 passes parameter.";
+                    return false;
+                }
+
+                if (parallelism < MinArgon2Parallelism)
+                {
+                    error = "Invalid Argon2 parallelism parameter.";
+                    return false;
+                }
+
+                bytesConsumed = 21;
                 specifier = new PgpS2KSpecifier(
                     type,
                     hashAlgorithm,
                     source.Slice(2, 16).ToArray(),
                     0,
-                    (source[18], source[19], source[17]));
+                    (passes, parallelism, memoryExponent));
                 return true;
 
             default:
@@ -239,7 +362,7 @@ public readonly struct PgpS2KSpecifier
             S2KType.Simple => 2,
             S2KType.Salted => 10,
             S2KType.IteratedAndSalted => 11,
-            S2KType.Argon2 => 20,
+            S2KType.Argon2 => 21, // type(1) + hash(1) + salt(16) + memExp(1) + passes(1) + parallelism(1)
             _ => 2
         };
     }
@@ -280,9 +403,9 @@ public readonly struct PgpS2KSpecifier
                 if (Argon2Params.HasValue)
                 {
                     Salt.Span.CopyTo(destination.Slice(2, 16));
-                    destination[17] = Argon2Params.Value.MemoryExponent;
-                    destination[18] = Argon2Params.Value.Passes;
-                    destination[19] = Argon2Params.Value.Parallelism;
+                    destination[18] = Argon2Params.Value.MemoryExponent;
+                    destination[19] = Argon2Params.Value.Passes;
+                    destination[20] = Argon2Params.Value.Parallelism;
                 }
                 break;
 
@@ -305,6 +428,27 @@ public readonly struct PgpS2KSpecifier
         }
 
         return S2KCore.DecodeIterationCount(EncodedCount);
+    }
+
+    /// <summary>
+    /// Securely clears the salt from memory.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This method zeros out the S2K salt to prevent sensitive data from lingering in memory.
+    /// </para>
+    /// </remarks>
+    public void ClearSensitiveData()
+    {
+        if (Salt.IsEmpty)
+        {
+            return;
+        }
+
+        if (MemoryMarshal.TryGetArray(Salt, out ArraySegment<byte> segment) && segment.Array != null)
+        {
+            SecureMemoryClear.Clear(segment.Array.AsSpan(segment.Offset, segment.Count));
+        }
     }
 }
 
@@ -573,9 +717,9 @@ public readonly struct PgpSecretKeyPacket
                 actualChecksum = (ushort)((actualChecksum + b) & 0xFFFF);
             }
 
-            if (actualChecksum != expectedChecksum)
+            if (!SecureMemoryClear.ConstantTimeEquals(actualChecksum, expectedChecksum))
             {
-                error = $"Secret key checksum mismatch. Expected {expectedChecksum:X4}, got {actualChecksum:X4}.";
+                error = "Secret key checksum mismatch.";
                 return false;
             }
 
@@ -674,9 +818,9 @@ public readonly struct PgpSecretKeyPacket
                 actualChecksum = (ushort)((actualChecksum + b) & 0xFFFF);
             }
 
-            if (actualChecksum != expectedChecksum)
+            if (!SecureMemoryClear.ConstantTimeEquals(actualChecksum, expectedChecksum))
             {
-                error = $"Secret key checksum mismatch. Expected {expectedChecksum:X4}, got {actualChecksum:X4}.";
+                error = "Secret key checksum mismatch.";
                 return false;
             }
 
@@ -1062,5 +1206,161 @@ public readonly struct PgpSecretKeyPacket
         var encStatus = IsEncrypted ? "encrypted" : "unencrypted";
         var fingerprint = Convert.ToHexString(GetKeyId());
         return $"Secret{keyType}(v{Version}, {Algorithm}, {CreationTime.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}, {encStatus}, ID:{fingerprint})";
+    }
+
+    /// <summary>
+    /// Securely clears all sensitive data from memory.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This method zeros out the secret key material, IV, and S2K salt to prevent
+    /// sensitive data from lingering in memory. On modern .NET platforms, this uses
+    /// CryptographicOperations.ZeroMemory for secure clearing.
+    /// </para>
+    /// <para>
+    /// <b>Security Note:</b> Since this is a value type (struct), any copies made
+    /// before calling this method will still contain the original data. To ensure
+    /// complete cleanup:
+    /// <list type="bullet">
+    ///   <item>Call this method on all copies of the struct</item>
+    ///   <item>Avoid copying the struct after use</item>
+    ///   <item>Consider using <see langword="ref"/> parameters when passing the struct</item>
+    /// </list>
+    /// </para>
+    /// <para>
+    /// <b>Important:</b> This method only clears the memory if the underlying
+    /// <see cref="ReadOnlyMemory{T}"/> is backed by an array. Memory from other
+    /// sources (e.g., native memory) may not be cleared.
+    /// </para>
+    /// </remarks>
+    public void ClearSensitiveData()
+    {
+        ClearMemory(SecretKeyMaterial);
+        ClearMemory(IV);
+
+        if (S2KSpecifier.HasValue)
+        {
+            ClearMemory(S2KSpecifier.Value.Salt);
+        }
+    }
+
+    /// <summary>
+    /// Clears the contents of a <see cref="ReadOnlyMemory{T}"/> if it is backed by an array.
+    /// </summary>
+    /// <param name="memory">The memory to clear.</param>
+    private static void ClearMemory(ReadOnlyMemory<byte> memory)
+    {
+        if (memory.IsEmpty)
+        {
+            return;
+        }
+
+        if (MemoryMarshal.TryGetArray(memory, out ArraySegment<byte> segment) && segment.Array != null)
+        {
+            SecureMemoryClear.Clear(segment.Array.AsSpan(segment.Offset, segment.Count));
+        }
+    }
+}
+
+/// <summary>
+/// Provides secure memory clearing functionality across all target frameworks.
+/// </summary>
+internal static class SecureMemoryClear
+{
+    /// <summary>
+    /// Securely clears the specified span of bytes.
+    /// </summary>
+    /// <param name="buffer">The buffer to clear.</param>
+    /// <remarks>
+    /// <para>
+    /// On .NET 5+ and .NET Core 3.0+, this uses CryptographicOperations.ZeroMemory.
+    /// On older frameworks, it uses a fallback implementation with volatile writes to prevent
+    /// compiler optimizations from removing the clearing operation.
+    /// </para>
+    /// </remarks>
+    public static void Clear(Span<byte> buffer)
+    {
+        if (buffer.IsEmpty)
+        {
+            return;
+        }
+
+#if NET5_0_OR_GREATER || NETCOREAPP3_0_OR_GREATER
+        CryptographicOperations.ZeroMemory(buffer);
+#else
+        // Fallback for netstandard2.0: use volatile write to prevent optimization
+        ClearFallback(buffer);
+#endif
+    }
+
+#if !NET5_0_OR_GREATER && !NETCOREAPP3_0_OR_GREATER
+    /// <summary>
+    /// Fallback secure clear implementation for older frameworks.
+    /// Uses volatile write pattern to prevent compiler optimization.
+    /// </summary>
+    private static void ClearFallback(Span<byte> buffer)
+    {
+        // Clear the buffer
+        buffer.Clear();
+
+        // Use volatile read to prevent the clear from being optimized away
+        // This creates a memory barrier that prevents reordering
+        if (buffer.Length > 0)
+        {
+            Volatile.Read(ref buffer[0]);
+        }
+    }
+#endif
+
+    /// <summary>
+    /// Compares two unsigned 16-bit integers in constant time.
+    /// </summary>
+    /// <param name="a">The first value.</param>
+    /// <param name="b">The second value.</param>
+    /// <returns>True if the values are equal; otherwise, false.</returns>
+    /// <remarks>
+    /// This method prevents timing attacks by ensuring the comparison takes
+    /// the same amount of time regardless of the values being compared.
+    /// </remarks>
+    public static bool ConstantTimeEquals(ushort a, ushort b)
+    {
+        // XOR the values - result is 0 only if equal
+        // Then use bitwise operations to check for zero in constant time
+        uint diff = (uint)(a ^ b);
+
+        // Propagate any set bit to all lower bits, then check lowest bit
+        // This avoids branching on the comparison result
+        diff |= diff >> 8;
+        diff |= diff >> 4;
+        diff |= diff >> 2;
+        diff |= diff >> 1;
+
+        return (diff & 1) == 0;
+    }
+
+    /// <summary>
+    /// Compares two byte spans in constant time.
+    /// </summary>
+    /// <param name="left">The first span.</param>
+    /// <param name="right">The second span.</param>
+    /// <returns>True if the spans are equal; otherwise, false.</returns>
+    public static bool ConstantTimeEquals(ReadOnlySpan<byte> left, ReadOnlySpan<byte> right)
+    {
+#if NET5_0_OR_GREATER || NETCOREAPP3_0_OR_GREATER
+        return CryptographicOperations.FixedTimeEquals(left, right);
+#else
+        if (left.Length != right.Length)
+        {
+            return false;
+        }
+
+        int diff = 0;
+        for (int i = 0; i < left.Length; i++)
+        {
+            diff |= left[i] ^ right[i];
+        }
+
+        return diff == 0;
+#endif
     }
 }

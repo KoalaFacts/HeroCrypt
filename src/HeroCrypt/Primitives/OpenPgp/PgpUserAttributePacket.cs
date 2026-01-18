@@ -65,6 +65,7 @@ public readonly struct PgpUserAttributePacket : IEquatable<PgpUserAttributePacke
     /// <param name="imageData">The image data.</param>
     /// <param name="encoding">The image encoding.</param>
     /// <returns>A new User Attribute packet.</returns>
+    /// <exception cref="ArgumentException">If the image data is too large.</exception>
     public static PgpUserAttributePacket CreateWithImage(ReadOnlySpan<byte> imageData, PgpImageEncoding encoding)
     {
         // Image attribute subpacket format:
@@ -75,6 +76,13 @@ public readonly struct PgpUserAttributePacket : IEquatable<PgpUserAttributePacke
         // - Image data
 
         const int imageHeaderLength = 16;
+
+        // Check for overflow before calculation
+        if (imageData.Length > int.MaxValue - imageHeaderLength - 6) // 6 = max length encoding (5) + type byte (1)
+        {
+            throw new ArgumentException("Image data is too large.", nameof(imageData));
+        }
+
         int subpacketDataLength = imageHeaderLength + imageData.Length;
 
         // Calculate subpacket length encoding
@@ -420,7 +428,14 @@ public readonly struct PgpUserAttributePacket : IEquatable<PgpUserAttributePacke
                 return false;
             }
 
-            length = (int)BinaryPrimitives.ReadUInt32BigEndian(source.Slice(1));
+            uint lengthU = BinaryPrimitives.ReadUInt32BigEndian(source.Slice(1));
+            if (lengthU > int.MaxValue)
+            {
+                // Length exceeds maximum supported size
+                return false;
+            }
+
+            length = (int)lengthU;
             bytesRead = 5;
             return true;
         }

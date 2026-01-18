@@ -170,7 +170,7 @@ public readonly struct PgpLiteralDataPacket : IEquatable<PgpLiteralDataPacket>
 
         if (source.Length < headerLength)
         {
-            error = $"Source too short for literal data packet. Expected at least {headerLength} bytes, got {source.Length}.";
+            error = "Source too short for literal data packet header.";
             return false;
         }
 

@@ -231,6 +231,60 @@ public class PgpSignaturePacketTests
 
             Assert.Contains("critical", str);
         }
+
+        [Fact]
+        public void TryRead_FiveByteLength_MaxValue_ReturnsFalse()
+        {
+            // Five-byte length with value > int.MaxValue (high bit set)
+            // Format: 0xFF followed by 4 bytes of length
+            var source = new byte[]
+            {
+                0xFF,       // Five-byte length indicator
+                0x80, 0x00, 0x00, 0x01,  // Length = 0x80000001 (> int.MaxValue)
+                0x02,       // Type byte
+            };
+
+            var result = PgpSignatureSubpacket.TryRead(source, out _, out _, out var error);
+
+            Assert.False(result);
+            Assert.Contains("exceeds maximum", error);
+        }
+
+        [Fact]
+        public void TryRead_FiveByteLength_ValidLargeValue_ReturnsCorrectError()
+        {
+            // Five-byte length with a large but valid value (< int.MaxValue)
+            // This will fail due to source being too short, not overflow
+            var source = new byte[]
+            {
+                0xFF,       // Five-byte length indicator
+                0x00, 0x00, 0x10, 0x00,  // Length = 4096
+                0x02,       // Type byte (1 byte of 4096 expected)
+            };
+
+            var result = PgpSignatureSubpacket.TryRead(source, out _, out _, out var error);
+
+            Assert.False(result);
+            Assert.Contains("too short", error); // Should fail for being too short, not overflow
+        }
+
+        [Fact]
+        public void TryRead_OverflowInTotalLength_ReturnsFalse()
+        {
+            // Create a subpacket that would overflow when calculating totalLength = lengthBytes + length
+            // Five-byte length with value near int.MaxValue
+            var source = new byte[]
+            {
+                0xFF,       // Five-byte length indicator
+                0x7F, 0xFF, 0xFF, 0xFB,  // Length = int.MaxValue - 4 (would overflow with lengthBytes = 5)
+                0x02,       // Type byte
+            };
+
+            var result = PgpSignatureSubpacket.TryRead(source, out _, out _, out var error);
+
+            Assert.False(result);
+            Assert.Contains("overflow", error);
+        }
     }
 
     /// <summary>
@@ -276,6 +330,7 @@ public class PgpSignaturePacketTests
         [Fact]
         public void Constructor_Version6_Succeeds()
         {
+            var salt = TestHelpers.RandomBytes(32);
             var packet = new PgpSignaturePacket(
                 version: 6,
                 PgpSignatureType.BinaryDocument,
@@ -284,9 +339,11 @@ public class PgpSignaturePacketTests
                 hashedSubpackets: [],
                 unhashedSubpackets: [],
                 hashPrefix: 0xABCD,
-                signatureData: new byte[64]);
+                signatureData: new byte[64],
+                salt: salt);
 
             Assert.Equal(6, packet.Version);
+            Assert.Equal(salt, packet.Salt.ToArray());
         }
     }
 
@@ -362,6 +419,7 @@ public class PgpSignaturePacketTests
         public void RoundTrip_V6_PreservesData()
         {
             var signatureData = TestHelpers.RandomBytes(64);
+            var salt = TestHelpers.RandomBytes(32); // SHA3-256 uses 32-byte salt
             var original = new PgpSignaturePacket(
                 version: 6,
                 PgpSignatureType.BinaryDocument,
@@ -373,13 +431,15 @@ public class PgpSignaturePacketTests
                 ],
                 unhashedSubpackets: [],
                 hashPrefix: 0xDEAD,
-                signatureData: signatureData);
+                signatureData: signatureData,
+                salt: salt);
 
             var encoded = original.ToArray();
             var decoded = PgpSignaturePacket.Read(encoded);
 
             Assert.Equal(6, decoded.Version);
             Assert.Equal(signatureData, decoded.SignatureData.ToArray());
+            Assert.Equal(salt, decoded.Salt.ToArray());
         }
 
         [Fact]
@@ -959,6 +1019,212 @@ public class PgpSignaturePacketTests
             Assert.True(combined.HasFlag(PgpKeyCapabilities.Certify));
             Assert.True(combined.HasFlag(PgpKeyCapabilities.Authentication));
             Assert.False(combined.HasFlag(PgpKeyCapabilities.EncryptCommunications));
+        }
+    }
+
+    /// <summary>
+    /// V6 signature salt handling tests per RFC 9580.
+    /// </summary>
+    [Trait("Category", TestCategories.UNIT)]
+    [Trait("Category", TestCategories.FAST)]
+    public class V6SaltHandlingTests
+    {
+        [Fact]
+        public void CreateV6_WithSalt_SetsSaltProperty()
+        {
+            var salt = TestHelpers.RandomBytes(32);
+
+            var packet = PgpSignaturePacket.CreateV6(
+                PgpSignatureType.BinaryDocument,
+                publicKeyAlgorithm: 27, // Ed25519
+                hashAlgorithm: 8, // SHA-256
+                hashedSubpackets: [],
+                unhashedSubpackets: [],
+                hashPrefix: 0x1234,
+                salt: salt,
+                signatureData: new byte[64]);
+
+            Assert.Equal(6, packet.Version);
+            Assert.Equal(salt, packet.Salt.ToArray());
+        }
+
+        [Fact]
+        public void CreateV6_WithoutSalt_ThrowsArgumentException()
+        {
+            Assert.Throws<ArgumentException>(() => new PgpSignaturePacket(
+                version: 6,
+                PgpSignatureType.BinaryDocument,
+                publicKeyAlgorithm: 27,
+                hashAlgorithm: 8,
+                hashedSubpackets: [],
+                unhashedSubpackets: [],
+                hashPrefix: 0x1234,
+                signatureData: new byte[64],
+                salt: default));
+        }
+
+        [Fact]
+        public void V4Packet_HasEmptySalt()
+        {
+            var packet = PgpSignaturePacket.CreateV4(
+                PgpSignatureType.BinaryDocument,
+                publicKeyAlgorithm: 1,
+                hashAlgorithm: 8,
+                hashedSubpackets: [],
+                unhashedSubpackets: [],
+                hashPrefix: 0,
+                signatureData: new byte[128]);
+
+            Assert.True(packet.Salt.IsEmpty);
+        }
+
+        [Fact]
+        public void RoundTrip_V6_PreservesSalt()
+        {
+            var salt = TestHelpers.RandomBytes(32);
+            var signatureData = TestHelpers.RandomBytes(64);
+
+            var original = PgpSignaturePacket.CreateV6(
+                PgpSignatureType.BinaryDocument,
+                publicKeyAlgorithm: 27,
+                hashAlgorithm: 8,
+                hashedSubpackets:
+                [
+                    PgpSignatureSubpacket.CreateSignatureCreationTime(DateTimeOffset.UtcNow),
+                ],
+                unhashedSubpackets: [],
+                hashPrefix: 0xABCD,
+                salt: salt,
+                signatureData: signatureData);
+
+            var encoded = original.ToArray();
+            var decoded = PgpSignaturePacket.Read(encoded);
+
+            Assert.Equal(6, decoded.Version);
+            Assert.Equal(salt, decoded.Salt.ToArray());
+            Assert.Equal(signatureData, decoded.SignatureData.ToArray());
+            Assert.Equal(0xABCD, decoded.HashPrefix);
+        }
+
+        [Fact]
+        public void GetExpectedSaltLength_SHA256_Returns32()
+        {
+            Assert.Equal(32, PgpSignaturePacket.GetExpectedSaltLength(8));
+        }
+
+        [Fact]
+        public void GetExpectedSaltLength_SHA512_Returns64()
+        {
+            Assert.Equal(64, PgpSignaturePacket.GetExpectedSaltLength(10));
+        }
+
+        [Fact]
+        public void GetExpectedSaltLength_SHA384_Returns48()
+        {
+            Assert.Equal(48, PgpSignaturePacket.GetExpectedSaltLength(9));
+        }
+
+        [Fact]
+        public void GetExpectedSaltLength_Unknown_Returns32()
+        {
+            Assert.Equal(32, PgpSignaturePacket.GetExpectedSaltLength(255));
+        }
+
+        [Fact]
+        public void GetEncodedLength_V6_IncludesSalt()
+        {
+            var salt = TestHelpers.RandomBytes(32);
+            var sigData = new byte[64];
+
+            var packet = PgpSignaturePacket.CreateV6(
+                PgpSignatureType.BinaryDocument,
+                publicKeyAlgorithm: 27,
+                hashAlgorithm: 8,
+                hashedSubpackets: [],
+                unhashedSubpackets: [],
+                hashPrefix: 0,
+                salt: salt,
+                signatureData: sigData);
+
+            var expectedLength = packet.GetEncodedLength();
+            var actual = packet.ToArray();
+
+            Assert.Equal(expectedLength, actual.Length);
+            // Verify salt length byte and salt are in the encoded data
+            // Format: version(1) + sigtype(1) + pubalg(1) + hashalg(1) + hashedlen(4) + unhashedlen(4) + hash16(2) + saltlen(1) + salt(32) + sig(64)
+            // = 1 + 1 + 1 + 1 + 4 + 4 + 2 + 1 + 32 + 64 = 111
+            Assert.Equal(111, actual.Length);
+        }
+
+        [Fact]
+        public void TryRead_V6_MissingSalt_ReturnsFalse()
+        {
+            // Create minimal V6 packet data without salt
+            var source = new byte[]
+            {
+                6,       // Version
+                0x00,    // Signature type
+                27,      // Public key algorithm
+                8,       // Hash algorithm
+                0, 0, 0, 0,  // Hashed subpacket length (0)
+                0, 0, 0, 0,  // Unhashed subpacket length (0)
+                0xAB, 0xCD,  // Hash prefix
+                // Missing salt length and salt
+            };
+
+            var result = PgpSignaturePacket.TryRead(source, out _, out var error);
+
+            Assert.False(result);
+            Assert.Contains("salt", error.ToLower());
+        }
+
+        [Fact]
+        public void TryRead_V6_TruncatedSalt_ReturnsFalse()
+        {
+            // Create V6 packet data with salt length but truncated salt
+            var source = new byte[]
+            {
+                6,       // Version
+                0x00,    // Signature type
+                27,      // Public key algorithm
+                8,       // Hash algorithm
+                0, 0, 0, 0,  // Hashed subpacket length (0)
+                0, 0, 0, 0,  // Unhashed subpacket length (0)
+                0xAB, 0xCD,  // Hash prefix
+                32,      // Salt length (32 bytes)
+                0x01, 0x02, 0x03,  // Only 3 bytes of salt (truncated)
+            };
+
+            var result = PgpSignaturePacket.TryRead(source, out _, out var error);
+
+            Assert.False(result);
+            Assert.Contains("salt", error.ToLower());
+        }
+
+        [Fact]
+        public void RoundTrip_V6_DifferentSaltLengths_Succeed()
+        {
+            var saltLengths = new[] { 16, 20, 28, 32, 48, 64 };
+
+            foreach (var saltLength in saltLengths)
+            {
+                var salt = TestHelpers.RandomBytes(saltLength);
+
+                var original = PgpSignaturePacket.CreateV6(
+                    PgpSignatureType.BinaryDocument,
+                    publicKeyAlgorithm: 27,
+                    hashAlgorithm: 8,
+                    hashedSubpackets: [],
+                    unhashedSubpackets: [],
+                    hashPrefix: 0,
+                    salt: salt,
+                    signatureData: new byte[64]);
+
+                var encoded = original.ToArray();
+                var decoded = PgpSignaturePacket.Read(encoded);
+
+                Assert.Equal(salt, decoded.Salt.ToArray());
+            }
         }
     }
 

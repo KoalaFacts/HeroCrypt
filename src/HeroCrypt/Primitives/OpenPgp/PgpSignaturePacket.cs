@@ -71,6 +71,18 @@ public readonly struct PgpSignaturePacket
     public ReadOnlyMemory<byte> SignatureData { get; }
 
     /// <summary>
+    /// Gets the salt for V6 signatures (RFC 9580).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The salt is included in the hash computation and helps prevent attacks
+    /// that depend on the ability to predict the signature. The salt length
+    /// depends on the hash algorithm used.
+    /// </para>
+    /// </remarks>
+    public ReadOnlyMemory<byte> Salt { get; }
+
+    /// <summary>
     /// Initializes a new signature packet.
     /// </summary>
     /// <param name="version">The signature version.</param>
@@ -81,6 +93,7 @@ public readonly struct PgpSignaturePacket
     /// <param name="unhashedSubpackets">The unhashed subpackets.</param>
     /// <param name="hashPrefix">The left 16 bits of the signed hash.</param>
     /// <param name="signatureData">The signature data.</param>
+    /// <param name="salt">The salt for V6 signatures (RFC 9580). Required for V6, ignored for V4.</param>
     public PgpSignaturePacket(
         byte version,
         PgpSignatureType signatureType,
@@ -89,11 +102,17 @@ public readonly struct PgpSignaturePacket
         IReadOnlyList<PgpSignatureSubpacket> hashedSubpackets,
         IReadOnlyList<PgpSignatureSubpacket> unhashedSubpackets,
         ushort hashPrefix,
-        ReadOnlyMemory<byte> signatureData)
+        ReadOnlyMemory<byte> signatureData,
+        ReadOnlyMemory<byte> salt = default)
     {
         if (version != 4 && version != 6)
         {
             throw new ArgumentException("Only signature versions 4 and 6 are supported.", nameof(version));
+        }
+
+        if (version == 6 && salt.IsEmpty)
+        {
+            throw new ArgumentException("V6 signatures require a salt.", nameof(salt));
         }
 
         Version = version;
@@ -104,6 +123,7 @@ public readonly struct PgpSignaturePacket
         UnhashedSubpackets = unhashedSubpackets ?? [];
         HashPrefix = hashPrefix;
         SignatureData = signatureData;
+        Salt = version == 6 ? salt : ReadOnlyMemory<byte>.Empty;
     }
 
     /// <summary>
@@ -135,6 +155,65 @@ public readonly struct PgpSignaturePacket
             unhashedSubpackets ?? [],
             hashPrefix,
             signatureData);
+    }
+
+    /// <summary>
+    /// Creates a version 6 signature packet (RFC 9580).
+    /// </summary>
+    /// <param name="signatureType">The signature type.</param>
+    /// <param name="publicKeyAlgorithm">The public-key algorithm ID.</param>
+    /// <param name="hashAlgorithm">The hash algorithm ID.</param>
+    /// <param name="hashedSubpackets">The hashed subpackets.</param>
+    /// <param name="unhashedSubpackets">The unhashed subpackets.</param>
+    /// <param name="hashPrefix">The left 16 bits of the signed hash.</param>
+    /// <param name="salt">The salt (length depends on hash algorithm).</param>
+    /// <param name="signatureData">The signature data.</param>
+    /// <returns>A new version 6 signature packet.</returns>
+    public static PgpSignaturePacket CreateV6(
+        PgpSignatureType signatureType,
+        byte publicKeyAlgorithm,
+        byte hashAlgorithm,
+        IReadOnlyList<PgpSignatureSubpacket> hashedSubpackets,
+        IReadOnlyList<PgpSignatureSubpacket>? unhashedSubpackets,
+        ushort hashPrefix,
+        ReadOnlyMemory<byte> salt,
+        ReadOnlyMemory<byte> signatureData)
+    {
+        return new PgpSignaturePacket(
+            version: 6,
+            signatureType,
+            publicKeyAlgorithm,
+            hashAlgorithm,
+            hashedSubpackets,
+            unhashedSubpackets ?? [],
+            hashPrefix,
+            signatureData,
+            salt);
+    }
+
+    /// <summary>
+    /// Gets the expected salt length for a given hash algorithm per RFC 9580.
+    /// </summary>
+    /// <param name="hashAlgorithm">The hash algorithm ID.</param>
+    /// <returns>The expected salt length in bytes.</returns>
+    public static int GetExpectedSaltLength(byte hashAlgorithm)
+    {
+        // Per RFC 9580 Section 5.2.3:
+        // The salt SHOULD be the digest output size of the hash algorithm.
+        // Common algorithms and their output sizes:
+        return hashAlgorithm switch
+        {
+            1 => 16,   // MD5 (deprecated, but included for completeness)
+            2 => 20,   // SHA-1 (deprecated)
+            3 => 20,   // RIPE-MD/160
+            8 => 32,   // SHA-256
+            9 => 48,   // SHA-384
+            10 => 64,  // SHA-512
+            11 => 28,  // SHA-224
+            12 => 32,  // SHA3-256
+            14 => 64,  // SHA3-512
+            _ => 32,   // Default to 32 bytes for unknown algorithms
+        };
     }
 
     /// <summary>
@@ -352,8 +431,26 @@ public readonly struct PgpSignaturePacket
         ushort hashPrefix = BinaryPrimitives.ReadUInt16BigEndian(source.Slice(offset));
         offset += 2;
 
-        // In v6, there's a salt before signature data for some algorithms
-        // For simplicity, we treat all remaining data as signature data
+        // In v6, read the salt length and salt before signature data
+        // Per RFC 9580 Section 5.2.3
+        if (source.Length < offset + 1)
+        {
+            error = "Source too short for salt length.";
+            return false;
+        }
+
+        byte saltLength = source[offset++];
+
+        if (source.Length < offset + saltLength)
+        {
+            error = $"Source too short for salt. Need {saltLength} bytes.";
+            return false;
+        }
+
+        var salt = source.Slice(offset, saltLength).ToArray();
+        offset += saltLength;
+
+        // Remaining data is signature
         var signatureData = source.Slice(offset).ToArray();
 
         packet = new PgpSignaturePacket(
@@ -364,7 +461,8 @@ public readonly struct PgpSignaturePacket
             hashedSubpackets,
             unhashedSubpackets,
             hashPrefix,
-            signatureData);
+            signatureData,
+            salt);
 
         return true;
     }
@@ -385,8 +483,8 @@ public readonly struct PgpSignaturePacket
         }
         else
         {
-            // V6: version(1) + sigtype(1) + pubalg(1) + hashalg(1) + hashedlen(4) + hashed + unhashedlen(4) + unhashed + hash16(2) + sig
-            return 1 + 1 + 1 + 1 + 4 + hashedSubpacketData.Length + 4 + unhashedSubpacketData.Length + 2 + SignatureData.Length;
+            // V6: version(1) + sigtype(1) + pubalg(1) + hashalg(1) + hashedlen(4) + hashed + unhashedlen(4) + unhashed + hash16(2) + saltlen(1) + salt + sig
+            return 1 + 1 + 1 + 1 + 4 + hashedSubpacketData.Length + 4 + unhashedSubpacketData.Length + 2 + 1 + Salt.Length + SignatureData.Length;
         }
     }
 
@@ -448,6 +546,14 @@ public readonly struct PgpSignaturePacket
         // Write hash prefix
         BinaryPrimitives.WriteUInt16BigEndian(destination.Slice(offset), HashPrefix);
         offset += 2;
+
+        // For V6, write salt length and salt
+        if (Version == 6)
+        {
+            destination[offset++] = (byte)Salt.Length;
+            Salt.Span.CopyTo(destination.Slice(offset));
+            offset += Salt.Length;
+        }
 
         // Write signature data
         SignatureData.Span.CopyTo(destination.Slice(offset));

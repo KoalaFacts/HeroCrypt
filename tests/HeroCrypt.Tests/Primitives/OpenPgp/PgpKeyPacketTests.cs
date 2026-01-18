@@ -519,6 +519,147 @@ public class PgpKeyPacketTests
             Assert.False(success);
             Assert.Contains("too short", error);
         }
+
+        [Fact]
+        public void CreateArgon2_ValidParameters_Succeeds()
+        {
+            var salt = TestHelpers.RandomBytes(16);
+
+            var spec = PgpS2KSpecifier.CreateArgon2(8, salt, passes: 3, parallelism: 4, memoryExponent: 16);
+
+            Assert.Equal(S2KType.Argon2, spec.Type);
+            Assert.Equal(8, spec.HashAlgorithm);
+            Assert.Equal(salt, spec.Salt.ToArray());
+            Assert.NotNull(spec.Argon2Params);
+            Assert.Equal(3, spec.Argon2Params.Value.Passes);
+            Assert.Equal(4, spec.Argon2Params.Value.Parallelism);
+            Assert.Equal(16, spec.Argon2Params.Value.MemoryExponent);
+        }
+
+        [Fact]
+        public void CreateArgon2_InvalidSaltLength_ThrowsArgumentException()
+        {
+            var salt = TestHelpers.RandomBytes(8); // Should be 16
+
+            Assert.Throws<ArgumentException>(() =>
+                PgpS2KSpecifier.CreateArgon2(8, salt, passes: 3, parallelism: 4, memoryExponent: 16));
+        }
+
+        [Fact]
+        public void CreateArgon2_MemoryExponentTooLow_ThrowsArgumentOutOfRangeException()
+        {
+            var salt = TestHelpers.RandomBytes(16);
+
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                PgpS2KSpecifier.CreateArgon2(8, salt, passes: 3, parallelism: 4, memoryExponent: 2));
+        }
+
+        [Fact]
+        public void CreateArgon2_MemoryExponentTooHigh_ThrowsArgumentOutOfRangeException()
+        {
+            var salt = TestHelpers.RandomBytes(16);
+
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                PgpS2KSpecifier.CreateArgon2(8, salt, passes: 3, parallelism: 4, memoryExponent: 32));
+        }
+
+        [Fact]
+        public void CreateArgon2_PassesZero_ThrowsArgumentOutOfRangeException()
+        {
+            var salt = TestHelpers.RandomBytes(16);
+
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                PgpS2KSpecifier.CreateArgon2(8, salt, passes: 0, parallelism: 4, memoryExponent: 16));
+        }
+
+        [Fact]
+        public void CreateArgon2_ParallelismZero_ThrowsArgumentOutOfRangeException()
+        {
+            var salt = TestHelpers.RandomBytes(16);
+
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                PgpS2KSpecifier.CreateArgon2(8, salt, passes: 3, parallelism: 0, memoryExponent: 16));
+        }
+
+        [Fact]
+        public void TryRead_Argon2_InvalidMemoryExponent_ReturnsFalse()
+        {
+            // Argon2 S2K: type(1) + hash(1) + salt(16) + memoryExponent(1) + passes(1) + parallelism(1) = 21 bytes
+            // Type 4 = Argon2
+            var data = new byte[21];
+            data[0] = 4; // Argon2 type
+            data[1] = 8; // Hash algorithm
+            // salt is 16 bytes at indices 2-17
+            data[18] = 2; // Invalid memory exponent (< 3)
+            data[19] = 3; // Passes
+            data[20] = 4; // Parallelism
+
+            var success = PgpS2KSpecifier.TryRead(data, out _, out _, out var error);
+
+            Assert.False(success);
+            Assert.Contains("memory", error.ToLower());
+        }
+
+        [Fact]
+        public void TryRead_Argon2_InvalidPasses_ReturnsFalse()
+        {
+            var data = new byte[21];
+            data[0] = 4; // Argon2 type
+            data[1] = 8; // Hash algorithm
+            data[18] = 16; // Memory exponent
+            data[19] = 0; // Invalid passes (< 1)
+            data[20] = 4; // Parallelism
+
+            var success = PgpS2KSpecifier.TryRead(data, out _, out _, out var error);
+
+            Assert.False(success);
+            Assert.Contains("passes", error.ToLower());
+        }
+
+        [Fact]
+        public void TryRead_Argon2_InvalidParallelism_ReturnsFalse()
+        {
+            var data = new byte[21];
+            data[0] = 4; // Argon2 type
+            data[1] = 8; // Hash algorithm
+            data[18] = 16; // Memory exponent
+            data[19] = 3; // Passes
+            data[20] = 0; // Invalid parallelism (< 1)
+
+            var success = PgpS2KSpecifier.TryRead(data, out _, out _, out var error);
+
+            Assert.False(success);
+            Assert.Contains("parallelism", error.ToLower());
+        }
+
+        [Fact]
+        public void RoundTrip_Argon2S2K_PreservesFields()
+        {
+            var salt = TestHelpers.RandomBytes(16);
+            var original = PgpS2KSpecifier.CreateArgon2(10, salt, passes: 5, parallelism: 8, memoryExponent: 20);
+
+            var buffer = new byte[original.GetEncodedLength()];
+            original.Write(buffer);
+
+            var success = PgpS2KSpecifier.TryRead(buffer, out var decoded, out _, out _);
+
+            Assert.True(success);
+            Assert.Equal(S2KType.Argon2, decoded.Type);
+            Assert.Equal(10, decoded.HashAlgorithm);
+            Assert.Equal(salt, decoded.Salt.ToArray());
+            Assert.NotNull(decoded.Argon2Params);
+            Assert.Equal(5, decoded.Argon2Params.Value.Passes);
+            Assert.Equal(8, decoded.Argon2Params.Value.Parallelism);
+            Assert.Equal(20, decoded.Argon2Params.Value.MemoryExponent);
+        }
+
+        [Fact]
+        public void ValidateArgon2Parameters_AllValid_NoException()
+        {
+            // Should not throw
+            PgpS2KSpecifier.ValidateArgon2Parameters(passes: 1, parallelism: 1, memoryExponent: 3);
+            PgpS2KSpecifier.ValidateArgon2Parameters(passes: 255, parallelism: 255, memoryExponent: 31);
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
@@ -1021,6 +1162,170 @@ public class PgpKeyPacketTests
             Assert.Equal(publicPoint, readPoint);
             Assert.Equal(hashAlgo, readHash);
             Assert.Equal(cipherAlgo, readCipher);
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // Secure Memory Clearing Tests
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    [Trait("Category", TestCategories.UNIT)]
+    [Trait("Category", TestCategories.FAST)]
+    public class SecureMemoryClearingTests
+    {
+        [Fact]
+        public void ClearSensitiveData_UnencryptedKey_ClearsSecretMaterial()
+        {
+            var publicKey = PgpPublicKeyPacket.CreateEd25519(DateTimeOffset.UtcNow, TestHelpers.RandomBytes(32));
+            var secretMaterial = TestHelpers.RandomBytes(32);
+            var packet = PgpSecretKeyPacket.CreateUnencrypted(publicKey, secretMaterial);
+
+            // Verify data exists before clearing
+            Assert.False(packet.SecretKeyMaterial.Span.ToArray().All(b => b == 0));
+
+            // Clear sensitive data
+            packet.ClearSensitiveData();
+
+            // Verify all bytes are zeroed
+            Assert.True(packet.SecretKeyMaterial.Span.ToArray().All(b => b == 0));
+        }
+
+        [Fact]
+        public void ClearSensitiveData_EncryptedKey_ClearsMaterialAndIv()
+        {
+            var publicKey = PgpPublicKeyPacket.CreateEd25519(DateTimeOffset.UtcNow, TestHelpers.RandomBytes(32));
+            var iv = TestHelpers.RandomBytes(16);
+            var encryptedMaterial = TestHelpers.RandomBytes(100);
+
+            var packet = PgpSecretKeyPacket.CreateEncrypted(
+                publicKey,
+                PgpS2KUsage.Sha1Hash,
+                9,
+                PgpS2KSpecifier.CreateSimple(8),
+                iv,
+                encryptedMaterial);
+
+            // Verify data exists before clearing
+            Assert.False(packet.SecretKeyMaterial.Span.ToArray().All(b => b == 0));
+            Assert.False(packet.IV.Span.ToArray().All(b => b == 0));
+
+            // Clear sensitive data
+            packet.ClearSensitiveData();
+
+            // Verify all bytes are zeroed
+            Assert.True(packet.SecretKeyMaterial.Span.ToArray().All(b => b == 0));
+            Assert.True(packet.IV.Span.ToArray().All(b => b == 0));
+        }
+
+        [Fact]
+        public void ClearSensitiveData_WithS2KSalt_ClearsSalt()
+        {
+            var publicKey = PgpPublicKeyPacket.CreateEd25519(DateTimeOffset.UtcNow, TestHelpers.RandomBytes(32));
+            var salt = TestHelpers.RandomBytes(8);
+            var s2k = PgpS2KSpecifier.CreateSalted(8, salt);
+            var iv = TestHelpers.RandomBytes(16);
+            var encryptedMaterial = TestHelpers.RandomBytes(100);
+
+            var packet = PgpSecretKeyPacket.CreateEncrypted(
+                publicKey,
+                PgpS2KUsage.Sha1Hash,
+                9,
+                s2k,
+                iv,
+                encryptedMaterial);
+
+            // Verify salt exists before clearing
+            Assert.True(packet.S2KSpecifier.HasValue);
+            Assert.False(packet.S2KSpecifier.Value.Salt.Span.ToArray().All(b => b == 0));
+
+            // Clear sensitive data
+            packet.ClearSensitiveData();
+
+            // Verify salt is zeroed
+            Assert.True(packet.S2KSpecifier.Value.Salt.Span.ToArray().All(b => b == 0));
+        }
+
+        [Fact]
+        public void ClearSensitiveData_EmptyIv_DoesNotThrow()
+        {
+            var publicKey = PgpPublicKeyPacket.CreateEd25519(DateTimeOffset.UtcNow, TestHelpers.RandomBytes(32));
+            var secretMaterial = TestHelpers.RandomBytes(32);
+            var packet = PgpSecretKeyPacket.CreateUnencrypted(publicKey, secretMaterial);
+
+            // Should not throw for empty IV
+            var exception = Record.Exception(packet.ClearSensitiveData);
+            Assert.Null(exception);
+        }
+
+        [Fact]
+        public void PgpS2KSpecifier_ClearSensitiveData_ClearsSalt()
+        {
+            var salt = TestHelpers.RandomBytes(8);
+            var s2k = PgpS2KSpecifier.CreateSalted(8, salt);
+
+            // Verify salt exists before clearing
+            Assert.False(s2k.Salt.Span.ToArray().All(b => b == 0));
+
+            // Clear sensitive data
+            s2k.ClearSensitiveData();
+
+            // Verify salt is zeroed
+            Assert.True(s2k.Salt.Span.ToArray().All(b => b == 0));
+        }
+
+        [Fact]
+        public void PgpS2KSpecifier_ClearSensitiveData_EmptySalt_DoesNotThrow()
+        {
+            var s2k = PgpS2KSpecifier.CreateSimple(8);
+
+            // Should not throw for empty salt
+            var exception = Record.Exception(s2k.ClearSensitiveData);
+            Assert.Null(exception);
+        }
+
+        [Theory]
+        [InlineData((ushort)0, (ushort)0, true)]
+        [InlineData((ushort)0xFFFF, (ushort)0xFFFF, true)]
+        [InlineData((ushort)0x1234, (ushort)0x1234, true)]
+        [InlineData((ushort)0, (ushort)1, false)]
+        [InlineData((ushort)0xFFFF, (ushort)0xFFFE, false)]
+        [InlineData((ushort)0x1234, (ushort)0x4321, false)]
+        public void ConstantTimeEquals_UInt16_ReturnsCorrectResult(ushort a, ushort b, bool expected)
+        {
+            Assert.Equal(expected, SecureMemoryClear.ConstantTimeEquals(a, b));
+        }
+
+        [Fact]
+        public void ConstantTimeEquals_ByteSpan_EqualSpans_ReturnsTrue()
+        {
+            byte[] a = [1, 2, 3, 4, 5];
+            byte[] b = [1, 2, 3, 4, 5];
+
+            Assert.True(SecureMemoryClear.ConstantTimeEquals(a, b));
+        }
+
+        [Fact]
+        public void ConstantTimeEquals_ByteSpan_DifferentSpans_ReturnsFalse()
+        {
+            byte[] a = [1, 2, 3, 4, 5];
+            byte[] b = [1, 2, 3, 4, 6];
+
+            Assert.False(SecureMemoryClear.ConstantTimeEquals(a, b));
+        }
+
+        [Fact]
+        public void ConstantTimeEquals_ByteSpan_DifferentLengths_ReturnsFalse()
+        {
+            byte[] a = [1, 2, 3];
+            byte[] b = [1, 2, 3, 4];
+
+            Assert.False(SecureMemoryClear.ConstantTimeEquals(a, b));
+        }
+
+        [Fact]
+        public void ConstantTimeEquals_ByteSpan_EmptySpans_ReturnsTrue()
+        {
+            Assert.True(SecureMemoryClear.ConstantTimeEquals([], []));
         }
     }
 }

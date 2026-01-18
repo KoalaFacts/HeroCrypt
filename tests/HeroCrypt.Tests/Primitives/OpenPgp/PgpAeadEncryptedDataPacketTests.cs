@@ -109,7 +109,7 @@ public class PgpAeadEncryptedDataPacketTests
         public void Read_ValidData_ReturnsPacket()
         {
             // version=1, cipher=AES256(9), aead=GCM(3), chunk=6
-            var header = new byte[] { 0x01, 0x09, 0x03, 0x06 };
+            byte[] header = [0x01, 0x09, 0x03, 0x06];
             var data = TestHelpers.RandomBytes(50);
             var source = header.Concat(data).ToArray();
 
@@ -126,13 +126,13 @@ public class PgpAeadEncryptedDataPacketTests
         public void Read_TooShort_ThrowsArgumentException()
         {
             Assert.Throws<ArgumentException>(() =>
-                PgpAeadEncryptedDataPacket.Read(new byte[] { 0x01, 0x09, 0x03 }));
+                PgpAeadEncryptedDataPacket.Read([0x01, 0x09, 0x03]));
         }
 
         [Fact]
         public void Read_InvalidVersion_ThrowsArgumentException()
         {
-            var source = new byte[] { 0x02, 0x09, 0x03, 0x06 }; // version=2 (invalid)
+            byte[] source = [0x02, 0x09, 0x03, 0x06]; // version=2 (invalid)
 
             Assert.Throws<ArgumentException>(() =>
                 PgpAeadEncryptedDataPacket.Read(source));
@@ -141,7 +141,7 @@ public class PgpAeadEncryptedDataPacketTests
         [Fact]
         public void Read_AeadNone_ThrowsArgumentException()
         {
-            var source = new byte[] { 0x01, 0x09, 0x00, 0x06 }; // AEAD=None (invalid)
+            byte[] source = [0x01, 0x09, 0x00, 0x06]; // AEAD=None (invalid)
 
             Assert.Throws<ArgumentException>(() =>
                 PgpAeadEncryptedDataPacket.Read(source));
@@ -150,7 +150,7 @@ public class PgpAeadEncryptedDataPacketTests
         [Fact]
         public void TryRead_ValidData_ReturnsTrue()
         {
-            var header = new byte[] { 0x01, 0x09, 0x03, 0x06 };
+            byte[] header = [0x01, 0x09, 0x03, 0x06];
             var data = TestHelpers.RandomBytes(50);
             var source = header.Concat(data).ToArray();
 
@@ -165,7 +165,7 @@ public class PgpAeadEncryptedDataPacketTests
         public void TryRead_TooShort_ReturnsFalse()
         {
             var result = PgpAeadEncryptedDataPacket.TryRead(
-                new byte[] { 0x01, 0x09, 0x03 },
+                [0x01, 0x09, 0x03],
                 out _,
                 out var error);
 
@@ -177,7 +177,7 @@ public class PgpAeadEncryptedDataPacketTests
         public void TryRead_InvalidVersion_ReturnsFalse()
         {
             var result = PgpAeadEncryptedDataPacket.TryRead(
-                new byte[] { 0x02, 0x09, 0x03, 0x06 },
+                [0x02, 0x09, 0x03, 0x06],
                 out _,
                 out var error);
 
@@ -189,7 +189,7 @@ public class PgpAeadEncryptedDataPacketTests
         public void TryRead_AeadNone_ReturnsFalse()
         {
             var result = PgpAeadEncryptedDataPacket.TryRead(
-                new byte[] { 0x01, 0x09, 0x00, 0x06 },
+                [0x01, 0x09, 0x00, 0x06],
                 out _,
                 out var error);
 
@@ -202,7 +202,7 @@ public class PgpAeadEncryptedDataPacketTests
         {
             // Just the header, no encrypted data
             var result = PgpAeadEncryptedDataPacket.TryRead(
-                new byte[] { 0x01, 0x09, 0x03, 0x06 },
+                [0x01, 0x09, 0x03, 0x06],
                 out var packet,
                 out _);
 
@@ -444,7 +444,7 @@ public class PgpAeadEncryptedDataPacketTests
         [Fact]
         public void Equals_SameValues_ReturnsTrue()
         {
-            var data = new byte[] { 1, 2, 3, 4, 5 };
+            byte[] data = [1, 2, 3, 4, 5];
             var packet1 = new PgpAeadEncryptedDataPacket(
                 SymmetricCipherAlgorithm.Aes256, AeadAlgorithm.Gcm, 6, data);
             var packet2 = new PgpAeadEncryptedDataPacket(
@@ -458,7 +458,7 @@ public class PgpAeadEncryptedDataPacketTests
         [Fact]
         public void Equals_DifferentCipher_ReturnsFalse()
         {
-            var data = new byte[] { 1, 2, 3 };
+            byte[] data = [1, 2, 3];
             var packet1 = new PgpAeadEncryptedDataPacket(
                 SymmetricCipherAlgorithm.Aes256, AeadAlgorithm.Gcm, 6, data);
             var packet2 = new PgpAeadEncryptedDataPacket(
@@ -470,7 +470,7 @@ public class PgpAeadEncryptedDataPacketTests
         [Fact]
         public void Equals_DifferentAead_ReturnsFalse()
         {
-            var data = new byte[] { 1, 2, 3 };
+            byte[] data = [1, 2, 3];
             var packet1 = new PgpAeadEncryptedDataPacket(
                 SymmetricCipherAlgorithm.Aes256, AeadAlgorithm.Gcm, 6, data);
             var packet2 = new PgpAeadEncryptedDataPacket(
@@ -482,7 +482,7 @@ public class PgpAeadEncryptedDataPacketTests
         [Fact]
         public void Equals_DifferentChunkSize_ReturnsFalse()
         {
-            var data = new byte[] { 1, 2, 3 };
+            byte[] data = [1, 2, 3];
             var packet1 = new PgpAeadEncryptedDataPacket(
                 SymmetricCipherAlgorithm.Aes256, AeadAlgorithm.Gcm, 6, data);
             var packet2 = new PgpAeadEncryptedDataPacket(
@@ -495,9 +495,9 @@ public class PgpAeadEncryptedDataPacketTests
         public void Equals_DifferentData_ReturnsFalse()
         {
             var packet1 = new PgpAeadEncryptedDataPacket(
-                SymmetricCipherAlgorithm.Aes256, AeadAlgorithm.Gcm, 6, new byte[] { 1, 2, 3 });
+                SymmetricCipherAlgorithm.Aes256, AeadAlgorithm.Gcm, 6, [1, 2, 3]);
             var packet2 = new PgpAeadEncryptedDataPacket(
-                SymmetricCipherAlgorithm.Aes256, AeadAlgorithm.Gcm, 6, new byte[] { 4, 5, 6 });
+                SymmetricCipherAlgorithm.Aes256, AeadAlgorithm.Gcm, 6, [4, 5, 6]);
 
             Assert.False(packet1.Equals(packet2));
         }
@@ -506,7 +506,7 @@ public class PgpAeadEncryptedDataPacketTests
         public void Equals_Object_WorksCorrectly()
         {
             var packet = new PgpAeadEncryptedDataPacket(
-                SymmetricCipherAlgorithm.Aes256, AeadAlgorithm.Gcm, 6, new byte[] { 1, 2, 3 });
+                SymmetricCipherAlgorithm.Aes256, AeadAlgorithm.Gcm, 6, [1, 2, 3]);
 
             Assert.False(packet.Equals(null));
             Assert.False(packet.Equals("not a packet"));
@@ -515,7 +515,7 @@ public class PgpAeadEncryptedDataPacketTests
         [Fact]
         public void GetHashCode_SameValues_ReturnsSameHash()
         {
-            var data = new byte[] { 1, 2, 3, 4, 5 };
+            byte[] data = [1, 2, 3, 4, 5];
             var packet1 = new PgpAeadEncryptedDataPacket(
                 SymmetricCipherAlgorithm.Aes256, AeadAlgorithm.Gcm, 6, data);
             var packet2 = new PgpAeadEncryptedDataPacket(
@@ -528,9 +528,9 @@ public class PgpAeadEncryptedDataPacketTests
         public void GetHashCode_DifferentValues_LikelyDifferentHash()
         {
             var packet1 = new PgpAeadEncryptedDataPacket(
-                SymmetricCipherAlgorithm.Aes256, AeadAlgorithm.Gcm, 6, new byte[] { 1, 2, 3 });
+                SymmetricCipherAlgorithm.Aes256, AeadAlgorithm.Gcm, 6, [1, 2, 3]);
             var packet2 = new PgpAeadEncryptedDataPacket(
-                SymmetricCipherAlgorithm.Aes128, AeadAlgorithm.Ocb, 10, new byte[] { 4, 5, 6 });
+                SymmetricCipherAlgorithm.Aes128, AeadAlgorithm.Ocb, 10, [4, 5, 6]);
 
             Assert.NotEqual(packet1.GetHashCode(), packet2.GetHashCode());
         }
@@ -573,7 +573,7 @@ public class PgpAeadEncryptedDataPacketTests
         [Fact]
         public void ToArray_ReturnsCorrectFormat()
         {
-            var data = new byte[] { 0xAA, 0xBB, 0xCC };
+            byte[] data = [0xAA, 0xBB, 0xCC];
             var packet = new PgpAeadEncryptedDataPacket(
                 SymmetricCipherAlgorithm.Aes256,
                 AeadAlgorithm.Gcm,

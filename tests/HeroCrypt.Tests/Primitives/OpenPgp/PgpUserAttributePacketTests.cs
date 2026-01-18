@@ -9,11 +9,11 @@ namespace HeroCrypt.Tests.Primitives.OpenPgp;
 public class PgpUserAttributePacketTests
 {
     // Minimal valid JPEG header for testing
-    private static readonly byte[] MinimalJpegData = new byte[]
-    {
+    private static readonly byte[] MinimalJpegData =
+    [
         0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x01,
         0x01, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0xFF, 0xD9
-    };
+    ];
 
     /// <summary>
     /// Constructor tests.
@@ -362,8 +362,8 @@ public class PgpUserAttributePacketTests
         [Fact]
         public void Equals_DifferentData_ReturnsFalse()
         {
-            var packet1 = PgpUserAttributePacket.CreateWithImage(new byte[] { 0xFF, 0xD8, 0x01, 0xFF, 0xD9 });
-            var packet2 = PgpUserAttributePacket.CreateWithImage(new byte[] { 0xFF, 0xD8, 0x02, 0xFF, 0xD9 });
+            var packet1 = PgpUserAttributePacket.CreateWithImage([0xFF, 0xD8, 0x01, 0xFF, 0xD9]);
+            var packet2 = PgpUserAttributePacket.CreateWithImage([0xFF, 0xD8, 0x02, 0xFF, 0xD9]);
 
             Assert.False(packet1.Equals(packet2));
             Assert.False(packet1 == packet2);
@@ -391,8 +391,8 @@ public class PgpUserAttributePacketTests
         [Fact]
         public void GetHashCode_DifferentData_LikelyDifferentHash()
         {
-            var packet1 = PgpUserAttributePacket.CreateWithImage(new byte[] { 1, 2, 3 });
-            var packet2 = PgpUserAttributePacket.CreateWithImage(new byte[] { 4, 5, 6 });
+            var packet1 = PgpUserAttributePacket.CreateWithImage([1, 2, 3]);
+            var packet2 = PgpUserAttributePacket.CreateWithImage([4, 5, 6]);
 
             Assert.NotEqual(packet1.GetHashCode(), packet2.GetHashCode());
         }

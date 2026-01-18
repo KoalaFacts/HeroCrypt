@@ -10,13 +10,13 @@ namespace HeroCrypt.Tests.Primitives.OpenPgp;
 public class PgpSymmetricKeyEncryptedSessionKeyPacketTests
 {
     // Simple S2K specifier: type(1) + hash algorithm(1) = 2 bytes
-    private static readonly byte[] SimpleS2k = new byte[] { 0x00, 0x02 }; // Simple S2K with SHA-1
+    private static readonly byte[] SimpleS2k = [0x00, 0x02]; // Simple S2K with SHA-1
 
     // Salted S2K specifier: type(1) + hash(1) + salt(8) = 10 bytes
-    private static readonly byte[] SaltedS2k = new byte[] { 0x01, 0x02, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08 };
+    private static readonly byte[] SaltedS2k = [0x01, 0x02, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08];
 
     // Iterated S2K: type(1) + hash(1) + salt(8) + count(1) = 11 bytes
-    private static readonly byte[] IteratedS2k = new byte[] { 0x03, 0x02, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0xFF };
+    private static readonly byte[] IteratedS2k = [0x03, 0x02, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0xFF];
 
     /// <summary>
     /// Constructor tests.

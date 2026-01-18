@@ -37,7 +37,7 @@ public sealed class PgpPacketReader : IDisposable
     {
         this.stream = stream ?? throw new ArgumentNullException(nameof(stream));
         this.leaveOpen = leaveOpen;
-        this.headerBuffer = new byte[6]; // Maximum header size
+        headerBuffer = new byte[6]; // Maximum header size
     }
 
     /// <summary>

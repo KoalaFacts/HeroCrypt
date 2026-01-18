@@ -198,7 +198,7 @@ public class PgpSignaturePacketTests
         {
             var subpacket = PgpSignatureSubpacket.CreateKeyFlags(PgpKeyCapabilities.Sign);
 
-            Assert.Throws<InvalidOperationException>(() => subpacket.GetIssuerKeyId());
+            Assert.Throws<InvalidOperationException>(subpacket.GetIssuerKeyId);
         }
 
         [Fact]

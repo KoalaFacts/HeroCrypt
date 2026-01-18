@@ -41,7 +41,7 @@ public sealed class PgpPacketWriter : IDisposable
     {
         this.stream = stream ?? throw new ArgumentNullException(nameof(stream));
         this.leaveOpen = leaveOpen;
-        this.headerBuffer = new byte[6]; // Maximum header size
+        headerBuffer = new byte[6]; // Maximum header size
     }
 
     /// <summary>
@@ -64,16 +64,9 @@ public sealed class PgpPacketWriter : IDisposable
     {
         ThrowIfDisposed();
 
-        int headerLength;
-        if (format == PgpPacketFormat.New)
-        {
-            headerLength = PgpPacketHeader.WriteNewFormat(tag, body.Length, headerBuffer);
-        }
-        else
-        {
-            headerLength = PgpPacketHeader.WriteOldFormat(tag, body.Length, headerBuffer);
-        }
-
+        var headerLength = format == PgpPacketFormat.New
+            ? PgpPacketHeader.WriteNewFormat(tag, body.Length, headerBuffer)
+            : PgpPacketHeader.WriteOldFormat(tag, body.Length, headerBuffer);
         stream.Write(headerBuffer, 0, headerLength);
 #if NET5_0_OR_GREATER
         stream.Write(body);
@@ -104,16 +97,9 @@ public sealed class PgpPacketWriter : IDisposable
     {
         ThrowIfDisposed();
 
-        int headerLength;
-        if (format == PgpPacketFormat.New)
-        {
-            headerLength = PgpPacketHeader.WriteNewFormat(tag, bodyLength, headerBuffer);
-        }
-        else
-        {
-            headerLength = PgpPacketHeader.WriteOldFormat(tag, bodyLength, headerBuffer);
-        }
-
+        var headerLength = format == PgpPacketFormat.New
+            ? PgpPacketHeader.WriteNewFormat(tag, bodyLength, headerBuffer)
+            : PgpPacketHeader.WriteOldFormat(tag, bodyLength, headerBuffer);
         stream.Write(headerBuffer, 0, headerLength);
 
         byte[] buffer = ArrayPool<byte>.Shared.Rent(81920);
@@ -318,7 +304,7 @@ public sealed class PgpPacketBodyStream : Stream
     {
         this.writer = writer;
         this.tag = tag;
-        this.buffer = new MemoryStream();
+        buffer = new MemoryStream();
     }
 
     /// <inheritdoc />

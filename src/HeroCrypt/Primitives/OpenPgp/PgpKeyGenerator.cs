@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using HeroCrypt.Primitives.Curve25519;
 using HeroCrypt.Primitives.Ed25519;
 using HeroCrypt.Primitives.Rsa;
+using HeroCrypt.Primitives.S2K;
 
 namespace HeroCrypt.Primitives.OpenPgp;
 
@@ -242,25 +243,16 @@ public sealed class PgpKeyGenerator
         // Create secret key material: d || p || q || u as MPIs
         var secretMaterial = EncodeRsaSecretMaterial(d, p, q, u);
 
-        // Create secret key packet (unencrypted for now)
-        PgpSecretKeyPacket secretKey;
-        if (string.IsNullOrEmpty(passphrase))
-        {
-            secretKey = PgpSecretKeyPacket.CreateUnencrypted(publicKey, secretMaterial);
-        }
-        else
-        {
-            // TODO: Implement passphrase protection with S2K
-            throw new NotSupportedException("Passphrase-protected keys are not yet implemented.");
-        }
+        // Create unencrypted secret key first (for signing)
+        var unencryptedSecretKey = PgpSecretKeyPacket.CreateUnencrypted(publicKey, secretMaterial);
 
         // Create user ID packet
         var userIdPacket = new PgpUserIdPacket(userId!);
 
-        // Create self-certification signature
-        var certificationSignature = CreateUserIdCertification(publicKey, secretKey, userIdPacket, version);
+        // Create self-certification signature (using unencrypted key)
+        var certificationSignature = CreateUserIdCertification(publicKey, unencryptedSecretKey, userIdPacket, version);
 
-        // Build key rings
+        // Build key rings with UNENCRYPTED keys (encryption happens at the end)
         var publicKeyRing = new PgpPublicKeyRing(
             publicKey,
             subkeys: null,
@@ -269,13 +261,13 @@ public sealed class PgpKeyGenerator
             signatures: [certificationSignature]);
 
         var secretKeyRing = new PgpSecretKeyRing(
-            secretKey,
+            unencryptedSecretKey,
             subkeys: null,
             userIds: [userIdPacket],
             userAttributes: null,
             signatures: [certificationSignature]);
 
-        // Add subkeys if requested
+        // Add subkeys if requested (still using unencrypted keys for signing)
         if (addEncryptionSubkey)
         {
             (publicKeyRing, secretKeyRing) = AddRsaEncryptionSubkey(publicKeyRing, secretKeyRing, keySizeBits, version);
@@ -284,6 +276,12 @@ public sealed class PgpKeyGenerator
         if (addSigningSubkey)
         {
             (publicKeyRing, secretKeyRing) = AddRsaSigningSubkey(publicKeyRing, secretKeyRing, keySizeBits, version);
+        }
+
+        // NOW encrypt all secret keys if passphrase is provided
+        if (!string.IsNullOrEmpty(passphrase))
+        {
+            secretKeyRing = EncryptSecretKeyRing(secretKeyRing, passphrase);
         }
 
         return new PgpKeyGeneratorResult(secretKeyRing, publicKeyRing, userId!);
@@ -306,7 +304,7 @@ public sealed class PgpKeyGenerator
         // Create public key packet (V6, Ed25519 native format - raw 32 bytes)
         var publicKeyPacket = PgpPublicKeyPacket.CreateEd25519(creationTime, publicKey, isSubkey: false);
 
-        // Create secret key packet (unencrypted for now)
+        // Create secret key packet
         // Ed25519 secret material is raw 32-byte seed (no MPI encoding)
         PgpSecretKeyPacket secretKeyPacket;
         if (string.IsNullOrEmpty(passphrase))
@@ -315,7 +313,7 @@ public sealed class PgpKeyGenerator
         }
         else
         {
-            throw new NotSupportedException("Passphrase-protected keys are not yet implemented.");
+            secretKeyPacket = CreateEncryptedSecretKey(publicKeyPacket, privateKey, passphrase);
         }
 
         // Create user ID packet
@@ -376,7 +374,7 @@ public sealed class PgpKeyGenerator
         // Create public key packet (V6, X25519 native format - raw 32 bytes)
         var publicKeyPacket = PgpPublicKeyPacket.CreateX25519(creationTime, publicKey, isSubkey: false);
 
-        // Create secret key packet (unencrypted for now)
+        // Create secret key packet
         // X25519 secret material is raw 32-byte clamped key (no MPI encoding)
         PgpSecretKeyPacket secretKeyPacket;
         if (string.IsNullOrEmpty(passphrase))
@@ -385,7 +383,7 @@ public sealed class PgpKeyGenerator
         }
         else
         {
-            throw new NotSupportedException("Passphrase-protected keys are not yet implemented.");
+            secretKeyPacket = CreateEncryptedSecretKey(publicKeyPacket, privateKey, passphrase);
         }
 
         // Create user ID packet
@@ -440,7 +438,7 @@ public sealed class PgpKeyGenerator
         }
         else
         {
-            throw new NotSupportedException("Passphrase-protected keys are not yet implemented.");
+            masterSecretPacket = CreateEncryptedSecretKey(masterPublicPacket, ed25519Private, passphrase);
         }
 
         // Create user ID packet
@@ -467,7 +465,7 @@ public sealed class PgpKeyGenerator
         }
         else
         {
-            throw new NotSupportedException("Passphrase-protected keys are not yet implemented.");
+            subkeySecretPacket = CreateEncryptedSecretKey(subkeyPublicPacket, x25519Private, passphrase);
         }
 
         // Create subkey binding signature
@@ -503,6 +501,17 @@ public sealed class PgpKeyGenerator
 
     #region Private Helpers
 
+    // AES-256 cipher algorithm ID
+    private const byte AES_256 = 9;
+    // SHA-256 hash algorithm ID
+    private const byte SHA256_HASH = 8;
+    // Default iteration count: 65536 iterations (encoded as 96)
+    private const byte DEFAULT_ITERATION_COUNT = 96;
+    // AES-256 key size in bytes
+    private const int AES_256_KEY_SIZE = 32;
+    // AES block size in bytes
+    private const int AES_BLOCK_SIZE = 16;
+
     private void ValidateConfiguration()
     {
         if (string.IsNullOrEmpty(userId))
@@ -534,6 +543,165 @@ public sealed class PgpKeyGenerator
         Mpi.Write(u, material.AsSpan(offset));
 
         return material;
+    }
+
+    /// <summary>
+    /// Creates an encrypted secret key packet from plaintext secret material.
+    /// </summary>
+    /// <param name="publicKey">The public key portion.</param>
+    /// <param name="secretMaterial">The plaintext secret key material (MPIs).</param>
+    /// <param name="passphrase">The passphrase to encrypt with.</param>
+    /// <returns>An encrypted secret key packet.</returns>
+    private static PgpSecretKeyPacket CreateEncryptedSecretKey(
+        PgpPublicKeyPacket publicKey,
+        byte[] secretMaterial,
+        string passphrase)
+    {
+        // Generate salt for S2K
+        byte[] salt = S2KCore.GenerateSalt();
+
+        // Derive encryption key using iterated S2K
+        long iterationCount = S2KCore.DecodeIterationCount(DEFAULT_ITERATION_COUNT);
+        byte[] passphraseBytes = System.Text.Encoding.UTF8.GetBytes(passphrase);
+        byte[] encryptionKey = S2KCore.IteratedS2K(
+            passphraseBytes,
+            salt,
+            iterationCount,
+            AES_256_KEY_SIZE,
+            HashAlgorithmName.SHA256);
+
+        try
+        {
+            // Calculate SHA-1 hash of secret material for integrity (S2KUsage 254)
+            // SHA-1 is required by RFC 4880 for S2KUsage 254 - we cannot use a different hash
+#pragma warning disable CA5350 // SHA-1 is weak, but required by OpenPGP specification
+            byte[] sha1Hash;
+#if NETSTANDARD2_0
+            using (var sha1 = SHA1.Create())
+            {
+                sha1Hash = sha1.ComputeHash(secretMaterial);
+            }
+#else
+            sha1Hash = SHA1.HashData(secretMaterial);
+#endif
+#pragma warning restore CA5350
+
+            // Plaintext for encryption: secret material + SHA-1 hash
+            byte[] plaintextWithHash = new byte[secretMaterial.Length + 20];
+            secretMaterial.CopyTo(plaintextWithHash.AsSpan());
+            sha1Hash.CopyTo(plaintextWithHash.AsSpan(secretMaterial.Length));
+
+            // Generate IV for CFB encryption
+            byte[] iv = new byte[AES_BLOCK_SIZE];
+            using (var rng = RandomNumberGenerator.Create())
+            {
+                rng.GetBytes(iv);
+            }
+
+            // Encrypt using standard CFB mode
+            byte[] encrypted = CfbEncryptStandard(plaintextWithHash, encryptionKey, iv);
+
+            // Create S2K specifier
+            var s2kSpecifier = PgpS2KSpecifier.CreateIterated(SHA256_HASH, salt, DEFAULT_ITERATION_COUNT);
+
+            // Create encrypted secret key packet
+            return PgpSecretKeyPacket.CreateEncrypted(
+                publicKey,
+                PgpS2KUsage.Sha1Hash,
+                AES_256,
+                s2kSpecifier,
+                iv,
+                encrypted);
+        }
+        finally
+        {
+            // Clear sensitive data
+            Array.Clear(encryptionKey, 0, encryptionKey.Length);
+            Array.Clear(passphraseBytes, 0, passphraseBytes.Length);
+        }
+    }
+
+    /// <summary>
+    /// Encrypts all secret keys in a secret key ring with the specified passphrase.
+    /// </summary>
+    /// <param name="ring">The secret key ring with unencrypted keys.</param>
+    /// <param name="passphrase">The passphrase to encrypt with.</param>
+    /// <returns>A new secret key ring with all keys encrypted.</returns>
+    private static PgpSecretKeyRing EncryptSecretKeyRing(PgpSecretKeyRing ring, string passphrase)
+    {
+        // Encrypt master key
+        var masterSecretMaterial = ring.MasterKey.SecretKeyMaterial.ToArray();
+        // Remove checksum (last 2 bytes) since CreateEncryptedSecretKey adds its own hash
+        var masterPlainMaterial = masterSecretMaterial[..^2];
+        var encryptedMaster = CreateEncryptedSecretKey(ring.MasterKey.PublicKey, masterPlainMaterial, passphrase);
+
+        // Encrypt subkeys
+        var encryptedSubkeys = new List<PgpSecretKeyPacket>();
+        foreach (var subkey in ring.Subkeys)
+        {
+            var subkeySecretMaterial = subkey.SecretKeyMaterial.ToArray();
+            // Remove checksum (last 2 bytes) since CreateEncryptedSecretKey adds its own hash
+            var subkeyPlainMaterial = subkeySecretMaterial[..^2];
+            var encryptedSubkey = CreateEncryptedSecretKey(subkey.PublicKey, subkeyPlainMaterial, passphrase);
+            encryptedSubkeys.Add(encryptedSubkey);
+        }
+
+        // Build new ring with encrypted keys
+        return new PgpSecretKeyRing(
+            encryptedMaster,
+            subkeys: encryptedSubkeys.Count > 0 ? encryptedSubkeys : null,
+            userIds: ring.UserIds,
+            userAttributes: ring.UserAttributes,
+            signatures: ring.Signatures);
+    }
+
+    /// <summary>
+    /// Encrypts data using standard AES-CFB mode.
+    /// </summary>
+    /// <param name="plaintext">The data to encrypt.</param>
+    /// <param name="key">The encryption key.</param>
+    /// <param name="iv">The initialization vector.</param>
+    /// <returns>The encrypted data.</returns>
+    private static byte[] CfbEncryptStandard(byte[] plaintext, byte[] key, byte[] iv)
+    {
+        using var aes = Aes.Create();
+        aes.Key = key;
+        aes.Mode = CipherMode.ECB; // We implement CFB manually
+        aes.Padding = PaddingMode.None;
+
+        byte[] ciphertext = new byte[plaintext.Length];
+        byte[] fr = new byte[AES_BLOCK_SIZE]; // Feedback register
+        byte[] fre = new byte[AES_BLOCK_SIZE]; // Encrypted feedback register
+
+        // Initialize FR with IV
+        iv.CopyTo(fr, 0);
+
+        using var encryptor = aes.CreateEncryptor();
+
+        int pos = 0;
+        while (pos < plaintext.Length)
+        {
+            // Encrypt the feedback register
+            encryptor.TransformBlock(fr, 0, AES_BLOCK_SIZE, fre, 0);
+
+            // XOR plaintext with encrypted FR
+            int bytesToProcess = Math.Min(AES_BLOCK_SIZE, plaintext.Length - pos);
+            for (int i = 0; i < bytesToProcess; i++)
+            {
+                ciphertext[pos + i] = (byte)(plaintext[pos + i] ^ fre[i]);
+            }
+
+            // Update FR with ciphertext for next iteration
+            Array.Copy(ciphertext, pos, fr, 0, bytesToProcess);
+            if (bytesToProcess < AES_BLOCK_SIZE)
+            {
+                Array.Clear(fr, bytesToProcess, AES_BLOCK_SIZE - bytesToProcess);
+            }
+
+            pos += bytesToProcess;
+        }
+
+        return ciphertext;
     }
 
     private PgpSignaturePacket CreateUserIdCertification(
@@ -687,6 +855,12 @@ public sealed class PgpKeyGenerator
         var (d, p, q, _) = secretKey.ReadRsaSecretKey();
         var (n, e) = secretKey.PublicKey.ReadRsaKey();
 
+        return CreateRsaSignatureFromParams(n, e, d, p, q, hash);
+    }
+
+    private static byte[] CreateRsaSignatureFromParams(
+        BigInteger n, BigInteger e, BigInteger d, BigInteger p, BigInteger q, byte[] hash)
+    {
         // Create RSA parameters
         var rsaPrivateKey = new RsaPrivateKey(n, d, p, q, e);
         var rsaParams = RsaCore.ToRsaParameters(rsaPrivateKey);
@@ -861,7 +1035,7 @@ public sealed class PgpKeyGenerator
         var q = BytesToBigInteger(rsaParams.Q!);
         var u = ComputeModularInverse(p, q);
 
-        // Create subkey packets
+        // Create subkey packets (always unencrypted - encryption happens at the end of GenerateRsa)
         var subkeyPublic = PgpPublicKeyPacket.CreateRsa(version, creationTime, n, e, isSubkey: true);
         var subkeyMaterial = EncodeRsaSecretMaterial(d, p, q, u);
         var subkeySecret = PgpSecretKeyPacket.CreateUnencrypted(subkeyPublic, subkeyMaterial);
@@ -900,7 +1074,7 @@ public sealed class PgpKeyGenerator
         var q = BytesToBigInteger(rsaParams.Q!);
         var u = ComputeModularInverse(p, q);
 
-        // Create subkey packets
+        // Create subkey packets (always unencrypted - encryption happens at the end of GenerateRsa)
         var subkeyPublic = PgpPublicKeyPacket.CreateRsa(version, creationTime, n, e, isSubkey: true);
         var subkeyMaterial = EncodeRsaSecretMaterial(d, p, q, u);
         var subkeySecret = PgpSecretKeyPacket.CreateUnencrypted(subkeyPublic, subkeyMaterial);

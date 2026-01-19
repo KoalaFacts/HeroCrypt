@@ -738,4 +738,360 @@ public class PgpKeyRingTests
             return new PgpSecretKeyRing(masterKey);
         }
     }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // Armored Key Import/Export Tests
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    [Trait("Category", TestCategories.UNIT)]
+    [Trait("Category", TestCategories.FAST)]
+    public class ArmoredKeyImportExportTests
+    {
+        [Fact]
+        public void PublicKeyRing_ToArmor_ProducesValidArmorFormat()
+        {
+            // Arrange
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            // Act
+            var armored = keyResult.PublicKeyRing.ToArmor();
+
+            // Assert
+            Assert.StartsWith("-----BEGIN PGP PUBLIC KEY BLOCK-----", armored);
+            Assert.EndsWith("-----END PGP PUBLIC KEY BLOCK-----", armored.TrimEnd());
+        }
+
+        [Fact]
+        public void PublicKeyRing_FromArmor_ParsesArmoredKey()
+        {
+            // Arrange
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("Alice <alice@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+            var armored = keyResult.PublicKeyRing.ToArmor();
+
+            // Act
+            var parsed = ExtensionsToPgpPublicKeyRing.FromArmor(armored);
+
+            // Assert
+            Assert.Equal(keyResult.PublicKeyRing.MasterFingerprint, parsed.MasterFingerprint);
+        }
+
+        [Fact]
+        public void PublicKeyRing_ArmorRoundTrip_PreservesData()
+        {
+            // Arrange
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("Bob <bob@example.com>")
+                .WithKeySize(2048)
+                .WithEncryptionSubkey()
+                .GenerateRsa();
+
+            // Act
+            var armored = keyResult.PublicKeyRing.ToArmor();
+            var parsed = ExtensionsToPgpPublicKeyRing.FromArmor(armored);
+
+            // Assert
+            Assert.Equal(keyResult.PublicKeyRing.MasterFingerprint, parsed.MasterFingerprint);
+            Assert.Equal(keyResult.PublicKeyRing.Subkeys.Count, parsed.Subkeys.Count);
+            Assert.Equal(keyResult.PublicKeyRing.UserIds.Count, parsed.UserIds.Count);
+        }
+
+        [Fact]
+        public void PublicKeyRing_ToArmorWithHeaders_IncludesHeaders()
+        {
+            // Arrange
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("Charlie <charlie@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+            var headers = new Dictionary<string, string>
+            {
+                ["Version"] = "HeroCrypt 1.0",
+                ["Comment"] = "Test key"
+            };
+
+            // Act
+            var armored = keyResult.PublicKeyRing.ToArmor(headers);
+
+            // Assert
+            Assert.Contains("Version: HeroCrypt 1.0", armored);
+            Assert.Contains("Comment: Test key", armored);
+        }
+
+        [Fact]
+        public void PublicKeyRing_TryFromArmor_ReturnsTrueForValidArmor()
+        {
+            // Arrange
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("Dave <dave@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+            var armored = keyResult.PublicKeyRing.ToArmor();
+
+            // Act
+            var success = ExtensionsToPgpPublicKeyRing.TryFromArmor(armored, out var parsed, out var error);
+
+            // Assert
+            Assert.True(success);
+            Assert.Null(error);
+            Assert.Equal(keyResult.PublicKeyRing.MasterFingerprint, parsed.MasterFingerprint);
+        }
+
+        [Fact]
+        public void PublicKeyRing_TryFromArmor_ReturnsFalseForInvalidArmor()
+        {
+            // Arrange
+            var invalidArmor = "not valid armor";
+
+            // Act
+            var success = ExtensionsToPgpPublicKeyRing.TryFromArmor(invalidArmor, out _, out var error);
+
+            // Assert
+            Assert.False(success);
+            Assert.NotNull(error);
+        }
+
+        [Fact]
+        public void PublicKeyRing_FromArmorWithMetadata_CapturesHeaders()
+        {
+            // Arrange
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("Eve <eve@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+            var headers = new Dictionary<string, string>
+            {
+                ["Version"] = "Test 1.0"
+            };
+            var armored = keyResult.PublicKeyRing.ToArmor(headers);
+
+            // Act
+            var result = ExtensionsToPgpPublicKeyRing.FromArmorWithMetadata(armored);
+
+            // Assert
+            Assert.Equal(keyResult.PublicKeyRing.MasterFingerprint, result.KeyRing.MasterFingerprint);
+            Assert.True(result.Headers.ContainsKey("Version"));
+            Assert.Equal("Test 1.0", result.Headers["Version"]);
+        }
+
+        [Fact]
+        public void PublicKeyRing_ToArmorBytes_ReturnsUtf8Bytes()
+        {
+            // Arrange
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("Frank <frank@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            // Act
+            var armorBytes = keyResult.PublicKeyRing.ToArmorBytes();
+
+            // Assert
+            var armorString = System.Text.Encoding.UTF8.GetString(armorBytes);
+            Assert.StartsWith("-----BEGIN PGP PUBLIC KEY BLOCK-----", armorString);
+        }
+
+        [Fact]
+        public void PublicKeyRing_WriteArmor_WritesToStream()
+        {
+            // Arrange
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("Grace <grace@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            // Act
+            using var stream = new MemoryStream();
+            keyResult.PublicKeyRing.WriteArmor(stream);
+            stream.Position = 0;
+            var armored = new StreamReader(stream).ReadToEnd();
+
+            // Assert
+            Assert.StartsWith("-----BEGIN PGP PUBLIC KEY BLOCK-----", armored);
+        }
+
+        [Fact]
+        public void PublicKeyRing_ReadFromArmorStream_ParsesStream()
+        {
+            // Arrange
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("Henry <henry@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+            var armored = keyResult.PublicKeyRing.ToArmor();
+            using var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(armored));
+
+            // Act
+            var parsed = ExtensionsToPgpPublicKeyRing.ReadFromArmorStream(stream);
+
+            // Assert
+            Assert.Equal(keyResult.PublicKeyRing.MasterFingerprint, parsed.MasterFingerprint);
+        }
+
+        [Fact]
+        public void SecretKeyRing_ToArmor_ProducesValidArmorFormat()
+        {
+            // Arrange
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            // Act
+            var armored = keyResult.SecretKeyRing.ToArmor();
+
+            // Assert
+            Assert.StartsWith("-----BEGIN PGP PRIVATE KEY BLOCK-----", armored);
+            Assert.EndsWith("-----END PGP PRIVATE KEY BLOCK-----", armored.TrimEnd());
+        }
+
+        [Fact]
+        public void SecretKeyRing_FromArmor_ParsesArmoredKey()
+        {
+            // Arrange
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("Ivy <ivy@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+            var armored = keyResult.SecretKeyRing.ToArmor();
+
+            // Act
+            var parsed = ExtensionsToPgpSecretKeyRing.FromArmor(armored);
+
+            // Assert
+            Assert.Equal(keyResult.SecretKeyRing.MasterKey.ComputeFingerprint(), parsed.MasterKey.ComputeFingerprint());
+        }
+
+        [Fact]
+        public void SecretKeyRing_ArmorRoundTrip_PreservesData()
+        {
+            // Arrange
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("Jack <jack@example.com>")
+                .WithKeySize(2048)
+                .WithEncryptionSubkey()
+                .GenerateRsa();
+
+            // Act
+            var armored = keyResult.SecretKeyRing.ToArmor();
+            var parsed = ExtensionsToPgpSecretKeyRing.FromArmor(armored);
+
+            // Assert
+            Assert.Equal(keyResult.SecretKeyRing.MasterKey.ComputeFingerprint(), parsed.MasterKey.ComputeFingerprint());
+            Assert.Equal(keyResult.SecretKeyRing.Subkeys.Count, parsed.Subkeys.Count);
+        }
+
+        [Fact]
+        public void SecretKeyRing_TryFromArmor_ReturnsTrueForValidArmor()
+        {
+            // Arrange
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("Kate <kate@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+            var armored = keyResult.SecretKeyRing.ToArmor();
+
+            // Act
+            var success = ExtensionsToPgpSecretKeyRing.TryFromArmor(armored, out var parsed, out var error);
+
+            // Assert
+            Assert.True(success);
+            Assert.Null(error);
+            Assert.Equal(keyResult.SecretKeyRing.MasterKey.ComputeFingerprint(), parsed.MasterKey.ComputeFingerprint());
+        }
+
+        [Fact]
+        public void SecretKeyRing_TryFromArmor_ReturnsFalseForWrongType()
+        {
+            // Arrange - Use public key armor for secret key parsing
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("Larry <larry@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+            var publicArmored = keyResult.PublicKeyRing.ToArmor();
+
+            // Act
+            var success = ExtensionsToPgpSecretKeyRing.TryFromArmor(publicArmored, out _, out var error);
+
+            // Assert
+            Assert.False(success);
+            Assert.Contains("PRIVATE KEY BLOCK", error);
+        }
+
+        [Fact]
+        public void PublicKeyRing_FromArmor_ThrowsForWrongType()
+        {
+            // Arrange - Use secret key armor for public key parsing
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("Mike <mike@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+            var secretArmored = keyResult.SecretKeyRing.ToArmor();
+
+            // Act & Assert
+            var ex = Assert.Throws<ArgumentException>(() =>
+                ExtensionsToPgpPublicKeyRing.FromArmor(secretArmored));
+            Assert.Contains("PUBLIC KEY BLOCK", ex.Message);
+        }
+
+        [Fact]
+        public void Ed25519Key_ArmorRoundTrip_PreservesData()
+        {
+            // Arrange - Ed25519 uses V6 format
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("Nancy <nancy@example.com>")
+                .GenerateEd25519();
+
+            // Act
+            var armored = keyResult.PublicKeyRing.ToArmor();
+            var parsed = ExtensionsToPgpPublicKeyRing.FromArmor(armored);
+
+            // Assert
+            Assert.Equal(keyResult.PublicKeyRing.MasterFingerprint, parsed.MasterFingerprint);
+            Assert.Equal(6, parsed.Version);
+        }
+
+        [Fact]
+        public async Task PublicKeyRing_WriteArmorAsync_WritesToStream()
+        {
+            // Arrange
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("Oscar <oscar@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            // Act
+            using var stream = new MemoryStream();
+            await keyResult.PublicKeyRing.WriteArmorAsync(stream);
+            stream.Position = 0;
+            var armored = await new StreamReader(stream).ReadToEndAsync();
+
+            // Assert
+            Assert.StartsWith("-----BEGIN PGP PUBLIC KEY BLOCK-----", armored);
+        }
+
+        [Fact]
+        public async Task SecretKeyRing_WriteArmorAsync_WritesToStream()
+        {
+            // Arrange
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("Peter <peter@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            // Act
+            using var stream = new MemoryStream();
+            await keyResult.SecretKeyRing.WriteArmorAsync(stream);
+            stream.Position = 0;
+            var armored = await new StreamReader(stream).ReadToEndAsync();
+
+            // Assert
+            Assert.StartsWith("-----BEGIN PGP PRIVATE KEY BLOCK-----", armored);
+        }
+    }
 }

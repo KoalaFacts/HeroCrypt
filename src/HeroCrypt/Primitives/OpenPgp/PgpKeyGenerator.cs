@@ -34,6 +34,7 @@ public sealed class PgpKeyGenerator
 {
     private string? userId;
     private string? passphrase;
+    private byte[]? passphraseBytes;
     private int keySize = 4096;
     private DateTimeOffset creationTime = DateTimeOffset.UtcNow;
     private byte? explicitVersion;
@@ -99,10 +100,63 @@ public sealed class PgpKeyGenerator
     /// (String-to-Key) derivation. This is the recommended practice for
     /// protecting private keys.
     /// </para>
+    /// <para>
+    /// <b>Security Note:</b> Strings in .NET are immutable and may persist in memory
+    /// longer than necessary. For enhanced security, consider using
+    /// <see cref="WithPassphrase(byte[])"/> instead, which allows you to clear
+    /// the passphrase bytes after key generation.
+    /// </para>
     /// </remarks>
     public PgpKeyGenerator WithPassphrase(string passphrase)
     {
         this.passphrase = passphrase;
+        this.passphraseBytes = null;
+        return this;
+    }
+
+    /// <summary>
+    /// Sets the passphrase for encrypting the secret key using raw bytes.
+    /// </summary>
+    /// <param name="passphraseBytes">The passphrase as UTF-8 encoded bytes.</param>
+    /// <returns>This generator for chaining.</returns>
+    /// <remarks>
+    /// <para>
+    /// This overload allows for more secure passphrase handling by accepting
+    /// raw bytes that can be securely cleared from memory after key generation.
+    /// </para>
+    /// <para>
+    /// <b>Security Best Practice:</b> After calling a Generate method, clear
+    /// the passphrase bytes by calling <c>Array.Clear(passphraseBytes, 0, passphraseBytes.Length)</c>.
+    /// </para>
+    /// <para>
+    /// Example:
+    /// <code>
+    /// byte[] passBytes = Encoding.UTF8.GetBytes("mypassphrase");
+    /// try
+    /// {
+    ///     var result = PgpKeyGenerator.Create()
+    ///         .WithUserId("User &lt;user@example.com&gt;")
+    ///         .WithPassphrase(passBytes)
+    ///         .GenerateRsa();
+    /// }
+    /// finally
+    /// {
+    ///     Array.Clear(passBytes, 0, passBytes.Length);
+    /// }
+    /// </code>
+    /// </para>
+    /// </remarks>
+    /// <exception cref="ArgumentNullException">If passphraseBytes is null.</exception>
+    public PgpKeyGenerator WithPassphrase(byte[] passphraseBytes)
+    {
+#if !NETSTANDARD2_0
+        ArgumentNullException.ThrowIfNull(passphraseBytes);
+#else
+        if (passphraseBytes == null) throw new ArgumentNullException(nameof(passphraseBytes));
+#endif
+
+        this.passphraseBytes = passphraseBytes;
+        this.passphrase = null;
         return this;
     }
 
@@ -279,9 +333,20 @@ public sealed class PgpKeyGenerator
         }
 
         // NOW encrypt all secret keys if passphrase is provided
-        if (!string.IsNullOrEmpty(passphrase))
+        if (HasPassphrase)
         {
-            secretKeyRing = EncryptSecretKeyRing(secretKeyRing, passphrase!);
+            var (passBytes, shouldClear) = GetPassphraseBytes();
+            try
+            {
+                secretKeyRing = EncryptSecretKeyRingWithBytes(secretKeyRing, passBytes);
+            }
+            finally
+            {
+                if (shouldClear)
+                {
+                    Array.Clear(passBytes, 0, passBytes.Length);
+                }
+            }
         }
 
         return new PgpKeyGeneratorResult(secretKeyRing, publicKeyRing, userId!);
@@ -307,13 +372,24 @@ public sealed class PgpKeyGenerator
         // Create secret key packet
         // Ed25519 secret material is raw 32-byte seed (no MPI encoding)
         PgpSecretKeyPacket secretKeyPacket;
-        if (string.IsNullOrEmpty(passphrase))
+        if (!HasPassphrase)
         {
             secretKeyPacket = PgpSecretKeyPacket.CreateUnencrypted(publicKeyPacket, privateKey);
         }
         else
         {
-            secretKeyPacket = CreateEncryptedSecretKey(publicKeyPacket, privateKey, passphrase!);
+            var (passBytes, shouldClear) = GetPassphraseBytes();
+            try
+            {
+                secretKeyPacket = CreateEncryptedSecretKeyFromBytes(publicKeyPacket, privateKey, passBytes);
+            }
+            finally
+            {
+                if (shouldClear)
+                {
+                    Array.Clear(passBytes, 0, passBytes.Length);
+                }
+            }
         }
 
         // Create user ID packet
@@ -347,69 +423,6 @@ public sealed class PgpKeyGenerator
     }
 
     /// <summary>
-    /// Generates an X25519 encryption key (V6 format).
-    /// </summary>
-    /// <returns>The generated key pair.</returns>
-    /// <remarks>
-    /// <para>
-    /// X25519 is an encryption-only algorithm. The generated key will have
-    /// <see cref="PgpKeyCapabilities.EncryptCommunications"/> and
-    /// <see cref="PgpKeyCapabilities.EncryptStorage"/> flags.
-    /// </para>
-    /// <para>
-    /// Note: An X25519-only key cannot create signatures for self-certification.
-    /// This method generates a key that can only be used as a subkey bound to
-    /// a signing-capable master key. For a complete key pair, use
-    /// <see cref="GenerateEd25519WithX25519Subkey"/> instead.
-    /// </para>
-    /// </remarks>
-    public PgpKeyGeneratorResult GenerateX25519()
-    {
-        ValidateConfiguration();
-
-        // Generate X25519 key pair (V6 format per RFC 9580)
-        var privateKey = Curve25519Core.GeneratePrivateKey();
-        var publicKey = Curve25519Core.DerivePublicKey(privateKey);
-
-        // Create public key packet (V6, X25519 native format - raw 32 bytes)
-        var publicKeyPacket = PgpPublicKeyPacket.CreateX25519(creationTime, publicKey, isSubkey: false);
-
-        // Create secret key packet
-        // X25519 secret material is raw 32-byte clamped key (no MPI encoding)
-        PgpSecretKeyPacket secretKeyPacket;
-        if (string.IsNullOrEmpty(passphrase))
-        {
-            secretKeyPacket = PgpSecretKeyPacket.CreateUnencrypted(publicKeyPacket, privateKey);
-        }
-        else
-        {
-            secretKeyPacket = CreateEncryptedSecretKey(publicKeyPacket, privateKey, passphrase!);
-        }
-
-        // Create user ID packet
-        var userIdPacket = new PgpUserIdPacket(userId!);
-
-        // X25519 cannot sign, so we cannot create a proper self-certification.
-        // Create a key ring without certification signature.
-        // In practice, X25519 keys should be used as subkeys bound to an Ed25519 master.
-        var publicKeyRing = new PgpPublicKeyRing(
-            publicKeyPacket,
-            subkeys: null,
-            userIds: [userIdPacket],
-            userAttributes: null,
-            signatures: null);
-
-        var secretKeyRing = new PgpSecretKeyRing(
-            secretKeyPacket,
-            subkeys: null,
-            userIds: [userIdPacket],
-            userAttributes: null,
-            signatures: null);
-
-        return new PgpKeyGeneratorResult(secretKeyRing, publicKeyRing, userId!);
-    }
-
-    /// <summary>
     /// Generates an Ed25519 signing key with an X25519 encryption subkey.
     /// </summary>
     /// <returns>The generated key pair.</returns>
@@ -432,69 +445,88 @@ public sealed class PgpKeyGenerator
         var masterPublicPacket = PgpPublicKeyPacket.CreateEd25519(creationTime, ed25519Public, isSubkey: false);
 
         PgpSecretKeyPacket masterSecretPacket;
-        if (string.IsNullOrEmpty(passphrase))
-        {
-            masterSecretPacket = PgpSecretKeyPacket.CreateUnencrypted(masterPublicPacket, ed25519Private);
-        }
-        else
-        {
-            masterSecretPacket = CreateEncryptedSecretKey(masterPublicPacket, ed25519Private, passphrase!);
-        }
-
-        // Create user ID packet
-        var userIdPacket = new PgpUserIdPacket(userId!);
-
-        // Create self-certification signature (Certify | Sign for master key)
-        var certFlags = PgpKeyCapabilities.Certify | PgpKeyCapabilities.Sign;
-        var certificationSignature = CreateEd25519UserIdCertification(
-            masterPublicPacket,
-            ed25519Private,
-            userIdPacket,
-            certFlags,
-            version);
-
-        // Generate X25519 encryption subkey
-        var x25519Private = Curve25519Core.GeneratePrivateKey();
-        var x25519Public = Curve25519Core.DerivePublicKey(x25519Private);
-        var subkeyPublicPacket = PgpPublicKeyPacket.CreateX25519(creationTime, x25519Public, isSubkey: true);
-
         PgpSecretKeyPacket subkeySecretPacket;
-        if (string.IsNullOrEmpty(passphrase))
+
+        // Get passphrase bytes once for both master and subkey encryption
+        byte[]? passBytes = null;
+        bool shouldClear = false;
+        if (HasPassphrase)
         {
-            subkeySecretPacket = PgpSecretKeyPacket.CreateUnencrypted(subkeyPublicPacket, x25519Private);
+            (passBytes, shouldClear) = GetPassphraseBytes();
         }
-        else
+
+        try
         {
-            subkeySecretPacket = CreateEncryptedSecretKey(subkeyPublicPacket, x25519Private, passphrase!);
+            if (passBytes == null)
+            {
+                masterSecretPacket = PgpSecretKeyPacket.CreateUnencrypted(masterPublicPacket, ed25519Private);
+            }
+            else
+            {
+                masterSecretPacket = CreateEncryptedSecretKeyFromBytes(masterPublicPacket, ed25519Private, passBytes);
+            }
+
+            // Create user ID packet
+            var userIdPacket = new PgpUserIdPacket(userId!);
+
+            // Create self-certification signature (Certify | Sign for master key)
+            var certFlags = PgpKeyCapabilities.Certify | PgpKeyCapabilities.Sign;
+            var certificationSignature = CreateEd25519UserIdCertification(
+                masterPublicPacket,
+                ed25519Private,
+                userIdPacket,
+                certFlags,
+                version);
+
+            // Generate X25519 encryption subkey
+            var x25519Private = Curve25519Core.GeneratePrivateKey();
+            var x25519Public = Curve25519Core.DerivePublicKey(x25519Private);
+            var subkeyPublicPacket = PgpPublicKeyPacket.CreateX25519(creationTime, x25519Public, isSubkey: true);
+
+            if (passBytes == null)
+            {
+                subkeySecretPacket = PgpSecretKeyPacket.CreateUnencrypted(subkeyPublicPacket, x25519Private);
+            }
+            else
+            {
+                subkeySecretPacket = CreateEncryptedSecretKeyFromBytes(subkeyPublicPacket, x25519Private, passBytes);
+            }
+
+            // Create subkey binding signature
+            var subkeyFlags = PgpKeyCapabilities.EncryptCommunications | PgpKeyCapabilities.EncryptStorage;
+            var bindingSignature = CreateEd25519SubkeyBindingSignature(
+                masterPublicPacket,
+                ed25519Private,
+                subkeyPublicPacket,
+                subkeyFlags,
+                version);
+
+            // Build key rings
+            var publicKeyRing = new PgpPublicKeyRing(
+                masterPublicPacket,
+                subkeys: null,
+                userIds: [userIdPacket],
+                userAttributes: null,
+                signatures: [certificationSignature]);
+            publicKeyRing = publicKeyRing.AddSubkey(subkeyPublicPacket, bindingSignature);
+
+            var secretKeyRing = new PgpSecretKeyRing(
+                masterSecretPacket,
+                subkeys: null,
+                userIds: [userIdPacket],
+                userAttributes: null,
+                signatures: [certificationSignature]);
+            secretKeyRing = secretKeyRing.AddSubkey(subkeySecretPacket, bindingSignature);
+
+            return new PgpKeyGeneratorResult(secretKeyRing, publicKeyRing, userId!);
         }
-
-        // Create subkey binding signature
-        var subkeyFlags = PgpKeyCapabilities.EncryptCommunications | PgpKeyCapabilities.EncryptStorage;
-        var bindingSignature = CreateEd25519SubkeyBindingSignature(
-            masterPublicPacket,
-            ed25519Private,
-            subkeyPublicPacket,
-            subkeyFlags,
-            version);
-
-        // Build key rings
-        var publicKeyRing = new PgpPublicKeyRing(
-            masterPublicPacket,
-            subkeys: null,
-            userIds: [userIdPacket],
-            userAttributes: null,
-            signatures: [certificationSignature]);
-        publicKeyRing = publicKeyRing.AddSubkey(subkeyPublicPacket, bindingSignature);
-
-        var secretKeyRing = new PgpSecretKeyRing(
-            masterSecretPacket,
-            subkeys: null,
-            userIds: [userIdPacket],
-            userAttributes: null,
-            signatures: [certificationSignature]);
-        secretKeyRing = secretKeyRing.AddSubkey(subkeySecretPacket, bindingSignature);
-
-        return new PgpKeyGeneratorResult(secretKeyRing, publicKeyRing, userId!);
+        finally
+        {
+            if (shouldClear && passBytes != null)
+            {
+                Array.Clear(passBytes, 0, passBytes.Length);
+            }
+        }
     }
 
     #endregion
@@ -505,8 +537,10 @@ public sealed class PgpKeyGenerator
     private const byte AES_256 = 9;
     // SHA-256 hash algorithm ID
     private const byte SHA256_HASH = 8;
-    // Default iteration count: 65536 iterations (encoded as 96)
-    private const byte DEFAULT_ITERATION_COUNT = 96;
+    // Default iteration count: ~65 million iterations (encoded as 255)
+    // This provides strong protection against brute-force attacks on passphrases.
+    // Formula: count = (16 + (c & 15)) << ((c >> 4) + 6) = (16 + 15) << 21 = 65,011,712
+    private const byte DEFAULT_ITERATION_COUNT = 255;
     // AES-256 key size in bytes
     private const int AES_256_KEY_SIZE = 32;
     // AES block size in bytes
@@ -518,6 +552,33 @@ public sealed class PgpKeyGenerator
         {
             throw new InvalidOperationException("No user ID has been set. Call WithUserId() first.");
         }
+    }
+
+    /// <summary>
+    /// Returns true if a passphrase has been configured (either string or bytes).
+    /// </summary>
+    private bool HasPassphrase => !string.IsNullOrEmpty(passphrase) || passphraseBytes is { Length: > 0 };
+
+    /// <summary>
+    /// Gets the passphrase as bytes, converting from string if necessary.
+    /// The caller is responsible for clearing the returned bytes if they were created from a string.
+    /// </summary>
+    /// <returns>A tuple containing the passphrase bytes and whether the caller should clear them.</returns>
+    private (byte[] bytes, bool shouldClear) GetPassphraseBytes()
+    {
+        if (passphraseBytes is { Length: > 0 })
+        {
+            // User provided bytes directly - they are responsible for clearing
+            return (passphraseBytes, false);
+        }
+
+        if (!string.IsNullOrEmpty(passphrase))
+        {
+            // Convert string to bytes - caller should clear these
+            return (System.Text.Encoding.UTF8.GetBytes(passphrase), true);
+        }
+
+        throw new InvalidOperationException("No passphrase has been set.");
     }
 
     private static BigInteger ComputeModularInverse(BigInteger p, BigInteger q)
@@ -546,23 +607,26 @@ public sealed class PgpKeyGenerator
     }
 
     /// <summary>
-    /// Creates an encrypted secret key packet from plaintext secret material.
+    /// Creates an encrypted secret key packet from plaintext secret material using raw passphrase bytes.
     /// </summary>
     /// <param name="publicKey">The public key portion.</param>
     /// <param name="secretMaterial">The plaintext secret key material (MPIs).</param>
-    /// <param name="passphrase">The passphrase to encrypt with.</param>
+    /// <param name="passphraseBytes">The passphrase as raw bytes.</param>
     /// <returns>An encrypted secret key packet.</returns>
-    private static PgpSecretKeyPacket CreateEncryptedSecretKey(
+    /// <remarks>
+    /// This overload does not clear the passphrase bytes - the caller is responsible
+    /// for clearing them after use if needed.
+    /// </remarks>
+    private static PgpSecretKeyPacket CreateEncryptedSecretKeyFromBytes(
         PgpPublicKeyPacket publicKey,
         byte[] secretMaterial,
-        string passphrase)
+        byte[] passphraseBytes)
     {
         // Generate salt for S2K
         byte[] salt = S2KCore.GenerateSalt();
 
         // Derive encryption key using iterated S2K
         long iterationCount = S2KCore.DecodeIterationCount(DEFAULT_ITERATION_COUNT);
-        byte[] passphraseBytes = System.Text.Encoding.UTF8.GetBytes(passphrase);
         byte[] encryptionKey = S2KCore.IteratedS2K(
             passphraseBytes,
             salt,
@@ -615,36 +679,35 @@ public sealed class PgpKeyGenerator
         }
         finally
         {
-            // Clear sensitive data
+            // Clear sensitive data (caller is responsible for clearing passphraseBytes)
             Array.Clear(encryptionKey, 0, encryptionKey.Length);
-            Array.Clear(passphraseBytes, 0, passphraseBytes.Length);
         }
     }
 
     /// <summary>
-    /// Encrypts all secret keys in a secret key ring with the specified passphrase.
+    /// Encrypts all secret keys in a secret key ring with the specified passphrase bytes.
     /// </summary>
     /// <param name="ring">The secret key ring with unencrypted keys.</param>
-    /// <param name="passphrase">The passphrase to encrypt with.</param>
+    /// <param name="passphraseBytes">The passphrase as raw bytes.</param>
     /// <returns>A new secret key ring with all keys encrypted.</returns>
-    private static PgpSecretKeyRing EncryptSecretKeyRing(PgpSecretKeyRing ring, string passphrase)
+    private static PgpSecretKeyRing EncryptSecretKeyRingWithBytes(PgpSecretKeyRing ring, byte[] passphraseBytes)
     {
         // Encrypt master key
         var masterSecretMaterial = ring.MasterKey.SecretKeyMaterial.ToArray();
-        // Remove checksum (last 2 bytes) since CreateEncryptedSecretKey adds its own hash
+        // Remove checksum (last 2 bytes) since CreateEncryptedSecretKeyFromBytes adds its own hash
         var masterPlainMaterial = new byte[masterSecretMaterial.Length - 2];
         Array.Copy(masterSecretMaterial, 0, masterPlainMaterial, 0, masterPlainMaterial.Length);
-        var encryptedMaster = CreateEncryptedSecretKey(ring.MasterKey.PublicKey, masterPlainMaterial, passphrase);
+        var encryptedMaster = CreateEncryptedSecretKeyFromBytes(ring.MasterKey.PublicKey, masterPlainMaterial, passphraseBytes);
 
         // Encrypt subkeys
         var encryptedSubkeys = new List<PgpSecretKeyPacket>();
         foreach (var subkey in ring.Subkeys)
         {
             var subkeySecretMaterial = subkey.SecretKeyMaterial.ToArray();
-            // Remove checksum (last 2 bytes) since CreateEncryptedSecretKey adds its own hash
+            // Remove checksum (last 2 bytes) since CreateEncryptedSecretKeyFromBytes adds its own hash
             var subkeyPlainMaterial = new byte[subkeySecretMaterial.Length - 2];
             Array.Copy(subkeySecretMaterial, 0, subkeyPlainMaterial, 0, subkeyPlainMaterial.Length);
-            var encryptedSubkey = CreateEncryptedSecretKey(subkey.PublicKey, subkeyPlainMaterial, passphrase);
+            var encryptedSubkey = CreateEncryptedSecretKeyFromBytes(subkey.PublicKey, subkeyPlainMaterial, passphraseBytes);
             encryptedSubkeys.Add(encryptedSubkey);
         }
 

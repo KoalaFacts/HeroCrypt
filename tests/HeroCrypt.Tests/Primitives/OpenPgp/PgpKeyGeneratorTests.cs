@@ -816,87 +816,6 @@ public class PgpKeyGeneratorTests
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
-    // X25519 Key Generation Tests
-    // ─────────────────────────────────────────────────────────────────────────────
-
-    [Trait("Category", TestCategories.UNIT)]
-    [Trait("Category", TestCategories.FAST)]
-    public class X25519KeyGenerationTests
-    {
-        [Fact]
-        public void GenerateX25519_WithUserId_ProducesValidKeyPair()
-        {
-            // Arrange
-            var userId = "X25519 User <x25519@example.com>";
-
-            // Act
-            var result = PgpKeyGenerator.Create()
-                .WithUserId(userId)
-                .GenerateX25519();
-
-            // Assert
-            Assert.Equal(userId, result.UserId);
-            Assert.Equal(6, result.Version); // X25519 requires V6
-            Assert.Equal(PgpPublicKeyAlgorithm.X25519, result.Algorithm);
-        }
-
-        [Fact]
-        public void GenerateX25519_ProducesV6Fingerprint()
-        {
-            // Arrange & Act
-            var result = PgpKeyGenerator.Create()
-                .WithUserId("Test <test@example.com>")
-                .GenerateX25519();
-
-            // Assert
-            Assert.NotNull(result.Fingerprint);
-            Assert.Equal(32, result.Fingerprint.Length); // V6 fingerprint is 32 bytes (SHA-256)
-        }
-
-        [Fact]
-        public void GenerateX25519_HasNoSelfCertification()
-        {
-            // Arrange & Act - X25519 cannot sign, so no self-certification
-            var result = PgpKeyGenerator.Create()
-                .WithUserId("X25519 <x25519@example.com>")
-                .GenerateX25519();
-
-            // Assert
-            Assert.Empty(result.PublicKeyRing.Signatures);
-        }
-
-        [Fact]
-        public void GenerateX25519_PublicKeyHas32ByteMaterial()
-        {
-            // Arrange & Act
-            var result = PgpKeyGenerator.Create()
-                .WithUserId("Test <test@example.com>")
-                .GenerateX25519();
-
-            // Assert - X25519 public key is 32 bytes
-            var publicKey = result.MasterPublicKey.ReadNativePublicKey();
-            Assert.Equal(32, publicKey.Length);
-        }
-
-        [Fact]
-        public void GenerateX25519_CanBeSerializedAndReimported()
-        {
-            // Arrange
-            var result = PgpKeyGenerator.Create()
-                .WithUserId("X25519 <x25519@example.com>")
-                .GenerateX25519();
-
-            // Act
-            var exported = result.ExportPublicKey();
-            var reimported = PgpPublicKeyRing.Read(exported);
-
-            // Assert
-            Assert.Equal(result.Fingerprint, reimported.MasterFingerprint);
-            Assert.Equal(result.UserId, reimported.UserIds[0].UserId);
-        }
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────────
     // Ed25519 + X25519 Combined Key Tests
     // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1077,16 +996,6 @@ public class PgpKeyGeneratorTests
         }
 
         [Fact]
-        public void GenerateX25519_WithoutUserId_ThrowsInvalidOperationException()
-        {
-            // Arrange
-            var generator = PgpKeyGenerator.Create();
-
-            // Act & Assert
-            Assert.Throws<InvalidOperationException>(() => generator.GenerateX25519());
-        }
-
-        [Fact]
         public void GenerateEd25519WithX25519Subkey_WithoutUserId_ThrowsInvalidOperationException()
         {
             // Arrange
@@ -1215,23 +1124,6 @@ public class PgpKeyGeneratorTests
                 .WithUserId("Ed25519 <ed25519@example.com>")
                 .WithPassphrase(passphrase)
                 .GenerateEd25519();
-
-            // Assert
-            Assert.True(result.MasterSecretKey.IsEncrypted);
-            Assert.Equal(PgpS2KUsage.Sha1Hash, result.MasterSecretKey.S2KUsage);
-        }
-
-        [Fact]
-        public void GenerateX25519_WithPassphrase_ProducesEncryptedSecretKey()
-        {
-            // Arrange
-            var passphrase = "x25519pass";
-
-            // Act
-            var result = PgpKeyGenerator.Create()
-                .WithUserId("X25519 <x25519@example.com>")
-                .WithPassphrase(passphrase)
-                .GenerateX25519();
 
             // Assert
             Assert.True(result.MasterSecretKey.IsEncrypted);
@@ -1640,23 +1532,6 @@ public class PgpKeyGeneratorTests
 
             // Assert
             Assert.Equal(32, secretKey.Length); // Ed25519 private key is 32 bytes
-        }
-
-        [Fact]
-        public void Decrypt_X25519Key_ReturnsUnencryptedKey()
-        {
-            // Arrange
-            var passphrase = "x25519pass";
-            var result = PgpKeyGenerator.Create()
-                .WithUserId("X25519 <x25519@example.com>")
-                .WithPassphrase(passphrase)
-                .GenerateX25519();
-
-            // Act
-            var decrypted = result.MasterSecretKey.Decrypt(passphrase);
-
-            // Assert
-            Assert.False(decrypted.IsEncrypted);
         }
 
         [Fact]

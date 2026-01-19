@@ -456,12 +456,20 @@ public sealed class PgpSignatureSigner : IDisposable
         // Read the Ed25519 private key from the secret key packet
         var ed25519PrivateKey = secretKey!.Value.ReadEcSecretKey();
 
-        // Ed25519 in OpenPGP signs the hash (which includes the signature trailer)
-        // Ed25519Core.Sign returns a 64-byte signature
-        var signature = Ed25519Core.Sign(hash, ed25519PrivateKey);
+        try
+        {
+            // Ed25519 in OpenPGP signs the hash (which includes the signature trailer)
+            // Ed25519Core.Sign returns a 64-byte signature
+            var signature = Ed25519Core.Sign(hash, ed25519PrivateKey);
 
-        // Return raw 64-byte signature (no MPI encoding for native format keys)
-        return signature;
+            // Return raw 64-byte signature (no MPI encoding for native format keys)
+            return signature;
+        }
+        finally
+        {
+            // Clear the private key from memory for security
+            Array.Clear(ed25519PrivateKey, 0, ed25519PrivateKey.Length);
+        }
     }
 
     private byte[] CreateEcdsaSignature(byte[] hash)

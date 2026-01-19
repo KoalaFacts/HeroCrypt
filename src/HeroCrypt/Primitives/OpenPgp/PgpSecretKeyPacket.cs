@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.Diagnostics;
 using System.Globalization;
 using System.Numerics;
 using System.Runtime.InteropServices;
@@ -1145,6 +1146,9 @@ public readonly struct PgpSecretKeyPacket
             throw new InvalidOperationException("No S2K specifier available for encrypted key.");
         }
 
+        // Warn about weak S2K types
+        WarnIfWeakS2K(S2KSpecifier.Value);
+
         // Determine key size based on cipher algorithm
         int keySize = GetCipherKeySize(CipherAlgorithm);
 
@@ -1260,8 +1264,79 @@ public readonly struct PgpSecretKeyPacket
                 S2KCore.DecodeIterationCount(specifier.EncodedCount),
                 keySize,
                 hashAlgorithm),
+            S2KType.Argon2 => throw new NotSupportedException(
+                "Argon2 S2K (type 4) is not yet supported. This is a modern key derivation function " +
+                "specified in RFC 9580 that requires additional cryptographic library support."),
             _ => throw new InvalidOperationException($"Unsupported S2K type: {specifier.Type}")
         };
+    }
+
+    /// <summary>
+    /// Outputs a warning if the S2K specifier uses a weak key derivation method.
+    /// </summary>
+    /// <param name="specifier">The S2K specifier to check.</param>
+    /// <remarks>
+    /// <para>
+    /// Weak S2K types are vulnerable to brute-force attacks:
+    /// <list type="bullet">
+    ///   <item>Simple S2K (type 0): No salt or iteration, extremely weak</item>
+    ///   <item>Salted S2K (type 1): No iteration, vulnerable to dictionary attacks</item>
+    ///   <item>Iterated S2K with low count: May be vulnerable if iteration count is too low</item>
+    /// </list>
+    /// </para>
+    /// <para>
+    /// This method outputs warnings via Debug.WriteLine and
+    /// Trace.TraceWarning for diagnostic purposes.
+    /// </para>
+    /// </remarks>
+    private static void WarnIfWeakS2K(PgpS2KSpecifier specifier)
+    {
+        const long MinimumRecommendedIterations = 1_000_000; // 1 million iterations minimum
+
+        string? warning = null;
+
+        switch (specifier.Type)
+        {
+            case S2KType.Simple:
+                warning = "SECURITY WARNING: This secret key uses Simple S2K (type 0), which provides " +
+                         "minimal protection against brute-force attacks. The key should be re-encrypted " +
+                         "with Iterated S2K (type 3) or Argon2 S2K (type 4).";
+                break;
+
+            case S2KType.Salted:
+                warning = "SECURITY WARNING: This secret key uses Salted S2K (type 1), which does not " +
+                         "include iteration and is vulnerable to dictionary attacks. The key should be " +
+                         "re-encrypted with Iterated S2K (type 3) or Argon2 S2K (type 4).";
+                break;
+
+            case S2KType.IteratedAndSalted:
+                var iterations = specifier.GetIterationCount();
+                if (iterations < MinimumRecommendedIterations)
+                {
+                    warning = $"SECURITY WARNING: This secret key uses Iterated S2K with only {iterations:N0} " +
+                             $"iterations. Modern recommendations suggest at least {MinimumRecommendedIterations:N0} " +
+                             "iterations for adequate protection against brute-force attacks.";
+                }
+                break;
+
+            case S2KType.Reserved:
+                // Reserved type - unusual but not necessarily weak
+                break;
+
+            case S2KType.Argon2:
+                // Argon2 is the strongest protection, no warning needed
+                break;
+
+            default:
+                // Unknown S2K types - might be future types or extensions
+                break;
+        }
+
+        if (warning != null)
+        {
+            Debug.WriteLine(warning);
+            Trace.TraceWarning(warning);
+        }
     }
 
     /// <summary>

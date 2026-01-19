@@ -475,6 +475,109 @@ public readonly struct PgpSecretKeyRing : IEquatable<PgpSecretKeyRing>
     }
 
     /// <summary>
+    /// Adds a key revocation signature (type 0x20) to this key ring.
+    /// </summary>
+    /// <param name="revocation">The revocation signature to add.</param>
+    /// <returns>A new key ring with the added revocation signature.</returns>
+    /// <exception cref="ArgumentException">If the signature is not a key revocation type.</exception>
+    /// <remarks>
+    /// <para>
+    /// A key revocation signature permanently invalidates the key. For "hard" revocations
+    /// (KeyCompromised), all prior signatures become suspect. For "soft" revocations,
+    /// prior signatures remain valid.
+    /// </para>
+    /// </remarks>
+    public PgpSecretKeyRing AddRevocationSignature(PgpSignaturePacket revocation)
+    {
+        if (revocation.SignatureType != PgpSignatureType.KeyRevocation)
+        {
+            throw new ArgumentException(
+                $"Expected KeyRevocation signature (0x20), got {revocation.SignatureType}.",
+                nameof(revocation));
+        }
+
+        return AddSignature(revocation);
+    }
+
+    /// <summary>
+    /// Adds a subkey revocation signature (type 0x28) for the specified subkey.
+    /// </summary>
+    /// <param name="subkeyId">The key ID of the subkey being revoked.</param>
+    /// <param name="revocation">The subkey revocation signature.</param>
+    /// <returns>A new key ring with the added revocation signature.</returns>
+    /// <exception cref="ArgumentException">If the signature is not a subkey revocation type or subkey is not found.</exception>
+    public PgpSecretKeyRing AddSubkeyRevocationSignature(ReadOnlySpan<byte> subkeyId, PgpSignaturePacket revocation)
+    {
+        if (revocation.SignatureType != PgpSignatureType.SubkeyRevocation)
+        {
+            throw new ArgumentException(
+                $"Expected SubkeyRevocation signature (0x28), got {revocation.SignatureType}.",
+                nameof(revocation));
+        }
+
+        var subkey = GetSecretKey(subkeyId);
+        if (subkey == null)
+        {
+            throw new ArgumentException("Subkey not found in key ring.", nameof(subkeyId));
+        }
+
+        return AddSignature(revocation);
+    }
+
+    /// <summary>
+    /// Gets all key revocation signatures (type 0x20) for the master key.
+    /// </summary>
+    /// <returns>The key revocation signatures.</returns>
+    public IEnumerable<PgpSignaturePacket> GetRevocationSignatures()
+    {
+        return Signatures.Where(s => s.SignatureType == PgpSignatureType.KeyRevocation);
+    }
+
+    /// <summary>
+    /// Gets all subkey revocation signatures (type 0x28).
+    /// </summary>
+    /// <returns>The subkey revocation signatures.</returns>
+    public IEnumerable<PgpSignaturePacket> GetSubkeyRevocationSignatures()
+    {
+        return Signatures.Where(s => s.SignatureType == PgpSignatureType.SubkeyRevocation);
+    }
+
+    /// <summary>
+    /// Gets whether the master key has been revoked.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This checks for the presence of a key revocation signature (type 0x20).
+    /// Note that this does not verify the signature - use a signature verifier
+    /// to validate the revocation.
+    /// </para>
+    /// </remarks>
+    public bool IsKeyRevoked => Signatures.Any(s => s.SignatureType == PgpSignatureType.KeyRevocation);
+
+    /// <summary>
+    /// Gets the revocation reason if the key has been revoked.
+    /// </summary>
+    /// <returns>The revocation reason and text, or null if not revoked.</returns>
+    public (PgpRevocationReason Reason, string? ReasonText)? GetRevocationReason()
+    {
+        var revocation = Signatures.FirstOrDefault(s => s.SignatureType == PgpSignatureType.KeyRevocation);
+        if (revocation.SignatureType != PgpSignatureType.KeyRevocation)
+        {
+            return null;
+        }
+
+        foreach (var subpacket in revocation.HashedSubpackets)
+        {
+            if (subpacket.Type == PgpSignatureSubpacketType.ReasonForRevocation)
+            {
+                return subpacket.GetRevocationReason();
+            }
+        }
+
+        return (PgpRevocationReason.NoReason, null);
+    }
+
+    /// <summary>
     /// Securely clears all sensitive key material from memory.
     /// </summary>
     /// <remarks>

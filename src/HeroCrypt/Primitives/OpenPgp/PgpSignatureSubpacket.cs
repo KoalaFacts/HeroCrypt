@@ -183,6 +183,63 @@ public readonly struct PgpSignatureSubpacket
     }
 
     /// <summary>
+    /// Creates a reason for revocation subpacket.
+    /// </summary>
+    /// <param name="reason">The revocation reason code.</param>
+    /// <param name="reasonText">Optional human-readable text explaining the revocation.</param>
+    /// <param name="isCritical">Whether the subpacket is critical.</param>
+    /// <returns>A new subpacket.</returns>
+    /// <remarks>
+    /// <para>
+    /// This subpacket is used in key revocation (0x20), subkey revocation (0x28),
+    /// and certification revocation (0x30) signatures.
+    /// </para>
+    /// <para>
+    /// The reason text is optional and encoded as UTF-8.
+    /// </para>
+    /// </remarks>
+    public static PgpSignatureSubpacket CreateReasonForRevocation(
+        PgpRevocationReason reason,
+        string? reasonText = null,
+        bool isCritical = false)
+    {
+        byte[] textBytes = string.IsNullOrEmpty(reasonText)
+            ? []
+            : System.Text.Encoding.UTF8.GetBytes(reasonText);
+
+        var data = new byte[1 + textBytes.Length];
+        data[0] = (byte)reason;
+        textBytes.CopyTo(data, 1);
+
+        return new PgpSignatureSubpacket(PgpSignatureSubpacketType.ReasonForRevocation, isCritical, data);
+    }
+
+    /// <summary>
+    /// Gets the revocation reason from this subpacket.
+    /// </summary>
+    /// <returns>A tuple containing the reason code and optional reason text.</returns>
+    /// <exception cref="InvalidOperationException">If this is not a reason for revocation subpacket.</exception>
+    public (PgpRevocationReason Reason, string? ReasonText) GetRevocationReason()
+    {
+        if (Type != PgpSignatureSubpacketType.ReasonForRevocation)
+        {
+            throw new InvalidOperationException($"Expected ReasonForRevocation subpacket, got {Type}.");
+        }
+
+        if (Data.Length < 1)
+        {
+            throw new InvalidOperationException("Reason for revocation data too short.");
+        }
+
+        var reason = (PgpRevocationReason)Data.Span[0];
+        string? reasonText = Data.Length > 1
+            ? System.Text.Encoding.UTF8.GetString(Data.Span.Slice(1))
+            : null;
+
+        return (reason, reasonText);
+    }
+
+    /// <summary>
     /// Gets the signature creation time from this subpacket.
     /// </summary>
     /// <returns>The signature creation time.</returns>

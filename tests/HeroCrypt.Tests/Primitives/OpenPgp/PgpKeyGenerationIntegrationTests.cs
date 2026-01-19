@@ -1381,4 +1381,279 @@ public class PgpKeyGenerationIntegrationTests
             Assert.False(recipient.MatchesKey(bobKey.MasterPublicKey));
         }
     }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // Key Revocation Tests
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    [Trait("Category", TestCategories.INTEGRATION)]
+    [Trait("Category", TestCategories.SLOW)]
+    public class KeyRevocationTests
+    {
+        [Fact]
+        public void RevokeKey_RSA_CreatesValidRevocationSignature()
+        {
+            // Arrange - Generate RSA key pair
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            // Act - Create revocation signature
+            using var revoker = PgpKeyRevoker.Create()
+                .WithSecretKey(keyResult.MasterSecretKey)
+                .WithReason(PgpRevocationReason.KeyCompromised, "Key was compromised");
+            var revocation = revoker.RevokeKey();
+
+            // Assert
+            Assert.Equal(PgpSignatureType.KeyRevocation, revocation.SignatureType);
+            Assert.Equal(4, revocation.Version); // RSA keys are V4
+        }
+
+        [Fact]
+        public void RevokeKey_Ed25519_CreatesValidRevocationSignature()
+        {
+            // Arrange - Generate Ed25519 key pair
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .GenerateEd25519();
+
+            // Act - Create revocation signature
+            using var revoker = PgpKeyRevoker.Create()
+                .WithSecretKey(keyResult.MasterSecretKey)
+                .WithReason(PgpRevocationReason.KeyRetired, "Key is no longer used");
+            var revocation = revoker.RevokeKey();
+
+            // Assert
+            Assert.Equal(PgpSignatureType.KeyRevocation, revocation.SignatureType);
+            Assert.Equal(6, revocation.Version); // Ed25519 keys are V6
+        }
+
+        [Fact]
+        public void RevokeSubkey_RSA_CreatesValidSubkeyRevocationSignature()
+        {
+            // Arrange - Generate RSA key pair with subkey
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .WithKeySize(2048)
+                .WithEncryptionSubkey()
+                .GenerateRsa();
+
+            var subkeyPublicKey = keyResult.PublicKeyRing.Subkeys[0];
+
+            // Act - Create subkey revocation signature
+            using var revoker = PgpKeyRevoker.Create()
+                .WithSecretKey(keyResult.MasterSecretKey)
+                .WithSubkey(subkeyPublicKey)
+                .WithReason(PgpRevocationReason.KeySuperseded);
+            var revocation = revoker.RevokeSubkey();
+
+            // Assert
+            Assert.Equal(PgpSignatureType.SubkeyRevocation, revocation.SignatureType);
+        }
+
+        [Fact]
+        public void AddRevocationSignature_ToPublicKeyRing_SetsIsRevoked()
+        {
+            // Arrange
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            using var revoker = PgpKeyRevoker.Create()
+                .WithSecretKey(keyResult.MasterSecretKey)
+                .WithReason(PgpRevocationReason.KeyCompromised);
+            var revocation = revoker.RevokeKey();
+
+            // Act
+            var revokedKeyRing = keyResult.PublicKeyRing.AddRevocationSignature(revocation);
+
+            // Assert
+            Assert.False(keyResult.PublicKeyRing.IsRevoked);
+            Assert.True(revokedKeyRing.IsRevoked);
+        }
+
+        [Fact]
+        public void AddRevocationSignature_ToSecretKeyRing_SetsIsKeyRevoked()
+        {
+            // Arrange
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            using var revoker = PgpKeyRevoker.Create()
+                .WithSecretKey(keyResult.MasterSecretKey)
+                .WithReason(PgpRevocationReason.KeyRetired, "No longer in use");
+            var revocation = revoker.RevokeKey();
+
+            // Act
+            var revokedKeyRing = keyResult.SecretKeyRing.AddRevocationSignature(revocation);
+
+            // Assert
+            Assert.False(keyResult.SecretKeyRing.IsKeyRevoked);
+            Assert.True(revokedKeyRing.IsKeyRevoked);
+        }
+
+        [Fact]
+        public void GetRevocationReason_ReturnsCorrectReasonAndText()
+        {
+            // Arrange
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            var reasonText = "This key was compromised in a security breach";
+            using var revoker = PgpKeyRevoker.Create()
+                .WithSecretKey(keyResult.MasterSecretKey)
+                .WithReason(PgpRevocationReason.KeyCompromised, reasonText);
+            var revocation = revoker.RevokeKey();
+            var revokedKeyRing = keyResult.PublicKeyRing.AddRevocationSignature(revocation);
+
+            // Act
+            var result = revokedKeyRing.GetRevocationReason();
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal(PgpRevocationReason.KeyCompromised, result.Value.Reason);
+            Assert.Equal(reasonText, result.Value.ReasonText);
+        }
+
+        [Fact]
+        public void GetRevocationReason_NoRevocation_ReturnsNull()
+        {
+            // Arrange
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            // Act
+            var result = keyResult.PublicKeyRing.GetRevocationReason();
+
+            // Assert
+            Assert.Null(result);
+        }
+
+        [Fact]
+        public void RevokeKey_WithCustomTime_UsesSpecifiedTime()
+        {
+            // Arrange
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            var customTime = new DateTimeOffset(2025, 6, 15, 12, 0, 0, TimeSpan.Zero);
+
+            using var revoker = PgpKeyRevoker.Create()
+                .WithSecretKey(keyResult.MasterSecretKey)
+                .WithReason(PgpRevocationReason.NoReason)
+                .WithRevocationTime(customTime);
+            var revocation = revoker.RevokeKey();
+
+            // Act - Get signature creation time from subpackets
+            var creationTimeSubpacket = revocation.HashedSubpackets
+                .First(sp => sp.Type == PgpSignatureSubpacketType.SignatureCreationTime);
+
+            // Assert
+            var creationTime = creationTimeSubpacket.GetSignatureCreationTime();
+            Assert.Equal(customTime, creationTime);
+        }
+
+        [Fact]
+        public void RevokeKey_WithoutSecretKey_ThrowsInvalidOperationException()
+        {
+            // Arrange
+            using var revoker = PgpKeyRevoker.Create()
+                .WithReason(PgpRevocationReason.KeyCompromised);
+
+            // Act & Assert
+            Assert.Throws<InvalidOperationException>(() => revoker.RevokeKey());
+        }
+
+        [Fact]
+        public void RevokeSubkey_WithoutSubkey_ThrowsInvalidOperationException()
+        {
+            // Arrange
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            using var revoker = PgpKeyRevoker.Create()
+                .WithSecretKey(keyResult.MasterSecretKey)
+                .WithReason(PgpRevocationReason.KeySuperseded);
+
+            // Act & Assert
+            Assert.Throws<InvalidOperationException>(() => revoker.RevokeSubkey());
+        }
+
+        [Fact]
+        public void AddRevocationSignature_WrongSignatureType_ThrowsArgumentException()
+        {
+            // Arrange
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .WithKeySize(2048)
+                .WithEncryptionSubkey()
+                .GenerateRsa();
+
+            // Get a subkey binding signature (wrong type)
+            var bindingSignature = keyResult.PublicKeyRing.Signatures
+                .First(s => s.SignatureType == PgpSignatureType.SubkeyBinding);
+
+            // Act & Assert
+            Assert.Throws<ArgumentException>(() =>
+                keyResult.PublicKeyRing.AddRevocationSignature(bindingSignature));
+        }
+
+        [Fact]
+        public void RevocationReason_IsHardRevocation_ReturnsTrueForKeyCompromised()
+        {
+            // Assert
+            Assert.True(PgpRevocationReason.KeyCompromised.IsHardRevocation());
+            Assert.False(PgpRevocationReason.KeyRetired.IsHardRevocation());
+            Assert.False(PgpRevocationReason.KeySuperseded.IsHardRevocation());
+            Assert.False(PgpRevocationReason.NoReason.IsHardRevocation());
+        }
+
+        [Fact]
+        public void RevocationReason_GetDescription_ReturnsAppropriateText()
+        {
+            // Assert
+            Assert.Contains("compromised", PgpRevocationReason.KeyCompromised.GetDescription(), StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("superseded", PgpRevocationReason.KeySuperseded.GetDescription(), StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("retired", PgpRevocationReason.KeyRetired.GetDescription(), StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Fact]
+        public void RevokedKeyRing_Serialization_PreservesRevocation()
+        {
+            // Arrange
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            using var revoker = PgpKeyRevoker.Create()
+                .WithSecretKey(keyResult.MasterSecretKey)
+                .WithReason(PgpRevocationReason.KeyCompromised, "Serialization test");
+            var revocation = revoker.RevokeKey();
+            var revokedKeyRing = keyResult.PublicKeyRing.AddRevocationSignature(revocation);
+
+            // Act - Serialize and deserialize
+            var serialized = revokedKeyRing.ToArray();
+            var deserialized = PgpPublicKeyRing.Read(serialized);
+
+            // Assert
+            Assert.True(deserialized.IsRevoked);
+            var reason = deserialized.GetRevocationReason();
+            Assert.NotNull(reason);
+            Assert.Equal(PgpRevocationReason.KeyCompromised, reason.Value.Reason);
+            Assert.Equal("Serialization test", reason.Value.ReasonText);
+        }
+    }
 }

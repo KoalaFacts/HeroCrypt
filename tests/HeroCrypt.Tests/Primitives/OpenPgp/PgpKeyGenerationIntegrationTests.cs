@@ -1656,4 +1656,361 @@ public class PgpKeyGenerationIntegrationTests
             Assert.Equal("Serialization test", reason.Value.ReasonText);
         }
     }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // Key Rotation Tests
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    [Trait("Category", TestCategories.INTEGRATION)]
+    [Trait("Category", TestCategories.SLOW)]
+    public class KeyRotationTests
+    {
+        [Fact]
+        public void RotateRsaKey_CreatesTransitionSignature()
+        {
+            // Arrange - Generate old and new keys
+            var oldKey = PgpKeyGenerator.Create()
+                .WithUserId("Alice <alice@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            var newKey = PgpKeyGenerator.Create()
+                .WithUserId("Alice <alice-new@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            // Act - Rotate
+            using var rotator = PgpKeyRotator.Create()
+                .FromOldKey(oldKey.MasterSecretKey)
+                .ToNewKey(newKey.PublicKeyRing);
+            var result = rotator.Rotate();
+
+            // Assert
+            Assert.Equal(PgpSignatureType.DirectKey, result.TransitionSignature.SignatureType);
+            Assert.False(result.OldKeyWasRevoked);
+            Assert.Null(result.OldKeyRevocation);
+        }
+
+        [Fact]
+        public void RotateRsaKey_WithRevocation_CreatesRevocationSignature()
+        {
+            // Arrange - Generate old and new keys
+            var oldKey = PgpKeyGenerator.Create()
+                .WithUserId("Bob <bob@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            var newKey = PgpKeyGenerator.Create()
+                .WithUserId("Bob <bob-new@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            // Act - Rotate with revocation
+            using var rotator = PgpKeyRotator.Create()
+                .FromOldKey(oldKey.MasterSecretKey)
+                .ToNewKey(newKey.PublicKeyRing)
+                .WithRevocation(PgpRevocationReason.KeySuperseded, "Rotating to new key");
+            var result = rotator.Rotate();
+
+            // Assert
+            Assert.True(result.OldKeyWasRevoked);
+            Assert.NotNull(result.OldKeyRevocation);
+            Assert.Equal(PgpSignatureType.KeyRevocation, result.OldKeyRevocation.Value.SignatureType);
+        }
+
+        [Fact]
+        public void RotateEd25519Key_CreatesTransitionSignature()
+        {
+            // Arrange - Generate old and new Ed25519 keys
+            var oldKey = PgpKeyGenerator.Create()
+                .WithUserId("Charlie <charlie@example.com>")
+                .GenerateEd25519();
+
+            var newKey = PgpKeyGenerator.Create()
+                .WithUserId("Charlie <charlie-new@example.com>")
+                .GenerateEd25519();
+
+            // Act - Rotate
+            using var rotator = PgpKeyRotator.Create()
+                .FromOldKey(oldKey.MasterSecretKey)
+                .ToNewKey(newKey.PublicKeyRing);
+            var result = rotator.Rotate();
+
+            // Assert
+            Assert.Equal(PgpSignatureType.DirectKey, result.TransitionSignature.SignatureType);
+            Assert.Equal(6, result.TransitionSignature.Version);
+        }
+
+        [Fact]
+        public void RotateKey_TransitionSignatureAddedToNewKeyRing()
+        {
+            // Arrange
+            var oldKey = PgpKeyGenerator.Create()
+                .WithUserId("Dave <dave@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            var newKey = PgpKeyGenerator.Create()
+                .WithUserId("Dave <dave-new@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            int originalSignatureCount = newKey.PublicKeyRing.Signatures.Count;
+
+            // Act - Rotate
+            using var rotator = PgpKeyRotator.Create()
+                .FromOldKey(oldKey.MasterSecretKey)
+                .ToNewKey(newKey.PublicKeyRing);
+            var result = rotator.Rotate();
+
+            // Assert - Certified key ring should have one more signature
+            Assert.Equal(originalSignatureCount + 1, result.CertifiedNewKeyRing.Signatures.Count);
+
+            // The transition signature should be in the certified key ring
+            Assert.Contains(result.CertifiedNewKeyRing.Signatures,
+                sig => sig.SignatureType == PgpSignatureType.DirectKey);
+        }
+
+        [Fact]
+        public void RotateKey_IssuerFingerprintMatchesOldKey()
+        {
+            // Arrange
+            var oldKey = PgpKeyGenerator.Create()
+                .WithUserId("Eve <eve@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            var newKey = PgpKeyGenerator.Create()
+                .WithUserId("Eve <eve-new@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            // Act - Rotate
+            using var rotator = PgpKeyRotator.Create()
+                .FromOldKey(oldKey.MasterSecretKey)
+                .ToNewKey(newKey.PublicKeyRing);
+            var result = rotator.Rotate();
+
+            // Assert - Issuer fingerprint in transition signature should match old key
+            // GetIssuerFingerprint returns [version byte] + [fingerprint]
+            var issuerData = result.TransitionSignature.GetIssuerFingerprint();
+
+            Assert.NotNull(issuerData);
+            Assert.True(issuerData.Length > 1);
+            var fingerprint = issuerData[1..]; // Skip version byte
+            Assert.Equal(oldKey.MasterPublicKey.ComputeFingerprint(), fingerprint);
+        }
+
+        [Fact]
+        public void RotateKey_WithCustomTime_UsesSpecifiedTime()
+        {
+            // Arrange
+            var oldKey = PgpKeyGenerator.Create()
+                .WithUserId("Frank <frank@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            var newKey = PgpKeyGenerator.Create()
+                .WithUserId("Frank <frank-new@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            var customTime = new DateTimeOffset(2024, 6, 15, 12, 0, 0, TimeSpan.Zero);
+
+            // Act - Rotate with custom time
+            using var rotator = PgpKeyRotator.Create()
+                .FromOldKey(oldKey.MasterSecretKey)
+                .ToNewKey(newKey.PublicKeyRing)
+                .WithRotationTime(customTime);
+            var result = rotator.Rotate();
+
+            // Assert
+            var creationTimeSubpacket = result.TransitionSignature.HashedSubpackets
+                .First(sp => sp.Type == PgpSignatureSubpacketType.SignatureCreationTime);
+            var creationTime = creationTimeSubpacket.GetSignatureCreationTime();
+            Assert.Equal(customTime, creationTime);
+        }
+
+        [Fact]
+        public void RotateKey_FromKeyRing_UsesSecretKeyRingMasterKey()
+        {
+            // Arrange
+            var oldKey = PgpKeyGenerator.Create()
+                .WithUserId("Grace <grace@example.com>")
+                .WithKeySize(2048)
+                .WithEncryptionSubkey()
+                .GenerateRsa();
+
+            var newKey = PgpKeyGenerator.Create()
+                .WithUserId("Grace <grace-new@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            // Act - Rotate using key ring
+            using var rotator = PgpKeyRotator.Create()
+                .FromOldKeyRing(oldKey.SecretKeyRing)
+                .ToNewKey(newKey.PublicKeyRing);
+            var result = rotator.Rotate();
+
+            // Assert
+            Assert.Equal(PgpSignatureType.DirectKey, result.TransitionSignature.SignatureType);
+        }
+
+        [Fact]
+        public void RotateKey_ToKeyGeneratorResult_WorksCorrectly()
+        {
+            // Arrange
+            var oldKey = PgpKeyGenerator.Create()
+                .WithUserId("Henry <henry@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            var newKey = PgpKeyGenerator.Create()
+                .WithUserId("Henry <henry-new@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            // Act - Rotate using generator result directly
+            using var rotator = PgpKeyRotator.Create()
+                .FromOldKey(oldKey.MasterSecretKey)
+                .ToNewKey(newKey);  // Pass generator result directly
+            var result = rotator.Rotate();
+
+            // Assert
+            Assert.Equal(PgpSignatureType.DirectKey, result.TransitionSignature.SignatureType);
+        }
+
+        [Fact]
+        public void RotateKey_OldAndNewKeyFingerprints_AreAvailable()
+        {
+            // Arrange
+            var oldKey = PgpKeyGenerator.Create()
+                .WithUserId("Ivy <ivy@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            var newKey = PgpKeyGenerator.Create()
+                .WithUserId("Ivy <ivy-new@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            // Act - Rotate
+            using var rotator = PgpKeyRotator.Create()
+                .FromOldKey(oldKey.MasterSecretKey)
+                .ToNewKey(newKey.PublicKeyRing);
+            var result = rotator.Rotate();
+
+            // Assert
+            Assert.Equal(oldKey.MasterPublicKey.ComputeFingerprint(), result.OldKeyFingerprint);
+            Assert.Equal(newKey.MasterPublicKey.ComputeFingerprint(), result.NewKeyFingerprint);
+            Assert.NotEqual(result.OldKeyFingerprint, result.NewKeyFingerprint);
+        }
+
+        [Fact]
+        public void RotateKey_WithoutOldKey_ThrowsInvalidOperationException()
+        {
+            // Arrange
+            var newKey = PgpKeyGenerator.Create()
+                .WithUserId("Jack <jack@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            using var rotator = PgpKeyRotator.Create()
+                .ToNewKey(newKey.PublicKeyRing);
+
+            // Act & Assert
+            Assert.Throws<InvalidOperationException>(() => rotator.Rotate());
+        }
+
+        [Fact]
+        public void RotateKey_WithoutNewKey_ThrowsInvalidOperationException()
+        {
+            // Arrange
+            var oldKey = PgpKeyGenerator.Create()
+                .WithUserId("Kate <kate@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            using var rotator = PgpKeyRotator.Create()
+                .FromOldKey(oldKey.MasterSecretKey);
+
+            // Act & Assert
+            Assert.Throws<InvalidOperationException>(() => rotator.Rotate());
+        }
+
+        [Fact]
+        public void RotateKey_WithEncryptedOldKey_ThrowsArgumentException()
+        {
+            // Arrange
+            var oldKey = PgpKeyGenerator.Create()
+                .WithUserId("Larry <larry@example.com>")
+                .WithKeySize(2048)
+                .WithPassphrase("test123")
+                .GenerateRsa();
+
+            // Act & Assert - Encrypted key should throw
+            Assert.Throws<ArgumentException>(() =>
+                PgpKeyRotator.Create().FromOldKey(oldKey.MasterSecretKey));
+        }
+
+        [Fact]
+        public void RotateKey_CertifiedKeyRing_CanBeSerializedAndDeserialized()
+        {
+            // Arrange
+            var oldKey = PgpKeyGenerator.Create()
+                .WithUserId("Mike <mike@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            var newKey = PgpKeyGenerator.Create()
+                .WithUserId("Mike <mike-new@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            // Act - Rotate
+            using var rotator = PgpKeyRotator.Create()
+                .FromOldKey(oldKey.MasterSecretKey)
+                .ToNewKey(newKey.PublicKeyRing);
+            var result = rotator.Rotate();
+
+            // Serialize and deserialize
+            var serialized = result.CertifiedNewKeyRing.ToArray();
+            var deserialized = PgpPublicKeyRing.Read(serialized);
+
+            // Assert - Direct key signature should be preserved
+            Assert.Contains(deserialized.Signatures,
+                sig => sig.SignatureType == PgpSignatureType.DirectKey);
+        }
+
+        [Fact]
+        public void RotateKey_RevocationSignature_CanBeAddedToOldKeyRing()
+        {
+            // Arrange
+            var oldKey = PgpKeyGenerator.Create()
+                .WithUserId("Nancy <nancy@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            var newKey = PgpKeyGenerator.Create()
+                .WithUserId("Nancy <nancy-new@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            // Act - Rotate with revocation
+            using var rotator = PgpKeyRotator.Create()
+                .FromOldKey(oldKey.MasterSecretKey)
+                .ToNewKey(newKey.PublicKeyRing)
+                .WithRevocation(PgpRevocationReason.KeySuperseded);
+            var result = rotator.Rotate();
+
+            // Add revocation to old key ring
+            var revokedOldKeyRing = oldKey.PublicKeyRing.AddRevocationSignature(result.OldKeyRevocation!.Value);
+
+            // Assert
+            Assert.True(revokedOldKeyRing.IsRevoked);
+            var reason = revokedOldKeyRing.GetRevocationReason();
+            Assert.NotNull(reason);
+            Assert.Equal(PgpRevocationReason.KeySuperseded, reason.Value.Reason);
+        }
+    }
 }

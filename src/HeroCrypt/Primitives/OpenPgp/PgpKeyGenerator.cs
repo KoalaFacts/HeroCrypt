@@ -281,7 +281,7 @@ public sealed class PgpKeyGenerator
         // NOW encrypt all secret keys if passphrase is provided
         if (!string.IsNullOrEmpty(passphrase))
         {
-            secretKeyRing = EncryptSecretKeyRing(secretKeyRing, passphrase);
+            secretKeyRing = EncryptSecretKeyRing(secretKeyRing, passphrase!);
         }
 
         return new PgpKeyGeneratorResult(secretKeyRing, publicKeyRing, userId!);
@@ -313,7 +313,7 @@ public sealed class PgpKeyGenerator
         }
         else
         {
-            secretKeyPacket = CreateEncryptedSecretKey(publicKeyPacket, privateKey, passphrase);
+            secretKeyPacket = CreateEncryptedSecretKey(publicKeyPacket, privateKey, passphrase!);
         }
 
         // Create user ID packet
@@ -383,7 +383,7 @@ public sealed class PgpKeyGenerator
         }
         else
         {
-            secretKeyPacket = CreateEncryptedSecretKey(publicKeyPacket, privateKey, passphrase);
+            secretKeyPacket = CreateEncryptedSecretKey(publicKeyPacket, privateKey, passphrase!);
         }
 
         // Create user ID packet
@@ -438,7 +438,7 @@ public sealed class PgpKeyGenerator
         }
         else
         {
-            masterSecretPacket = CreateEncryptedSecretKey(masterPublicPacket, ed25519Private, passphrase);
+            masterSecretPacket = CreateEncryptedSecretKey(masterPublicPacket, ed25519Private, passphrase!);
         }
 
         // Create user ID packet
@@ -465,7 +465,7 @@ public sealed class PgpKeyGenerator
         }
         else
         {
-            subkeySecretPacket = CreateEncryptedSecretKey(subkeyPublicPacket, x25519Private, passphrase);
+            subkeySecretPacket = CreateEncryptedSecretKey(subkeyPublicPacket, x25519Private, passphrase!);
         }
 
         // Create subkey binding signature
@@ -632,7 +632,8 @@ public sealed class PgpKeyGenerator
         // Encrypt master key
         var masterSecretMaterial = ring.MasterKey.SecretKeyMaterial.ToArray();
         // Remove checksum (last 2 bytes) since CreateEncryptedSecretKey adds its own hash
-        var masterPlainMaterial = masterSecretMaterial[..^2];
+        var masterPlainMaterial = new byte[masterSecretMaterial.Length - 2];
+        Array.Copy(masterSecretMaterial, 0, masterPlainMaterial, 0, masterPlainMaterial.Length);
         var encryptedMaster = CreateEncryptedSecretKey(ring.MasterKey.PublicKey, masterPlainMaterial, passphrase);
 
         // Encrypt subkeys
@@ -641,7 +642,8 @@ public sealed class PgpKeyGenerator
         {
             var subkeySecretMaterial = subkey.SecretKeyMaterial.ToArray();
             // Remove checksum (last 2 bytes) since CreateEncryptedSecretKey adds its own hash
-            var subkeyPlainMaterial = subkeySecretMaterial[..^2];
+            var subkeyPlainMaterial = new byte[subkeySecretMaterial.Length - 2];
+            Array.Copy(subkeySecretMaterial, 0, subkeyPlainMaterial, 0, subkeyPlainMaterial.Length);
             var encryptedSubkey = CreateEncryptedSecretKey(subkey.PublicKey, subkeyPlainMaterial, passphrase);
             encryptedSubkeys.Add(encryptedSubkey);
         }

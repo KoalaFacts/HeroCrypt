@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.Security.Cryptography;
+using HeroCrypt.Primitives.Ed25519;
 using HeroCrypt.Primitives.Rsa;
 
 namespace HeroCrypt.Primitives.OpenPgp;
@@ -452,9 +453,15 @@ public sealed class PgpSignatureSigner : IDisposable
 
     private byte[] CreateEd25519Signature(byte[] hash)
     {
-        // Ed25519 uses the full data, not just the hash, for signing
-        // But in OpenPGP context, we sign the hash
-        throw new NotSupportedException("Ed25519 signing is not yet implemented.");
+        // Read the Ed25519 private key from the secret key packet
+        var ed25519PrivateKey = secretKey!.Value.ReadEcSecretKey();
+
+        // Ed25519 in OpenPGP signs the hash (which includes the signature trailer)
+        // Ed25519Core.Sign returns a 64-byte signature
+        var signature = Ed25519Core.Sign(hash, ed25519PrivateKey);
+
+        // Return raw 64-byte signature (no MPI encoding for native format keys)
+        return signature;
     }
 
     private byte[] CreateEcdsaSignature(byte[] hash)

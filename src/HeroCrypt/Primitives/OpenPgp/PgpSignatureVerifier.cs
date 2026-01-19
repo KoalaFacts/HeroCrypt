@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using System.Numerics;
 using System.Security.Cryptography;
+using HeroCrypt.Primitives.Ed25519;
 using HeroCrypt.Primitives.Rsa;
 
 namespace HeroCrypt.Primitives.OpenPgp;
@@ -405,7 +406,17 @@ public sealed class PgpSignatureVerifier : IDisposable
 
     private static bool VerifyEd25519Signature(byte[] hash, byte[] signatureData, PgpPublicKeyPacket publicKey)
     {
-        throw new NotSupportedException("Ed25519 verification is not yet implemented.");
+        // Read the Ed25519 public key (32 bytes)
+        var ed25519PublicKey = publicKey.ReadNativePublicKey();
+
+        // The signature data should be 64 bytes for Ed25519
+        if (signatureData.Length != 64)
+        {
+            return false;
+        }
+
+        // Verify using Ed25519Core
+        return Ed25519Core.Verify(hash, signatureData, ed25519PublicKey);
     }
 
     private static bool VerifyEcdsaSignature(byte[] hash, byte[] signatureData, PgpPublicKeyPacket publicKey)

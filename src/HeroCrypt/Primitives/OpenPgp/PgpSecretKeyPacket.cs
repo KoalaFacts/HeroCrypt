@@ -1110,6 +1110,254 @@ public readonly struct PgpSecretKeyPacket
     public byte[] GetKeyId() => PublicKey.GetKeyId();
 
     /// <summary>
+    /// Decrypts this secret key packet using the provided passphrase.
+    /// </summary>
+    /// <param name="passphrase">The passphrase used to protect the key.</param>
+    /// <returns>A new unencrypted secret key packet.</returns>
+    /// <exception cref="InvalidOperationException">If the key is not encrypted.</exception>
+    /// <exception cref="CryptographicException">If decryption fails or integrity check fails.</exception>
+    /// <remarks>
+    /// <para>
+    /// This method supports the following S2K usage conventions:
+    /// <list type="bullet">
+    ///   <item><see cref="PgpS2KUsage.Sha1Hash"/> (254): SHA-1 hash for integrity verification</item>
+    ///   <item><see cref="PgpS2KUsage.Checksum"/> (255): 2-byte checksum for integrity verification</item>
+    /// </list>
+    /// </para>
+    /// <para>
+    /// The supported S2K types are:
+    /// <list type="bullet">
+    ///   <item>Simple S2K (type 0)</item>
+    ///   <item>Salted S2K (type 1)</item>
+    ///   <item>Iterated and Salted S2K (type 3)</item>
+    /// </list>
+    /// </para>
+    /// </remarks>
+    public PgpSecretKeyPacket Decrypt(string passphrase)
+    {
+        if (!IsEncrypted)
+        {
+            throw new InvalidOperationException("Key is not encrypted.");
+        }
+
+        if (S2KSpecifier == null)
+        {
+            throw new InvalidOperationException("No S2K specifier available for encrypted key.");
+        }
+
+        // Determine key size based on cipher algorithm
+        int keySize = GetCipherKeySize(CipherAlgorithm);
+
+        // Convert passphrase to bytes
+        byte[] passphraseBytes = System.Text.Encoding.UTF8.GetBytes(passphrase);
+
+        try
+        {
+            // Derive encryption key using S2K
+            byte[] encryptionKey = DeriveS2KKey(S2KSpecifier.Value, passphraseBytes, keySize);
+
+            try
+            {
+                // Decrypt the secret key material
+                byte[] decrypted = CfbDecrypt(SecretKeyMaterial.ToArray(), encryptionKey, IV.ToArray(), CipherAlgorithm);
+
+                try
+                {
+                    // Verify integrity and extract secret material
+                    byte[] secretMaterial;
+                    if (S2KUsage == PgpS2KUsage.Sha1Hash)
+                    {
+                        // SHA-1 hash at the end (20 bytes)
+                        if (decrypted.Length < 20)
+                        {
+                            throw new CryptographicException("Decrypted data too short for SHA-1 hash.");
+                        }
+
+                        int materialLength = decrypted.Length - 20;
+                        byte[] expectedHash = decrypted.AsSpan(materialLength, 20).ToArray();
+                        secretMaterial = decrypted.AsSpan(0, materialLength).ToArray();
+
+                        // Verify SHA-1 hash
+#pragma warning disable CA5350 // SHA-1 is weak, but required by OpenPGP specification for S2KUsage 254
+                        byte[] actualHash;
+#if NETSTANDARD2_0
+                        using (var sha1 = SHA1.Create())
+                        {
+                            actualHash = sha1.ComputeHash(secretMaterial);
+                        }
+#else
+                        actualHash = SHA1.HashData(secretMaterial);
+#endif
+#pragma warning restore CA5350
+
+                        if (!SecureMemoryClear.ConstantTimeEquals(expectedHash, actualHash))
+                        {
+                            throw new CryptographicException("Secret key integrity check failed. Wrong passphrase or corrupted data.");
+                        }
+                    }
+                    else if (S2KUsage == PgpS2KUsage.Checksum)
+                    {
+                        // 2-byte checksum at the end
+                        if (decrypted.Length < 2)
+                        {
+                            throw new CryptographicException("Decrypted data too short for checksum.");
+                        }
+
+                        int materialLength = decrypted.Length - 2;
+                        ushort expectedChecksum = (ushort)((decrypted[materialLength] << 8) | decrypted[materialLength + 1]);
+                        secretMaterial = decrypted.AsSpan(0, materialLength).ToArray();
+
+                        // Calculate checksum
+                        ushort actualChecksum = 0;
+                        foreach (byte b in secretMaterial)
+                        {
+                            actualChecksum = (ushort)((actualChecksum + b) & 0xFFFF);
+                        }
+
+                        if (!SecureMemoryClear.ConstantTimeEquals(expectedChecksum, actualChecksum))
+                        {
+                            throw new CryptographicException("Secret key checksum verification failed. Wrong passphrase or corrupted data.");
+                        }
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException($"Unsupported S2K usage: {S2KUsage}");
+                    }
+
+                    // Create unencrypted secret key packet
+                    return CreateUnencrypted(PublicKey, secretMaterial);
+                }
+                finally
+                {
+                    SecureMemoryClear.Clear(decrypted);
+                }
+            }
+            finally
+            {
+                SecureMemoryClear.Clear(encryptionKey);
+            }
+        }
+        finally
+        {
+            SecureMemoryClear.Clear(passphraseBytes);
+        }
+    }
+
+    /// <summary>
+    /// Derives an encryption key from the S2K specifier and passphrase.
+    /// </summary>
+    private static byte[] DeriveS2KKey(PgpS2KSpecifier specifier, byte[] passphrase, int keySize)
+    {
+        var hashAlgorithm = GetHashAlgorithmName(specifier.HashAlgorithm);
+
+        return specifier.Type switch
+        {
+            S2KType.Simple => S2KCore.SimpleS2K(passphrase, keySize, hashAlgorithm),
+            S2KType.Salted => S2KCore.SaltedS2K(passphrase, specifier.Salt.Span, keySize, hashAlgorithm),
+            S2KType.IteratedAndSalted => S2KCore.IteratedS2K(
+                passphrase,
+                specifier.Salt.Span,
+                S2KCore.DecodeIterationCount(specifier.EncodedCount),
+                keySize,
+                hashAlgorithm),
+            _ => throw new InvalidOperationException($"Unsupported S2K type: {specifier.Type}")
+        };
+    }
+
+    /// <summary>
+    /// Maps a PGP hash algorithm ID to a .NET HashAlgorithmName.
+    /// </summary>
+    private static HashAlgorithmName GetHashAlgorithmName(byte hashAlgorithm)
+    {
+        return hashAlgorithm switch
+        {
+            1 => HashAlgorithmName.MD5, // Not recommended, but supported for legacy
+            2 => HashAlgorithmName.SHA1,
+            8 => HashAlgorithmName.SHA256,
+            9 => HashAlgorithmName.SHA384,
+            10 => HashAlgorithmName.SHA512,
+            11 => throw new NotSupportedException("SHA-224 is not supported by .NET."),
+            12 => throw new NotSupportedException("SHA3-256 is not supported by .NET standard."),
+            _ => throw new ArgumentException($"Unknown hash algorithm: {hashAlgorithm}", nameof(hashAlgorithm))
+        };
+    }
+
+    /// <summary>
+    /// Gets the key size in bytes for a cipher algorithm.
+    /// </summary>
+    private static int GetCipherKeySize(byte cipherAlgorithm)
+    {
+        return cipherAlgorithm switch
+        {
+            1 => 16, // IDEA
+            2 => 24, // 3DES
+            3 => 16, // CAST5
+            4 => 16, // Blowfish
+            7 => 16, // AES-128
+            8 => 24, // AES-192
+            9 => 32, // AES-256
+            10 => 32, // Twofish
+            11 => 16, // Camellia-128
+            12 => 24, // Camellia-192
+            13 => 32, // Camellia-256
+            _ => throw new ArgumentException($"Unknown cipher algorithm: {cipherAlgorithm}", nameof(cipherAlgorithm))
+        };
+    }
+
+    /// <summary>
+    /// Decrypts data using CFB mode.
+    /// </summary>
+    private static byte[] CfbDecrypt(byte[] ciphertext, byte[] key, byte[] iv, byte cipherAlgorithm)
+    {
+        // Currently only AES is supported
+        if (cipherAlgorithm < 7 || cipherAlgorithm > 9)
+        {
+            throw new NotSupportedException($"Cipher algorithm {cipherAlgorithm} is not supported. Only AES (7, 8, 9) is currently supported.");
+        }
+
+        int blockSize = GetCipherBlockSize(cipherAlgorithm);
+
+        using var aes = Aes.Create();
+        aes.Key = key;
+        aes.Mode = CipherMode.ECB; // We implement CFB manually
+        aes.Padding = PaddingMode.None;
+
+        byte[] plaintext = new byte[ciphertext.Length];
+        byte[] fr = new byte[blockSize]; // Feedback register
+        byte[] fre = new byte[blockSize]; // Encrypted feedback register
+
+        // Initialize FR with IV
+        iv.AsSpan(0, Math.Min(iv.Length, blockSize)).CopyTo(fr);
+
+        using var encryptor = aes.CreateEncryptor();
+
+        int pos = 0;
+        while (pos < ciphertext.Length)
+        {
+            // Encrypt the feedback register
+            encryptor.TransformBlock(fr, 0, blockSize, fre, 0);
+
+            // XOR ciphertext with encrypted FR to get plaintext
+            int bytesToProcess = Math.Min(blockSize, ciphertext.Length - pos);
+            for (int i = 0; i < bytesToProcess; i++)
+            {
+                plaintext[pos + i] = (byte)(ciphertext[pos + i] ^ fre[i]);
+            }
+
+            // Update FR with ciphertext for next iteration
+            Array.Copy(ciphertext, pos, fr, 0, bytesToProcess);
+            if (bytesToProcess < blockSize)
+            {
+                Array.Clear(fr, bytesToProcess, blockSize - bytesToProcess);
+            }
+
+            pos += bytesToProcess;
+        }
+
+        return plaintext;
+    }
+
+    /// <summary>
     /// Reads unencrypted RSA secret key material.
     /// </summary>
     /// <returns>A tuple of RSA private parameters (d, p, q, u).</returns>

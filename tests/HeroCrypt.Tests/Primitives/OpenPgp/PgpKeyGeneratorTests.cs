@@ -1536,4 +1536,287 @@ public class PgpKeyGeneratorTests
             Assert.True(reimported.MasterKey.IsEncrypted);
         }
     }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // Secret Key Decryption Tests
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    [Trait("Category", TestCategories.UNIT)]
+    [Trait("Category", TestCategories.SLOW)]
+    public class SecretKeyDecryptionTests
+    {
+        [Fact]
+        public void Decrypt_RsaKey_ReturnsUnencryptedKey()
+        {
+            // Arrange
+            var passphrase = "testpassphrase";
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .WithKeySize(2048)
+                .WithPassphrase(passphrase)
+                .GenerateRsa();
+
+            // Act
+            var decrypted = result.MasterSecretKey.Decrypt(passphrase);
+
+            // Assert
+            Assert.False(decrypted.IsEncrypted);
+            Assert.Equal(PgpS2KUsage.None, decrypted.S2KUsage);
+        }
+
+        [Fact]
+        public void Decrypt_RsaKey_CanReadSecretMaterial()
+        {
+            // Arrange
+            var passphrase = "testpassphrase";
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .WithKeySize(2048)
+                .WithPassphrase(passphrase)
+                .GenerateRsa();
+
+            // Act
+            var decrypted = result.MasterSecretKey.Decrypt(passphrase);
+            var (d, p, q, u) = decrypted.ReadRsaSecretKey();
+
+            // Assert
+            Assert.True(d > 0);
+            Assert.True(p > 0);
+            Assert.True(q > 0);
+            Assert.True(u > 0);
+        }
+
+        [Fact]
+        public void Decrypt_RsaKey_PreservesPublicKeyPortion()
+        {
+            // Arrange
+            var passphrase = "testpassphrase";
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .WithKeySize(2048)
+                .WithPassphrase(passphrase)
+                .GenerateRsa();
+
+            // Act
+            var decrypted = result.MasterSecretKey.Decrypt(passphrase);
+
+            // Assert
+            Assert.Equal(result.Fingerprint, decrypted.ComputeFingerprint());
+            Assert.Equal(result.Algorithm, decrypted.Algorithm);
+            Assert.Equal(result.Version, decrypted.Version);
+        }
+
+        [Fact]
+        public void Decrypt_Ed25519Key_ReturnsUnencryptedKey()
+        {
+            // Arrange
+            var passphrase = "ed25519pass";
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Ed25519 <ed25519@example.com>")
+                .WithPassphrase(passphrase)
+                .GenerateEd25519();
+
+            // Act
+            var decrypted = result.MasterSecretKey.Decrypt(passphrase);
+
+            // Assert
+            Assert.False(decrypted.IsEncrypted);
+            Assert.Equal(PgpS2KUsage.None, decrypted.S2KUsage);
+        }
+
+        [Fact]
+        public void Decrypt_Ed25519Key_CanReadSecretMaterial()
+        {
+            // Arrange
+            var passphrase = "ed25519pass";
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Ed25519 <ed25519@example.com>")
+                .WithPassphrase(passphrase)
+                .GenerateEd25519();
+
+            // Act
+            var decrypted = result.MasterSecretKey.Decrypt(passphrase);
+            var secretKey = decrypted.ReadEcSecretKey();
+
+            // Assert
+            Assert.Equal(32, secretKey.Length); // Ed25519 private key is 32 bytes
+        }
+
+        [Fact]
+        public void Decrypt_X25519Key_ReturnsUnencryptedKey()
+        {
+            // Arrange
+            var passphrase = "x25519pass";
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("X25519 <x25519@example.com>")
+                .WithPassphrase(passphrase)
+                .GenerateX25519();
+
+            // Act
+            var decrypted = result.MasterSecretKey.Decrypt(passphrase);
+
+            // Assert
+            Assert.False(decrypted.IsEncrypted);
+        }
+
+        [Fact]
+        public void Decrypt_CombinedKey_BothKeysCanBeDecrypted()
+        {
+            // Arrange
+            var passphrase = "combinedpass";
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Combined <combined@example.com>")
+                .WithPassphrase(passphrase)
+                .GenerateEd25519WithX25519Subkey();
+
+            // Act
+            var decryptedMaster = result.MasterSecretKey.Decrypt(passphrase);
+            var decryptedSubkey = result.SecretKeyRing.Subkeys[0].Decrypt(passphrase);
+
+            // Assert
+            Assert.False(decryptedMaster.IsEncrypted);
+            Assert.False(decryptedSubkey.IsEncrypted);
+        }
+
+        [Fact]
+        public void Decrypt_WithWrongPassphrase_ThrowsCryptographicException()
+        {
+            // Arrange
+            var passphrase = "correctpassphrase";
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .WithKeySize(2048)
+                .WithPassphrase(passphrase)
+                .GenerateRsa();
+
+            // Act & Assert
+            Assert.Throws<System.Security.Cryptography.CryptographicException>(
+                () => result.MasterSecretKey.Decrypt("wrongpassphrase"));
+        }
+
+        [Fact]
+        public void Decrypt_UnencryptedKey_ThrowsInvalidOperationException()
+        {
+            // Arrange
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            // Assert - key is not encrypted
+            Assert.False(result.MasterSecretKey.IsEncrypted);
+
+            // Act & Assert
+            Assert.Throws<InvalidOperationException>(
+                () => result.MasterSecretKey.Decrypt("anypassphrase"));
+        }
+
+        [Fact]
+        public void Decrypt_RoundTrip_SignatureVerifies()
+        {
+            // Arrange
+            var passphrase = "signaturetest";
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .WithKeySize(2048)
+                .WithPassphrase(passphrase)
+                .GenerateRsa();
+
+            var data = TestHelpers.RandomBytes(100);
+
+            // Act - Decrypt the key
+            var decryptedSecretKey = result.MasterSecretKey.Decrypt(passphrase);
+
+            // Sign with decrypted key
+            using var signer = PgpSignatureSigner.Create()
+                .WithSecretKey(decryptedSecretKey);
+            var signedMessage = signer.Sign(data);
+
+            // Verify with public key
+            using var verifier = PgpSignatureVerifier.Create()
+                .WithPublicKey(result.MasterPublicKey);
+            var verifyResult = verifier.Verify(signedMessage);
+
+            // Assert
+            Assert.True(verifyResult.IsValid);
+        }
+
+        [Fact]
+        public void Decrypt_Ed25519_RoundTrip_SignatureVerifies()
+        {
+            // Arrange
+            var passphrase = "ed25519signtest";
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Ed25519 <ed25519@example.com>")
+                .WithPassphrase(passphrase)
+                .GenerateEd25519();
+
+            var data = TestHelpers.RandomBytes(100);
+
+            // Act - Decrypt the key
+            var decryptedSecretKey = result.MasterSecretKey.Decrypt(passphrase);
+
+            // Sign with decrypted key
+            using var signer = PgpSignatureSigner.Create()
+                .WithSecretKey(decryptedSecretKey);
+            var signedMessage = signer.Sign(data);
+
+            // Verify with public key
+            using var verifier = PgpSignatureVerifier.Create()
+                .WithPublicKey(result.MasterPublicKey);
+            var verifyResult = verifier.Verify(signedMessage);
+
+            // Assert
+            Assert.True(verifyResult.IsValid);
+        }
+
+        [Fact]
+        public void Decrypt_Reimported_CanDecrypt()
+        {
+            // Arrange
+            var passphrase = "reimporttest";
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .WithKeySize(2048)
+                .WithPassphrase(passphrase)
+                .GenerateRsa();
+
+            // Export and reimport
+            var exported = result.ExportSecretKey();
+            var reimported = PgpSecretKeyRing.Read(exported);
+
+            // Act
+            var decrypted = reimported.MasterKey.Decrypt(passphrase);
+
+            // Assert
+            Assert.False(decrypted.IsEncrypted);
+            Assert.Equal(result.Fingerprint, decrypted.ComputeFingerprint());
+        }
+
+        [Fact]
+        public void Decrypt_WithSubkey_CanDecryptBothFromReimported()
+        {
+            // Arrange
+            var passphrase = "subkeytest";
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .WithKeySize(2048)
+                .WithPassphrase(passphrase)
+                .WithEncryptionSubkey()
+                .GenerateRsa();
+
+            // Export and reimport
+            var exported = result.ExportSecretKey();
+            var reimported = PgpSecretKeyRing.Read(exported);
+
+            // Act
+            var decryptedMaster = reimported.MasterKey.Decrypt(passphrase);
+            var decryptedSubkey = reimported.Subkeys[0].Decrypt(passphrase);
+
+            // Assert
+            Assert.False(decryptedMaster.IsEncrypted);
+            Assert.False(decryptedSubkey.IsEncrypted);
+            Assert.Equal(result.Fingerprint, decryptedMaster.ComputeFingerprint());
+        }
+    }
 }

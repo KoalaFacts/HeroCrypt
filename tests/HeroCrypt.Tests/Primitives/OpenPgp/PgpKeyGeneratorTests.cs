@@ -681,4 +681,442 @@ public class PgpKeyGeneratorTests
             Assert.False(default(PgpSecretKeyRing).Equals(result.SecretKeyRing));
         }
     }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // Ed25519 Key Generation Tests
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    [Trait("Category", TestCategories.UNIT)]
+    [Trait("Category", TestCategories.FAST)]
+    public class Ed25519KeyGenerationTests
+    {
+        [Fact]
+        public void GenerateEd25519_WithUserId_ProducesValidKeyPair()
+        {
+            // Arrange
+            var userId = "Ed25519 User <ed25519@example.com>";
+
+            // Act
+            var result = PgpKeyGenerator.Create()
+                .WithUserId(userId)
+                .GenerateEd25519();
+
+            // Assert
+            Assert.Equal(userId, result.UserId);
+            Assert.Equal(6, result.Version); // Ed25519 requires V6
+            Assert.Equal(PgpPublicKeyAlgorithm.Ed25519, result.Algorithm);
+            Assert.False(default(PgpSecretKeyRing).Equals(result.SecretKeyRing));
+            Assert.False(default(PgpPublicKeyRing).Equals(result.PublicKeyRing));
+        }
+
+        [Fact]
+        public void GenerateEd25519_ProducesV6Fingerprint()
+        {
+            // Arrange & Act
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .GenerateEd25519();
+
+            // Assert
+            Assert.NotNull(result.Fingerprint);
+            Assert.Equal(32, result.Fingerprint.Length); // V6 fingerprint is 32 bytes (SHA-256)
+            Assert.NotNull(result.KeyId);
+            Assert.Equal(8, result.KeyId.Length); // Key ID is 8 bytes
+        }
+
+        [Fact]
+        public void GenerateEd25519_ProducesCorrectKeyId()
+        {
+            // Arrange & Act
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .GenerateEd25519();
+
+            // Assert - V6 Key ID should be first 8 bytes of fingerprint
+            var fingerprint = result.Fingerprint;
+            var keyId = result.KeyId;
+            Assert.Equal(fingerprint[..8], keyId);
+        }
+
+        [Fact]
+        public void GenerateEd25519_IncludesSelfCertificationSignature()
+        {
+            // Arrange & Act
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Ed25519 <ed25519@example.com>")
+                .GenerateEd25519();
+
+            // Assert
+            Assert.Single(result.PublicKeyRing.Signatures);
+            var sig = result.PublicKeyRing.Signatures[0];
+            Assert.Equal(PgpSignatureType.PositiveCertification, sig.SignatureType);
+            Assert.Equal(6, sig.Version);
+            Assert.Equal((byte)PgpPublicKeyAlgorithm.Ed25519, sig.PublicKeyAlgorithm);
+        }
+
+        [Fact]
+        public void GenerateEd25519_CertificationHasCorrectKeyFlags()
+        {
+            // Arrange & Act
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Ed25519 <ed25519@example.com>")
+                .GenerateEd25519();
+
+            // Assert
+            var sig = result.PublicKeyRing.Signatures[0];
+            var keyFlags = sig.GetKeyFlags();
+            Assert.NotNull(keyFlags);
+            Assert.True((keyFlags.Value & PgpKeyCapabilities.Certify) != 0);
+            Assert.True((keyFlags.Value & PgpKeyCapabilities.Sign) != 0);
+        }
+
+        [Fact]
+        public void GenerateEd25519_SecretKeyHas32ByteMaterial()
+        {
+            // Arrange & Act
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .GenerateEd25519();
+
+            // Assert - Ed25519 secret material is 32-byte seed + 2-byte checksum = 34 bytes
+            // (PgpSecretKeyPacket adds checksum automatically)
+            Assert.Equal(34, result.MasterSecretKey.SecretKeyMaterial.Length);
+        }
+
+        [Fact]
+        public void GenerateEd25519_PublicKeyHas32ByteMaterial()
+        {
+            // Arrange & Act
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .GenerateEd25519();
+
+            // Assert - Ed25519 public key is 32 bytes
+            var publicKey = result.MasterPublicKey.ReadNativePublicKey();
+            Assert.Equal(32, publicKey.Length);
+        }
+
+        [Fact]
+        public void GenerateEd25519_CanBeSerializedAndReimported()
+        {
+            // Arrange
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Ed25519 <ed25519@example.com>")
+                .GenerateEd25519();
+
+            // Act
+            var exported = result.ExportPublicKey();
+            var reimported = PgpPublicKeyRing.Read(exported);
+
+            // Assert
+            Assert.Equal(result.Fingerprint, reimported.MasterFingerprint);
+            Assert.Equal(result.UserId, reimported.UserIds[0].UserId);
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // X25519 Key Generation Tests
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    [Trait("Category", TestCategories.UNIT)]
+    [Trait("Category", TestCategories.FAST)]
+    public class X25519KeyGenerationTests
+    {
+        [Fact]
+        public void GenerateX25519_WithUserId_ProducesValidKeyPair()
+        {
+            // Arrange
+            var userId = "X25519 User <x25519@example.com>";
+
+            // Act
+            var result = PgpKeyGenerator.Create()
+                .WithUserId(userId)
+                .GenerateX25519();
+
+            // Assert
+            Assert.Equal(userId, result.UserId);
+            Assert.Equal(6, result.Version); // X25519 requires V6
+            Assert.Equal(PgpPublicKeyAlgorithm.X25519, result.Algorithm);
+        }
+
+        [Fact]
+        public void GenerateX25519_ProducesV6Fingerprint()
+        {
+            // Arrange & Act
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .GenerateX25519();
+
+            // Assert
+            Assert.NotNull(result.Fingerprint);
+            Assert.Equal(32, result.Fingerprint.Length); // V6 fingerprint is 32 bytes (SHA-256)
+        }
+
+        [Fact]
+        public void GenerateX25519_HasNoSelfCertification()
+        {
+            // Arrange & Act - X25519 cannot sign, so no self-certification
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("X25519 <x25519@example.com>")
+                .GenerateX25519();
+
+            // Assert
+            Assert.Empty(result.PublicKeyRing.Signatures);
+        }
+
+        [Fact]
+        public void GenerateX25519_PublicKeyHas32ByteMaterial()
+        {
+            // Arrange & Act
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .GenerateX25519();
+
+            // Assert - X25519 public key is 32 bytes
+            var publicKey = result.MasterPublicKey.ReadNativePublicKey();
+            Assert.Equal(32, publicKey.Length);
+        }
+
+        [Fact]
+        public void GenerateX25519_CanBeSerializedAndReimported()
+        {
+            // Arrange
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("X25519 <x25519@example.com>")
+                .GenerateX25519();
+
+            // Act
+            var exported = result.ExportPublicKey();
+            var reimported = PgpPublicKeyRing.Read(exported);
+
+            // Assert
+            Assert.Equal(result.Fingerprint, reimported.MasterFingerprint);
+            Assert.Equal(result.UserId, reimported.UserIds[0].UserId);
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // Ed25519 + X25519 Combined Key Tests
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    [Trait("Category", TestCategories.UNIT)]
+    [Trait("Category", TestCategories.FAST)]
+    public class Ed25519WithX25519SubkeyTests
+    {
+        [Fact]
+        public void GenerateEd25519WithX25519Subkey_ProducesValidKeyPair()
+        {
+            // Arrange
+            var userId = "Combined User <combined@example.com>";
+
+            // Act
+            var result = PgpKeyGenerator.Create()
+                .WithUserId(userId)
+                .GenerateEd25519WithX25519Subkey();
+
+            // Assert
+            Assert.Equal(userId, result.UserId);
+            Assert.Equal(6, result.Version);
+            Assert.Equal(PgpPublicKeyAlgorithm.Ed25519, result.Algorithm);
+        }
+
+        [Fact]
+        public void GenerateEd25519WithX25519Subkey_HasMasterAndSubkey()
+        {
+            // Arrange & Act
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .GenerateEd25519WithX25519Subkey();
+
+            // Assert
+            Assert.Equal(2, result.PublicKeyRing.KeyCount);
+            Assert.Equal(2, result.SecretKeyRing.KeyCount);
+            Assert.Single(result.PublicKeyRing.Subkeys);
+            Assert.Single(result.SecretKeyRing.Subkeys);
+        }
+
+        [Fact]
+        public void GenerateEd25519WithX25519Subkey_MasterKeyIsEd25519()
+        {
+            // Arrange & Act
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .GenerateEd25519WithX25519Subkey();
+
+            // Assert
+            Assert.Equal(PgpPublicKeyAlgorithm.Ed25519, result.MasterPublicKey.Algorithm);
+            Assert.False(result.MasterPublicKey.IsSubkey);
+        }
+
+        [Fact]
+        public void GenerateEd25519WithX25519Subkey_SubkeyIsX25519()
+        {
+            // Arrange & Act
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .GenerateEd25519WithX25519Subkey();
+
+            // Assert
+            var subkey = result.PublicKeyRing.Subkeys[0];
+            Assert.Equal(PgpPublicKeyAlgorithm.X25519, subkey.Algorithm);
+            Assert.True(subkey.IsSubkey);
+        }
+
+        [Fact]
+        public void GenerateEd25519WithX25519Subkey_HasCertificationAndBindingSignatures()
+        {
+            // Arrange & Act
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .GenerateEd25519WithX25519Subkey();
+
+            // Assert - Should have certification + binding signatures
+            Assert.Equal(2, result.PublicKeyRing.Signatures.Count);
+
+            var certSig = result.PublicKeyRing.Signatures[0];
+            Assert.Equal(PgpSignatureType.PositiveCertification, certSig.SignatureType);
+
+            var bindingSig = result.PublicKeyRing.Signatures[1];
+            Assert.Equal(PgpSignatureType.SubkeyBinding, bindingSig.SignatureType);
+        }
+
+        [Fact]
+        public void GenerateEd25519WithX25519Subkey_SubkeyHasEncryptionFlags()
+        {
+            // Arrange & Act
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .GenerateEd25519WithX25519Subkey();
+
+            // Assert
+            var bindingSig = result.PublicKeyRing.Signatures[1];
+            var keyFlags = bindingSig.GetKeyFlags();
+            Assert.NotNull(keyFlags);
+            Assert.True((keyFlags.Value & PgpKeyCapabilities.EncryptCommunications) != 0);
+            Assert.True((keyFlags.Value & PgpKeyCapabilities.EncryptStorage) != 0);
+        }
+
+        [Fact]
+        public void GenerateEd25519WithX25519Subkey_BothKeysAreV6()
+        {
+            // Arrange & Act
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .GenerateEd25519WithX25519Subkey();
+
+            // Assert
+            Assert.Equal(6, result.MasterPublicKey.Version);
+            Assert.Equal(6, result.PublicKeyRing.Subkeys[0].Version);
+        }
+
+        [Fact]
+        public void GenerateEd25519WithX25519Subkey_CanBeSerializedAndReimported()
+        {
+            // Arrange
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Combined <combined@example.com>")
+                .GenerateEd25519WithX25519Subkey();
+
+            // Act
+            var exported = result.ExportPublicKey();
+            var reimported = PgpPublicKeyRing.Read(exported);
+
+            // Assert
+            Assert.Equal(result.Fingerprint, reimported.MasterFingerprint);
+            Assert.Equal(2, reimported.KeyCount);
+            Assert.Single(reimported.Subkeys);
+        }
+
+        [Fact]
+        public void GenerateEd25519WithX25519Subkey_SecretKeyCanBeReimported()
+        {
+            // Arrange
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Combined <combined@example.com>")
+                .GenerateEd25519WithX25519Subkey();
+
+            // Act
+            var exported = result.ExportSecretKey();
+            var reimported = PgpSecretKeyRing.Read(exported);
+
+            // Assert
+            Assert.Equal(result.Fingerprint, reimported.MasterFingerprint);
+            Assert.Equal(2, reimported.KeyCount);
+        }
+
+        [Fact]
+        public void GenerateEd25519WithX25519Subkey_BothKeyRingsHaveMatchingFingerprints()
+        {
+            // Arrange & Act
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .GenerateEd25519WithX25519Subkey();
+
+            // Assert
+            Assert.Equal(result.SecretKeyRing.MasterFingerprint, result.PublicKeyRing.MasterFingerprint);
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // Ed25519/X25519 Validation Tests
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    [Trait("Category", TestCategories.UNIT)]
+    [Trait("Category", TestCategories.FAST)]
+    public class Ed25519X25519ValidationTests
+    {
+        [Fact]
+        public void GenerateEd25519_WithoutUserId_ThrowsInvalidOperationException()
+        {
+            // Arrange
+            var generator = PgpKeyGenerator.Create();
+
+            // Act & Assert
+            Assert.Throws<InvalidOperationException>(() => generator.GenerateEd25519());
+        }
+
+        [Fact]
+        public void GenerateX25519_WithoutUserId_ThrowsInvalidOperationException()
+        {
+            // Arrange
+            var generator = PgpKeyGenerator.Create();
+
+            // Act & Assert
+            Assert.Throws<InvalidOperationException>(() => generator.GenerateX25519());
+        }
+
+        [Fact]
+        public void GenerateEd25519WithX25519Subkey_WithoutUserId_ThrowsInvalidOperationException()
+        {
+            // Arrange
+            var generator = PgpKeyGenerator.Create();
+
+            // Act & Assert
+            Assert.Throws<InvalidOperationException>(() => generator.GenerateEd25519WithX25519Subkey());
+        }
+
+        [Fact]
+        public void GenerateEd25519_WithPassphrase_ThrowsNotSupportedException()
+        {
+            // Arrange - Passphrase protection not yet implemented
+            var generator = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .WithPassphrase("secret123");
+
+            // Act & Assert
+            Assert.Throws<NotSupportedException>(() => generator.GenerateEd25519());
+        }
+
+        [Fact]
+        public void GenerateX25519_WithPassphrase_ThrowsNotSupportedException()
+        {
+            // Arrange - Passphrase protection not yet implemented
+            var generator = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .WithPassphrase("secret123");
+
+            // Act & Assert
+            Assert.Throws<NotSupportedException>(() => generator.GenerateX25519());
+        }
+    }
 }

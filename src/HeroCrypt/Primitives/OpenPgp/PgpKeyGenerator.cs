@@ -1,6 +1,8 @@
 using System.Buffers.Binary;
 using System.Numerics;
 using System.Security.Cryptography;
+using HeroCrypt.Primitives.Curve25519;
+using HeroCrypt.Primitives.Ed25519;
 using HeroCrypt.Primitives.Rsa;
 
 namespace HeroCrypt.Primitives.OpenPgp;
@@ -291,33 +293,210 @@ public sealed class PgpKeyGenerator
     /// Generates an Ed25519 signing key (V6 format).
     /// </summary>
     /// <returns>The generated key pair.</returns>
-    /// <exception cref="NotSupportedException">Ed25519 key generation is not yet implemented.</exception>
     public PgpKeyGeneratorResult GenerateEd25519()
     {
         ValidateConfiguration();
-        throw new NotSupportedException("Ed25519 key generation is not yet implemented.");
+
+        // Ed25519 always uses V6 format per RFC 9580
+        byte version = 6;
+
+        // Generate Ed25519 key pair
+        var (privateKey, publicKey) = Ed25519Core.GenerateKeyPair();
+
+        // Create public key packet (V6, Ed25519 native format - raw 32 bytes)
+        var publicKeyPacket = PgpPublicKeyPacket.CreateEd25519(creationTime, publicKey, isSubkey: false);
+
+        // Create secret key packet (unencrypted for now)
+        // Ed25519 secret material is raw 32-byte seed (no MPI encoding)
+        PgpSecretKeyPacket secretKeyPacket;
+        if (string.IsNullOrEmpty(passphrase))
+        {
+            secretKeyPacket = PgpSecretKeyPacket.CreateUnencrypted(publicKeyPacket, privateKey);
+        }
+        else
+        {
+            throw new NotSupportedException("Passphrase-protected keys are not yet implemented.");
+        }
+
+        // Create user ID packet
+        var userIdPacket = new PgpUserIdPacket(userId!);
+
+        // Create self-certification signature (Ed25519 signing key, so Certify | Sign flags)
+        var certFlags = PgpKeyCapabilities.Certify | PgpKeyCapabilities.Sign;
+        var certificationSignature = CreateEd25519UserIdCertification(
+            publicKeyPacket,
+            privateKey,
+            userIdPacket,
+            certFlags,
+            version);
+
+        // Build key rings
+        var publicKeyRing = new PgpPublicKeyRing(
+            publicKeyPacket,
+            subkeys: null,
+            userIds: [userIdPacket],
+            userAttributes: null,
+            signatures: [certificationSignature]);
+
+        var secretKeyRing = new PgpSecretKeyRing(
+            secretKeyPacket,
+            subkeys: null,
+            userIds: [userIdPacket],
+            userAttributes: null,
+            signatures: [certificationSignature]);
+
+        return new PgpKeyGeneratorResult(secretKeyRing, publicKeyRing, userId!);
     }
 
     /// <summary>
     /// Generates an X25519 encryption key (V6 format).
     /// </summary>
     /// <returns>The generated key pair.</returns>
-    /// <exception cref="NotSupportedException">X25519 key generation is not yet implemented.</exception>
+    /// <remarks>
+    /// <para>
+    /// X25519 is an encryption-only algorithm. The generated key will have
+    /// <see cref="PgpKeyCapabilities.EncryptCommunications"/> and
+    /// <see cref="PgpKeyCapabilities.EncryptStorage"/> flags.
+    /// </para>
+    /// <para>
+    /// Note: An X25519-only key cannot create signatures for self-certification.
+    /// This method generates a key that can only be used as a subkey bound to
+    /// a signing-capable master key. For a complete key pair, use
+    /// <see cref="GenerateEd25519WithX25519Subkey"/> instead.
+    /// </para>
+    /// </remarks>
     public PgpKeyGeneratorResult GenerateX25519()
     {
         ValidateConfiguration();
-        throw new NotSupportedException("X25519 key generation is not yet implemented.");
+
+        // Generate X25519 key pair (V6 format per RFC 9580)
+        var privateKey = Curve25519Core.GeneratePrivateKey();
+        var publicKey = Curve25519Core.DerivePublicKey(privateKey);
+
+        // Create public key packet (V6, X25519 native format - raw 32 bytes)
+        var publicKeyPacket = PgpPublicKeyPacket.CreateX25519(creationTime, publicKey, isSubkey: false);
+
+        // Create secret key packet (unencrypted for now)
+        // X25519 secret material is raw 32-byte clamped key (no MPI encoding)
+        PgpSecretKeyPacket secretKeyPacket;
+        if (string.IsNullOrEmpty(passphrase))
+        {
+            secretKeyPacket = PgpSecretKeyPacket.CreateUnencrypted(publicKeyPacket, privateKey);
+        }
+        else
+        {
+            throw new NotSupportedException("Passphrase-protected keys are not yet implemented.");
+        }
+
+        // Create user ID packet
+        var userIdPacket = new PgpUserIdPacket(userId!);
+
+        // X25519 cannot sign, so we cannot create a proper self-certification.
+        // Create a key ring without certification signature.
+        // In practice, X25519 keys should be used as subkeys bound to an Ed25519 master.
+        var publicKeyRing = new PgpPublicKeyRing(
+            publicKeyPacket,
+            subkeys: null,
+            userIds: [userIdPacket],
+            userAttributes: null,
+            signatures: null);
+
+        var secretKeyRing = new PgpSecretKeyRing(
+            secretKeyPacket,
+            subkeys: null,
+            userIds: [userIdPacket],
+            userAttributes: null,
+            signatures: null);
+
+        return new PgpKeyGeneratorResult(secretKeyRing, publicKeyRing, userId!);
     }
 
     /// <summary>
     /// Generates an Ed25519 signing key with an X25519 encryption subkey.
     /// </summary>
     /// <returns>The generated key pair.</returns>
-    /// <exception cref="NotSupportedException">Ed25519/X25519 key generation is not yet implemented.</exception>
+    /// <remarks>
+    /// <para>
+    /// This is the recommended method for creating modern OpenPGP keys.
+    /// The Ed25519 master key provides signing and certification capabilities,
+    /// while the X25519 subkey provides encryption capabilities.
+    /// </para>
+    /// </remarks>
     public PgpKeyGeneratorResult GenerateEd25519WithX25519Subkey()
     {
         ValidateConfiguration();
-        throw new NotSupportedException("Ed25519/X25519 key generation is not yet implemented.");
+
+        // Ed25519/X25519 always use V6 format per RFC 9580
+        byte version = 6;
+
+        // Generate Ed25519 master key
+        var (ed25519Private, ed25519Public) = Ed25519Core.GenerateKeyPair();
+        var masterPublicPacket = PgpPublicKeyPacket.CreateEd25519(creationTime, ed25519Public, isSubkey: false);
+
+        PgpSecretKeyPacket masterSecretPacket;
+        if (string.IsNullOrEmpty(passphrase))
+        {
+            masterSecretPacket = PgpSecretKeyPacket.CreateUnencrypted(masterPublicPacket, ed25519Private);
+        }
+        else
+        {
+            throw new NotSupportedException("Passphrase-protected keys are not yet implemented.");
+        }
+
+        // Create user ID packet
+        var userIdPacket = new PgpUserIdPacket(userId!);
+
+        // Create self-certification signature (Certify | Sign for master key)
+        var certFlags = PgpKeyCapabilities.Certify | PgpKeyCapabilities.Sign;
+        var certificationSignature = CreateEd25519UserIdCertification(
+            masterPublicPacket,
+            ed25519Private,
+            userIdPacket,
+            certFlags,
+            version);
+
+        // Generate X25519 encryption subkey
+        var x25519Private = Curve25519Core.GeneratePrivateKey();
+        var x25519Public = Curve25519Core.DerivePublicKey(x25519Private);
+        var subkeyPublicPacket = PgpPublicKeyPacket.CreateX25519(creationTime, x25519Public, isSubkey: true);
+
+        PgpSecretKeyPacket subkeySecretPacket;
+        if (string.IsNullOrEmpty(passphrase))
+        {
+            subkeySecretPacket = PgpSecretKeyPacket.CreateUnencrypted(subkeyPublicPacket, x25519Private);
+        }
+        else
+        {
+            throw new NotSupportedException("Passphrase-protected keys are not yet implemented.");
+        }
+
+        // Create subkey binding signature
+        var subkeyFlags = PgpKeyCapabilities.EncryptCommunications | PgpKeyCapabilities.EncryptStorage;
+        var bindingSignature = CreateEd25519SubkeyBindingSignature(
+            masterPublicPacket,
+            ed25519Private,
+            subkeyPublicPacket,
+            subkeyFlags,
+            version);
+
+        // Build key rings
+        var publicKeyRing = new PgpPublicKeyRing(
+            masterPublicPacket,
+            subkeys: null,
+            userIds: [userIdPacket],
+            userAttributes: null,
+            signatures: [certificationSignature]);
+        publicKeyRing = publicKeyRing.AddSubkey(subkeyPublicPacket, bindingSignature);
+
+        var secretKeyRing = new PgpSecretKeyRing(
+            masterSecretPacket,
+            subkeys: null,
+            userIds: [userIdPacket],
+            userAttributes: null,
+            signatures: [certificationSignature]);
+        secretKeyRing = secretKeyRing.AddSubkey(subkeySecretPacket, bindingSignature);
+
+        return new PgpKeyGeneratorResult(secretKeyRing, publicKeyRing, userId!);
     }
 
     #endregion
@@ -750,6 +929,125 @@ public sealed class PgpKeyGenerator
         rng.GetBytes(salt);
         return salt;
     }
+
+    #region Ed25519 Signature Helpers
+
+    private PgpSignaturePacket CreateEd25519UserIdCertification(
+        PgpPublicKeyPacket publicKey,
+        byte[] ed25519PrivateKey,
+        PgpUserIdPacket userIdPacket,
+        PgpKeyCapabilities keyFlags,
+        byte version)
+    {
+        var sigType = PgpSignatureType.PositiveCertification;
+        var pubAlgo = (byte)PgpPublicKeyAlgorithm.Ed25519;
+        var hashAlgo = (byte)PgpHashAlgorithmId.Sha256;
+
+        // Build hashed subpackets
+        var hashedSubpackets = new List<PgpSignatureSubpacket>
+        {
+            PgpSignatureSubpacket.CreateSignatureCreationTime(creationTime),
+            PgpSignatureSubpacket.CreateKeyFlags(keyFlags),
+            PgpSignatureSubpacket.CreateIssuerFingerprint(version, publicKey.ComputeFingerprint()),
+            PgpSignatureSubpacket.CreateFeatures(PgpFeatures.ModificationDetection)
+        };
+
+        // Build unhashed subpackets
+        var unhashedSubpackets = new List<PgpSignatureSubpacket>
+        {
+            PgpSignatureSubpacket.CreateIssuerKeyId(publicKey.GetKeyId())
+        };
+
+        // Serialize hashed subpackets
+        var hashedSubpacketData = PgpSignatureSubpacket.WriteAll(hashedSubpackets);
+
+        // Compute the certification hash
+        var hash = ComputeCertificationHash(
+            publicKey,
+            userIdPacket,
+            version,
+            (byte)sigType,
+            pubAlgo,
+            hashAlgo,
+            hashedSubpacketData);
+
+        // Get hash prefix
+        ushort hashPrefix = BinaryPrimitives.ReadUInt16BigEndian(hash);
+
+        // Create Ed25519 signature
+        var signatureData = Ed25519Core.Sign(hash, ed25519PrivateKey);
+
+        // Build signature packet (Ed25519 always V6)
+        var salt = GenerateSalt(PgpHashAlgorithmId.Sha256);
+        return PgpSignaturePacket.CreateV6(
+            sigType,
+            pubAlgo,
+            hashAlgo,
+            hashedSubpackets,
+            unhashedSubpackets,
+            hashPrefix,
+            salt,
+            signatureData);
+    }
+
+    private PgpSignaturePacket CreateEd25519SubkeyBindingSignature(
+        PgpPublicKeyPacket masterPublicKey,
+        byte[] ed25519PrivateKey,
+        PgpPublicKeyPacket subkey,
+        PgpKeyCapabilities subkeyFlags,
+        byte version)
+    {
+        var sigType = PgpSignatureType.SubkeyBinding;
+        var pubAlgo = (byte)PgpPublicKeyAlgorithm.Ed25519;
+        var hashAlgo = (byte)PgpHashAlgorithmId.Sha256;
+
+        // Build hashed subpackets
+        var hashedSubpackets = new List<PgpSignatureSubpacket>
+        {
+            PgpSignatureSubpacket.CreateSignatureCreationTime(creationTime),
+            PgpSignatureSubpacket.CreateKeyFlags(subkeyFlags),
+            PgpSignatureSubpacket.CreateIssuerFingerprint(version, masterPublicKey.ComputeFingerprint())
+        };
+
+        // Build unhashed subpackets
+        var unhashedSubpackets = new List<PgpSignatureSubpacket>
+        {
+            PgpSignatureSubpacket.CreateIssuerKeyId(masterPublicKey.GetKeyId())
+        };
+
+        // Serialize hashed subpackets
+        var hashedSubpacketData = PgpSignatureSubpacket.WriteAll(hashedSubpackets);
+
+        // Compute the binding hash
+        var hash = ComputeSubkeyBindingHash(
+            masterPublicKey,
+            subkey,
+            version,
+            (byte)sigType,
+            pubAlgo,
+            hashAlgo,
+            hashedSubpacketData);
+
+        // Get hash prefix
+        ushort hashPrefix = BinaryPrimitives.ReadUInt16BigEndian(hash);
+
+        // Create Ed25519 signature
+        var signatureData = Ed25519Core.Sign(hash, ed25519PrivateKey);
+
+        // Build signature packet (Ed25519 always V6)
+        var salt = GenerateSalt(PgpHashAlgorithmId.Sha256);
+        return PgpSignaturePacket.CreateV6(
+            sigType,
+            pubAlgo,
+            hashAlgo,
+            hashedSubpackets,
+            unhashedSubpackets,
+            hashPrefix,
+            salt,
+            signatureData);
+    }
+
+    #endregion
 
     /// <summary>
     /// Converts a big-endian byte array to BigInteger.

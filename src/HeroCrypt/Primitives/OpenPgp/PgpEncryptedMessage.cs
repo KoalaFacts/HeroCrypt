@@ -18,6 +18,7 @@ namespace HeroCrypt.Primitives.OpenPgp;
 public readonly struct PgpEncryptedMessage : IEquatable<PgpEncryptedMessage>
 {
     private readonly byte[] data;
+    private readonly PgpRecipientInfo[] recipients;
 
     /// <summary>
     /// Gets the complete encrypted message as bytes (ready for transmission/storage).
@@ -25,9 +26,21 @@ public readonly struct PgpEncryptedMessage : IEquatable<PgpEncryptedMessage>
     public ReadOnlyMemory<byte> Data => data ?? [];
 
     /// <summary>
+    /// Gets the recipients of this encrypted message.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Each recipient corresponds to a PKESK packet in the message. The recipient info
+    /// contains the key ID (v3) or fingerprint (v6) that can be used to identify which
+    /// secret key is needed for decryption.
+    /// </para>
+    /// </remarks>
+    public ReadOnlySpan<PgpRecipientInfo> Recipients => recipients ?? [];
+
+    /// <summary>
     /// Gets the number of recipients (PKESK packets).
     /// </summary>
-    public int RecipientCount { get; }
+    public int RecipientCount => recipients?.Length ?? 0;
 
     /// <summary>
     /// Gets the SEIPD version used (1 = CFB+MDC, 2 = AEAD).
@@ -53,11 +66,37 @@ public readonly struct PgpEncryptedMessage : IEquatable<PgpEncryptedMessage>
     /// Initializes a new encrypted message.
     /// </summary>
     /// <param name="data">The complete encrypted message data.</param>
-    /// <param name="recipientCount">Number of recipients.</param>
+    /// <param name="recipients">The recipients of the message.</param>
     /// <param name="seipdVersion">SEIPD version (1 or 2).</param>
     /// <param name="symmetricAlgorithm">Symmetric cipher used.</param>
     /// <param name="aeadAlgorithm">AEAD algorithm (for v2).</param>
     /// <param name="isCompressed">Whether compression was applied.</param>
+    public PgpEncryptedMessage(
+        byte[] data,
+        PgpRecipientInfo[] recipients,
+        int seipdVersion,
+        SymmetricCipherAlgorithm symmetricAlgorithm,
+        AeadAlgorithm aeadAlgorithm = AeadAlgorithm.None,
+        bool isCompressed = false)
+    {
+        this.data = data ?? throw new ArgumentNullException(nameof(data));
+        this.recipients = recipients ?? [];
+        SeipdVersion = seipdVersion;
+        SymmetricAlgorithm = symmetricAlgorithm;
+        AeadAlgorithm = aeadAlgorithm;
+        IsCompressed = isCompressed;
+    }
+
+    /// <summary>
+    /// Initializes a new encrypted message (legacy overload for backwards compatibility).
+    /// </summary>
+    /// <param name="data">The complete encrypted message data.</param>
+    /// <param name="recipientCount">Number of recipients (recipients will be empty).</param>
+    /// <param name="seipdVersion">SEIPD version (1 or 2).</param>
+    /// <param name="symmetricAlgorithm">Symmetric cipher used.</param>
+    /// <param name="aeadAlgorithm">AEAD algorithm (for v2).</param>
+    /// <param name="isCompressed">Whether compression was applied.</param>
+    [Obsolete("Use the constructor that takes PgpRecipientInfo[] instead.")]
     public PgpEncryptedMessage(
         byte[] data,
         int recipientCount,
@@ -67,7 +106,7 @@ public readonly struct PgpEncryptedMessage : IEquatable<PgpEncryptedMessage>
         bool isCompressed = false)
     {
         this.data = data ?? throw new ArgumentNullException(nameof(data));
-        RecipientCount = recipientCount;
+        this.recipients = new PgpRecipientInfo[recipientCount];
         SeipdVersion = seipdVersion;
         SymmetricAlgorithm = symmetricAlgorithm;
         AeadAlgorithm = aeadAlgorithm;
@@ -144,7 +183,7 @@ public readonly struct PgpEncryptedMessage : IEquatable<PgpEncryptedMessage>
         using var stream = new MemoryStream(source.ToArray());
         using var reader = new PgpPacketReader(stream);
 
-        int pkeskCount = 0;
+        var recipientList = new List<PgpRecipientInfo>();
         int seipdVersion = 0;
         var symmetricAlgorithm = SymmetricCipherAlgorithm.Aes256;
         var aeadAlgorithm = AeadAlgorithm.None;
@@ -154,7 +193,15 @@ public readonly struct PgpEncryptedMessage : IEquatable<PgpEncryptedMessage>
             // We only need PKESK and SEIPD packets - ignore all other packet types
             if (tag == PgpPacketTag.PublicKeyEncryptedSessionKey)
             {
-                pkeskCount++;
+                if (PgpPublicKeyEncryptedSessionKeyPacket.TryRead(body.Span, out var pkesk, out _))
+                {
+                    recipientList.Add(PgpRecipientInfo.FromPacket(pkesk));
+                }
+                else
+                {
+                    // If we can't parse the PKESK, still count it but without details
+                    recipientList.Add(default);
+                }
             }
             else if (tag == PgpPacketTag.SymmetricallyEncryptedIntegrityProtectedData)
             {
@@ -167,7 +214,7 @@ public readonly struct PgpEncryptedMessage : IEquatable<PgpEncryptedMessage>
             }
         }
 
-        if (pkeskCount == 0)
+        if (recipientList.Count == 0)
         {
             error = "No PKESK packets found in encrypted message.";
             return false;
@@ -181,7 +228,7 @@ public readonly struct PgpEncryptedMessage : IEquatable<PgpEncryptedMessage>
 
         message = new PgpEncryptedMessage(
             source.ToArray(),
-            pkeskCount,
+            [.. recipientList],
             seipdVersion,
             symmetricAlgorithm,
             aeadAlgorithm);

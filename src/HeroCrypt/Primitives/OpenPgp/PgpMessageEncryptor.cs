@@ -283,9 +283,16 @@ public sealed class PgpMessageEncryptor : IDisposable
 
             writer.WritePacket(PgpPacketTag.SymmetricallyEncryptedIntegrityProtectedData, seipdData, PgpPacketFormat.New);
 
+            // Create recipient info array from public keys
+            var recipientInfos = new PgpRecipientInfo[recipients.Count];
+            for (int i = 0; i < recipients.Count; i++)
+            {
+                recipientInfos[i] = PgpRecipientInfo.FromPublicKey(recipients[i]);
+            }
+
             return new PgpEncryptedMessage(
                 output.ToArray(),
-                recipients.Count,
+                recipientInfos,
                 seipdVersion,
                 symmetricAlgorithm,
                 aeadAlgorithm,

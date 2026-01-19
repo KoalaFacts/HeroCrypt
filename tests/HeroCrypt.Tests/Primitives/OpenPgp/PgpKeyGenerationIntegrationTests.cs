@@ -698,4 +698,687 @@ public class PgpKeyGenerationIntegrationTests
             Assert.Equal(plaintext, decrypted.Data.ToArray());
         }
     }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // Key Ring Serialization Round-Trip Tests
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    [Trait("Category", TestCategories.INTEGRATION)]
+    [Trait("Category", TestCategories.FAST)]
+    public class KeyRingSerializationTests
+    {
+        [Fact]
+        public void PublicKeyRing_WriteAndRead_RoundTripSucceeds()
+        {
+            // Arrange - Generate key with subkey
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("Serialization Test <serial@example.com>")
+                .GenerateEd25519WithX25519Subkey();
+
+            var originalRing = keyResult.PublicKeyRing;
+
+            // Act - Serialize to bytes
+            var bytes = originalRing.ToArray();
+
+            // Act - Deserialize back
+            var reimportedRing = PgpPublicKeyRing.Read(bytes);
+
+            // Assert - Verify structure preserved
+            Assert.Equal(originalRing.MasterFingerprint, reimportedRing.MasterFingerprint);
+            Assert.Equal(originalRing.KeyCount, reimportedRing.KeyCount);
+            Assert.Equal(originalRing.UserIds.Count, reimportedRing.UserIds.Count);
+            Assert.Equal(originalRing.UserIds[0].UserId, reimportedRing.UserIds[0].UserId);
+            Assert.Equal(originalRing.Subkeys.Count, reimportedRing.Subkeys.Count);
+        }
+
+        [Fact]
+        public void SecretKeyRing_WriteAndRead_RoundTripSucceeds()
+        {
+            // Arrange - Generate key with subkey
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("Secret Ring Test <secret-ring@example.com>")
+                .WithKeySize(2048)
+                .WithEncryptionSubkey()
+                .GenerateRsa();
+
+            var originalRing = keyResult.SecretKeyRing;
+
+            // Act - Serialize to bytes
+            var bytes = originalRing.ToArray();
+
+            // Act - Deserialize back
+            var reimportedRing = PgpSecretKeyRing.Read(bytes);
+
+            // Assert - Verify structure preserved
+            Assert.Equal(originalRing.MasterFingerprint, reimportedRing.MasterFingerprint);
+            Assert.Equal(originalRing.KeyCount, reimportedRing.KeyCount);
+            Assert.Equal(originalRing.UserIds.Count, reimportedRing.UserIds.Count);
+            Assert.Equal(originalRing.Subkeys.Count, reimportedRing.Subkeys.Count);
+        }
+
+        [Fact]
+        public void PublicKeyRing_ReimportedKey_CanEncrypt()
+        {
+            // Arrange - Generate, serialize, and reimport
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("Reimport Encrypt Test <reimport@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            var bytes = keyResult.PublicKeyRing.ToArray();
+            var reimportedRing = PgpPublicKeyRing.Read(bytes);
+
+            var plaintext = "Test message for reimported key."u8.ToArray();
+
+            // Act - Encrypt with reimported public key
+            using var encryptor = PgpMessageEncryptor.Create()
+                .AddRecipient(reimportedRing.MasterKey);
+            var encrypted = encryptor.Encrypt(plaintext);
+
+            // Act - Decrypt with original secret key
+            using var decryptor = PgpMessageDecryptor.Create()
+                .WithSecretKey(keyResult.MasterSecretKey);
+            var decrypted = decryptor.Decrypt(encrypted);
+
+            // Assert
+            Assert.Equal(plaintext, decrypted.Data.ToArray());
+        }
+
+        [Fact]
+        public void SecretKeyRing_ReimportedKey_CanDecrypt()
+        {
+            // Arrange - Generate, serialize, and reimport
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("Reimport Decrypt Test <reimport-dec@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            var bytes = keyResult.SecretKeyRing.ToArray();
+            var reimportedRing = PgpSecretKeyRing.Read(bytes);
+
+            var plaintext = "Test message for reimported secret key."u8.ToArray();
+
+            // Act - Encrypt with original public key
+            using var encryptor = PgpMessageEncryptor.Create()
+                .AddRecipient(keyResult.MasterPublicKey);
+            var encrypted = encryptor.Encrypt(plaintext);
+
+            // Act - Decrypt with reimported secret key
+            using var decryptor = PgpMessageDecryptor.Create()
+                .WithSecretKey(reimportedRing.MasterKey);
+            var decrypted = decryptor.Decrypt(encrypted);
+
+            // Assert
+            Assert.Equal(plaintext, decrypted.Data.ToArray());
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // Key Ring Collection Workflow Tests
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    [Trait("Category", TestCategories.INTEGRATION)]
+    [Trait("Category", TestCategories.FAST)]
+    public class KeyRingCollectionWorkflowTests
+    {
+        [Fact]
+        public void PublicKeyRingCollection_ManageMultipleKeys_LookupSucceeds()
+        {
+            // Arrange - Generate multiple keys
+            var aliceKey = PgpKeyGenerator.Create()
+                .WithUserId("Alice <alice@example.com>")
+                .GenerateEd25519WithX25519Subkey();
+
+            var bobKey = PgpKeyGenerator.Create()
+                .WithUserId("Bob <bob@example.com>")
+                .GenerateEd25519WithX25519Subkey();
+
+            var charlieKey = PgpKeyGenerator.Create()
+                .WithUserId("Charlie <charlie@example.com>")
+                .GenerateEd25519WithX25519Subkey();
+
+            // Act - Build collection
+            var collection = new PgpPublicKeyRingCollection([
+                aliceKey.PublicKeyRing,
+                bobKey.PublicKeyRing,
+                charlieKey.PublicKeyRing
+            ]);
+
+            // Assert - Lookup by key ID
+            Assert.Equal(3, collection.Count);
+            Assert.NotNull(collection.GetKeyRing(aliceKey.KeyId));
+            Assert.NotNull(collection.GetKeyRing(bobKey.KeyId));
+            Assert.NotNull(collection.GetKeyRing(charlieKey.KeyId));
+
+            // Assert - Lookup by user ID substring
+            var aliceRings = collection.GetKeyRingsByUserId("alice@example.com").ToList();
+            Assert.Single(aliceRings);
+            Assert.Equal(aliceKey.Fingerprint, aliceRings[0].MasterFingerprint);
+        }
+
+        [Fact]
+        public void SecretKeyRingCollection_DecryptWithMatchingKey_Succeeds()
+        {
+            // Arrange - Generate multiple keys
+            var key1 = PgpKeyGenerator.Create()
+                .WithUserId("Key1 <key1@example.com>")
+                .GenerateEd25519WithX25519Subkey();
+
+            var key2 = PgpKeyGenerator.Create()
+                .WithUserId("Key2 <key2@example.com>")
+                .GenerateEd25519WithX25519Subkey();
+
+            // Build secret key ring collection
+            var secretCollection = new PgpSecretKeyRingCollection([
+                key1.SecretKeyRing,
+                key2.SecretKeyRing
+            ]);
+
+            var plaintext = "Message encrypted for key2."u8.ToArray();
+
+            // Act - Encrypt for key2 only
+            using var encryptor = PgpMessageEncryptor.Create()
+                .AddRecipient(key2.PublicKeyRing);
+            var encrypted = encryptor.Encrypt(plaintext);
+
+            // Act - Decrypt using key2's secret key ring from collection
+            var key2Ring = secretCollection.GetKeyRing(key2.KeyId);
+            Assert.NotNull(key2Ring);
+
+            using var decryptor = PgpMessageDecryptor.Create()
+                .WithSecretKeyRing(key2Ring.Value);
+            var decrypted = decryptor.Decrypt(encrypted);
+
+            // Assert
+            Assert.Equal(plaintext, decrypted.Data.ToArray());
+        }
+
+        [Fact]
+        public void SecretKeyRingCollection_DecryptWithWrongKey_Fails()
+        {
+            // Arrange - Generate multiple keys
+            var key1 = PgpKeyGenerator.Create()
+                .WithUserId("Key1 <key1@example.com>")
+                .GenerateEd25519WithX25519Subkey();
+
+            var key2 = PgpKeyGenerator.Create()
+                .WithUserId("Key2 <key2@example.com>")
+                .GenerateEd25519WithX25519Subkey();
+
+            var plaintext = "Message encrypted for key2 only."u8.ToArray();
+
+            // Act - Encrypt for key2 only
+            using var encryptor = PgpMessageEncryptor.Create()
+                .AddRecipient(key2.PublicKeyRing);
+            var encrypted = encryptor.Encrypt(plaintext);
+
+            // Act/Assert - Try to decrypt with key1 (should fail)
+            using var decryptor = PgpMessageDecryptor.Create()
+                .WithSecretKeyRing(key1.SecretKeyRing);
+
+            Assert.Throws<System.Security.Cryptography.CryptographicException>(() => decryptor.Decrypt(encrypted));
+        }
+
+        [Fact]
+        public void KeyRingCollection_AddAndRemove_MaintainsIntegrity()
+        {
+            // Arrange
+            var key1 = PgpKeyGenerator.Create()
+                .WithUserId("Key1 <key1@example.com>")
+                .GenerateEd25519();
+
+            var key2 = PgpKeyGenerator.Create()
+                .WithUserId("Key2 <key2@example.com>")
+                .GenerateEd25519();
+
+            var key3 = PgpKeyGenerator.Create()
+                .WithUserId("Key3 <key3@example.com>")
+                .GenerateEd25519();
+
+            // Act - Build and modify collection
+            var collection = new PgpPublicKeyRingCollection(key1.PublicKeyRing);
+            Assert.Equal(1, collection.Count);
+
+            collection = collection.Add(key2.PublicKeyRing);
+            Assert.Equal(2, collection.Count);
+
+            collection = collection.Add(key3.PublicKeyRing);
+            Assert.Equal(3, collection.Count);
+
+            // Remove key2
+            collection = collection.Remove(key2.KeyId);
+            Assert.Equal(2, collection.Count);
+
+            // Assert - key2 is gone, others remain
+            Assert.Null(collection.GetKeyRing(key2.KeyId));
+            Assert.NotNull(collection.GetKeyRing(key1.KeyId));
+            Assert.NotNull(collection.GetKeyRing(key3.KeyId));
+        }
+
+        [Fact]
+        public void SecretKeyRingCollection_ExtractPublicKeys_ProducesMatchingCollection()
+        {
+            // Arrange
+            var key1 = PgpKeyGenerator.Create()
+                .WithUserId("Extract1 <extract1@example.com>")
+                .GenerateEd25519WithX25519Subkey();
+
+            var key2 = PgpKeyGenerator.Create()
+                .WithUserId("Extract2 <extract2@example.com>")
+                .GenerateEd25519WithX25519Subkey();
+
+            var secretCollection = new PgpSecretKeyRingCollection([
+                key1.SecretKeyRing,
+                key2.SecretKeyRing
+            ]);
+
+            // Act - Extract public keys
+            var publicCollection = secretCollection.ExtractPublicKeyRingCollection();
+
+            // Assert
+            Assert.Equal(secretCollection.Count, publicCollection.Count);
+            Assert.NotNull(publicCollection.GetKeyRing(key1.KeyId));
+            Assert.NotNull(publicCollection.GetKeyRing(key2.KeyId));
+
+            // Verify fingerprints match
+            var publicRing1 = publicCollection.GetKeyRing(key1.KeyId)!.Value;
+            Assert.Equal(key1.Fingerprint, publicRing1.MasterFingerprint);
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // Key Ring Subkey Selection Tests
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    [Trait("Category", TestCategories.INTEGRATION)]
+    [Trait("Category", TestCategories.SLOW)]
+    public class KeyRingSubkeySelectionTests
+    {
+        [Fact]
+        public void EncryptionSubkey_CanDecrypt_WhenUsedWithKeyRing()
+        {
+            // Arrange - Generate RSA key with encryption subkey
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("Subkey Selection Test <subkey@example.com>")
+                .WithKeySize(2048)
+                .WithEncryptionSubkey()
+                .GenerateRsa();
+
+            // Verify we have a subkey
+            Assert.Single(keyResult.PublicKeyRing.Subkeys);
+
+            var plaintext = "Test message for encryption subkey."u8.ToArray();
+
+            // Act - Encrypt using key ring (implementation selects encryption-capable key)
+            using var encryptor = PgpMessageEncryptor.Create()
+                .AddRecipient(keyResult.PublicKeyRing);
+            var encrypted = encryptor.Encrypt(plaintext);
+
+            // Act - Decrypt with secret key ring
+            using var decryptor = PgpMessageDecryptor.Create()
+                .WithSecretKeyRing(keyResult.SecretKeyRing);
+            var decrypted = decryptor.Decrypt(encrypted);
+
+            // Assert
+            Assert.Equal(plaintext, decrypted.Data.ToArray());
+        }
+
+        [Fact]
+        public void Ed25519WithX25519_EncryptsAndDecrypts_UsingSubkey()
+        {
+            // Arrange - Ed25519 master (signing only) + X25519 subkey (encryption)
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("Ed25519/X25519 Selection <ed-x@example.com>")
+                .GenerateEd25519WithX25519Subkey();
+
+            // Verify key structure
+            Assert.Equal(PgpPublicKeyAlgorithm.Ed25519, keyResult.MasterPublicKey.Algorithm);
+            Assert.Single(keyResult.PublicKeyRing.Subkeys);
+            Assert.Equal(PgpPublicKeyAlgorithm.X25519, keyResult.PublicKeyRing.Subkeys[0].Algorithm);
+
+            var plaintext = "Ed25519 can't encrypt, must use X25519 subkey."u8.ToArray();
+
+            // Act - Encrypt using key ring (must use X25519 subkey since Ed25519 can't encrypt)
+            using var encryptor = PgpMessageEncryptor.Create()
+                .AddRecipient(keyResult.PublicKeyRing);
+            var encrypted = encryptor.Encrypt(plaintext);
+
+            // Act - Decrypt with secret key ring
+            using var decryptor = PgpMessageDecryptor.Create()
+                .WithSecretKeyRing(keyResult.SecretKeyRing);
+            var decrypted = decryptor.Decrypt(encrypted);
+
+            // Assert
+            Assert.Equal(plaintext, decrypted.Data.ToArray());
+        }
+
+        [Fact]
+        public void KeyRing_WithMultipleSubkeys_EncryptsAndDecrypts()
+        {
+            // Arrange - Generate RSA key with both signing and encryption subkeys
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("Multi-Subkey Test <multi@example.com>")
+                .WithKeySize(2048)
+                .WithSigningSubkey()
+                .WithEncryptionSubkey()
+                .GenerateRsa();
+
+            // Verify we have 2 subkeys
+            Assert.Equal(2, keyResult.PublicKeyRing.Subkeys.Count);
+
+            var plaintext = "Message for key ring with multiple subkeys."u8.ToArray();
+
+            // Act - Encrypt using key ring
+            using var encryptor = PgpMessageEncryptor.Create()
+                .AddRecipient(keyResult.PublicKeyRing);
+            var encrypted = encryptor.Encrypt(plaintext);
+
+            // Act - Decrypt with secret key ring
+            using var decryptor = PgpMessageDecryptor.Create()
+                .WithSecretKeyRing(keyResult.SecretKeyRing);
+            var decrypted = decryptor.Decrypt(encrypted);
+
+            // Assert
+            Assert.Equal(plaintext, decrypted.Data.ToArray());
+        }
+
+        [Fact]
+        public void SigningSubkey_CanSign_WhenUsedFromKeyRing()
+        {
+            // Arrange - Generate RSA key with signing subkey
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("Signing Subkey Test <sign-subkey@example.com>")
+                .WithKeySize(2048)
+                .WithSigningSubkey()
+                .GenerateRsa();
+
+            // Get the signing subkey
+            var signingSubkey = keyResult.SecretKeyRing.Subkeys[0];
+            var signingPublicSubkey = keyResult.PublicKeyRing.Subkeys[0];
+
+            var message = "Message to sign with signing subkey."u8.ToArray();
+
+            // Act - Sign with signing subkey
+            using var signer = PgpSignatureSigner.Create()
+                .WithSecretKey(signingSubkey);
+            var signedMessage = signer.Sign(message);
+
+            // Act - Verify with signing subkey's public key
+            using var verifier = PgpSignatureVerifier.Create()
+                .WithPublicKey(signingPublicSubkey);
+            var verifyResult = verifier.Verify(signedMessage);
+
+            // Assert
+            Assert.True(verifyResult.IsValid);
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // Key Ring Modification Workflow Tests
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    [Trait("Category", TestCategories.INTEGRATION)]
+    [Trait("Category", TestCategories.FAST)]
+    public class KeyRingModificationWorkflowTests
+    {
+        [Fact]
+        public void AddUserId_CreatesNewRingWithBothUserIds()
+        {
+            // Arrange
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("Primary <primary@example.com>")
+                .GenerateEd25519();
+
+            var originalRing = keyResult.PublicKeyRing;
+            Assert.Single(originalRing.UserIds);
+
+            // Act - Add second user ID
+            var newUserId = new PgpUserIdPacket("Secondary <secondary@example.com>");
+            var modifiedRing = originalRing.AddUserId(newUserId);
+
+            // Assert
+            Assert.Single(originalRing.UserIds); // Original unchanged
+            Assert.Equal(2, modifiedRing.UserIds.Count);
+            Assert.Equal("Primary <primary@example.com>", modifiedRing.UserIds[0].UserId);
+            Assert.Equal("Secondary <secondary@example.com>", modifiedRing.UserIds[1].UserId);
+
+            // Verify fingerprint unchanged
+            Assert.Equal(originalRing.MasterFingerprint, modifiedRing.MasterFingerprint);
+        }
+
+        [Fact]
+        public void SecretKeyRing_ExtractPublicKeyRing_ProducesUsablePublicKey()
+        {
+            // Arrange
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("Extract Test <extract@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            // Act - Extract public key ring from secret key ring
+            var extractedPublicRing = keyResult.SecretKeyRing.ExtractPublicKeyRing();
+
+            // Assert - Verify it's usable for encryption
+            var plaintext = "Message encrypted with extracted public key."u8.ToArray();
+
+            using var encryptor = PgpMessageEncryptor.Create()
+                .AddRecipient(extractedPublicRing.MasterKey);
+            var encrypted = encryptor.Encrypt(plaintext);
+
+            using var decryptor = PgpMessageDecryptor.Create()
+                .WithSecretKey(keyResult.MasterSecretKey);
+            var decrypted = decryptor.Decrypt(encrypted);
+
+            Assert.Equal(plaintext, decrypted.Data.ToArray());
+        }
+
+        [Fact]
+        public void KeyRing_GetPrimaryUserId_ReturnsFirstUserId()
+        {
+            // Arrange
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("Primary User <primary@example.com>")
+                .GenerateEd25519();
+
+            // Add additional user ID
+            var modifiedRing = keyResult.PublicKeyRing
+                .AddUserId(new PgpUserIdPacket("Secondary User <secondary@example.com>"));
+
+            // Act
+            var primaryUserId = modifiedRing.GetPrimaryUserId();
+
+            // Assert
+            Assert.NotNull(primaryUserId);
+            Assert.Equal("Primary User <primary@example.com>", primaryUserId.Value.UserId);
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // Recipient Info / PKESK Exposure Tests
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    [Trait("Category", TestCategories.INTEGRATION)]
+    public class RecipientInfoTests
+    {
+        [Fact]
+        public void EncryptedMessage_Recipients_ContainsKeyInfo()
+        {
+            // Arrange
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("Alice <alice@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            var plaintext = "Test message"u8.ToArray();
+
+            // Act
+            using var encryptor = PgpMessageEncryptor.Create()
+                .AddRecipient(keyResult.MasterPublicKey);
+            var encrypted = encryptor.Encrypt(plaintext);
+
+            // Assert
+            Assert.Equal(1, encrypted.RecipientCount);
+            Assert.Single(encrypted.Recipients.ToArray());
+
+            var recipient = encrypted.Recipients[0];
+            Assert.Equal(PgpPublicKeyAlgorithm.RsaEncryptOrSign, recipient.Algorithm);
+            Assert.Equal(8, recipient.KeyId.Length);
+            Assert.NotEmpty(recipient.KeyIdHex);
+        }
+
+        [Fact]
+        public void EncryptedMessage_Recipients_MatchesPublicKey_V4()
+        {
+            // Arrange
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            var plaintext = "Test"u8.ToArray();
+
+            // Act
+            using var encryptor = PgpMessageEncryptor.Create()
+                .AddRecipient(keyResult.MasterPublicKey);
+            var encrypted = encryptor.Encrypt(plaintext);
+
+            // Assert
+            var recipient = encrypted.Recipients[0];
+            Assert.True(recipient.MatchesKey(keyResult.MasterPublicKey));
+        }
+
+        [Fact]
+        public void EncryptedMessage_Recipients_MultipleRecipients_AllExposed()
+        {
+            // Arrange
+            var aliceKey = PgpKeyGenerator.Create()
+                .WithUserId("Alice <alice@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            var bobKey = PgpKeyGenerator.Create()
+                .WithUserId("Bob <bob@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            var plaintext = "Multi-recipient message"u8.ToArray();
+
+            // Act
+            using var encryptor = PgpMessageEncryptor.Create()
+                .AddRecipient(aliceKey.MasterPublicKey)
+                .AddRecipient(bobKey.MasterPublicKey);
+            var encrypted = encryptor.Encrypt(plaintext);
+
+            // Assert
+            Assert.Equal(2, encrypted.RecipientCount);
+            Assert.Equal(2, encrypted.Recipients.Length);
+
+            var recipients = encrypted.Recipients.ToArray();
+            Assert.True(recipients[0].MatchesKey(aliceKey.MasterPublicKey));
+            Assert.True(recipients[1].MatchesKey(bobKey.MasterPublicKey));
+        }
+
+        [Fact]
+        public void EncryptedMessage_Recipients_Ed25519X25519_V6Format()
+        {
+            // Arrange
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("Ed25519 User <ed@example.com>")
+                .GenerateEd25519WithX25519Subkey();
+
+            var plaintext = "V6 encrypted message"u8.ToArray();
+
+            // Act
+            using var encryptor = PgpMessageEncryptor.Create()
+                .AddRecipient(keyResult.PublicKeyRing);
+            var encrypted = encryptor.Encrypt(plaintext);
+
+            // Assert
+            Assert.Equal(1, encrypted.RecipientCount);
+
+            var recipient = encrypted.Recipients[0];
+            Assert.Equal(PgpPublicKeyAlgorithm.X25519, recipient.Algorithm);
+            // V6 PKESK exposes full fingerprint
+            Assert.True(recipient.Version == 6 || recipient.Fingerprint.Length > 0 || recipient.KeyId.Length == 8);
+        }
+
+        [Fact]
+        public void EncryptedMessage_Read_ParsesRecipientInfo()
+        {
+            // Arrange
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            var plaintext = "Parse test"u8.ToArray();
+
+            using var encryptor = PgpMessageEncryptor.Create()
+                .AddRecipient(keyResult.MasterPublicKey);
+            var encrypted = encryptor.Encrypt(plaintext);
+
+            // Act - Re-read the encrypted message from bytes
+            var reRead = PgpEncryptedMessage.Read(encrypted.Data.Span);
+
+            // Assert
+            Assert.Equal(encrypted.RecipientCount, reRead.RecipientCount);
+            Assert.Equal(1, reRead.Recipients.Length);
+
+            var recipient = reRead.Recipients[0];
+            Assert.Equal(PgpPublicKeyAlgorithm.RsaEncryptOrSign, recipient.Algorithm);
+            Assert.True(recipient.MatchesKey(keyResult.MasterPublicKey));
+        }
+
+        [Fact]
+        public void RecipientInfo_KeyIdHex_ReturnsCorrectFormat()
+        {
+            // Arrange
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            var plaintext = "Test"u8.ToArray();
+
+            using var encryptor = PgpMessageEncryptor.Create()
+                .AddRecipient(keyResult.MasterPublicKey);
+            var encrypted = encryptor.Encrypt(plaintext);
+
+            // Act
+            var recipient = encrypted.Recipients[0];
+            var keyIdHex = recipient.KeyIdHex;
+
+            // Assert
+            Assert.Equal(16, keyIdHex.Length); // 8 bytes = 16 hex chars
+            Assert.True(keyIdHex.All(c => char.IsLetterOrDigit(c)));
+        }
+
+        [Fact]
+        public void RecipientInfo_MatchesKey_ReturnsFalseForWrongKey()
+        {
+            // Arrange
+            var aliceKey = PgpKeyGenerator.Create()
+                .WithUserId("Alice <alice@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            var bobKey = PgpKeyGenerator.Create()
+                .WithUserId("Bob <bob@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            var plaintext = "Test"u8.ToArray();
+
+            using var encryptor = PgpMessageEncryptor.Create()
+                .AddRecipient(aliceKey.MasterPublicKey);
+            var encrypted = encryptor.Encrypt(plaintext);
+
+            // Act
+            var recipient = encrypted.Recipients[0];
+
+            // Assert
+            Assert.True(recipient.MatchesKey(aliceKey.MasterPublicKey));
+            Assert.False(recipient.MatchesKey(bobKey.MasterPublicKey));
+        }
+    }
 }

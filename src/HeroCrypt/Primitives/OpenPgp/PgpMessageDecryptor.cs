@@ -91,7 +91,9 @@ public sealed class PgpMessageDecryptor : IDisposable
     public PgpDecryptedMessage Decrypt(PgpEncryptedMessage message)
     {
         ThrowIfDisposed();
-        return Decrypt(message.Data.Span);
+        // Use ToArray() to create an independent copy of the data
+        // This ensures complete isolation from the original message
+        return Decrypt(message.ToArray());
     }
 
     /// <summary>

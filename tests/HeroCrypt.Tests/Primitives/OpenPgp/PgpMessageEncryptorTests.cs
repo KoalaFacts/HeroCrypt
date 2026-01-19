@@ -19,24 +19,47 @@ public class PgpMessageEncryptorTests
     // Fixed timestamp for deterministic key creation in tests
     private static readonly DateTimeOffset FixedTestTimestamp = new(2024, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
+    // Counter for generating unique keys across test instances
+    // Using Interlocked to ensure thread-safety
+    private static int s_keyCounter;
+
     /// <summary>
     /// Creates an RSA key pair for testing.
-    /// Each call creates a fresh key pair to ensure test isolation.
+    /// Uses a unique timestamp per key to ensure different fingerprints.
     /// </summary>
     private static (PgpPublicKeyPacket PublicKey, PgpSecretKeyPacket SecretKey) CreateRsaKeyPair(int keySize = 2048)
     {
+        // Get a unique index for this key pair to ensure unique timestamps
+        int keyIndex = Interlocked.Increment(ref s_keyCounter);
+
+        // Use deterministic timestamp based on key index to ensure unique fingerprints
+        var timestamp = FixedTestTimestamp.AddSeconds(keyIndex);
+
+        // Generate RSA key
         using var rsa = RSA.Create(keySize);
         var parameters = rsa.ExportParameters(includePrivateParameters: true);
 
-        var n = new BigInteger(parameters.Modulus!, isUnsigned: true, isBigEndian: true);
-        var e = new BigInteger(parameters.Exponent!, isUnsigned: true, isBigEndian: true);
-        var d = new BigInteger(parameters.D!, isUnsigned: true, isBigEndian: true);
-        var p = new BigInteger(parameters.P!, isUnsigned: true, isBigEndian: true);
-        var q = new BigInteger(parameters.Q!, isUnsigned: true, isBigEndian: true);
+        // Validate RSA parameters are non-null and have expected lengths
+        if (parameters.Modulus == null || parameters.Modulus.Length == 0)
+            throw new InvalidOperationException("RSA key generation failed: Modulus is null or empty");
+        if (parameters.Exponent == null || parameters.Exponent.Length == 0)
+            throw new InvalidOperationException("RSA key generation failed: Exponent is null or empty");
+        if (parameters.D == null || parameters.D.Length == 0)
+            throw new InvalidOperationException("RSA key generation failed: D is null or empty");
+        if (parameters.P == null || parameters.P.Length == 0)
+            throw new InvalidOperationException("RSA key generation failed: P is null or empty");
+        if (parameters.Q == null || parameters.Q.Length == 0)
+            throw new InvalidOperationException("RSA key generation failed: Q is null or empty");
+
+        var n = new BigInteger(parameters.Modulus, isUnsigned: true, isBigEndian: true);
+        var e = new BigInteger(parameters.Exponent, isUnsigned: true, isBigEndian: true);
+        var d = new BigInteger(parameters.D, isUnsigned: true, isBigEndian: true);
+        var p = new BigInteger(parameters.P, isUnsigned: true, isBigEndian: true);
+        var q = new BigInteger(parameters.Q, isUnsigned: true, isBigEndian: true);
 
         var publicKey = PgpPublicKeyPacket.CreateRsa(
             version: 4,
-            creationTime: FixedTestTimestamp,
+            creationTime: timestamp,
             modulus: n,
             exponent: e,
             isSubkey: false);
@@ -46,6 +69,15 @@ public class PgpMessageEncryptorTests
         var secretMaterial = BuildRsaSecretMaterial(d, p, q, u);
 
         var secretKey = PgpSecretKeyPacket.CreateUnencrypted(publicKey, secretMaterial);
+
+        // Verify the key IDs match as a sanity check
+        var publicKeyId = publicKey.GetKeyId();
+        var secretKeyId = secretKey.GetKeyId();
+        if (!publicKeyId.SequenceEqual(secretKeyId))
+        {
+            throw new InvalidOperationException(
+                $"Key ID mismatch after creation. Public: {Convert.ToHexString(publicKeyId)}, Secret: {Convert.ToHexString(secretKeyId)}");
+        }
 
         return (publicKey, secretKey);
     }
@@ -456,6 +488,16 @@ public class PgpMessageEncryptorTests
         {
             var (publicKey1, secretKey1) = CreateRsaKeyPair();
             var (publicKey2, secretKey2) = CreateRsaKeyPair();
+
+            // Verify key IDs are unique (RSA key generation should produce different keys)
+            var keyId1 = publicKey1.GetKeyId();
+            var keyId2 = publicKey2.GetKeyId();
+            Assert.NotEqual(keyId1, keyId2);
+
+            // Verify secret keys have matching key IDs to their public keys
+            Assert.Equal(keyId1, secretKey1.GetKeyId());
+            Assert.Equal(keyId2, secretKey2.GetKeyId());
+
             var plaintext = "Message for multiple recipients"u8.ToArray();
 
             // Encrypt for both recipients

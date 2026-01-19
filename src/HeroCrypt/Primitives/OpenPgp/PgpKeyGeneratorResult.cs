@@ -1,3 +1,5 @@
+using HeroCrypt.Primitives.Armor;
+
 namespace HeroCrypt.Primitives.OpenPgp;
 
 /// <summary>
@@ -124,6 +126,71 @@ public readonly struct PgpKeyGeneratorResult
     {
         var data = ExportSecretKey();
         stream.Write(data, 0, data.Length);
+    }
+
+    /// <summary>
+    /// Exports the public key ring in ASCII Armor format.
+    /// </summary>
+    /// <returns>The ASCII Armored public key block.</returns>
+    /// <remarks>
+    /// <para>
+    /// The output follows RFC 4880 Section 6 ASCII Armor format:
+    /// <code>
+    /// -----BEGIN PGP PUBLIC KEY BLOCK-----
+    ///
+    /// [Base64-encoded key data]
+    /// =[CRC24]
+    /// -----END PGP PUBLIC KEY BLOCK-----
+    /// </code>
+    /// </para>
+    /// </remarks>
+    public string GetArmoredPublicKey()
+    {
+        return ArmorCore.Encode(PublicKeyRing.ToArray(), ArmorType.PublicKey);
+    }
+
+    /// <summary>
+    /// Exports the secret key ring in ASCII Armor format.
+    /// </summary>
+    /// <returns>The ASCII Armored private key block.</returns>
+    /// <remarks>
+    /// <para>
+    /// The output follows RFC 4880 Section 6 ASCII Armor format:
+    /// <code>
+    /// -----BEGIN PGP PRIVATE KEY BLOCK-----
+    ///
+    /// [Base64-encoded key data]
+    /// =[CRC24]
+    /// -----END PGP PRIVATE KEY BLOCK-----
+    /// </code>
+    /// </para>
+    /// <para>
+    /// <b>Security Note:</b> This exports the full secret key, including private key material.
+    /// If the key was generated with a passphrase, the secret material is encrypted.
+    /// Handle the output securely.
+    /// </para>
+    /// </remarks>
+    public string GetArmoredSecretKey()
+    {
+        return ArmorCore.Encode(SecretKeyRing.ToArray(), ArmorType.PrivateKey);
+    }
+
+    /// <summary>
+    /// Exports the public key ring in ASCII Armor format as UTF-8 bytes.
+    /// </summary>
+    /// <returns>The ASCII Armored public key block as bytes.</returns>
+    public byte[] GetArmoredPublicKeyBytes()
+    {
+        return System.Text.Encoding.UTF8.GetBytes(GetArmoredPublicKey());
+    }
+
+    /// <summary>
+    /// Exports the secret key ring in ASCII Armor format as UTF-8 bytes.
+    /// </summary>
+    /// <returns>The ASCII Armored private key block as bytes.</returns>
+    public byte[] GetArmoredSecretKeyBytes()
+    {
+        return System.Text.Encoding.UTF8.GetBytes(GetArmoredSecretKey());
     }
 
     /// <summary>

@@ -1,3 +1,4 @@
+using HeroCrypt.Primitives.Armor;
 using HeroCrypt.Primitives.OpenPgp;
 using HeroCrypt.Tests.Infrastructure;
 
@@ -1327,6 +1328,212 @@ public class PgpKeyGeneratorTests
 
             // Assert
             Assert.False(result.MasterSecretKey.IsEncrypted);
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // ASCII Armor Export Tests
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    [Trait("Category", TestCategories.UNIT)]
+    [Trait("Category", TestCategories.SLOW)]
+    public class AsciiArmorExportTests
+    {
+        [Fact]
+        public void GetArmoredPublicKey_ReturnsValidArmorFormat()
+        {
+            // Arrange
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            // Act
+            var armored = result.GetArmoredPublicKey();
+
+            // Assert
+            Assert.Contains("-----BEGIN PGP PUBLIC KEY BLOCK-----", armored);
+            Assert.Contains("-----END PGP PUBLIC KEY BLOCK-----", armored);
+        }
+
+        [Fact]
+        public void GetArmoredSecretKey_ReturnsValidArmorFormat()
+        {
+            // Arrange
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            // Act
+            var armored = result.GetArmoredSecretKey();
+
+            // Assert
+            Assert.Contains("-----BEGIN PGP PRIVATE KEY BLOCK-----", armored);
+            Assert.Contains("-----END PGP PRIVATE KEY BLOCK-----", armored);
+        }
+
+        [Fact]
+        public void GetArmoredPublicKey_ContainsCrc24Checksum()
+        {
+            // Arrange
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            // Act
+            var armored = result.GetArmoredPublicKey();
+
+            // Assert - CRC line starts with '=' and has 4 Base64 characters
+            var lines = armored.Split('\n');
+            var crcLine = lines.FirstOrDefault(l => l.TrimEnd().StartsWith('='));
+            Assert.NotNull(crcLine);
+            Assert.Equal(5, crcLine.TrimEnd().Length); // '=' + 4 Base64 chars
+        }
+
+        [Fact]
+        public void GetArmoredPublicKey_CanBeDecoded()
+        {
+            // Arrange
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            // Act
+            var armored = result.GetArmoredPublicKey();
+            var decoded = ArmorBuilder.Create().Decode(armored);
+
+            // Assert
+            Assert.Equal(ArmorType.PublicKey, decoded.Type);
+            Assert.NotEmpty(decoded.Data);
+        }
+
+        [Fact]
+        public void GetArmoredSecretKey_CanBeDecoded()
+        {
+            // Arrange
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            // Act
+            var armored = result.GetArmoredSecretKey();
+            var decoded = ArmorBuilder.Create().Decode(armored);
+
+            // Assert
+            Assert.Equal(ArmorType.PrivateKey, decoded.Type);
+            Assert.NotEmpty(decoded.Data);
+        }
+
+        [Fact]
+        public void GetArmoredPublicKey_DecodedDataMatchesOriginal()
+        {
+            // Arrange
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            // Act
+            var armored = result.GetArmoredPublicKey();
+            var decoded = ArmorBuilder.Create().Decode(armored);
+            var reimported = PgpPublicKeyRing.Read(decoded.Data);
+
+            // Assert
+            Assert.Equal(result.Fingerprint, reimported.MasterFingerprint);
+        }
+
+        [Fact]
+        public void GetArmoredSecretKey_DecodedDataMatchesOriginal()
+        {
+            // Arrange
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            // Act
+            var armored = result.GetArmoredSecretKey();
+            var decoded = ArmorBuilder.Create().Decode(armored);
+            var reimported = PgpSecretKeyRing.Read(decoded.Data);
+
+            // Assert
+            Assert.Equal(result.Fingerprint, reimported.MasterFingerprint);
+        }
+
+        [Fact]
+        public void GetArmoredPublicKeyBytes_ReturnsUtf8EncodedString()
+        {
+            // Arrange
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            // Act
+            var armoredBytes = result.GetArmoredPublicKeyBytes();
+            var armoredString = System.Text.Encoding.UTF8.GetString(armoredBytes);
+
+            // Assert
+            Assert.Contains("-----BEGIN PGP PUBLIC KEY BLOCK-----", armoredString);
+        }
+
+        [Fact]
+        public void GetArmoredSecretKeyBytes_ReturnsUtf8EncodedString()
+        {
+            // Arrange
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            // Act
+            var armoredBytes = result.GetArmoredSecretKeyBytes();
+            var armoredString = System.Text.Encoding.UTF8.GetString(armoredBytes);
+
+            // Assert
+            Assert.Contains("-----BEGIN PGP PRIVATE KEY BLOCK-----", armoredString);
+        }
+
+        [Fact]
+        public void GetArmoredPublicKey_Ed25519_ReturnsValidArmorFormat()
+        {
+            // Arrange
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Ed25519 <ed25519@example.com>")
+                .GenerateEd25519();
+
+            // Act
+            var armored = result.GetArmoredPublicKey();
+            var decoded = ArmorBuilder.Create().Decode(armored);
+            var reimported = PgpPublicKeyRing.Read(decoded.Data);
+
+            // Assert
+            Assert.Equal(result.Fingerprint, reimported.MasterFingerprint);
+            Assert.Equal(PgpPublicKeyAlgorithm.Ed25519, reimported.MasterKey.Algorithm);
+        }
+
+        [Fact]
+        public void GetArmoredSecretKey_WithPassphrase_ReturnsValidArmorFormat()
+        {
+            // Arrange
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .WithKeySize(2048)
+                .WithPassphrase("secretpassword")
+                .GenerateRsa();
+
+            // Act
+            var armored = result.GetArmoredSecretKey();
+            var decoded = ArmorBuilder.Create().Decode(armored);
+            var reimported = PgpSecretKeyRing.Read(decoded.Data);
+
+            // Assert
+            Assert.Equal(result.Fingerprint, reimported.MasterFingerprint);
+            Assert.True(reimported.MasterKey.IsEncrypted);
         }
     }
 }

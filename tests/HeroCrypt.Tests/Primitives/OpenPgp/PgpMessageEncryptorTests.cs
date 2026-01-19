@@ -16,8 +16,12 @@ public class PgpMessageEncryptorTests
     // Test Utilities
     // ─────────────────────────────────────────────────────────────────────────────
 
+    // Fixed timestamp for deterministic key creation in tests
+    private static readonly DateTimeOffset FixedTestTimestamp = new(2024, 1, 1, 0, 0, 0, TimeSpan.Zero);
+
     /// <summary>
     /// Creates an RSA key pair for testing.
+    /// Each call creates a fresh key pair to ensure test isolation.
     /// </summary>
     private static (PgpPublicKeyPacket PublicKey, PgpSecretKeyPacket SecretKey) CreateRsaKeyPair(int keySize = 2048)
     {
@@ -32,7 +36,7 @@ public class PgpMessageEncryptorTests
 
         var publicKey = PgpPublicKeyPacket.CreateRsa(
             version: 4,
-            creationTime: DateTimeOffset.UtcNow,
+            creationTime: FixedTestTimestamp,
             modulus: n,
             exponent: e,
             isSubkey: false);
@@ -523,7 +527,7 @@ public class PgpMessageEncryptorTests
         public void Decrypt_WithWrongKey_ThrowsCryptographicException()
         {
             var (publicKey, _) = CreateRsaKeyPair();
-            var (_, wrongSecretKey) = CreateRsaKeyPair();
+            var (_, wrongSecretKey) = CreateRsaKeyPair(); // Different key pair
             var plaintext = "Secret message"u8.ToArray();
 
             // Encrypt
@@ -543,7 +547,7 @@ public class PgpMessageEncryptorTests
         public void TryDecrypt_WithWrongKey_ReturnsFalse()
         {
             var (publicKey, _) = CreateRsaKeyPair();
-            var (_, wrongSecretKey) = CreateRsaKeyPair();
+            var (_, wrongSecretKey) = CreateRsaKeyPair(); // Different key pair
             var plaintext = "Secret message"u8.ToArray();
 
             // Encrypt

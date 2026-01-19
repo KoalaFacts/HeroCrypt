@@ -405,6 +405,11 @@ public class Crc24CoreTests
         public void ByteSwap_Detected()
         {
             var data = TestHelpers.RandomBytes(TestDataSizes.Medium);
+
+            // Ensure first two bytes are different for deterministic test
+            data[0] = 0x00;
+            data[1] = 0xFF;
+
             var originalCrc = Crc24Core.Compute(data);
 
             // Swap two bytes

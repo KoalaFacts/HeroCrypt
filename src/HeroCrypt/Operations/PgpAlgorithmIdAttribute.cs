@@ -10,7 +10,7 @@ namespace HeroCrypt.Operations;
 /// enum values to their corresponding OpenPGP wire-format IDs.
 /// </para>
 /// <para>
-/// Use <see cref="PgpAlgorithmIdExtensions"/> to retrieve the PGP ID for an algorithm
+/// Use <see cref="ExtensionsToPgpAlgorithmId"/> to retrieve the PGP ID for an algorithm
 /// or to look up an algorithm by its PGP ID.
 /// </para>
 /// </remarks>
@@ -20,7 +20,7 @@ namespace HeroCrypt.Operations;
 /// byte pgpId = HashingAlgorithm.Sha256.GetPgpId(); // Returns 8
 ///
 /// // Look up algorithm by PGP ID
-/// var algo = PgpAlgorithmIdExtensions.GetHashingAlgorithmByPgpId(8); // Returns Sha256
+/// var algo = ExtensionsToPgpAlgorithmId.GetHashingAlgorithmByPgpId(8); // Returns Sha256
 /// </code>
 /// </example>
 [AttributeUsage(AttributeTargets.Field, AllowMultiple = false)]
@@ -49,7 +49,7 @@ public sealed class PgpAlgorithmIdAttribute : Attribute
 /// <summary>
 /// Extension methods for retrieving OpenPGP algorithm IDs from enum values.
 /// </summary>
-public static class PgpAlgorithmIdExtensions
+public static class ExtensionsToPgpAlgorithmId
 {
     private static readonly Dictionary<HashingAlgorithm, byte> HashingToPgpId = [];
     private static readonly Dictionary<byte, HashingAlgorithm> PgpIdToHashing = [];
@@ -62,7 +62,7 @@ public static class PgpAlgorithmIdExtensions
     private static readonly Dictionary<AeadAlgorithm, byte> AeadToPgpId = [];
     private static readonly Dictionary<byte, AeadAlgorithm> PgpIdToAead = [];
 
-    static PgpAlgorithmIdExtensions()
+    static ExtensionsToPgpAlgorithmId()
     {
         BuildLookupFor(typeof(HashingAlgorithm), HashingToPgpId, PgpIdToHashing);
         BuildLookupFor(typeof(SymmetricCipherAlgorithm), SymmetricToPgpId, PgpIdToSymmetric);

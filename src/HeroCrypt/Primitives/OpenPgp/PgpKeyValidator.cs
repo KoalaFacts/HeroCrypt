@@ -69,7 +69,7 @@ public sealed class PgpKeyValidator : IDisposable
     public PgpKeyValidator WithPublicKeyRing(PgpPublicKeyRing keyRing)
     {
         ThrowIfDisposed();
-        this.publicKeyRing = keyRing;
+        publicKeyRing = keyRing;
         return this;
     }
 
@@ -86,7 +86,7 @@ public sealed class PgpKeyValidator : IDisposable
     public PgpKeyValidator WithSecretKeyRing(PgpSecretKeyRing keyRing)
     {
         ThrowIfDisposed();
-        this.publicKeyRing = keyRing.ExtractPublicKeyRing();
+        publicKeyRing = keyRing.ExtractPublicKeyRing();
         return this;
     }
 
@@ -104,7 +104,7 @@ public sealed class PgpKeyValidator : IDisposable
     public PgpKeyValidator VerifySelfSignatures()
     {
         ThrowIfDisposed();
-        this.verifySelfSignatures = true;
+        verifySelfSignatures = true;
         return this;
     }
 
@@ -121,7 +121,7 @@ public sealed class PgpKeyValidator : IDisposable
     public PgpKeyValidator VerifySubkeyBindings()
     {
         ThrowIfDisposed();
-        this.verifySubkeyBindings = true;
+        verifySubkeyBindings = true;
         return this;
     }
 
@@ -138,7 +138,7 @@ public sealed class PgpKeyValidator : IDisposable
     public PgpKeyValidator CheckExpiration()
     {
         ThrowIfDisposed();
-        this.checkExpiration = true;
+        checkExpiration = true;
         return this;
     }
 
@@ -157,7 +157,7 @@ public sealed class PgpKeyValidator : IDisposable
     public PgpKeyValidator CheckRevocation()
     {
         ThrowIfDisposed();
-        this.checkRevocation = true;
+        checkRevocation = true;
         return this;
     }
 
@@ -174,7 +174,7 @@ public sealed class PgpKeyValidator : IDisposable
     public PgpKeyValidator AtTime(DateTimeOffset time)
     {
         ThrowIfDisposed();
-        this.validationTime = time;
+        validationTime = time;
         return this;
     }
 
@@ -185,10 +185,10 @@ public sealed class PgpKeyValidator : IDisposable
     public PgpKeyValidator FullValidation()
     {
         ThrowIfDisposed();
-        this.verifySelfSignatures = true;
-        this.verifySubkeyBindings = true;
-        this.checkExpiration = true;
-        this.checkRevocation = true;
+        verifySelfSignatures = true;
+        verifySubkeyBindings = true;
+        checkExpiration = true;
+        checkRevocation = true;
         return this;
     }
 

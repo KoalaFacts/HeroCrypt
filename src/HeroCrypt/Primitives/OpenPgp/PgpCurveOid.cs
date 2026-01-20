@@ -12,7 +12,7 @@ namespace HeroCrypt.Primitives.OpenPgp;
 /// </para>
 /// <para>
 /// This enum provides symbolic names; the actual OID bytes are provided
-/// by the <see cref="PgpCurveOidExtensions"/> class.
+/// by the <see cref="ExtensionsToPgpCurveOid"/> class.
 /// </para>
 /// </remarks>
 public enum PgpCurveOid
@@ -162,7 +162,7 @@ public enum PgpCurveOid
 /// <summary>
 /// Extension methods for <see cref="PgpCurveOid"/> providing OID byte arrays.
 /// </summary>
-public static class PgpCurveOidExtensions
+public static class ExtensionsToPgpCurveOid
 {
     /// <summary>
     /// Gets the DER-encoded OID bytes for the curve.

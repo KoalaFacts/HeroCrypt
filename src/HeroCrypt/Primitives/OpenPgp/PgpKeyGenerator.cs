@@ -161,7 +161,7 @@ public sealed class PgpKeyGenerator
 #endif
 
         this.passphraseBytes = passphraseBytes ?? throw new ArgumentNullException(nameof(passphraseBytes));
-        this.passphrase = null;
+        passphrase = null;
         return this;
     }
 

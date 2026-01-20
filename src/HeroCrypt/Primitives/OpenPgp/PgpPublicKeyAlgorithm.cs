@@ -199,7 +199,7 @@ public enum PgpPublicKeyAlgorithm : byte
 /// <summary>
 /// Extension methods for <see cref="PgpPublicKeyAlgorithm"/>.
 /// </summary>
-public static class PgpPublicKeyAlgorithmExtensions
+public static class ExtensionsToPgpPublicKeyAlgorithm
 {
     /// <summary>
     /// Gets whether this algorithm can be used for encryption/key agreement.

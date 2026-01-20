@@ -71,7 +71,7 @@ public enum PgpRevocationReason : byte
 /// <summary>
 /// Extension methods for <see cref="PgpRevocationReason"/>.
 /// </summary>
-public static class PgpRevocationReasonExtensions
+public static class ExtensionsToPgpRevocationReason
 {
     /// <summary>
     /// Gets whether this revocation reason indicates the key should never be trusted again.

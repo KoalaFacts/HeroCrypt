@@ -1057,7 +1057,7 @@ public class PgpKeyRingTests
         }
 
         [Fact]
-        public async Task PublicKeyRing_WriteArmorAsync_WritesToStream()
+        public async Task PublicKeyRing_WriteArmorAsync_WritesToStreamAsync()
         {
             // Arrange
             var keyResult = PgpKeyGenerator.Create()
@@ -1067,16 +1067,16 @@ public class PgpKeyRingTests
 
             // Act
             using var stream = new MemoryStream();
-            await keyResult.PublicKeyRing.WriteArmorAsync(stream);
+            await keyResult.PublicKeyRing.WriteArmorAsync(stream, TestContext.Current.CancellationToken);
             stream.Position = 0;
-            var armored = await new StreamReader(stream).ReadToEndAsync();
+            var armored = await new StreamReader(stream).ReadToEndAsync(TestContext.Current.CancellationToken);
 
             // Assert
             Assert.StartsWith("-----BEGIN PGP PUBLIC KEY BLOCK-----", armored);
         }
 
         [Fact]
-        public async Task SecretKeyRing_WriteArmorAsync_WritesToStream()
+        public async Task SecretKeyRing_WriteArmorAsync_WritesToStreamAsync()
         {
             // Arrange
             var keyResult = PgpKeyGenerator.Create()
@@ -1086,9 +1086,9 @@ public class PgpKeyRingTests
 
             // Act
             using var stream = new MemoryStream();
-            await keyResult.SecretKeyRing.WriteArmorAsync(stream);
+            await keyResult.SecretKeyRing.WriteArmorAsync(stream, TestContext.Current.CancellationToken);
             stream.Position = 0;
-            var armored = await new StreamReader(stream).ReadToEndAsync();
+            var armored = await new StreamReader(stream).ReadToEndAsync(TestContext.Current.CancellationToken);
 
             // Assert
             Assert.StartsWith("-----BEGIN PGP PRIVATE KEY BLOCK-----", armored);

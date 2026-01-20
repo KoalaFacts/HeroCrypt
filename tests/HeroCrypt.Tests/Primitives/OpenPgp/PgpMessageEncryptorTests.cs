@@ -21,7 +21,7 @@ public class PgpMessageEncryptorTests
 
     // Counter for generating unique keys across test instances
     // Using Interlocked to ensure thread-safety
-    private static int s_keyCounter;
+    private static int keyCounter;
 
     /// <summary>
     /// Creates an RSA key pair for testing.
@@ -30,7 +30,7 @@ public class PgpMessageEncryptorTests
     private static (PgpPublicKeyPacket PublicKey, PgpSecretKeyPacket SecretKey) CreateRsaKeyPair(int keySize = 2048)
     {
         // Get a unique index for this key pair to ensure unique timestamps
-        int keyIndex = Interlocked.Increment(ref s_keyCounter);
+        int keyIndex = Interlocked.Increment(ref keyCounter);
 
         // Use deterministic timestamp based on key index to ensure unique fingerprints
         var timestamp = FixedTestTimestamp.AddSeconds(keyIndex);

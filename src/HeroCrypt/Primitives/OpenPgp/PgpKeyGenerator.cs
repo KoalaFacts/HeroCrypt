@@ -1074,7 +1074,9 @@ public sealed class PgpKeyGenerator
             var trailer = new byte[10];
             trailer[0] = version;
             trailer[1] = 0xFF;
-            ulong totalLen = (ulong)(4 + hashedSubpackets.Length);
+            // V6 trailer length: 6 bytes (version + sigType + pubAlgo + hashAlgo + 4-byte subpacket length prefix)
+            // Note: The 4-byte length field contributes 2 extra bytes vs V4's 2-byte length field
+            ulong totalLen = (ulong)(6 + hashedSubpackets.Length);
             BinaryPrimitives.WriteUInt64BigEndian(trailer.AsSpan(2), totalLen);
             hash.AppendData(trailer);
         }

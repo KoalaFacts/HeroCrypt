@@ -2013,4 +2013,459 @@ public class PgpKeyGenerationIntegrationTests
             Assert.Equal(PgpRevocationReason.KeySuperseded, reason.Value.Reason);
         }
     }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // Signature Verification for Revocation/Rotation Tests
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    [Trait("Category", TestCategories.INTEGRATION)]
+    public class RevocationRotationSignatureVerificationTests
+    {
+        [Fact]
+        public void VerifyKeyRevocation_RSA_ValidSignature_ReturnsValid()
+        {
+            // Arrange - Generate RSA key and revocation
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            using var revoker = PgpKeyRevoker.Create()
+                .WithSecretKey(keyResult.MasterSecretKey)
+                .WithReason(PgpRevocationReason.KeyCompromised, "Test revocation");
+            var revocation = revoker.RevokeKey();
+
+            // Act - Verify revocation signature
+            using var verifier = PgpSignatureVerifier.Create();
+            var result = verifier.VerifyKeyRevocation(revocation, keyResult.MasterPublicKey);
+
+            // Assert
+            Assert.True(result.IsValid, result.ErrorMessage ?? "Unknown failure");
+            Assert.Equal(PgpSignatureType.KeyRevocation, result.SignatureType);
+        }
+
+        [Fact]
+        public void VerifyKeyRevocation_Ed25519_ValidSignature_ReturnsValid()
+        {
+            // Arrange - Generate Ed25519 key and revocation
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .GenerateEd25519();
+
+            using var revoker = PgpKeyRevoker.Create()
+                .WithSecretKey(keyResult.MasterSecretKey)
+                .WithReason(PgpRevocationReason.KeyRetired);
+            var revocation = revoker.RevokeKey();
+
+            // Act - Verify revocation signature
+            using var verifier = PgpSignatureVerifier.Create();
+            var result = verifier.VerifyKeyRevocation(revocation, keyResult.MasterPublicKey);
+
+            // Assert
+            Assert.True(result.IsValid, result.ErrorMessage ?? "Unknown failure");
+            Assert.Equal(PgpSignatureType.KeyRevocation, result.SignatureType);
+            Assert.Equal(6, result.SignatureVersion);
+        }
+
+        [Fact]
+        public void VerifyKeyRevocation_WrongKey_ReturnsFalse()
+        {
+            // Arrange - Generate two different keys
+            var key1 = PgpKeyGenerator.Create()
+                .WithUserId("Key1 <key1@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            var key2 = PgpKeyGenerator.Create()
+                .WithUserId("Key2 <key2@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            // Create revocation with key1
+            using var revoker = PgpKeyRevoker.Create()
+                .WithSecretKey(key1.MasterSecretKey)
+                .WithReason(PgpRevocationReason.KeyCompromised);
+            var revocation = revoker.RevokeKey();
+
+            // Act - Try to verify with key2's public key (wrong key)
+            using var verifier = PgpSignatureVerifier.Create();
+            var result = verifier.VerifyKeyRevocation(revocation, key2.MasterPublicKey);
+
+            // Assert
+            Assert.False(result.IsValid);
+        }
+
+        [Fact]
+        public void VerifyKeyRevocation_WrongSignatureType_ReturnsInvalid()
+        {
+            // Arrange - Generate key and create a data signature (not revocation)
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            using var signer = PgpSignatureSigner.Create()
+                .WithSecretKey(keyResult.MasterSecretKey);
+            var signedMessage = signer.Sign("test data"u8);
+            var dataSignature = signedMessage.Signature;
+
+            // Act - Try to verify data signature as key revocation
+            using var verifier = PgpSignatureVerifier.Create();
+            var result = verifier.VerifyKeyRevocation(dataSignature, keyResult.MasterPublicKey);
+
+            // Assert
+            Assert.False(result.IsValid);
+            Assert.Contains("KeyRevocation", result.ErrorMessage, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Fact]
+        public void VerifySubkeyRevocation_RSA_ValidSignature_ReturnsValid()
+        {
+            // Arrange - Generate RSA key with subkey
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .WithKeySize(2048)
+                .WithEncryptionSubkey()
+                .GenerateRsa();
+
+            var subkeyPublicKey = keyResult.PublicKeyRing.Subkeys[0];
+
+            // Create subkey revocation
+            using var revoker = PgpKeyRevoker.Create()
+                .WithSecretKey(keyResult.MasterSecretKey)
+                .WithSubkey(subkeyPublicKey)
+                .WithReason(PgpRevocationReason.KeySuperseded);
+            var revocation = revoker.RevokeSubkey();
+
+            // Act - Verify subkey revocation signature
+            using var verifier = PgpSignatureVerifier.Create();
+            var result = verifier.VerifySubkeyRevocation(
+                revocation,
+                keyResult.MasterPublicKey,
+                subkeyPublicKey);
+
+            // Assert
+            Assert.True(result.IsValid, result.ErrorMessage ?? "Unknown failure");
+            Assert.Equal(PgpSignatureType.SubkeyRevocation, result.SignatureType);
+        }
+
+        [Fact]
+        public void VerifySubkeyRevocation_WrongMasterKey_ReturnsFalse()
+        {
+            // Arrange - Generate two key pairs
+            var key1 = PgpKeyGenerator.Create()
+                .WithUserId("Key1 <key1@example.com>")
+                .WithKeySize(2048)
+                .WithEncryptionSubkey()
+                .GenerateRsa();
+
+            var key2 = PgpKeyGenerator.Create()
+                .WithUserId("Key2 <key2@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            var subkeyPublicKey = key1.PublicKeyRing.Subkeys[0];
+
+            // Create subkey revocation with key1's master
+            using var revoker = PgpKeyRevoker.Create()
+                .WithSecretKey(key1.MasterSecretKey)
+                .WithSubkey(subkeyPublicKey)
+                .WithReason(PgpRevocationReason.KeySuperseded);
+            var revocation = revoker.RevokeSubkey();
+
+            // Act - Try to verify with key2's master key (wrong key)
+            using var verifier = PgpSignatureVerifier.Create();
+            var result = verifier.VerifySubkeyRevocation(
+                revocation,
+                key2.MasterPublicKey,  // Wrong master key
+                subkeyPublicKey);
+
+            // Assert
+            Assert.False(result.IsValid);
+        }
+
+        [Fact]
+        public void VerifyDirectKeySignature_RSA_ValidSignature_ReturnsValid()
+        {
+            // Arrange - Generate two keys and rotation
+            var oldKey = PgpKeyGenerator.Create()
+                .WithUserId("Old <old@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            var newKey = PgpKeyGenerator.Create()
+                .WithUserId("New <new@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            using var rotator = PgpKeyRotator.Create()
+                .FromOldKey(oldKey.MasterSecretKey)
+                .ToNewKey(newKey.PublicKeyRing);
+            var rotationResult = rotator.Rotate();
+
+            // Act - Verify direct key signature
+            using var verifier = PgpSignatureVerifier.Create();
+            var result = verifier.VerifyDirectKeySignature(
+                rotationResult.TransitionSignature,
+                oldKey.MasterPublicKey,  // Signing key
+                newKey.MasterPublicKey); // Target key
+
+            // Assert
+            Assert.True(result.IsValid, result.ErrorMessage ?? "Unknown failure");
+            Assert.Equal(PgpSignatureType.DirectKey, result.SignatureType);
+        }
+
+        [Fact]
+        public void VerifyDirectKeySignature_Ed25519_ValidSignature_ReturnsValid()
+        {
+            // Arrange - Generate two Ed25519 keys and rotation
+            var oldKey = PgpKeyGenerator.Create()
+                .WithUserId("Old <old@example.com>")
+                .GenerateEd25519();
+
+            var newKey = PgpKeyGenerator.Create()
+                .WithUserId("New <new@example.com>")
+                .GenerateEd25519();
+
+            using var rotator = PgpKeyRotator.Create()
+                .FromOldKey(oldKey.MasterSecretKey)
+                .ToNewKey(newKey.PublicKeyRing);
+            var rotationResult = rotator.Rotate();
+
+            // Act - Verify direct key signature
+            using var verifier = PgpSignatureVerifier.Create();
+            var result = verifier.VerifyDirectKeySignature(
+                rotationResult.TransitionSignature,
+                oldKey.MasterPublicKey,
+                newKey.MasterPublicKey);
+
+            // Assert
+            Assert.True(result.IsValid, result.ErrorMessage ?? "Unknown failure");
+            Assert.Equal(PgpSignatureType.DirectKey, result.SignatureType);
+            Assert.Equal(6, result.SignatureVersion);
+        }
+
+        [Fact]
+        public void VerifyTransitionSignature_RSA_ValidSignature_ReturnsValid()
+        {
+            // Arrange - Generate two keys and rotation
+            var oldKey = PgpKeyGenerator.Create()
+                .WithUserId("Old <old@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            var newKey = PgpKeyGenerator.Create()
+                .WithUserId("New <new@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            using var rotator = PgpKeyRotator.Create()
+                .FromOldKey(oldKey.MasterSecretKey)
+                .ToNewKey(newKey.PublicKeyRing);
+            var rotationResult = rotator.Rotate();
+
+            // Act - Verify transition signature (convenience method)
+            using var verifier = PgpSignatureVerifier.Create();
+            var result = verifier.VerifyTransitionSignature(
+                rotationResult.TransitionSignature,
+                oldKey.MasterPublicKey,
+                newKey.MasterPublicKey);
+
+            // Assert
+            Assert.True(result.IsValid, result.ErrorMessage ?? "Unknown failure");
+            Assert.Equal(PgpSignatureType.DirectKey, result.SignatureType);
+        }
+
+        [Fact]
+        public void VerifyTransitionSignature_WrongOldKey_ReturnsFalse()
+        {
+            // Arrange - Generate three keys
+            var oldKey = PgpKeyGenerator.Create()
+                .WithUserId("Old <old@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            var newKey = PgpKeyGenerator.Create()
+                .WithUserId("New <new@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            var wrongKey = PgpKeyGenerator.Create()
+                .WithUserId("Wrong <wrong@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            using var rotator = PgpKeyRotator.Create()
+                .FromOldKey(oldKey.MasterSecretKey)
+                .ToNewKey(newKey.PublicKeyRing);
+            var rotationResult = rotator.Rotate();
+
+            // Act - Try to verify with wrong old key
+            using var verifier = PgpSignatureVerifier.Create();
+            var result = verifier.VerifyTransitionSignature(
+                rotationResult.TransitionSignature,
+                wrongKey.MasterPublicKey,  // Wrong signing key
+                newKey.MasterPublicKey);
+
+            // Assert
+            Assert.False(result.IsValid);
+        }
+
+        [Fact]
+        public void VerifyTransitionSignature_WrongNewKey_ReturnsFalse()
+        {
+            // Arrange - Generate three keys
+            var oldKey = PgpKeyGenerator.Create()
+                .WithUserId("Old <old@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            var newKey = PgpKeyGenerator.Create()
+                .WithUserId("New <new@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            var wrongKey = PgpKeyGenerator.Create()
+                .WithUserId("Wrong <wrong@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            using var rotator = PgpKeyRotator.Create()
+                .FromOldKey(oldKey.MasterSecretKey)
+                .ToNewKey(newKey.PublicKeyRing);
+            var rotationResult = rotator.Rotate();
+
+            // Act - Try to verify with wrong target key
+            using var verifier = PgpSignatureVerifier.Create();
+            var result = verifier.VerifyTransitionSignature(
+                rotationResult.TransitionSignature,
+                oldKey.MasterPublicKey,
+                wrongKey.MasterPublicKey);  // Wrong target key
+
+            // Assert
+            Assert.False(result.IsValid);
+        }
+
+        [Fact]
+        public void VerifySubkeyBinding_RSA_ValidSignature_ReturnsValid()
+        {
+            // Arrange - Generate RSA key with encryption subkey
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .WithKeySize(2048)
+                .WithEncryptionSubkey()
+                .GenerateRsa();
+
+            // Find the subkey binding signature
+            var bindingSignature = keyResult.PublicKeyRing.Signatures
+                .First(s => s.SignatureType == PgpSignatureType.SubkeyBinding);
+            var subkey = keyResult.PublicKeyRing.Subkeys[0];
+
+            // Act - Verify subkey binding signature
+            using var verifier = PgpSignatureVerifier.Create();
+            var result = verifier.VerifySubkeyBinding(
+                bindingSignature,
+                keyResult.MasterPublicKey,
+                subkey);
+
+            // Assert
+            Assert.True(result.IsValid, result.ErrorMessage ?? "Unknown failure");
+            Assert.Equal(PgpSignatureType.SubkeyBinding, result.SignatureType);
+        }
+
+        [Fact]
+        public void VerifySubkeyBinding_Ed25519X25519_ValidSignature_ReturnsValid()
+        {
+            // Arrange - Generate Ed25519+X25519 key
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .GenerateEd25519WithX25519Subkey();
+
+            // Find the subkey binding signature
+            var bindingSignature = keyResult.PublicKeyRing.Signatures
+                .First(s => s.SignatureType == PgpSignatureType.SubkeyBinding);
+            var subkey = keyResult.PublicKeyRing.Subkeys[0];
+
+            // Act - Verify subkey binding signature
+            using var verifier = PgpSignatureVerifier.Create();
+            var result = verifier.VerifySubkeyBinding(
+                bindingSignature,
+                keyResult.MasterPublicKey,
+                subkey);
+
+            // Assert
+            Assert.True(result.IsValid, result.ErrorMessage ?? "Unknown failure");
+            Assert.Equal(PgpSignatureType.SubkeyBinding, result.SignatureType);
+            Assert.Equal(6, result.SignatureVersion);
+        }
+
+        [Fact]
+        public void VerifyKeyRevocation_AfterSerialization_StillValid()
+        {
+            // Arrange - Generate key and revocation
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            using var revoker = PgpKeyRevoker.Create()
+                .WithSecretKey(keyResult.MasterSecretKey)
+                .WithReason(PgpRevocationReason.KeyCompromised, "Serialization test");
+            var revocation = revoker.RevokeKey();
+
+            // Add to key ring and serialize
+            var revokedRing = keyResult.PublicKeyRing.AddRevocationSignature(revocation);
+            var serialized = revokedRing.ToArray();
+
+            // Deserialize
+            var deserialized = PgpPublicKeyRing.Read(serialized);
+            var revocationFromRing = deserialized.Signatures
+                .First(s => s.SignatureType == PgpSignatureType.KeyRevocation);
+
+            // Act - Verify revocation from deserialized ring
+            using var verifier = PgpSignatureVerifier.Create();
+            var result = verifier.VerifyKeyRevocation(revocationFromRing, deserialized.MasterKey);
+
+            // Assert
+            Assert.True(result.IsValid, result.ErrorMessage ?? "Unknown failure");
+        }
+
+        [Fact]
+        public void VerifyTransitionSignature_AfterSerialization_StillValid()
+        {
+            // Arrange - Generate keys and rotation
+            var oldKey = PgpKeyGenerator.Create()
+                .WithUserId("Old <old@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            var newKey = PgpKeyGenerator.Create()
+                .WithUserId("New <new@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            using var rotator = PgpKeyRotator.Create()
+                .FromOldKey(oldKey.MasterSecretKey)
+                .ToNewKey(newKey.PublicKeyRing);
+            var rotationResult = rotator.Rotate();
+
+            // Serialize and deserialize certified key ring
+            var serialized = rotationResult.CertifiedNewKeyRing.ToArray();
+            var deserialized = PgpPublicKeyRing.Read(serialized);
+
+            // Find the transition signature
+            var transitionSig = deserialized.Signatures
+                .First(s => s.SignatureType == PgpSignatureType.DirectKey);
+
+            // Act - Verify transition signature from deserialized ring
+            using var verifier = PgpSignatureVerifier.Create();
+            var result = verifier.VerifyTransitionSignature(
+                transitionSig,
+                oldKey.MasterPublicKey,
+                deserialized.MasterKey);
+
+            // Assert
+            Assert.True(result.IsValid, result.ErrorMessage ?? "Unknown failure");
+        }
+    }
 }

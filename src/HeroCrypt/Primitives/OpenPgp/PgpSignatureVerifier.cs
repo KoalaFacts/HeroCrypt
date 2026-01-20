@@ -189,6 +189,333 @@ public sealed class PgpSignatureVerifier : IDisposable
 
     #endregion
 
+    #region Key-Based Signature Verification
+
+    /// <summary>
+    /// Verifies a key revocation signature (type 0x20).
+    /// </summary>
+    /// <param name="signature">The revocation signature.</param>
+    /// <param name="revokedKey">The public key being revoked (which also signed the revocation).</param>
+    /// <returns>The verification result.</returns>
+    /// <remarks>
+    /// <para>
+    /// A key revocation signature (type 0x20) is made by the key being revoked.
+    /// The signature covers the key material itself, not external data.
+    /// </para>
+    /// </remarks>
+    public PgpSignatureResult VerifyKeyRevocation(PgpSignaturePacket signature, PgpPublicKeyPacket revokedKey)
+    {
+        ThrowIfDisposed();
+
+        if (signature.SignatureType != PgpSignatureType.KeyRevocation)
+        {
+            return PgpSignatureResult.Invalid(
+                $"Expected KeyRevocation (0x20) signature but got {signature.SignatureType}.",
+                signature.SignatureType,
+                (PgpHashAlgorithmId)signature.HashAlgorithm,
+                (PgpPublicKeyAlgorithm)signature.PublicKeyAlgorithm,
+                signature.Version);
+        }
+
+        return VerifyKeyBasedSignature(signature, revokedKey, revokedKey, null);
+    }
+
+    /// <summary>
+    /// Verifies a subkey revocation signature (type 0x28).
+    /// </summary>
+    /// <param name="signature">The subkey revocation signature.</param>
+    /// <param name="masterKey">The master key that signed the revocation.</param>
+    /// <param name="revokedSubkey">The subkey being revoked.</param>
+    /// <returns>The verification result.</returns>
+    /// <remarks>
+    /// <para>
+    /// A subkey revocation signature (type 0x28) is made by the master key,
+    /// not the subkey being revoked. The signature covers both the master key
+    /// and the subkey material.
+    /// </para>
+    /// </remarks>
+    public PgpSignatureResult VerifySubkeyRevocation(
+        PgpSignaturePacket signature,
+        PgpPublicKeyPacket masterKey,
+        PgpPublicKeyPacket revokedSubkey)
+    {
+        ThrowIfDisposed();
+
+        if (signature.SignatureType != PgpSignatureType.SubkeyRevocation)
+        {
+            return PgpSignatureResult.Invalid(
+                $"Expected SubkeyRevocation (0x28) signature but got {signature.SignatureType}.",
+                signature.SignatureType,
+                (PgpHashAlgorithmId)signature.HashAlgorithm,
+                (PgpPublicKeyAlgorithm)signature.PublicKeyAlgorithm,
+                signature.Version);
+        }
+
+        return VerifyKeyBasedSignature(signature, masterKey, masterKey, revokedSubkey);
+    }
+
+    /// <summary>
+    /// Verifies a direct key signature (type 0x1F).
+    /// </summary>
+    /// <param name="signature">The direct key signature.</param>
+    /// <param name="signingKey">The public key that created the signature.</param>
+    /// <param name="targetKey">The target key that was signed.</param>
+    /// <returns>The verification result.</returns>
+    /// <remarks>
+    /// <para>
+    /// A direct key signature (type 0x1F) is used to certify a key without
+    /// binding to a specific User ID. It's commonly used in key rotation
+    /// where the old key signs the new key to establish a trust chain.
+    /// </para>
+    /// </remarks>
+    public PgpSignatureResult VerifyDirectKeySignature(
+        PgpSignaturePacket signature,
+        PgpPublicKeyPacket signingKey,
+        PgpPublicKeyPacket targetKey)
+    {
+        ThrowIfDisposed();
+
+        if (signature.SignatureType != PgpSignatureType.DirectKey)
+        {
+            return PgpSignatureResult.Invalid(
+                $"Expected DirectKey (0x1F) signature but got {signature.SignatureType}.",
+                signature.SignatureType,
+                (PgpHashAlgorithmId)signature.HashAlgorithm,
+                (PgpPublicKeyAlgorithm)signature.PublicKeyAlgorithm,
+                signature.Version);
+        }
+
+        return VerifyKeyBasedSignature(signature, signingKey, targetKey, null);
+    }
+
+    /// <summary>
+    /// Verifies a key rotation transition signature.
+    /// </summary>
+    /// <param name="signature">The transition signature (direct key signature from old key).</param>
+    /// <param name="oldKey">The old public key that signed the transition.</param>
+    /// <param name="newKey">The new public key that was certified.</param>
+    /// <returns>The verification result.</returns>
+    /// <remarks>
+    /// <para>
+    /// This is a convenience method for verifying key rotation. It's equivalent to
+    /// calling <see cref="VerifyDirectKeySignature"/> with the old key as the signer
+    /// and the new key as the target.
+    /// </para>
+    /// </remarks>
+    public PgpSignatureResult VerifyTransitionSignature(
+        PgpSignaturePacket signature,
+        PgpPublicKeyPacket oldKey,
+        PgpPublicKeyPacket newKey)
+    {
+        ThrowIfDisposed();
+
+        // Transition signatures are direct key signatures (0x1F)
+        if (signature.SignatureType != PgpSignatureType.DirectKey)
+        {
+            return PgpSignatureResult.Invalid(
+                $"Expected DirectKey (0x1F) transition signature but got {signature.SignatureType}.",
+                signature.SignatureType,
+                (PgpHashAlgorithmId)signature.HashAlgorithm,
+                (PgpPublicKeyAlgorithm)signature.PublicKeyAlgorithm,
+                signature.Version);
+        }
+
+        return VerifyKeyBasedSignature(signature, oldKey, newKey, null);
+    }
+
+    /// <summary>
+    /// Verifies a subkey binding signature (type 0x18).
+    /// </summary>
+    /// <param name="signature">The subkey binding signature.</param>
+    /// <param name="masterKey">The master key that signed the binding.</param>
+    /// <param name="subkey">The subkey being bound.</param>
+    /// <returns>The verification result.</returns>
+    /// <remarks>
+    /// <para>
+    /// A subkey binding signature (type 0x18) is made by the master key to bind
+    /// a subkey to the key ring. The signature covers both the master key and subkey.
+    /// </para>
+    /// </remarks>
+    public PgpSignatureResult VerifySubkeyBinding(
+        PgpSignaturePacket signature,
+        PgpPublicKeyPacket masterKey,
+        PgpPublicKeyPacket subkey)
+    {
+        ThrowIfDisposed();
+
+        if (signature.SignatureType != PgpSignatureType.SubkeyBinding)
+        {
+            return PgpSignatureResult.Invalid(
+                $"Expected SubkeyBinding (0x18) signature but got {signature.SignatureType}.",
+                signature.SignatureType,
+                (PgpHashAlgorithmId)signature.HashAlgorithm,
+                (PgpPublicKeyAlgorithm)signature.PublicKeyAlgorithm,
+                signature.Version);
+        }
+
+        return VerifyKeyBasedSignature(signature, masterKey, masterKey, subkey);
+    }
+
+    /// <summary>
+    /// Core method for verifying key-based signatures.
+    /// </summary>
+    private PgpSignatureResult VerifyKeyBasedSignature(
+        PgpSignaturePacket signature,
+        PgpPublicKeyPacket signingKey,
+        PgpPublicKeyPacket primaryKey,
+        PgpPublicKeyPacket? secondaryKey)
+    {
+        var hashAlgorithm = (PgpHashAlgorithmId)signature.HashAlgorithm;
+        var sigType = signature.SignatureType;
+        var version = signature.Version;
+
+        try
+        {
+            // Compute the hash based on signature type
+            byte[] computedHash = ComputeKeyBasedSignatureHash(
+                primaryKey,
+                secondaryKey,
+                signature.Version,
+                (byte)signature.SignatureType,
+                (byte)(PgpPublicKeyAlgorithm)signature.PublicKeyAlgorithm,
+                signature.HashAlgorithm,
+                PgpSignatureSubpacket.WriteAll(signature.HashedSubpackets),
+                signature.Salt.ToArray());
+
+            // Verify hash prefix
+            ushort computedPrefix = BinaryPrimitives.ReadUInt16BigEndian(computedHash);
+            if (computedPrefix != signature.HashPrefix)
+            {
+                return PgpSignatureResult.Invalid(
+                    "Hash prefix mismatch.",
+                    sigType,
+                    hashAlgorithm,
+                    (PgpPublicKeyAlgorithm)signature.PublicKeyAlgorithm,
+                    version);
+            }
+
+            // Verify the signature using the signing key
+            bool isValid = VerifySignatureData(computedHash, signature.SignatureData.ToArray(), signingKey, hashAlgorithm);
+
+            if (isValid)
+            {
+                return PgpSignatureResult.Valid(
+                    sigType,
+                    signature.GetCreationTime(),
+                    signature.GetIssuerKeyId(),
+                    signature.GetIssuerFingerprint(),
+                    hashAlgorithm,
+                    (PgpPublicKeyAlgorithm)signature.PublicKeyAlgorithm,
+                    version);
+            }
+            else
+            {
+                return PgpSignatureResult.Invalid(
+                    "Signature cryptographic verification failed.",
+                    sigType,
+                    hashAlgorithm,
+                    (PgpPublicKeyAlgorithm)signature.PublicKeyAlgorithm,
+                    version);
+            }
+        }
+        catch (Exception ex)
+        {
+            return PgpSignatureResult.Invalid(
+                $"Verification error: {ex.Message}",
+                sigType,
+                hashAlgorithm,
+                (PgpPublicKeyAlgorithm)signature.PublicKeyAlgorithm,
+                version);
+        }
+    }
+
+    /// <summary>
+    /// Computes hash for key-based signatures (revocation, binding, direct key).
+    /// </summary>
+    /// <remarks>
+    /// Note: Unlike data signatures, key-based signatures in the current implementation
+    /// do not include the V6 salt in the hash computation. This matches the creation
+    /// behavior in PgpKeyRevoker and PgpKeyRotator.
+    /// </remarks>
+    private static byte[] ComputeKeyBasedSignatureHash(
+        PgpPublicKeyPacket primaryKey,
+        PgpPublicKeyPacket? secondaryKey,
+        byte version,
+        byte sigType,
+        byte pubAlgo,
+        byte hashAlgo,
+        byte[] hashedSubpackets,
+        byte[] salt)
+    {
+        // Note: salt parameter is accepted for API consistency but not used for key-based signatures
+        _ = salt;
+
+        var hashAlgorithm = (PgpHashAlgorithmId)hashAlgo;
+        using var hash = hashAlgorithm.CreateIncrementalHash();
+
+        // Hash the primary key with 0x99 tag
+        byte[] primaryBody = primaryKey.ToArray();
+        var primaryTag = new byte[3];
+        primaryTag[0] = 0x99;
+        BinaryPrimitives.WriteUInt16BigEndian(primaryTag.AsSpan(1), (ushort)primaryBody.Length);
+        hash.AppendData(primaryTag);
+        hash.AppendData(primaryBody);
+
+        // For signatures that cover two keys (subkey binding/revocation), hash the secondary key
+        if (secondaryKey.HasValue)
+        {
+            byte[] secondaryBody = secondaryKey.Value.ToArray();
+            var secondaryTag = new byte[3];
+            secondaryTag[0] = 0x99;
+            BinaryPrimitives.WriteUInt16BigEndian(secondaryTag.AsSpan(1), (ushort)secondaryBody.Length);
+            hash.AppendData(secondaryTag);
+            hash.AppendData(secondaryBody);
+        }
+
+        // Hash the signature trailer
+        if (version == 4)
+        {
+            var header = new byte[6 + hashedSubpackets.Length];
+            header[0] = version;
+            header[1] = sigType;
+            header[2] = pubAlgo;
+            header[3] = hashAlgo;
+            BinaryPrimitives.WriteUInt16BigEndian(header.AsSpan(4), (ushort)hashedSubpackets.Length);
+            Array.Copy(hashedSubpackets, 0, header, 6, hashedSubpackets.Length);
+            hash.AppendData(header);
+
+            var trailer = new byte[6];
+            trailer[0] = version;
+            trailer[1] = 0xFF;
+            uint totalLen = (uint)(4 + hashedSubpackets.Length);
+            BinaryPrimitives.WriteUInt32BigEndian(trailer.AsSpan(2), totalLen);
+            hash.AppendData(trailer);
+        }
+        else // V6
+        {
+            var header = new byte[8 + hashedSubpackets.Length];
+            header[0] = version;
+            header[1] = sigType;
+            header[2] = pubAlgo;
+            header[3] = hashAlgo;
+            BinaryPrimitives.WriteUInt32BigEndian(header.AsSpan(4), (uint)hashedSubpackets.Length);
+            Array.Copy(hashedSubpackets, 0, header, 8, hashedSubpackets.Length);
+            hash.AppendData(header);
+
+            var trailer = new byte[10];
+            trailer[0] = version;
+            trailer[1] = 0xFF;
+            // V6 trailer length: 6 bytes (version + sigType + pubAlgo + hashAlgo + 4-byte subpacket length)
+            ulong totalLen = (ulong)(6 + hashedSubpackets.Length);
+            BinaryPrimitives.WriteUInt64BigEndian(trailer.AsSpan(2), totalLen);
+            hash.AppendData(trailer);
+        }
+
+        return hash.GetHashAndReset();
+    }
+
+    #endregion
+
     #region Internal Verification
 
     private PgpSignatureResult VerifyWithKey(ReadOnlySpan<byte> data, PgpSignaturePacket signature, PgpPublicKeyPacket publicKey)

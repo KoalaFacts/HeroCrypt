@@ -296,68 +296,14 @@ public sealed class PgpKeyRotator : IDisposable
         byte hashAlgo,
         byte[] hashedSubpackets)
     {
-        using var hash = PgpHashAlgorithmId.Sha256.CreateIncrementalHash();
-
-        // Hash the target key with tag
-        // 0x99 || 2-byte length || key body
-        byte[] keyBody = targetKey.ToArray();
-        var keyTag = new byte[3];
-        keyTag[0] = 0x99;
-        BinaryPrimitives.WriteUInt16BigEndian(keyTag.AsSpan(1), (ushort)keyBody.Length);
-        hash.AppendData(keyTag);
-        hash.AppendData(keyBody);
-
-        // Hash signature trailer
-        AppendSignatureTrailer(hash, version, sigType, pubAlgo, hashAlgo, hashedSubpackets);
-
-        return hash.GetHashAndReset();
-    }
-
-    private static void AppendSignatureTrailer(
-        IncrementalHash hash,
-        byte version,
-        byte sigType,
-        byte pubAlgo,
-        byte hashAlgo,
-        byte[] hashedSubpackets)
-    {
-        if (version == 4)
-        {
-            var header = new byte[6 + hashedSubpackets.Length];
-            header[0] = version;
-            header[1] = sigType;
-            header[2] = pubAlgo;
-            header[3] = hashAlgo;
-            BinaryPrimitives.WriteUInt16BigEndian(header.AsSpan(4), (ushort)hashedSubpackets.Length);
-            Array.Copy(hashedSubpackets, 0, header, 6, hashedSubpackets.Length);
-            hash.AppendData(header);
-
-            var trailer = new byte[6];
-            trailer[0] = version;
-            trailer[1] = 0xFF;
-            uint totalLen = (uint)(4 + hashedSubpackets.Length);
-            BinaryPrimitives.WriteUInt32BigEndian(trailer.AsSpan(2), totalLen);
-            hash.AppendData(trailer);
-        }
-        else
-        {
-            // V6
-            var header = new byte[8 + hashedSubpackets.Length];
-            header[0] = version;
-            header[1] = sigType;
-            header[2] = pubAlgo;
-            header[3] = hashAlgo;
-            BinaryPrimitives.WriteUInt32BigEndian(header.AsSpan(4), (uint)hashedSubpackets.Length);
-            Array.Copy(hashedSubpackets, 0, header, 8, hashedSubpackets.Length);
-            hash.AppendData(header);
-
-            var trailer = new byte[10];
-            trailer[0] = version;
-            trailer[1] = 0xFF;
-            ulong totalLen = (ulong)(6 + hashedSubpackets.Length);
-            BinaryPrimitives.WriteUInt64BigEndian(trailer.AsSpan(2), totalLen);
-            hash.AppendData(trailer);
-        }
+        return PgpSignatureHashHelper.ComputeKeySignatureHash(
+            targetKey,
+            secondaryKey: null,
+            version,
+            sigType,
+            pubAlgo,
+            hashAlgo,
+            hashedSubpackets);
     }
 
     private static byte[] CreateSignatureData(PgpSecretKeyPacket secretKey, byte[] hash)

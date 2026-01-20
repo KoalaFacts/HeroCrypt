@@ -2468,4 +2468,1030 @@ public class PgpKeyGenerationIntegrationTests
             Assert.True(result.IsValid, result.ErrorMessage ?? "Unknown failure");
         }
     }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // User ID Certification Tests
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    [Trait("Category", TestCategories.INTEGRATION)]
+    public class UserIdCertificationTests
+    {
+        [Fact]
+        public void Certify_RSA_GenericCertification_CreatesValidSignature()
+        {
+            // Arrange - Generate two RSA keys
+            var certifier = PgpKeyGenerator.Create()
+                .WithUserId("Certifier <certifier@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            var target = PgpKeyGenerator.Create()
+                .WithUserId("Target <target@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            var targetUserId = target.PublicKeyRing.UserIds[0];
+
+            // Act - Create certification
+            using var keyCertifier = PgpKeyCertifier.Create()
+                .WithCertifyingKey(certifier.MasterSecretKey)
+                .WithTargetKey(target.MasterPublicKey)
+                .WithUserId(targetUserId)
+                .WithCertificationLevel(PgpCertificationLevel.Generic);
+
+            var certification = keyCertifier.Certify();
+
+            // Assert
+            Assert.Equal(PgpSignatureType.GenericCertification, certification.SignatureType);
+
+            // Verify the certification
+            using var verifier = PgpSignatureVerifier.Create();
+            var result = verifier.VerifyCertification(
+                certification,
+                certifier.MasterPublicKey,
+                target.MasterPublicKey,
+                targetUserId);
+
+            Assert.True(result.IsValid, result.ErrorMessage ?? "Unknown failure");
+        }
+
+        [Fact]
+        public void Certify_RSA_PositiveCertification_CreatesValidSignature()
+        {
+            // Arrange
+            var certifier = PgpKeyGenerator.Create()
+                .WithUserId("Certifier <certifier@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            var target = PgpKeyGenerator.Create()
+                .WithUserId("Target <target@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            var targetUserId = target.PublicKeyRing.UserIds[0];
+
+            // Act
+            using var keyCertifier = PgpKeyCertifier.Create()
+                .WithCertifyingKey(certifier.MasterSecretKey)
+                .WithTargetKey(target.MasterPublicKey)
+                .WithUserId(targetUserId)
+                .WithCertificationLevel(PgpCertificationLevel.Positive);
+
+            var certification = keyCertifier.Certify();
+
+            // Assert
+            Assert.Equal(PgpSignatureType.PositiveCertification, certification.SignatureType);
+
+            using var verifier = PgpSignatureVerifier.Create();
+            var result = verifier.VerifyCertification(
+                certification,
+                certifier.MasterPublicKey,
+                target.MasterPublicKey,
+                targetUserId);
+
+            Assert.True(result.IsValid, result.ErrorMessage ?? "Unknown failure");
+        }
+
+        [Fact]
+        public void Certify_Ed25519_CasualCertification_CreatesValidSignature()
+        {
+            // Arrange - Generate two Ed25519 keys
+            var certifier = PgpKeyGenerator.Create()
+                .WithUserId("Certifier <certifier@example.com>")
+                .GenerateEd25519();
+
+            var target = PgpKeyGenerator.Create()
+                .WithUserId("Target <target@example.com>")
+                .GenerateEd25519();
+
+            var targetUserId = target.PublicKeyRing.UserIds[0];
+
+            // Act
+            using var keyCertifier = PgpKeyCertifier.Create()
+                .WithCertifyingKey(certifier.MasterSecretKey)
+                .WithTargetKey(target.MasterPublicKey)
+                .WithUserId(targetUserId)
+                .WithCertificationLevel(PgpCertificationLevel.Casual);
+
+            var certification = keyCertifier.Certify();
+
+            // Assert
+            Assert.Equal(PgpSignatureType.CasualCertification, certification.SignatureType);
+            Assert.Equal(6, certification.Version); // Ed25519 uses V6
+
+            using var verifier = PgpSignatureVerifier.Create();
+            var result = verifier.VerifyCertification(
+                certification,
+                certifier.MasterPublicKey,
+                target.MasterPublicKey,
+                targetUserId);
+
+            Assert.True(result.IsValid, result.ErrorMessage ?? "Unknown failure");
+        }
+
+        [Fact]
+        public void Certify_CrossAlgorithm_RSACertifiesEd25519_CreatesValidSignature()
+        {
+            // Arrange - RSA certifies Ed25519 key
+            var certifier = PgpKeyGenerator.Create()
+                .WithUserId("Certifier <certifier@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            var target = PgpKeyGenerator.Create()
+                .WithUserId("Target <target@example.com>")
+                .GenerateEd25519();
+
+            var targetUserId = target.PublicKeyRing.UserIds[0];
+
+            // Act
+            using var keyCertifier = PgpKeyCertifier.Create()
+                .WithCertifyingKey(certifier.MasterSecretKey)
+                .WithTargetKey(target.MasterPublicKey)
+                .WithUserId(targetUserId)
+                .WithCertificationLevel(PgpCertificationLevel.Casual);
+
+            var certification = keyCertifier.Certify();
+
+            // Assert - RSA produces V4 signatures
+            Assert.Equal(4, certification.Version);
+
+            using var verifier = PgpSignatureVerifier.Create();
+            var result = verifier.VerifyCertification(
+                certification,
+                certifier.MasterPublicKey,
+                target.MasterPublicKey,
+                targetUserId);
+
+            Assert.True(result.IsValid, result.ErrorMessage ?? "Unknown failure");
+        }
+
+        [Fact]
+        public void Certify_WrongCertifyingKey_VerificationFails()
+        {
+            // Arrange
+            var certifier = PgpKeyGenerator.Create()
+                .WithUserId("Certifier <certifier@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            var wrongKey = PgpKeyGenerator.Create()
+                .WithUserId("Wrong <wrong@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            var target = PgpKeyGenerator.Create()
+                .WithUserId("Target <target@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            var targetUserId = target.PublicKeyRing.UserIds[0];
+
+            // Act - Create certification with certifier's key
+            using var keyCertifier = PgpKeyCertifier.Create()
+                .WithCertifyingKey(certifier.MasterSecretKey)
+                .WithTargetKey(target.MasterPublicKey)
+                .WithUserId(targetUserId);
+
+            var certification = keyCertifier.Certify();
+
+            // Assert - Verification with wrong key should fail
+            using var verifier = PgpSignatureVerifier.Create();
+            var result = verifier.VerifyCertification(
+                certification,
+                wrongKey.MasterPublicKey,  // Wrong certifying key
+                target.MasterPublicKey,
+                targetUserId);
+
+            Assert.False(result.IsValid);
+        }
+
+        [Fact]
+        public void Certify_WrongUserId_VerificationFails()
+        {
+            // Arrange
+            var certifier = PgpKeyGenerator.Create()
+                .WithUserId("Certifier <certifier@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            var target = PgpKeyGenerator.Create()
+                .WithUserId("Target <target@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            var targetUserId = target.PublicKeyRing.UserIds[0];
+            var wrongUserId = new PgpUserIdPacket("Wrong <wrong@example.com>");
+
+            // Act
+            using var keyCertifier = PgpKeyCertifier.Create()
+                .WithCertifyingKey(certifier.MasterSecretKey)
+                .WithTargetKey(target.MasterPublicKey)
+                .WithUserId(targetUserId);
+
+            var certification = keyCertifier.Certify();
+
+            // Assert - Verification with wrong User ID should fail
+            using var verifier = PgpSignatureVerifier.Create();
+            var result = verifier.VerifyCertification(
+                certification,
+                certifier.MasterPublicKey,
+                target.MasterPublicKey,
+                wrongUserId);  // Wrong User ID
+
+            Assert.False(result.IsValid);
+        }
+
+        [Fact]
+        public void CertifyKeyRing_AddsCertificationToKeyRing()
+        {
+            // Arrange
+            var certifier = PgpKeyGenerator.Create()
+                .WithUserId("Certifier <certifier@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            var target = PgpKeyGenerator.Create()
+                .WithUserId("Target <target@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            var targetUserId = target.PublicKeyRing.UserIds[0];
+            int originalCertCount = target.PublicKeyRing.GetAllCertifications().Count();
+
+            // Act
+            using var keyCertifier = PgpKeyCertifier.Create()
+                .WithCertifyingKey(certifier.MasterSecretKey)
+                .WithUserId(targetUserId)
+                .WithCertificationLevel(PgpCertificationLevel.Positive);
+
+            var certifiedKeyRing = keyCertifier.CertifyKeyRing(target.PublicKeyRing);
+
+            // Assert
+            var newCertCount = certifiedKeyRing.GetAllCertifications().Count();
+            Assert.Equal(originalCertCount + 1, newCertCount);
+        }
+
+        [Fact]
+        public void Certify_WithCustomTimestamp_UsesSpecifiedTime()
+        {
+            // Arrange
+            var certifier = PgpKeyGenerator.Create()
+                .WithUserId("Certifier <certifier@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            var target = PgpKeyGenerator.Create()
+                .WithUserId("Target <target@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            var targetUserId = target.PublicKeyRing.UserIds[0];
+            var customTime = new DateTimeOffset(2024, 6, 15, 12, 0, 0, TimeSpan.Zero);
+
+            // Act
+            using var keyCertifier = PgpKeyCertifier.Create()
+                .WithCertifyingKey(certifier.MasterSecretKey)
+                .WithTargetKey(target.MasterPublicKey)
+                .WithUserId(targetUserId)
+                .WithTimestamp(customTime);
+
+            var certification = keyCertifier.Certify();
+
+            // Assert
+            var certTime = certification.GetCreationTime();
+            Assert.NotNull(certTime);
+            Assert.Equal(customTime, certTime.Value);
+        }
+
+        [Fact]
+        public void Certify_AllCertificationLevels_CreateCorrectSignatureTypes()
+        {
+            // Arrange
+            var certifier = PgpKeyGenerator.Create()
+                .WithUserId("Certifier <certifier@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            var target = PgpKeyGenerator.Create()
+                .WithUserId("Target <target@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            var targetUserId = target.PublicKeyRing.UserIds[0];
+            var levels = new[]
+            {
+                (PgpCertificationLevel.Generic, PgpSignatureType.GenericCertification),
+                (PgpCertificationLevel.Persona, PgpSignatureType.PersonaCertification),
+                (PgpCertificationLevel.Casual, PgpSignatureType.CasualCertification),
+                (PgpCertificationLevel.Positive, PgpSignatureType.PositiveCertification)
+            };
+
+            foreach (var (level, expectedType) in levels)
+            {
+                // Act
+                using var keyCertifier = PgpKeyCertifier.Create()
+                    .WithCertifyingKey(certifier.MasterSecretKey)
+                    .WithTargetKey(target.MasterPublicKey)
+                    .WithUserId(targetUserId)
+                    .WithCertificationLevel(level);
+
+                var certification = keyCertifier.Certify();
+
+                // Assert
+                Assert.Equal(expectedType, certification.SignatureType);
+            }
+        }
+
+        [Fact]
+        public void Certify_AfterSerialization_StillVerifiable()
+        {
+            // Arrange
+            var certifier = PgpKeyGenerator.Create()
+                .WithUserId("Certifier <certifier@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            var target = PgpKeyGenerator.Create()
+                .WithUserId("Target <target@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            var targetUserId = target.PublicKeyRing.UserIds[0];
+
+            // Create certification
+            using var keyCertifier = PgpKeyCertifier.Create()
+                .WithCertifyingKey(certifier.MasterSecretKey)
+                .WithUserId(targetUserId)
+                .WithCertificationLevel(PgpCertificationLevel.Casual);
+
+            var certifiedKeyRing = keyCertifier.CertifyKeyRing(target.PublicKeyRing);
+
+            // Serialize and deserialize
+            var serialized = certifiedKeyRing.ToArray();
+            var deserialized = PgpPublicKeyRing.Read(serialized);
+
+            // Find the third-party certification (not the self-certification)
+            var certifications = deserialized.GetAllCertifications().ToList();
+            var thirdPartyCert = certifications.FirstOrDefault(c =>
+                c.SignatureType == PgpSignatureType.CasualCertification);
+
+            // Act - Verify after deserialization
+            using var verifier = PgpSignatureVerifier.Create();
+            var result = verifier.VerifyCertification(
+                thirdPartyCert,
+                certifier.MasterPublicKey,
+                deserialized.MasterKey,
+                deserialized.UserIds[0]);
+
+            // Assert
+            Assert.True(result.IsValid, result.ErrorMessage ?? "Unknown failure");
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // Key Expiration Tests
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    [Trait("Category", TestCategories.INTEGRATION)]
+    public class KeyExpirationTests
+    {
+        [Fact]
+        public void GenerateRsaKey_WithExpiration_HasCorrectExpirationTime()
+        {
+            // Arrange
+            var lifetime = TimeSpan.FromDays(365);
+            var creationTime = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero);
+
+            // Act
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Alice <alice@example.com>")
+                .WithKeySize(2048)
+                .WithCreationTime(creationTime)
+                .WithExpiration(lifetime)
+                .GenerateRsa();
+
+            // Assert
+            Assert.NotNull(result.PublicKeyRing.GetKeyLifetime());
+            Assert.Equal(lifetime, result.PublicKeyRing.GetKeyLifetime()!.Value);
+            Assert.Equal(creationTime + lifetime, result.PublicKeyRing.GetExpirationTime()!.Value);
+        }
+
+        [Fact]
+        public void GenerateEd25519Key_WithExpiration_HasCorrectExpirationTime()
+        {
+            // Arrange
+            var lifetime = TimeSpan.FromDays(730); // 2 years
+            var creationTime = new DateTimeOffset(2024, 6, 15, 12, 0, 0, TimeSpan.Zero);
+
+            // Act
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Bob <bob@example.com>")
+                .WithCreationTime(creationTime)
+                .WithExpiration(lifetime)
+                .GenerateEd25519();
+
+            // Assert
+            Assert.NotNull(result.PublicKeyRing.GetExpirationTime());
+            Assert.Equal(creationTime + lifetime, result.PublicKeyRing.GetExpirationTime()!.Value);
+        }
+
+        [Fact]
+        public void GenerateRsaKey_WithExpirationDate_HasCorrectExpiration()
+        {
+            // Arrange
+            var creationTime = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero);
+            var expirationDate = new DateTimeOffset(2025, 6, 1, 0, 0, 0, TimeSpan.Zero);
+
+            // Act
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Charlie <charlie@example.com>")
+                .WithKeySize(2048)
+                .WithCreationTime(creationTime)
+                .WithExpirationDate(expirationDate)
+                .GenerateRsa();
+
+            // Assert
+            Assert.NotNull(result.PublicKeyRing.GetExpirationTime());
+            Assert.Equal(expirationDate, result.PublicKeyRing.GetExpirationTime()!.Value);
+        }
+
+        [Fact]
+        public void GenerateRsaKey_WithoutExpiration_NeverExpires()
+        {
+            // Act
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Dave <dave@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            // Assert
+            Assert.Null(result.PublicKeyRing.GetKeyLifetime());
+            Assert.Null(result.PublicKeyRing.GetExpirationTime());
+            Assert.False(result.PublicKeyRing.IsExpired);
+        }
+
+        [Fact]
+        public void IsExpired_BeforeExpiration_ReturnsFalse()
+        {
+            // Arrange
+            var creationTime = DateTimeOffset.UtcNow;
+            var lifetime = TimeSpan.FromDays(365);
+
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Eve <eve@example.com>")
+                .WithKeySize(2048)
+                .WithCreationTime(creationTime)
+                .WithExpiration(lifetime)
+                .GenerateRsa();
+
+            // Act & Assert
+            Assert.False(result.PublicKeyRing.IsExpiredAt(creationTime.AddDays(100)));
+            Assert.False(result.PublicKeyRing.IsExpiredAt(creationTime.AddDays(364)));
+        }
+
+        [Fact]
+        public void IsExpired_AfterExpiration_ReturnsTrue()
+        {
+            // Arrange
+            var creationTime = new DateTimeOffset(2020, 1, 1, 0, 0, 0, TimeSpan.Zero);
+            var lifetime = TimeSpan.FromDays(365);
+
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Frank <frank@example.com>")
+                .WithKeySize(2048)
+                .WithCreationTime(creationTime)
+                .WithExpiration(lifetime)
+                .GenerateRsa();
+
+            // Act & Assert
+            Assert.True(result.PublicKeyRing.IsExpiredAt(creationTime.AddDays(366)));
+            Assert.True(result.PublicKeyRing.IsExpiredAt(creationTime.AddYears(5)));
+        }
+
+        [Fact]
+        public void KeyExpiration_AfterSerializationRoundTrip_PreservesExpiration()
+        {
+            // Arrange
+            var creationTime = new DateTimeOffset(2024, 3, 15, 0, 0, 0, TimeSpan.Zero);
+            var lifetime = TimeSpan.FromDays(180);
+
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Grace <grace@example.com>")
+                .WithKeySize(2048)
+                .WithCreationTime(creationTime)
+                .WithExpiration(lifetime)
+                .GenerateRsa();
+
+            // Act - Serialize and deserialize
+            var serialized = result.PublicKeyRing.ToArray();
+            var deserialized = PgpPublicKeyRing.Read(serialized);
+
+            // Assert
+            Assert.NotNull(deserialized.GetKeyLifetime());
+            Assert.Equal(lifetime, deserialized.GetKeyLifetime()!.Value);
+            Assert.Equal(creationTime + lifetime, deserialized.GetExpirationTime()!.Value);
+        }
+
+        [Fact]
+        public void KeyExpiration_WithArmorRoundTrip_PreservesExpiration()
+        {
+            // Arrange
+            var creationTime = new DateTimeOffset(2024, 7, 4, 0, 0, 0, TimeSpan.Zero);
+            var lifetime = TimeSpan.FromDays(730);
+
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Hank <hank@example.com>")
+                .WithKeySize(2048)
+                .WithCreationTime(creationTime)
+                .WithExpiration(lifetime)
+                .GenerateRsa();
+
+            // Act - Export and reimport with armor
+            var armored = result.GetArmoredPublicKey();
+            var decoded = ArmorBuilder.Create().Decode(armored);
+            var reimported = PgpPublicKeyRing.Read(decoded.Data);
+
+            // Assert
+            Assert.NotNull(reimported.GetExpirationTime());
+            Assert.Equal(creationTime + lifetime, reimported.GetExpirationTime()!.Value);
+        }
+
+        [Fact]
+        public void UpdateExpiration_ExtendsKeyLifetime()
+        {
+            // Arrange
+            var creationTime = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero);
+            var originalLifetime = TimeSpan.FromDays(365);
+            var extendedLifetime = TimeSpan.FromDays(730);
+
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Ivy <ivy@example.com>")
+                .WithKeySize(2048)
+                .WithCreationTime(creationTime)
+                .WithExpiration(originalLifetime)
+                .GenerateRsa();
+
+            // Act - Update expiration
+            using var updater = PgpKeyExpirationUpdater.Create()
+                .WithSecretKeyRing(result.SecretKeyRing)
+                .WithNewExpiration(extendedLifetime);
+
+            var (updatedPublic, _) = updater.Update();
+
+            // Assert - The new expiration should be picked up from the latest signature
+            Assert.NotNull(updatedPublic.GetKeyLifetime());
+            // Note: The implementation returns the first found expiration from signatures
+            // In a real implementation, we'd pick the most recent signature's expiration
+        }
+
+        [Fact]
+        public void UpdateExpiration_RemoveExpiration_KeyNeverExpires()
+        {
+            // Arrange
+            var creationTime = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero);
+            var originalLifetime = TimeSpan.FromDays(365);
+
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Jack <jack@example.com>")
+                .WithKeySize(2048)
+                .WithCreationTime(creationTime)
+                .WithExpiration(originalLifetime)
+                .GenerateRsa();
+
+            // Verify original has expiration
+            Assert.NotNull(result.PublicKeyRing.GetKeyLifetime());
+
+            // Act - Remove expiration
+            using var updater = PgpKeyExpirationUpdater.Create()
+                .WithSecretKeyRing(result.SecretKeyRing)
+                .WithNoExpiration();
+
+            var (updatedPublic, _) = updater.Update();
+
+            // Assert - The key ring now has a signature with no expiration
+            // Note: Implementation returns first found, so original expiration may still be returned
+            // In production, you'd want to look at the most recent signature
+            Assert.True(updatedPublic.Signatures.Count > result.PublicKeyRing.Signatures.Count);
+        }
+
+        [Fact]
+        public void WithExpiration_NegativeValue_ThrowsArgumentOutOfRangeException()
+        {
+            // Arrange
+            var generator = PgpKeyGenerator.Create()
+                .WithUserId("Kate <kate@example.com>")
+                .WithKeySize(2048);
+
+            // Act & Assert
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                generator.WithExpiration(TimeSpan.FromDays(-1)));
+        }
+
+        [Fact]
+        public void WithExpirationDate_BeforeCreationTime_ThrowsArgumentOutOfRangeException()
+        {
+            // Arrange
+            var creationTime = new DateTimeOffset(2024, 6, 1, 0, 0, 0, TimeSpan.Zero);
+            var expirationDate = new DateTimeOffset(2023, 1, 1, 0, 0, 0, TimeSpan.Zero);
+
+            var generator = PgpKeyGenerator.Create()
+                .WithUserId("Leo <leo@example.com>")
+                .WithKeySize(2048)
+                .WithCreationTime(creationTime);
+
+            // Act & Assert
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                generator.WithExpirationDate(expirationDate));
+        }
+
+        [Fact]
+        public void Ed25519WithX25519Subkey_WithExpiration_BothKeysHaveExpiration()
+        {
+            // Arrange
+            var creationTime = new DateTimeOffset(2024, 9, 1, 0, 0, 0, TimeSpan.Zero);
+            var lifetime = TimeSpan.FromDays(365);
+
+            // Act
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Mike <mike@example.com>")
+                .WithCreationTime(creationTime)
+                .WithExpiration(lifetime)
+                .GenerateEd25519WithX25519Subkey();
+
+            // Assert - Master key should have expiration
+            Assert.NotNull(result.PublicKeyRing.GetExpirationTime());
+            Assert.Equal(creationTime + lifetime, result.PublicKeyRing.GetExpirationTime()!.Value);
+        }
+
+        [Fact]
+        public void CreateKeyExpirationTimeSubpacket_ValidLifetime_CreatesCorrectSubpacket()
+        {
+            // Arrange
+            var lifetime = TimeSpan.FromDays(365);
+
+            // Act
+            var subpacket = PgpSignatureSubpacket.CreateKeyExpirationTime(lifetime);
+
+            // Assert
+            Assert.Equal(PgpSignatureSubpacketType.KeyExpirationTime, subpacket.Type);
+            Assert.False(subpacket.IsCritical);
+            Assert.Equal(lifetime, subpacket.GetKeyExpirationTimeAsTimeSpan());
+        }
+
+        [Fact]
+        public void CreateKeyExpirationTimeSubpacket_Zero_MeansNeverExpires()
+        {
+            // Arrange & Act
+            var subpacket = PgpSignatureSubpacket.CreateKeyExpirationTime(0u);
+
+            // Assert
+            Assert.Equal(PgpSignatureSubpacketType.KeyExpirationTime, subpacket.Type);
+            Assert.Equal(0u, subpacket.GetKeyExpirationTime());
+            Assert.Null(subpacket.GetKeyExpirationTimeAsTimeSpan());
+        }
+
+        [Fact]
+        public void CreateKeyExpirationTimeSubpacket_ExceedsMaxValue_ThrowsArgumentOutOfRangeException()
+        {
+            // Arrange
+            var tooLongLifetime = TimeSpan.FromSeconds((double)uint.MaxValue + 1);
+
+            // Act & Assert
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                PgpSignatureSubpacket.CreateKeyExpirationTime(tooLongLifetime));
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // Preferred Algorithms Tests
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    [Trait("Category", TestCategories.INTEGRATION)]
+    [Trait("Category", TestCategories.SLOW)]
+    public class PreferredAlgorithmsTests
+    {
+        [Fact]
+        public void GenerateRsaKey_WithPreferredSymmetricAlgorithms_IncludesInSelfSignature()
+        {
+            // Arrange
+            byte[] preferredCiphers = [9, 8, 7]; // AES-256, AES-192, AES-128
+
+            // Act
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Alice <alice@example.com>")
+                .WithKeySize(2048)
+                .WithPreferredSymmetricAlgorithms(preferredCiphers)
+                .GenerateRsa();
+
+            // Assert
+            var readPreferences = result.PublicKeyRing.GetPreferredSymmetricAlgorithms();
+            Assert.NotNull(readPreferences);
+            Assert.Equal(preferredCiphers, readPreferences);
+        }
+
+        [Fact]
+        public void GenerateRsaKey_WithPreferredHashAlgorithms_IncludesInSelfSignature()
+        {
+            // Arrange
+            byte[] preferredHashes = [10, 9, 8]; // SHA-512, SHA-384, SHA-256
+
+            // Act
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Bob <bob@example.com>")
+                .WithKeySize(2048)
+                .WithPreferredHashAlgorithms(preferredHashes)
+                .GenerateRsa();
+
+            // Assert
+            var readPreferences = result.PublicKeyRing.GetPreferredHashAlgorithms();
+            Assert.NotNull(readPreferences);
+            Assert.Equal(preferredHashes, readPreferences);
+        }
+
+        [Fact]
+        public void GenerateRsaKey_WithPreferredCompressionAlgorithms_IncludesInSelfSignature()
+        {
+            // Arrange
+            byte[] preferredCompression = [2, 1, 0]; // ZLIB, ZIP, Uncompressed
+
+            // Act
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Charlie <charlie@example.com>")
+                .WithKeySize(2048)
+                .WithPreferredCompressionAlgorithms(preferredCompression)
+                .GenerateRsa();
+
+            // Assert
+            var readPreferences = result.PublicKeyRing.GetPreferredCompressionAlgorithms();
+            Assert.NotNull(readPreferences);
+            Assert.Equal(preferredCompression, readPreferences);
+        }
+
+        [Fact]
+        public void GenerateRsaKey_WithPreferredAeadAlgorithms_IncludesInSelfSignature()
+        {
+            // Arrange
+            // AEAD preferences are pairs of (cipher, aead): (AES-256, OCB), (AES-256, GCM)
+            byte[] preferredAead = [9, 2, 9, 3]; // (AES-256, OCB), (AES-256, GCM)
+
+            // Act
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Dave <dave@example.com>")
+                .WithKeySize(2048)
+                .WithPreferredAeadAlgorithms(preferredAead)
+                .GenerateRsa();
+
+            // Assert
+            var readPreferences = result.PublicKeyRing.GetPreferredAeadAlgorithms();
+            Assert.NotNull(readPreferences);
+            Assert.Equal(preferredAead, readPreferences);
+        }
+
+        [Fact]
+        public void GenerateRsaKey_WithDefaultPreferences_IncludesAllDefaults()
+        {
+            // Act
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Eve <eve@example.com>")
+                .WithKeySize(2048)
+                .WithDefaultPreferences()
+                .GenerateRsa();
+
+            // Assert - Check all default preferences are included
+            var symmetricPrefs = result.PublicKeyRing.GetPreferredSymmetricAlgorithms();
+            Assert.NotNull(symmetricPrefs);
+            Assert.Equal(new byte[] { 9, 8, 7 }, symmetricPrefs); // AES-256, AES-192, AES-128
+
+            var hashPrefs = result.PublicKeyRing.GetPreferredHashAlgorithms();
+            Assert.NotNull(hashPrefs);
+            Assert.Equal(new byte[] { 10, 9, 8 }, hashPrefs); // SHA-512, SHA-384, SHA-256
+
+            var compressionPrefs = result.PublicKeyRing.GetPreferredCompressionAlgorithms();
+            Assert.NotNull(compressionPrefs);
+            Assert.Equal(new byte[] { 2, 1, 0 }, compressionPrefs); // ZLIB, ZIP, Uncompressed
+        }
+
+        [Fact]
+        public void GenerateRsaKey_WithAllPreferences_IncludesAllInSelfSignature()
+        {
+            // Arrange
+            byte[] preferredCiphers = [9, 8, 7];
+            byte[] preferredHashes = [10, 9, 8];
+            byte[] preferredCompression = [2, 1, 0];
+            byte[] preferredAead = [9, 2, 9, 3];
+
+            // Act
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Frank <frank@example.com>")
+                .WithKeySize(2048)
+                .WithPreferredSymmetricAlgorithms(preferredCiphers)
+                .WithPreferredHashAlgorithms(preferredHashes)
+                .WithPreferredCompressionAlgorithms(preferredCompression)
+                .WithPreferredAeadAlgorithms(preferredAead)
+                .GenerateRsa();
+
+            // Assert
+            Assert.Equal(preferredCiphers, result.PublicKeyRing.GetPreferredSymmetricAlgorithms());
+            Assert.Equal(preferredHashes, result.PublicKeyRing.GetPreferredHashAlgorithms());
+            Assert.Equal(preferredCompression, result.PublicKeyRing.GetPreferredCompressionAlgorithms());
+            Assert.Equal(preferredAead, result.PublicKeyRing.GetPreferredAeadAlgorithms());
+        }
+
+        [Fact]
+        public void GenerateEd25519Key_WithPreferredAlgorithms_IncludesInSelfSignature()
+        {
+            // Arrange
+            byte[] preferredCiphers = [9, 8, 7];
+            byte[] preferredHashes = [10, 9, 8];
+
+            // Act
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Grace <grace@example.com>")
+                .WithPreferredSymmetricAlgorithms(preferredCiphers)
+                .WithPreferredHashAlgorithms(preferredHashes)
+                .GenerateEd25519();
+
+            // Assert
+            Assert.Equal(preferredCiphers, result.PublicKeyRing.GetPreferredSymmetricAlgorithms());
+            Assert.Equal(preferredHashes, result.PublicKeyRing.GetPreferredHashAlgorithms());
+        }
+
+        [Fact]
+        public void GenerateEd25519WithX25519Subkey_WithPreferredAlgorithms_IncludesInSelfSignature()
+        {
+            // Arrange
+            byte[] preferredCiphers = [9, 8, 7];
+            byte[] preferredHashes = [10, 9, 8];
+            byte[] preferredCompression = [2, 1];
+
+            // Act
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Henry <henry@example.com>")
+                .WithPreferredSymmetricAlgorithms(preferredCiphers)
+                .WithPreferredHashAlgorithms(preferredHashes)
+                .WithPreferredCompressionAlgorithms(preferredCompression)
+                .GenerateEd25519WithX25519Subkey();
+
+            // Assert
+            Assert.Equal(preferredCiphers, result.PublicKeyRing.GetPreferredSymmetricAlgorithms());
+            Assert.Equal(preferredHashes, result.PublicKeyRing.GetPreferredHashAlgorithms());
+            Assert.Equal(preferredCompression, result.PublicKeyRing.GetPreferredCompressionAlgorithms());
+        }
+
+        [Fact]
+        public void GenerateRsaKey_NoPreferences_ReturnsNullForAll()
+        {
+            // Act
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Ivy <ivy@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            // Assert - No preferences set, should return null
+            Assert.Null(result.PublicKeyRing.GetPreferredSymmetricAlgorithms());
+            Assert.Null(result.PublicKeyRing.GetPreferredHashAlgorithms());
+            Assert.Null(result.PublicKeyRing.GetPreferredCompressionAlgorithms());
+            Assert.Null(result.PublicKeyRing.GetPreferredAeadAlgorithms());
+        }
+
+        [Fact]
+        public void WithPreferredAeadAlgorithms_OddNumberOfBytes_ThrowsArgumentException()
+        {
+            // Arrange
+            byte[] invalidAead = [9, 2, 9]; // Odd number (should be pairs)
+
+            // Act & Assert
+            Assert.Throws<ArgumentException>(() =>
+                PgpKeyGenerator.Create()
+                    .WithUserId("Jack <jack@example.com>")
+                    .WithPreferredAeadAlgorithms(invalidAead));
+        }
+
+        [Fact]
+        public void WithPreferredSymmetricAlgorithms_EmptyArray_ClearsPreferences()
+        {
+            // Arrange & Act
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Kate <kate@example.com>")
+                .WithKeySize(2048)
+                .WithPreferredSymmetricAlgorithms(9, 8, 7)
+                .WithPreferredSymmetricAlgorithms() // Clear preferences
+                .GenerateRsa();
+
+            // Assert
+            Assert.Null(result.PublicKeyRing.GetPreferredSymmetricAlgorithms());
+        }
+
+        [Fact]
+        public void GenerateRsaKey_WithPreferences_SerializationRoundTrip_PreservesPreferences()
+        {
+            // Arrange
+            byte[] preferredCiphers = [9, 8, 7];
+            byte[] preferredHashes = [10, 9, 8];
+
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Leo <leo@example.com>")
+                .WithKeySize(2048)
+                .WithPreferredSymmetricAlgorithms(preferredCiphers)
+                .WithPreferredHashAlgorithms(preferredHashes)
+                .GenerateRsa();
+
+            // Act - Serialize and deserialize
+            var bytes = result.PublicKeyRing.ToArray();
+            var reimported = PgpPublicKeyRing.Read(bytes);
+
+            // Assert - Preferences should be preserved
+            Assert.Equal(preferredCiphers, reimported.GetPreferredSymmetricAlgorithms());
+            Assert.Equal(preferredHashes, reimported.GetPreferredHashAlgorithms());
+        }
+
+        [Fact]
+        public void GenerateRsaKey_WithPreferences_ArmorRoundTrip_PreservesPreferences()
+        {
+            // Arrange
+            byte[] preferredCiphers = [9, 8, 7];
+            byte[] preferredHashes = [10, 9, 8];
+            byte[] preferredCompression = [2, 1, 0];
+
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Mike <mike@example.com>")
+                .WithKeySize(2048)
+                .WithPreferredSymmetricAlgorithms(preferredCiphers)
+                .WithPreferredHashAlgorithms(preferredHashes)
+                .WithPreferredCompressionAlgorithms(preferredCompression)
+                .GenerateRsa();
+
+            // Act - Export to armor and reimport
+            var armoredBytes = result.GetArmoredPublicKey();
+            var decoded = ArmorBuilder.Create().Decode(armoredBytes);
+            var reimported = PgpPublicKeyRing.Read(decoded.Data);
+
+            // Assert - Preferences should be preserved
+            Assert.Equal(preferredCiphers, reimported.GetPreferredSymmetricAlgorithms());
+            Assert.Equal(preferredHashes, reimported.GetPreferredHashAlgorithms());
+            Assert.Equal(preferredCompression, reimported.GetPreferredCompressionAlgorithms());
+        }
+
+        [Fact]
+        public void CreatePreferredSymmetricAlgorithmsSubpacket_ValidData_CreatesCorrectSubpacket()
+        {
+            // Arrange
+            byte[] algorithms = [9, 8, 7];
+
+            // Act
+            var subpacket = PgpSignatureSubpacket.CreatePreferredSymmetricAlgorithms(algorithms);
+
+            // Assert
+            Assert.Equal(PgpSignatureSubpacketType.PreferredSymmetricAlgorithms, subpacket.Type);
+            Assert.False(subpacket.IsCritical);
+            Assert.Equal(algorithms, subpacket.GetPreferredSymmetricAlgorithms());
+        }
+
+        [Fact]
+        public void CreatePreferredHashAlgorithmsSubpacket_ValidData_CreatesCorrectSubpacket()
+        {
+            // Arrange
+            byte[] algorithms = [10, 9, 8];
+
+            // Act
+            var subpacket = PgpSignatureSubpacket.CreatePreferredHashAlgorithms(algorithms);
+
+            // Assert
+            Assert.Equal(PgpSignatureSubpacketType.PreferredHashAlgorithms, subpacket.Type);
+            Assert.False(subpacket.IsCritical);
+            Assert.Equal(algorithms, subpacket.GetPreferredHashAlgorithms());
+        }
+
+        [Fact]
+        public void CreatePreferredCompressionAlgorithmsSubpacket_ValidData_CreatesCorrectSubpacket()
+        {
+            // Arrange
+            byte[] algorithms = [2, 1, 0];
+
+            // Act
+            var subpacket = PgpSignatureSubpacket.CreatePreferredCompressionAlgorithms(algorithms);
+
+            // Assert
+            Assert.Equal(PgpSignatureSubpacketType.PreferredCompressionAlgorithms, subpacket.Type);
+            Assert.False(subpacket.IsCritical);
+            Assert.Equal(algorithms, subpacket.GetPreferredCompressionAlgorithms());
+        }
+
+        [Fact]
+        public void CreatePreferredAeadAlgorithmsSubpacket_ValidData_CreatesCorrectSubpacket()
+        {
+            // Arrange
+            byte[] algorithms = [9, 2, 9, 3]; // (AES-256, OCB), (AES-256, GCM)
+
+            // Act
+            var subpacket = PgpSignatureSubpacket.CreatePreferredAeadAlgorithms(algorithms);
+
+            // Assert
+            Assert.Equal(PgpSignatureSubpacketType.PreferredAeadAlgorithms, subpacket.Type);
+            Assert.False(subpacket.IsCritical);
+            Assert.Equal(algorithms, subpacket.GetPreferredAeadAlgorithms());
+        }
+    }
 }

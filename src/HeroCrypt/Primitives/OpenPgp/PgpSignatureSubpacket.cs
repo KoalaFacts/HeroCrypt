@@ -95,6 +95,51 @@ public readonly struct PgpSignatureSubpacket
     }
 
     /// <summary>
+    /// Creates a key expiration time subpacket.
+    /// </summary>
+    /// <param name="secondsAfterCreation">Seconds after key creation time when key expires. 0 = never expires.</param>
+    /// <param name="isCritical">Whether the subpacket is critical.</param>
+    /// <returns>A new subpacket.</returns>
+    /// <remarks>
+    /// <para>
+    /// This subpacket specifies when the key expires. The time is measured from the
+    /// key's creation timestamp. A value of 0 means the key never expires.
+    /// </para>
+    /// <para>
+    /// This subpacket is typically included in the self-signature on the key.
+    /// </para>
+    /// </remarks>
+    public static PgpSignatureSubpacket CreateKeyExpirationTime(uint secondsAfterCreation, bool isCritical = false)
+    {
+        var data = new byte[4];
+        BinaryPrimitives.WriteUInt32BigEndian(data, secondsAfterCreation);
+        return new PgpSignatureSubpacket(PgpSignatureSubpacketType.KeyExpirationTime, isCritical, data);
+    }
+
+    /// <summary>
+    /// Creates a key expiration time subpacket from a TimeSpan.
+    /// </summary>
+    /// <param name="lifetime">The key lifetime. Must be positive or TimeSpan.Zero (never expires).</param>
+    /// <param name="isCritical">Whether the subpacket is critical.</param>
+    /// <returns>A new subpacket.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">If lifetime is negative or exceeds maximum value.</exception>
+    public static PgpSignatureSubpacket CreateKeyExpirationTime(TimeSpan lifetime, bool isCritical = false)
+    {
+        if (lifetime < TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(lifetime), "Lifetime cannot be negative.");
+        }
+
+        var totalSeconds = lifetime.TotalSeconds;
+        if (totalSeconds > uint.MaxValue)
+        {
+            throw new ArgumentOutOfRangeException(nameof(lifetime), "Lifetime exceeds maximum value (~136 years).");
+        }
+
+        return CreateKeyExpirationTime((uint)totalSeconds, isCritical);
+    }
+
+    /// <summary>
     /// Creates an issuer key ID subpacket.
     /// </summary>
     /// <param name="keyId">The 8-byte key ID.</param>
@@ -180,6 +225,28 @@ public readonly struct PgpSignatureSubpacket
     public static PgpSignatureSubpacket CreatePreferredCompressionAlgorithms(ReadOnlySpan<byte> algorithmIds, bool isCritical = false)
     {
         return new PgpSignatureSubpacket(PgpSignatureSubpacketType.PreferredCompressionAlgorithms, isCritical, algorithmIds.ToArray());
+    }
+
+    /// <summary>
+    /// Creates a preferred AEAD algorithms subpacket (RFC 9580).
+    /// </summary>
+    /// <param name="cipherAeadPairs">Pairs of (symmetric cipher, AEAD algorithm) in preference order.</param>
+    /// <param name="isCritical">Whether the subpacket is critical.</param>
+    /// <returns>A new subpacket.</returns>
+    /// <remarks>
+    /// <para>
+    /// Per RFC 9580, this subpacket contains pairs of bytes where each pair is
+    /// (symmetric cipher algorithm ID, AEAD algorithm ID). Common AEAD values:
+    /// <list type="bullet">
+    ///   <item>1 = EAX</item>
+    ///   <item>2 = OCB</item>
+    ///   <item>3 = GCM</item>
+    /// </list>
+    /// </para>
+    /// </remarks>
+    public static PgpSignatureSubpacket CreatePreferredAeadAlgorithms(ReadOnlySpan<byte> cipherAeadPairs, bool isCritical = false)
+    {
+        return new PgpSignatureSubpacket(PgpSignatureSubpacketType.PreferredAeadAlgorithms, isCritical, cipherAeadPairs.ToArray());
     }
 
     /// <summary>
@@ -298,6 +365,123 @@ public readonly struct PgpSignatureSubpacket
         }
 
         return (PgpKeyCapabilities)Data.Span[0];
+    }
+
+    /// <summary>
+    /// Gets the key expiration time from this subpacket.
+    /// </summary>
+    /// <returns>The number of seconds after key creation when the key expires, or 0 if never.</returns>
+    /// <exception cref="InvalidOperationException">If this is not a key expiration time subpacket or data is invalid.</exception>
+    public uint GetKeyExpirationTime()
+    {
+        if (Type != PgpSignatureSubpacketType.KeyExpirationTime)
+        {
+            throw new InvalidOperationException($"Expected KeyExpirationTime subpacket, got {Type}.");
+        }
+
+        if (Data.Length < 4)
+        {
+            throw new InvalidOperationException("Key expiration time data too short.");
+        }
+
+        return BinaryPrimitives.ReadUInt32BigEndian(Data.Span);
+    }
+
+    /// <summary>
+    /// Gets the key expiration time as a TimeSpan.
+    /// </summary>
+    /// <returns>The key lifetime, or null if the key never expires.</returns>
+    /// <exception cref="InvalidOperationException">If this is not a key expiration time subpacket or data is invalid.</exception>
+    public TimeSpan? GetKeyExpirationTimeAsTimeSpan()
+    {
+        var seconds = GetKeyExpirationTime();
+        return seconds == 0 ? null : TimeSpan.FromSeconds(seconds);
+    }
+
+    /// <summary>
+    /// Gets the signature expiration time from this subpacket.
+    /// </summary>
+    /// <returns>The number of seconds after signature creation when it expires, or 0 if never.</returns>
+    /// <exception cref="InvalidOperationException">If this is not a signature expiration time subpacket or data is invalid.</exception>
+    public uint GetSignatureExpirationTime()
+    {
+        if (Type != PgpSignatureSubpacketType.SignatureExpirationTime)
+        {
+            throw new InvalidOperationException($"Expected SignatureExpirationTime subpacket, got {Type}.");
+        }
+
+        if (Data.Length < 4)
+        {
+            throw new InvalidOperationException("Signature expiration time data too short.");
+        }
+
+        return BinaryPrimitives.ReadUInt32BigEndian(Data.Span);
+    }
+
+    /// <summary>
+    /// Gets the preferred symmetric algorithms from this subpacket.
+    /// </summary>
+    /// <returns>The array of algorithm IDs in order of preference.</returns>
+    /// <exception cref="InvalidOperationException">If this is not a preferred symmetric algorithms subpacket.</exception>
+    public byte[] GetPreferredSymmetricAlgorithms()
+    {
+        if (Type != PgpSignatureSubpacketType.PreferredSymmetricAlgorithms)
+        {
+            throw new InvalidOperationException($"Expected PreferredSymmetricAlgorithms subpacket, got {Type}.");
+        }
+
+        return Data.ToArray();
+    }
+
+    /// <summary>
+    /// Gets the preferred hash algorithms from this subpacket.
+    /// </summary>
+    /// <returns>The array of algorithm IDs in order of preference.</returns>
+    /// <exception cref="InvalidOperationException">If this is not a preferred hash algorithms subpacket.</exception>
+    public byte[] GetPreferredHashAlgorithms()
+    {
+        if (Type != PgpSignatureSubpacketType.PreferredHashAlgorithms)
+        {
+            throw new InvalidOperationException($"Expected PreferredHashAlgorithms subpacket, got {Type}.");
+        }
+
+        return Data.ToArray();
+    }
+
+    /// <summary>
+    /// Gets the preferred compression algorithms from this subpacket.
+    /// </summary>
+    /// <returns>The array of algorithm IDs in order of preference.</returns>
+    /// <exception cref="InvalidOperationException">If this is not a preferred compression algorithms subpacket.</exception>
+    public byte[] GetPreferredCompressionAlgorithms()
+    {
+        if (Type != PgpSignatureSubpacketType.PreferredCompressionAlgorithms)
+        {
+            throw new InvalidOperationException($"Expected PreferredCompressionAlgorithms subpacket, got {Type}.");
+        }
+
+        return Data.ToArray();
+    }
+
+    /// <summary>
+    /// Gets the preferred AEAD algorithms from this subpacket.
+    /// </summary>
+    /// <returns>The array of algorithm IDs in order of preference (pairs of cipher+aead).</returns>
+    /// <exception cref="InvalidOperationException">If this is not a preferred AEAD algorithms subpacket.</exception>
+    /// <remarks>
+    /// <para>
+    /// Per RFC 9580, this subpacket contains pairs of bytes: each pair is
+    /// (symmetric cipher algorithm, AEAD algorithm). The pairs are in order of preference.
+    /// </para>
+    /// </remarks>
+    public byte[] GetPreferredAeadAlgorithms()
+    {
+        if (Type != PgpSignatureSubpacketType.PreferredAeadAlgorithms)
+        {
+            throw new InvalidOperationException($"Expected PreferredAeadAlgorithms subpacket, got {Type}.");
+        }
+
+        return Data.ToArray();
     }
 
     /// <summary>

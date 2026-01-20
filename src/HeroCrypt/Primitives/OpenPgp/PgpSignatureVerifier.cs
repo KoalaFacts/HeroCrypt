@@ -357,6 +357,141 @@ public sealed class PgpSignatureVerifier : IDisposable
     }
 
     /// <summary>
+    /// Verifies a User ID certification signature (types 0x10-0x13).
+    /// </summary>
+    /// <param name="signature">The certification signature.</param>
+    /// <param name="certifyingKey">The public key that created the certification.</param>
+    /// <param name="certifiedKey">The public key being certified.</param>
+    /// <param name="userId">The User ID being certified.</param>
+    /// <returns>The verification result.</returns>
+    /// <remarks>
+    /// <para>
+    /// Certification signatures are used in the Web of Trust model to indicate
+    /// that someone has verified the binding between a key and a User ID.
+    /// </para>
+    /// <para>
+    /// Certification levels:
+    /// <list type="bullet">
+    ///   <item>0x10 - Generic: no particular assertion</item>
+    ///   <item>0x11 - Persona: no verification done</item>
+    ///   <item>0x12 - Casual: some casual verification</item>
+    ///   <item>0x13 - Positive: substantial verification</item>
+    /// </list>
+    /// </para>
+    /// </remarks>
+    public PgpSignatureResult VerifyCertification(
+        PgpSignaturePacket signature,
+        PgpPublicKeyPacket certifyingKey,
+        PgpPublicKeyPacket certifiedKey,
+        PgpUserIdPacket userId)
+    {
+        ThrowIfDisposed();
+
+        // Validate signature type
+        if (signature.SignatureType != PgpSignatureType.GenericCertification &&
+            signature.SignatureType != PgpSignatureType.PersonaCertification &&
+            signature.SignatureType != PgpSignatureType.CasualCertification &&
+            signature.SignatureType != PgpSignatureType.PositiveCertification)
+        {
+            return PgpSignatureResult.Invalid(
+                $"Expected certification signature (0x10-0x13) but got {signature.SignatureType}.",
+                signature.SignatureType,
+                (PgpHashAlgorithmId)signature.HashAlgorithm,
+                (PgpPublicKeyAlgorithm)signature.PublicKeyAlgorithm,
+                signature.Version);
+        }
+
+        return VerifyCertificationSignature(signature, certifyingKey, certifiedKey, userId);
+    }
+
+    /// <summary>
+    /// Verifies a self-certification (key owner certifying their own User ID).
+    /// </summary>
+    /// <param name="signature">The self-certification signature.</param>
+    /// <param name="publicKey">The public key (both certifier and certified).</param>
+    /// <param name="userId">The User ID being certified.</param>
+    /// <returns>The verification result.</returns>
+    public PgpSignatureResult VerifySelfCertification(
+        PgpSignaturePacket signature,
+        PgpPublicKeyPacket publicKey,
+        PgpUserIdPacket userId)
+    {
+        return VerifyCertification(signature, publicKey, publicKey, userId);
+    }
+
+    /// <summary>
+    /// Core method for verifying certification signatures.
+    /// </summary>
+    private PgpSignatureResult VerifyCertificationSignature(
+        PgpSignaturePacket signature,
+        PgpPublicKeyPacket certifyingKey,
+        PgpPublicKeyPacket certifiedKey,
+        PgpUserIdPacket userId)
+    {
+        var hashAlgorithm = (PgpHashAlgorithmId)signature.HashAlgorithm;
+        var sigType = signature.SignatureType;
+        var version = signature.Version;
+
+        try
+        {
+            // Compute the certification hash
+            byte[] computedHash = PgpSignatureHashHelper.ComputeCertificationHash(
+                certifiedKey,
+                userId,
+                signature.Version,
+                (byte)signature.SignatureType,
+                (byte)(PgpPublicKeyAlgorithm)signature.PublicKeyAlgorithm,
+                signature.HashAlgorithm,
+                PgpSignatureSubpacket.WriteAll(signature.HashedSubpackets));
+
+            // Verify hash prefix
+            ushort computedPrefix = BinaryPrimitives.ReadUInt16BigEndian(computedHash);
+            if (computedPrefix != signature.HashPrefix)
+            {
+                return PgpSignatureResult.Invalid(
+                    "Hash prefix mismatch.",
+                    sigType,
+                    hashAlgorithm,
+                    (PgpPublicKeyAlgorithm)signature.PublicKeyAlgorithm,
+                    version);
+            }
+
+            // Verify the signature using the certifying key
+            bool isValid = VerifySignatureData(computedHash, signature.SignatureData.ToArray(), certifyingKey, hashAlgorithm);
+
+            if (isValid)
+            {
+                return PgpSignatureResult.Valid(
+                    sigType,
+                    signature.GetCreationTime(),
+                    signature.GetIssuerKeyId(),
+                    signature.GetIssuerFingerprint(),
+                    hashAlgorithm,
+                    (PgpPublicKeyAlgorithm)signature.PublicKeyAlgorithm,
+                    version);
+            }
+            else
+            {
+                return PgpSignatureResult.Invalid(
+                    "Signature cryptographic verification failed.",
+                    sigType,
+                    hashAlgorithm,
+                    (PgpPublicKeyAlgorithm)signature.PublicKeyAlgorithm,
+                    version);
+            }
+        }
+        catch (Exception ex)
+        {
+            return PgpSignatureResult.Invalid(
+                $"Verification error: {ex.Message}",
+                sigType,
+                hashAlgorithm,
+                (PgpPublicKeyAlgorithm)signature.PublicKeyAlgorithm,
+                version);
+        }
+    }
+
+    /// <summary>
     /// Core method for verifying key-based signatures.
     /// </summary>
     private PgpSignatureResult VerifyKeyBasedSignature(
@@ -450,68 +585,14 @@ public sealed class PgpSignatureVerifier : IDisposable
         // Note: salt parameter is accepted for API consistency but not used for key-based signatures
         _ = salt;
 
-        var hashAlgorithm = (PgpHashAlgorithmId)hashAlgo;
-        using var hash = hashAlgorithm.CreateIncrementalHash();
-
-        // Hash the primary key with 0x99 tag
-        byte[] primaryBody = primaryKey.ToArray();
-        var primaryTag = new byte[3];
-        primaryTag[0] = 0x99;
-        BinaryPrimitives.WriteUInt16BigEndian(primaryTag.AsSpan(1), (ushort)primaryBody.Length);
-        hash.AppendData(primaryTag);
-        hash.AppendData(primaryBody);
-
-        // For signatures that cover two keys (subkey binding/revocation), hash the secondary key
-        if (secondaryKey.HasValue)
-        {
-            byte[] secondaryBody = secondaryKey.Value.ToArray();
-            var secondaryTag = new byte[3];
-            secondaryTag[0] = 0x99;
-            BinaryPrimitives.WriteUInt16BigEndian(secondaryTag.AsSpan(1), (ushort)secondaryBody.Length);
-            hash.AppendData(secondaryTag);
-            hash.AppendData(secondaryBody);
-        }
-
-        // Hash the signature trailer
-        if (version == 4)
-        {
-            var header = new byte[6 + hashedSubpackets.Length];
-            header[0] = version;
-            header[1] = sigType;
-            header[2] = pubAlgo;
-            header[3] = hashAlgo;
-            BinaryPrimitives.WriteUInt16BigEndian(header.AsSpan(4), (ushort)hashedSubpackets.Length);
-            Array.Copy(hashedSubpackets, 0, header, 6, hashedSubpackets.Length);
-            hash.AppendData(header);
-
-            var trailer = new byte[6];
-            trailer[0] = version;
-            trailer[1] = 0xFF;
-            uint totalLen = (uint)(4 + hashedSubpackets.Length);
-            BinaryPrimitives.WriteUInt32BigEndian(trailer.AsSpan(2), totalLen);
-            hash.AppendData(trailer);
-        }
-        else // V6
-        {
-            var header = new byte[8 + hashedSubpackets.Length];
-            header[0] = version;
-            header[1] = sigType;
-            header[2] = pubAlgo;
-            header[3] = hashAlgo;
-            BinaryPrimitives.WriteUInt32BigEndian(header.AsSpan(4), (uint)hashedSubpackets.Length);
-            Array.Copy(hashedSubpackets, 0, header, 8, hashedSubpackets.Length);
-            hash.AppendData(header);
-
-            var trailer = new byte[10];
-            trailer[0] = version;
-            trailer[1] = 0xFF;
-            // V6 trailer length: 6 bytes (version + sigType + pubAlgo + hashAlgo + 4-byte subpacket length)
-            ulong totalLen = (ulong)(6 + hashedSubpackets.Length);
-            BinaryPrimitives.WriteUInt64BigEndian(trailer.AsSpan(2), totalLen);
-            hash.AppendData(trailer);
-        }
-
-        return hash.GetHashAndReset();
+        return PgpSignatureHashHelper.ComputeKeySignatureHash(
+            primaryKey,
+            secondaryKey,
+            version,
+            sigType,
+            pubAlgo,
+            hashAlgo,
+            hashedSubpackets);
     }
 
     #endregion

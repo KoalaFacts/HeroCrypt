@@ -41,6 +41,11 @@ public sealed class PgpKeyGenerator
     private PgpKeyCapabilities keyFlags = PgpKeyCapabilities.Certify | PgpKeyCapabilities.Sign;
     private bool addEncryptionSubkey;
     private bool addSigningSubkey;
+    private TimeSpan? keyExpiration;
+    private byte[]? preferredSymmetricAlgorithms;
+    private byte[]? preferredHashAlgorithms;
+    private byte[]? preferredCompressionAlgorithms;
+    private byte[]? preferredAeadAlgorithms;
 
     private PgpKeyGenerator()
     {
@@ -217,6 +222,191 @@ public sealed class PgpKeyGenerator
     public PgpKeyGenerator WithKeyFlags(PgpKeyCapabilities flags)
     {
         this.keyFlags = flags;
+        return this;
+    }
+
+    /// <summary>
+    /// Sets the key expiration time as a duration from key creation.
+    /// </summary>
+    /// <param name="lifetime">The key lifetime (e.g., TimeSpan.FromDays(365) for 1 year).</param>
+    /// <returns>This generator for chaining.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">If lifetime is negative or exceeds ~136 years.</exception>
+    /// <remarks>
+    /// <para>
+    /// The expiration time is stored in the key's self-signature as seconds from
+    /// the key creation time. Setting this to <see cref="TimeSpan.Zero"/> means the
+    /// key never expires (this is also the default if WithExpiration is not called).
+    /// </para>
+    /// <para>
+    /// <b>Common values:</b>
+    /// <list type="bullet">
+    ///   <item><c>TimeSpan.FromDays(365)</c> - 1 year</item>
+    ///   <item><c>TimeSpan.FromDays(730)</c> - 2 years</item>
+    ///   <item><c>TimeSpan.FromDays(1095)</c> - 3 years</item>
+    /// </list>
+    /// </para>
+    /// </remarks>
+    public PgpKeyGenerator WithExpiration(TimeSpan lifetime)
+    {
+        if (lifetime < TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(lifetime), "Lifetime cannot be negative.");
+        }
+
+        if (lifetime.TotalSeconds > uint.MaxValue)
+        {
+            throw new ArgumentOutOfRangeException(nameof(lifetime), "Lifetime exceeds maximum value (~136 years).");
+        }
+
+        this.keyExpiration = lifetime == TimeSpan.Zero ? null : lifetime;
+        return this;
+    }
+
+    /// <summary>
+    /// Sets the key expiration to a specific date.
+    /// </summary>
+    /// <param name="expirationDate">The date when the key should expire.</param>
+    /// <returns>This generator for chaining.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">If expiration date is before creation time or too far in the future.</exception>
+    /// <remarks>
+    /// <para>
+    /// The expiration date is converted to a duration from the key creation time.
+    /// If no creation time has been set, <see cref="DateTimeOffset.UtcNow"/> is assumed.
+    /// </para>
+    /// </remarks>
+    public PgpKeyGenerator WithExpirationDate(DateTimeOffset expirationDate)
+    {
+        var effectiveCreationTime = this.creationTime;
+        var lifetime = expirationDate - effectiveCreationTime;
+
+        if (lifetime < TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(expirationDate), "Expiration date cannot be before creation time.");
+        }
+
+        return WithExpiration(lifetime);
+    }
+
+    #endregion
+
+    #region Preferred Algorithms
+
+    /// <summary>
+    /// Sets the preferred symmetric encryption algorithms.
+    /// </summary>
+    /// <param name="algorithms">The algorithm IDs in order of preference (most preferred first).</param>
+    /// <returns>This generator for chaining.</returns>
+    /// <remarks>
+    /// <para>
+    /// This subpacket tells other implementations which symmetric algorithms this key prefers
+    /// when encrypting messages to it. Common values:
+    /// <list type="bullet">
+    ///   <item>9 = AES-256</item>
+    ///   <item>8 = AES-192</item>
+    ///   <item>7 = AES-128</item>
+    ///   <item>2 = Triple-DES (legacy)</item>
+    /// </list>
+    /// </para>
+    /// </remarks>
+    public PgpKeyGenerator WithPreferredSymmetricAlgorithms(params byte[] algorithms)
+    {
+        this.preferredSymmetricAlgorithms = algorithms.Length > 0 ? algorithms : null;
+        return this;
+    }
+
+    /// <summary>
+    /// Sets the preferred hash algorithms.
+    /// </summary>
+    /// <param name="algorithms">The algorithm IDs in order of preference (most preferred first).</param>
+    /// <returns>This generator for chaining.</returns>
+    /// <remarks>
+    /// <para>
+    /// This subpacket tells other implementations which hash algorithms this key prefers.
+    /// Common values:
+    /// <list type="bullet">
+    ///   <item>10 = SHA-512</item>
+    ///   <item>9 = SHA-384</item>
+    ///   <item>8 = SHA-256</item>
+    ///   <item>2 = SHA-1 (legacy, not recommended)</item>
+    /// </list>
+    /// </para>
+    /// </remarks>
+    public PgpKeyGenerator WithPreferredHashAlgorithms(params byte[] algorithms)
+    {
+        this.preferredHashAlgorithms = algorithms.Length > 0 ? algorithms : null;
+        return this;
+    }
+
+    /// <summary>
+    /// Sets the preferred compression algorithms.
+    /// </summary>
+    /// <param name="algorithms">The algorithm IDs in order of preference (most preferred first).</param>
+    /// <returns>This generator for chaining.</returns>
+    /// <remarks>
+    /// <para>
+    /// This subpacket tells other implementations which compression algorithms this key prefers.
+    /// Common values:
+    /// <list type="bullet">
+    ///   <item>0 = Uncompressed</item>
+    ///   <item>1 = ZIP</item>
+    ///   <item>2 = ZLIB</item>
+    ///   <item>3 = BZip2</item>
+    /// </list>
+    /// </para>
+    /// </remarks>
+    public PgpKeyGenerator WithPreferredCompressionAlgorithms(params byte[] algorithms)
+    {
+        this.preferredCompressionAlgorithms = algorithms.Length > 0 ? algorithms : null;
+        return this;
+    }
+
+    /// <summary>
+    /// Sets the preferred AEAD algorithms (RFC 9580).
+    /// </summary>
+    /// <param name="cipherAeadPairs">Pairs of (symmetric cipher, AEAD algorithm) in order of preference.</param>
+    /// <returns>This generator for chaining.</returns>
+    /// <remarks>
+    /// <para>
+    /// Per RFC 9580, this subpacket contains pairs of bytes: each pair is
+    /// (symmetric cipher algorithm, AEAD algorithm).
+    /// Common AEAD values:
+    /// <list type="bullet">
+    ///   <item>1 = EAX</item>
+    ///   <item>2 = OCB</item>
+    ///   <item>3 = GCM</item>
+    /// </list>
+    /// Example: <c>WithPreferredAeadAlgorithms(9, 3, 9, 2)</c> means prefer AES-256+GCM, then AES-256+OCB.
+    /// </para>
+    /// </remarks>
+    public PgpKeyGenerator WithPreferredAeadAlgorithms(params byte[] cipherAeadPairs)
+    {
+        if (cipherAeadPairs.Length % 2 != 0)
+        {
+            throw new ArgumentException("AEAD preferences must be pairs of (cipher, aead) algorithms.", nameof(cipherAeadPairs));
+        }
+        this.preferredAeadAlgorithms = cipherAeadPairs.Length > 0 ? cipherAeadPairs : null;
+        return this;
+    }
+
+    /// <summary>
+    /// Sets recommended default preferred algorithms for modern interoperability.
+    /// </summary>
+    /// <returns>This generator for chaining.</returns>
+    /// <remarks>
+    /// <para>
+    /// This sets commonly accepted defaults:
+    /// <list type="bullet">
+    ///   <item>Symmetric: AES-256, AES-192, AES-128</item>
+    ///   <item>Hash: SHA-512, SHA-384, SHA-256</item>
+    ///   <item>Compression: ZLIB, ZIP, Uncompressed</item>
+    /// </list>
+    /// </para>
+    /// </remarks>
+    public PgpKeyGenerator WithDefaultPreferences()
+    {
+        this.preferredSymmetricAlgorithms = [9, 8, 7]; // AES-256, AES-192, AES-128
+        this.preferredHashAlgorithms = [10, 9, 8];    // SHA-512, SHA-384, SHA-256
+        this.preferredCompressionAlgorithms = [2, 1, 0]; // ZLIB, ZIP, Uncompressed
         return this;
     }
 
@@ -788,6 +978,30 @@ public sealed class PgpKeyGenerator
             PgpSignatureSubpacket.CreateFeatures(PgpFeatures.ModificationDetection)
         };
 
+        // Add key expiration if set
+        if (keyExpiration.HasValue)
+        {
+            hashedSubpackets.Add(PgpSignatureSubpacket.CreateKeyExpirationTime(keyExpiration.Value));
+        }
+
+        // Add preferred algorithms if set
+        if (preferredSymmetricAlgorithms != null)
+        {
+            hashedSubpackets.Add(PgpSignatureSubpacket.CreatePreferredSymmetricAlgorithms(preferredSymmetricAlgorithms));
+        }
+        if (preferredHashAlgorithms != null)
+        {
+            hashedSubpackets.Add(PgpSignatureSubpacket.CreatePreferredHashAlgorithms(preferredHashAlgorithms));
+        }
+        if (preferredCompressionAlgorithms != null)
+        {
+            hashedSubpackets.Add(PgpSignatureSubpacket.CreatePreferredCompressionAlgorithms(preferredCompressionAlgorithms));
+        }
+        if (preferredAeadAlgorithms != null)
+        {
+            hashedSubpackets.Add(PgpSignatureSubpacket.CreatePreferredAeadAlgorithms(preferredAeadAlgorithms));
+        }
+
         // Build unhashed subpackets
         var unhashedSubpackets = new List<PgpSignatureSubpacket>
         {
@@ -849,69 +1063,14 @@ public sealed class PgpKeyGenerator
         byte hashAlgo,
         byte[] hashedSubpackets)
     {
-        using var hash = PgpHashAlgorithmId.Sha256.CreateIncrementalHash();
-
-        // Get public key body
-        byte[] keyBody = publicKey.ToArray();
-
-        // Hash public key with tag
-        // 0x99 || 2-byte length || key body
-        var keyTag = new byte[3];
-        keyTag[0] = 0x99;
-        BinaryPrimitives.WriteUInt16BigEndian(keyTag.AsSpan(1), (ushort)keyBody.Length);
-        hash.AppendData(keyTag);
-        hash.AppendData(keyBody);
-
-        // Hash user ID with tag
-        // 0xB4 || 4-byte length || user ID bytes
-        byte[] userIdBytes = userIdPacket.ToArray();
-        var userIdTag = new byte[5];
-        userIdTag[0] = 0xB4;
-        BinaryPrimitives.WriteUInt32BigEndian(userIdTag.AsSpan(1), (uint)userIdBytes.Length);
-        hash.AppendData(userIdTag);
-        hash.AppendData(userIdBytes);
-
-        // Hash signature header
-        if (version == 4)
-        {
-            var header = new byte[6 + hashedSubpackets.Length];
-            header[0] = version;
-            header[1] = sigType;
-            header[2] = pubAlgo;
-            header[3] = hashAlgo;
-            BinaryPrimitives.WriteUInt16BigEndian(header.AsSpan(4), (ushort)hashedSubpackets.Length);
-            Array.Copy(hashedSubpackets, 0, header, 6, hashedSubpackets.Length);
-            hash.AppendData(header);
-
-            // V4 trailer: version(1) + 0xFF(1) + length(4)
-            var trailer = new byte[6];
-            trailer[0] = version;
-            trailer[1] = 0xFF;
-            uint totalLen = (uint)(4 + hashedSubpackets.Length);
-            BinaryPrimitives.WriteUInt32BigEndian(trailer.AsSpan(2), totalLen);
-            hash.AppendData(trailer);
-        }
-        else // V6
-        {
-            var header = new byte[8 + hashedSubpackets.Length];
-            header[0] = version;
-            header[1] = sigType;
-            header[2] = pubAlgo;
-            header[3] = hashAlgo;
-            BinaryPrimitives.WriteUInt32BigEndian(header.AsSpan(4), (uint)hashedSubpackets.Length);
-            Array.Copy(hashedSubpackets, 0, header, 8, hashedSubpackets.Length);
-            hash.AppendData(header);
-
-            // V6 trailer: version(1) + 0xFF(1) + length(8)
-            var trailer = new byte[10];
-            trailer[0] = version;
-            trailer[1] = 0xFF;
-            ulong totalLen = (ulong)(4 + hashedSubpackets.Length);
-            BinaryPrimitives.WriteUInt64BigEndian(trailer.AsSpan(2), totalLen);
-            hash.AppendData(trailer);
-        }
-
-        return hash.GetHashAndReset();
+        return PgpSignatureHashHelper.ComputeCertificationHash(
+            publicKey,
+            userIdPacket,
+            version,
+            sigType,
+            pubAlgo,
+            hashAlgo,
+            hashedSubpackets);
     }
 
     private static byte[] CreateRsaSignature(PgpSecretKeyPacket secretKey, byte[] hash)
@@ -1023,65 +1182,14 @@ public sealed class PgpKeyGenerator
         byte hashAlgo,
         byte[] hashedSubpackets)
     {
-        using var hash = PgpHashAlgorithmId.Sha256.CreateIncrementalHash();
-
-        // Hash master key with tag
-        byte[] masterBody = masterKey.ToArray();
-        var masterTag = new byte[3];
-        masterTag[0] = 0x99;
-        BinaryPrimitives.WriteUInt16BigEndian(masterTag.AsSpan(1), (ushort)masterBody.Length);
-        hash.AppendData(masterTag);
-        hash.AppendData(masterBody);
-
-        // Hash subkey with tag
-        byte[] subkeyBody = subkey.ToArray();
-        var subkeyTag = new byte[3];
-        subkeyTag[0] = 0x99;
-        BinaryPrimitives.WriteUInt16BigEndian(subkeyTag.AsSpan(1), (ushort)subkeyBody.Length);
-        hash.AppendData(subkeyTag);
-        hash.AppendData(subkeyBody);
-
-        // Hash signature header
-        if (version == 4)
-        {
-            var header = new byte[6 + hashedSubpackets.Length];
-            header[0] = version;
-            header[1] = sigType;
-            header[2] = pubAlgo;
-            header[3] = hashAlgo;
-            BinaryPrimitives.WriteUInt16BigEndian(header.AsSpan(4), (ushort)hashedSubpackets.Length);
-            Array.Copy(hashedSubpackets, 0, header, 6, hashedSubpackets.Length);
-            hash.AppendData(header);
-
-            var trailer = new byte[6];
-            trailer[0] = version;
-            trailer[1] = 0xFF;
-            uint totalLen = (uint)(4 + hashedSubpackets.Length);
-            BinaryPrimitives.WriteUInt32BigEndian(trailer.AsSpan(2), totalLen);
-            hash.AppendData(trailer);
-        }
-        else
-        {
-            var header = new byte[8 + hashedSubpackets.Length];
-            header[0] = version;
-            header[1] = sigType;
-            header[2] = pubAlgo;
-            header[3] = hashAlgo;
-            BinaryPrimitives.WriteUInt32BigEndian(header.AsSpan(4), (uint)hashedSubpackets.Length);
-            Array.Copy(hashedSubpackets, 0, header, 8, hashedSubpackets.Length);
-            hash.AppendData(header);
-
-            var trailer = new byte[10];
-            trailer[0] = version;
-            trailer[1] = 0xFF;
-            // V6 trailer length: 6 bytes (version + sigType + pubAlgo + hashAlgo + 4-byte subpacket length prefix)
-            // Note: The 4-byte length field contributes 2 extra bytes vs V4's 2-byte length field
-            ulong totalLen = (ulong)(6 + hashedSubpackets.Length);
-            BinaryPrimitives.WriteUInt64BigEndian(trailer.AsSpan(2), totalLen);
-            hash.AppendData(trailer);
-        }
-
-        return hash.GetHashAndReset();
+        return PgpSignatureHashHelper.ComputeKeySignatureHash(
+            masterKey,
+            subkey,
+            version,
+            sigType,
+            pubAlgo,
+            hashAlgo,
+            hashedSubpackets);
     }
 
     private (PgpPublicKeyRing, PgpSecretKeyRing) AddRsaEncryptionSubkey(
@@ -1192,6 +1300,30 @@ public sealed class PgpKeyGenerator
             PgpSignatureSubpacket.CreateIssuerFingerprint(version, publicKey.ComputeFingerprint()),
             PgpSignatureSubpacket.CreateFeatures(PgpFeatures.ModificationDetection)
         };
+
+        // Add key expiration if set
+        if (keyExpiration.HasValue)
+        {
+            hashedSubpackets.Add(PgpSignatureSubpacket.CreateKeyExpirationTime(keyExpiration.Value));
+        }
+
+        // Add preferred algorithms if set
+        if (preferredSymmetricAlgorithms != null)
+        {
+            hashedSubpackets.Add(PgpSignatureSubpacket.CreatePreferredSymmetricAlgorithms(preferredSymmetricAlgorithms));
+        }
+        if (preferredHashAlgorithms != null)
+        {
+            hashedSubpackets.Add(PgpSignatureSubpacket.CreatePreferredHashAlgorithms(preferredHashAlgorithms));
+        }
+        if (preferredCompressionAlgorithms != null)
+        {
+            hashedSubpackets.Add(PgpSignatureSubpacket.CreatePreferredCompressionAlgorithms(preferredCompressionAlgorithms));
+        }
+        if (preferredAeadAlgorithms != null)
+        {
+            hashedSubpackets.Add(PgpSignatureSubpacket.CreatePreferredAeadAlgorithms(preferredAeadAlgorithms));
+        }
 
         // Build unhashed subpackets
         var unhashedSubpackets = new List<PgpSignatureSubpacket>

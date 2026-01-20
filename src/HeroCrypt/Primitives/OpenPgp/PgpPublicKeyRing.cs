@@ -598,6 +598,83 @@ public readonly struct PgpPublicKeyRing : IEquatable<PgpPublicKeyRing>
     }
 
     /// <summary>
+    /// Adds a certification signature for a User ID.
+    /// </summary>
+    /// <param name="userId">The User ID being certified.</param>
+    /// <param name="certification">The certification signature (type 0x10-0x13).</param>
+    /// <returns>A new key ring with the certification added.</returns>
+    /// <exception cref="ArgumentException">User ID not found or invalid signature type.</exception>
+    /// <remarks>
+    /// <para>
+    /// Certifications are used in the Web of Trust model to indicate that someone
+    /// has verified the binding between this key and a User ID.
+    /// </para>
+    /// <para>
+    /// The User ID must already exist in this key ring.
+    /// </para>
+    /// </remarks>
+    public PgpPublicKeyRing AddCertification(PgpUserIdPacket userId, PgpSignaturePacket certification)
+    {
+        // Validate signature type
+        if (certification.SignatureType != PgpSignatureType.GenericCertification &&
+            certification.SignatureType != PgpSignatureType.PersonaCertification &&
+            certification.SignatureType != PgpSignatureType.CasualCertification &&
+            certification.SignatureType != PgpSignatureType.PositiveCertification)
+        {
+            throw new ArgumentException(
+                $"Expected certification signature (0x10-0x13), got {certification.SignatureType}.",
+                nameof(certification));
+        }
+
+        // Verify the User ID exists in this key ring
+        bool userIdExists = UserIds.Any(u => u.UserId == userId.UserId);
+        if (!userIdExists)
+        {
+            throw new ArgumentException(
+                $"User ID '{userId.UserId}' not found in this key ring.",
+                nameof(userId));
+        }
+
+        return AddSignature(certification);
+    }
+
+    /// <summary>
+    /// Gets all certification signatures for the specified User ID.
+    /// </summary>
+    /// <param name="userId">The User ID to get certifications for.</param>
+    /// <returns>The certification signatures.</returns>
+    /// <remarks>
+    /// Note: This returns all certifications in the key ring. Proper verification
+    /// that a certification applies to a specific User ID requires signature verification.
+    /// </remarks>
+    public IEnumerable<PgpSignaturePacket> GetCertifications(PgpUserIdPacket userId)
+    {
+        // Accept the parameter for future use when we can properly filter by User ID
+        _ = userId;
+
+        // Return certifications (0x10-0x13)
+        // Note: Proper verification requires checking the signature's hash matches the user ID
+        return Signatures.Where(s =>
+            s.SignatureType == PgpSignatureType.GenericCertification ||
+            s.SignatureType == PgpSignatureType.PersonaCertification ||
+            s.SignatureType == PgpSignatureType.CasualCertification ||
+            s.SignatureType == PgpSignatureType.PositiveCertification);
+    }
+
+    /// <summary>
+    /// Gets all certification signatures (types 0x10-0x13) in this key ring.
+    /// </summary>
+    /// <returns>All certification signatures.</returns>
+    public IEnumerable<PgpSignaturePacket> GetAllCertifications()
+    {
+        return Signatures.Where(s =>
+            s.SignatureType == PgpSignatureType.GenericCertification ||
+            s.SignatureType == PgpSignatureType.PersonaCertification ||
+            s.SignatureType == PgpSignatureType.CasualCertification ||
+            s.SignatureType == PgpSignatureType.PositiveCertification);
+    }
+
+    /// <summary>
     /// Gets all key revocation signatures (type 0x20) for the master key.
     /// </summary>
     /// <returns>The key revocation signatures.</returns>
@@ -628,6 +705,89 @@ public readonly struct PgpPublicKeyRing : IEquatable<PgpPublicKeyRing>
     public bool IsRevoked => Signatures.Any(s => s.SignatureType == PgpSignatureType.KeyRevocation);
 
     /// <summary>
+    /// Gets the key expiration date, if any expiration is set.
+    /// </summary>
+    /// <returns>The expiration date, or null if the key never expires.</returns>
+    /// <remarks>
+    /// <para>
+    /// The expiration time is stored as a relative offset from the key creation time
+    /// in the KeyExpirationTime subpacket of the self-signature.
+    /// </para>
+    /// </remarks>
+    public DateTimeOffset? GetExpirationTime()
+    {
+        var lifetime = GetKeyLifetime();
+        if (lifetime == null)
+        {
+            return null;
+        }
+
+        return CreationTime + lifetime.Value;
+    }
+
+    /// <summary>
+    /// Gets the key lifetime (duration from creation to expiration), if set.
+    /// </summary>
+    /// <returns>The key lifetime, or null if the key never expires.</returns>
+    public TimeSpan? GetKeyLifetime()
+    {
+        // Look for a self-signature with the KeyExpirationTime subpacket
+        foreach (var sig in Signatures)
+        {
+            // Look for self-certification signatures
+            if (sig.SignatureType != PgpSignatureType.GenericCertification &&
+                sig.SignatureType != PgpSignatureType.PersonaCertification &&
+                sig.SignatureType != PgpSignatureType.CasualCertification &&
+                sig.SignatureType != PgpSignatureType.PositiveCertification)
+            {
+                continue;
+            }
+
+            foreach (var subpacket in sig.HashedSubpackets)
+            {
+                if (subpacket.Type == PgpSignatureSubpacketType.KeyExpirationTime)
+                {
+                    var seconds = subpacket.GetKeyExpirationTime();
+                    if (seconds == 0)
+                    {
+                        return null; // 0 means never expires
+                    }
+                    return TimeSpan.FromSeconds(seconds);
+                }
+            }
+        }
+
+        return null; // No expiration subpacket found
+    }
+
+    /// <summary>
+    /// Gets whether the key has expired.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This checks the current time against the key expiration time.
+    /// A key with no expiration time is never expired.
+    /// </para>
+    /// </remarks>
+    public bool IsExpired => IsExpiredAt(DateTimeOffset.UtcNow);
+
+    /// <summary>
+    /// Gets whether the key was expired at a specific point in time.
+    /// </summary>
+    /// <param name="atTime">The time to check.</param>
+    /// <returns>True if the key was expired at the specified time.</returns>
+    public bool IsExpiredAt(DateTimeOffset atTime)
+    {
+        var expirationTime = GetExpirationTime();
+        if (expirationTime == null)
+        {
+            return false; // Never expires
+        }
+
+        return atTime >= expirationTime.Value;
+    }
+
+    /// <summary>
     /// Gets the revocation reason if the key has been revoked.
     /// </summary>
     /// <returns>The revocation reason and text, or null if not revoked.</returns>
@@ -648,6 +808,110 @@ public readonly struct PgpPublicKeyRing : IEquatable<PgpPublicKeyRing>
         }
 
         return (PgpRevocationReason.NoReason, null);
+    }
+
+    /// <summary>
+    /// Gets the preferred symmetric algorithms from the key's self-signature.
+    /// </summary>
+    /// <returns>The array of algorithm IDs in preference order, or null if not set.</returns>
+    /// <remarks>
+    /// <para>
+    /// Common values:
+    /// <list type="bullet">
+    ///   <item>9 = AES-256</item>
+    ///   <item>8 = AES-192</item>
+    ///   <item>7 = AES-128</item>
+    /// </list>
+    /// </para>
+    /// </remarks>
+    public byte[]? GetPreferredSymmetricAlgorithms()
+    {
+        return GetPreferredAlgorithmsOfType(PgpSignatureSubpacketType.PreferredSymmetricAlgorithms);
+    }
+
+    /// <summary>
+    /// Gets the preferred hash algorithms from the key's self-signature.
+    /// </summary>
+    /// <returns>The array of algorithm IDs in preference order, or null if not set.</returns>
+    /// <remarks>
+    /// <para>
+    /// Common values:
+    /// <list type="bullet">
+    ///   <item>10 = SHA-512</item>
+    ///   <item>9 = SHA-384</item>
+    ///   <item>8 = SHA-256</item>
+    /// </list>
+    /// </para>
+    /// </remarks>
+    public byte[]? GetPreferredHashAlgorithms()
+    {
+        return GetPreferredAlgorithmsOfType(PgpSignatureSubpacketType.PreferredHashAlgorithms);
+    }
+
+    /// <summary>
+    /// Gets the preferred compression algorithms from the key's self-signature.
+    /// </summary>
+    /// <returns>The array of algorithm IDs in preference order, or null if not set.</returns>
+    /// <remarks>
+    /// <para>
+    /// Common values:
+    /// <list type="bullet">
+    ///   <item>0 = Uncompressed</item>
+    ///   <item>1 = ZIP</item>
+    ///   <item>2 = ZLIB</item>
+    ///   <item>3 = BZip2</item>
+    /// </list>
+    /// </para>
+    /// </remarks>
+    public byte[]? GetPreferredCompressionAlgorithms()
+    {
+        return GetPreferredAlgorithmsOfType(PgpSignatureSubpacketType.PreferredCompressionAlgorithms);
+    }
+
+    /// <summary>
+    /// Gets the preferred AEAD algorithms from the key's self-signature.
+    /// </summary>
+    /// <returns>The array of (cipher, aead) pairs in preference order, or null if not set.</returns>
+    /// <remarks>
+    /// <para>
+    /// Per RFC 9580, this contains pairs of bytes: (symmetric cipher algorithm, AEAD algorithm).
+    /// Common AEAD values:
+    /// <list type="bullet">
+    ///   <item>1 = EAX</item>
+    ///   <item>2 = OCB</item>
+    ///   <item>3 = GCM</item>
+    /// </list>
+    /// </para>
+    /// </remarks>
+    public byte[]? GetPreferredAeadAlgorithms()
+    {
+        return GetPreferredAlgorithmsOfType(PgpSignatureSubpacketType.PreferredAeadAlgorithms);
+    }
+
+    private byte[]? GetPreferredAlgorithmsOfType(PgpSignatureSubpacketType subpacketType)
+    {
+        // Look for a self-signature with the preferred algorithms subpacket
+        foreach (var sig in Signatures)
+        {
+            // Look for self-certification signatures
+            if (sig.SignatureType != PgpSignatureType.GenericCertification &&
+                sig.SignatureType != PgpSignatureType.PersonaCertification &&
+                sig.SignatureType != PgpSignatureType.CasualCertification &&
+                sig.SignatureType != PgpSignatureType.PositiveCertification)
+            {
+                continue;
+            }
+
+            foreach (var subpacket in sig.HashedSubpackets)
+            {
+                if (subpacket.Type == subpacketType)
+                {
+                    return subpacket.Data.ToArray();
+                }
+            }
+        }
+
+        return null; // Not found
     }
 
     /// <summary>

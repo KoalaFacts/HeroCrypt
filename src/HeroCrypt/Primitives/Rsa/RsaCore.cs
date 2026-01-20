@@ -113,25 +113,38 @@ internal static class RsaCore
         var exponentBytes = BigIntegerToBytes(privateKey.E);
         var dBytes = PadLeft(BigIntegerToBytes(privateKey.D), modulusBytes.Length);
 
-        var pBytes = BigIntegerToBytes(privateKey.P);
-        var qBytes = BigIntegerToBytes(privateKey.Q);
+        // .NET RSA CRT requires P > Q. If P < Q, swap them.
+        // This is necessary because OpenPGP doesn't enforce P > Q order.
+        var p = privateKey.P;
+        var q = privateKey.Q;
+        if (p < q)
+        {
+            (p, q) = (q, p);
+        }
 
-        var pMinusOne = privateKey.P - BigInteger.One;
-        var qMinusOne = privateKey.Q - BigInteger.One;
+        // .NET RSA expects P and Q to be exactly half the modulus length
+        var halfModulusLen = (modulusBytes.Length + 1) / 2;
 
-        var dpBytes = PadLeft(BigIntegerToBytes(PositiveModulo(privateKey.D, pMinusOne)), pBytes.Length);
-        var dqBytes = PadLeft(BigIntegerToBytes(PositiveModulo(privateKey.D, qMinusOne)), qBytes.Length);
+        var pBytes = PadLeft(BigIntegerToBytes(p), halfModulusLen);
+        var qBytes = PadLeft(BigIntegerToBytes(q), halfModulusLen);
 
-        var inverseQValue = BigInteger.ModPow(privateKey.Q, privateKey.P - 2, privateKey.P);
-        var inverseQBytes = PadLeft(BigIntegerToBytes(inverseQValue), pBytes.Length);
+        var pMinusOne = p - BigInteger.One;
+        var qMinusOne = q - BigInteger.One;
+
+        var dpBytes = PadLeft(BigIntegerToBytes(PositiveModulo(privateKey.D, pMinusOne)), halfModulusLen);
+        var dqBytes = PadLeft(BigIntegerToBytes(PositiveModulo(privateKey.D, qMinusOne)), halfModulusLen);
+
+        // InverseQ = q^-1 mod p (using Fermat's little theorem: q^(p-2) mod p)
+        var inverseQValue = BigInteger.ModPow(q, p - 2, p);
+        var inverseQBytes = PadLeft(BigIntegerToBytes(inverseQValue), halfModulusLen);
 
         return new RSAParameters
         {
             Modulus = modulusBytes,
             Exponent = exponentBytes,
             D = dBytes,
-            P = PadLeft(pBytes, pBytes.Length),
-            Q = PadLeft(qBytes, qBytes.Length),
+            P = pBytes,
+            Q = qBytes,
             DP = dpBytes,
             DQ = dqBytes,
             InverseQ = inverseQBytes

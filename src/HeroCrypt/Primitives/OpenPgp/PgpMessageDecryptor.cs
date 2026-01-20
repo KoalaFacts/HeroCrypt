@@ -177,6 +177,8 @@ public sealed class PgpMessageDecryptor : IDisposable
         byte[]? sessionKey = null;
         SymmetricCipherAlgorithm symmetricAlgorithm = SymmetricCipherAlgorithm.Aes256;
         byte[] decryptionKeyId = [];
+        string? lastDecryptionError = null;
+        bool foundMatchingKey = false;
 
         foreach (var pkesk in pkeskPackets)
         {
@@ -184,14 +186,19 @@ public sealed class PgpMessageDecryptor : IDisposable
             {
                 if (KeyMatches(pkesk, secretKey))
                 {
+                    foundMatchingKey = true;
                     // Try to decrypt with this key
-                    var result = TryDecryptSessionKey(pkesk, secretKey);
+                    var result = TryDecryptSessionKey(pkesk, secretKey, out var decryptError);
                     if (result.HasValue)
                     {
                         symmetricAlgorithm = result.Value.Algorithm;
                         sessionKey = result.Value.SessionKey;
                         decryptionKeyId = secretKey.GetKeyId();
                         break;
+                    }
+                    else if (decryptError != null)
+                    {
+                        lastDecryptionError = decryptError;
                     }
                 }
             }
@@ -204,7 +211,14 @@ public sealed class PgpMessageDecryptor : IDisposable
 
         if (sessionKey == null)
         {
-            error = "No matching secret key found for decryption.";
+            if (foundMatchingKey && lastDecryptionError != null)
+            {
+                error = $"Key matched but decryption failed: {lastDecryptionError}";
+            }
+            else
+            {
+                error = "No matching secret key found for decryption.";
+            }
             return false;
         }
 
@@ -255,13 +269,17 @@ public sealed class PgpMessageDecryptor : IDisposable
 
     private (SymmetricCipherAlgorithm Algorithm, byte[] SessionKey)? TryDecryptSessionKey(
         PgpPublicKeyEncryptedSessionKeyPacket pkesk,
-        PgpSecretKeyPacket secretKey)
+        PgpSecretKeyPacket secretKey,
+        out string? error)
     {
+        error = null;
+
         if (secretKey.IsEncrypted)
         {
             // TODO: Decrypt key with passphrase (requires S2K key derivation)
             // For now, encrypted keys are not supported
             _ = passphrase; // Suppress unused field warning - will be used when S2K is implemented
+            error = "Secret key is encrypted. Passphrase-protected keys are not yet supported.";
             return null;
         }
 
@@ -280,13 +298,17 @@ public sealed class PgpMessageDecryptor : IDisposable
                 byte[] sessionKey = PgpKeyEncryption.DecryptSessionKeyX25519(pkesk.EncryptedSessionKey.Span, secretKey);
                 return (SymmetricCipherAlgorithm.Aes256, sessionKey);
             }
+            else
+            {
+                error = $"Unsupported public key algorithm: {pkesk.Algorithm}";
+                return null;
+            }
         }
-        catch
+        catch (Exception ex)
         {
-            // Decryption failed, try next key
+            error = ex.Message;
+            return null;
         }
-
-        return null;
     }
 
     #endregion

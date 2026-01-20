@@ -211,15 +211,9 @@ public sealed class PgpMessageDecryptor : IDisposable
         try
         {
             // Decrypt the SEIPD packet
-            byte[] plaintext;
-            if (seipdPacket.Value.Version == 1)
-            {
-                plaintext = DecryptSeipdV1(seipdPacket.Value, sessionKey, symmetricAlgorithm);
-            }
-            else
-            {
-                plaintext = DecryptSeipdV2(seipdPacket.Value, sessionKey);
-            }
+            var plaintext = seipdPacket.Value.Version == 1
+                ? DecryptSeipdV1(seipdPacket.Value, sessionKey, symmetricAlgorithm)
+                : DecryptSeipdV2(seipdPacket.Value, sessionKey);
 
             // Parse the plaintext to get the literal data packet
             return ParseDecryptedContent(plaintext, decryptionKeyId, seipdPacket.Value.Version, out message, out error);
@@ -449,7 +443,7 @@ public sealed class PgpMessageDecryptor : IDisposable
 #else
         // Derive message key using HKDF
         byte[] info = [0x12, 0x02, (byte)seipd.CipherAlgorithm, (byte)seipd.AeadAlgorithm, seipd.ChunkSize];
-        byte[] messageKey = Primitives.Hkdf.HkdfCore.DeriveKey(
+        byte[] messageKey = Hkdf.HkdfCore.DeriveKey(
             sessionKey,
             seipd.Salt.ToArray(),
             info,

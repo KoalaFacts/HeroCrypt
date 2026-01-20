@@ -78,10 +78,7 @@ public sealed class PgpMessageEncryptor : IDisposable
             }
         }
 
-        if (encryptionKey == null)
-        {
-            encryptionKey = keyRing.MasterKey;
-        }
+        encryptionKey ??= keyRing.MasterKey;
 
         recipients.Add(encryptionKey.Value);
         return this;
@@ -336,13 +333,11 @@ public sealed class PgpMessageEncryptor : IDisposable
         {
             encryptedSessionKey = PgpKeyEncryption.EncryptSessionKeyRsa(sessionKey, symmetricAlgorithm, recipient);
         }
-        else if (recipient.Algorithm == PgpPublicKeyAlgorithm.X25519)
-        {
-            encryptedSessionKey = PgpKeyEncryption.EncryptSessionKeyX25519(sessionKey, recipient);
-        }
         else
         {
-            throw new NotSupportedException($"Public key algorithm {recipient.Algorithm} is not supported for encryption.");
+            encryptedSessionKey = recipient.Algorithm == PgpPublicKeyAlgorithm.X25519
+                ? PgpKeyEncryption.EncryptSessionKeyX25519(sessionKey, recipient)
+                : throw new NotSupportedException($"Public key algorithm {recipient.Algorithm} is not supported for encryption.");
         }
 
         // Create PKESK packet based on key version
@@ -551,12 +546,12 @@ public sealed class PgpMessageEncryptor : IDisposable
         // RFC 9580: HKDF-SHA256 with info = packet tag || version || cipher || aead || chunk size
         byte[] info = [0x12, 0x02, (byte)symmetricAlgorithm, (byte)aeadAlgorithm, 12]; // tag 18, v2
 
-        return Primitives.Hkdf.HkdfCore.DeriveKey(
+        return Hkdf.HkdfCore.DeriveKey(
             sessionKey,
             salt,
             info,
             PgpKeyEncryption.GetSessionKeySize(symmetricAlgorithm),
-            System.Security.Cryptography.HashAlgorithmName.SHA256);
+            HashAlgorithmName.SHA256);
     }
 
     private byte[] AeadEncrypt(byte[] plaintext, byte[] key, byte[] salt, byte chunkSizeExponent)

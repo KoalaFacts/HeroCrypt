@@ -588,12 +588,7 @@ public readonly struct PgpPublicKeyRing : IEquatable<PgpPublicKeyRing>
                 nameof(revocation));
         }
 
-        var subkey = GetPublicKey(subkeyId);
-        if (subkey == null)
-        {
-            throw new ArgumentException("Subkey not found in key ring.", nameof(subkeyId));
-        }
-
+        _ = GetPublicKey(subkeyId) ?? throw new ArgumentException("Subkey not found in key ring.", nameof(subkeyId));
         return AddSignature(revocation);
     }
 

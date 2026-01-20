@@ -503,7 +503,7 @@ public class PgpSignatureSignerTests
         {
             // Arrange
             var (publicKey, secretKey) = CreateRsaKeyPair();
-            var data = dataSize > 0 ? TestHelpers.RandomBytes(dataSize) : Array.Empty<byte>();
+            var data = dataSize > 0 ? TestHelpers.RandomBytes(dataSize) : [];
 
             // Act
             using var signer = PgpSignatureSigner.Create()

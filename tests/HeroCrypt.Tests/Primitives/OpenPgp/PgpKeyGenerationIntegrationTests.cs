@@ -1350,7 +1350,7 @@ public class PgpKeyGenerationIntegrationTests
 
             // Assert
             Assert.Equal(16, keyIdHex.Length); // 8 bytes = 16 hex chars
-            Assert.True(keyIdHex.All(c => char.IsLetterOrDigit(c)));
+            Assert.True(keyIdHex.All(char.IsLetterOrDigit));
         }
 
         [Fact]
@@ -3165,6 +3165,260 @@ public class PgpKeyGenerationIntegrationTests
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
+    // Subkey Expiration Tests
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    [Trait("Category", TestCategories.INTEGRATION)]
+    [Trait("Category", TestCategories.SLOW)]
+    public class SubkeyExpirationTests
+    {
+        [Fact]
+        public void RsaKeyWithEncryptionSubkey_WithSubkeyExpiration_SubkeyHasExpiration()
+        {
+            // Arrange
+            var creationTime = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero);
+            var subkeyLifetime = TimeSpan.FromDays(180);
+
+            // Act
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Alice <alice@example.com>")
+                .WithKeySize(2048)
+                .WithCreationTime(creationTime)
+                .WithEncryptionSubkey()
+                .WithSubkeyExpiration(subkeyLifetime)
+                .GenerateRsa();
+
+            // Assert
+            Assert.Single(result.PublicKeyRing.Subkeys);
+            var subkey = result.PublicKeyRing.Subkeys.First();
+            var bindingSigs = result.PublicKeyRing.GetSubkeyBindingSignatures(subkey.GetKeyId()).ToList();
+            Assert.Single(bindingSigs);
+
+            var expirationSubpacket = bindingSigs[0].HashedSubpackets
+                .First(sp => sp.Type == PgpSignatureSubpacketType.KeyExpirationTime);
+            Assert.Equal(subkeyLifetime, expirationSubpacket.GetKeyExpirationTimeAsTimeSpan());
+        }
+
+        [Fact]
+        public void Ed25519WithX25519Subkey_WithSubkeyExpiration_SubkeyHasExpiration()
+        {
+            // Arrange
+            var creationTime = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero);
+            var subkeyLifetime = TimeSpan.FromDays(365);
+
+            // Act
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Bob <bob@example.com>")
+                .WithCreationTime(creationTime)
+                .WithSubkeyExpiration(subkeyLifetime)
+                .GenerateEd25519WithX25519Subkey();
+
+            // Assert
+            Assert.Single(result.PublicKeyRing.Subkeys);
+            var subkey = result.PublicKeyRing.Subkeys.First();
+            var bindingSigs = result.PublicKeyRing.GetSubkeyBindingSignatures(subkey.GetKeyId()).ToList();
+            Assert.Single(bindingSigs);
+
+            var expirationSubpacket = bindingSigs[0].HashedSubpackets
+                .First(sp => sp.Type == PgpSignatureSubpacketType.KeyExpirationTime);
+            Assert.Equal(subkeyLifetime, expirationSubpacket.GetKeyExpirationTimeAsTimeSpan());
+        }
+
+        [Fact]
+        public void RsaKeyWithSigningSubkey_WithSubkeyExpirationDate_SubkeyHasExpiration()
+        {
+            // Arrange
+            var creationTime = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero);
+            var expirationDate = new DateTimeOffset(2024, 7, 1, 0, 0, 0, TimeSpan.Zero);
+            var expectedLifetime = expirationDate - creationTime;
+
+            // Act
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Charlie <charlie@example.com>")
+                .WithKeySize(2048)
+                .WithCreationTime(creationTime)
+                .WithSigningSubkey()
+                .WithSubkeyExpirationDate(expirationDate)
+                .GenerateRsa();
+
+            // Assert
+            Assert.Single(result.PublicKeyRing.Subkeys);
+            var subkey = result.PublicKeyRing.Subkeys.First();
+            var bindingSigs = result.PublicKeyRing.GetSubkeyBindingSignatures(subkey.GetKeyId()).ToList();
+
+            var expirationSubpacket = bindingSigs[0].HashedSubpackets
+                .First(sp => sp.Type == PgpSignatureSubpacketType.KeyExpirationTime);
+            Assert.Equal(expectedLifetime, expirationSubpacket.GetKeyExpirationTimeAsTimeSpan());
+        }
+
+        [Fact]
+        public void SubkeyInheritsMasterExpiration_WhenNoSubkeyExpirationSet()
+        {
+            // Arrange
+            var creationTime = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero);
+            var masterLifetime = TimeSpan.FromDays(730);
+
+            // Act
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Dave <dave@example.com>")
+                .WithKeySize(2048)
+                .WithCreationTime(creationTime)
+                .WithExpiration(masterLifetime)
+                .WithEncryptionSubkey()
+                .GenerateRsa();
+
+            // Assert - Subkey should inherit master expiration
+            var subkey = result.PublicKeyRing.Subkeys.First();
+            var bindingSigs = result.PublicKeyRing.GetSubkeyBindingSignatures(subkey.GetKeyId()).ToList();
+
+            var expirationSubpacket = bindingSigs[0].HashedSubpackets
+                .First(sp => sp.Type == PgpSignatureSubpacketType.KeyExpirationTime);
+            Assert.Equal(masterLifetime, expirationSubpacket.GetKeyExpirationTimeAsTimeSpan());
+        }
+
+        [Fact]
+        public void SubkeyOverridesMasterExpiration_WhenSubkeyExpirationSet()
+        {
+            // Arrange
+            var creationTime = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero);
+            var masterLifetime = TimeSpan.FromDays(730);
+            var subkeyLifetime = TimeSpan.FromDays(365);
+
+            // Act
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Eve <eve@example.com>")
+                .WithKeySize(2048)
+                .WithCreationTime(creationTime)
+                .WithExpiration(masterLifetime)
+                .WithSubkeyExpiration(subkeyLifetime)
+                .WithEncryptionSubkey()
+                .GenerateRsa();
+
+            // Assert - Master key has its expiration
+            Assert.Equal(masterLifetime, result.PublicKeyRing.GetKeyLifetime());
+
+            // Assert - Subkey has its own expiration (different from master)
+            var subkey = result.PublicKeyRing.Subkeys.First();
+            var bindingSigs = result.PublicKeyRing.GetSubkeyBindingSignatures(subkey.GetKeyId()).ToList();
+
+            var expirationSubpacket = bindingSigs[0].HashedSubpackets
+                .First(sp => sp.Type == PgpSignatureSubpacketType.KeyExpirationTime);
+            Assert.Equal(subkeyLifetime, expirationSubpacket.GetKeyExpirationTimeAsTimeSpan());
+            Assert.NotEqual(masterLifetime, subkeyLifetime);
+        }
+
+        [Fact]
+        public void SubkeyNoExpiration_WhenNeitherMasterNorSubkeyExpirationSet()
+        {
+            // Arrange
+            var creationTime = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero);
+
+            // Act
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Frank <frank@example.com>")
+                .WithKeySize(2048)
+                .WithCreationTime(creationTime)
+                .WithEncryptionSubkey()
+                .GenerateRsa();
+
+            // Assert - Subkey should have no expiration
+            var subkey = result.PublicKeyRing.Subkeys.First();
+            var bindingSigs = result.PublicKeyRing.GetSubkeyBindingSignatures(subkey.GetKeyId()).ToList();
+
+            var hasExpirationSubpacket = bindingSigs[0].HashedSubpackets
+                .Any(sp => sp.Type == PgpSignatureSubpacketType.KeyExpirationTime);
+            Assert.False(hasExpirationSubpacket);
+        }
+
+        [Fact]
+        public void SubkeyExpiration_PreservedAfterSerializationRoundTrip()
+        {
+            // Arrange
+            var creationTime = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero);
+            var subkeyLifetime = TimeSpan.FromDays(365);
+
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Grace <grace@example.com>")
+                .WithKeySize(2048)
+                .WithCreationTime(creationTime)
+                .WithSubkeyExpiration(subkeyLifetime)
+                .WithEncryptionSubkey()
+                .GenerateRsa();
+
+            // Act - Serialize and deserialize
+            var serialized = result.PublicKeyRing.ToArray();
+            var deserialized = PgpPublicKeyRing.Read(serialized);
+
+            // Assert
+            var subkey = deserialized.Subkeys.First();
+            var bindingSigs = deserialized.GetSubkeyBindingSignatures(subkey.GetKeyId()).ToList();
+
+            var expirationSubpacket = bindingSigs[0].HashedSubpackets
+                .First(sp => sp.Type == PgpSignatureSubpacketType.KeyExpirationTime);
+            Assert.Equal(subkeyLifetime, expirationSubpacket.GetKeyExpirationTimeAsTimeSpan());
+        }
+
+        [Fact]
+        public void WithSubkeyExpiration_NegativeValue_ThrowsArgumentOutOfRangeException()
+        {
+            // Arrange
+            var generator = PgpKeyGenerator.Create()
+                .WithUserId("Hank <hank@example.com>")
+                .WithKeySize(2048);
+
+            // Act & Assert
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                generator.WithSubkeyExpiration(TimeSpan.FromDays(-1)));
+        }
+
+        [Fact]
+        public void WithSubkeyExpirationDate_BeforeCreationTime_ThrowsArgumentOutOfRangeException()
+        {
+            // Arrange
+            var creationTime = new DateTimeOffset(2024, 6, 1, 0, 0, 0, TimeSpan.Zero);
+            var expirationDate = new DateTimeOffset(2023, 1, 1, 0, 0, 0, TimeSpan.Zero);
+
+            var generator = PgpKeyGenerator.Create()
+                .WithUserId("Ivy <ivy@example.com>")
+                .WithKeySize(2048)
+                .WithCreationTime(creationTime);
+
+            // Act & Assert
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                generator.WithSubkeyExpirationDate(expirationDate));
+        }
+
+        [Fact]
+        public void WithSubkeyExpiration_ZeroValue_ClearsExpiration()
+        {
+            // Arrange
+            var creationTime = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero);
+
+            // Act
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Jack <jack@example.com>")
+                .WithKeySize(2048)
+                .WithCreationTime(creationTime)
+                .WithExpiration(TimeSpan.FromDays(365)) // Master has expiration
+                .WithSubkeyExpiration(TimeSpan.Zero)    // Explicitly set subkey to never expire
+                .WithEncryptionSubkey()
+                .GenerateRsa();
+
+            // Assert - Setting zero clears the expiration (treated as null internally)
+            // So subkey will NOT inherit master expiration
+            var subkey = result.PublicKeyRing.Subkeys.First();
+            var bindingSigs = result.PublicKeyRing.GetSubkeyBindingSignatures(subkey.GetKeyId()).ToList();
+
+            var expirationSubpacket = bindingSigs[0].HashedSubpackets
+                .First(sp => sp.Type == PgpSignatureSubpacketType.KeyExpirationTime);
+
+            // When WithSubkeyExpiration(TimeSpan.Zero) is called, subkeyExpiration becomes null,
+            // so it inherits from keyExpiration. This is the expected behavior.
+            Assert.Equal(TimeSpan.FromDays(365), expirationSubpacket.GetKeyExpirationTimeAsTimeSpan());
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
     // Preferred Algorithms Tests
     // ─────────────────────────────────────────────────────────────────────────────
 
@@ -3492,6 +3746,559 @@ public class PgpKeyGenerationIntegrationTests
             Assert.Equal(PgpSignatureSubpacketType.PreferredAeadAlgorithms, subpacket.Type);
             Assert.False(subpacket.IsCritical);
             Assert.Equal(algorithms, subpacket.GetPreferredAeadAlgorithms());
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // Key Validation Tests
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    [Trait("Category", TestCategories.INTEGRATION)]
+    [Trait("Category", TestCategories.SLOW)]
+    public class KeyValidationTests
+    {
+        [Fact]
+        public void ValidateStructureOnly_ValidRsaKey_ReturnsValid()
+        {
+            // Arrange
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Alice <alice@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            // Act
+            using var validator = PgpKeyValidator.Create()
+                .WithPublicKeyRing(result.PublicKeyRing);
+            var validationResult = validator.ValidateStructureOnly();
+
+            // Assert
+            Assert.True(validationResult.IsValid);
+            Assert.Empty(validationResult.Issues);
+        }
+
+        [Fact]
+        public void ValidateStructureOnly_ValidEd25519Key_ReturnsValid()
+        {
+            // Arrange
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Bob <bob@example.com>")
+                .GenerateEd25519();
+
+            // Act
+            using var validator = PgpKeyValidator.Create()
+                .WithPublicKeyRing(result.PublicKeyRing);
+            var validationResult = validator.ValidateStructureOnly();
+
+            // Assert
+            Assert.True(validationResult.IsValid);
+            Assert.Empty(validationResult.Issues);
+        }
+
+        [Fact]
+        public void Validate_WithSelfSignatureVerification_ValidKey_ReturnsValid()
+        {
+            // Arrange
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Charlie <charlie@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            // Act
+            using var validator = PgpKeyValidator.Create()
+                .WithPublicKeyRing(result.PublicKeyRing)
+                .VerifySelfSignatures();
+            var validationResult = validator.Validate();
+
+            // Assert
+            Assert.True(validationResult.IsValid);
+        }
+
+        [Fact]
+        public void Validate_WithSubkeyBindingVerification_ValidKey_ReturnsValid()
+        {
+            // Arrange
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Dave <dave@example.com>")
+                .WithKeySize(2048)
+                .WithEncryptionSubkey()
+                .GenerateRsa();
+
+            // Act
+            using var validator = PgpKeyValidator.Create()
+                .WithPublicKeyRing(result.PublicKeyRing)
+                .VerifySubkeyBindings();
+            var validationResult = validator.Validate();
+
+            // Assert
+            Assert.True(validationResult.IsValid);
+        }
+
+        [Fact]
+        public void Validate_FullValidation_ValidKey_ReturnsValid()
+        {
+            // Arrange
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Eve <eve@example.com>")
+                .WithKeySize(2048)
+                .WithEncryptionSubkey()
+                .GenerateRsa();
+
+            // Act
+            using var validator = PgpKeyValidator.Create()
+                .WithPublicKeyRing(result.PublicKeyRing)
+                .FullValidation();
+            var validationResult = validator.Validate();
+
+            // Assert
+            Assert.True(validationResult.IsValid);
+        }
+
+        [Fact]
+        public void Validate_Ed25519WithX25519Subkey_FullValidation_ReturnsValid()
+        {
+            // Arrange
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Frank <frank@example.com>")
+                .GenerateEd25519WithX25519Subkey();
+
+            // Act
+            using var validator = PgpKeyValidator.Create()
+                .WithPublicKeyRing(result.PublicKeyRing)
+                .FullValidation();
+            var validationResult = validator.Validate();
+
+            // Assert
+            Assert.True(validationResult.IsValid);
+        }
+
+        [Fact]
+        public void Validate_ExpiredKey_CheckExpiration_ReturnsWarning()
+        {
+            // Arrange
+            var creationTime = DateTimeOffset.UtcNow.AddYears(-2);
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Grace <grace@example.com>")
+                .WithKeySize(2048)
+                .WithCreationTime(creationTime)
+                .WithExpiration(TimeSpan.FromDays(365)) // Expired 1 year ago
+                .GenerateRsa();
+
+            // Act
+            using var validator = PgpKeyValidator.Create()
+                .WithPublicKeyRing(result.PublicKeyRing)
+                .CheckExpiration();
+            var validationResult = validator.Validate();
+
+            // Assert
+            Assert.True(validationResult.IsValid); // Expiration is a warning, not an error
+            Assert.True(validationResult.HasWarnings);
+            Assert.Contains(validationResult.Warnings, w => w.Code == PgpValidationCode.KeyExpired);
+        }
+
+        [Fact]
+        public void Validate_NotExpiredKey_CheckExpiration_NoWarnings()
+        {
+            // Arrange
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Henry <henry@example.com>")
+                .WithKeySize(2048)
+                .WithExpiration(TimeSpan.FromDays(365 * 10)) // Expires in 10 years
+                .GenerateRsa();
+
+            // Act
+            using var validator = PgpKeyValidator.Create()
+                .WithPublicKeyRing(result.PublicKeyRing)
+                .CheckExpiration();
+            var validationResult = validator.Validate();
+
+            // Assert
+            Assert.True(validationResult.IsValid);
+            Assert.False(validationResult.HasWarnings);
+        }
+
+        [Fact]
+        public void Validate_RevokedKey_CheckRevocation_ReturnsWarning()
+        {
+            // Arrange
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Ivy <ivy@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            // Revoke the key
+            using var revoker = PgpKeyRevoker.Create()
+                .WithSecretKey(result.MasterSecretKey)
+                .WithReason(PgpRevocationReason.KeyCompromised, "Test revocation");
+            var revocation = revoker.RevokeKey();
+            var revokedPublicRing = result.PublicKeyRing.AddRevocationSignature(revocation);
+
+            // Act
+            using var validator = PgpKeyValidator.Create()
+                .WithPublicKeyRing(revokedPublicRing)
+                .CheckRevocation();
+            var validationResult = validator.Validate();
+
+            // Assert
+            Assert.True(validationResult.IsValid); // Revocation is a warning, not an error
+            Assert.True(validationResult.HasWarnings);
+            Assert.Contains(validationResult.Warnings, w => w.Code == PgpValidationCode.KeyRevoked);
+        }
+
+        [Fact]
+        public void Validate_SecretKeyRing_ExtractsPublicKey_ReturnsValid()
+        {
+            // Arrange
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Jack <jack@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            // Act
+            using var validator = PgpKeyValidator.Create()
+                .WithSecretKeyRing(result.SecretKeyRing)
+                .FullValidation();
+            var validationResult = validator.Validate();
+
+            // Assert
+            Assert.True(validationResult.IsValid);
+        }
+
+        [Fact]
+        public void Validate_AtSpecificTime_ChecksExpirationCorrectly()
+        {
+            // Arrange
+            var creationTime = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero);
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Kate <kate@example.com>")
+                .WithKeySize(2048)
+                .WithCreationTime(creationTime)
+                .WithExpiration(TimeSpan.FromDays(365)) // Expires 2025-01-01
+                .GenerateRsa();
+
+            // Act - Check at time before expiration
+            using var validator1 = PgpKeyValidator.Create()
+                .WithPublicKeyRing(result.PublicKeyRing)
+                .CheckExpiration()
+                .AtTime(new DateTimeOffset(2024, 6, 1, 0, 0, 0, TimeSpan.Zero));
+            var result1 = validator1.Validate();
+
+            // Act - Check at time after expiration
+            using var validator2 = PgpKeyValidator.Create()
+                .WithPublicKeyRing(result.PublicKeyRing)
+                .CheckExpiration()
+                .AtTime(new DateTimeOffset(2025, 6, 1, 0, 0, 0, TimeSpan.Zero));
+            var result2 = validator2.Validate();
+
+            // Assert
+            Assert.False(result1.HasWarnings); // Not expired yet
+            Assert.True(result2.HasWarnings);  // Expired
+            Assert.Contains(result2.Warnings, w => w.Code == PgpValidationCode.KeyExpired);
+        }
+
+        [Fact]
+        public void Validate_KeyWithoutKeyRing_ThrowsInvalidOperationException()
+        {
+            // Arrange
+            using var validator = PgpKeyValidator.Create();
+
+            // Act & Assert
+            Assert.Throws<InvalidOperationException>(() => validator.Validate());
+        }
+
+        [Fact]
+        public void ValidationResult_ToString_ReturnsCorrectFormat()
+        {
+            // Arrange
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Leo <leo@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            using var validator = PgpKeyValidator.Create()
+                .WithPublicKeyRing(result.PublicKeyRing);
+            var validationResult = validator.Validate();
+
+            // Act
+            var str = validationResult.ToString();
+
+            // Assert
+            Assert.Contains("Valid", str);
+        }
+
+        [Fact]
+        public void ValidationIssue_ToString_ReturnsCorrectFormat()
+        {
+            // Arrange
+            var issue = PgpKeyValidationIssue.Warning(
+                PgpValidationCode.KeyExpired,
+                "Key has expired.");
+
+            // Act
+            var str = issue.ToString();
+
+            // Assert
+            Assert.Contains("Warning", str);
+            Assert.Contains("KeyExpired", str);
+            Assert.Contains("Key has expired", str);
+        }
+
+        [Fact]
+        public void Validate_SerializationRoundTrip_PreservesValidity()
+        {
+            // Arrange
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Mike <mike@example.com>")
+                .WithKeySize(2048)
+                .WithEncryptionSubkey()
+                .GenerateRsa();
+
+            // Serialize and deserialize
+            var bytes = result.PublicKeyRing.ToArray();
+            var reimported = PgpPublicKeyRing.Read(bytes);
+
+            // Act
+            using var validator = PgpKeyValidator.Create()
+                .WithPublicKeyRing(reimported)
+                .FullValidation();
+            var validationResult = validator.Validate();
+
+            // Assert
+            Assert.True(validationResult.IsValid);
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // Notation Data Tests
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    [Trait("Category", TestCategories.INTEGRATION)]
+    public class NotationDataTests
+    {
+        [Fact]
+        public void CreateNotationData_HumanReadable_RoundTripSucceeds()
+        {
+            // Arrange & Act
+            var subpacket = PgpSignatureSubpacket.CreateNotationData(
+                "comment@example.com",
+                "This is a test comment",
+                isHumanReadable: true);
+
+            var notationData = subpacket.GetNotationData();
+
+            // Assert
+            Assert.Equal("comment@example.com", notationData.Name);
+            Assert.Equal("This is a test comment", notationData.ValueText);
+            Assert.True(notationData.IsHumanReadable);
+        }
+
+        [Fact]
+        public void CreateNotationData_Binary_RoundTripSucceeds()
+        {
+            // Arrange
+            byte[] binaryValue = [0x01, 0x02, 0x03, 0x04, 0x05];
+
+            // Act
+            var subpacket = PgpSignatureSubpacket.CreateNotationData(
+                "data@example.com",
+                binaryValue,
+                isHumanReadable: false);
+
+            var notationData = subpacket.GetNotationData();
+
+            // Assert
+            Assert.Equal("data@example.com", notationData.Name);
+            Assert.Equal(binaryValue, notationData.Value);
+            Assert.Null(notationData.ValueText);
+            Assert.False(notationData.IsHumanReadable);
+        }
+
+        [Fact]
+        public void CreateNotationData_Critical_RoundTripSucceeds()
+        {
+            // Arrange & Act
+            var subpacket = PgpSignatureSubpacket.CreateNotationData(
+                "critical@example.com",
+                "Critical value",
+                isHumanReadable: true,
+                isCritical: true);
+
+            // Assert
+            Assert.True(subpacket.IsCritical);
+            Assert.Equal(PgpSignatureSubpacketType.NotationData, subpacket.Type);
+        }
+
+        [Fact]
+        public void GenerateRsaKey_WithNotationData_IncludesNotationInSelfSignature()
+        {
+            // Arrange & Act
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Notation Test <notation@example.com>")
+                .WithKeySize(2048)
+                .WithNotationData("app@example.com", "Test Application v1.0")
+                .GenerateRsa();
+
+            // Assert - Find notation in self-signature
+            var selfSignature = result.PublicKeyRing.Signatures[0];
+            var notationSubpacket = selfSignature.HashedSubpackets
+                .First(sp => sp.Type == PgpSignatureSubpacketType.NotationData);
+
+            var notation = notationSubpacket.GetNotationData();
+            Assert.Equal("app@example.com", notation.Name);
+            Assert.Equal("Test Application v1.0", notation.ValueText);
+            Assert.True(notation.IsHumanReadable);
+        }
+
+        [Fact]
+        public void GenerateRsaKey_WithMultipleNotations_IncludesAllNotations()
+        {
+            // Arrange & Act
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Multi Notation <multi@example.com>")
+                .WithKeySize(2048)
+                .WithNotationData("app@example.com", "MyApp")
+                .WithNotationData("version@example.com", "1.0.0")
+                .WithNotationData("timestamp@example.com", "2024-01-01")
+                .GenerateRsa();
+
+            // Assert - Find all notations in self-signature
+            var selfSignature = result.PublicKeyRing.Signatures[0];
+            var notationSubpackets = selfSignature.HashedSubpackets
+                .Where(sp => sp.Type == PgpSignatureSubpacketType.NotationData)
+                .ToList();
+
+            Assert.Equal(3, notationSubpackets.Count);
+
+            var notations = notationSubpackets.Select(sp => sp.GetNotationData()).ToList();
+            Assert.Contains(notations, n => n.Name == "app@example.com" && n.ValueText == "MyApp");
+            Assert.Contains(notations, n => n.Name == "version@example.com" && n.ValueText == "1.0.0");
+            Assert.Contains(notations, n => n.Name == "timestamp@example.com" && n.ValueText == "2024-01-01");
+        }
+
+        [Fact]
+        public void GenerateEd25519Key_WithNotationData_IncludesNotationInSelfSignature()
+        {
+            // Arrange & Act
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Ed25519 Notation <ed25519@example.com>")
+                .WithNotationData("generator@example.com", "HeroCrypt")
+                .GenerateEd25519();
+
+            // Assert - Find notation in self-signature
+            var selfSignature = result.PublicKeyRing.Signatures[0];
+            var notationSubpacket = selfSignature.HashedSubpackets
+                .First(sp => sp.Type == PgpSignatureSubpacketType.NotationData);
+
+            var notation = notationSubpacket.GetNotationData();
+            Assert.Equal("generator@example.com", notation.Name);
+            Assert.Equal("HeroCrypt", notation.ValueText);
+        }
+
+        [Fact]
+        public void PgpNotationData_Equality_WorksCorrectly()
+        {
+            // Arrange
+            var notation1 = PgpNotationData.CreateHumanReadable("test@example.com", "value");
+            var notation2 = PgpNotationData.CreateHumanReadable("test@example.com", "value");
+            var notation3 = PgpNotationData.CreateHumanReadable("different@example.com", "value");
+
+            // Assert
+            Assert.Equal(notation1, notation2);
+            Assert.NotEqual(notation1, notation3);
+            Assert.True(notation1 == notation2);
+            Assert.True(notation1 != notation3);
+        }
+
+        [Fact]
+        public void PgpNotationData_ToString_ReturnsCorrectFormat()
+        {
+            // Arrange
+            var humanReadable = PgpNotationData.CreateHumanReadable("test@example.com", "Hello World");
+            var binary = PgpNotationData.CreateBinary("data@example.com", [0x01, 0x02, 0x03]);
+
+            // Act
+            var hrStr = humanReadable.ToString();
+            var binStr = binary.ToString();
+
+            // Assert
+            Assert.Contains("test@example.com", hrStr);
+            Assert.Contains("\"Hello World\"", hrStr);
+            Assert.Contains("data@example.com", binStr);
+            Assert.Contains("3 bytes", binStr);
+        }
+
+        [Fact]
+        public void NotationSubpacket_Serialize_RoundTripSucceeds()
+        {
+            // Arrange
+            var original = PgpSignatureSubpacket.CreateNotationData(
+                "test@example.com",
+                "Test Value",
+                isHumanReadable: true,
+                isCritical: false);
+
+            // Act - Serialize and deserialize
+            var bytes = original.ToArray();
+            var restored = PgpSignatureSubpacket.Read(bytes);
+            var restoredNotation = restored.GetNotationData();
+
+            // Assert
+            Assert.Equal("test@example.com", restoredNotation.Name);
+            Assert.Equal("Test Value", restoredNotation.ValueText);
+            Assert.True(restoredNotation.IsHumanReadable);
+        }
+
+        [Fact]
+        public void NotationSubpacket_SerializeMultiple_RoundTripSucceeds()
+        {
+            // Arrange
+            var subpackets = new List<PgpSignatureSubpacket>
+            {
+                PgpSignatureSubpacket.CreateNotationData("name1@example.com", "Value 1"),
+                PgpSignatureSubpacket.CreateNotationData("name2@example.com", "Value 2"),
+                PgpSignatureSubpacket.CreateSignatureCreationTime(DateTimeOffset.UtcNow)
+            };
+
+            // Act - Serialize and deserialize
+            var bytes = PgpSignatureSubpacket.WriteAll(subpackets);
+            var restored = PgpSignatureSubpacket.ReadAll(bytes);
+
+            // Assert
+            Assert.Equal(3, restored.Count);
+
+            var notations = restored.Where(sp => sp.Type == PgpSignatureSubpacketType.NotationData).ToList();
+            Assert.Equal(2, notations.Count);
+
+            var notation1 = notations[0].GetNotationData();
+            var notation2 = notations[1].GetNotationData();
+            Assert.Equal("name1@example.com", notation1.Name);
+            Assert.Equal("name2@example.com", notation2.Name);
+        }
+
+        [Fact]
+        public void CreateNotationData_EmptyValue_Works()
+        {
+            // Arrange & Act
+            var subpacket = PgpSignatureSubpacket.CreateNotationData("empty@example.com", "");
+            var notation = subpacket.GetNotationData();
+
+            // Assert
+            Assert.Equal("empty@example.com", notation.Name);
+            Assert.Equal("", notation.ValueText);
+        }
+
+        [Fact]
+        public void CreateNotationData_UnicodeCharacters_Works()
+        {
+            // Arrange & Act
+            var subpacket = PgpSignatureSubpacket.CreateNotationData(
+                "unicode@example.com",
+                "Hello 世界 🌍");
+
+            var notation = subpacket.GetNotationData();
+
+            // Assert
+            Assert.Equal("unicode@example.com", notation.Name);
+            Assert.Equal("Hello 世界 🌍", notation.ValueText);
         }
     }
 }

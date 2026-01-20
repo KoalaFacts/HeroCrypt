@@ -215,28 +215,22 @@ public sealed class PgpKeyRevoker : IDisposable
         var hashedSubpacketData = PgpSignatureSubpacket.WriteAll(hashedSubpackets);
 
         // Compute hash
-        byte[] hash;
-        if (sigType == PgpSignatureType.SubkeyRevocation && subkeyToRevoke.HasValue)
-        {
-            hash = ComputeSubkeyRevocationHash(
+        var hash = sigType == PgpSignatureType.SubkeyRevocation && subkeyToRevoke.HasValue
+            ? ComputeSubkeyRevocationHash(
                 publicKey,
                 subkeyToRevoke.Value,
                 version,
                 (byte)sigType,
                 pubAlgo,
                 hashAlgo,
-                hashedSubpacketData);
-        }
-        else
-        {
-            hash = ComputeKeyRevocationHash(
+                hashedSubpacketData)
+            : ComputeKeyRevocationHash(
                 publicKey,
                 version,
                 (byte)sigType,
                 pubAlgo,
                 hashAlgo,
                 hashedSubpacketData);
-        }
 
         // Get hash prefix
         ushort hashPrefix = BinaryPrimitives.ReadUInt16BigEndian(hash);

@@ -106,7 +106,7 @@ public readonly struct PgpEncryptedMessage : IEquatable<PgpEncryptedMessage>
         bool isCompressed = false)
     {
         this.data = data ?? throw new ArgumentNullException(nameof(data));
-        this.recipients = new PgpRecipientInfo[recipientCount];
+        recipients = new PgpRecipientInfo[recipientCount];
         SeipdVersion = seipdVersion;
         SymmetricAlgorithm = symmetricAlgorithm;
         AeadAlgorithm = aeadAlgorithm;

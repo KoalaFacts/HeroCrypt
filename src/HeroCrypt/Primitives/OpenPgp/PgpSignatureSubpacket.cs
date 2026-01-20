@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using HeroCrypt.Polyfills;
 
 namespace HeroCrypt.Primitives.OpenPgp;
 
@@ -250,6 +251,101 @@ public readonly struct PgpSignatureSubpacket
     }
 
     /// <summary>
+    /// Creates a notation data subpacket.
+    /// </summary>
+    /// <param name="name">The notation name (typically in domain@name format).</param>
+    /// <param name="value">The notation value.</param>
+    /// <param name="isHumanReadable">Whether the value is human-readable text.</param>
+    /// <param name="isCritical">Whether the subpacket is critical.</param>
+    /// <returns>A new subpacket.</returns>
+    /// <remarks>
+    /// <para>
+    /// Notation data allows adding arbitrary name-value pairs to signatures.
+    /// Per RFC 4880, names should be in the format "name@domain" to avoid conflicts.
+    /// </para>
+    /// <para>
+    /// If <paramref name="isHumanReadable"/> is true, the value should be valid UTF-8 text.
+    /// If false, the value can be arbitrary binary data.
+    /// </para>
+    /// </remarks>
+    public static PgpSignatureSubpacket CreateNotationData(
+        string name,
+        string value,
+        bool isHumanReadable = true,
+        bool isCritical = false)
+    {
+        ArgumentHelper.ThrowIfNull(name);
+        ArgumentHelper.ThrowIfNull(value);
+
+        byte[] nameBytes = System.Text.Encoding.UTF8.GetBytes(name);
+        byte[] valueBytes = System.Text.Encoding.UTF8.GetBytes(value);
+
+        return CreateNotationDataCore(nameBytes, valueBytes, isHumanReadable, isCritical);
+    }
+
+    /// <summary>
+    /// Creates a notation data subpacket with binary value.
+    /// </summary>
+    /// <param name="name">The notation name (typically in domain@name format).</param>
+    /// <param name="value">The notation value as binary data.</param>
+    /// <param name="isHumanReadable">Whether the value is human-readable text.</param>
+    /// <param name="isCritical">Whether the subpacket is critical.</param>
+    /// <returns>A new subpacket.</returns>
+    public static PgpSignatureSubpacket CreateNotationData(
+        string name,
+        ReadOnlySpan<byte> value,
+        bool isHumanReadable = false,
+        bool isCritical = false)
+    {
+        ArgumentHelper.ThrowIfNull(name);
+
+        byte[] nameBytes = System.Text.Encoding.UTF8.GetBytes(name);
+        return CreateNotationDataCore(nameBytes, value.ToArray(), isHumanReadable, isCritical);
+    }
+
+    private static PgpSignatureSubpacket CreateNotationDataCore(
+        byte[] nameBytes,
+        byte[] valueBytes,
+        bool isHumanReadable,
+        bool isCritical)
+    {
+        if (nameBytes.Length > ushort.MaxValue)
+        {
+            throw new ArgumentException("Notation name is too long (max 65535 bytes).", nameof(nameBytes));
+        }
+
+        if (valueBytes.Length > ushort.MaxValue)
+        {
+            throw new ArgumentException("Notation value is too long (max 65535 bytes).", nameof(valueBytes));
+        }
+
+        // Format: 4 bytes flags + 2 bytes name length + 2 bytes value length + name + value
+        int totalLength = 4 + 2 + 2 + nameBytes.Length + valueBytes.Length;
+        var data = new byte[totalLength];
+
+        // Flags: bit 7 of first byte = human-readable
+        if (isHumanReadable)
+        {
+            data[0] = 0x80;
+        }
+        // bytes 1-3 are reserved (zero)
+
+        // Name length (big-endian)
+        BinaryPrimitives.WriteUInt16BigEndian(data.AsSpan(4), (ushort)nameBytes.Length);
+
+        // Value length (big-endian)
+        BinaryPrimitives.WriteUInt16BigEndian(data.AsSpan(6), (ushort)valueBytes.Length);
+
+        // Name
+        nameBytes.CopyTo(data, 8);
+
+        // Value
+        valueBytes.CopyTo(data, 8 + nameBytes.Length);
+
+        return new PgpSignatureSubpacket(PgpSignatureSubpacketType.NotationData, isCritical, data);
+    }
+
+    /// <summary>
     /// Creates a reason for revocation subpacket.
     /// </summary>
     /// <param name="reason">The revocation reason code.</param>
@@ -482,6 +578,54 @@ public readonly struct PgpSignatureSubpacket
         }
 
         return Data.ToArray();
+    }
+
+    /// <summary>
+    /// Gets the notation data from this subpacket.
+    /// </summary>
+    /// <returns>The notation data containing name, value, and flags.</returns>
+    /// <exception cref="InvalidOperationException">If this is not a notation data subpacket or data is malformed.</exception>
+    public PgpNotationData GetNotationData()
+    {
+        if (Type != PgpSignatureSubpacketType.NotationData)
+        {
+            throw new InvalidOperationException($"Expected NotationData subpacket, got {Type}.");
+        }
+
+        if (Data.Length < 8)
+        {
+            throw new InvalidOperationException("Notation data too short (minimum 8 bytes for header).");
+        }
+
+        var span = Data.Span;
+
+        // Read flags
+        bool isHumanReadable = (span[0] & 0x80) != 0;
+        // bytes 1-3 are reserved
+
+        // Read name length
+        ushort nameLength = BinaryPrimitives.ReadUInt16BigEndian(span.Slice(4));
+
+        // Read value length
+        ushort valueLength = BinaryPrimitives.ReadUInt16BigEndian(span.Slice(6));
+
+        // Validate total length
+        int expectedLength = 8 + nameLength + valueLength;
+        if (Data.Length < expectedLength)
+        {
+            throw new InvalidOperationException($"Notation data truncated. Expected {expectedLength} bytes, got {Data.Length}.");
+        }
+
+        // Read name
+        string name = System.Text.Encoding.UTF8.GetString(span.Slice(8, nameLength));
+
+        // Read value
+        byte[] valueBytes = span.Slice(8 + nameLength, valueLength).ToArray();
+        string? valueText = isHumanReadable
+            ? System.Text.Encoding.UTF8.GetString(valueBytes)
+            : null;
+
+        return new PgpNotationData(name, valueBytes, valueText, isHumanReadable);
     }
 
     /// <summary>
@@ -829,4 +973,127 @@ public enum PgpFeatures : byte
     /// Version 6 public keys (RFC 9580).
     /// </summary>
     Version6Keys = 0x04,
+}
+
+/// <summary>
+/// Represents OpenPGP notation data as defined in RFC 4880 Section 5.2.3.16.
+/// </summary>
+/// <remarks>
+/// <para>
+/// Notation data allows applications to attach arbitrary name-value pairs to signatures.
+/// Names should be in the format "name@domain" to avoid conflicts between implementations.
+/// </para>
+/// <para>
+/// The <see cref="IsHumanReadable"/> flag indicates whether the value is intended
+/// to be displayed to users (true) or is binary data (false).
+/// </para>
+/// </remarks>
+public readonly struct PgpNotationData : IEquatable<PgpNotationData>
+{
+    /// <summary>
+    /// Gets the notation name (typically in "name@domain" format).
+    /// </summary>
+    public string Name { get; }
+
+    /// <summary>
+    /// Gets the notation value as raw bytes.
+    /// </summary>
+    public byte[] Value { get; }
+
+    /// <summary>
+    /// Gets the notation value as a string if <see cref="IsHumanReadable"/> is true,
+    /// otherwise null.
+    /// </summary>
+    public string? ValueText { get; }
+
+    /// <summary>
+    /// Gets whether the value is human-readable text.
+    /// </summary>
+    public bool IsHumanReadable { get; }
+
+    /// <summary>
+    /// Initializes a new notation data instance.
+    /// </summary>
+    /// <param name="name">The notation name.</param>
+    /// <param name="value">The notation value as bytes.</param>
+    /// <param name="valueText">The notation value as text (if human-readable).</param>
+    /// <param name="isHumanReadable">Whether the value is human-readable.</param>
+    public PgpNotationData(string name, byte[] value, string? valueText, bool isHumanReadable)
+    {
+        Name = name;
+        Value = value;
+        ValueText = valueText;
+        IsHumanReadable = isHumanReadable;
+    }
+
+    /// <summary>
+    /// Creates a human-readable notation.
+    /// </summary>
+    /// <param name="name">The notation name.</param>
+    /// <param name="value">The notation value as text.</param>
+    /// <returns>A new notation data instance.</returns>
+    public static PgpNotationData CreateHumanReadable(string name, string value)
+    {
+        ArgumentHelper.ThrowIfNull(name);
+        ArgumentHelper.ThrowIfNull(value);
+
+        byte[] valueBytes = System.Text.Encoding.UTF8.GetBytes(value);
+        return new PgpNotationData(name, valueBytes, value, isHumanReadable: true);
+    }
+
+    /// <summary>
+    /// Creates a binary notation.
+    /// </summary>
+    /// <param name="name">The notation name.</param>
+    /// <param name="value">The notation value as bytes.</param>
+    /// <returns>A new notation data instance.</returns>
+    public static PgpNotationData CreateBinary(string name, byte[] value)
+    {
+        ArgumentHelper.ThrowIfNull(name);
+        ArgumentHelper.ThrowIfNull(value);
+
+        return new PgpNotationData(name, value, valueText: null, isHumanReadable: false);
+    }
+
+    /// <inheritdoc/>
+    public bool Equals(PgpNotationData other)
+    {
+        return Name == other.Name &&
+               IsHumanReadable == other.IsHumanReadable &&
+               Value.AsSpan().SequenceEqual(other.Value);
+    }
+
+    /// <inheritdoc/>
+    public override bool Equals(object? obj) => obj is PgpNotationData other && Equals(other);
+
+    /// <inheritdoc/>
+    public override int GetHashCode()
+    {
+        unchecked
+        {
+            int hash = 17;
+            hash = (hash * 31) + (Name?.GetHashCode() ?? 0);
+            hash = (hash * 31) + IsHumanReadable.GetHashCode();
+            return hash;
+        }
+    }
+
+    /// <summary>
+    /// Equality operator.
+    /// </summary>
+    public static bool operator ==(PgpNotationData left, PgpNotationData right) => left.Equals(right);
+
+    /// <summary>
+    /// Inequality operator.
+    /// </summary>
+    public static bool operator !=(PgpNotationData left, PgpNotationData right) => !left.Equals(right);
+
+    /// <inheritdoc/>
+    public override string ToString()
+    {
+        string valueDisplay = IsHumanReadable && ValueText != null
+            ? $"\"{ValueText}\""
+            : $"[{Value.Length} bytes]";
+        return $"Notation({Name} = {valueDisplay})";
+    }
 }

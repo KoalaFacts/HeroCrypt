@@ -77,7 +77,7 @@ public sealed class PgpKeyExpirationUpdater : IDisposable
             throw new ArgumentOutOfRangeException(nameof(lifetime), "Lifetime exceeds maximum value (~136 years).");
         }
 
-        this.newExpiration = lifetime == TimeSpan.Zero ? null : lifetime;
+        newExpiration = lifetime == TimeSpan.Zero ? null : lifetime;
         return this;
     }
 
@@ -114,7 +114,7 @@ public sealed class PgpKeyExpirationUpdater : IDisposable
     public PgpKeyExpirationUpdater WithNoExpiration()
     {
         ThrowIfDisposed();
-        this.newExpiration = null;
+        newExpiration = null;
         return this;
     }
 

@@ -225,10 +225,7 @@ public sealed class PgpKeyCertifier : IDisposable
         }
 
         // Set the target key from the key ring if not already set
-        if (targetKey == null)
-        {
-            targetKey = targetKeyRing.MasterKey;
-        }
+        targetKey ??= targetKeyRing.MasterKey;
 
         var certification = Certify();
         return targetKeyRing.AddCertification(targetUserId.Value, certification);

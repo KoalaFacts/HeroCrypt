@@ -42,10 +42,12 @@ public sealed class PgpKeyGenerator
     private bool addEncryptionSubkey;
     private bool addSigningSubkey;
     private TimeSpan? keyExpiration;
+    private TimeSpan? subkeyExpiration;
     private byte[]? preferredSymmetricAlgorithms;
     private byte[]? preferredHashAlgorithms;
     private byte[]? preferredCompressionAlgorithms;
     private byte[]? preferredAeadAlgorithms;
+    private List<(string Name, string Value, bool IsHumanReadable, bool IsCritical)>? notations;
 
     private PgpKeyGenerator()
     {
@@ -67,13 +69,12 @@ public sealed class PgpKeyGenerator
     /// <exception cref="ArgumentNullException">If userId is null.</exception>
     public PgpKeyGenerator WithUserId(string userId)
     {
+
 #if !NETSTANDARD2_0
-        ArgumentNullException.ThrowIfNull(userId);
 #else
-        if (userId == null) throw new ArgumentNullException(nameof(userId));
 #endif
 
-        this.userId = userId;
+        this.userId = userId ?? throw new ArgumentNullException(nameof(userId));
         return this;
     }
 
@@ -86,7 +87,7 @@ public sealed class PgpKeyGenerator
     public PgpKeyGenerator WithUserId(string name, string email)
     {
         var packet = PgpUserIdPacket.Create(name, email);
-        this.userId = packet.UserId;
+        userId = packet.UserId;
         return this;
     }
 
@@ -115,7 +116,7 @@ public sealed class PgpKeyGenerator
     public PgpKeyGenerator WithPassphrase(string passphrase)
     {
         this.passphrase = passphrase;
-        this.passphraseBytes = null;
+        passphraseBytes = null;
         return this;
     }
 
@@ -154,13 +155,12 @@ public sealed class PgpKeyGenerator
     /// <exception cref="ArgumentNullException">If passphraseBytes is null.</exception>
     public PgpKeyGenerator WithPassphrase(byte[] passphraseBytes)
     {
+
 #if !NETSTANDARD2_0
-        ArgumentNullException.ThrowIfNull(passphraseBytes);
 #else
-        if (passphraseBytes == null) throw new ArgumentNullException(nameof(passphraseBytes));
 #endif
 
-        this.passphraseBytes = passphraseBytes;
+        this.passphraseBytes = passphraseBytes ?? throw new ArgumentNullException(nameof(passphraseBytes));
         this.passphrase = null;
         return this;
     }
@@ -182,7 +182,7 @@ public sealed class PgpKeyGenerator
             throw new ArgumentException("Key size must be 2048, 3072, or 4096 bits.", nameof(bits));
         }
 
-        this.keySize = bits;
+        keySize = bits;
         return this;
     }
 
@@ -193,7 +193,7 @@ public sealed class PgpKeyGenerator
     /// <returns>This generator for chaining.</returns>
     public PgpKeyGenerator WithCreationTime(DateTimeOffset time)
     {
-        this.creationTime = time;
+        creationTime = time;
         return this;
     }
 
@@ -210,7 +210,7 @@ public sealed class PgpKeyGenerator
             throw new ArgumentException("Key version must be 4 or 6.", nameof(version));
         }
 
-        this.explicitVersion = version;
+        explicitVersion = version;
         return this;
     }
 
@@ -221,7 +221,7 @@ public sealed class PgpKeyGenerator
     /// <returns>This generator for chaining.</returns>
     public PgpKeyGenerator WithKeyFlags(PgpKeyCapabilities flags)
     {
-        this.keyFlags = flags;
+        keyFlags = flags;
         return this;
     }
 
@@ -258,7 +258,7 @@ public sealed class PgpKeyGenerator
             throw new ArgumentOutOfRangeException(nameof(lifetime), "Lifetime exceeds maximum value (~136 years).");
         }
 
-        this.keyExpiration = lifetime == TimeSpan.Zero ? null : lifetime;
+        keyExpiration = lifetime == TimeSpan.Zero ? null : lifetime;
         return this;
     }
 
@@ -276,7 +276,7 @@ public sealed class PgpKeyGenerator
     /// </remarks>
     public PgpKeyGenerator WithExpirationDate(DateTimeOffset expirationDate)
     {
-        var effectiveCreationTime = this.creationTime;
+        var effectiveCreationTime = creationTime;
         var lifetime = expirationDate - effectiveCreationTime;
 
         if (lifetime < TimeSpan.Zero)
@@ -285,6 +285,63 @@ public sealed class PgpKeyGenerator
         }
 
         return WithExpiration(lifetime);
+    }
+
+    /// <summary>
+    /// Sets the subkey expiration time as a duration from key creation.
+    /// </summary>
+    /// <param name="lifetime">The subkey lifetime (e.g., TimeSpan.FromDays(365) for 1 year).</param>
+    /// <returns>This generator for chaining.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">If lifetime is negative or exceeds ~136 years.</exception>
+    /// <remarks>
+    /// <para>
+    /// The expiration time is stored in the subkey binding signature as seconds from
+    /// the key creation time. Setting this to <see cref="TimeSpan.Zero"/> means the
+    /// subkey never expires (this is also the default if WithSubkeyExpiration is not called).
+    /// </para>
+    /// <para>
+    /// If not set, subkeys will inherit the master key expiration (if any).
+    /// </para>
+    /// </remarks>
+    public PgpKeyGenerator WithSubkeyExpiration(TimeSpan lifetime)
+    {
+        if (lifetime < TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(lifetime), "Lifetime cannot be negative.");
+        }
+
+        if (lifetime.TotalSeconds > uint.MaxValue)
+        {
+            throw new ArgumentOutOfRangeException(nameof(lifetime), "Lifetime exceeds maximum value (~136 years).");
+        }
+
+        subkeyExpiration = lifetime == TimeSpan.Zero ? null : lifetime;
+        return this;
+    }
+
+    /// <summary>
+    /// Sets the subkey expiration to a specific date.
+    /// </summary>
+    /// <param name="expirationDate">The date when the subkey should expire.</param>
+    /// <returns>This generator for chaining.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">If expiration date is before creation time or too far in the future.</exception>
+    /// <remarks>
+    /// <para>
+    /// The expiration date is converted to a duration from the key creation time.
+    /// If no creation time has been set, <see cref="DateTimeOffset.UtcNow"/> is assumed.
+    /// </para>
+    /// </remarks>
+    public PgpKeyGenerator WithSubkeyExpirationDate(DateTimeOffset expirationDate)
+    {
+        var effectiveCreationTime = creationTime;
+        var lifetime = expirationDate - effectiveCreationTime;
+
+        if (lifetime < TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(expirationDate), "Expiration date cannot be before creation time.");
+        }
+
+        return WithSubkeyExpiration(lifetime);
     }
 
     #endregion
@@ -310,7 +367,7 @@ public sealed class PgpKeyGenerator
     /// </remarks>
     public PgpKeyGenerator WithPreferredSymmetricAlgorithms(params byte[] algorithms)
     {
-        this.preferredSymmetricAlgorithms = algorithms.Length > 0 ? algorithms : null;
+        preferredSymmetricAlgorithms = algorithms.Length > 0 ? algorithms : null;
         return this;
     }
 
@@ -333,7 +390,7 @@ public sealed class PgpKeyGenerator
     /// </remarks>
     public PgpKeyGenerator WithPreferredHashAlgorithms(params byte[] algorithms)
     {
-        this.preferredHashAlgorithms = algorithms.Length > 0 ? algorithms : null;
+        preferredHashAlgorithms = algorithms.Length > 0 ? algorithms : null;
         return this;
     }
 
@@ -356,7 +413,7 @@ public sealed class PgpKeyGenerator
     /// </remarks>
     public PgpKeyGenerator WithPreferredCompressionAlgorithms(params byte[] algorithms)
     {
-        this.preferredCompressionAlgorithms = algorithms.Length > 0 ? algorithms : null;
+        preferredCompressionAlgorithms = algorithms.Length > 0 ? algorithms : null;
         return this;
     }
 
@@ -384,7 +441,7 @@ public sealed class PgpKeyGenerator
         {
             throw new ArgumentException("AEAD preferences must be pairs of (cipher, aead) algorithms.", nameof(cipherAeadPairs));
         }
-        this.preferredAeadAlgorithms = cipherAeadPairs.Length > 0 ? cipherAeadPairs : null;
+        preferredAeadAlgorithms = cipherAeadPairs.Length > 0 ? cipherAeadPairs : null;
         return this;
     }
 
@@ -404,9 +461,39 @@ public sealed class PgpKeyGenerator
     /// </remarks>
     public PgpKeyGenerator WithDefaultPreferences()
     {
-        this.preferredSymmetricAlgorithms = [9, 8, 7]; // AES-256, AES-192, AES-128
-        this.preferredHashAlgorithms = [10, 9, 8];    // SHA-512, SHA-384, SHA-256
-        this.preferredCompressionAlgorithms = [2, 1, 0]; // ZLIB, ZIP, Uncompressed
+        preferredSymmetricAlgorithms = [9, 8, 7]; // AES-256, AES-192, AES-128
+        preferredHashAlgorithms = [10, 9, 8];    // SHA-512, SHA-384, SHA-256
+        preferredCompressionAlgorithms = [2, 1, 0]; // ZLIB, ZIP, Uncompressed
+        return this;
+    }
+
+    /// <summary>
+    /// Adds a notation data entry to the key's self-signature.
+    /// </summary>
+    /// <param name="name">The notation name (typically in "name@domain" format).</param>
+    /// <param name="value">The notation value.</param>
+    /// <param name="isHumanReadable">Whether the value is human-readable text (default true).</param>
+    /// <param name="isCritical">Whether the notation is critical (default false).</param>
+    /// <returns>This generator for chaining.</returns>
+    /// <remarks>
+    /// <para>
+    /// Notation data allows applications to attach arbitrary name-value pairs to signatures.
+    /// Per RFC 4880, names should be in the format "name@domain" to avoid conflicts.
+    /// </para>
+    /// <para>
+    /// <b>Example:</b>
+    /// <code>
+    /// var result = PgpKeyGenerator.Create()
+    ///     .WithUserId("Alice &lt;alice@example.com&gt;")
+    ///     .WithNotationData("comment@example.com", "Generated by MyApp")
+    ///     .GenerateRsa();
+    /// </code>
+    /// </para>
+    /// </remarks>
+    public PgpKeyGenerator WithNotationData(string name, string value, bool isHumanReadable = true, bool isCritical = false)
+    {
+        notations ??= new List<(string, string, bool, bool)>();
+        notations.Add((name, value, isHumanReadable, isCritical));
         return this;
     }
 
@@ -420,7 +507,7 @@ public sealed class PgpKeyGenerator
     /// <returns>This generator for chaining.</returns>
     public PgpKeyGenerator WithSigningSubkey()
     {
-        this.addSigningSubkey = true;
+        addSigningSubkey = true;
         return this;
     }
 
@@ -430,7 +517,7 @@ public sealed class PgpKeyGenerator
     /// <returns>This generator for chaining.</returns>
     public PgpKeyGenerator WithEncryptionSubkey()
     {
-        this.addEncryptionSubkey = true;
+        addEncryptionSubkey = true;
         return this;
     }
 
@@ -445,7 +532,7 @@ public sealed class PgpKeyGenerator
     /// <exception cref="InvalidOperationException">If no user ID has been set.</exception>
     public PgpKeyGeneratorResult GenerateRsa()
     {
-        return GenerateRsa(this.keySize);
+        return GenerateRsa(keySize);
     }
 
     /// <summary>
@@ -647,14 +734,9 @@ public sealed class PgpKeyGenerator
 
         try
         {
-            if (passBytes == null)
-            {
-                masterSecretPacket = PgpSecretKeyPacket.CreateUnencrypted(masterPublicPacket, ed25519Private);
-            }
-            else
-            {
-                masterSecretPacket = CreateEncryptedSecretKeyFromBytes(masterPublicPacket, ed25519Private, passBytes);
-            }
+            masterSecretPacket = passBytes == null
+                ? PgpSecretKeyPacket.CreateUnencrypted(masterPublicPacket, ed25519Private)
+                : CreateEncryptedSecretKeyFromBytes(masterPublicPacket, ed25519Private, passBytes);
 
             // Create user ID packet
             var userIdPacket = new PgpUserIdPacket(userId!);
@@ -673,14 +755,9 @@ public sealed class PgpKeyGenerator
             var x25519Public = Curve25519Core.DerivePublicKey(x25519Private);
             var subkeyPublicPacket = PgpPublicKeyPacket.CreateX25519(creationTime, x25519Public, isSubkey: true);
 
-            if (passBytes == null)
-            {
-                subkeySecretPacket = PgpSecretKeyPacket.CreateUnencrypted(subkeyPublicPacket, x25519Private);
-            }
-            else
-            {
-                subkeySecretPacket = CreateEncryptedSecretKeyFromBytes(subkeyPublicPacket, x25519Private, passBytes);
-            }
+            subkeySecretPacket = passBytes == null
+                ? PgpSecretKeyPacket.CreateUnencrypted(subkeyPublicPacket, x25519Private)
+                : CreateEncryptedSecretKeyFromBytes(subkeyPublicPacket, x25519Private, passBytes);
 
             // Create subkey binding signature
             var subkeyFlags = PgpKeyCapabilities.EncryptCommunications | PgpKeyCapabilities.EncryptStorage;
@@ -1002,6 +1079,15 @@ public sealed class PgpKeyGenerator
             hashedSubpackets.Add(PgpSignatureSubpacket.CreatePreferredAeadAlgorithms(preferredAeadAlgorithms));
         }
 
+        // Add notation data if set
+        if (notations != null)
+        {
+            foreach (var (name, value, isHumanReadable, isCritical) in notations)
+            {
+                hashedSubpackets.Add(PgpSignatureSubpacket.CreateNotationData(name, value, isHumanReadable, isCritical));
+            }
+        }
+
         // Build unhashed subpackets
         var unhashedSubpackets = new List<PgpSignatureSubpacket>
         {
@@ -1120,6 +1206,13 @@ public sealed class PgpKeyGenerator
             PgpSignatureSubpacket.CreateKeyFlags(subkeyFlags),
             PgpSignatureSubpacket.CreateIssuerFingerprint(version, masterPublicKey.ComputeFingerprint())
         };
+
+        // Add subkey expiration if set (or inherit from master key expiration)
+        var effectiveSubkeyExpiration = subkeyExpiration ?? keyExpiration;
+        if (effectiveSubkeyExpiration.HasValue)
+        {
+            hashedSubpackets.Add(PgpSignatureSubpacket.CreateKeyExpirationTime(effectiveSubkeyExpiration.Value));
+        }
 
         // Build unhashed subpackets
         var unhashedSubpackets = new List<PgpSignatureSubpacket>
@@ -1325,6 +1418,15 @@ public sealed class PgpKeyGenerator
             hashedSubpackets.Add(PgpSignatureSubpacket.CreatePreferredAeadAlgorithms(preferredAeadAlgorithms));
         }
 
+        // Add notation data if set
+        if (notations != null)
+        {
+            foreach (var (name, value, isHumanReadable, isCritical) in notations)
+            {
+                hashedSubpackets.Add(PgpSignatureSubpacket.CreateNotationData(name, value, isHumanReadable, isCritical));
+            }
+        }
+
         // Build unhashed subpackets
         var unhashedSubpackets = new List<PgpSignatureSubpacket>
         {
@@ -1381,6 +1483,13 @@ public sealed class PgpKeyGenerator
             PgpSignatureSubpacket.CreateKeyFlags(subkeyFlags),
             PgpSignatureSubpacket.CreateIssuerFingerprint(version, masterPublicKey.ComputeFingerprint())
         };
+
+        // Add subkey expiration if set (or inherit from master key expiration)
+        var effectiveSubkeyExpiration = subkeyExpiration ?? keyExpiration;
+        if (effectiveSubkeyExpiration.HasValue)
+        {
+            hashedSubpackets.Add(PgpSignatureSubpacket.CreateKeyExpirationTime(effectiveSubkeyExpiration.Value));
+        }
 
         // Build unhashed subpackets
         var unhashedSubpackets = new List<PgpSignatureSubpacket>

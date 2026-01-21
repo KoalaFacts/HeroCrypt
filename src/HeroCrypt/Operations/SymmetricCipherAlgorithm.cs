@@ -38,6 +38,7 @@ public enum SymmetricCipherAlgorithm : byte
     /// </remarks>
     [PgpAlgorithmId(1, Rfc = "RFC 4880")]
     [NotImplemented("Legacy algorithm - 64-bit block size", Priority = 5)]
+    [Obsolete("IDEA is deprecated due to 64-bit block size vulnerability. Use AES-256 for new applications. This algorithm is only provided for legacy compatibility.")]
     Idea = 1,
 
     /// <summary>
@@ -49,6 +50,7 @@ public enum SymmetricCipherAlgorithm : byte
     /// </remarks>
     [PgpAlgorithmId(2, Rfc = "RFC 4880")]
     [NotImplemented("Legacy - MUST implement per RFC 4880", Priority = 4)]
+    [Obsolete("3DES is deprecated due to 64-bit block size vulnerability. Use AES-256 for new applications. This algorithm is only provided for OpenPGP legacy compatibility.")]
     TripleDes = 2,
 
     /// <summary>
@@ -60,6 +62,7 @@ public enum SymmetricCipherAlgorithm : byte
     /// </remarks>
     [PgpAlgorithmId(3, Rfc = "RFC 4880")]
     [NotImplemented("Legacy - MUST implement per RFC 4880", Priority = 4)]
+    [Obsolete("CAST5 is deprecated due to 64-bit block size vulnerability. Use AES-256 for new applications. This algorithm is only provided for OpenPGP legacy compatibility.")]
     Cast5 = 3,
 
     /// <summary>
@@ -70,6 +73,7 @@ public enum SymmetricCipherAlgorithm : byte
     /// </remarks>
     [PgpAlgorithmId(4, Rfc = "RFC 4880")]
     [NotImplemented("Legacy algorithm - 64-bit block size", Priority = 5)]
+    [Obsolete("Blowfish is deprecated due to 64-bit block size vulnerability. Use AES-256 or ChaCha20 for new applications. This algorithm is only provided for legacy compatibility.")]
     Blowfish = 4,
 
     // ─────────────────────────────────────────────────────────────────────────

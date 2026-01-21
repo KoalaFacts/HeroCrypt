@@ -116,7 +116,12 @@ public class HashBuilder
     /// <b>WARNING:</b> SHA-1 is cryptographically broken.
     /// Only use for legacy compatibility (Git, old certificates).
     /// </remarks>
-    public HashBuilder WithSha1() => WithAlgorithm(HashingAlgorithm.Sha1);
+    [Obsolete("SHA-1 is cryptographically broken. Use WithSha256() or WithSha3_256() for new applications.")]
+    public HashBuilder WithSha1()
+    {
+        StrictMode.ThrowIfEnabled("SHA-1", "Use SHA-256 or SHA-3 instead.");
+        return WithAlgorithm(HashingAlgorithm.Sha1);
+    }
 
     /// <summary>
     /// Use MD5 for hashing.
@@ -125,7 +130,12 @@ public class HashBuilder
     /// <b>WARNING:</b> MD5 is cryptographically broken.
     /// Only use for checksums, cache keys, or legacy compatibility.
     /// </remarks>
-    public HashBuilder WithMd5() => WithAlgorithm(HashingAlgorithm.Md5);
+    [Obsolete("MD5 is cryptographically broken. Use WithSha256() or WithBlake2b256() for new applications.")]
+    public HashBuilder WithMd5()
+    {
+        StrictMode.ThrowIfEnabled("MD5", "Use SHA-256 or Blake2b instead.");
+        return WithAlgorithm(HashingAlgorithm.Md5);
+    }
 
     // ─────────────────────────────────────────────────────────────────────────
     // Keyed Hashing
@@ -182,9 +192,11 @@ public class HashBuilder
             HashingAlgorithm.Blake2b256 => Blake2bCore.ComputeHash(data, outputLength: 32),
             HashingAlgorithm.Blake2b512 => Blake2bCore.ComputeHash(data, outputLength: 64),
 
-            // Legacy
+            // Legacy (suppress obsolete warning for internal switch - user already warned at builder method)
+#pragma warning disable CS0618
             HashingAlgorithm.Sha1 => ShaCore.ComputeHashSha1(data),
             HashingAlgorithm.Md5 => ShaCore.ComputeHashMd5(data),
+#pragma warning restore CS0618
 
             // Not Implemented
             HashingAlgorithm.Sha224 => throw new NotImplementedException($"Algorithm {algorithm} is not yet implemented"),
@@ -219,9 +231,11 @@ public class HashBuilder
             HashingAlgorithm.Blake2b256 => Blake2bCore.ComputeHash(data, outputLength: 32, key),
             HashingAlgorithm.Blake2b512 => Blake2bCore.ComputeHash(data, outputLength: 64, key),
 
-            // Legacy HMAC
+            // Legacy HMAC (suppress obsolete warning for internal switch - user already warned at builder method)
+#pragma warning disable CS0618
             HashingAlgorithm.Sha1 => ShaCore.ComputeHashHmacSha1(data, key),
             HashingAlgorithm.Md5 => ShaCore.ComputeHashHmacMd5(data, key),
+#pragma warning restore CS0618
 
             // Not Implemented
             HashingAlgorithm.Sha224 => throw new NotImplementedException($"Algorithm {algorithm} is not yet implemented"),

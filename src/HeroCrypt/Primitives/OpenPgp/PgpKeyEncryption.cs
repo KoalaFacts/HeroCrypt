@@ -612,6 +612,8 @@ internal static class PgpKeyEncryption
     /// <returns>The key size in bytes.</returns>
     public static int GetSessionKeySize(SymmetricCipherAlgorithm algorithm)
     {
+        // Suppress obsolete warnings - OpenPGP requires legacy algorithm support for interoperability
+#pragma warning disable CS0618
         return algorithm switch
         {
             SymmetricCipherAlgorithm.Aes128 => 16,
@@ -627,6 +629,7 @@ internal static class PgpKeyEncryption
             SymmetricCipherAlgorithm.Idea => 16,
             _ => throw new ArgumentException($"Unknown symmetric algorithm: {algorithm}", nameof(algorithm))
         };
+#pragma warning restore CS0618
     }
 
     /// <summary>

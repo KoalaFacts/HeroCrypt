@@ -314,6 +314,7 @@ public enum HashingAlgorithm
     /// </para>
     /// </remarks>
     [PgpAlgorithmId(2, Rfc = "RFC 4880")]
+    [Obsolete("SHA-1 is cryptographically broken. Use SHA-256 or SHA-3 for new applications. This algorithm is only provided for legacy compatibility.")]
     Sha1,
 
     /// <summary>
@@ -330,5 +331,6 @@ public enum HashingAlgorithm
     /// </para>
     /// </remarks>
     [PgpAlgorithmId(1, Rfc = "RFC 4880")]
+    [Obsolete("MD5 is cryptographically broken. Do not use for security purposes. This algorithm is only provided for legacy compatibility.")]
     Md5,
 }

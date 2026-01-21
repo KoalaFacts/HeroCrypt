@@ -644,6 +644,8 @@ public sealed class PgpMessageEncryptor : IDisposable
 
     private static int GetBlockSize(SymmetricCipherAlgorithm algorithm)
     {
+        // Suppress obsolete warnings - OpenPGP requires legacy algorithm support for interoperability
+#pragma warning disable CS0618
         return algorithm switch
         {
             SymmetricCipherAlgorithm.Aes128 or
@@ -659,6 +661,7 @@ public sealed class PgpMessageEncryptor : IDisposable
             SymmetricCipherAlgorithm.Camellia256 => 16,
             _ => throw new ArgumentException($"Unknown symmetric algorithm: {algorithm}", nameof(algorithm))
         };
+#pragma warning restore CS0618
     }
 
 #if !NETSTANDARD2_0

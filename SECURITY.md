@@ -6,11 +6,10 @@ HeroCrypt is a cryptographic library where security is paramount. We take all se
 
 ## 📢 Reporting a Vulnerability
 
-**Please DO NOT report security vulnerabilities through public GitHub issues.**
+You can report security vulnerabilities through these channels:
 
-Instead, please report security vulnerabilities by email to:
-
-**security@herocrypt.dev** (or repository maintainer's email)
+1. **GitHub Security Advisories** (Recommended): Use the "Report a vulnerability" button in the Security tab
+2. **GitHub Issues**: Create an issue with the `security` label
 
 Please include the following information in your report:
 
@@ -205,7 +204,8 @@ For non-security questions:
 - **GitHub Discussions**: For general questions and discussions
 
 For security concerns:
-- **Email**: security@herocrypt.dev
+- **GitHub Security Advisories**: Use the "Report a vulnerability" button
+- **GitHub Issues**: Create an issue with the `security` label
 
 ---
 

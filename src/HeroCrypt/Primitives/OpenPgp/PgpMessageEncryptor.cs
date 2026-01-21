@@ -1,5 +1,7 @@
 using System.Security.Cryptography;
+using System.Text;
 using HeroCrypt.Operations;
+using HeroCrypt.Primitives.S2K;
 using HeroCrypt.Security;
 
 namespace HeroCrypt.Primitives.OpenPgp;
@@ -29,12 +31,15 @@ namespace HeroCrypt.Primitives.OpenPgp;
 public sealed class PgpMessageEncryptor : IDisposable
 {
     private readonly List<PgpPublicKeyPacket> recipients = [];
+    private readonly List<byte[]> passphrases = [];
     private SymmetricCipherAlgorithm symmetricAlgorithm = SymmetricCipherAlgorithm.Aes256;
     private AeadAlgorithm aeadAlgorithm = AeadAlgorithm.None;
     private PgpCompressionAlgorithm compressionAlgorithm = PgpCompressionAlgorithm.Uncompressed;
     private PgpLiteralDataFormat dataFormat = PgpLiteralDataFormat.Binary;
     private string fileName = string.Empty;
     private DateTimeOffset fileDate = DateTimeOffset.UtcNow;
+    private S2KType s2kType = S2KType.IteratedAndSalted;
+    private readonly HashingAlgorithm s2kHashAlgorithm = HashingAlgorithm.Sha256;
     private bool disposed;
 
     private PgpMessageEncryptor()
@@ -94,6 +99,65 @@ public sealed class PgpMessageEncryptor : IDisposable
         ThrowIfDisposed();
         recipients.Add(publicKey);
         return this;
+    }
+
+    /// <summary>
+    /// Adds a passphrase for password-based encryption.
+    /// </summary>
+    /// <param name="passphrase">The passphrase bytes.</param>
+    /// <returns>This encryptor for chaining.</returns>
+    /// <remarks>
+    /// Multiple passphrases can be added to allow decryption with any of them.
+    /// Password-based encryption can be combined with public-key encryption.
+    /// </remarks>
+    public PgpMessageEncryptor WithPassphrase(byte[] passphrase)
+    {
+        ThrowIfDisposed();
+        if (passphrase == null || passphrase.Length == 0)
+        {
+            throw new ArgumentException("Passphrase cannot be null or empty.", nameof(passphrase));
+        }
+
+        passphrases.Add([.. passphrase]);
+        return this;
+    }
+
+    /// <summary>
+    /// Adds a passphrase for password-based encryption.
+    /// </summary>
+    /// <param name="passphrase">The passphrase string (UTF-8 encoded).</param>
+    /// <returns>This encryptor for chaining.</returns>
+    public PgpMessageEncryptor WithPassphrase(string passphrase)
+    {
+        ThrowIfDisposed();
+        if (string.IsNullOrEmpty(passphrase))
+        {
+            throw new ArgumentException("Passphrase cannot be null or empty.", nameof(passphrase));
+        }
+
+        passphrases.Add(Encoding.UTF8.GetBytes(passphrase));
+        return this;
+    }
+
+    /// <summary>
+    /// Sets the S2K type for password-based encryption.
+    /// </summary>
+    /// <param name="type">The S2K type to use.</param>
+    /// <returns>This encryptor for chaining.</returns>
+    public PgpMessageEncryptor WithS2KType(S2KType type)
+    {
+        ThrowIfDisposed();
+        s2kType = type;
+        return this;
+    }
+
+    /// <summary>
+    /// Uses Argon2 for password-based key derivation (RFC 9580).
+    /// </summary>
+    /// <returns>This encryptor for chaining.</returns>
+    public PgpMessageEncryptor WithArgon2()
+    {
+        return WithS2KType(S2KType.Argon2);
     }
 
     #endregion
@@ -200,14 +264,14 @@ public sealed class PgpMessageEncryptor : IDisposable
     /// </summary>
     /// <param name="plaintext">The data to encrypt.</param>
     /// <returns>The encrypted message.</returns>
-    /// <exception cref="InvalidOperationException">If no recipients have been added.</exception>
+    /// <exception cref="InvalidOperationException">If no recipients or passphrases have been added.</exception>
     public PgpEncryptedMessage Encrypt(ReadOnlySpan<byte> plaintext)
     {
         ThrowIfDisposed();
 
-        if (recipients.Count == 0)
+        if (recipients.Count == 0 && passphrases.Count == 0)
         {
-            throw new InvalidOperationException("At least one recipient must be added before encryption.");
+            throw new InvalidOperationException("At least one recipient or passphrase must be added before encryption.");
         }
 
         // 1. Create literal data packet and serialize with header
@@ -252,6 +316,14 @@ public sealed class PgpMessageEncryptor : IDisposable
                 pkeskPackets.Add(pkeskData);
             }
 
+            // 4b. Create SKESK packets for each passphrase
+            var skeskPackets = new List<byte[]>();
+            foreach (var passphrase in passphrases)
+            {
+                var skeskData = CreateSkeskPacket(passphrase, sessionKey);
+                skeskPackets.Add(skeskData);
+            }
+
             // 5. Encrypt with SEIPD
             byte[] seipdData;
             int seipdVersion;
@@ -273,6 +345,13 @@ public sealed class PgpMessageEncryptor : IDisposable
             using var output = new MemoryStream();
             using var writer = new PgpPacketWriter(output);
 
+            // Write SKESK packets first (per OpenPGP convention)
+            foreach (var skesk in skeskPackets)
+            {
+                writer.WritePacket(PgpPacketTag.SymmetricKeyEncryptedSessionKey, skesk, PgpPacketFormat.New);
+            }
+
+            // Write PKESK packets
             foreach (var pkesk in pkeskPackets)
             {
                 writer.WritePacket(PgpPacketTag.PublicKeyEncryptedSessionKey, pkesk, PgpPacketFormat.New);
@@ -293,7 +372,8 @@ public sealed class PgpMessageEncryptor : IDisposable
                 seipdVersion,
                 symmetricAlgorithm,
                 aeadAlgorithm,
-                isCompressed);
+                isCompressed,
+                skeskPackets.Count > 0);
         }
         finally
         {
@@ -362,6 +442,23 @@ public sealed class PgpMessageEncryptor : IDisposable
         }
 
         return pkesk.ToArray();
+    }
+
+    #endregion
+
+    #region SKESK Creation
+
+    private byte[] CreateSkeskPacket(byte[] passphrase, byte[] sessionKey)
+    {
+        // Create SKESK packet using the passphrase
+        var skesk = PgpSymmetricKeyEncryptedSessionKeyPacket.Create(
+            passphrase,
+            sessionKey,
+            symmetricAlgorithm,
+            s2kType,
+            s2kHashAlgorithm);
+
+        return skesk.ToArray();
     }
 
     #endregion
@@ -697,6 +794,12 @@ public sealed class PgpMessageEncryptor : IDisposable
         if (!disposed)
         {
             recipients.Clear();
+            foreach (var passphrase in passphrases)
+            {
+                SecureMemoryOperations.SecureClear(passphrase);
+            }
+
+            passphrases.Clear();
             disposed = true;
         }
     }

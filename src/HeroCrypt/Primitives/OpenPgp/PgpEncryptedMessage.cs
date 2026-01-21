@@ -3,12 +3,13 @@ using HeroCrypt.Operations;
 namespace HeroCrypt.Primitives.OpenPgp;
 
 /// <summary>
-/// Represents an encrypted OpenPGP message containing PKESK and SEIPD packets.
+/// Represents an encrypted OpenPGP message containing PKESK, SKESK, and SEIPD packets.
 /// </summary>
 /// <remarks>
 /// <para>
-/// An encrypted message consists of one or more Public-Key Encrypted Session Key (PKESK) packets
-/// followed by a Symmetrically Encrypted Integrity Protected Data (SEIPD) packet.
+/// An encrypted message consists of one or more Public-Key Encrypted Session Key (PKESK)
+/// and/or Symmetric-Key Encrypted Session Key (SKESK) packets, followed by a
+/// Symmetrically Encrypted Integrity Protected Data (SEIPD) packet.
 /// </para>
 /// <para>
 /// Use PgpMessageEncryptor to create encrypted messages, and
@@ -63,6 +64,14 @@ public readonly struct PgpEncryptedMessage : IEquatable<PgpEncryptedMessage>
     public bool IsCompressed { get; }
 
     /// <summary>
+    /// Gets whether the message can be decrypted with a passphrase.
+    /// </summary>
+    /// <remarks>
+    /// True if the message contains SKESK (Symmetric-Key Encrypted Session Key) packets.
+    /// </remarks>
+    public bool HasPasswordBasedEncryption { get; }
+
+    /// <summary>
     /// Initializes a new encrypted message.
     /// </summary>
     /// <param name="data">The complete encrypted message data.</param>
@@ -71,13 +80,15 @@ public readonly struct PgpEncryptedMessage : IEquatable<PgpEncryptedMessage>
     /// <param name="symmetricAlgorithm">Symmetric cipher used.</param>
     /// <param name="aeadAlgorithm">AEAD algorithm (for v2).</param>
     /// <param name="isCompressed">Whether compression was applied.</param>
+    /// <param name="hasPasswordBasedEncryption">Whether the message can be decrypted with a passphrase.</param>
     public PgpEncryptedMessage(
         byte[] data,
         PgpRecipientInfo[] recipients,
         int seipdVersion,
         SymmetricCipherAlgorithm symmetricAlgorithm,
         AeadAlgorithm aeadAlgorithm = AeadAlgorithm.None,
-        bool isCompressed = false)
+        bool isCompressed = false,
+        bool hasPasswordBasedEncryption = false)
     {
         this.data = data ?? throw new ArgumentNullException(nameof(data));
         this.recipients = recipients ?? [];
@@ -85,6 +96,7 @@ public readonly struct PgpEncryptedMessage : IEquatable<PgpEncryptedMessage>
         SymmetricAlgorithm = symmetricAlgorithm;
         AeadAlgorithm = aeadAlgorithm;
         IsCompressed = isCompressed;
+        HasPasswordBasedEncryption = hasPasswordBasedEncryption;
     }
 
     /// <summary>
@@ -187,10 +199,11 @@ public readonly struct PgpEncryptedMessage : IEquatable<PgpEncryptedMessage>
         int seipdVersion = 0;
         var symmetricAlgorithm = SymmetricCipherAlgorithm.Aes256;
         var aeadAlgorithm = AeadAlgorithm.None;
+        bool hasSkeskPackets = false;
 
         while (reader.ReadNextPacket(out var tag, out var body))
         {
-            // We only need PKESK and SEIPD packets - ignore all other packet types
+            // Handle PKESK, SKESK, and SEIPD packets
             if (tag == PgpPacketTag.PublicKeyEncryptedSessionKey)
             {
                 if (PgpPublicKeyEncryptedSessionKeyPacket.TryRead(body.Span, out var pkesk, out _))
@@ -203,6 +216,11 @@ public readonly struct PgpEncryptedMessage : IEquatable<PgpEncryptedMessage>
                     recipientList.Add(default);
                 }
             }
+            else if (tag == PgpPacketTag.SymmetricKeyEncryptedSessionKey)
+            {
+                // SKESK packet found - message can be decrypted with passphrase
+                hasSkeskPackets = true;
+            }
             else if (tag == PgpPacketTag.SymmetricallyEncryptedIntegrityProtectedData)
             {
                 if (PgpSymEncryptedIntegrityProtectedDataPacket.TryRead(body.Span, out var seipd, out _))
@@ -214,9 +232,9 @@ public readonly struct PgpEncryptedMessage : IEquatable<PgpEncryptedMessage>
             }
         }
 
-        if (recipientList.Count == 0)
+        if (recipientList.Count == 0 && !hasSkeskPackets)
         {
-            error = "No PKESK packets found in encrypted message.";
+            error = "No PKESK or SKESK packets found in encrypted message.";
             return false;
         }
 
@@ -231,7 +249,9 @@ public readonly struct PgpEncryptedMessage : IEquatable<PgpEncryptedMessage>
             [.. recipientList],
             seipdVersion,
             symmetricAlgorithm,
-            aeadAlgorithm);
+            aeadAlgorithm,
+            isCompressed: false,
+            hasPasswordBasedEncryption: hasSkeskPackets);
 
         return true;
     }

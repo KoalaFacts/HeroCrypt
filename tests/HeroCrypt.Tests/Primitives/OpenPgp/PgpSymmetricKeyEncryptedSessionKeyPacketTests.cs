@@ -1,5 +1,8 @@
+using System.Security.Cryptography;
+using System.Text;
 using HeroCrypt.Operations;
 using HeroCrypt.Primitives.OpenPgp;
+using HeroCrypt.Primitives.S2K;
 using HeroCrypt.Tests.Infrastructure;
 
 namespace HeroCrypt.Tests.Primitives.OpenPgp;
@@ -355,6 +358,297 @@ public class PgpSymmetricKeyEncryptedSessionKeyPacketTests
 
             Assert.Contains("v6", str);
             Assert.Contains("Gcm", str);
+        }
+    }
+
+    /// <summary>
+    /// Create factory method tests.
+    /// </summary>
+    [Trait("Category", TestCategories.UNIT)]
+    [Trait("Category", TestCategories.FAST)]
+    public class CreateTests
+    {
+        private static readonly byte[] TestPassphrase = Encoding.UTF8.GetBytes("test-passphrase");
+        private static readonly byte[] TestSessionKey = TestHelpers.RandomBytes(32);
+
+        [Fact]
+        public void Create_WithoutSessionKey_CreatesDirectKeyPacket()
+        {
+            var packet = PgpSymmetricKeyEncryptedSessionKeyPacket.Create(
+                TestPassphrase,
+                sessionKey: null,
+                SymmetricCipherAlgorithm.Aes256);
+
+            Assert.Equal(4, packet.Version);
+            Assert.Equal(SymmetricCipherAlgorithm.Aes256, packet.CipherAlgorithm);
+            Assert.Empty(packet.EncryptedSessionKey.ToArray());
+        }
+
+        [Fact]
+        public void Create_WithSessionKey_CreatesEncryptedKeyPacket()
+        {
+            var packet = PgpSymmetricKeyEncryptedSessionKeyPacket.Create(
+                TestPassphrase,
+                TestSessionKey,
+                SymmetricCipherAlgorithm.Aes256);
+
+            Assert.Equal(4, packet.Version);
+            Assert.NotEmpty(packet.EncryptedSessionKey.ToArray());
+            // ESK = algorithm(1) + key(32) + checksum(2) = 35 bytes
+            Assert.Equal(35, packet.EncryptedSessionKey.Length);
+        }
+
+        [Fact]
+        public void Create_WithIteratedS2K_UsesCorrectType()
+        {
+            var packet = PgpSymmetricKeyEncryptedSessionKeyPacket.Create(
+                TestPassphrase,
+                null,
+                SymmetricCipherAlgorithm.Aes256,
+                S2KType.IteratedAndSalted);
+
+            var s2kParams = S2KParameters.Parse(packet.S2kSpecifier.Span);
+            Assert.Equal(S2KType.IteratedAndSalted, s2kParams.Type);
+        }
+
+        [Fact]
+        public void Create_WithSaltedS2K_UsesCorrectType()
+        {
+            var packet = PgpSymmetricKeyEncryptedSessionKeyPacket.Create(
+                TestPassphrase,
+                null,
+                SymmetricCipherAlgorithm.Aes256,
+                S2KType.Salted);
+
+            var s2kParams = S2KParameters.Parse(packet.S2kSpecifier.Span);
+            Assert.Equal(S2KType.Salted, s2kParams.Type);
+        }
+
+        [Theory]
+        [InlineData(SymmetricCipherAlgorithm.Aes128)]
+        [InlineData(SymmetricCipherAlgorithm.Aes192)]
+        [InlineData(SymmetricCipherAlgorithm.Aes256)]
+        public void Create_WithDifferentCiphers_Succeeds(SymmetricCipherAlgorithm cipher)
+        {
+            var packet = PgpSymmetricKeyEncryptedSessionKeyPacket.Create(
+                TestPassphrase,
+                null,
+                cipher);
+
+            Assert.Equal(cipher, packet.CipherAlgorithm);
+        }
+
+        [Theory]
+        [InlineData(HashingAlgorithm.Sha256)]
+        [InlineData(HashingAlgorithm.Sha384)]
+        [InlineData(HashingAlgorithm.Sha512)]
+        public void Create_WithDifferentHashes_Succeeds(HashingAlgorithm hash)
+        {
+            var packet = PgpSymmetricKeyEncryptedSessionKeyPacket.Create(
+                TestPassphrase,
+                null,
+                SymmetricCipherAlgorithm.Aes256,
+                S2KType.IteratedAndSalted,
+                hash);
+
+            var s2kParams = S2KParameters.Parse(packet.S2kSpecifier.Span);
+            Assert.Equal(hash, s2kParams.HashAlgorithm);
+        }
+    }
+
+    /// <summary>
+    /// DecryptSessionKey tests.
+    /// </summary>
+    [Trait("Category", TestCategories.UNIT)]
+    [Trait("Category", TestCategories.FAST)]
+    public class DecryptSessionKeyTests
+    {
+        private static readonly byte[] TestPassphrase = Encoding.UTF8.GetBytes("test-passphrase");
+
+        [Fact]
+        public void DecryptSessionKey_DirectKey_ReturnsDerivedKey()
+        {
+            // Create a packet without session key (direct key mode)
+            // In direct key mode, the derived KEK IS the session key
+            var packet = PgpSymmetricKeyEncryptedSessionKeyPacket.Create(
+                TestPassphrase,
+                sessionKey: null,
+                SymmetricCipherAlgorithm.Aes256);
+
+            var decryptedKey = packet.DecryptSessionKey(TestPassphrase);
+
+            // For AES-256, the key should be 32 bytes
+            Assert.Equal(32, decryptedKey.Length);
+            // Decrypting again should return the same key
+            var decryptedKey2 = packet.DecryptSessionKey(TestPassphrase);
+            Assert.Equal(decryptedKey, decryptedKey2);
+        }
+
+        [Fact]
+        public void DecryptSessionKey_WithEncryptedKey_ReturnsOriginalKey()
+        {
+            var originalKey = TestHelpers.RandomBytes(32);
+
+            var packet = PgpSymmetricKeyEncryptedSessionKeyPacket.Create(
+                TestPassphrase,
+                originalKey,
+                SymmetricCipherAlgorithm.Aes256);
+
+            var decryptedKey = packet.DecryptSessionKey(TestPassphrase);
+
+            Assert.Equal(originalKey, decryptedKey);
+        }
+
+        [Theory]
+        [InlineData(16)] // AES-128
+        [InlineData(24)] // AES-192
+        [InlineData(32)] // AES-256
+        public void DecryptSessionKey_VariousKeySizes_RoundTrips(int keySize)
+        {
+            var originalKey = TestHelpers.RandomBytes(keySize);
+            var cipher = keySize switch
+            {
+                16 => SymmetricCipherAlgorithm.Aes128,
+                24 => SymmetricCipherAlgorithm.Aes192,
+                32 => SymmetricCipherAlgorithm.Aes256,
+                _ => throw new ArgumentException("Invalid key size")
+            };
+
+            var packet = PgpSymmetricKeyEncryptedSessionKeyPacket.Create(
+                TestPassphrase,
+                originalKey,
+                cipher);
+
+            var decryptedKey = packet.DecryptSessionKey(TestPassphrase);
+
+            Assert.Equal(originalKey, decryptedKey);
+        }
+
+        [Fact]
+        public void DecryptSessionKey_WrongPassphrase_ThrowsException()
+        {
+            var originalKey = TestHelpers.RandomBytes(32);
+            var wrongPassphrase = Encoding.UTF8.GetBytes("wrong-passphrase");
+
+            var packet = PgpSymmetricKeyEncryptedSessionKeyPacket.Create(
+                TestPassphrase,
+                originalKey,
+                SymmetricCipherAlgorithm.Aes256);
+
+            // Wrong passphrase should throw - either due to checksum validation failure
+            // or due to decrypted garbage producing invalid algorithm byte
+            var ex = Assert.ThrowsAny<Exception>(() =>
+                packet.DecryptSessionKey(wrongPassphrase));
+
+            // The exception will be either CryptographicException (checksum) or
+            // ArgumentException (unknown algorithm from garbage data)
+            Assert.True(
+                ex is CryptographicException || ex is ArgumentException,
+                $"Expected CryptographicException or ArgumentException but got {ex.GetType().Name}");
+        }
+
+        [Fact]
+        public void DecryptSessionKey_SaltedS2K_RoundTrips()
+        {
+            var originalKey = TestHelpers.RandomBytes(32);
+
+            var packet = PgpSymmetricKeyEncryptedSessionKeyPacket.Create(
+                TestPassphrase,
+                originalKey,
+                SymmetricCipherAlgorithm.Aes256,
+                S2KType.Salted);
+
+            var decryptedKey = packet.DecryptSessionKey(TestPassphrase);
+
+            Assert.Equal(originalKey, decryptedKey);
+        }
+
+        [Fact]
+        public void DecryptSessionKey_IteratedS2K_RoundTrips()
+        {
+            var originalKey = TestHelpers.RandomBytes(32);
+
+            var packet = PgpSymmetricKeyEncryptedSessionKeyPacket.Create(
+                TestPassphrase,
+                originalKey,
+                SymmetricCipherAlgorithm.Aes256,
+                S2KType.IteratedAndSalted);
+
+            var decryptedKey = packet.DecryptSessionKey(TestPassphrase);
+
+            Assert.Equal(originalKey, decryptedKey);
+        }
+
+        [Fact]
+        public void Create_AndReadBack_ThenDecrypt_Succeeds()
+        {
+            var originalKey = TestHelpers.RandomBytes(32);
+
+            var createdPacket = PgpSymmetricKeyEncryptedSessionKeyPacket.Create(
+                TestPassphrase,
+                originalKey,
+                SymmetricCipherAlgorithm.Aes256);
+
+            // Serialize and read back
+            var serialized = createdPacket.ToArray();
+            var readPacket = PgpSymmetricKeyEncryptedSessionKeyPacket.Read(serialized);
+
+            // Decrypt from the read packet
+            var decryptedKey = readPacket.DecryptSessionKey(TestPassphrase);
+
+            Assert.Equal(originalKey, decryptedKey);
+        }
+    }
+
+    /// <summary>
+    /// Argon2 S2K tests for SKESK.
+    /// </summary>
+    [Trait("Category", TestCategories.UNIT)]
+    [Trait("Category", TestCategories.SLOW)]
+    public class Argon2SkeskTests
+    {
+        private static readonly byte[] TestPassphrase = Encoding.UTF8.GetBytes("test-passphrase");
+
+        [Fact]
+        public void Create_WithArgon2S2K_Succeeds()
+        {
+            var packet = PgpSymmetricKeyEncryptedSessionKeyPacket.Create(
+                TestPassphrase,
+                sessionKey: null,
+                SymmetricCipherAlgorithm.Aes256,
+                S2KType.Argon2);
+
+            var s2kParams = S2KParameters.Parse(packet.S2kSpecifier.Span);
+            Assert.Equal(S2KType.Argon2, s2kParams.Type);
+        }
+
+        [Fact]
+        public void Create_AndDecrypt_WithArgon2_RoundTrips()
+        {
+            var originalKey = TestHelpers.RandomBytes(32);
+
+            var packet = PgpSymmetricKeyEncryptedSessionKeyPacket.Create(
+                TestPassphrase,
+                originalKey,
+                SymmetricCipherAlgorithm.Aes256,
+                S2KType.Argon2);
+
+            var decryptedKey = packet.DecryptSessionKey(TestPassphrase);
+
+            Assert.Equal(originalKey, decryptedKey);
+        }
+
+        [Fact]
+        public void Argon2_S2KSpecifier_Has20Bytes()
+        {
+            var packet = PgpSymmetricKeyEncryptedSessionKeyPacket.Create(
+                TestPassphrase,
+                sessionKey: null,
+                SymmetricCipherAlgorithm.Aes256,
+                S2KType.Argon2);
+
+            // Argon2 S2K: type(1) + salt(16) + t(1) + p(1) + m(1) = 20 bytes
+            Assert.Equal(20, packet.S2kSpecifier.Length);
         }
     }
 }

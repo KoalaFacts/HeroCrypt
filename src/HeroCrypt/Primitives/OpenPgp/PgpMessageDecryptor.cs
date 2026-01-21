@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Text;
 using HeroCrypt.Operations;
 using HeroCrypt.Security;
 
@@ -20,6 +21,7 @@ namespace HeroCrypt.Primitives.OpenPgp;
 public sealed class PgpMessageDecryptor : IDisposable
 {
     private readonly List<PgpSecretKeyPacket> secretKeys = [];
+    private readonly List<byte[]> messagePassphrases = [];
     private string? passphrase;
     private bool disposed;
 
@@ -77,6 +79,44 @@ public sealed class PgpMessageDecryptor : IDisposable
         return this;
     }
 
+    /// <summary>
+    /// Adds a passphrase for password-based message decryption (SKESK).
+    /// </summary>
+    /// <param name="passphrase">The passphrase bytes.</param>
+    /// <returns>This decryptor for chaining.</returns>
+    /// <remarks>
+    /// Use this method to decrypt messages that were encrypted with a passphrase
+    /// (symmetric-key encrypted session key packets).
+    /// </remarks>
+    public PgpMessageDecryptor WithMessagePassphrase(byte[] passphrase)
+    {
+        ThrowIfDisposed();
+        if (passphrase == null || passphrase.Length == 0)
+        {
+            throw new ArgumentException("Passphrase cannot be null or empty.", nameof(passphrase));
+        }
+
+        messagePassphrases.Add([.. passphrase]);
+        return this;
+    }
+
+    /// <summary>
+    /// Adds a passphrase for password-based message decryption (SKESK).
+    /// </summary>
+    /// <param name="passphrase">The passphrase string (UTF-8 encoded).</param>
+    /// <returns>This decryptor for chaining.</returns>
+    public PgpMessageDecryptor WithMessagePassphrase(string passphrase)
+    {
+        ThrowIfDisposed();
+        if (string.IsNullOrEmpty(passphrase))
+        {
+            throw new ArgumentException("Passphrase cannot be null or empty.", nameof(passphrase));
+        }
+
+        messagePassphrases.Add(Encoding.UTF8.GetBytes(passphrase));
+        return this;
+    }
+
     #endregion
 
     #region Decryption
@@ -105,9 +145,9 @@ public sealed class PgpMessageDecryptor : IDisposable
     {
         ThrowIfDisposed();
 
-        if (secretKeys.Count == 0)
+        if (secretKeys.Count == 0 && messagePassphrases.Count == 0)
         {
-            throw new InvalidOperationException("At least one secret key must be added before decryption.");
+            throw new InvalidOperationException("At least one secret key or message passphrase must be added before decryption.");
         }
 
         if (!TryDecrypt(data, out var message, out var error))
@@ -130,9 +170,9 @@ public sealed class PgpMessageDecryptor : IDisposable
         message = default;
         error = null;
 
-        if (secretKeys.Count == 0)
+        if (secretKeys.Count == 0 && messagePassphrases.Count == 0)
         {
-            error = "No secret keys configured.";
+            error = "No secret keys or message passphrases configured.";
             return false;
         }
 
@@ -141,6 +181,7 @@ public sealed class PgpMessageDecryptor : IDisposable
         using var reader = new PgpPacketReader(stream);
 
         var pkeskPackets = new List<PgpPublicKeyEncryptedSessionKeyPacket>();
+        var skeskPackets = new List<PgpSymmetricKeyEncryptedSessionKeyPacket>();
         PgpSymEncryptedIntegrityProtectedDataPacket? seipdPacket = null;
 
         while (reader.ReadNextPacket(out var tag, out var body))
@@ -152,6 +193,13 @@ public sealed class PgpMessageDecryptor : IDisposable
                     pkeskPackets.Add(pkesk);
                 }
             }
+            else if (tag == PgpPacketTag.SymmetricKeyEncryptedSessionKey)
+            {
+                if (PgpSymmetricKeyEncryptedSessionKeyPacket.TryRead(body.Span, out var skesk, out _))
+                {
+                    skeskPackets.Add(skesk);
+                }
+            }
             else if (tag == PgpPacketTag.SymmetricallyEncryptedIntegrityProtectedData)
             {
                 if (PgpSymEncryptedIntegrityProtectedDataPacket.TryRead(body.Span, out var seipd, out _))
@@ -161,9 +209,9 @@ public sealed class PgpMessageDecryptor : IDisposable
             }
         }
 
-        if (pkeskPackets.Count == 0)
+        if (pkeskPackets.Count == 0 && skeskPackets.Count == 0)
         {
-            error = "No PKESK packets found in message.";
+            error = "No PKESK or SKESK packets found in message.";
             return false;
         }
 
@@ -173,52 +221,110 @@ public sealed class PgpMessageDecryptor : IDisposable
             return false;
         }
 
-        // Try to find a matching key and decrypt the session key
+        // Try to decrypt the session key
         byte[]? sessionKey = null;
         SymmetricCipherAlgorithm symmetricAlgorithm = SymmetricCipherAlgorithm.Aes256;
         byte[] decryptionKeyId = [];
         string? lastDecryptionError = null;
         bool foundMatchingKey = false;
+        bool usedPassphrase = false;
 
-        foreach (var pkesk in pkeskPackets)
+        // First try SKESK packets with message passphrases
+        if (skeskPackets.Count > 0 && messagePassphrases.Count > 0)
         {
-            foreach (var secretKey in secretKeys)
+            foreach (var skesk in skeskPackets)
             {
-                if (KeyMatches(pkesk, secretKey))
+                foreach (var passphraseBytes in messagePassphrases)
                 {
-                    foundMatchingKey = true;
-                    // Try to decrypt with this key
-                    var result = TryDecryptSessionKey(pkesk, secretKey, out var decryptError);
-                    if (result.HasValue)
+                    try
                     {
-                        symmetricAlgorithm = result.Value.Algorithm;
-                        sessionKey = result.Value.SessionKey;
-                        decryptionKeyId = secretKey.GetKeyId();
-                        break;
+                        var decryptedKey = skesk.DecryptSessionKey(passphraseBytes);
+                        if (decryptedKey.Length > 0)
+                        {
+                            // Session key was encrypted in SKESK
+                            sessionKey = decryptedKey;
+                            symmetricAlgorithm = skesk.CipherAlgorithm;
+                            usedPassphrase = true;
+                            break;
+                        }
+                        else
+                        {
+                            // Direct key mode - derive the key from passphrase
+                            // The KEK is the session key
+                            var s2kParams = Primitives.S2K.S2KParameters.Parse(skesk.S2kSpecifier.Span);
+                            int keySize = GetKeySize(skesk.CipherAlgorithm);
+                            sessionKey = s2kParams.DeriveKey(passphraseBytes, keySize);
+                            symmetricAlgorithm = skesk.CipherAlgorithm;
+                            usedPassphrase = true;
+                            break;
+                        }
                     }
-                    else if (decryptError != null)
+                    catch
                     {
-                        lastDecryptionError = decryptError;
+                        // Wrong passphrase, try next
+                        lastDecryptionError = "Passphrase decryption failed.";
                     }
                 }
-            }
 
-            if (sessionKey != null)
+                if (sessionKey != null)
+                {
+                    break;
+                }
+            }
+        }
+
+        // If SKESK didn't work, try PKESK packets with secret keys
+        if (sessionKey == null && pkeskPackets.Count > 0 && secretKeys.Count > 0)
+        {
+            foreach (var pkesk in pkeskPackets)
             {
-                break;
+                foreach (var secretKey in secretKeys)
+                {
+                    if (KeyMatches(pkesk, secretKey))
+                    {
+                        foundMatchingKey = true;
+                        // Try to decrypt with this key
+                        var result = TryDecryptSessionKey(pkesk, secretKey, out var decryptError);
+                        if (result.HasValue)
+                        {
+                            symmetricAlgorithm = result.Value.Algorithm;
+                            sessionKey = result.Value.SessionKey;
+                            decryptionKeyId = secretKey.GetKeyId();
+                            break;
+                        }
+                        else if (decryptError != null)
+                        {
+                            lastDecryptionError = decryptError;
+                        }
+                    }
+                }
+
+                if (sessionKey != null)
+                {
+                    break;
+                }
             }
         }
 
         if (sessionKey == null)
         {
-            if (foundMatchingKey && lastDecryptionError != null)
+            if (usedPassphrase || (foundMatchingKey && lastDecryptionError != null))
             {
-                error = $"Key matched but decryption failed: {lastDecryptionError}";
+                error = $"Decryption failed: {lastDecryptionError ?? "Unknown error"}";
+            }
+            else if (skeskPackets.Count > 0 && messagePassphrases.Count == 0)
+            {
+                error = "Message requires a passphrase for decryption. Use WithMessagePassphrase().";
+            }
+            else if (pkeskPackets.Count > 0 && secretKeys.Count == 0)
+            {
+                error = "Message requires a secret key for decryption. Use WithSecretKey() or WithSecretKeyRing().";
             }
             else
             {
-                error = "No matching secret key found for decryption.";
+                error = "No matching secret key or passphrase found for decryption.";
             }
+
             return false;
         }
 
@@ -661,6 +767,28 @@ public sealed class PgpMessageDecryptor : IDisposable
 #pragma warning restore CS0618
     }
 
+    private static int GetKeySize(SymmetricCipherAlgorithm algorithm)
+    {
+        // Suppress obsolete warnings - OpenPGP requires legacy algorithm support for interoperability
+#pragma warning disable CS0618
+        return algorithm switch
+        {
+            SymmetricCipherAlgorithm.Idea => 16,
+            SymmetricCipherAlgorithm.TripleDes => 24,
+            SymmetricCipherAlgorithm.Cast5 => 16,
+            SymmetricCipherAlgorithm.Blowfish => 16,
+            SymmetricCipherAlgorithm.Aes128 => 16,
+            SymmetricCipherAlgorithm.Aes192 => 24,
+            SymmetricCipherAlgorithm.Aes256 => 32,
+            SymmetricCipherAlgorithm.Twofish => 32,
+            SymmetricCipherAlgorithm.Camellia128 => 16,
+            SymmetricCipherAlgorithm.Camellia192 => 24,
+            SymmetricCipherAlgorithm.Camellia256 => 32,
+            _ => throw new ArgumentException($"Unknown cipher algorithm: {algorithm}", nameof(algorithm))
+        };
+#pragma warning restore CS0618
+    }
+
     private void ThrowIfDisposed()
     {
 #if NET8_0_OR_GREATER
@@ -683,6 +811,14 @@ public sealed class PgpMessageDecryptor : IDisposable
             // Clear any passphrase
             passphrase = null;
             secretKeys.Clear();
+
+            // Securely clear message passphrases
+            foreach (var msgPassphrase in messagePassphrases)
+            {
+                SecureMemoryOperations.SecureClear(msgPassphrase);
+            }
+
+            messagePassphrases.Clear();
             disposed = true;
         }
     }

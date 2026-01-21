@@ -349,6 +349,319 @@ internal static class PgpKeyEncryption
 
     #endregion
 
+    #region ECDH Session Key Decryption (RFC 6637)
+
+    /// <summary>
+    /// Curve25519 OID bytes for ECDH (algorithm 18).
+    /// </summary>
+    private static readonly byte[] Curve25519Oid = [0x2B, 0x06, 0x01, 0x04, 0x01, 0x97, 0x55, 0x01, 0x05, 0x01];
+
+    /// <summary>
+    /// Decrypts a session key using ECDH with Curve25519 (RFC 6637).
+    /// </summary>
+    /// <param name="encryptedData">The encrypted session key data from PKESK packet.</param>
+    /// <param name="secretKey">The recipient's ECDH secret key packet.</param>
+    /// <returns>A tuple of (symmetric algorithm, session key).</returns>
+    /// <remarks>
+    /// <para>
+    /// ECDH session key decryption per RFC 6637:
+    /// <code>
+    /// 1. Parse ephemeral public key from MPI
+    /// 2. sharedSecret = ECDH(recipientPrivate, ephemeralPublic)
+    /// 3. param = oidLen || oid || 0x03 || 0x01 || hash || cipher || "Anonymous Sender    " || fingerprint
+    /// 4. KEK = Hash(00 00 00 01 || sharedSecret || param)
+    /// 5. unwrapped = AES-KeyUnwrap(KEK, wrappedKey)
+    /// 6. symAlg = unwrapped[0], sessionKey = unwrapped[1..len-padLen]
+    /// </code>
+    /// </para>
+    /// </remarks>
+    public static (SymmetricCipherAlgorithm Algorithm, byte[] SessionKey) DecryptSessionKeyEcdhCurve25519(
+        ReadOnlySpan<byte> encryptedData,
+        PgpSecretKeyPacket secretKey)
+    {
+        if (secretKey.IsEncrypted)
+        {
+            throw new InvalidOperationException("Secret key is encrypted. Decrypt the key first.");
+        }
+
+        if (secretKey.Algorithm != PgpPublicKeyAlgorithm.Ecdh)
+        {
+            throw new ArgumentException($"Expected ECDH key, got {secretKey.Algorithm}.", nameof(secretKey));
+        }
+
+        // Read ECDH key parameters
+        var (oid, _, hashAlgorithm, cipherAlgorithm) = secretKey.PublicKey.ReadEcdhKey();
+
+        // Verify this is Curve25519
+        if (!oid.AsSpan().SequenceEqual(Curve25519Oid))
+        {
+            throw new ArgumentException("Only Curve25519 ECDH is supported.", nameof(secretKey));
+        }
+
+        // Parse PKESK encrypted data: MPI(ephemeral) + len(1) + wrappedKey
+        var ephemeralMpi = Mpi.ReadBytes(encryptedData, out int consumed);
+
+        if (encryptedData.Length < consumed + 1)
+        {
+            throw new ArgumentException("Encrypted data too short.", nameof(encryptedData));
+        }
+
+        int wrappedKeyLen = encryptedData[consumed];
+        if (encryptedData.Length < consumed + 1 + wrappedKeyLen)
+        {
+            throw new ArgumentException("Encrypted data truncated.", nameof(encryptedData));
+        }
+
+        byte[] wrappedKey = encryptedData.Slice(consumed + 1, wrappedKeyLen).ToArray();
+
+        // Extract ephemeral public key (remove 0x40 prefix for Curve25519)
+        if (ephemeralMpi.Length != 33 || ephemeralMpi[0] != 0x40)
+        {
+            throw new ArgumentException("Invalid ephemeral key format for Curve25519.", nameof(encryptedData));
+        }
+
+        // Extract ephemeral public key from MPI (remove 0x40 prefix)
+        // For Curve25519 with 0x40 prefix, the key is stored in native format (no reversal needed)
+        byte[] ephemeralPublic = ephemeralMpi.AsSpan(1, 32).ToArray();
+
+        // Get our private key
+        // For Curve25519 ECDH (algorithm 18), the secret key is stored as a big-endian MPI,
+        // but X25519 expects keys in little-endian format (per RFC 7748).
+        // We must reverse the bytes after padding to convert from MPI (big-endian) to X25519 (little-endian).
+        byte[] privateKeyMpi = secretKey.ReadEcSecretKey();
+
+        // Pad to 32 bytes with leading zeros (big-endian MPI format, leading zeros stripped)
+        byte[] privateKey = new byte[32];
+        if (privateKeyMpi.Length <= 32)
+        {
+            // Copy to right side (leading zeros on left for big-endian)
+            privateKeyMpi.CopyTo(privateKey.AsSpan(32 - privateKeyMpi.Length));
+        }
+        else
+        {
+            SecureMemoryOperations.SecureClear(privateKeyMpi);
+            throw new ArgumentException("Invalid Curve25519 private key length.", nameof(secretKey));
+        }
+
+        SecureMemoryOperations.SecureClear(privateKeyMpi);
+
+        // Reverse to convert from big-endian (MPI) to little-endian (X25519)
+        Array.Reverse(privateKey);
+
+        try
+        {
+            // Compute shared secret using X25519
+            byte[] sharedSecret = Curve25519Core.ComputeSharedSecret(privateKey, ephemeralPublic);
+
+            try
+            {
+                // Build KDF parameter per RFC 6637
+                // param = oidLen || oid || 0x03 || 0x01 || hash || cipher || "Anonymous Sender    " || fingerprint
+                byte[] fingerprint = secretKey.PublicKey.ComputeFingerprint();
+
+                // Get the 20-byte fingerprint (V4) or truncate for V6
+                byte[] fingerprintPart = fingerprint.Length >= 20
+                    ? fingerprint.AsSpan(0, 20).ToArray()
+                    : fingerprint;
+
+                byte[] param = BuildEcdhKdfParam(oid, hashAlgorithm, cipherAlgorithm, fingerprintPart);
+
+                // Derive KEK: Hash(00 00 00 01 || Z || param)
+                byte[] kek = DeriveEcdhKek(sharedSecret, param, hashAlgorithm, cipherAlgorithm);
+
+                try
+                {
+                    // AES Key Unwrap
+                    byte[] unwrapped = AesKeyUnwrap(kek, wrappedKey);
+
+                    // Parse: symAlg(1) || sessionKey || [checksum(2)] || PKCS5 padding
+                    // Note: RFC 6637 says no checksum, but some implementations (OpenPGP.js) include it
+                    if (unwrapped.Length < 2)
+                    {
+                        throw new CryptographicException("Unwrapped key too short.");
+                    }
+
+                    var symmetricAlgorithm = (SymmetricCipherAlgorithm)unwrapped[0];
+
+                    // Remove PKCS5 padding
+                    int padLen = unwrapped[^1];
+                    if (padLen < 1 || padLen > 8 || unwrapped.Length < 1 + padLen)
+                    {
+                        throw new CryptographicException("Invalid PKCS5 padding.");
+                    }
+
+                    // Verify padding bytes
+                    for (int i = unwrapped.Length - padLen; i < unwrapped.Length; i++)
+                    {
+                        if (unwrapped[i] != padLen)
+                        {
+                            throw new CryptographicException("Invalid PKCS5 padding.");
+                        }
+                    }
+
+                    // Determine expected session key length based on algorithm
+                    // Suppress obsolete warnings - OpenPGP requires legacy algorithm support for interoperability
+#pragma warning disable CS0618
+                    int expectedKeyLen = symmetricAlgorithm switch
+                    {
+                        SymmetricCipherAlgorithm.Aes128 => 16,
+                        SymmetricCipherAlgorithm.Aes192 => 24,
+                        SymmetricCipherAlgorithm.Aes256 => 32,
+                        SymmetricCipherAlgorithm.TripleDes => 24,
+                        SymmetricCipherAlgorithm.Cast5 => 16,
+                        SymmetricCipherAlgorithm.Blowfish => 16,
+                        SymmetricCipherAlgorithm.Twofish => 32,
+                        SymmetricCipherAlgorithm.Camellia128 => 16,
+                        SymmetricCipherAlgorithm.Camellia192 => 24,
+                        SymmetricCipherAlgorithm.Camellia256 => 32,
+                        _ => unwrapped.Length - 1 - padLen // Fallback to raw length
+                    };
+#pragma warning restore CS0618
+
+                    int dataLen = unwrapped.Length - 1 - padLen;
+                    int sessionKeyLen;
+
+                    // Check if there's a checksum (2 extra bytes after key)
+                    if (dataLen == expectedKeyLen + 2)
+                    {
+                        // Has checksum - verify it
+                        sessionKeyLen = expectedKeyLen;
+                        ushort checksum = 0;
+                        for (int i = 1; i <= sessionKeyLen; i++)
+                        {
+                            checksum += unwrapped[i];
+                        }
+                        ushort storedChecksum = (ushort)((unwrapped[1 + sessionKeyLen] << 8) | unwrapped[2 + sessionKeyLen]);
+                        if (checksum != storedChecksum)
+                        {
+                            throw new CryptographicException("Session key checksum mismatch.");
+                        }
+                    }
+                    else
+                    {
+                        // No checksum - use full data as key
+                        sessionKeyLen = dataLen;
+                    }
+
+                    byte[] sessionKey = new byte[sessionKeyLen];
+                    Array.Copy(unwrapped, 1, sessionKey, 0, sessionKeyLen);
+
+                    SecureMemoryOperations.SecureClear(unwrapped);
+
+                    return (symmetricAlgorithm, sessionKey);
+                }
+                finally
+                {
+                    SecureMemoryOperations.SecureClear(kek);
+                }
+            }
+            finally
+            {
+                SecureMemoryOperations.SecureClear(sharedSecret);
+            }
+        }
+        finally
+        {
+            SecureMemoryOperations.SecureClear(privateKey);
+        }
+    }
+
+    /// <summary>
+    /// Builds the KDF parameter for ECDH per RFC 6637.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Per RFC 6637 Section 8:
+    /// <code>
+    /// Param = curve_OID_len || curve_OID || public_key_alg_ID || 03 || 01 ||
+    ///         Hash-Alg-ID || Sym-Alg-ID || "Anonymous Sender    " ||
+    ///         20_bytes_from_recipient_public_key_fingerprint
+    /// </code>
+    /// </para>
+    /// </remarks>
+    private static byte[] BuildEcdhKdfParam(byte[] oid, byte hashAlgorithm, byte cipherAlgorithm, byte[] fingerprint)
+    {
+        // "Anonymous Sender    " (20 bytes, padded with spaces)
+        byte[] anonymousSender = "Anonymous Sender    "u8.ToArray();
+
+        // param = oidLen || oid || publicKeyAlg || 03 || 01 || hash || cipher || anonymousSender || fingerprint
+        const byte publicKeyAlgorithm = (byte)PgpPublicKeyAlgorithm.Ecdh; // 18
+        int paramLen = 1 + oid.Length + 5 + anonymousSender.Length + fingerprint.Length;
+        byte[] param = new byte[paramLen];
+
+        int offset = 0;
+        param[offset++] = (byte)oid.Length;
+        oid.CopyTo(param.AsSpan(offset));
+        offset += oid.Length;
+        param[offset++] = publicKeyAlgorithm;
+        param[offset++] = 0x03;
+        param[offset++] = 0x01;
+        param[offset++] = hashAlgorithm;
+        param[offset++] = cipherAlgorithm;
+        anonymousSender.CopyTo(param.AsSpan(offset));
+        offset += anonymousSender.Length;
+        fingerprint.CopyTo(param.AsSpan(offset));
+
+        return param;
+    }
+
+    /// <summary>
+    /// Derives the Key Encryption Key for ECDH per RFC 6637.
+    /// </summary>
+    private static byte[] DeriveEcdhKek(byte[] sharedSecret, byte[] param, byte hashAlgorithm, byte cipherAlgorithm)
+    {
+        // KEK = Hash(00 00 00 01 || Z || param)
+        // Truncate to cipher key size
+        // Suppress SHA-1 obsolete warning - OpenPGP requires legacy algorithm support for interoperability
+#pragma warning disable CS0618
+        HashAlgorithmName hashName = hashAlgorithm switch
+        {
+            (byte)PgpHashAlgorithmId.Sha256 => HashAlgorithmName.SHA256,
+            (byte)PgpHashAlgorithmId.Sha384 => HashAlgorithmName.SHA384,
+            (byte)PgpHashAlgorithmId.Sha512 => HashAlgorithmName.SHA512,
+            (byte)PgpHashAlgorithmId.Sha1 => HashAlgorithmName.SHA1,
+            _ => throw new ArgumentException($"Unsupported hash algorithm: {hashAlgorithm}")
+        };
+#pragma warning restore CS0618
+
+        int kekSize = cipherAlgorithm switch
+        {
+            (byte)SymmetricCipherAlgorithm.Aes128 => 16,
+            (byte)SymmetricCipherAlgorithm.Aes192 => 24,
+            (byte)SymmetricCipherAlgorithm.Aes256 => 32,
+            _ => throw new ArgumentException($"Unsupported cipher algorithm: {cipherAlgorithm}")
+        };
+
+#if NETSTANDARD2_0
+#pragma warning disable IDE0300 // Collection initialization can be simplified - netstandard2.0 doesn't support collection expressions
+        using var hash = IncrementalHash.CreateHash(hashName);
+        hash.AppendData(new byte[] { 0, 0, 0, 1 });
+        hash.AppendData(sharedSecret);
+        hash.AppendData(param);
+        byte[] digest = hash.GetHashAndReset();
+#pragma warning restore IDE0300
+#else
+        using var hash = IncrementalHash.CreateHash(hashName);
+        hash.AppendData([0, 0, 0, 1]);
+        hash.AppendData(sharedSecret);
+        hash.AppendData(param);
+        byte[] digest = hash.GetHashAndReset();
+#endif
+
+        // Truncate to KEK size
+        if (digest.Length >= kekSize)
+        {
+            byte[] kek = new byte[kekSize];
+            Array.Copy(digest, kek, kekSize);
+            SecureMemoryOperations.SecureClear(digest);
+            return kek;
+        }
+
+        throw new CryptographicException("Hash output too short for KEK.");
+    }
+
+    #endregion
+
     #region AES Key Wrap (RFC 3394)
 
     /// <summary>

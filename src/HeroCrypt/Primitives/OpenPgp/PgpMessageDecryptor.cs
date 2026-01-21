@@ -17,6 +17,12 @@ namespace HeroCrypt.Primitives.OpenPgp;
 ///     .Decrypt(encryptedMessage);
 /// </code>
 /// </para>
+/// <para>
+/// <b>Security Note:</b> String-based passphrases cannot be securely cleared from memory
+/// due to .NET string immutability. For high-security applications, use the byte array
+/// overloads (e.g., <see cref="WithMessagePassphrase(byte[])"/>) and manually clear the
+/// byte array after use with <see cref="HeroCrypt.Security.SecureMemoryOperations.SecureClear(byte[])"/>.
+/// </para>
 /// </remarks>
 public sealed class PgpMessageDecryptor : IDisposable
 {
@@ -72,6 +78,11 @@ public sealed class PgpMessageDecryptor : IDisposable
     /// </summary>
     /// <param name="passphrase">The passphrase.</param>
     /// <returns>This decryptor for chaining.</returns>
+    /// <remarks>
+    /// <b>Security Warning:</b> String passphrases cannot be securely cleared from memory.
+    /// For high-security applications, decrypt the secret key separately using
+    /// <see cref="PgpSecretKeyPacket.Decrypt(string)"/> and provide the decrypted key.
+    /// </remarks>
     public PgpMessageDecryptor WithPassphrase(string passphrase)
     {
         ThrowIfDisposed();
@@ -105,6 +116,10 @@ public sealed class PgpMessageDecryptor : IDisposable
     /// </summary>
     /// <param name="passphrase">The passphrase string (UTF-8 encoded).</param>
     /// <returns>This decryptor for chaining.</returns>
+    /// <remarks>
+    /// <b>Security Warning:</b> String passphrases cannot be securely cleared from memory.
+    /// For high-security applications, use <see cref="WithMessagePassphrase(byte[])"/> instead.
+    /// </remarks>
     public PgpMessageDecryptor WithMessagePassphrase(string passphrase)
     {
         ThrowIfDisposed();
@@ -400,6 +415,11 @@ public sealed class PgpMessageDecryptor : IDisposable
                 byte[] sessionKey = PgpKeyEncryption.DecryptSessionKeyX25519(pkesk.EncryptedSessionKey.Span, secretKey);
                 return (SymmetricCipherAlgorithm.Aes256, sessionKey);
             }
+            else if (pkesk.Algorithm == PgpPublicKeyAlgorithm.Ecdh)
+            {
+                // ECDH (RFC 6637) - session key includes algorithm byte
+                return PgpKeyEncryption.DecryptSessionKeyEcdhCurve25519(pkesk.EncryptedSessionKey.Span, secretKey);
+            }
             else
             {
                 error = $"Unsupported public key algorithm: {pkesk.Algorithm}";
@@ -623,7 +643,7 @@ public sealed class PgpMessageDecryptor : IDisposable
 
         try
         {
-            return AeadDecrypt(seipd.EncryptedData.ToArray(), messageKey, seipd.Salt.ToArray(), seipd.ChunkSize, seipd.AeadAlgorithm);
+            return AeadDecrypt(seipd.EncryptedData.ToArray(), messageKey, seipd.Salt.ToArray(), seipd.ChunkSize, seipd.AeadAlgorithm, seipd.CipherAlgorithm);
         }
         finally
         {
@@ -633,7 +653,7 @@ public sealed class PgpMessageDecryptor : IDisposable
     }
 
 #if !NETSTANDARD2_0
-    private byte[] AeadDecrypt(byte[] ciphertext, byte[] key, byte[] salt, byte chunkSizeExponent, AeadAlgorithm aeadAlgorithm)
+    private byte[] AeadDecrypt(byte[] ciphertext, byte[] key, byte[] salt, byte chunkSizeExponent, AeadAlgorithm aeadAlgorithm, SymmetricCipherAlgorithm cipherAlgorithm)
     {
         int chunkSize = 1 << chunkSizeExponent;
         int nonceSize = GetAeadNonceSize(aeadAlgorithm);
@@ -664,7 +684,7 @@ public sealed class PgpMessageDecryptor : IDisposable
             }
 
             // Associated data
-            byte[] aad = [0x12, 0x02, (byte)SymmetricCipherAlgorithm.Aes256, (byte)aeadAlgorithm, chunkSizeExponent];
+            byte[] aad = [0x12, 0x02, (byte)cipherAlgorithm, (byte)aeadAlgorithm, chunkSizeExponent];
 
             // Decrypt chunk
             byte[] chunkCiphertext = new byte[chunkPlaintextLen];
@@ -690,8 +710,59 @@ public sealed class PgpMessageDecryptor : IDisposable
             chunkIndex++;
         }
 
-        // Verify final authentication tag
-        // (skipping for now as it would require tracking the number of chunks)
+        // Verify final authentication tag (RFC 9580 Section 5.13.2)
+        // The final tag authenticates the total number of plaintext octets
+        if (ciphertext.Length >= tagSize)
+        {
+            byte[] finalTag = new byte[tagSize];
+            Array.Copy(ciphertext, ciphertext.Length - tagSize, finalTag, 0, tagSize);
+
+            // Build final nonce with the total chunk count
+            byte[] finalNonce = new byte[nonceSize];
+            int saltPrefix = Math.Min(nonceSize - 8, salt.Length);
+            Array.Copy(salt, 0, finalNonce, 0, saltPrefix);
+            for (int i = 0; i < 8; i++)
+            {
+                finalNonce[nonceSize - 8 + i] = (byte)((long)chunkIndex >> (56 - i * 8));
+            }
+
+            // Final AAD includes the total plaintext length (big-endian, 8 bytes)
+            long totalPlaintextLen = output.Length;
+            byte[] finalAad = new byte[5 + 8];
+            finalAad[0] = 0x12; // SEIPD v2 tag
+            finalAad[1] = 0x02; // Version 2
+            finalAad[2] = (byte)cipherAlgorithm;
+            finalAad[3] = (byte)aeadAlgorithm;
+            finalAad[4] = chunkSizeExponent;
+            for (int i = 0; i < 8; i++)
+            {
+                finalAad[5 + i] = (byte)(totalPlaintextLen >> (56 - i * 8));
+            }
+
+            // Verify final tag (empty plaintext, just authentication)
+            if (aeadAlgorithm == AeadAlgorithm.Gcm)
+            {
+                try
+                {
+                    using var aesGcm = new System.Security.Cryptography.AesGcm(key, tagSize);
+                    // Decrypting empty ciphertext just verifies the tag
+                    // IDE0301 suppressed: using [] causes ambiguity between byte[] and Span<byte> overloads
+#pragma warning disable IDE0301
+                    aesGcm.Decrypt(
+                        nonce: finalNonce.AsSpan(),
+                        ciphertext: ReadOnlySpan<byte>.Empty,
+                        tag: finalTag.AsSpan(),
+                        plaintext: Span<byte>.Empty,
+                        associatedData: finalAad.AsSpan());
+#pragma warning restore IDE0301
+                }
+                catch (System.Security.Cryptography.AuthenticationTagMismatchException)
+                {
+                    throw new System.Security.Cryptography.CryptographicException(
+                        "AEAD final authentication tag verification failed. Message may have been tampered with or truncated.");
+                }
+            }
+        }
 
         return output.ToArray();
     }

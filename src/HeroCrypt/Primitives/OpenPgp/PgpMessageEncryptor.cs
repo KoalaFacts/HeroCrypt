@@ -727,7 +727,8 @@ public sealed class PgpMessageEncryptor : IDisposable
             output.Write(ciphertext, 0, ciphertext.Length);
         }
 
-        // Final authentication tag (empty chunk)
+        // Final authentication tag (RFC 9580 Section 5.13.2)
+        // The final tag authenticates the total number of plaintext octets
         byte[] finalNonce = new byte[nonceSize];
         int finalSaltPrefix = Math.Min(nonceSize - 8, salt.Length);
         Array.Copy(salt, 0, finalNonce, 0, finalSaltPrefix);
@@ -736,7 +737,18 @@ public sealed class PgpMessageEncryptor : IDisposable
             finalNonce[nonceSize - 8 + i] = (byte)((long)numChunks >> (56 - i * 8));
         }
 
-        byte[] finalAad = [0x12, 0x02, (byte)symmetricAlgorithm, (byte)aeadAlgorithm, chunkSizeExponent];
+        // Final AAD includes the total plaintext length (big-endian, 8 bytes) per RFC 9580
+        long totalPlaintextLen = plaintext.Length;
+        byte[] finalAad = new byte[5 + 8];
+        finalAad[0] = 0x12; // SEIPD v2 tag
+        finalAad[1] = 0x02; // Version 2
+        finalAad[2] = (byte)symmetricAlgorithm;
+        finalAad[3] = (byte)aeadAlgorithm;
+        finalAad[4] = chunkSizeExponent;
+        for (int i = 0; i < 8; i++)
+        {
+            finalAad[5 + i] = (byte)(totalPlaintextLen >> (56 - i * 8));
+        }
 
         if (aeadAlgorithm == AeadAlgorithm.Gcm)
         {

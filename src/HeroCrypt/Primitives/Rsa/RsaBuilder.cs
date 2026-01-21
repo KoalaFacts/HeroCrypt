@@ -56,8 +56,8 @@ namespace HeroCrypt.Primitives.Rsa;
 public sealed class RsaBuilder : IDisposable
 {
     private RsaKeySize keySize = RsaKeySize.Rsa2048;
-    private RsaPaddingMode paddingMode = RsaPaddingMode.Pkcs1;
-    private HashAlgorithmName? hashAlgorithm;
+    private RsaPaddingMode paddingMode = RsaPaddingMode.Oaep;
+    private HashAlgorithmName? hashAlgorithm = HashAlgorithmName.SHA256;
     private RsaPrivateKey? privateKey;
     private RsaPublicKey? publicKey;
     private byte[]? data;
@@ -286,14 +286,26 @@ public sealed class RsaBuilder : IDisposable
 
     private void ClearPrivateKey()
     {
-        // Note: System.Numerics.BigInteger is immutable, so we cannot securely clear it.
-        // The .NET runtime's RSA implementation handles its own key material securely.
+        // SECURITY NOTE: System.Numerics.BigInteger is immutable and cannot be securely cleared.
+        // This is a known limitation of .NET's BigInteger implementation. The private key material
+        // (D, P, Q, DP, DQ, InverseQ) stored in RsaPrivateKey uses BigInteger internally.
+        //
+        // Mitigations:
+        // 1. The .NET runtime's RSA implementation (RSACryptoServiceProvider/RSACng) handles
+        //    its own key material securely with proper disposal.
+        // 2. Applications handling highly sensitive keys should consider:
+        //    - Using hardware security modules (HSM) via CNG
+        //    - Minimizing key lifetime in memory
+        //    - Running in isolated processes with restricted memory access
+        //
+        // Reference: https://github.com/dotnet/runtime/issues/27966
         privateKey = null;
     }
 
     private void ClearPublicKey()
     {
-        // Note: System.Numerics.BigInteger is immutable, so we cannot securely clear it.
+        // Public keys don't require secure clearing as they are not secret,
+        // but we null the reference for consistency.
         publicKey = null;
     }
 

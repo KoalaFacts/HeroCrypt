@@ -86,7 +86,7 @@ SsrtSQmZUKpxuBROy+bZNheNgmN966vqnFBiM1vXikv5OVyprUV0EzzQ3Hnt
 
         private const string ExpectedNistP256DecryptedMessage = "abc";
 
-        [Fact(Skip = "OpenPGP.js uses EdDSA legacy format (algorithm 22) which requires special handling")]
+        [Fact]
         public void DecryptKnownVector_X25519_LightToNight_Succeeds()
         {
             // Parse and decrypt Night's private key
@@ -114,7 +114,7 @@ SsrtSQmZUKpxuBROy+bZNheNgmN966vqnFBiM1vXikv5OVyprUV0EzzQ3Hnt
             Assert.Equal(ExpectedLightToNightMessage, text);
         }
 
-        [Fact(Skip = "V6 ECDH with NIST P-256 requires additional implementation")]
+        [Fact(Skip = "V6 secret key format parsing needs implementation; also needs NIST P-256 ECDH")]
         public void DecryptKnownVector_NistP256V6_Succeeds()
         {
             // Parse the private key (V6 format, no passphrase)
@@ -231,6 +231,81 @@ SsrtSQmZUKpxuBROy+bZNheNgmN966vqnFBiM1vXikv5OVyprUV0EzzQ3Hnt
             // Decrypt with subkey
             using var decryptor = PgpMessageDecryptor.Create()
                 .WithSecretKey(encryptionSubkey);
+
+            var decrypted = decryptor.Decrypt(encrypted);
+
+            var decryptedText = Encoding.UTF8.GetString(decrypted.Data.ToArray());
+            Assert.Equal(TestPlaintext, decryptedText);
+        }
+
+        [Fact]
+        public void EncryptDecrypt_WithArgon2Passphrase_Succeeds()
+        {
+            const string passphrase = "argon2-rsa-test-pass";
+
+            // Generate RSA key with Argon2 passphrase protection
+            // Using lower memory for faster tests (2^16 KB = 64MB)
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("test-rsa-argon2@example.com")
+                .WithKeySize(2048)
+                .WithArgon2Passphrase(passphrase, 1, 1, 16)
+                .GenerateRsa();
+
+            // Verify key is encrypted
+            Assert.True(keyResult.MasterSecretKey.IsEncrypted);
+
+            // Decrypt the secret key
+            var decryptedKey = keyResult.MasterSecretKey.Decrypt(passphrase);
+            Assert.False(decryptedKey.IsEncrypted);
+
+            // Encrypt message
+            var plainBytes = Encoding.UTF8.GetBytes(TestPlaintext);
+            using var encryptor = PgpMessageEncryptor.Create()
+                .AddRecipient(keyResult.MasterPublicKey);
+
+            var encrypted = encryptor.Encrypt(plainBytes);
+
+            // Decrypt message
+            using var decryptor = PgpMessageDecryptor.Create()
+                .WithSecretKey(decryptedKey);
+
+            var decrypted = decryptor.Decrypt(encrypted);
+
+            var decryptedText = Encoding.UTF8.GetString(decrypted.Data.ToArray());
+            Assert.Equal(TestPlaintext, decryptedText);
+        }
+
+        [Fact]
+        public void EncryptDecrypt_WithEncryptionSubkey_AndArgon2Passphrase_Succeeds()
+        {
+            const string passphrase = "argon2-subkey-pass";
+
+            // Generate RSA key with encryption subkey and Argon2 passphrase protection
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("test-rsa-subkey-argon2@example.com")
+                .WithKeySize(2048)
+                .WithArgon2Passphrase(passphrase, 1, 1, 16)
+                .WithEncryptionSubkey()
+                .GenerateRsa();
+
+            // Get encryption subkey
+            var encryptionSubkey = keyResult.SecretKeyRing.Subkeys[0];
+            Assert.True(encryptionSubkey.IsEncrypted);
+
+            // Decrypt the subkey
+            var decryptedSubkey = encryptionSubkey.Decrypt(passphrase);
+            Assert.False(decryptedSubkey.IsEncrypted);
+
+            // Encrypt with subkey's public key
+            var plainBytes = Encoding.UTF8.GetBytes(TestPlaintext);
+            using var encryptor = PgpMessageEncryptor.Create()
+                .AddRecipient(encryptionSubkey.PublicKey);
+
+            var encrypted = encryptor.Encrypt(plainBytes);
+
+            // Decrypt with decrypted subkey
+            using var decryptor = PgpMessageDecryptor.Create()
+                .WithSecretKey(decryptedSubkey);
 
             var decrypted = decryptor.Decrypt(encrypted);
 

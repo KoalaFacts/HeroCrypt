@@ -16,10 +16,17 @@ namespace HeroCrypt.Primitives.S2K;
 /// </remarks>
 /// <example>
 /// <code>
-/// // Iterated S2K (recommended)
+/// // Iterated S2K (legacy recommended)
 /// var key = S2KBuilder.Create()
 ///     .WithType(S2KType.IteratedAndSalted)
+///     .WithRandomSalt()
 ///     .WithIterationCount(65536)
+///     .DeriveKey(password, 32);
+///
+/// // Argon2 S2K (RFC 9580 - strongest protection)
+/// var key = S2KBuilder.Create()
+///     .WithArgon2Parameters(timePasses: 3, parallelism: 4, memoryExponent: 16)
+///     .WithRandomSalt()
 ///     .DeriveKey(password, 32);
 ///
 /// // With custom salt
@@ -35,6 +42,9 @@ public sealed class S2KBuilder : IDisposable
     private HashAlgorithmName hashAlgorithm = S2KCore.DEFAULT_HASH;
     private byte[]? salt;
     private long iterationCount = 65536; // Default: 65536 bytes
+    private byte argon2TimePasses = 3;
+    private byte argon2Parallelism = 4;
+    private byte argon2MemoryExponent = 16; // 64 MiB
     private bool disposed;
 
     private S2KBuilder() { }
@@ -68,18 +78,23 @@ public sealed class S2KBuilder : IDisposable
     }
 
     /// <summary>
-    /// Sets the salt for Salted and Iterated S2K.
+    /// Sets the salt for S2K operations.
     /// </summary>
-    /// <param name="saltValue">The 8-byte salt.</param>
+    /// <param name="saltValue">The salt (8 bytes for types 0-3, 16 bytes for Argon2).</param>
     /// <returns>The builder instance for method chaining.</returns>
     /// <exception cref="ArgumentNullException">If salt is null.</exception>
-    /// <exception cref="ArgumentException">If salt is not 8 bytes.</exception>
+    /// <exception cref="ArgumentException">If salt has invalid length for the current S2K type.</exception>
     public S2KBuilder WithSalt(byte[] saltValue)
     {
         ArgumentHelper.ThrowIfNull(saltValue);
-        if (saltValue.Length != S2KCore.DEFAULT_SALT_SIZE)
+
+        var expectedSize = s2kType == S2KType.Argon2
+            ? S2KCore.ARGON2_SALT_SIZE
+            : S2KCore.DEFAULT_SALT_SIZE;
+
+        if (saltValue.Length != expectedSize)
         {
-            throw new ArgumentException($"Salt must be {S2KCore.DEFAULT_SALT_SIZE} bytes.", nameof(saltValue));
+            throw new ArgumentException($"Salt must be {expectedSize} bytes for {s2kType}.", nameof(saltValue));
         }
 
         ClearSalt();
@@ -89,12 +104,15 @@ public sealed class S2KBuilder : IDisposable
 
     /// <summary>
     /// Generates and sets a random salt.
+    /// Automatically uses 8-byte salt for types 0-3, or 16-byte salt for Argon2.
     /// </summary>
     /// <returns>The builder instance for method chaining.</returns>
     public S2KBuilder WithRandomSalt()
     {
         ClearSalt();
-        salt = S2KCore.GenerateSalt();
+        salt = s2kType == S2KType.Argon2
+            ? S2KCore.GenerateArgon2Salt()
+            : S2KCore.GenerateSalt();
         return this;
     }
 
@@ -126,6 +144,62 @@ public sealed class S2KBuilder : IDisposable
     }
 
     /// <summary>
+    /// Sets the Argon2 time passes (iterations) parameter.
+    /// </summary>
+    /// <param name="timePasses">Number of iterations (1-255).</param>
+    /// <returns>The builder instance for method chaining.</returns>
+    public S2KBuilder WithArgon2TimePasses(byte timePasses)
+    {
+        if (timePasses < 1)
+        {
+            throw new ArgumentException("Time passes must be at least 1.", nameof(timePasses));
+        }
+        argon2TimePasses = timePasses;
+        return this;
+    }
+
+    /// <summary>
+    /// Sets the Argon2 parallelism parameter.
+    /// </summary>
+    /// <param name="parallelism">Parallelism degree (1-255).</param>
+    /// <returns>The builder instance for method chaining.</returns>
+    public S2KBuilder WithArgon2Parallelism(byte parallelism)
+    {
+        if (parallelism < 1)
+        {
+            throw new ArgumentException("Parallelism must be at least 1.", nameof(parallelism));
+        }
+        argon2Parallelism = parallelism;
+        return this;
+    }
+
+    /// <summary>
+    /// Sets the Argon2 memory exponent (memory = 2^m KiB).
+    /// </summary>
+    /// <param name="memoryExponent">Memory exponent (reasonable range: 10-24).</param>
+    /// <returns>The builder instance for method chaining.</returns>
+    public S2KBuilder WithArgon2MemoryExponent(byte memoryExponent)
+    {
+        argon2MemoryExponent = memoryExponent;
+        return this;
+    }
+
+    /// <summary>
+    /// Configures Argon2 S2K with all parameters at once.
+    /// </summary>
+    /// <param name="timePasses">Number of iterations.</param>
+    /// <param name="parallelism">Parallelism degree.</param>
+    /// <param name="memoryExponent">Memory exponent (memory = 2^m KiB).</param>
+    /// <returns>The builder instance for method chaining.</returns>
+    public S2KBuilder WithArgon2Parameters(byte timePasses, byte parallelism, byte memoryExponent)
+    {
+        return WithType(S2KType.Argon2)
+            .WithArgon2TimePasses(timePasses)
+            .WithArgon2Parallelism(parallelism)
+            .WithArgon2MemoryExponent(memoryExponent);
+    }
+
+    /// <summary>
     /// Derives a key from the given password.
     /// </summary>
     /// <param name="password">The password bytes.</param>
@@ -144,6 +218,7 @@ public sealed class S2KBuilder : IDisposable
             S2KType.Simple => S2KCore.SimpleS2K(password, keySize, hashAlgorithm),
             S2KType.Salted => DeriveWithSalt(password, keySize, false),
             S2KType.IteratedAndSalted => DeriveWithSalt(password, keySize, true),
+            S2KType.Argon2 => DeriveWithArgon2(password, keySize),
             _ => throw new InvalidOperationException($"Unsupported S2K type: {s2kType}")
         };
     }
@@ -201,6 +276,21 @@ public sealed class S2KBuilder : IDisposable
         {
             return S2KCore.SaltedS2K(password, salt, keySize, hashAlgorithm);
         }
+    }
+
+    private byte[] DeriveWithArgon2(byte[] password, int keySize)
+    {
+        if (salt == null)
+        {
+            throw new InvalidOperationException("Salt is required for Argon2 S2K. Use WithSalt() or WithRandomSalt().");
+        }
+
+        if (salt.Length != S2KCore.ARGON2_SALT_SIZE)
+        {
+            throw new InvalidOperationException($"Argon2 requires a {S2KCore.ARGON2_SALT_SIZE}-byte salt. Current salt is {salt.Length} bytes. Use WithRandomSalt() to generate a proper salt.");
+        }
+
+        return S2KCore.Argon2S2K(password, salt, argon2TimePasses, argon2Parallelism, argon2MemoryExponent, keySize);
     }
 
     private void ClearSalt()

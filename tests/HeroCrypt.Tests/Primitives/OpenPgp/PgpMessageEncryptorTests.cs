@@ -860,6 +860,633 @@ public class PgpMessageEncryptorTests
         }
     }
 
+// ─────────────────────────────────────────────────────────────────────────────
+    // Password-Based Encryption Tests
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    [Trait("Category", TestCategories.UNIT)]
+    [Trait("Category", TestCategories.SLOW)]
+    public class PasswordBasedEncryptionTests
+    {
+        [Fact]
+        public void RoundTrip_WithPasswordOnly_DecryptsSuccessfully()
+        {
+            var plaintext = "Secret message encrypted with password"u8.ToArray();
+            var password = "my-secure-password";
+
+            // Encrypt with password only
+            using var encryptor = PgpMessageEncryptor.Create()
+                .WithPassphrase(password)
+                .WithAes256();
+
+            var encrypted = encryptor.Encrypt(plaintext);
+
+            Assert.True(encrypted.Data.Length > 0);
+            Assert.True(encrypted.HasPasswordBasedEncryption);
+            Assert.Equal(0, encrypted.RecipientCount); // No public key recipients
+
+            // Decrypt with password
+            using var decryptor = PgpMessageDecryptor.Create()
+                .WithMessagePassphrase(password);
+
+            var decrypted = decryptor.Decrypt(encrypted);
+
+            Assert.Equal(plaintext, decrypted.Data.ToArray());
+        }
+
+        [Fact]
+        public void RoundTrip_WithPasswordBytes_DecryptsSuccessfully()
+        {
+            var plaintext = "Binary password test"u8.ToArray();
+            var password = new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05 };
+
+            // Encrypt with password bytes
+            using var encryptor = PgpMessageEncryptor.Create()
+                .WithPassphrase(password);
+
+            var encrypted = encryptor.Encrypt(plaintext);
+
+            Assert.True(encrypted.HasPasswordBasedEncryption);
+
+            // Decrypt with same password bytes
+            using var decryptor = PgpMessageDecryptor.Create()
+                .WithMessagePassphrase(password);
+
+            var decrypted = decryptor.Decrypt(encrypted);
+
+            Assert.Equal(plaintext, decrypted.Data.ToArray());
+        }
+
+        [Fact]
+        public void RoundTrip_WithTextContent_DecryptsSuccessfully()
+        {
+            var originalText = "Hello, Password-Protected World! 🔐";
+            var password = "text-encryption-password";
+
+            // Encrypt text with password
+            using var encryptor = PgpMessageEncryptor.Create()
+                .WithPassphrase(password);
+
+            var encrypted = encryptor.EncryptText(originalText);
+
+            // Decrypt
+            using var decryptor = PgpMessageDecryptor.Create()
+                .WithMessagePassphrase(password);
+
+            var decrypted = decryptor.Decrypt(encrypted);
+
+            Assert.Equal(originalText, decrypted.GetDataAsString());
+            Assert.Equal(PgpLiteralDataFormat.Utf8, decrypted.Format);
+        }
+
+        [Fact]
+        public void RoundTrip_WithLargeData_DecryptsSuccessfully()
+        {
+            var plaintext = TestHelpers.RandomBytes(64 * 1024); // 64 KB
+            var password = "large-data-password";
+
+            // Encrypt
+            using var encryptor = PgpMessageEncryptor.Create()
+                .WithPassphrase(password);
+
+            var encrypted = encryptor.Encrypt(plaintext);
+
+            // Decrypt
+            using var decryptor = PgpMessageDecryptor.Create()
+                .WithMessagePassphrase(password);
+
+            var decrypted = decryptor.Decrypt(encrypted);
+
+            Assert.Equal(plaintext, decrypted.Data.ToArray());
+        }
+
+        [Fact]
+        public void RoundTrip_WithEmptyData_DecryptsSuccessfully()
+        {
+            var plaintext = Array.Empty<byte>();
+            var password = "empty-data-password";
+
+            // Encrypt
+            using var encryptor = PgpMessageEncryptor.Create()
+                .WithPassphrase(password);
+
+            var encrypted = encryptor.Encrypt(plaintext);
+
+            // Decrypt
+            using var decryptor = PgpMessageDecryptor.Create()
+                .WithMessagePassphrase(password);
+
+            var decrypted = decryptor.Decrypt(encrypted);
+
+            Assert.Empty(decrypted.Data.ToArray());
+        }
+
+        [Theory]
+        [InlineData(SymmetricCipherAlgorithm.Aes128)]
+        [InlineData(SymmetricCipherAlgorithm.Aes192)]
+        [InlineData(SymmetricCipherAlgorithm.Aes256)]
+        public void RoundTrip_WithDifferentAesSizes_DecryptsSuccessfully(SymmetricCipherAlgorithm algorithm)
+        {
+            var plaintext = "Test with different AES key sizes"u8.ToArray();
+            var password = "aes-size-test";
+
+            // Encrypt
+            using var encryptor = PgpMessageEncryptor.Create()
+                .WithPassphrase(password)
+                .WithSymmetricAlgorithm(algorithm);
+
+            var encrypted = encryptor.Encrypt(plaintext);
+
+            Assert.Equal(algorithm, encrypted.SymmetricAlgorithm);
+
+            // Decrypt
+            using var decryptor = PgpMessageDecryptor.Create()
+                .WithMessagePassphrase(password);
+
+            var decrypted = decryptor.Decrypt(encrypted);
+
+            Assert.Equal(plaintext, decrypted.Data.ToArray());
+        }
+
+        [Fact]
+        public void Decrypt_WithWrongPassword_ThrowsCryptographicException()
+        {
+            var plaintext = "Secret message"u8.ToArray();
+            var correctPassword = "correct-password";
+            var wrongPassword = "wrong-password";
+
+            // Encrypt
+            using var encryptor = PgpMessageEncryptor.Create()
+                .WithPassphrase(correctPassword);
+
+            var encrypted = encryptor.Encrypt(plaintext);
+
+            // Attempt decryption with wrong password
+            using var decryptor = PgpMessageDecryptor.Create()
+                .WithMessagePassphrase(wrongPassword);
+
+            Assert.Throws<CryptographicException>(() => decryptor.Decrypt(encrypted));
+        }
+
+        [Fact]
+        public void TryDecrypt_WithWrongPassword_ReturnsFalse()
+        {
+            var plaintext = "Secret message"u8.ToArray();
+            var correctPassword = "correct-password";
+            var wrongPassword = "wrong-password";
+
+            // Encrypt
+            using var encryptor = PgpMessageEncryptor.Create()
+                .WithPassphrase(correctPassword);
+
+            var encrypted = encryptor.Encrypt(plaintext);
+
+            // Attempt decryption with wrong password
+            using var decryptor = PgpMessageDecryptor.Create()
+                .WithMessagePassphrase(wrongPassword);
+
+            var result = decryptor.TryDecrypt(encrypted.Data.Span, out _, out var error);
+
+            Assert.False(result);
+            Assert.NotNull(error);
+        }
+
+        [Fact]
+        public void Decrypt_WithoutPassword_ThrowsInvalidOperationException()
+        {
+            var plaintext = "Secret message"u8.ToArray();
+            var password = "my-password";
+
+            // Encrypt with password
+            using var encryptor = PgpMessageEncryptor.Create()
+                .WithPassphrase(password);
+
+            var encrypted = encryptor.Encrypt(plaintext);
+
+            // Attempt decryption without password
+            using var decryptor = PgpMessageDecryptor.Create();
+
+            var ex = Assert.Throws<InvalidOperationException>(() => decryptor.Decrypt(encrypted));
+            Assert.Contains("secret key", ex.Message, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Fact]
+        public void TryDecrypt_WithoutPassword_ReturnsHelpfulError()
+        {
+            var plaintext = "Secret message"u8.ToArray();
+            var password = "my-password";
+
+            // Create a fake secret key to satisfy the validation
+            var (_, secretKey) = CreateRsaKeyPair();
+
+            // Encrypt with password only
+            using var encryptor = PgpMessageEncryptor.Create()
+                .WithPassphrase(password);
+
+            var encrypted = encryptor.Encrypt(plaintext);
+
+            // Attempt decryption with only a secret key (no passphrase)
+            using var decryptor = PgpMessageDecryptor.Create()
+                .WithSecretKey(secretKey);
+
+            var result = decryptor.TryDecrypt(encrypted.Data.Span, out _, out var error);
+
+            Assert.False(result);
+            Assert.NotNull(error);
+            Assert.Contains("passphrase", error, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Fact]
+        public void WithPassphrase_EmptyString_ThrowsArgumentException()
+        {
+            using var encryptor = PgpMessageEncryptor.Create();
+
+            Assert.Throws<ArgumentException>(() => encryptor.WithPassphrase(string.Empty));
+        }
+
+        [Fact]
+        public void WithPassphrase_NullBytes_ThrowsArgumentException()
+        {
+            using var encryptor = PgpMessageEncryptor.Create();
+
+            Assert.Throws<ArgumentException>(() => encryptor.WithPassphrase((byte[])null!));
+        }
+
+        [Fact]
+        public void WithPassphrase_EmptyBytes_ThrowsArgumentException()
+        {
+            using var encryptor = PgpMessageEncryptor.Create();
+
+            Assert.Throws<ArgumentException>(() => encryptor.WithPassphrase(Array.Empty<byte>()));
+        }
+
+        [Fact]
+        public void WithMessagePassphrase_EmptyString_ThrowsArgumentException()
+        {
+            using var decryptor = PgpMessageDecryptor.Create();
+
+            Assert.Throws<ArgumentException>(() => decryptor.WithMessagePassphrase(string.Empty));
+        }
+
+        [Fact]
+        public void WithMessagePassphrase_NullBytes_ThrowsArgumentException()
+        {
+            using var decryptor = PgpMessageDecryptor.Create();
+
+            Assert.Throws<ArgumentException>(() => decryptor.WithMessagePassphrase((byte[])null!));
+        }
+
+        [Fact]
+        public void WithMessagePassphrase_EmptyBytes_ThrowsArgumentException()
+        {
+            using var decryptor = PgpMessageDecryptor.Create();
+
+            Assert.Throws<ArgumentException>(() => decryptor.WithMessagePassphrase(Array.Empty<byte>()));
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // Hybrid Encryption Tests (Password + Public Key)
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    [Trait("Category", TestCategories.UNIT)]
+    [Trait("Category", TestCategories.SLOW)]
+    public class HybridEncryptionTests
+    {
+        [Fact]
+        public void RoundTrip_WithPasswordAndPublicKey_DecryptsWithPassword()
+        {
+            var (publicKey, _) = CreateRsaKeyPair();
+            var plaintext = "Hybrid encrypted message"u8.ToArray();
+            var password = "hybrid-password";
+
+            // Encrypt with both password and public key
+            using var encryptor = PgpMessageEncryptor.Create()
+                .WithPassphrase(password)
+                .AddRecipient(publicKey);
+
+            var encrypted = encryptor.Encrypt(plaintext);
+
+            Assert.True(encrypted.HasPasswordBasedEncryption);
+            Assert.Equal(1, encrypted.RecipientCount);
+
+            // Decrypt with password
+            using var decryptor = PgpMessageDecryptor.Create()
+                .WithMessagePassphrase(password);
+
+            var decrypted = decryptor.Decrypt(encrypted);
+
+            Assert.Equal(plaintext, decrypted.Data.ToArray());
+        }
+
+        [Fact]
+        public void RoundTrip_WithPasswordAndPublicKey_DecryptsWithSecretKey()
+        {
+            var (publicKey, secretKey) = CreateRsaKeyPair();
+            var plaintext = "Hybrid encrypted message"u8.ToArray();
+            var password = "hybrid-password";
+
+            // Encrypt with both password and public key
+            using var encryptor = PgpMessageEncryptor.Create()
+                .WithPassphrase(password)
+                .AddRecipient(publicKey);
+
+            var encrypted = encryptor.Encrypt(plaintext);
+
+            // Decrypt with secret key (not password)
+            using var decryptor = PgpMessageDecryptor.Create()
+                .WithSecretKey(secretKey);
+
+            var decrypted = decryptor.Decrypt(encrypted);
+
+            Assert.Equal(plaintext, decrypted.Data.ToArray());
+        }
+
+        [Fact]
+        public void RoundTrip_WithPasswordAndMultipleRecipients_AllCanDecrypt()
+        {
+            var (publicKey1, secretKey1) = CreateRsaKeyPair();
+            var (publicKey2, secretKey2) = CreateRsaKeyPair();
+            var plaintext = "Message for everyone"u8.ToArray();
+            var password = "shared-password";
+
+            // Encrypt with password and multiple public keys
+            using var encryptor = PgpMessageEncryptor.Create()
+                .WithPassphrase(password)
+                .AddRecipient(publicKey1)
+                .AddRecipient(publicKey2);
+
+            var encrypted = encryptor.Encrypt(plaintext);
+
+            Assert.True(encrypted.HasPasswordBasedEncryption);
+            Assert.Equal(2, encrypted.RecipientCount);
+
+            // Decrypt with password
+            using var decryptor1 = PgpMessageDecryptor.Create()
+                .WithMessagePassphrase(password);
+            var decrypted1 = decryptor1.Decrypt(encrypted);
+            Assert.Equal(plaintext, decrypted1.Data.ToArray());
+
+            // Decrypt with first secret key
+            using var decryptor2 = PgpMessageDecryptor.Create()
+                .WithSecretKey(secretKey1);
+            var decrypted2 = decryptor2.Decrypt(encrypted);
+            Assert.Equal(plaintext, decrypted2.Data.ToArray());
+
+            // Decrypt with second secret key
+            using var decryptor3 = PgpMessageDecryptor.Create()
+                .WithSecretKey(secretKey2);
+            var decrypted3 = decryptor3.Decrypt(encrypted);
+            Assert.Equal(plaintext, decrypted3.Data.ToArray());
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // Multiple Passwords Tests
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    [Trait("Category", TestCategories.UNIT)]
+    [Trait("Category", TestCategories.SLOW)]
+    public class MultiplePasswordsTests
+    {
+        [Fact]
+        public void RoundTrip_WithMultiplePasswords_AnyCanDecrypt()
+        {
+            var plaintext = "Message with multiple passwords"u8.ToArray();
+            var password1 = "first-password";
+            var password2 = "second-password";
+
+            // Encrypt with multiple passwords
+            using var encryptor = PgpMessageEncryptor.Create()
+                .WithPassphrase(password1)
+                .WithPassphrase(password2);
+
+            var encrypted = encryptor.Encrypt(plaintext);
+
+            Assert.True(encrypted.HasPasswordBasedEncryption);
+
+            // Decrypt with first password
+            using var decryptor1 = PgpMessageDecryptor.Create()
+                .WithMessagePassphrase(password1);
+            var decrypted1 = decryptor1.Decrypt(encrypted);
+            Assert.Equal(plaintext, decrypted1.Data.ToArray());
+
+            // Decrypt with second password
+            using var decryptor2 = PgpMessageDecryptor.Create()
+                .WithMessagePassphrase(password2);
+            var decrypted2 = decryptor2.Decrypt(encrypted);
+            Assert.Equal(plaintext, decrypted2.Data.ToArray());
+        }
+
+        [Fact]
+        public void Decrypt_WithMultiplePassphrases_UsesFirstMatching()
+        {
+            var plaintext = "Test message"u8.ToArray();
+            var correctPassword = "correct-password";
+            var wrongPassword = "wrong-password";
+
+            // Encrypt
+            using var encryptor = PgpMessageEncryptor.Create()
+                .WithPassphrase(correctPassword);
+
+            var encrypted = encryptor.Encrypt(plaintext);
+
+            // Decrypt with multiple passphrases (correct one included)
+            using var decryptor = PgpMessageDecryptor.Create()
+                .WithMessagePassphrase(wrongPassword)
+                .WithMessagePassphrase(correctPassword);
+
+            var decrypted = decryptor.Decrypt(encrypted);
+
+            Assert.Equal(plaintext, decrypted.Data.ToArray());
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // S2K Type Tests
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    [Trait("Category", TestCategories.UNIT)]
+    [Trait("Category", TestCategories.SLOW)]
+    public class S2KTypeTests
+    {
+        [Fact]
+        public void RoundTrip_WithIteratedAndSalted_DecryptsSuccessfully()
+        {
+            var plaintext = "Iterated and salted S2K test"u8.ToArray();
+            var password = "iterated-salted-password";
+
+            // Encrypt with iterated+salted S2K (default)
+            using var encryptor = PgpMessageEncryptor.Create()
+                .WithPassphrase(password)
+                .WithS2KType(HeroCrypt.Primitives.S2K.S2KType.IteratedAndSalted);
+
+            var encrypted = encryptor.Encrypt(plaintext);
+
+            // Decrypt
+            using var decryptor = PgpMessageDecryptor.Create()
+                .WithMessagePassphrase(password);
+
+            var decrypted = decryptor.Decrypt(encrypted);
+
+            Assert.Equal(plaintext, decrypted.Data.ToArray());
+        }
+
+        [Fact]
+        public void RoundTrip_WithSaltedS2K_DecryptsSuccessfully()
+        {
+            var plaintext = "Salted S2K test"u8.ToArray();
+            var password = "salted-password";
+
+            // Encrypt with salted S2K
+            using var encryptor = PgpMessageEncryptor.Create()
+                .WithPassphrase(password)
+                .WithS2KType(HeroCrypt.Primitives.S2K.S2KType.Salted);
+
+            var encrypted = encryptor.Encrypt(plaintext);
+
+            // Decrypt
+            using var decryptor = PgpMessageDecryptor.Create()
+                .WithMessagePassphrase(password);
+
+            var decrypted = decryptor.Decrypt(encrypted);
+
+            Assert.Equal(plaintext, decrypted.Data.ToArray());
+        }
+
+        [Fact]
+        public void RoundTrip_WithArgon2_DecryptsSuccessfully()
+        {
+            var plaintext = "Argon2 S2K test"u8.ToArray();
+            var password = "argon2-password";
+
+            // Encrypt with Argon2 S2K
+            using var encryptor = PgpMessageEncryptor.Create()
+                .WithPassphrase(password)
+                .WithArgon2();
+
+            var encrypted = encryptor.Encrypt(plaintext);
+
+            // Decrypt
+            using var decryptor = PgpMessageDecryptor.Create()
+                .WithMessagePassphrase(password);
+
+            var decrypted = decryptor.Decrypt(encrypted);
+
+            Assert.Equal(plaintext, decrypted.Data.ToArray());
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // Password + Compression Tests
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    [Trait("Category", TestCategories.UNIT)]
+    [Trait("Category", TestCategories.SLOW)]
+    public class PasswordCompressionTests
+    {
+        [Theory]
+        [InlineData(PgpCompressionAlgorithm.Zip)]
+        [InlineData(PgpCompressionAlgorithm.Zlib)]
+        public void RoundTrip_WithPasswordAndCompression_DecryptsSuccessfully(PgpCompressionAlgorithm compression)
+        {
+            // Use repetitive data that compresses well
+            var plaintext = new byte[1024];
+            for (int i = 0; i < plaintext.Length; i++)
+            {
+                plaintext[i] = (byte)(i % 10);
+            }
+
+            var password = "compression-password";
+
+            // Encrypt with password and compression
+            using var encryptor = PgpMessageEncryptor.Create()
+                .WithPassphrase(password)
+                .WithCompression(compression);
+
+            var encrypted = encryptor.Encrypt(plaintext);
+
+            Assert.True(encrypted.IsCompressed);
+            Assert.True(encrypted.HasPasswordBasedEncryption);
+
+            // Decrypt
+            using var decryptor = PgpMessageDecryptor.Create()
+                .WithMessagePassphrase(password);
+
+            var decrypted = decryptor.Decrypt(encrypted);
+
+            Assert.Equal(plaintext, decrypted.Data.ToArray());
+            Assert.True(decrypted.WasCompressed);
+            Assert.Equal(compression, decrypted.CompressionAlgorithm);
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // PgpEncryptedMessage Password Flag Tests
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    [Trait("Category", TestCategories.UNIT)]
+    [Trait("Category", TestCategories.FAST)]
+    public class EncryptedMessagePasswordFlagTests
+    {
+        [Fact]
+        public void HasPasswordBasedEncryption_WithPasswordOnly_ReturnsTrue()
+        {
+            var password = "test-password";
+
+            using var encryptor = PgpMessageEncryptor.Create()
+                .WithPassphrase(password);
+
+            var encrypted = encryptor.Encrypt("test"u8.ToArray());
+
+            Assert.True(encrypted.HasPasswordBasedEncryption);
+        }
+
+        [Fact]
+        public void HasPasswordBasedEncryption_WithPublicKeyOnly_ReturnsFalse()
+        {
+            var (publicKey, _) = CreateRsaKeyPair();
+
+            using var encryptor = PgpMessageEncryptor.Create()
+                .AddRecipient(publicKey);
+
+            var encrypted = encryptor.Encrypt("test"u8.ToArray());
+
+            Assert.False(encrypted.HasPasswordBasedEncryption);
+        }
+
+        [Fact]
+        public void HasPasswordBasedEncryption_WithBoth_ReturnsTrue()
+        {
+            var (publicKey, _) = CreateRsaKeyPair();
+            var password = "test-password";
+
+            using var encryptor = PgpMessageEncryptor.Create()
+                .WithPassphrase(password)
+                .AddRecipient(publicKey);
+
+            var encrypted = encryptor.Encrypt("test"u8.ToArray());
+
+            Assert.True(encrypted.HasPasswordBasedEncryption);
+        }
+
+        [Fact]
+        public void Read_WithPasswordEncryptedMessage_DetectsSkeskPackets()
+        {
+            var password = "test-password";
+
+            using var encryptor = PgpMessageEncryptor.Create()
+                .WithPassphrase(password);
+
+            var encrypted = encryptor.Encrypt("test"u8.ToArray());
+
+            // Read back the message and verify SKESK detection
+            var parsed = PgpEncryptedMessage.Read(encrypted.Data.Span);
+
+            Assert.True(parsed.HasPasswordBasedEncryption);
+        }
+    }
+
 #if !NETSTANDARD2_0
     // ─────────────────────────────────────────────────────────────────────────────
     // AEAD Tests (SEIPD v2) - .NET Core only

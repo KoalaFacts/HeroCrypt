@@ -395,7 +395,7 @@ public sealed class PgpMessageEncryptor : IDisposable
         if (text == null) throw new ArgumentNullException(nameof(text));
 #endif
 
-        return WithFormat(PgpLiteralDataFormat.Utf8).Encrypt(System.Text.Encoding.UTF8.GetBytes(text));
+        return WithFormat(PgpLiteralDataFormat.Utf8).Encrypt(Encoding.UTF8.GetBytes(text));
     }
 
     #endregion

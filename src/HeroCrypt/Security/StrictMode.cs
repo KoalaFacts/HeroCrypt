@@ -23,8 +23,6 @@ namespace HeroCrypt.Security;
 /// </remarks>
 public static class StrictMode
 {
-    private static bool enabled = true;
-
     /// <summary>
     /// Gets or sets whether strict mode is enabled.
     /// When true (default), legacy algorithms will throw <see cref="StrictModeException"/>.
@@ -43,11 +41,7 @@ public static class StrictMode
     /// </list>
     /// </para>
     /// </remarks>
-    public static bool Enabled
-    {
-        get => enabled;
-        set => enabled = value;
-    }
+    public static bool Enabled { get; set; } = true;
 
     /// <summary>
     /// Throws <see cref="StrictModeException"/> if strict mode is enabled.
@@ -57,7 +51,7 @@ public static class StrictMode
     /// <exception cref="StrictModeException">Thrown when strict mode is enabled.</exception>
     public static void ThrowIfEnabled(string algorithm, string recommendation)
     {
-        if (enabled)
+        if (Enabled)
         {
             throw new StrictModeException(algorithm, recommendation);
         }
@@ -88,15 +82,15 @@ public static class StrictMode
         }
 #endif
 
-        var previousState = enabled;
+        var previousState = Enabled;
         try
         {
-            enabled = false;
+            Enabled = false;
             action();
         }
         finally
         {
-            enabled = previousState;
+            Enabled = previousState;
         }
     }
 
@@ -127,15 +121,15 @@ public static class StrictMode
         }
 #endif
 
-        var previousState = enabled;
+        var previousState = Enabled;
         try
         {
-            enabled = false;
+            Enabled = false;
             return func();
         }
         finally
         {
-            enabled = previousState;
+            Enabled = previousState;
         }
     }
 
@@ -164,15 +158,15 @@ public static class StrictMode
 
         public StrictModeScope()
         {
-            previousState = enabled;
-            enabled = false;
+            previousState = Enabled;
+            Enabled = false;
         }
 
         public void Dispose()
         {
             if (!disposed)
             {
-                enabled = previousState;
+                Enabled = previousState;
                 disposed = true;
             }
         }

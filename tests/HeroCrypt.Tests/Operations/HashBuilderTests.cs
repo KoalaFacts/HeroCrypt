@@ -345,20 +345,24 @@ public class HashBuilderTests
     public class LegacyAlgorithms
     {
         [Fact]
+        [Obsolete]
         public void ComputeHash_Md5_ReturnsCorrectLength()
         {
-            // Act
-            var hash = HeroCryptBuilder.Hash().WithMd5().ComputeHash(TestData);
+            // Act - use legacy mode to allow MD5
+            var hash = HeroCrypt.Security.StrictMode.WithLegacyMode(() =>
+                HeroCryptBuilder.Hash().WithMd5().ComputeHash(TestData));
 
             // Assert
             Assert.Equal(16, hash.Length);
         }
 
         [Fact]
+        [Obsolete]
         public void ComputeHash_Sha1_ReturnsCorrectLength()
         {
-            // Act
-            var hash = HeroCryptBuilder.Hash().WithSha1().ComputeHash(TestData);
+            // Act - use legacy mode to allow SHA-1
+            var hash = HeroCrypt.Security.StrictMode.WithLegacyMode(() =>
+                HeroCryptBuilder.Hash().WithSha1().ComputeHash(TestData));
 
             // Assert
             Assert.Equal(20, hash.Length);

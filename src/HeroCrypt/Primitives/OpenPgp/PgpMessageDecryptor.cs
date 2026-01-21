@@ -251,7 +251,7 @@ public sealed class PgpMessageDecryptor : IDisposable
                         {
                             // Direct key mode - derive the key from passphrase
                             // The KEK is the session key
-                            var s2kParams = Primitives.S2K.S2KParameters.Parse(skesk.S2kSpecifier.Span);
+                            var s2kParams = S2K.S2KParameters.Parse(skesk.S2kSpecifier.Span);
                             int keySize = GetKeySize(skesk.CipherAlgorithm);
                             sessionKey = s2kParams.DeriveKey(passphraseBytes, keySize);
                             symmetricAlgorithm = skesk.CipherAlgorithm;
@@ -312,17 +312,13 @@ public sealed class PgpMessageDecryptor : IDisposable
             {
                 error = $"Decryption failed: {lastDecryptionError ?? "Unknown error"}";
             }
-            else if (skeskPackets.Count > 0 && messagePassphrases.Count == 0)
-            {
-                error = "Message requires a passphrase for decryption. Use WithMessagePassphrase().";
-            }
-            else if (pkeskPackets.Count > 0 && secretKeys.Count == 0)
-            {
-                error = "Message requires a secret key for decryption. Use WithSecretKey() or WithSecretKeyRing().";
-            }
             else
             {
-                error = "No matching secret key or passphrase found for decryption.";
+                error = skeskPackets.Count > 0 && messagePassphrases.Count == 0
+                    ? "Message requires a passphrase for decryption. Use WithMessagePassphrase()."
+                    : pkeskPackets.Count > 0 && secretKeys.Count == 0
+                    ? "Message requires a secret key for decryption. Use WithSecretKey() or WithSecretKeyRing()."
+                    : "No matching secret key or passphrase found for decryption.";
             }
 
             return false;

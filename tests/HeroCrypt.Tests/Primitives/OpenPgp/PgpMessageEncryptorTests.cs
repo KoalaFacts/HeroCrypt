@@ -860,7 +860,7 @@ public class PgpMessageEncryptorTests
         }
     }
 
-// ─────────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────────
     // Password-Based Encryption Tests
     // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1117,7 +1117,7 @@ public class PgpMessageEncryptorTests
         {
             using var encryptor = PgpMessageEncryptor.Create();
 
-            Assert.Throws<ArgumentException>(() => encryptor.WithPassphrase(Array.Empty<byte>()));
+            Assert.Throws<ArgumentException>(() => encryptor.WithPassphrase([]));
         }
 
         [Fact]
@@ -1141,7 +1141,7 @@ public class PgpMessageEncryptorTests
         {
             using var decryptor = PgpMessageDecryptor.Create();
 
-            Assert.Throws<ArgumentException>(() => decryptor.WithMessagePassphrase(Array.Empty<byte>()));
+            Assert.Throws<ArgumentException>(() => decryptor.WithMessagePassphrase([]));
         }
     }
 

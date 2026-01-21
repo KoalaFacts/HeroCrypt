@@ -531,11 +531,13 @@ public sealed class PgpMessageEncryptor : IDisposable
 
     private byte[] CfbEncrypt(byte[] plaintext, byte[] key, int blockSize)
     {
-        // OpenPGP CFB mode per RFC 4880 Section 13.9:
-        // 1. Use IV of all zeros
-        // 2. Encrypt (blockSize + 2) byte prefix using normal CFB
-        // 3. Resync: FR = ciphertext[2..blockSize+2]
-        // 4. Continue encrypting the rest with normal CFB
+        // OpenPGP CFB mode per RFC 4880 Section 13.9
+        // Note: The "resync" described in RFC 4880 is confusingly written. In practice:
+        // 1. Encrypt the blockSize+2 byte prefix using standard CFB
+        // 2. After the quick check, continue CFB using the REMAINING FRE bytes
+        // 3. This means we don't reset FRE, we continue from where we left off
+        //
+        // This matches the decryption approach and is compatible with BouncyCastle.
 
         using var aes = Aes.Create();
         aes.Key = key;
@@ -548,29 +550,44 @@ public sealed class PgpMessageEncryptor : IDisposable
 
         using var encryptor = aes.CreateEncryptor();
 
-        // Phase 1: Encrypt the (blockSize + 2) byte prefix
-        int prefixLen = blockSize + 2;
-
-        // First block of prefix (blockSize bytes)
+        // Phase 1: Encrypt the first blockSize bytes
         encryptor.TransformBlock(fr, 0, blockSize, fre, 0);
         for (int i = 0; i < blockSize; i++)
         {
             ciphertext[i] = (byte)(plaintext[i] ^ fre[i]);
         }
 
-        // FR = first ciphertext block for next iteration
+        // Update FR to first ciphertext block
         Array.Copy(ciphertext, 0, fr, 0, blockSize);
 
-        // Remaining 2 bytes of prefix
+        // Encrypt FR for the quick check and continuation
         encryptor.TransformBlock(fr, 0, blockSize, fre, 0);
+
+        // Encrypt quick check bytes (positions blockSize and blockSize+1)
         ciphertext[blockSize] = (byte)(plaintext[blockSize] ^ fre[0]);
         ciphertext[blockSize + 1] = (byte)(plaintext[blockSize + 1] ^ fre[1]);
 
-        // Phase 2: Resync - FR = ciphertext[2..blockSize+2]
-        Array.Copy(ciphertext, 2, fr, 0, blockSize);
-
-        // Phase 3: Continue encrypting the rest of the data
+        // Phase 2: Continue with remaining FRE bytes (no resync reset)
+        // We have fre[2..blockSize-1] still unused, use them for the first blockSize-2 bytes after prefix
+        int prefixLen = blockSize + 2;
+        int freOffset = 2; // We've used fre[0] and fre[1] for quick check
         int pos = prefixLen;
+
+        // Use remaining FRE bytes for positions prefixLen to prefixLen+(blockSize-2)-1
+        while (freOffset < blockSize && pos < plaintext.Length)
+        {
+            ciphertext[pos] = (byte)(plaintext[pos] ^ fre[freOffset]);
+            freOffset++;
+            pos++;
+        }
+
+        // Update FR for continuation
+        // After using all of FRE, FR should be the ciphertext that aligned with FRE
+        // FRE was computed from ciphertext[0:blockSize], and was XORed with ciphertext[blockSize:2*blockSize]
+        // So FR = ciphertext[blockSize:2*blockSize]
+        Array.Copy(ciphertext, blockSize, fr, 0, blockSize);
+
+        // Phase 3: Continue with standard CFB for the rest
         while (pos < plaintext.Length)
         {
             encryptor.TransformBlock(fr, 0, blockSize, fre, 0);
@@ -581,7 +598,7 @@ public sealed class PgpMessageEncryptor : IDisposable
                 ciphertext[pos + i] = (byte)(plaintext[pos + i] ^ fre[i]);
             }
 
-            // Normal CFB: FR = ciphertext block we just produced
+            // Update FR with the ciphertext block we just produced
             Array.Copy(ciphertext, pos, fr, 0, bytesToProcess);
             if (bytesToProcess < blockSize)
             {

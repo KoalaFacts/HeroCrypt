@@ -426,7 +426,7 @@ public sealed class PgpMessageDecryptor : IDisposable
         byte[] encryptedData = seipd.EncryptedData.ToArray();
 
         // CFB decrypt
-        byte[] decrypted = CfbDecrypt(encryptedData, sessionKey, blockSize);
+        byte[] decrypted = CfbDecrypt(encryptedData, sessionKey, blockSize, algorithm);
 
         // Verify prefix (quick check)
         if (decrypted.Length < blockSize + 2)
@@ -489,48 +489,63 @@ public sealed class PgpMessageDecryptor : IDisposable
         return plaintext;
     }
 
-    private static byte[] CfbDecrypt(byte[] ciphertext, byte[] key, int blockSize)
+    private static byte[] CfbDecrypt(byte[] ciphertext, byte[] key, int blockSize, SymmetricCipherAlgorithm algorithm)
     {
-        // OpenPGP CFB mode per RFC 4880 Section 13.9:
-        // 1. Use IV of all zeros
-        // 2. Decrypt (blockSize + 2) byte prefix using normal CFB
-        // 3. Resync: FR = ciphertext[2..blockSize+2]
-        // 4. Continue decrypting the rest with normal CFB
+        // OpenPGP CFB mode per RFC 4880 Section 13.9
+        // Note: The "resync" described in RFC 4880 is confusingly written. In practice:
+        // 1. Decrypt the blockSize+2 byte prefix using standard CFB
+        // 2. After the quick check, continue CFB using the REMAINING FRE bytes
+        // 3. This means we don't reset FRE, we continue from where we left off
+        //
+        // This is different from the literal RFC text which suggests resetting FR.
+        // Implementations like BouncyCastle use the "continue with remaining FRE" approach.
 
-        using var aes = Aes.Create();
-        aes.Key = key;
-        aes.Mode = CipherMode.ECB;
-        aes.Padding = PaddingMode.None;
+        using var cipher = CreateCipher(algorithm, key);
 
         byte[] plaintext = new byte[ciphertext.Length];
         byte[] fr = new byte[blockSize]; // Feedback register (starts as zeros - this is the IV)
         byte[] fre = new byte[blockSize]; // Encrypted feedback register
 
-        using var encryptor = aes.CreateEncryptor();
+        using var encryptor = cipher.CreateEncryptor();
 
-        // Phase 1: Decrypt the (blockSize + 2) byte prefix
-        int prefixLen = blockSize + 2;
-
-        // First block of prefix (blockSize bytes)
+        // Phase 1: Decrypt the first blockSize bytes
         encryptor.TransformBlock(fr, 0, blockSize, fre, 0);
         for (int i = 0; i < blockSize; i++)
         {
             plaintext[i] = (byte)(ciphertext[i] ^ fre[i]);
         }
 
-        // FR = first ciphertext block for next iteration
+        // Update FR to first ciphertext block
         Array.Copy(ciphertext, 0, fr, 0, blockSize);
 
-        // Remaining 2 bytes of prefix
+        // Encrypt FR for the quick check and continuation
         encryptor.TransformBlock(fr, 0, blockSize, fre, 0);
+
+        // Decrypt quick check bytes (positions blockSize and blockSize+1)
         plaintext[blockSize] = (byte)(ciphertext[blockSize] ^ fre[0]);
         plaintext[blockSize + 1] = (byte)(ciphertext[blockSize + 1] ^ fre[1]);
 
-        // Phase 2: Resync - FR = ciphertext[2..blockSize+2]
-        Array.Copy(ciphertext, 2, fr, 0, blockSize);
-
-        // Phase 3: Continue decrypting the rest of the data
+        // Phase 2: Continue with remaining FRE bytes (no resync reset)
+        // We have fre[2..blockSize-1] still unused, use them for the first blockSize-2 bytes after prefix
+        int prefixLen = blockSize + 2;
+        int freOffset = 2; // We've used fre[0] and fre[1] for quick check
         int pos = prefixLen;
+
+        // Use remaining FRE bytes for positions prefixLen to prefixLen+(blockSize-2)-1
+        while (freOffset < blockSize && pos < ciphertext.Length)
+        {
+            plaintext[pos] = (byte)(ciphertext[pos] ^ fre[freOffset]);
+            freOffset++;
+            pos++;
+        }
+
+        // Update FR for continuation
+        // After using all of FRE, FR should be the ciphertext that aligned with FRE
+        // FRE was computed from ciphertext[0:blockSize], and was XORed with ciphertext[blockSize:2*blockSize]
+        // So FR = ciphertext[blockSize:2*blockSize]
+        Array.Copy(ciphertext, blockSize, fr, 0, blockSize);
+
+        // Phase 3: Continue with standard CFB for the rest
         while (pos < ciphertext.Length)
         {
             encryptor.TransformBlock(fr, 0, blockSize, fre, 0);
@@ -541,7 +556,7 @@ public sealed class PgpMessageDecryptor : IDisposable
                 plaintext[pos + i] = (byte)(ciphertext[pos + i] ^ fre[i]);
             }
 
-            // Normal CFB: FR = ciphertext block we just consumed
+            // Update FR with the ciphertext block we just processed
             Array.Copy(ciphertext, pos, fr, 0, bytesToProcess);
             if (bytesToProcess < blockSize)
             {
@@ -553,6 +568,38 @@ public sealed class PgpMessageDecryptor : IDisposable
 
         return plaintext;
     }
+
+    /// <summary>
+    /// Creates a symmetric cipher configured for CFB mode implementation.
+    /// </summary>
+#pragma warning disable CS0618 // TripleDes is obsolete but needed for legacy PGP support
+    private static SymmetricAlgorithm CreateCipher(SymmetricCipherAlgorithm algorithm, byte[] key)
+    {
+        SymmetricAlgorithm cipher = algorithm switch
+        {
+            SymmetricCipherAlgorithm.TripleDes => CreateTripleDes(),
+            SymmetricCipherAlgorithm.Aes128 or
+            SymmetricCipherAlgorithm.Aes192 or
+            SymmetricCipherAlgorithm.Aes256 => Aes.Create(),
+            _ => throw new NotSupportedException($"Cipher algorithm {algorithm} is not supported for message decryption.")
+        };
+
+        cipher.Key = key;
+        cipher.Mode = CipherMode.ECB; // We implement CFB manually
+        cipher.Padding = PaddingMode.None;
+        return cipher;
+    }
+#pragma warning restore CS0618
+
+    /// <summary>
+    /// Creates a TripleDES cipher for legacy PGP message support.
+    /// </summary>
+#pragma warning disable CA5350 // TripleDES is weak but needed for legacy PGP support (RFC 4880)
+    private static TripleDES CreateTripleDes()
+    {
+        return TripleDES.Create();
+    }
+#pragma warning restore CA5350
 
     #endregion
 

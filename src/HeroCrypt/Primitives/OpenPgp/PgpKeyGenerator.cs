@@ -35,6 +35,10 @@ public sealed class PgpKeyGenerator
     private string? userId;
     private string? passphrase;
     private byte[]? passphraseBytes;
+    private bool useArgon2;
+    private byte argon2Passes = 3;
+    private byte argon2Parallelism = 4;
+    private byte argon2MemoryExponent = 19; // 2^19 KB = 512 MB
     private int keySize = 4096;
     private DateTimeOffset creationTime = DateTimeOffset.UtcNow;
     private byte? explicitVersion;
@@ -162,6 +166,110 @@ public sealed class PgpKeyGenerator
 
         this.passphraseBytes = passphraseBytes ?? throw new ArgumentNullException(nameof(passphraseBytes));
         passphrase = null;
+        return this;
+    }
+
+    /// <summary>
+    /// Sets the passphrase for encrypting the secret key using Argon2 S2K (RFC 9580).
+    /// </summary>
+    /// <param name="passphrase">The passphrase.</param>
+    /// <returns>This generator for chaining.</returns>
+    /// <remarks>
+    /// <para>
+    /// Argon2id is a modern memory-hard key derivation function that provides
+    /// superior protection against both GPU-based and ASIC-based brute-force attacks.
+    /// This method uses secure default parameters:
+    /// <list type="bullet">
+    ///   <item>Passes: 3</item>
+    ///   <item>Parallelism: 4</item>
+    ///   <item>Memory: 512 MB (2^19 KB)</item>
+    /// </list>
+    /// </para>
+    /// <para>
+    /// <b>Recommendation:</b> Use this method for new keys. The iterated S2K
+    /// (used by <see cref="WithPassphrase(string)"/>) is a legacy method.
+    /// </para>
+    /// </remarks>
+    public PgpKeyGenerator WithArgon2Passphrase(string passphrase)
+    {
+        this.passphrase = passphrase ?? throw new ArgumentNullException(nameof(passphrase));
+        passphraseBytes = null;
+        useArgon2 = true;
+        return this;
+    }
+
+    /// <summary>
+    /// Sets the passphrase for encrypting the secret key using Argon2 S2K with raw bytes.
+    /// </summary>
+    /// <param name="passphraseBytes">The passphrase as UTF-8 encoded bytes.</param>
+    /// <returns>This generator for chaining.</returns>
+    /// <remarks>
+    /// <para>
+    /// This overload allows for more secure passphrase handling by accepting
+    /// raw bytes that can be securely cleared from memory after key generation.
+    /// Uses the same default parameters as <see cref="WithArgon2Passphrase(string)"/>.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="ArgumentNullException">If passphraseBytes is null.</exception>
+    public PgpKeyGenerator WithArgon2Passphrase(byte[] passphraseBytes)
+    {
+        this.passphraseBytes = passphraseBytes ?? throw new ArgumentNullException(nameof(passphraseBytes));
+        passphrase = null;
+        useArgon2 = true;
+        return this;
+    }
+
+    /// <summary>
+    /// Sets the passphrase for encrypting the secret key using Argon2 S2K with custom parameters.
+    /// </summary>
+    /// <param name="passphrase">The passphrase.</param>
+    /// <param name="passes">Number of passes (iterations). Must be at least 1. Higher values increase security but slow down derivation.</param>
+    /// <param name="parallelism">Degree of parallelism. Should match available CPU cores.</param>
+    /// <param name="memoryExponent">Memory exponent (memory = 2^exponent KB). Must be in [3, 31]. Higher values increase security but require more RAM.</param>
+    /// <returns>This generator for chaining.</returns>
+    /// <remarks>
+    /// <para>
+    /// Use this overload when you need to customize the Argon2 parameters based on
+    /// the target environment's capabilities. Consider:
+    /// <list type="bullet">
+    ///   <item>Mobile devices: memoryExponent=16 (64 MB), passes=3, parallelism=2</item>
+    ///   <item>Desktop: memoryExponent=19 (512 MB), passes=3, parallelism=4</item>
+    ///   <item>Server: memoryExponent=21 (2 GB), passes=1, parallelism=8</item>
+    /// </list>
+    /// </para>
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">If any parameter is out of valid range.</exception>
+    public PgpKeyGenerator WithArgon2Passphrase(string passphrase, byte passes, byte parallelism, byte memoryExponent)
+    {
+        PgpS2KSpecifier.ValidateArgon2Parameters(passes, parallelism, memoryExponent);
+        this.passphrase = passphrase ?? throw new ArgumentNullException(nameof(passphrase));
+        passphraseBytes = null;
+        useArgon2 = true;
+        argon2Passes = passes;
+        argon2Parallelism = parallelism;
+        argon2MemoryExponent = memoryExponent;
+        return this;
+    }
+
+    /// <summary>
+    /// Sets the passphrase for encrypting the secret key using Argon2 S2K with custom parameters and raw bytes.
+    /// </summary>
+    /// <param name="passphraseBytes">The passphrase as UTF-8 encoded bytes.</param>
+    /// <param name="passes">Number of passes (iterations).</param>
+    /// <param name="parallelism">Degree of parallelism.</param>
+    /// <param name="memoryExponent">Memory exponent (memory = 2^exponent KB).</param>
+    /// <returns>This generator for chaining.</returns>
+    /// <exception cref="ArgumentNullException">If passphraseBytes is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">If any parameter is out of valid range.</exception>
+    public PgpKeyGenerator WithArgon2Passphrase(byte[] passphraseBytes, byte passes, byte parallelism, byte memoryExponent)
+    {
+        PgpS2KSpecifier.ValidateArgon2Parameters(passes, parallelism, memoryExponent);
+        this.passphraseBytes = passphraseBytes ?? throw new ArgumentNullException(nameof(passphraseBytes));
+        passphrase = null;
+        useArgon2 = true;
+        argon2Passes = passes;
+        argon2Parallelism = parallelism;
+        argon2MemoryExponent = memoryExponent;
         return this;
     }
 
@@ -658,7 +766,7 @@ public sealed class PgpKeyGenerator
             var (passBytes, shouldClear) = GetPassphraseBytes();
             try
             {
-                secretKeyPacket = CreateEncryptedSecretKeyFromBytes(publicKeyPacket, privateKey, passBytes);
+                secretKeyPacket = EncryptSecretKey(publicKeyPacket, privateKey, passBytes);
             }
             finally
             {
@@ -736,7 +844,7 @@ public sealed class PgpKeyGenerator
         {
             masterSecretPacket = passBytes == null
                 ? PgpSecretKeyPacket.CreateUnencrypted(masterPublicPacket, ed25519Private)
-                : CreateEncryptedSecretKeyFromBytes(masterPublicPacket, ed25519Private, passBytes);
+                : EncryptSecretKey(masterPublicPacket, ed25519Private, passBytes);
 
             // Create user ID packet
             var userIdPacket = new PgpUserIdPacket(userId!);
@@ -757,7 +865,7 @@ public sealed class PgpKeyGenerator
 
             subkeySecretPacket = passBytes == null
                 ? PgpSecretKeyPacket.CreateUnencrypted(subkeyPublicPacket, x25519Private)
-                : CreateEncryptedSecretKeyFromBytes(subkeyPublicPacket, x25519Private, passBytes);
+                : EncryptSecretKey(subkeyPublicPacket, x25519Private, passBytes);
 
             // Create subkey binding signature
             var subkeyFlags = PgpKeyCapabilities.EncryptCommunications | PgpKeyCapabilities.EncryptStorage;
@@ -952,29 +1060,109 @@ public sealed class PgpKeyGenerator
     }
 
     /// <summary>
+    /// Creates an encrypted secret key packet using Argon2 S2K (RFC 9580).
+    /// </summary>
+    /// <param name="publicKey">The public key portion.</param>
+    /// <param name="secretMaterial">The plaintext secret key material (MPIs).</param>
+    /// <param name="passphraseBytes">The passphrase as raw bytes.</param>
+    /// <param name="passes">Number of Argon2 passes.</param>
+    /// <param name="parallelism">Argon2 parallelism degree.</param>
+    /// <param name="memoryExponent">Argon2 memory exponent.</param>
+    /// <returns>An encrypted secret key packet with Argon2 S2K.</returns>
+    private static PgpSecretKeyPacket CreateArgon2EncryptedSecretKeyFromBytes(
+        PgpPublicKeyPacket publicKey,
+        byte[] secretMaterial,
+        byte[] passphraseBytes,
+        byte passes,
+        byte parallelism,
+        byte memoryExponent)
+    {
+        // Generate 16-byte salt for Argon2
+        byte[] salt = S2KCore.GenerateArgon2Salt();
+
+        // Derive encryption key using Argon2
+        byte[] encryptionKey = S2KCore.Argon2S2K(
+            passphraseBytes,
+            salt,
+            passes,
+            parallelism,
+            memoryExponent,
+            AES_256_KEY_SIZE);
+
+        try
+        {
+            // Calculate SHA-1 hash of secret material for integrity (S2KUsage 254)
+            // SHA-1 is required by RFC 4880 for S2KUsage 254 - we cannot use a different hash
+#pragma warning disable CA5350 // SHA-1 is weak, but required by OpenPGP specification
+            byte[] sha1Hash;
+#if NETSTANDARD2_0
+            using (var sha1 = SHA1.Create())
+            {
+                sha1Hash = sha1.ComputeHash(secretMaterial);
+            }
+#else
+            sha1Hash = SHA1.HashData(secretMaterial);
+#endif
+#pragma warning restore CA5350
+
+            // Plaintext for encryption: secret material + SHA-1 hash
+            byte[] plaintextWithHash = new byte[secretMaterial.Length + 20];
+            secretMaterial.CopyTo(plaintextWithHash.AsSpan());
+            sha1Hash.CopyTo(plaintextWithHash.AsSpan(secretMaterial.Length));
+
+            // Generate IV for CFB encryption
+            byte[] iv = new byte[AES_BLOCK_SIZE];
+            using (var rng = RandomNumberGenerator.Create())
+            {
+                rng.GetBytes(iv);
+            }
+
+            // Encrypt using standard CFB mode
+            byte[] encrypted = CfbEncryptStandard(plaintextWithHash, encryptionKey, iv);
+
+            // Create Argon2 S2K specifier
+            var s2kSpecifier = PgpS2KSpecifier.CreateArgon2(SHA256_HASH, salt, passes, parallelism, memoryExponent);
+
+            // Create encrypted secret key packet
+            return PgpSecretKeyPacket.CreateEncrypted(
+                publicKey,
+                PgpS2KUsage.Sha1Hash,
+                AES_256,
+                s2kSpecifier,
+                iv,
+                encrypted);
+        }
+        finally
+        {
+            // Clear sensitive data (caller is responsible for clearing passphraseBytes)
+            Array.Clear(encryptionKey, 0, encryptionKey.Length);
+        }
+    }
+
+    /// <summary>
     /// Encrypts all secret keys in a secret key ring with the specified passphrase bytes.
     /// </summary>
     /// <param name="ring">The secret key ring with unencrypted keys.</param>
     /// <param name="passphraseBytes">The passphrase as raw bytes.</param>
     /// <returns>A new secret key ring with all keys encrypted.</returns>
-    private static PgpSecretKeyRing EncryptSecretKeyRingWithBytes(PgpSecretKeyRing ring, byte[] passphraseBytes)
+    private PgpSecretKeyRing EncryptSecretKeyRingWithBytes(PgpSecretKeyRing ring, byte[] passphraseBytes)
     {
         // Encrypt master key
         var masterSecretMaterial = ring.MasterKey.SecretKeyMaterial.ToArray();
-        // Remove checksum (last 2 bytes) since CreateEncryptedSecretKeyFromBytes adds its own hash
+        // Remove checksum (last 2 bytes) since Create*EncryptedSecretKeyFromBytes adds its own hash
         var masterPlainMaterial = new byte[masterSecretMaterial.Length - 2];
         Array.Copy(masterSecretMaterial, 0, masterPlainMaterial, 0, masterPlainMaterial.Length);
-        var encryptedMaster = CreateEncryptedSecretKeyFromBytes(ring.MasterKey.PublicKey, masterPlainMaterial, passphraseBytes);
+        var encryptedMaster = EncryptSecretKey(ring.MasterKey.PublicKey, masterPlainMaterial, passphraseBytes);
 
         // Encrypt subkeys
         var encryptedSubkeys = new List<PgpSecretKeyPacket>();
         foreach (var subkey in ring.Subkeys)
         {
             var subkeySecretMaterial = subkey.SecretKeyMaterial.ToArray();
-            // Remove checksum (last 2 bytes) since CreateEncryptedSecretKeyFromBytes adds its own hash
+            // Remove checksum (last 2 bytes) since Create*EncryptedSecretKeyFromBytes adds its own hash
             var subkeyPlainMaterial = new byte[subkeySecretMaterial.Length - 2];
             Array.Copy(subkeySecretMaterial, 0, subkeyPlainMaterial, 0, subkeyPlainMaterial.Length);
-            var encryptedSubkey = CreateEncryptedSecretKeyFromBytes(subkey.PublicKey, subkeyPlainMaterial, passphraseBytes);
+            var encryptedSubkey = EncryptSecretKey(subkey.PublicKey, subkeyPlainMaterial, passphraseBytes);
             encryptedSubkeys.Add(encryptedSubkey);
         }
 
@@ -985,6 +1173,25 @@ public sealed class PgpKeyGenerator
             userIds: ring.UserIds,
             userAttributes: ring.UserAttributes,
             signatures: ring.Signatures);
+    }
+
+    /// <summary>
+    /// Encrypts a secret key using the configured S2K method (iterated or Argon2).
+    /// </summary>
+    private PgpSecretKeyPacket EncryptSecretKey(PgpPublicKeyPacket publicKey, byte[] secretMaterial, byte[] passphraseBytes)
+    {
+        if (useArgon2)
+        {
+            return CreateArgon2EncryptedSecretKeyFromBytes(
+                publicKey,
+                secretMaterial,
+                passphraseBytes,
+                argon2Passes,
+                argon2Parallelism,
+                argon2MemoryExponent);
+        }
+
+        return CreateEncryptedSecretKeyFromBytes(publicKey, secretMaterial, passphraseBytes);
     }
 
     /// <summary>

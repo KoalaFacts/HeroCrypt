@@ -1131,6 +1131,7 @@ public readonly struct PgpSecretKeyPacket
     ///   <item>Simple S2K (type 0)</item>
     ///   <item>Salted S2K (type 1)</item>
     ///   <item>Iterated and Salted S2K (type 3)</item>
+    ///   <item>Argon2 S2K (type 4) - RFC 9580</item>
     /// </list>
     /// </para>
     /// </remarks>
@@ -1264,9 +1265,13 @@ public readonly struct PgpSecretKeyPacket
                 S2KCore.DecodeIterationCount(specifier.EncodedCount),
                 keySize,
                 hashAlgorithm),
-            S2KType.Argon2 => throw new NotSupportedException(
-                "Argon2 S2K (type 4) is not yet supported. This is a modern key derivation function " +
-                "specified in RFC 9580 that requires additional cryptographic library support."),
+            S2KType.Argon2 => S2KCore.Argon2S2K(
+                passphrase,
+                specifier.Salt.Span,
+                specifier.Argon2Params!.Value.Passes,
+                specifier.Argon2Params!.Value.Parallelism,
+                specifier.Argon2Params!.Value.MemoryExponent,
+                keySize),
             _ => throw new InvalidOperationException($"Unsupported S2K type: {specifier.Type}")
         };
     }
@@ -1384,18 +1389,7 @@ public readonly struct PgpSecretKeyPacket
     /// </summary>
     private static byte[] CfbDecrypt(byte[] ciphertext, byte[] key, byte[] iv, byte cipherAlgorithm)
     {
-        // Currently only AES is supported
-        if (cipherAlgorithm < 7 || cipherAlgorithm > 9)
-        {
-            throw new NotSupportedException($"Cipher algorithm {cipherAlgorithm} is not supported. Only AES (7, 8, 9) is currently supported.");
-        }
-
         int blockSize = GetCipherBlockSize(cipherAlgorithm);
-
-        using var aes = Aes.Create();
-        aes.Key = key;
-        aes.Mode = CipherMode.ECB; // We implement CFB manually
-        aes.Padding = PaddingMode.None;
 
         byte[] plaintext = new byte[ciphertext.Length];
         byte[] fr = new byte[blockSize]; // Feedback register
@@ -1404,7 +1398,15 @@ public readonly struct PgpSecretKeyPacket
         // Initialize FR with IV
         iv.AsSpan(0, Math.Min(iv.Length, blockSize)).CopyTo(fr);
 
-        using var encryptor = aes.CreateEncryptor();
+        // Create the appropriate symmetric algorithm
+        using SymmetricAlgorithm cipher = cipherAlgorithm switch
+        {
+            2 => CreateTripleDes(key),
+            7 or 8 or 9 => CreateAes(key),
+            _ => throw new NotSupportedException($"Cipher algorithm {cipherAlgorithm} is not supported. Only TripleDES (2) and AES (7, 8, 9) are currently supported.")
+        };
+
+        using var encryptor = cipher.CreateEncryptor();
 
         int pos = 0;
         while (pos < ciphertext.Length)
@@ -1431,6 +1433,36 @@ public readonly struct PgpSecretKeyPacket
 
         return plaintext;
     }
+
+    /// <summary>
+    /// Creates an AES cipher configured for CFB mode implementation.
+    /// </summary>
+    private static Aes CreateAes(byte[] key)
+    {
+        var aes = Aes.Create();
+        aes.Key = key;
+        aes.Mode = CipherMode.ECB; // We implement CFB manually
+        aes.Padding = PaddingMode.None;
+        return aes;
+    }
+
+    /// <summary>
+    /// Creates a TripleDES cipher configured for CFB mode implementation.
+    /// </summary>
+    /// <remarks>
+    /// TripleDES is considered weak by modern standards but is supported for
+    /// backward compatibility with legacy PGP keys (RFC 4880 algorithm 2).
+    /// </remarks>
+#pragma warning disable CA5350 // TripleDES is weak but needed for legacy PGP support (RFC 4880)
+    private static TripleDES CreateTripleDes(byte[] key)
+    {
+        var des3 = TripleDES.Create();
+        des3.Key = key;
+        des3.Mode = CipherMode.ECB; // We implement CFB manually
+        des3.Padding = PaddingMode.None;
+        return des3;
+    }
+#pragma warning restore CA5350
 
     /// <summary>
     /// Reads unencrypted RSA secret key material.

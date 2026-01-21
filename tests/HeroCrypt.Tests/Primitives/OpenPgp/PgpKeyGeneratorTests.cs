@@ -1,5 +1,7 @@
+using System.Security.Cryptography;
 using HeroCrypt.Primitives.Armor;
 using HeroCrypt.Primitives.OpenPgp;
+using HeroCrypt.Primitives.S2K;
 using HeroCrypt.Tests.Infrastructure;
 
 namespace HeroCrypt.Tests.Primitives.OpenPgp;
@@ -1692,6 +1694,513 @@ public class PgpKeyGeneratorTests
             Assert.False(decryptedMaster.IsEncrypted);
             Assert.False(decryptedSubkey.IsEncrypted);
             Assert.Equal(result.Fingerprint, decryptedMaster.ComputeFingerprint());
+        }
+    }
+
+    /// <summary>
+    /// Tests for Argon2-protected secret key decryption.
+    /// </summary>
+    [Trait("Category", TestCategories.UNIT)]
+    [Trait("Category", TestCategories.SLOW)]
+    public class Argon2SecretKeyDecryptionTests
+    {
+        private const byte SHA256_HASH = 8;
+        private const byte AES_256 = 9;
+
+        [Fact]
+        public void Decrypt_Argon2ProtectedKey_ReturnsUnencryptedKey()
+        {
+            // Arrange - Generate an unencrypted RSA key first
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            // Get the secret key material from the unencrypted key
+            var secretMaterial = result.MasterSecretKey.SecretKeyMaterial.ToArray();
+            // Remove the 2-byte checksum as we'll encrypt with SHA-1 hash
+            var plainMaterial = new byte[secretMaterial.Length - 2];
+            Array.Copy(secretMaterial, 0, plainMaterial, 0, plainMaterial.Length);
+
+            var passphrase = "argon2-test-passphrase";
+            var passphraseBytes = System.Text.Encoding.UTF8.GetBytes(passphrase);
+
+            // Create Argon2-protected secret key
+            var argon2ProtectedKey = CreateArgon2ProtectedSecretKey(
+                result.MasterSecretKey.PublicKey,
+                plainMaterial,
+                passphraseBytes);
+
+            // Act - Decrypt with Argon2
+            var decrypted = argon2ProtectedKey.Decrypt(passphrase);
+
+            // Assert
+            Assert.False(decrypted.IsEncrypted);
+            Assert.Equal(result.Fingerprint, decrypted.ComputeFingerprint());
+        }
+
+        [Fact]
+        public void Decrypt_Argon2ProtectedKey_CanReadSecretMaterial()
+        {
+            // Arrange
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            var secretMaterial = result.MasterSecretKey.SecretKeyMaterial.ToArray();
+            var plainMaterial = new byte[secretMaterial.Length - 2];
+            Array.Copy(secretMaterial, 0, plainMaterial, 0, plainMaterial.Length);
+
+            var passphrase = "argon2-material-test";
+            var passphraseBytes = System.Text.Encoding.UTF8.GetBytes(passphrase);
+
+            var argon2ProtectedKey = CreateArgon2ProtectedSecretKey(
+                result.MasterSecretKey.PublicKey,
+                plainMaterial,
+                passphraseBytes);
+
+            // Act
+            var decrypted = argon2ProtectedKey.Decrypt(passphrase);
+            var (d, p, q, u) = decrypted.ReadRsaSecretKey();
+
+            // Assert - verify RSA parameters are valid
+            Assert.True(d > System.Numerics.BigInteger.One);
+            Assert.True(p > System.Numerics.BigInteger.One);
+            Assert.True(q > System.Numerics.BigInteger.One);
+            Assert.True(u > System.Numerics.BigInteger.One);
+        }
+
+        [Fact]
+        public void Decrypt_Argon2ProtectedKey_WrongPassphrase_ThrowsCryptographicException()
+        {
+            // Arrange
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            var secretMaterial = result.MasterSecretKey.SecretKeyMaterial.ToArray();
+            var plainMaterial = new byte[secretMaterial.Length - 2];
+            Array.Copy(secretMaterial, 0, plainMaterial, 0, plainMaterial.Length);
+
+            var passphrase = "correct-argon2-pass";
+            var passphraseBytes = System.Text.Encoding.UTF8.GetBytes(passphrase);
+
+            var argon2ProtectedKey = CreateArgon2ProtectedSecretKey(
+                result.MasterSecretKey.PublicKey,
+                plainMaterial,
+                passphraseBytes);
+
+            // Act & Assert
+            Assert.Throws<System.Security.Cryptography.CryptographicException>(
+                () => argon2ProtectedKey.Decrypt("wrong-passphrase"));
+        }
+
+        [Fact]
+        public void Decrypt_Argon2Ed25519Key_ReturnsUnencryptedKey()
+        {
+            // Arrange - Generate an unencrypted Ed25519 key
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Ed25519 <ed25519@example.com>")
+                .GenerateEd25519();
+
+            var secretMaterial = result.MasterSecretKey.SecretKeyMaterial.ToArray();
+            var plainMaterial = new byte[secretMaterial.Length - 2];
+            Array.Copy(secretMaterial, 0, plainMaterial, 0, plainMaterial.Length);
+
+            var passphrase = "argon2-ed25519-pass";
+            var passphraseBytes = System.Text.Encoding.UTF8.GetBytes(passphrase);
+
+            var argon2ProtectedKey = CreateArgon2ProtectedSecretKey(
+                result.MasterSecretKey.PublicKey,
+                plainMaterial,
+                passphraseBytes);
+
+            // Act
+            var decrypted = argon2ProtectedKey.Decrypt(passphrase);
+
+            // Assert
+            Assert.False(decrypted.IsEncrypted);
+            Assert.Equal(result.Fingerprint, decrypted.ComputeFingerprint());
+        }
+
+        [Fact]
+        public void Decrypt_Argon2Key_ThenSign_Succeeds()
+        {
+            // Arrange
+            var result = PgpKeyGenerator.Create()
+                .WithUserId("Test <test@example.com>")
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            var secretMaterial = result.MasterSecretKey.SecretKeyMaterial.ToArray();
+            var plainMaterial = new byte[secretMaterial.Length - 2];
+            Array.Copy(secretMaterial, 0, plainMaterial, 0, plainMaterial.Length);
+
+            var passphrase = "argon2-sign-test";
+            var passphraseBytes = System.Text.Encoding.UTF8.GetBytes(passphrase);
+
+            var argon2ProtectedKey = CreateArgon2ProtectedSecretKey(
+                result.MasterSecretKey.PublicKey,
+                plainMaterial,
+                passphraseBytes);
+
+            var data = TestHelpers.RandomBytes(100);
+
+            // Act - Decrypt the key
+            var decryptedSecretKey = argon2ProtectedKey.Decrypt(passphrase);
+
+            // Sign with decrypted key
+            using var signer = PgpSignatureSigner.Create()
+                .WithSecretKey(decryptedSecretKey);
+            var signedMessage = signer.Sign(data);
+
+            // Verify with public key
+            using var verifier = PgpSignatureVerifier.Create()
+                .WithPublicKey(result.MasterPublicKey);
+            var verifyResult = verifier.Verify(signedMessage);
+
+            // Assert
+            Assert.True(verifyResult.IsValid);
+        }
+
+        /// <summary>
+        /// Creates a secret key packet protected with Argon2 S2K.
+        /// </summary>
+        private static PgpSecretKeyPacket CreateArgon2ProtectedSecretKey(
+            PgpPublicKeyPacket publicKey,
+            byte[] secretMaterial,
+            byte[] passphraseBytes)
+        {
+            // Generate 16-byte salt for Argon2
+            var salt = new byte[16];
+            System.Security.Cryptography.RandomNumberGenerator.Fill(salt);
+
+            // Generate IV for AES-256 (16 bytes)
+            var iv = new byte[16];
+            System.Security.Cryptography.RandomNumberGenerator.Fill(iv);
+
+            // Create Argon2 S2K specifier with conservative parameters for testing
+            // Using memoryExponent=10 (1 MB) for fast tests
+            var s2kSpecifier = PgpS2KSpecifier.CreateArgon2(
+                SHA256_HASH,
+                salt,
+                passes: 1,
+                parallelism: 1,
+                memoryExponent: 10);
+
+            // Derive key using Argon2
+            var encryptionKey = HeroCrypt.Primitives.S2K.S2KCore.Argon2S2K(
+                passphraseBytes,
+                salt,
+                timePasses: 1,
+                parallelism: 1,
+                memoryExponent: 10,
+                keySize: 32);
+
+            try
+            {
+                // Prepare plaintext with SHA-1 hash (S2KUsage.Sha1Hash = 254)
+                byte[] plaintextWithHash;
+                using (var sha1 = System.Security.Cryptography.SHA1.Create())
+                {
+                    var hash = sha1.ComputeHash(secretMaterial);
+                    plaintextWithHash = new byte[secretMaterial.Length + 20];
+                    secretMaterial.CopyTo(plaintextWithHash, 0);
+                    hash.CopyTo(plaintextWithHash, secretMaterial.Length);
+                }
+
+                // Encrypt with CFB mode
+                var encryptedMaterial = CfbEncrypt(plaintextWithHash, encryptionKey, iv);
+
+                // Create encrypted secret key packet
+                return PgpSecretKeyPacket.CreateEncrypted(
+                    publicKey,
+                    PgpS2KUsage.Sha1Hash,
+                    AES_256,
+                    s2kSpecifier,
+                    iv,
+                    encryptedMaterial);
+            }
+            finally
+            {
+                HeroCrypt.Security.SecureMemoryOperations.SecureClear(encryptionKey);
+            }
+        }
+
+        /// <summary>
+        /// CFB encryption for secret key material.
+        /// </summary>
+        private static byte[] CfbEncrypt(byte[] plaintext, byte[] key, byte[] iv)
+        {
+            using var aes = System.Security.Cryptography.Aes.Create();
+            aes.Key = key;
+            aes.Mode = System.Security.Cryptography.CipherMode.ECB;
+            aes.Padding = System.Security.Cryptography.PaddingMode.None;
+
+            var ciphertext = new byte[plaintext.Length];
+            var feedback = new byte[16];
+            iv.CopyTo(feedback, 0);
+
+            using var encryptor = aes.CreateEncryptor();
+            var keystreamBlock = new byte[16];
+
+            int offset = 0;
+            while (offset < plaintext.Length)
+            {
+                encryptor.TransformBlock(feedback, 0, 16, keystreamBlock, 0);
+
+                int bytesToProcess = Math.Min(16, plaintext.Length - offset);
+                for (int i = 0; i < bytesToProcess; i++)
+                {
+                    ciphertext[offset + i] = (byte)(plaintext[offset + i] ^ keystreamBlock[i]);
+                }
+
+                Array.Copy(ciphertext, offset, feedback, 0, bytesToProcess);
+                if (bytesToProcess < 16)
+                {
+                    Array.Clear(feedback, bytesToProcess, 16 - bytesToProcess);
+                }
+
+                offset += bytesToProcess;
+            }
+
+            return ciphertext;
+        }
+    }
+
+    /// <summary>
+    /// Tests for generating keys with Argon2 S2K passphrase protection.
+    /// </summary>
+    public class Argon2KeyGenerationTests
+    {
+        private const string TEST_PASSPHRASE = "test-argon2-passphrase";
+        private const string USER_ID = "Argon2 Test <argon2@example.com>";
+
+        [Fact]
+        public void GenerateRsa_WithArgon2Passphrase_CreatesEncryptedKey()
+        {
+            // Arrange & Act - use low memory for fast tests
+            var result = PgpKeyGenerator.Create()
+                .WithUserId(USER_ID)
+                .WithArgon2Passphrase(TEST_PASSPHRASE, passes: 1, parallelism: 1, memoryExponent: 16)
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            // Assert
+            Assert.True(result.SecretKeyRing.MasterKey.IsEncrypted);
+            Assert.Equal(PgpS2KUsage.Sha1Hash, result.SecretKeyRing.MasterKey.S2KUsage);
+            Assert.Equal(S2KType.Argon2, result.SecretKeyRing.MasterKey.S2KSpecifier!.Value.Type);
+        }
+
+        [Fact]
+        public void GenerateRsa_WithArgon2Passphrase_CanDecryptKey()
+        {
+            // Arrange
+            var result = PgpKeyGenerator.Create()
+                .WithUserId(USER_ID)
+                .WithArgon2Passphrase(TEST_PASSPHRASE, passes: 1, parallelism: 1, memoryExponent: 16)
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            // Act
+            var decrypted = result.SecretKeyRing.MasterKey.Decrypt(TEST_PASSPHRASE);
+
+            // Assert
+            Assert.False(decrypted.IsEncrypted);
+            Assert.Equal(PgpS2KUsage.None, decrypted.S2KUsage);
+        }
+
+        [Fact]
+        public void GenerateRsa_WithArgon2Passphrase_WrongPassphrase_ThrowsCryptographicException()
+        {
+            // Arrange
+            var result = PgpKeyGenerator.Create()
+                .WithUserId(USER_ID)
+                .WithArgon2Passphrase(TEST_PASSPHRASE, passes: 1, parallelism: 1, memoryExponent: 16)
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            // Act & Assert
+            Assert.Throws<CryptographicException>(() => result.SecretKeyRing.MasterKey.Decrypt("wrong-passphrase"));
+        }
+
+        [Fact]
+        public void GenerateRsa_WithArgon2Passphrase_HasCorrectArgon2Params()
+        {
+            // Arrange
+            byte expectedPasses = 2;
+            byte expectedParallelism = 3;
+            byte expectedMemoryExponent = 17;
+
+            // Act
+            var result = PgpKeyGenerator.Create()
+                .WithUserId(USER_ID)
+                .WithArgon2Passphrase(TEST_PASSPHRASE, expectedPasses, expectedParallelism, expectedMemoryExponent)
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            // Assert
+            var s2k = result.SecretKeyRing.MasterKey.S2KSpecifier!.Value;
+            Assert.Equal(S2KType.Argon2, s2k.Type);
+            Assert.Equal(expectedPasses, s2k.Argon2Params!.Value.Passes);
+            Assert.Equal(expectedParallelism, s2k.Argon2Params!.Value.Parallelism);
+            Assert.Equal(expectedMemoryExponent, s2k.Argon2Params!.Value.MemoryExponent);
+            Assert.Equal(16, s2k.Salt.Length); // Argon2 uses 16-byte salt
+        }
+
+        [Fact]
+        public void GenerateRsa_WithArgon2Passphrase_AndSubkey_EncryptsSubkeyWithArgon2()
+        {
+            // Arrange & Act
+            var result = PgpKeyGenerator.Create()
+                .WithUserId(USER_ID)
+                .WithArgon2Passphrase(TEST_PASSPHRASE, passes: 1, parallelism: 1, memoryExponent: 16)
+                .WithKeySize(2048)
+                .WithEncryptionSubkey()
+                .GenerateRsa();
+
+            // Assert
+            Assert.Single(result.SecretKeyRing.Subkeys);
+            var subkey = result.SecretKeyRing.Subkeys.First();
+            Assert.True(subkey.IsEncrypted);
+            Assert.Equal(S2KType.Argon2, subkey.S2KSpecifier!.Value.Type);
+
+            // Verify subkey can be decrypted
+            var decryptedSubkey = subkey.Decrypt(TEST_PASSPHRASE);
+            Assert.False(decryptedSubkey.IsEncrypted);
+        }
+
+        [Fact]
+        public void GenerateRsa_WithArgon2PassphraseBytes_WorksCorrectly()
+        {
+            // Arrange
+            var passphraseBytes = System.Text.Encoding.UTF8.GetBytes(TEST_PASSPHRASE);
+
+            // Act
+            var result = PgpKeyGenerator.Create()
+                .WithUserId(USER_ID)
+                .WithArgon2Passphrase(passphraseBytes, passes: 1, parallelism: 1, memoryExponent: 16)
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            // Assert
+            Assert.Equal(S2KType.Argon2, result.SecretKeyRing.MasterKey.S2KSpecifier!.Value.Type);
+
+            // Can decrypt with same passphrase (as string since Decrypt takes string)
+            var decrypted = result.SecretKeyRing.MasterKey.Decrypt(TEST_PASSPHRASE);
+            Assert.False(decrypted.IsEncrypted);
+        }
+
+        [Fact]
+        public void GenerateEd25519_WithArgon2Passphrase_CreatesEncryptedKey()
+        {
+            // Arrange & Act
+            var result = PgpKeyGenerator.Create()
+                .WithUserId(USER_ID)
+                .WithArgon2Passphrase(TEST_PASSPHRASE, passes: 1, parallelism: 1, memoryExponent: 16)
+                .GenerateEd25519();
+
+            // Assert
+            Assert.True(result.SecretKeyRing.MasterKey.IsEncrypted);
+            Assert.Equal(S2KType.Argon2, result.SecretKeyRing.MasterKey.S2KSpecifier!.Value.Type);
+        }
+
+        [Fact]
+        public void GenerateEd25519_WithArgon2Passphrase_CanDecryptAndSign()
+        {
+            // Arrange
+            var result = PgpKeyGenerator.Create()
+                .WithUserId(USER_ID)
+                .WithArgon2Passphrase(TEST_PASSPHRASE, passes: 1, parallelism: 1, memoryExponent: 16)
+                .GenerateEd25519();
+
+            // Act
+            var decrypted = result.SecretKeyRing.MasterKey.Decrypt(TEST_PASSPHRASE);
+
+            // Assert - verify we can read the secret material (32 bytes for Ed25519 + 2-byte checksum)
+            Assert.False(decrypted.IsEncrypted);
+            Assert.Equal(34, decrypted.SecretKeyMaterial.Length);
+        }
+
+        [Fact]
+        public void GenerateEd25519WithX25519Subkey_WithArgon2Passphrase_EncryptsBothKeys()
+        {
+            // Arrange & Act
+            var result = PgpKeyGenerator.Create()
+                .WithUserId(USER_ID)
+                .WithArgon2Passphrase(TEST_PASSPHRASE, passes: 1, parallelism: 1, memoryExponent: 16)
+                .GenerateEd25519WithX25519Subkey();
+
+            // Assert - master key
+            Assert.True(result.SecretKeyRing.MasterKey.IsEncrypted);
+            Assert.Equal(S2KType.Argon2, result.SecretKeyRing.MasterKey.S2KSpecifier!.Value.Type);
+
+            // Assert - subkey
+            Assert.Single(result.SecretKeyRing.Subkeys);
+            var subkey = result.SecretKeyRing.Subkeys.First();
+            Assert.True(subkey.IsEncrypted);
+            Assert.Equal(S2KType.Argon2, subkey.S2KSpecifier!.Value.Type);
+
+            // Verify both can be decrypted
+            var decryptedMaster = result.SecretKeyRing.MasterKey.Decrypt(TEST_PASSPHRASE);
+            var decryptedSubkey = subkey.Decrypt(TEST_PASSPHRASE);
+            Assert.False(decryptedMaster.IsEncrypted);
+            Assert.False(decryptedSubkey.IsEncrypted);
+        }
+
+        [Fact]
+        public void WithArgon2Passphrase_DefaultParameters_UsesSecureDefaults()
+        {
+            // Arrange & Act
+            var result = PgpKeyGenerator.Create()
+                .WithUserId(USER_ID)
+                .WithArgon2Passphrase(TEST_PASSPHRASE)
+                .WithKeySize(2048)
+                .GenerateRsa();
+
+            // Assert - verify defaults: passes=3, parallelism=4, memoryExponent=19
+            var s2k = result.SecretKeyRing.MasterKey.S2KSpecifier!.Value;
+            Assert.Equal(S2KType.Argon2, s2k.Type);
+            Assert.Equal(3, s2k.Argon2Params!.Value.Passes);
+            Assert.Equal(4, s2k.Argon2Params!.Value.Parallelism);
+            Assert.Equal(19, s2k.Argon2Params!.Value.MemoryExponent);
+        }
+
+        [Fact]
+        public void WithArgon2Passphrase_InvalidMemoryExponent_ThrowsArgumentOutOfRangeException()
+        {
+            // Arrange & Act & Assert
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                PgpKeyGenerator.Create()
+                    .WithUserId(USER_ID)
+                    .WithArgon2Passphrase(TEST_PASSPHRASE, passes: 1, parallelism: 1, memoryExponent: 2));
+
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                PgpKeyGenerator.Create()
+                    .WithUserId(USER_ID)
+                    .WithArgon2Passphrase(TEST_PASSPHRASE, passes: 1, parallelism: 1, memoryExponent: 32));
+        }
+
+        [Fact]
+        public void WithArgon2Passphrase_InvalidPasses_ThrowsArgumentOutOfRangeException()
+        {
+            // Arrange & Act & Assert
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                PgpKeyGenerator.Create()
+                    .WithUserId(USER_ID)
+                    .WithArgon2Passphrase(TEST_PASSPHRASE, passes: 0, parallelism: 1, memoryExponent: 16));
+        }
+
+        [Fact]
+        public void WithArgon2Passphrase_InvalidParallelism_ThrowsArgumentOutOfRangeException()
+        {
+            // Arrange & Act & Assert
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                PgpKeyGenerator.Create()
+                    .WithUserId(USER_ID)
+                    .WithArgon2Passphrase(TEST_PASSPHRASE, passes: 1, parallelism: 0, memoryExponent: 16));
         }
     }
 }

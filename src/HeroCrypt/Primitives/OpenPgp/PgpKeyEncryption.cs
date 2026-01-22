@@ -1,3 +1,4 @@
+using System.Numerics;
 using System.Security.Cryptography;
 using HeroCrypt.Operations;
 using HeroCrypt.Primitives.Curve25519;
@@ -141,6 +142,16 @@ internal static class PgpKeyEncryption
 
         // Decode MPI
         byte[] ciphertext = DecodeMpi(encryptedMpi);
+
+        // Pad ciphertext to modulus length if needed
+        // MPI encoding strips leading zeros, but RSA decryption requires exact modulus length
+        int modulusBytes = GetBigIntegerByteLength(pubN);
+        if (ciphertext.Length < modulusBytes)
+        {
+            var paddedCiphertext = new byte[modulusBytes];
+            Array.Copy(ciphertext, 0, paddedCiphertext, modulusBytes - ciphertext.Length, ciphertext.Length);
+            ciphertext = paddedCiphertext;
+        }
 
         // RSA decrypt
         var rsaPrivateKey = new RsaPrivateKey(pubN, d, p, q, pubE);
@@ -918,6 +929,28 @@ internal static class PgpKeyEncryption
         }
 
         return mpi.Slice(2, byteLen).ToArray();
+    }
+
+    /// <summary>
+    /// Gets the byte length of a BigInteger (excluding sign byte).
+    /// </summary>
+    private static int GetBigIntegerByteLength(BigInteger value)
+    {
+        if (value.IsZero)
+        {
+            return 1;
+        }
+
+        var bytes = value.ToByteArray();
+        int length = bytes.Length;
+
+        // Skip sign byte if present (trailing zero in little-endian)
+        while (length > 1 && bytes[length - 1] == 0)
+        {
+            length--;
+        }
+
+        return length;
     }
 
     #endregion

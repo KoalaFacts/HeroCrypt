@@ -1,12 +1,26 @@
 # HeroCrypt
 
 [![NuGet Version](https://img.shields.io/nuget/v/HeroCrypt.svg)](https://www.nuget.org/packages/HeroCrypt/)
-[![Build Status](https://github.com/KoalaFacts/HeroCrypt/workflows/Build%20Pipeline/badge.svg)](https://github.com/KoalaFacts/HeroCrypt/actions)
+[![Build Status](https://github.com/KoalaFacts/HeroCrypt/actions/workflows/ci.yml/badge.svg)](https://github.com/KoalaFacts/HeroCrypt/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/KoalaFacts/HeroCrypt/branch/main/graph/badge.svg)](https://codecov.io/gh/KoalaFacts/HeroCrypt)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![.NET](https://img.shields.io/badge/.NET%20Standard-2.0-blue)](https://dotnet.microsoft.com/download)
-[![.NET](https://img.shields.io/badge/.NET-8.0%20|%209.0%20|%2010.0-blue)](https://dotnet.microsoft.com/download)
+[![.NET](https://img.shields.io/badge/.NET%20Standard-2.0-purple)](https://dotnet.microsoft.com/download)
+[![.NET](https://img.shields.io/badge/.NET-8.0%20|%209.0%20|%2010.0-purple)](https://dotnet.microsoft.com/download)
 
 A fully RFC-compliant cryptographic library for .NET featuring high-performance, secure implementations of modern cryptographic algorithms with multi-framework support.
+
+## Table of Contents
+
+- [Features](#-features)
+- [Framework Support](#-framework-support)
+- [Installation](#-installation)
+- [Quick Start](#-quick-start)
+- [Architecture](#%EF%B8%8F-architecture)
+- [RFC Compliance](#-rfc-compliance)
+- [Security](#-security)
+- [Documentation](#-documentation)
+- [Contributing](#-contributing)
+- [License](#-license)
 
 ## ✨ Features
 
@@ -163,116 +177,122 @@ dotnet add package HeroCrypt
 
 ## 🚀 Quick Start
 
-### Argon2 Password Hashing
+HeroCrypt provides three levels of API access:
+1. **Primitives** - Direct access to algorithms: `HeroCryptBuilder.ChaCha20Poly1305()`
+2. **Operations** - Algorithm-agnostic facades: `HeroCryptBuilder.Encrypt.WithChaCha20Poly1305()`
+3. **Protocols** - Complex constructions: `HeroCryptBuilder.Pgp()`, `HeroCryptBuilder.Bip32()`
+
+### Encryption with ChaCha20-Poly1305
 
 ```csharp
 using HeroCrypt;
-using System.Security.Cryptography;
-using System.Text;
 
-var salt = RandomNumberGenerator.GetBytes(16);
+// Generate a random key
+var key = new byte[32];
+RandomNumberGenerator.Fill(key);
 
-// Hash a password (Argon2id via builder)
-var hashBytes = HeroCryptBuilder.DeriveKey()
-    .UseArgon2()
-    .WithPassword(Encoding.UTF8.GetBytes("mySecurePassword"))
-    .WithSalt(salt)
-    .WithIterations(3)
-    .WithParallelism(4)
-    .WithKeyLength(32)
-    .Build();
+// Encrypt data
+using var cipher = HeroCryptBuilder.ChaCha20Poly1305()
+    .WithKey(key)
+    .WithRandomNonce();
 
-var hash = Convert.ToBase64String(hashBytes);
+var ciphertext = cipher.Encrypt(Encoding.UTF8.GetBytes("Hello, World!"));
 
-// Verify a password
-var verifyBytes = HeroCryptBuilder.DeriveKey()
-    .UseArgon2()
-    .WithPassword(Encoding.UTF8.GetBytes("mySecurePassword"))
-    .WithSalt(salt)
-    .WithIterations(3)
-    .WithParallelism(4)
-    .WithKeyLength(32)
-    .Build();
-
-bool isValid = HeroCrypt.Security.SecureMemoryOperations.ConstantTimeEquals(
-    hashBytes,
-    verifyBytes);
+// Decrypt data
+var plaintext = cipher.Decrypt(ciphertext);
 ```
 
-### Blake2b Hashing
+### Hashing with Blake2b
 
 ```csharp
-using HeroCrypt.Cryptography.Blake2b;
+using HeroCrypt;
 
-// Simple hash
-byte[] data = Encoding.UTF8.GetBytes("Hello, World!");
-byte[] hash = Blake2bCore.ComputeHash(data, 32);  // 32-byte hash
+// Compute a 32-byte hash
+using var hasher = HeroCryptBuilder.Blake2b()
+    .WithOutputLength(32);
+
+var hash = hasher.ComputeHash(Encoding.UTF8.GetBytes("Hello, World!"));
 
 // Keyed hash (MAC)
-byte[] key = Encoding.UTF8.GetBytes("secret-key");
-byte[] mac = Blake2bCore.ComputeHash(data, 32, key);
+using var mac = HeroCryptBuilder.Blake2b()
+    .WithOutputLength(32)
+    .WithKey(key);
+
+var authenticatedHash = mac.ComputeHash(data);
 ```
 
-### RSA Encryption
+### Digital Signatures with Ed25519
 
 ```csharp
-using HeroCrypt.Cryptography.RSA;
+using HeroCrypt;
 
-// Generate key pair
-var keyPair = RsaCore.GenerateKeyPair(2048);
+// Generate a key pair
+using var signer = HeroCryptBuilder.Ed25519();
+var (privateKey, publicKey) = signer.GenerateKeyPair();
 
-// Encrypt with OAEP padding
-byte[] encrypted = RsaCore.Encrypt(
-    data, 
-    keyPair.PublicKey, 
-    RsaPaddingMode.Oaep, 
-    HashAlgorithmName.SHA256
-);
+// Sign a message
+var signature = signer
+    .WithPrivateKey(privateKey)
+    .WithMessage(data)
+    .Sign();
 
-// Decrypt
-byte[] decrypted = RsaCore.Decrypt(
-    encrypted, 
-    keyPair.PrivateKey, 
-    RsaPaddingMode.Oaep, 
-    HashAlgorithmName.SHA256
-);
+// Verify a signature
+bool isValid = signer
+    .WithPublicKey(publicKey)
+    .WithMessage(data)
+    .Verify(signature);
+```
+
+### Key Derivation with Argon2
+
+```csharp
+using HeroCrypt;
+
+// Derive a key from a password
+using var kdf = HeroCryptBuilder.Argon2()
+    .WithPassword(Encoding.UTF8.GetBytes("mySecurePassword"))
+    .WithRandomSalt()
+    .WithInteractivePreset();  // Balanced security/performance
+
+var derivedKey = kdf.DeriveKey();
+```
+
+### PGP Hybrid Encryption
+
+```csharp
+using HeroCrypt;
+
+// Generate RSA key pair
+var pgp = HeroCryptBuilder.Pgp();
+var keyPair = pgp.GenerateRsaKeyPair();
+
+// Encrypt a message
+var envelope = pgp.Encrypt("Secret message", keyPair.PublicKey);
+
+// Decrypt the message
+var plaintext = pgp.DecryptToString(envelope, keyPair.PrivateKey);
 ```
 
 ### Post-Quantum Cryptography (.NET 10+)
 
 ```csharp
-using HeroCrypt.Fluent;
+using HeroCrypt;
 
-// Option 1: Using unified HeroCryptBuilder (recommended)
 // ML-KEM: Quantum-resistant key encapsulation
-using var keyPair = HeroCrypt.Create()
-    .PostQuantum()
-    .MLKem()
-    .WithSecurityBits(192)
-    .GenerateKeyPair();
+using var mlKem = HeroCryptBuilder.MlKem()
+    .WithParameterSet(MlKemParameterSet.MlKem768);
 
-// Sender: Encapsulate a shared secret
-var (ciphertext, sharedSecret) = HeroCrypt.Create()
-    .PostQuantum()
-    .MLKem()
-    .WithPublicKey(keyPair.PublicKeyPem)
-    .Encapsulate();
+var (publicKey, privateKey) = mlKem.GenerateKeyPair();
+var (ciphertext, sharedSecret) = mlKem.Encapsulate(publicKey);
+var decapsulated = mlKem.Decapsulate(ciphertext, privateKey);
 
 // ML-DSA: Quantum-resistant digital signatures
-var signature = HeroCrypt.Create()
-    .PostQuantum()
-    .MLDsa()
-    .WithKeyPair(signingKey)
-    .WithData("Important message")
-    .WithContext("application-v1")
-    .Sign();
+using var mlDsa = HeroCryptBuilder.MlDsa()
+    .WithParameterSet(MlDsaParameterSet.MlDsa65);
 
-// Option 2: Quick access static methods
-using var quickKey = HeroCrypt.PostQuantum.MLKem.GenerateKeyPair();
-bool isValid = HeroCrypt.PostQuantum.MLDsa.Verify(publicKey, data, signature);
-
-// Option 3: Algorithm-specific builders
-using var mlKemKey = MLKem.Create().WithSecurityBits(256).GenerateKeyPair();
+var (signingKey, verifyKey) = mlDsa.GenerateKeyPair();
+var signature = mlDsa.Sign(data, signingKey);
+bool isValid = mlDsa.Verify(data, signature, verifyKey);
 ```
 
 ## 🏗️ Architecture
@@ -298,13 +318,6 @@ HeroCrypt is built with a small, layered architecture:
 | ML-DSA (FIPS 204) | FIPS 204 | ✅ Production-ready (.NET 10+) |
 | SLH-DSA (FIPS 205) | FIPS 205 | ✅ Production-ready (.NET 10+) |
 | RSA       | RFC 8017 | ✅ Basic Support |
-
-## 🎯 Target Frameworks
-
-- .NET Standard 2.0
-- .NET 8.0
-- .NET 9.0
-- .NET 10.0 (with native Post-Quantum Cryptography support)
 
 ## 🔒 Security
 

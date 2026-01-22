@@ -1,47 +1,47 @@
 namespace HeroCrypt.Security;
 
 /// <summary>
-/// Controls strict security mode for HeroCrypt.
-/// When enabled (default), legacy and deprecated cryptographic algorithms are blocked.
+/// Legacy static class for controlling strict security mode.
 /// </summary>
 /// <remarks>
 /// <para>
-/// Strict mode is <b>enabled by default</b> to enforce FIPS-compliant and secure algorithm usage.
-/// This prevents accidental use of broken algorithms like MD5, SHA-1, 3DES, and Blowfish.
-/// </para>
-/// <para>
-/// To use legacy algorithms for compatibility purposes (e.g., OpenPGP interoperability),
-/// you must explicitly disable strict mode:
+/// <b>DEPRECATED:</b> Use builder-level configuration instead of this static class.
+/// For example, use <c>HashBuilder.AllowLegacyAlgorithms()</c> to enable legacy algorithms
+/// on a per-operation basis without shared state.
 /// </para>
 /// <code>
-/// StrictMode.Enabled = false;
+/// // Preferred: Builder-level configuration (no shared state)
+/// var hash = HeroCryptBuilder.Hash()
+///     .AllowLegacyAlgorithms()
+///     .WithMd5()
+///     .ComputeHash(data);
+///
+/// // Deprecated: Static configuration (shared state)
+/// StrictMode.WithLegacyMode(() => { ... });
 /// </code>
-/// <para>
-/// <b>Warning:</b> Disabling strict mode should only be done when absolutely necessary
-/// for legacy system compatibility. Re-enable it as soon as possible.
-/// </para>
 /// </remarks>
+[Obsolete("Use builder-level AllowLegacyAlgorithms() instead of static StrictMode for stateless operation.")]
 public static class StrictMode
 {
+    // AsyncLocal provides thread-isolated state that flows with async/await context.
+    // Each thread/async context gets its own value, preventing race conditions in parallel tests.
+    // null means "use default" (true), which avoids allocating for the common case.
+    private static readonly AsyncLocal<bool?> EnabledState = new();
+
     /// <summary>
-    /// Gets or sets whether strict mode is enabled.
-    /// When true (default), legacy algorithms will throw <see cref="StrictModeException"/>.
+    /// Gets or sets whether strict mode is enabled globally.
     /// </summary>
     /// <remarks>
-    /// <para>Default: <c>true</c></para>
     /// <para>
-    /// Blocked algorithms in strict mode:
-    /// <list type="bullet">
-    ///   <item>MD5 - cryptographically broken</item>
-    ///   <item>SHA-1 - collision attacks practical</item>
-    ///   <item>3DES - 64-bit block size vulnerable</item>
-    ///   <item>Blowfish - 64-bit block size vulnerable</item>
-    ///   <item>CAST5 - 64-bit block size vulnerable</item>
-    ///   <item>IDEA - 64-bit block size vulnerable</item>
-    /// </list>
+    /// <b>DEPRECATED:</b> Use builder-level <c>AllowLegacyAlgorithms()</c> instead.
     /// </para>
     /// </remarks>
-    public static bool Enabled { get; set; } = true;
+    [Obsolete("Use builder-level AllowLegacyAlgorithms() instead.")]
+    public static bool Enabled
+    {
+        get => EnabledState.Value ?? true;
+        set => EnabledState.Value = value;
+    }
 
     /// <summary>
     /// Throws <see cref="StrictModeException"/> if strict mode is enabled.
@@ -49,6 +49,7 @@ public static class StrictMode
     /// <param name="algorithm">Name of the blocked algorithm.</param>
     /// <param name="recommendation">Recommended alternative algorithm.</param>
     /// <exception cref="StrictModeException">Thrown when strict mode is enabled.</exception>
+    [Obsolete("Use builder-level AllowLegacyAlgorithms() instead.")]
     public static void ThrowIfEnabled(string algorithm, string recommendation)
     {
         if (Enabled)
@@ -62,15 +63,18 @@ public static class StrictMode
     /// </summary>
     /// <param name="action">The action to execute with strict mode disabled.</param>
     /// <remarks>
-    /// Use this for legacy compatibility scenarios where you need to perform
-    /// a single operation with deprecated algorithms.
+    /// <para>
+    /// <b>DEPRECATED:</b> Use builder-level <c>AllowLegacyAlgorithms()</c> instead.
+    /// </para>
     /// <code>
-    /// StrictMode.WithLegacyMode(() =>
-    /// {
-    ///     // Legacy operation using MD5 or SHA-1
-    /// });
+    /// // Preferred approach:
+    /// var hash = HeroCryptBuilder.Hash()
+    ///     .AllowLegacyAlgorithms()
+    ///     .WithMd5()
+    ///     .ComputeHash(data);
     /// </code>
     /// </remarks>
+    [Obsolete("Use builder-level AllowLegacyAlgorithms() instead.")]
     public static void WithLegacyMode(Action action)
     {
 #if !NETSTANDARD2_0
@@ -101,15 +105,11 @@ public static class StrictMode
     /// <param name="func">The function to execute with strict mode disabled.</param>
     /// <returns>The result of the function.</returns>
     /// <remarks>
-    /// Use this for legacy compatibility scenarios where you need to perform
-    /// a single operation with deprecated algorithms.
-    /// <code>
-    /// var hash = StrictMode.WithLegacyMode(() =>
-    /// {
-    ///     return HeroCryptBuilder.Hash().WithMd5().ComputeHash(data);
-    /// });
-    /// </code>
+    /// <para>
+    /// <b>DEPRECATED:</b> Use builder-level <c>AllowLegacyAlgorithms()</c> instead.
+    /// </para>
     /// </remarks>
+    [Obsolete("Use builder-level AllowLegacyAlgorithms() instead.")]
     public static T WithLegacyMode<T>(Func<T> func)
     {
 #if !NETSTANDARD2_0
@@ -138,14 +138,11 @@ public static class StrictMode
     /// </summary>
     /// <returns>An IDisposable that restores strict mode when disposed.</returns>
     /// <remarks>
-    /// <code>
-    /// using (StrictMode.LegacyScope())
-    /// {
-    ///     // Legacy operations here
-    /// }
-    /// // Strict mode is automatically restored
-    /// </code>
+    /// <para>
+    /// <b>DEPRECATED:</b> Use builder-level <c>AllowLegacyAlgorithms()</c> instead.
+    /// </para>
     /// </remarks>
+    [Obsolete("Use builder-level AllowLegacyAlgorithms() instead.")]
     public static IDisposable LegacyScope()
     {
         return new StrictModeScope();
@@ -158,15 +155,19 @@ public static class StrictMode
 
         public StrictModeScope()
         {
+#pragma warning disable CS0618 // Obsolete
             previousState = Enabled;
             Enabled = false;
+#pragma warning restore CS0618
         }
 
         public void Dispose()
         {
             if (!disposed)
             {
+#pragma warning disable CS0618 // Obsolete
                 Enabled = previousState;
+#pragma warning restore CS0618
                 disposed = true;
             }
         }

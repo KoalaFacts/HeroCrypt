@@ -12,6 +12,27 @@ public class HashBuilder
     private HashingAlgorithm algorithm = HashingAlgorithm.Sha256;
     private byte[]? key;
     private int? outputLength;
+    private bool allowLegacyAlgorithms;
+
+    /// <summary>
+    /// Allows the use of legacy/deprecated algorithms (MD5, SHA-1) for this builder instance.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// By default, legacy algorithms are blocked to prevent accidental use of insecure cryptography.
+    /// Call this method to explicitly opt-in to legacy algorithm support for compatibility scenarios.
+    /// </para>
+    /// <para>
+    /// <b>Warning:</b> Only use legacy algorithms when absolutely necessary for interoperability
+    /// with existing systems. For new applications, use SHA-256, SHA-3, or Blake2b.
+    /// </para>
+    /// </remarks>
+    /// <returns>This builder instance for method chaining.</returns>
+    public HashBuilder AllowLegacyAlgorithms()
+    {
+        allowLegacyAlgorithms = true;
+        return this;
+    }
 
     // ─────────────────────────────────────────────────────────────────────────
     // SHA-2 Family
@@ -113,13 +134,22 @@ public class HashBuilder
     /// Use SHA-1 for hashing.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <b>WARNING:</b> SHA-1 is cryptographically broken.
     /// Only use for legacy compatibility (Git, old certificates).
+    /// </para>
+    /// <para>
+    /// Requires calling <see cref="AllowLegacyAlgorithms"/> first, otherwise throws
+    /// <see cref="StrictModeException"/>.
+    /// </para>
     /// </remarks>
+    /// <exception cref="StrictModeException">
+    /// Thrown if <see cref="AllowLegacyAlgorithms"/> was not called.
+    /// </exception>
     [Obsolete("SHA-1 is cryptographically broken. Use WithSha256() or WithSha3_256() for new applications.")]
     public HashBuilder WithSha1()
     {
-        StrictMode.ThrowIfEnabled("SHA-1", "Use SHA-256 or SHA-3 instead.");
+        ThrowIfLegacyNotAllowed("SHA-1", "Use SHA-256 or SHA-3 instead.");
         return WithAlgorithm(HashingAlgorithm.Sha1);
     }
 
@@ -127,14 +157,31 @@ public class HashBuilder
     /// Use MD5 for hashing.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <b>WARNING:</b> MD5 is cryptographically broken.
     /// Only use for checksums, cache keys, or legacy compatibility.
+    /// </para>
+    /// <para>
+    /// Requires calling <see cref="AllowLegacyAlgorithms"/> first, otherwise throws
+    /// <see cref="StrictModeException"/>.
+    /// </para>
     /// </remarks>
+    /// <exception cref="StrictModeException">
+    /// Thrown if <see cref="AllowLegacyAlgorithms"/> was not called.
+    /// </exception>
     [Obsolete("MD5 is cryptographically broken. Use WithSha256() or WithBlake2b256() for new applications.")]
     public HashBuilder WithMd5()
     {
-        StrictMode.ThrowIfEnabled("MD5", "Use SHA-256 or Blake2b instead.");
+        ThrowIfLegacyNotAllowed("MD5", "Use SHA-256 or Blake2b instead.");
         return WithAlgorithm(HashingAlgorithm.Md5);
+    }
+
+    private void ThrowIfLegacyNotAllowed(string algorithm, string recommendation)
+    {
+        if (!allowLegacyAlgorithms)
+        {
+            throw new StrictModeException(algorithm, recommendation);
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────

@@ -348,9 +348,11 @@ public class HashBuilderTests
         [Obsolete]
         public void ComputeHash_Md5_ReturnsCorrectLength()
         {
-            // Act - use legacy mode to allow MD5
-            var hash = HeroCrypt.Security.StrictMode.WithLegacyMode(() =>
-                HeroCryptBuilder.Hash().WithMd5().ComputeHash(TestData));
+            // Act - use AllowLegacyAlgorithms() to enable MD5
+            var hash = HeroCryptBuilder.Hash()
+                .AllowLegacyAlgorithms()
+                .WithMd5()
+                .ComputeHash(TestData);
 
             // Assert
             Assert.Equal(16, hash.Length);
@@ -360,12 +362,32 @@ public class HashBuilderTests
         [Obsolete]
         public void ComputeHash_Sha1_ReturnsCorrectLength()
         {
-            // Act - use legacy mode to allow SHA-1
-            var hash = HeroCrypt.Security.StrictMode.WithLegacyMode(() =>
-                HeroCryptBuilder.Hash().WithSha1().ComputeHash(TestData));
+            // Act - use AllowLegacyAlgorithms() to enable SHA-1
+            var hash = HeroCryptBuilder.Hash()
+                .AllowLegacyAlgorithms()
+                .WithSha1()
+                .ComputeHash(TestData);
 
             // Assert
             Assert.Equal(20, hash.Length);
+        }
+
+        [Fact]
+        [Obsolete]
+        public void WithMd5_WithoutAllowLegacy_ThrowsStrictModeException()
+        {
+            // Act & Assert - should throw when AllowLegacyAlgorithms() not called
+            Assert.Throws<HeroCrypt.Security.StrictModeException>(() =>
+                HeroCryptBuilder.Hash().WithMd5());
+        }
+
+        [Fact]
+        [Obsolete]
+        public void WithSha1_WithoutAllowLegacy_ThrowsStrictModeException()
+        {
+            // Act & Assert - should throw when AllowLegacyAlgorithms() not called
+            Assert.Throws<HeroCrypt.Security.StrictModeException>(() =>
+                HeroCryptBuilder.Hash().WithSha1());
         }
     }
 

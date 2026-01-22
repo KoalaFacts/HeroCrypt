@@ -28,6 +28,16 @@ internal static class PgpKeyEncryption
     /// </summary>
     private static readonly byte[] AesKeyWrapIv = [0xA6, 0xA6, 0xA6, 0xA6, 0xA6, 0xA6, 0xA6, 0xA6];
 
+    /// <summary>
+    /// X25519 HKDF info label per RFC 9580.
+    /// </summary>
+    private static readonly byte[] X25519HkdfLabel = "OpenPGP X25519"u8.ToArray();
+
+    /// <summary>
+    /// Anonymous sender string for ECDH KDF per RFC 6637 (20 bytes, padded with spaces).
+    /// </summary>
+    private static readonly byte[] AnonymousSenderLabel = "Anonymous Sender    "u8.ToArray();
+
     #region RSA Session Key Encryption
 
     /// <summary>
@@ -339,11 +349,10 @@ internal static class PgpKeyEncryption
     private static byte[] BuildX25519HkdfInfo(byte[] ephemeralPublic, byte[] recipientPublic)
     {
         // RFC 9580: info = "OpenPGP X25519" || ephemeralPublic || recipientPublic
-        byte[] label = "OpenPGP X25519"u8.ToArray();
-        byte[] info = new byte[label.Length + 32 + 32];
-        label.CopyTo(info.AsSpan(0));
-        ephemeralPublic.CopyTo(info.AsSpan(label.Length));
-        recipientPublic.CopyTo(info.AsSpan(label.Length + 32));
+        byte[] info = new byte[X25519HkdfLabel.Length + 32 + 32];
+        X25519HkdfLabel.CopyTo(info.AsSpan(0));
+        ephemeralPublic.CopyTo(info.AsSpan(X25519HkdfLabel.Length));
+        recipientPublic.CopyTo(info.AsSpan(X25519HkdfLabel.Length + 32));
         return info;
     }
 
@@ -581,12 +590,9 @@ internal static class PgpKeyEncryption
     /// </remarks>
     private static byte[] BuildEcdhKdfParam(byte[] oid, byte hashAlgorithm, byte cipherAlgorithm, byte[] fingerprint)
     {
-        // "Anonymous Sender    " (20 bytes, padded with spaces)
-        byte[] anonymousSender = "Anonymous Sender    "u8.ToArray();
-
         // param = oidLen || oid || publicKeyAlg || 03 || 01 || hash || cipher || anonymousSender || fingerprint
         const byte publicKeyAlgorithm = (byte)PgpPublicKeyAlgorithm.Ecdh; // 18
-        int paramLen = 1 + oid.Length + 5 + anonymousSender.Length + fingerprint.Length;
+        int paramLen = 1 + oid.Length + 5 + AnonymousSenderLabel.Length + fingerprint.Length;
         byte[] param = new byte[paramLen];
 
         int offset = 0;
@@ -598,8 +604,8 @@ internal static class PgpKeyEncryption
         param[offset++] = 0x01;
         param[offset++] = hashAlgorithm;
         param[offset++] = cipherAlgorithm;
-        anonymousSender.CopyTo(param.AsSpan(offset));
-        offset += anonymousSender.Length;
+        AnonymousSenderLabel.CopyTo(param.AsSpan(offset));
+        offset += AnonymousSenderLabel.Length;
         fingerprint.CopyTo(param.AsSpan(offset));
 
         return param;

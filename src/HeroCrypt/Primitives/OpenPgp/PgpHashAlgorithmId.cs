@@ -182,7 +182,11 @@ public static class ExtensionsToPgpHashAlgorithmId
     public static byte[] ComputeHash(this PgpHashAlgorithmId algorithm, ReadOnlySpan<byte> data)
     {
         using var hash = algorithm.CreateIncrementalHash();
+#if NETSTANDARD2_0
         hash.AppendData(data.ToArray());
+#else
+        hash.AppendData(data);
+#endif
         return hash.GetHashAndReset();
     }
 

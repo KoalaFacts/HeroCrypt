@@ -388,11 +388,22 @@ public sealed class PgpMessageDecryptor : IDisposable
 
         if (secretKey.IsEncrypted)
         {
-            // TODO: Decrypt key with passphrase (requires S2K key derivation)
-            // For now, encrypted keys are not supported
-            _ = passphrase; // Suppress unused field warning - will be used when S2K is implemented
-            error = "Secret key is encrypted. Passphrase-protected keys are not yet supported.";
-            return null;
+            if (string.IsNullOrEmpty(passphrase))
+            {
+                error = "Secret key is encrypted but no passphrase was provided. Use WithPassphrase().";
+                return null;
+            }
+
+            try
+            {
+                // Decrypt the secret key using S2K key derivation
+                secretKey = secretKey.Decrypt(passphrase!);
+            }
+            catch (CryptographicException)
+            {
+                error = "Failed to decrypt secret key. Wrong passphrase?";
+                return null;
+            }
         }
 
         try

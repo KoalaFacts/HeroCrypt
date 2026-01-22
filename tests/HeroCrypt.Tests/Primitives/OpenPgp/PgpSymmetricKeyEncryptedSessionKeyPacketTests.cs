@@ -651,4 +651,147 @@ public class PgpSymmetricKeyEncryptedSessionKeyPacketTests
             Assert.Equal(20, packet.S2kSpecifier.Length);
         }
     }
+
+    /// <summary>
+    /// V6 SKESK AEAD decryption tests.
+    /// </summary>
+    [Trait("Category", TestCategories.UNIT)]
+    [Trait("Category", TestCategories.FAST)]
+    public class V6AeadDecryptionTests
+    {
+        private static readonly byte[] TestPassphrase = Encoding.UTF8.GetBytes("v6-test-passphrase");
+
+#if !NETSTANDARD2_0
+        [Fact]
+        public void DecryptSessionKeyV6_GcmRoundTrip_Succeeds()
+        {
+            // Create a session key to encrypt
+            var originalSessionKey = TestHelpers.RandomBytes(32);
+
+            // Create S2K parameters and derive KEK
+            var s2kParams = S2KParameters.CreateIterated(HashingAlgorithm.Sha256, 0xC0);
+            var s2kSpecifier = s2kParams.Serialize();
+            var kek = s2kParams.DeriveKey(TestPassphrase, 32); // 32 bytes for AES-256
+
+            // Create IV and encrypt session key with AES-GCM
+            var iv = TestHelpers.RandomBytes(12); // GCM uses 12-byte nonce
+            var encryptedSessionKey = EncryptWithGcm(originalSessionKey, kek, iv);
+
+            // Create v6 SKESK packet
+            var packet = new PgpSymmetricKeyEncryptedSessionKeyPacket(
+                SymmetricCipherAlgorithm.Aes256,
+                AeadAlgorithm.Gcm,
+                s2kSpecifier,
+                iv,
+                encryptedSessionKey);
+
+            Assert.Equal(6, packet.Version);
+            Assert.Equal(AeadAlgorithm.Gcm, packet.AeadAlgorithm);
+
+            // Decrypt the session key
+            var decryptedKey = packet.DecryptSessionKey(TestPassphrase);
+
+            Assert.Equal(originalSessionKey, decryptedKey);
+        }
+
+        [Fact]
+        public void DecryptSessionKeyV6_WrongPassphrase_Throws()
+        {
+            var originalSessionKey = TestHelpers.RandomBytes(32);
+            var wrongPassphrase = Encoding.UTF8.GetBytes("wrong-passphrase");
+
+            // Create S2K parameters and derive KEK with correct passphrase
+            var s2kParams = S2KParameters.CreateIterated(HashingAlgorithm.Sha256, 0xC0);
+            var s2kSpecifier = s2kParams.Serialize();
+            var kek = s2kParams.DeriveKey(TestPassphrase, 32);
+
+            var iv = TestHelpers.RandomBytes(12);
+            var encryptedSessionKey = EncryptWithGcm(originalSessionKey, kek, iv);
+
+            var packet = new PgpSymmetricKeyEncryptedSessionKeyPacket(
+                SymmetricCipherAlgorithm.Aes256,
+                AeadAlgorithm.Gcm,
+                s2kSpecifier,
+                iv,
+                encryptedSessionKey);
+
+            // Decryption with wrong passphrase should fail (GCM auth tag mismatch)
+            Assert.ThrowsAny<CryptographicException>(() =>
+                packet.DecryptSessionKey(wrongPassphrase));
+        }
+
+        [Fact]
+        public void DecryptSessionKeyV6_TamperedCiphertext_Throws()
+        {
+            var originalSessionKey = TestHelpers.RandomBytes(32);
+
+            var s2kParams = S2KParameters.CreateIterated(HashingAlgorithm.Sha256, 0xC0);
+            var s2kSpecifier = s2kParams.Serialize();
+            var kek = s2kParams.DeriveKey(TestPassphrase, 32);
+
+            var iv = TestHelpers.RandomBytes(12);
+            var encryptedSessionKey = EncryptWithGcm(originalSessionKey, kek, iv);
+
+            // Tamper with the encrypted data
+            encryptedSessionKey[0] ^= 0xFF;
+
+            var packet = new PgpSymmetricKeyEncryptedSessionKeyPacket(
+                SymmetricCipherAlgorithm.Aes256,
+                AeadAlgorithm.Gcm,
+                s2kSpecifier,
+                iv,
+                encryptedSessionKey);
+
+            // Tampered ciphertext should fail authentication
+            Assert.ThrowsAny<CryptographicException>(() =>
+                packet.DecryptSessionKey(TestPassphrase));
+        }
+
+        [Fact]
+        public void DecryptSessionKeyV6_OcbAlgorithm_ThrowsNotSupported()
+        {
+            var originalSessionKey = TestHelpers.RandomBytes(32);
+
+            var s2kParams = S2KParameters.CreateIterated(HashingAlgorithm.Sha256, 0xC0);
+            var s2kSpecifier = s2kParams.Serialize();
+
+            var iv = TestHelpers.RandomBytes(15); // OCB uses 15-byte nonce
+            var encryptedSessionKey = TestHelpers.RandomBytes(48); // Fake encrypted data
+
+            var packet = new PgpSymmetricKeyEncryptedSessionKeyPacket(
+                SymmetricCipherAlgorithm.Aes256,
+                AeadAlgorithm.Ocb,
+                s2kSpecifier,
+                iv,
+                encryptedSessionKey);
+
+            // OCB is not yet supported
+            Assert.Throws<NotSupportedException>(() =>
+                packet.DecryptSessionKey(TestPassphrase));
+        }
+
+        private static byte[] EncryptWithGcm(byte[] plaintext, byte[] key, byte[] nonce)
+        {
+            const int tagSize = 16;
+            var ciphertext = new byte[plaintext.Length];
+            var tag = new byte[tagSize];
+
+            using var aesGcm = new System.Security.Cryptography.AesGcm(key, tagSize);
+#pragma warning disable IDE0301
+            aesGcm.Encrypt(
+                nonce: nonce,
+                plaintext: plaintext,
+                ciphertext: ciphertext,
+                tag: tag,
+                associatedData: ReadOnlySpan<byte>.Empty);
+#pragma warning restore IDE0301
+
+            // Combine ciphertext and tag
+            var result = new byte[ciphertext.Length + tag.Length];
+            ciphertext.CopyTo(result, 0);
+            tag.CopyTo(result, ciphertext.Length);
+            return result;
+        }
+#endif
+    }
 }

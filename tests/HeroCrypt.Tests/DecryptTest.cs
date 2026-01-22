@@ -74,6 +74,101 @@ public class DecryptTest
             var decryptedText = Encoding.UTF8.GetString(decrypted.Data.ToArray());
             Assert.Equal(TestPlaintext, decryptedText);
         }
+
+        [Fact]
+        public void WithEncryptedSecretKey_AutoDecryption_Succeeds()
+        {
+            const string passphrase = "auto-decrypt-test";
+
+            // Generate an RSA key pair with passphrase protection
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("test@example.com")
+                .WithKeySize(2048)
+                .WithPassphrase(passphrase)
+                .GenerateRsa();
+
+            // Verify key is encrypted
+            Assert.True(keyResult.MasterSecretKey.IsEncrypted);
+
+            // Encrypt the message
+            var plainBytes = Encoding.UTF8.GetBytes(TestPlaintext);
+            using var encryptor = PgpMessageEncryptor.Create()
+                .AddRecipient(keyResult.MasterPublicKey);
+
+            var encrypted = encryptor.Encrypt(plainBytes);
+
+            // Decrypt using encrypted secret key + passphrase (auto-decryption)
+            using var decryptor = PgpMessageDecryptor.Create()
+                .WithSecretKey(keyResult.MasterSecretKey)
+                .WithPassphrase(passphrase);
+
+            var decrypted = decryptor.Decrypt(encrypted);
+
+            var decryptedText = Encoding.UTF8.GetString(decrypted.Data.ToArray());
+            Assert.Equal(TestPlaintext, decryptedText);
+        }
+
+        [Fact]
+        public void WithEncryptedSecretKey_WrongPassphrase_Fails()
+        {
+            const string correctPassphrase = "correct-password";
+            const string wrongPassphrase = "wrong-password";
+
+            // Generate an RSA key pair with passphrase protection
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("test@example.com")
+                .WithKeySize(2048)
+                .WithPassphrase(correctPassphrase)
+                .GenerateRsa();
+
+            // Encrypt the message
+            var plainBytes = Encoding.UTF8.GetBytes(TestPlaintext);
+            using var encryptor = PgpMessageEncryptor.Create()
+                .AddRecipient(keyResult.MasterPublicKey);
+
+            var encrypted = encryptor.Encrypt(plainBytes);
+
+            // Try to decrypt with wrong passphrase - should fail
+            using var decryptor = PgpMessageDecryptor.Create()
+                .WithSecretKey(keyResult.MasterSecretKey)
+                .WithPassphrase(wrongPassphrase);
+
+            var success = decryptor.TryDecrypt(encrypted.ToArray(), out _, out var error);
+
+            Assert.False(success);
+            Assert.NotNull(error);
+            Assert.Contains("passphrase", error, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Fact]
+        public void WithEncryptedSecretKey_NoPassphrase_Fails()
+        {
+            const string passphrase = "secret-passphrase";
+
+            // Generate an RSA key pair with passphrase protection
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("test@example.com")
+                .WithKeySize(2048)
+                .WithPassphrase(passphrase)
+                .GenerateRsa();
+
+            // Encrypt the message
+            var plainBytes = Encoding.UTF8.GetBytes(TestPlaintext);
+            using var encryptor = PgpMessageEncryptor.Create()
+                .AddRecipient(keyResult.MasterPublicKey);
+
+            var encrypted = encryptor.Encrypt(plainBytes);
+
+            // Try to decrypt without passphrase - should fail
+            using var decryptor = PgpMessageDecryptor.Create()
+                .WithSecretKey(keyResult.MasterSecretKey);
+
+            var success = decryptor.TryDecrypt(encrypted.ToArray(), out _, out var error);
+
+            Assert.False(success);
+            Assert.NotNull(error);
+            Assert.Contains("passphrase", error, StringComparison.OrdinalIgnoreCase);
+        }
     }
 
     public class Ed25519X25519Encryption
@@ -100,6 +195,40 @@ public class DecryptTest
             // Decrypt the message using the subkey
             using var decryptor = PgpMessageDecryptor.Create()
                 .WithSecretKey(encryptionSubkey);
+
+            var decrypted = decryptor.Decrypt(encrypted);
+
+            var decryptedText = Encoding.UTF8.GetString(decrypted.Data.ToArray());
+            Assert.Equal(TestPlaintext, decryptedText);
+        }
+
+        [Fact]
+        public void WithEncryptedSubkey_AutoDecryption_Succeeds()
+        {
+            const string passphrase = "ed25519-passphrase";
+
+            // Generate Ed25519/X25519 key pair with passphrase protection
+            var keyResult = PgpKeyGenerator.Create()
+                .WithUserId("test@example.com")
+                .WithPassphrase(passphrase)
+                .GenerateEd25519WithX25519Subkey();
+
+            // Get encryption subkey (X25519) - should be encrypted
+            var encryptionSubkey = keyResult.SecretKeyRing.Subkeys[0];
+            var encryptionPublicKey = encryptionSubkey.PublicKey;
+            Assert.True(encryptionSubkey.IsEncrypted);
+
+            // Encrypt the message
+            var plainBytes = Encoding.UTF8.GetBytes(TestPlaintext);
+            using var encryptor = PgpMessageEncryptor.Create()
+                .AddRecipient(encryptionPublicKey);
+
+            var encrypted = encryptor.Encrypt(plainBytes);
+
+            // Decrypt using encrypted secret key + passphrase (auto-decryption)
+            using var decryptor = PgpMessageDecryptor.Create()
+                .WithSecretKey(encryptionSubkey)
+                .WithPassphrase(passphrase);
 
             var decrypted = decryptor.Decrypt(encrypted);
 

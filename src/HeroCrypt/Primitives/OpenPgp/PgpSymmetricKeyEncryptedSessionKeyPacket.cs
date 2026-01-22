@@ -545,9 +545,41 @@ public readonly struct PgpSymmetricKeyEncryptedSessionKeyPacket : IEquatable<Pgp
 
     private byte[] DecryptSessionKeyV6(byte[] kek)
     {
-        // v6 uses AEAD - for now, throw not implemented
-        // TODO: Implement AEAD decryption for v6 SKESK
-        throw new NotImplementedException("SKESK v6 AEAD decryption is not yet implemented.");
+#if NETSTANDARD2_0
+        throw new PlatformNotSupportedException("AEAD decryption requires .NET Core 3.0 or later.");
+#else
+        if (AeadAlgorithm != AeadAlgorithm.Gcm)
+        {
+            throw new NotSupportedException($"AEAD algorithm {AeadAlgorithm} is not yet supported for SKESK v6. Only GCM is currently implemented.");
+        }
+
+        const int tagSize = 16;
+        var encryptedData = EncryptedSessionKey.Span;
+
+        if (encryptedData.Length <= tagSize)
+        {
+            throw new CryptographicException("Encrypted session key data too short.");
+        }
+
+        int ciphertextLength = encryptedData.Length - tagSize;
+        var ciphertext = encryptedData[..ciphertextLength];
+        var tag = encryptedData[ciphertextLength..];
+
+        byte[] plaintext = new byte[ciphertextLength];
+
+        using var aesGcm = new System.Security.Cryptography.AesGcm(kek, tagSize);
+        // IDE0301 suppressed: using [] causes ambiguity between byte[] and Span<byte> overloads
+#pragma warning disable IDE0301
+        aesGcm.Decrypt(
+            nonce: IV.Span,
+            ciphertext: ciphertext,
+            tag: tag,
+            plaintext: plaintext,
+            associatedData: ReadOnlySpan<byte>.Empty);
+#pragma warning restore IDE0301
+
+        return plaintext;
+#endif
     }
 
     private static byte[] DecryptCfb(ReadOnlySpan<byte> ciphertext, byte[] key, SymmetricCipherAlgorithm algorithm)

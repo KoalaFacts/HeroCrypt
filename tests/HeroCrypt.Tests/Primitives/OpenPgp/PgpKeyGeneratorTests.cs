@@ -1034,7 +1034,7 @@ public class PgpKeyGeneratorTests
             Assert.True(result.MasterSecretKey.IsEncrypted);
             Assert.Equal(PgpS2KUsage.Sha1Hash, result.MasterSecretKey.S2KUsage);
             Assert.NotNull(result.MasterSecretKey.S2KSpecifier);
-            Assert.Equal(HeroCrypt.Primitives.S2K.S2KType.IteratedAndSalted, result.MasterSecretKey.S2KSpecifier.Value.Type);
+            Assert.Equal(S2KType.IteratedAndSalted, result.MasterSecretKey.S2KSpecifier.Value.Type);
         }
 
         [Fact]
@@ -1567,7 +1567,7 @@ public class PgpKeyGeneratorTests
                 .GenerateRsa();
 
             // Act & Assert
-            Assert.Throws<System.Security.Cryptography.CryptographicException>(
+            Assert.Throws<CryptographicException>(
                 () => result.MasterSecretKey.Decrypt("wrongpassphrase"));
         }
 
@@ -1793,7 +1793,7 @@ public class PgpKeyGeneratorTests
                 passphraseBytes);
 
             // Act & Assert
-            Assert.Throws<System.Security.Cryptography.CryptographicException>(
+            Assert.Throws<CryptographicException>(
                 () => argon2ProtectedKey.Decrypt("wrong-passphrase"));
         }
 
@@ -1875,11 +1875,11 @@ public class PgpKeyGeneratorTests
         {
             // Generate 16-byte salt for Argon2
             var salt = new byte[16];
-            System.Security.Cryptography.RandomNumberGenerator.Fill(salt);
+            RandomNumberGenerator.Fill(salt);
 
             // Generate IV for AES-256 (16 bytes)
             var iv = new byte[16];
-            System.Security.Cryptography.RandomNumberGenerator.Fill(iv);
+            RandomNumberGenerator.Fill(iv);
 
             // Create Argon2 S2K specifier with conservative parameters for testing
             // Using memoryExponent=10 (1 MB) for fast tests
@@ -1891,7 +1891,7 @@ public class PgpKeyGeneratorTests
                 memoryExponent: 10);
 
             // Derive key using Argon2
-            var encryptionKey = HeroCrypt.Primitives.S2K.S2KCore.Argon2S2K(
+            var encryptionKey = S2KCore.Argon2S2K(
                 passphraseBytes,
                 salt,
                 timePasses: 1,
@@ -1903,7 +1903,7 @@ public class PgpKeyGeneratorTests
             {
                 // Prepare plaintext with SHA-1 hash (S2KUsage.Sha1Hash = 254)
                 byte[] plaintextWithHash;
-                using (var sha1 = System.Security.Cryptography.SHA1.Create())
+                using (var sha1 = SHA1.Create())
                 {
                     var hash = sha1.ComputeHash(secretMaterial);
                     plaintextWithHash = new byte[secretMaterial.Length + 20];
@@ -1934,10 +1934,10 @@ public class PgpKeyGeneratorTests
         /// </summary>
         private static byte[] CfbEncrypt(byte[] plaintext, byte[] key, byte[] iv)
         {
-            using var aes = System.Security.Cryptography.Aes.Create();
+            using var aes = Aes.Create();
             aes.Key = key;
-            aes.Mode = System.Security.Cryptography.CipherMode.ECB;
-            aes.Padding = System.Security.Cryptography.PaddingMode.None;
+            aes.Mode = CipherMode.ECB;
+            aes.Padding = PaddingMode.None;
 
             var ciphertext = new byte[plaintext.Length];
             var feedback = new byte[16];

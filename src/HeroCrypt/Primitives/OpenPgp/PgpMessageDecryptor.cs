@@ -21,7 +21,7 @@ namespace HeroCrypt.Primitives.OpenPgp;
 /// <b>Security Note:</b> String-based passphrases cannot be securely cleared from memory
 /// due to .NET string immutability. For high-security applications, use the byte array
 /// overloads (e.g., <see cref="WithMessagePassphrase(byte[])"/>) and manually clear the
-/// byte array after use with <see cref="HeroCrypt.Security.SecureMemoryOperations.SecureClear(byte[])"/>.
+/// byte array after use with <see cref="SecureMemoryOperations.SecureClear(byte[])"/>.
 /// </para>
 /// </remarks>
 public sealed class PgpMessageDecryptor : IDisposable
@@ -323,18 +323,13 @@ public sealed class PgpMessageDecryptor : IDisposable
 
         if (sessionKey == null)
         {
-            if (usedPassphrase || (foundMatchingKey && lastDecryptionError != null))
-            {
-                error = $"Decryption failed: {lastDecryptionError ?? "Unknown error"}";
-            }
-            else
-            {
-                error = skeskPackets.Count > 0 && messagePassphrases.Count == 0
+            error = usedPassphrase || (foundMatchingKey && lastDecryptionError != null)
+                ? $"Decryption failed: {lastDecryptionError ?? "Unknown error"}"
+                : skeskPackets.Count > 0 && messagePassphrases.Count == 0
                     ? "Message requires a passphrase for decryption. Use WithMessagePassphrase()."
                     : pkeskPackets.Count > 0 && secretKeys.Count == 0
                     ? "Message requires a secret key for decryption. Use WithSecretKey() or WithSecretKeyRing()."
                     : "No matching secret key or passphrase found for decryption.";
-            }
 
             return false;
         }
@@ -756,9 +751,9 @@ public sealed class PgpMessageDecryptor : IDisposable
                         associatedData: finalAad.AsSpan());
 #pragma warning restore IDE0301
                 }
-                catch (System.Security.Cryptography.AuthenticationTagMismatchException)
+                catch (AuthenticationTagMismatchException)
                 {
-                    throw new System.Security.Cryptography.CryptographicException(
+                    throw new CryptographicException(
                         "AEAD final authentication tag verification failed. Message may have been tampered with or truncated.");
                 }
             }

@@ -100,7 +100,7 @@
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <EnableTrimAnalyzer>false</EnableTrimAnalyzer>
     <EnableAOTAnalyzer>false</EnableAOTAnalyzer>
-    <NoWarn>$(NoWarn);CS1591;IL2026;IL3050</NoWarn>
+    <NoWarn>$(NoWarn);CS1591;IL2026;IL3050;SYSLIB5006</NoWarn>
   </PropertyGroup>
 
     <!-- Test and Benchmark project settings -->

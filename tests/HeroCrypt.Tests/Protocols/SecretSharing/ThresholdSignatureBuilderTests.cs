@@ -242,7 +242,7 @@ public class ThresholdSignatureBuilderTests
             Assert.True(isValid);
         }
 
-        [Fact(Skip = "ThresholdSignatures verification currently doesn't bind to message - needs investigation")]
+        [Fact]
         public void VerifySignature_WrongMessage_ReturnsFalse()
         {
             var keyResult = new ThresholdSignatureBuilder()

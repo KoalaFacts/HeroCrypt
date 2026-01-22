@@ -836,9 +836,9 @@ public class PgpKeyPacketTests
 
             Assert.Equal(6, decoded.Version);
             Assert.Equal(PgpPublicKeyAlgorithm.Ed25519, decoded.Algorithm);
-            // SecretKeyMaterial includes the original data + 2-byte checksum
-            Assert.Equal(secretMaterial.Length + 2, decoded.SecretKeyMaterial.Length);
-            Assert.Equal(secretMaterial, decoded.SecretKeyMaterial.Slice(0, secretMaterial.Length).ToArray());
+            // V6 keys do not have checksums per RFC 9580
+            Assert.Equal(secretMaterial.Length, decoded.SecretKeyMaterial.Length);
+            Assert.Equal(secretMaterial, decoded.SecretKeyMaterial.ToArray());
         }
     }
 
@@ -873,8 +873,17 @@ public class PgpKeyPacketTests
         [Fact]
         public void TryRead_InvalidChecksum_ReturnsFalse()
         {
-            // Create a valid unencrypted secret key packet using Ed25519 (fixed-size key material)
-            var publicKey = PgpPublicKeyPacket.CreateEd25519(DateTimeOffset.UtcNow, TestHelpers.RandomBytes(32));
+            // Create a valid unencrypted V4 secret key packet (V4 keys have checksums, V6 keys don't)
+            // Using RSA algorithm which creates V4 keys
+            var n = BigInteger.Parse("123456789012345678901234567890123456789");
+            var e = new BigInteger(65537);
+            int nLen = Mpi.GetEncodedLength(n);
+            int eLen = Mpi.GetEncodedLength(e);
+            var keyMaterial = new byte[nLen + eLen];
+            int offset = Mpi.Write(n, keyMaterial);
+            Mpi.Write(e, keyMaterial.AsSpan(offset));
+
+            var publicKey = new PgpPublicKeyPacket(4, DateTimeOffset.UtcNow, PgpPublicKeyAlgorithm.RsaEncryptOrSign, keyMaterial);
             var secretKey = PgpSecretKeyPacket.CreateUnencrypted(publicKey, TestHelpers.RandomBytes(32));
             var encoded = secretKey.ToArray();
 

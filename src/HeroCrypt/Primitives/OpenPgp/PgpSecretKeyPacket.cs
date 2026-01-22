@@ -560,17 +560,28 @@ public readonly struct PgpSecretKeyPacket
         PgpPublicKeyPacket publicKey,
         ReadOnlyMemory<byte> secretKeyMaterial)
     {
-        // Calculate checksum: sum of all bytes mod 65536
-        ushort checksum = 0;
-        foreach (byte b in secretKeyMaterial.Span)
-        {
-            checksum = (ushort)((checksum + b) & 0xFFFF);
-        }
+        byte[] finalMaterial;
 
-        // Append checksum to secret key material
-        var materialWithChecksum = new byte[secretKeyMaterial.Length + 2];
-        secretKeyMaterial.Span.CopyTo(materialWithChecksum);
-        BinaryPrimitives.WriteUInt16BigEndian(materialWithChecksum.AsSpan(secretKeyMaterial.Length), checksum);
+        // V6 keys do NOT have a checksum for unencrypted keys per RFC 9580
+        // V4 and earlier keys include a 2-byte checksum
+        if (publicKey.Version == 6)
+        {
+            finalMaterial = secretKeyMaterial.ToArray();
+        }
+        else
+        {
+            // Calculate checksum: sum of all bytes mod 65536
+            ushort checksum = 0;
+            foreach (byte b in secretKeyMaterial.Span)
+            {
+                checksum = (ushort)((checksum + b) & 0xFFFF);
+            }
+
+            // Append checksum to secret key material
+            finalMaterial = new byte[secretKeyMaterial.Length + 2];
+            secretKeyMaterial.Span.CopyTo(finalMaterial);
+            BinaryPrimitives.WriteUInt16BigEndian(finalMaterial.AsSpan(secretKeyMaterial.Length), checksum);
+        }
 
         return new PgpSecretKeyPacket(
             publicKey,
@@ -578,7 +589,7 @@ public readonly struct PgpSecretKeyPacket
             0,
             null,
             Array.Empty<byte>(),
-            materialWithChecksum);
+            finalMaterial);
     }
 
     /// <summary>
@@ -770,7 +781,7 @@ public readonly struct PgpSecretKeyPacket
         error = string.Empty;
 
         // V6 public: version(1) + creation(4) + algorithm(1) + keylen(4) = 10 minimum
-        if (source.Length < 11) // Need at least public header + s2k usage
+        if (source.Length < 11) // Need at least public header + scalar octet count
         {
             error = "Source too short for v6 secret key packet.";
             return false;
@@ -787,7 +798,7 @@ public readonly struct PgpSecretKeyPacket
 
         if (publicKeyLength > int.MaxValue || source.Length < offset + (int)publicKeyLength + 1)
         {
-            error = "Source too short for public key material and S2K usage.";
+            error = "Source too short for public key material and scalar octet count.";
             return false;
         }
 
@@ -797,40 +808,32 @@ public readonly struct PgpSecretKeyPacket
 
         var publicKey = new PgpPublicKeyPacket(version, creationTime, algorithm, publicKeyMaterial, isSubkey);
 
-        // V6 has 1-byte scalar for secret key data count
-        byte s2kUsage = source[offset++];
+        // V6: Scalar octet count = number of bytes of optional S2K fields
+        // Per RFC 9580: If zero, the secret-key data is NOT encrypted
+        byte scalarOctetCount = source[offset++];
 
-        if (s2kUsage == 0)
+        if (scalarOctetCount == 0)
         {
-            // V6 unencrypted: 1-byte count of optional S2K data (0), then plaintext + checksum
+            // V6 unencrypted: No S2K data, secret material follows directly
+            // IMPORTANT: V6 does NOT have a 2-byte checksum for unencrypted keys (unlike V4)
             var remaining = source.Slice(offset);
-            if (remaining.Length < 2)
-            {
-                error = "Source too short for unencrypted secret key checksum.";
-                return false;
-            }
 
-            // Validate checksum: sum of all MPI bytes mod 65536
-            var mpiData = remaining.Slice(0, remaining.Length - 2);
-            var expectedChecksum = BinaryPrimitives.ReadUInt16BigEndian(remaining.Slice(remaining.Length - 2));
-            ushort actualChecksum = 0;
-            foreach (byte b in mpiData)
-            {
-                actualChecksum = (ushort)((actualChecksum + b) & 0xFFFF);
-            }
-
-            if (!SecureMemoryClear.ConstantTimeEquals(actualChecksum, expectedChecksum))
-            {
-                error = "Secret key checksum mismatch.";
-                return false;
-            }
-
+            // The secret material is just the raw key data (no checksum to verify)
             var secretMaterial = remaining.ToArray();
             packet = new PgpSecretKeyPacket(publicKey, PgpS2KUsage.None, 0, null, Array.Empty<byte>(), secretMaterial);
             return true;
         }
 
-        // V6 encrypted: scalar count includes cipher + S2K length
+        // V6 encrypted: The next `scalarOctetCount` bytes contain S2K-related data
+        if (source.Length < offset + scalarOctetCount)
+        {
+            error = "Source too short for S2K data.";
+            return false;
+        }
+
+        // Read S2K usage byte (first byte of S2K data)
+        var s2kUsage = (PgpS2KUsage)source[offset++];
+
         // Read cipher algorithm
         if (source.Length <= offset)
         {
@@ -842,7 +845,7 @@ public readonly struct PgpSecretKeyPacket
 
         // For AEAD (253), there's an AEAD algorithm byte too
         byte aeadAlgorithm = 0;
-        if (s2kUsage == (byte)PgpS2KUsage.Aead)
+        if (s2kUsage == PgpS2KUsage.Aead)
         {
             if (source.Length <= offset)
             {
@@ -862,7 +865,7 @@ public readonly struct PgpSecretKeyPacket
         offset += s2kLength;
 
         // Read IV/nonce
-        int ivSize = s2kUsage == (byte)PgpS2KUsage.Aead
+        int ivSize = s2kUsage == PgpS2KUsage.Aead
             ? GetAeadNonceSize(aeadAlgorithm)
             : GetCipherBlockSize(cipherAlgorithm);
 
@@ -878,7 +881,7 @@ public readonly struct PgpSecretKeyPacket
         // Remaining is encrypted secret key material
         var encryptedMaterial = source.Slice(offset).ToArray();
 
-        packet = new PgpSecretKeyPacket(publicKey, (PgpS2KUsage)s2kUsage, cipherAlgorithm, s2kSpec, iv, encryptedMaterial);
+        packet = new PgpSecretKeyPacket(publicKey, s2kUsage, cipherAlgorithm, s2kSpec, iv, encryptedMaterial);
         return true;
     }
 
@@ -1030,17 +1033,39 @@ public readonly struct PgpSecretKeyPacket
     public int GetEncodedLength()
     {
         int length = PublicKey.GetEncodedLength();
-        length += 1; // S2K usage
 
-        if (S2KUsage != PgpS2KUsage.None)
+        if (Version == 6)
         {
-            length += 1; // Cipher algorithm
-            if (S2KSpecifier.HasValue)
-            {
-                length += S2KSpecifier.Value.GetEncodedLength();
-            }
+            // V6 format: scalar octet count (1 byte)
+            length += 1;
 
-            length += IV.Length;
+            if (S2KUsage != PgpS2KUsage.None)
+            {
+                // V6 encrypted: S2K usage (1) + cipher (1) + S2K specifier + IV
+                length += 1; // S2K usage
+                length += 1; // Cipher algorithm
+                if (S2KSpecifier.HasValue)
+                {
+                    length += S2KSpecifier.Value.GetEncodedLength();
+                }
+                length += IV.Length;
+            }
+            // V6 unencrypted: no checksum, just secret material
+        }
+        else
+        {
+            // V4 format: S2K usage (1 byte)
+            length += 1;
+
+            if (S2KUsage != PgpS2KUsage.None)
+            {
+                length += 1; // Cipher algorithm
+                if (S2KSpecifier.HasValue)
+                {
+                    length += S2KSpecifier.Value.GetEncodedLength();
+                }
+                length += IV.Length;
+            }
         }
 
         length += SecretKeyMaterial.Length;
@@ -1060,18 +1085,52 @@ public readonly struct PgpSecretKeyPacket
 
         int offset = PublicKey.Write(destination);
 
-        destination[offset++] = (byte)S2KUsage;
-
-        if (S2KUsage != PgpS2KUsage.None)
+        if (Version == 6)
         {
-            destination[offset++] = CipherAlgorithm;
-            if (S2KSpecifier.HasValue)
+            // V6 format: scalar octet count first
+            if (S2KUsage == PgpS2KUsage.None)
             {
-                offset += S2KSpecifier.Value.Write(destination.Slice(offset));
+                // Unencrypted: scalar octet count = 0
+                destination[offset++] = 0;
             }
+            else
+            {
+                // Encrypted: calculate scalar octet count
+                // Count = S2K usage (1) + cipher (1) + S2K specifier length + IV length
+                int s2kDataLen = 2; // S2K usage + cipher
+                if (S2KSpecifier.HasValue)
+                {
+                    s2kDataLen += S2KSpecifier.Value.GetEncodedLength();
+                }
+                s2kDataLen += IV.Length;
+                destination[offset++] = (byte)s2kDataLen;
 
-            IV.Span.CopyTo(destination.Slice(offset));
-            offset += IV.Length;
+                // Write S2K usage, cipher, S2K specifier, IV
+                destination[offset++] = (byte)S2KUsage;
+                destination[offset++] = CipherAlgorithm;
+                if (S2KSpecifier.HasValue)
+                {
+                    offset += S2KSpecifier.Value.Write(destination.Slice(offset));
+                }
+                IV.Span.CopyTo(destination.Slice(offset));
+                offset += IV.Length;
+            }
+        }
+        else
+        {
+            // V4 format
+            destination[offset++] = (byte)S2KUsage;
+
+            if (S2KUsage != PgpS2KUsage.None)
+            {
+                destination[offset++] = CipherAlgorithm;
+                if (S2KSpecifier.HasValue)
+                {
+                    offset += S2KSpecifier.Value.Write(destination.Slice(offset));
+                }
+                IV.Span.CopyTo(destination.Slice(offset));
+                offset += IV.Length;
+            }
         }
 
         SecretKeyMaterial.Span.CopyTo(destination.Slice(offset));

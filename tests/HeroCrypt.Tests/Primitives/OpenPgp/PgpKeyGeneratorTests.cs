@@ -781,9 +781,9 @@ public class PgpKeyGeneratorTests
                 .WithUserId("Test <test@example.com>")
                 .GenerateEd25519();
 
-            // Assert - Ed25519 secret material is 32-byte seed + 2-byte checksum = 34 bytes
-            // (PgpSecretKeyPacket adds checksum automatically)
-            Assert.Equal(34, result.MasterSecretKey.SecretKeyMaterial.Length);
+            // Assert - Ed25519 secret material is 32-byte seed
+            // V6 keys do not have checksums per RFC 9580
+            Assert.Equal(32, result.MasterSecretKey.SecretKeyMaterial.Length);
         }
 
         [Fact]
@@ -2119,9 +2119,10 @@ public class PgpKeyGeneratorTests
             // Act
             var decrypted = result.SecretKeyRing.MasterKey.Decrypt(TEST_PASSPHRASE);
 
-            // Assert - verify we can read the secret material (32 bytes for Ed25519 + 2-byte checksum)
+            // Assert - verify we can read the secret material (32 bytes for Ed25519)
+            // V6 keys do not have checksums per RFC 9580
             Assert.False(decrypted.IsEncrypted);
-            Assert.Equal(34, decrypted.SecretKeyMaterial.Length);
+            Assert.Equal(32, decrypted.SecretKeyMaterial.Length);
         }
 
         [Fact]

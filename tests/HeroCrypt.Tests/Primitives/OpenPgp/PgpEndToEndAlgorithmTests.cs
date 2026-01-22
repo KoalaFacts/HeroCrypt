@@ -114,7 +114,7 @@ SsrtSQmZUKpxuBROy+bZNheNgmN966vqnFBiM1vXikv5OVyprUV0EzzQ3Hnt
             Assert.Equal(ExpectedLightToNightMessage, text);
         }
 
-        [Fact(Skip = "V6 secret key format parsing needs implementation; also needs NIST P-256 ECDH")]
+        [Fact]
         public void DecryptKnownVector_NistP256V6_Succeeds()
         {
             // Parse the private key (V6 format, no passphrase)

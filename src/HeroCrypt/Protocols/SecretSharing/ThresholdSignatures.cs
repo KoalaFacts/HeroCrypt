@@ -368,7 +368,6 @@ public static class ThresholdSignatures
     public static ThresholdSignature CombineSignatures(ReadOnlySpan<byte> message,
         PartialSignature[] partialSignatures, byte[] publicKey, SignatureScheme scheme)
     {
-        _ = message;
         _ = scheme;
 
         if (partialSignatures == null || partialSignatures.Length == 0)
@@ -386,8 +385,18 @@ public static class ThresholdSignatures
         // Combine commitments to get R
         var rValue = CombineCommitments([.. partialSignatures.Select(ps => ps.Commitment)]);
 
-        // Combine partial signature values to get S
-        var sValue = CombinePartialValues([.. partialSignatures.Select(ps => ps.Value)]);
+        // Combine partial signature values to get base S
+        var baseS = CombinePartialValues([.. partialSignatures.Select(ps => ps.Value)]);
+
+        // Compute challenge (binds R, publicKey, and message together)
+        var challengeData = rValue.Concat(publicKey).Concat(message.ToArray()).ToArray();
+        var challenge = ComputeSha256(challengeData);
+
+        // Compute verification tag that binds S to the message via the challenge
+        var tag = ComputeSha256(baseS.Concat(challenge).ToArray());
+
+        // S includes both the combined value and the verification tag
+        var sValue = baseS.Concat(tag).ToArray();
 
         var signers = partialSignatures.Select(ps => ps.PartyId).ToArray();
 
@@ -539,8 +548,28 @@ public static class ThresholdSignatures
     {
         // In production: Check S·G = R + c·PublicKey (elliptic curve)
 
-        // Simplified: Basic checks
-        return r.Length > 0 && s.Length > 0 && publicKey.Length > 0 && challenge.Length > 0;
+        // Basic length checks
+        if (r.Length == 0 || publicKey.Length == 0 || challenge.Length == 0)
+        {
+            return false;
+        }
+
+        // S should contain baseS (32 bytes) + tag (32 bytes)
+        if (s.Length != 64)
+        {
+            return false;
+        }
+
+        // Extract baseS and stored tag
+        var baseS = s[..32];
+        var storedTag = s[32..];
+
+        // Recompute expected tag: SHA256(baseS || challenge)
+        // The challenge is SHA256(R || publicKey || message), so this binds to the message
+        var expectedTag = ComputeSha256(baseS.Concat(challenge).ToArray());
+
+        // Constant-time comparison to prevent timing attacks
+        return CryptographicOperations.FixedTimeEquals(storedTag, expectedTag);
     }
 }
 #endif

@@ -148,11 +148,17 @@ public static class StrictMode
         return new StrictModeScope();
     }
 
+    /// <summary>
+    /// Scope that temporarily disables strict mode.
+    /// </summary>
     private sealed class StrictModeScope : IDisposable
     {
         private readonly bool previousState;
         private bool disposed;
 
+        /// <summary>
+        /// Initializes a new strict mode scope, saving the current state and disabling strict mode.
+        /// </summary>
         public StrictModeScope()
         {
 #pragma warning disable CS0618 // Obsolete
@@ -161,6 +167,9 @@ public static class StrictMode
 #pragma warning restore CS0618
         }
 
+        /// <summary>
+        /// Restores the previous strict mode state.
+        /// </summary>
         public void Dispose()
         {
             if (!disposed)

@@ -453,6 +453,7 @@ internal static class PgpKeyEncryption
         {
             sharedSecret = ComputeCurve25519SharedSecret(ephemeralMpi, secretKey);
         }
+#if !NETSTANDARD2_0
         else if (oid.AsSpan().SequenceEqual(NistP256Oid))
         {
             sharedSecret = ComputeNistEcdhSharedSecret(ephemeralMpi, secretKey, ECCurve.NamedCurves.nistP256);
@@ -465,6 +466,12 @@ internal static class PgpKeyEncryption
         {
             sharedSecret = ComputeNistEcdhSharedSecret(ephemeralMpi, secretKey, ECCurve.NamedCurves.nistP521);
         }
+#else
+        else if (oid.AsSpan().SequenceEqual(NistP256Oid) || oid.AsSpan().SequenceEqual(NistP384Oid) || oid.AsSpan().SequenceEqual(NistP521Oid))
+        {
+            throw new NotSupportedException("NIST P-256/P-384/P-521 ECDH is not supported on .NET Standard 2.0. Please use .NET Standard 2.1 or higher.");
+        }
+#endif
         else
         {
             throw new ArgumentException($"Unsupported ECDH curve OID: {BitConverter.ToString(oid)}", nameof(secretKey));
@@ -630,6 +637,7 @@ internal static class PgpKeyEncryption
         }
     }
 
+#if !NETSTANDARD2_0
     /// <summary>
     /// Computes shared secret using NIST ECDH (P-256, P-384, P-521).
     /// </summary>
@@ -696,6 +704,7 @@ internal static class PgpKeyEncryption
             SecureMemoryOperations.SecureClear(privateKeyMpi);
         }
     }
+#endif
 
     /// <summary>
     /// Builds the KDF parameter for ECDH per RFC 6637.

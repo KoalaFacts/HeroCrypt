@@ -1,0 +1,25 @@
+{
+  "name": "herocrypt-video",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "start": "remotion preview src/index.tsx",
+    "render": "remotion render src/index.tsx HeroCryptShowcase out/HeroCryptShowcase.mp4",
+    "render:still": "remotion still src/index.tsx HeroCryptCover out/HeroCryptCover.png"
+  },
+  "dependencies": {
+    "@fontsource/ibm-plex-mono": "^5.2.7",
+    "@fontsource/space-grotesk": "^5.2.10",
+    "@remotion/transitions": "^4.0.409",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "remotion": "^4.0.409"
+  },
+  "devDependencies": {
+    "@remotion/cli": "^4.0.409",
+    "@types/node": "^20.11.30",
+    "@types/react": "^18.2.79",
+    "@types/react-dom": "^18.2.26",
+    "typescript": "^5.4.5"
+  }
+}

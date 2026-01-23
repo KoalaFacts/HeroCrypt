@@ -1,11 +1,58 @@
 using HeroCrypt.Examples.UseCases;
 
-Console.WriteLine("HeroCrypt Examples");
-Console.WriteLine("==================\n");
+using Spectre.Console;
 
-await PasswordStorageExample.RunAsync();
-await DataEncryptionExample.RunAsync();
-await SecureMessagingExample.RunAsync();
-await SecretSharingExample.RunAsync();
-await CryptographicWalletExample.RunAsync();
-await CorporateApprovalExample.RunAsync();
+while (true)
+{
+    AnsiConsole.Clear();
+    AnsiConsole.Write(
+        new FigletText("HeroCrypt")
+            .Color(Color.Cyan1));
+
+    AnsiConsole.MarkupLine("[bold yellow]Choose an example to run:[/]");
+    Console.WriteLine();
+
+    var choice = AnsiConsole.Prompt(
+        new SelectionPrompt<string>()
+            .Title("Select an [green]example[/]:")
+            .PageSize(10)
+            .AddChoices([
+                "1. Password Storage (Argon2id)",
+                "2. Data Encryption (AES-GCM)",
+                "3. Secure Messaging (Hybrid Encryption)",
+                "4. Secret Sharing (Shamir's Scheme)",
+                "5. Cryptographic Wallet (HD Wallet)",
+                "6. Corporate Approval (Threshold Sigs)",
+                "Exit"
+            ]));
+
+    switch (choice)
+    {
+        case "1. Password Storage (Argon2id)":
+            await PasswordStorageExample.RunAsync();
+            break;
+        case "2. Data Encryption (AES-GCM)":
+            await DataEncryptionExample.RunAsync();
+            break;
+        case "3. Secure Messaging (Hybrid Encryption)":
+            await SecureMessagingExample.RunAsync();
+            break;
+        case "4. Secret Sharing (Shamir's Scheme)":
+            await SecretSharingExample.RunAsync();
+            break;
+        case "5. Cryptographic Wallet (HD Wallet)":
+            await CryptographicWalletExample.RunAsync();
+            break;
+        case "6. Corporate Approval (Threshold Sigs)":
+            await CorporateApprovalExample.RunAsync();
+            break;
+        case "Exit":
+            return;
+        default:
+            break;
+    }
+
+    Console.WriteLine();
+    AnsiConsole.MarkupLine("[grey]Press Enter to return to menu...[/]");
+    Console.ReadLine();
+}

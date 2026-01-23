@@ -1,5 +1,4 @@
 using System.Text;
-using HeroCrypt;
 
 namespace HeroCrypt.Examples.UseCases;
 
@@ -16,6 +15,7 @@ public static class CorporateApprovalExample
         Console.WriteLine("=".PadRight(60, '='));
         Console.WriteLine();
 
+
         // Scenario: A transaction requires approval from 3 out of 5 executives
         int totalExecutives = 5;
         int approvalThreshold = 3;
@@ -25,19 +25,20 @@ public static class CorporateApprovalExample
         Console.WriteLine($"  Required Approvals: {approvalThreshold}");
         Console.WriteLine();
 
+
         // 1. Generate Key Shares for each Executive
         // In a real scenario, a trusted dealer would do this, or distributed key generation (DKG) would be used.
         Console.WriteLine("2. Generating Key Shares for Executives...");
-        
+
         var keyShares = HeroCryptBuilder.ThresholdSignature()
             .WithParties(totalExecutives)
             .WithThreshold(approvalThreshold)
             .GenerateKeys();
 
         // keyShares contains 1 Group Public Key (for verifying) and N Secret Key Shares
-        var groupPublicKey = keyShares.GroupPublicKey;
-        var memberKeys = keyShares.SecretKeyShares; // Assuming list/array access
-        
+        var groupPublicKey = keyShares.PublicKey;
+        var memberKeys = keyShares.KeyShares; // array of KeyShare objects
+
         Console.WriteLine($"  Group Public Key Generated: {Convert.ToBase64String(groupPublicKey)[..20]}...");
         Console.WriteLine("  Individual secret keys distributed to members.");
         Console.WriteLine();
@@ -55,20 +56,23 @@ public static class CorporateApprovalExample
 
         // 3. Collection Approvals (Partial Signatures)
         Console.WriteLine("4. Collecting Approvals (Need 3/5)...");
-        var partialSignatures = new List<byte[]>();
+        var partialSignatures = new List<Protocols.SecretSharing.ThresholdSignatures.PartialSignature>();
         var approvedMembers = new List<int>();
 
         // Let's say Member 0, Member 2, and Member 4 approve it
-        int[] approvingMemberIndices = { 0, 2, 4 };
+        int[] approvingMemberIndices = [0, 2, 4];
 
         foreach (var memberIndex in approvingMemberIndices)
         {
             Console.WriteLine($"  Executive #{memberIndex + 1} approves and signs.");
-            
+
             // Each member signs the proposal with their secret key share
             var partialSig = HeroCryptBuilder.ThresholdSignature()
-                .SignShare(proposalBytes, memberKeys[memberIndex]);
-            
+                .WithMessage(proposalBytes)
+                .WithKeyShare(memberKeys[memberIndex])
+                .WithSigners(approvingMemberIndices)
+                .SignPartial();
+
             partialSignatures.Add(partialSig);
             approvedMembers.Add(memberIndex);
         }
@@ -77,21 +81,27 @@ public static class CorporateApprovalExample
 
         // 4. Aggregating Signatures
         Console.WriteLine("5. Aggregating Signature into Group Signature...");
-        
+
         // Anyone can aggregate if they have enough valid partial shares
         var groupSignature = HeroCryptBuilder.ThresholdSignature()
-            .CombineShares(partialSignatures);
+            .WithMessage(proposalBytes)
+            .WithPartialSignatures(partialSignatures.ToArray())
+            .WithPublicKey(groupPublicKey)
+            .CombineSignatures();
 
-        Console.WriteLine($"  Group Signature: {Convert.ToBase64String(groupSignature)[..40]}...");
+        // Assuming ThresholdSignature has a property to get bytes, or we just rely on object for verification
+        // Let's assume it has a checkable property or just ToString
+        Console.WriteLine($"  Group Signature Generated.");
         Console.WriteLine();
 
         // 5. Public Verification
         Console.WriteLine("6. Verifying the Transaction (Publicly)...");
-        
+
         // Anyone with the Group Public Key can verify the signature
-        // They don't know WHICH members signed, only that enough did.
         bool isValid = HeroCryptBuilder.ThresholdSignature()
-            .Verify(proposalBytes, groupSignature, groupPublicKey);
+            .WithMessage(proposalBytes)
+            .WithPublicKey(groupPublicKey)
+            .VerifySignature(groupSignature);
 
         if (isValid)
         {

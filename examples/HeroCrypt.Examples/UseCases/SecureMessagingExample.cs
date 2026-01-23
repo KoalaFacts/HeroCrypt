@@ -1,5 +1,7 @@
 using System.Text;
-using HeroCrypt;
+
+
+using HeroCrypt.Protocols.MessageExchange;
 
 namespace HeroCrypt.Examples.UseCases;
 
@@ -17,16 +19,17 @@ public static class SecureMessagingExample
 
         // 1. Setup Phase: Users generate their Key Pairs
         Console.WriteLine("1. Setup: Generating RSA Key Pairs for Alice and Bob...");
-        
+
         // Alice generates her key pair
         var aliceBuilder = HeroCryptBuilder.HybridEncryption();
         var aliceKeys = aliceBuilder.GenerateRsaKeyPair();
-        Console.WriteLine($"Alice's Public Key: {Convert.ToBase64String(aliceKeys.PublicKey.ExportSubjectPublicKeyInfo())[..30]}...");
+        // PublicKey is already a PEM string
+        Console.WriteLine($"Alice's Public Key: {aliceKeys.PublicKey.Replace("\r", "").Replace("\n", "")[..30]}...");
 
         // Bob generates his key pair
         var bobBuilder = HeroCryptBuilder.HybridEncryption();
         var bobKeys = bobBuilder.GenerateRsaKeyPair();
-        Console.WriteLine($"Bob's Public Key:   {Convert.ToBase64String(bobKeys.PublicKey.ExportSubjectPublicKeyInfo())[..30]}...");
+        Console.WriteLine($"Bob's Public Key:   {bobKeys.PublicKey.Replace("\r", "").Replace("\n", "")[..30]}...");
         Console.WriteLine();
 
         // 2. Message Exchange: Alice sends a message to Bob
@@ -37,26 +40,27 @@ public static class SecureMessagingExample
         // Alice encrypts the message using Bob's Public Key
         // Hybrid encryption generates a random symmetric key, encrypts the message with it,
         // and encrypts the symmetric key with the recipient's RSA public key.
-        var encryptedPacket = aliceBuilder.Encrypt(
-            Encoding.UTF8.GetBytes(originalMessage), 
+        var encryptionEnvelope = aliceBuilder.Encrypt(
+            Encoding.UTF8.GetBytes(originalMessage),
             bobKeys.PublicKey // Alice uses Bob's public key
         );
 
-        Console.WriteLine($"Encrypted Packet Size: {encryptedPacket.Length} bytes");
-        Console.WriteLine($"Encrypted Data (Base64): {Convert.ToBase64String(encryptedPacket)[..50]}...");
+        Console.WriteLine($"Encrypted Packet Size: (Ciphertext: {encryptionEnvelope.Ciphertext.Length}, EncryptedKey: {encryptionEnvelope.EncryptedKey.Length})");
+        Console.WriteLine($"Encrypted Data (Ciphertext Base64): {encryptionEnvelope.Ciphertext[..50]}...");
         Console.WriteLine();
 
         // 3. Decryption: Bob receives and decrypts the message
         Console.WriteLine("3. Bob receives and decrypts the message");
-        
+
         try
         {
             // Bob decrypts using his Private Key
-            var decryptedBytes = bobBuilder.Decrypt(
-                encryptedPacket, 
+            // DecryptToBytes is a static method
+            var decryptedBytes = HybridEncryptionBuilder.DecryptToBytes(
+                encryptionEnvelope,
                 bobKeys.PrivateKey // Bob uses his private key
             );
-            
+
             string decryptedMessage = Encoding.UTF8.GetString(decryptedBytes);
             Console.WriteLine($"Decrypted Message: \"{decryptedMessage}\"");
 
@@ -79,14 +83,14 @@ public static class SecureMessagingExample
         // 4. Response: Bob replies to Alice
         Console.WriteLine("4. Bob replies to Alice");
         string replyMessage = "Hi Alice! message received loud and clear.";
-        
-        var replyPacket = bobBuilder.Encrypt(
+
+        var replyEnvelope = bobBuilder.Encrypt(
             Encoding.UTF8.GetBytes(replyMessage),
             aliceKeys.PublicKey // Bob uses Alice's public key
         );
 
-        var aliceDecryptedFromBob = aliceBuilder.Decrypt(
-            replyPacket,
+        var aliceDecryptedFromBob = HybridEncryptionBuilder.DecryptToBytes(
+            replyEnvelope,
             aliceKeys.PrivateKey // Alice uses her private key
         );
 

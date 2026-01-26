@@ -14,16 +14,55 @@ namespace HeroCrypt.Operations;
 /// <summary>
 /// Fluent builder for digital signature operations.
 /// </summary>
-public class SignatureBuilder
+/// <remarks>
+/// <para>
+/// This builder implements <see cref="IDisposable"/> to securely clear sensitive private key material
+/// from memory when the builder is no longer needed. It is recommended to use this builder
+/// within a <c>using</c> statement.
+/// </para>
+/// </remarks>
+public sealed class SignatureBuilder : IDisposable
 {
     private SignatureAlgorithm algorithm = SignatureAlgorithm.Ed25519;
     private byte[]? privateKey;
+    private bool disposed;
+
+    private void ThrowIfDisposed()
+    {
+#if NETSTANDARD2_0
+        if (disposed)
+        {
+            throw new ObjectDisposedException(nameof(SignatureBuilder));
+        }
+#else
+        ObjectDisposedException.ThrowIf(disposed, this);
+#endif
+    }
+
+    private void ClearPrivateKey()
+    {
+        if (privateKey == null) return;
+        SecureMemoryOperations.SecureClear(privateKey);
+        privateKey = null;
+    }
+
+    /// <summary>
+    /// Releases all resources used by this builder and securely clears sensitive private key material.
+    /// </summary>
+    public void Dispose()
+    {
+        if (disposed) return;
+        ClearPrivateKey();
+        disposed = true;
+        GC.SuppressFinalize(this);
+    }
 
     /// <summary>
     /// Sets the signature algorithm to use.
     /// </summary>
     public SignatureBuilder WithAlgorithm(SignatureAlgorithm algorithm)
     {
+        ThrowIfDisposed();
         this.algorithm = algorithm;
         return this;
     }
@@ -95,7 +134,9 @@ public class SignatureBuilder
     /// </summary>
     public SignatureBuilder WithPrivateKey(byte[] privateKey)
     {
-        this.privateKey = privateKey;
+        ThrowIfDisposed();
+        ClearPrivateKey();
+        this.privateKey = [.. privateKey];
         return this;
     }
 
@@ -104,6 +145,8 @@ public class SignatureBuilder
     /// </summary>
     public byte[] Sign(byte[] data)
     {
+        ThrowIfDisposed();
+
         if (privateKey == null)
             throw new InvalidOperationException("Private key must be set using WithPrivateKey()");
 
@@ -111,6 +154,16 @@ public class SignatureBuilder
         InputValidator.ValidateByteArray(privateKey, nameof(privateKey));
 
         return SignInternal(data, privateKey, algorithm);
+    }
+
+    /// <summary>
+    /// Signs the string data using UTF-8 encoding and returns the signature.
+    /// </summary>
+    /// <param name="data">The string data to sign.</param>
+    /// <returns>The digital signature.</returns>
+    public byte[] Sign(string data)
+    {
+        return Sign(System.Text.Encoding.UTF8.GetBytes(data));
     }
 
     internal static byte[] SignInternal(byte[] data, byte[] key, SignatureAlgorithm algorithm)

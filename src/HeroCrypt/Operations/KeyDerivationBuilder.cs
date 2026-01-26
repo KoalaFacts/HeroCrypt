@@ -11,12 +11,58 @@ namespace HeroCrypt.Operations;
 /// <summary>
 /// Fluent builder for key derivation operations.
 /// </summary>
-public class KeyDerivationBuilder
+/// <remarks>
+/// <para>
+/// This builder implements <see cref="IDisposable"/> to securely clear sensitive password and salt material
+/// from memory when the builder is no longer needed. It is recommended to use this builder
+/// within a <c>using</c> statement.
+/// </para>
+/// </remarks>
+public sealed class KeyDerivationBuilder : IDisposable
 {
     private KeyDerivationAlgorithm algorithm = KeyDerivationAlgorithm.Argon2id;
     private byte[]? password;
     private byte[]? salt;
     private int outputLength = 32;
+    private bool disposed;
+
+    private void ThrowIfDisposed()
+    {
+#if NETSTANDARD2_0
+        if (disposed)
+        {
+            throw new ObjectDisposedException(nameof(KeyDerivationBuilder));
+        }
+#else
+        ObjectDisposedException.ThrowIf(disposed, this);
+#endif
+    }
+
+    private void ClearPassword()
+    {
+        if (password == null) return;
+        SecureMemoryOperations.SecureClear(password);
+        password = null;
+    }
+
+    private void ClearSalt()
+    {
+        if (salt == null) return;
+        SecureMemoryOperations.SecureClear(salt);
+        salt = null;
+    }
+
+    /// <summary>
+    /// Releases all resources used by this builder and securely clears sensitive password and salt material.
+    /// </summary>
+    public void Dispose()
+    {
+        if (disposed) return;
+        ClearPassword();
+        ClearSalt();
+        disposed = true;
+        GC.SuppressFinalize(this);
+    }
 
     // Default parameters for KDFs
     private const int DefaultArgon2MemoryKiB = 65536;  // 64 MB
@@ -36,6 +82,7 @@ public class KeyDerivationBuilder
     /// </summary>
     public KeyDerivationBuilder WithAlgorithm(KeyDerivationAlgorithm algorithm)
     {
+        ThrowIfDisposed();
         this.algorithm = algorithm;
         return this;
     }
@@ -133,7 +180,9 @@ public class KeyDerivationBuilder
     /// </summary>
     public KeyDerivationBuilder WithPassword(byte[] password)
     {
-        this.password = password;
+        ThrowIfDisposed();
+        ClearPassword();
+        this.password = [.. password];
         return this;
     }
 
@@ -142,6 +191,8 @@ public class KeyDerivationBuilder
     /// </summary>
     public KeyDerivationBuilder WithPassword(string password)
     {
+        ThrowIfDisposed();
+        ClearPassword();
         this.password = System.Text.Encoding.UTF8.GetBytes(password);
         return this;
     }
@@ -151,8 +202,53 @@ public class KeyDerivationBuilder
     /// </summary>
     public KeyDerivationBuilder WithSalt(byte[] salt)
     {
-        this.salt = salt;
+        ThrowIfDisposed();
+        ClearSalt();
+        this.salt = [.. salt];
         return this;
+    }
+
+    /// <summary>
+    /// Generates and sets a cryptographically secure random salt.
+    /// </summary>
+    /// <param name="length">Length of the salt in bytes (default: 16).</param>
+    /// <returns>This builder instance for method chaining.</returns>
+    /// <remarks>
+    /// The generated salt can be retrieved using <see cref="GetSalt"/> after calling this method.
+    /// For password hashing, a salt length of 16 bytes (128 bits) or more is recommended.
+    /// </remarks>
+    public KeyDerivationBuilder WithRandomSalt(int length = 16)
+    {
+        ThrowIfDisposed();
+        if (length <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(length), "Salt length must be positive.");
+        }
+
+        ClearSalt();
+        salt = new byte[length];
+        SecureRandomNumberGenerator.Fill(salt);
+        return this;
+    }
+
+    /// <summary>
+    /// Gets a copy of the current salt.
+    /// </summary>
+    /// <returns>A copy of the salt bytes.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when no salt has been set.</exception>
+    /// <remarks>
+    /// This method is useful for retrieving a randomly generated salt that needs to be stored
+    /// alongside the derived key for later verification.
+    /// </remarks>
+    public byte[] GetSalt()
+    {
+        ThrowIfDisposed();
+        if (salt == null)
+        {
+            throw new InvalidOperationException("Salt has not been set. Use WithSalt() or WithRandomSalt() first.");
+        }
+
+        return [.. salt];
     }
 
     /// <summary>
@@ -160,6 +256,7 @@ public class KeyDerivationBuilder
     /// </summary>
     public KeyDerivationBuilder WithOutputLength(int length)
     {
+        ThrowIfDisposed();
         outputLength = length;
         return this;
     }
@@ -169,6 +266,8 @@ public class KeyDerivationBuilder
     /// </summary>
     public byte[] DeriveKey()
     {
+        ThrowIfDisposed();
+
         if (password == null)
         {
             throw new InvalidOperationException("Password must be set using WithPassword()");

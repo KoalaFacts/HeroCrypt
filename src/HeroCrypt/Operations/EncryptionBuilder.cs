@@ -38,19 +38,39 @@ public readonly struct EncryptionResult
 /// <summary>
 /// Fluent builder for encryption operations.
 /// </summary>
-public class EncryptionBuilder
+/// <remarks>
+/// <para>
+/// This builder implements <see cref="IDisposable"/> to securely clear sensitive key material
+/// from memory when the builder is no longer needed. It is recommended to use this builder
+/// within a <c>using</c> statement.
+/// </para>
+/// <example>
+/// <code>
+/// using var builder = HeroCryptBuilder.Encrypt()
+///     .WithAesGcm()
+///     .WithKey(key);
+/// var result = builder.Encrypt(plaintext);
+/// </code>
+/// </example>
+/// </remarks>
+public sealed class EncryptionBuilder : IDisposable
 {
     private EncryptionAlgorithm algorithm = EncryptionAlgorithm.AesGcm;
     private byte[]? key;
     private byte[]? nonce;
     private byte[]? associatedData;
     private bool deterministicMode;
+    private bool disposed;
 
     /// <summary>
     /// Sets the encryption algorithm to use.
     /// </summary>
+    /// <param name="algorithm">The encryption algorithm.</param>
+    /// <returns>This builder for method chaining.</returns>
+    /// <exception cref="ObjectDisposedException">If the builder has been disposed.</exception>
     public EncryptionBuilder WithAlgorithm(EncryptionAlgorithm algorithm)
     {
+        ThrowIfDisposed();
         this.algorithm = algorithm;
         return this;
     }
@@ -93,9 +113,14 @@ public class EncryptionBuilder
     /// <summary>
     /// Sets the encryption key.
     /// </summary>
+    /// <param name="key">The encryption key. A copy is made internally.</param>
+    /// <returns>This builder for method chaining.</returns>
+    /// <exception cref="ObjectDisposedException">If the builder has been disposed.</exception>
     public EncryptionBuilder WithKey(byte[] key)
     {
-        this.key = key;
+        ThrowIfDisposed();
+        ClearKey();
+        this.key = [.. key];
         return this;
     }
 
@@ -103,6 +128,9 @@ public class EncryptionBuilder
     /// Sets a specific nonce/IV for encryption.
     /// When not set, a secure random nonce is auto-generated (recommended).
     /// </summary>
+    /// <param name="nonce">The nonce/IV. A copy is made internally.</param>
+    /// <returns>This builder for method chaining.</returns>
+    /// <exception cref="ObjectDisposedException">If the builder has been disposed.</exception>
     /// <remarks>
     /// WARNING: Nonce reuse with the same key is catastrophic for most AEAD algorithms
     /// (AES-GCM, ChaCha20-Poly1305, etc.). Only use this if you have a specific requirement
@@ -111,16 +139,23 @@ public class EncryptionBuilder
     /// </remarks>
     public EncryptionBuilder WithNonce(byte[] nonce)
     {
-        this.nonce = nonce;
+        ThrowIfDisposed();
+        ClearNonce();
+        this.nonce = [.. nonce];
         return this;
     }
 
     /// <summary>
     /// Sets optional authenticated associated data (for AEAD).
     /// </summary>
+    /// <param name="associatedData">The associated data. A copy is made internally.</param>
+    /// <returns>This builder for method chaining.</returns>
+    /// <exception cref="ObjectDisposedException">If the builder has been disposed.</exception>
     public EncryptionBuilder WithAssociatedData(byte[] associatedData)
     {
-        this.associatedData = associatedData;
+        ThrowIfDisposed();
+        ClearAssociatedData();
+        this.associatedData = [.. associatedData];
         return this;
     }
 
@@ -128,6 +163,8 @@ public class EncryptionBuilder
     /// Enables deterministic encryption mode.
     /// When enabled and no nonce is provided, uses empty nonce for RFC-compliant deterministic encryption.
     /// </summary>
+    /// <returns>This builder for method chaining.</returns>
+    /// <exception cref="ObjectDisposedException">If the builder has been disposed.</exception>
     /// <remarks>
     /// <para>WARNING: Deterministic encryption has security implications:</para>
     /// <list type="bullet">
@@ -138,6 +175,7 @@ public class EncryptionBuilder
     /// </remarks>
     public EncryptionBuilder WithDeterministicMode()
     {
+        ThrowIfDisposed();
         deterministicMode = true;
         return this;
     }
@@ -145,8 +183,14 @@ public class EncryptionBuilder
     /// <summary>
     /// Encrypts the plaintext and returns the result containing ciphertext and nonce.
     /// </summary>
+    /// <param name="plaintext">The data to encrypt.</param>
+    /// <returns>The encryption result containing ciphertext and nonce.</returns>
+    /// <exception cref="ObjectDisposedException">If the builder has been disposed.</exception>
+    /// <exception cref="InvalidOperationException">If the key has not been set.</exception>
     public EncryptionResult Encrypt(byte[] plaintext)
     {
+        ThrowIfDisposed();
+
         if (key == null)
             throw new InvalidOperationException("Encryption key must be set using WithKey()");
 
@@ -404,6 +448,52 @@ public class EncryptionBuilder
         ChaCha20Poly1305,
         XChaCha20Poly1305,
         AesGcm
+    }
+
+    private void ThrowIfDisposed()
+    {
+#if NETSTANDARD2_0
+        if (disposed)
+        {
+            throw new ObjectDisposedException(nameof(EncryptionBuilder));
+        }
+#else
+        ObjectDisposedException.ThrowIf(disposed, this);
+#endif
+    }
+
+    private void ClearKey()
+    {
+        if (key == null) return;
+        SecureMemoryOperations.SecureClear(key);
+        key = null;
+    }
+
+    private void ClearNonce()
+    {
+        if (nonce == null) return;
+        SecureMemoryOperations.SecureClear(nonce);
+        nonce = null;
+    }
+
+    private void ClearAssociatedData()
+    {
+        if (associatedData == null) return;
+        SecureMemoryOperations.SecureClear(associatedData);
+        associatedData = null;
+    }
+
+    /// <summary>
+    /// Securely clears all sensitive data (key, nonce, associated data) from memory.
+    /// </summary>
+    public void Dispose()
+    {
+        if (disposed) return;
+        ClearKey();
+        ClearNonce();
+        ClearAssociatedData();
+        disposed = true;
+        GC.SuppressFinalize(this);
     }
 
 #if NET10_OR_GREATER

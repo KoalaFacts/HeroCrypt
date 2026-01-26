@@ -7,12 +7,50 @@ namespace HeroCrypt.Operations;
 /// <summary>
 /// Fluent builder for hashing operations.
 /// </summary>
-public class HashBuilder
+/// <remarks>
+/// <para>
+/// This builder implements <see cref="IDisposable"/> to securely clear sensitive key material
+/// from memory when the builder is no longer needed. It is recommended to use this builder
+/// within a <c>using</c> statement when performing keyed hashing (HMAC).
+/// </para>
+/// </remarks>
+public sealed class HashBuilder : IDisposable
 {
     private HashingAlgorithm algorithm = HashingAlgorithm.Sha256;
     private byte[]? key;
     private int? outputLength;
     private bool allowLegacyAlgorithms;
+    private bool disposed;
+
+    private void ThrowIfDisposed()
+    {
+#if NETSTANDARD2_0
+        if (disposed)
+        {
+            throw new ObjectDisposedException(nameof(HashBuilder));
+        }
+#else
+        ObjectDisposedException.ThrowIf(disposed, this);
+#endif
+    }
+
+    private void ClearKey()
+    {
+        if (key == null) return;
+        SecureMemoryOperations.SecureClear(key);
+        key = null;
+    }
+
+    /// <summary>
+    /// Releases all resources used by this builder and securely clears sensitive key material.
+    /// </summary>
+    public void Dispose()
+    {
+        if (disposed) return;
+        ClearKey();
+        disposed = true;
+        GC.SuppressFinalize(this);
+    }
 
     /// <summary>
     /// Allows the use of legacy/deprecated algorithms (MD5, SHA-1) for this builder instance.
@@ -30,6 +68,7 @@ public class HashBuilder
     /// <returns>This builder instance for method chaining.</returns>
     public HashBuilder AllowLegacyAlgorithms()
     {
+        ThrowIfDisposed();
         allowLegacyAlgorithms = true;
         return this;
     }
@@ -43,6 +82,7 @@ public class HashBuilder
     /// </summary>
     public HashBuilder WithAlgorithm(HashingAlgorithm algorithm)
     {
+        ThrowIfDisposed();
         this.algorithm = algorithm;
         return this;
     }
@@ -95,6 +135,7 @@ public class HashBuilder
     /// <remarks>Requires .NET 9 or later.</remarks>
     public HashBuilder WithShake128(int outputLength)
     {
+        ThrowIfDisposed();
         algorithm = HashingAlgorithm.Shake128;
         this.outputLength = outputLength;
         return this;
@@ -107,6 +148,7 @@ public class HashBuilder
     /// <remarks>Requires .NET 9 or later.</remarks>
     public HashBuilder WithShake256(int outputLength)
     {
+        ThrowIfDisposed();
         algorithm = HashingAlgorithm.Shake256;
         this.outputLength = outputLength;
         return this;
@@ -193,7 +235,9 @@ public class HashBuilder
     /// </summary>
     public HashBuilder WithKey(byte[] key)
     {
-        this.key = key;
+        ThrowIfDisposed();
+        ClearKey();
+        this.key = [.. key];
         return this;
     }
 
@@ -206,6 +250,7 @@ public class HashBuilder
     /// </summary>
     public byte[] ComputeHash(byte[] data)
     {
+        ThrowIfDisposed();
         InputValidator.ValidateByteArray(data, nameof(data));
 
         if (key != null)
@@ -215,6 +260,16 @@ public class HashBuilder
         }
 
         return Compute(data, algorithm, outputLength);
+    }
+
+    /// <summary>
+    /// Computes the hash of the string data using UTF-8 encoding.
+    /// </summary>
+    /// <param name="data">The string data to hash.</param>
+    /// <returns>The computed hash.</returns>
+    public byte[] ComputeHash(string data)
+    {
+        return ComputeHash(System.Text.Encoding.UTF8.GetBytes(data));
     }
 
     private static byte[] Compute(byte[] data, HashingAlgorithm algorithm, int? outputLength)

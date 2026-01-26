@@ -5,17 +5,66 @@ namespace HeroCrypt.Operations;
 /// <summary>
 /// Fluent builder for signature verification operations.
 /// </summary>
-public class VerificationBuilder
+/// <remarks>
+/// <para>
+/// This builder implements <see cref="IDisposable"/> to securely clear sensitive key material
+/// from memory when the builder is no longer needed. While public keys are not sensitive,
+/// for symmetric MACs (HMAC, AES-CMAC, Poly1305), the key used for verification is a shared
+/// secret. It is recommended to use this builder within a <c>using</c> statement when using
+/// symmetric MAC algorithms.
+/// </para>
+/// </remarks>
+public sealed class VerificationBuilder : IDisposable
 {
     private SignatureAlgorithm algorithm = SignatureAlgorithm.Ed25519;
     private byte[]? publicKey;
     private byte[]? signature;
+    private bool disposed;
+
+    private void ThrowIfDisposed()
+    {
+#if NETSTANDARD2_0
+        if (disposed)
+        {
+            throw new ObjectDisposedException(nameof(VerificationBuilder));
+        }
+#else
+        ObjectDisposedException.ThrowIf(disposed, this);
+#endif
+    }
+
+    private void ClearPublicKey()
+    {
+        if (publicKey == null) return;
+        SecureMemoryOperations.SecureClear(publicKey);
+        publicKey = null;
+    }
+
+    private void ClearSignature()
+    {
+        if (signature == null) return;
+        SecureMemoryOperations.SecureClear(signature);
+        signature = null;
+    }
+
+    /// <summary>
+    /// Releases all resources used by this builder and securely clears sensitive key material.
+    /// </summary>
+    public void Dispose()
+    {
+        if (disposed) return;
+        ClearPublicKey();
+        ClearSignature();
+        disposed = true;
+        GC.SuppressFinalize(this);
+    }
 
     /// <summary>
     /// Sets the signature algorithm to use.
     /// </summary>
     public VerificationBuilder WithAlgorithm(SignatureAlgorithm algorithm)
     {
+        ThrowIfDisposed();
         this.algorithm = algorithm;
         return this;
     }
@@ -87,7 +136,9 @@ public class VerificationBuilder
     /// </summary>
     public VerificationBuilder WithPublicKey(byte[] publicKey)
     {
-        this.publicKey = publicKey;
+        ThrowIfDisposed();
+        ClearPublicKey();
+        this.publicKey = [.. publicKey];
         return this;
     }
 
@@ -96,7 +147,9 @@ public class VerificationBuilder
     /// </summary>
     public VerificationBuilder WithSignature(byte[] signature)
     {
-        this.signature = signature;
+        ThrowIfDisposed();
+        ClearSignature();
+        this.signature = [.. signature];
         return this;
     }
 
@@ -105,6 +158,8 @@ public class VerificationBuilder
     /// </summary>
     public bool Verify(byte[] data)
     {
+        ThrowIfDisposed();
+
         if (publicKey == null)
             throw new InvalidOperationException("Public key must be set using WithPublicKey()");
 
@@ -116,5 +171,15 @@ public class VerificationBuilder
         InputValidator.ValidateByteArray(publicKey, nameof(publicKey));
 
         return SignatureBuilder.VerifyInternal(data, signature, publicKey, algorithm);
+    }
+
+    /// <summary>
+    /// Verifies the signature against the string data using UTF-8 encoding.
+    /// </summary>
+    /// <param name="data">The string data to verify.</param>
+    /// <returns>True if the signature is valid; otherwise, false.</returns>
+    public bool Verify(string data)
+    {
+        return Verify(System.Text.Encoding.UTF8.GetBytes(data));
     }
 }

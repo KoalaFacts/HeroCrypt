@@ -17,19 +17,82 @@ namespace HeroCrypt.Operations;
 /// <summary>
 /// Fluent builder for decryption operations.
 /// </summary>
-public class DecryptionBuilder
+/// <remarks>
+/// <para>
+/// This builder implements <see cref="IDisposable"/> to securely clear sensitive key material
+/// from memory when the builder is no longer needed. It is recommended to use this builder
+/// within a <c>using</c> statement.
+/// </para>
+/// </remarks>
+public sealed class DecryptionBuilder : IDisposable
 {
     private EncryptionAlgorithm algorithm = EncryptionAlgorithm.AesGcm;
     private byte[]? key;
     private byte[]? nonce;
     private byte[]? associatedData;
     private byte[]? encapsulatedKey;
+    private bool disposed;
+
+    private void ThrowIfDisposed()
+    {
+#if NETSTANDARD2_0
+        if (disposed)
+        {
+            throw new ObjectDisposedException(nameof(DecryptionBuilder));
+        }
+#else
+        ObjectDisposedException.ThrowIf(disposed, this);
+#endif
+    }
+
+    private void ClearKey()
+    {
+        if (key == null) return;
+        SecureMemoryOperations.SecureClear(key);
+        key = null;
+    }
+
+    private void ClearNonce()
+    {
+        if (nonce == null) return;
+        SecureMemoryOperations.SecureClear(nonce);
+        nonce = null;
+    }
+
+    private void ClearAssociatedData()
+    {
+        if (associatedData == null) return;
+        SecureMemoryOperations.SecureClear(associatedData);
+        associatedData = null;
+    }
+
+    private void ClearEncapsulatedKey()
+    {
+        if (encapsulatedKey == null) return;
+        SecureMemoryOperations.SecureClear(encapsulatedKey);
+        encapsulatedKey = null;
+    }
+
+    /// <summary>
+    /// Releases all resources used by this builder and securely clears sensitive key material.
+    /// </summary>
+    public void Dispose()
+    {
+        if (disposed) return;
+        ClearKey();
+        ClearNonce();
+        ClearAssociatedData();
+        ClearEncapsulatedKey();
+        disposed = true;
+        GC.SuppressFinalize(this);
+    }
 
     /// <summary>
     /// Sets the encryption algorithm to use.
     /// </summary>
     public DecryptionBuilder WithAlgorithm(EncryptionAlgorithm algorithm)
     {
+        ThrowIfDisposed();
         this.algorithm = algorithm;
         return this;
     }
@@ -74,7 +137,9 @@ public class DecryptionBuilder
     /// </summary>
     public DecryptionBuilder WithKey(byte[] key)
     {
-        this.key = key;
+        ThrowIfDisposed();
+        ClearKey();
+        this.key = [.. key];
         return this;
     }
 
@@ -83,7 +148,9 @@ public class DecryptionBuilder
     /// </summary>
     public DecryptionBuilder WithNonce(byte[] nonce)
     {
-        this.nonce = nonce;
+        ThrowIfDisposed();
+        ClearNonce();
+        this.nonce = [.. nonce];
         return this;
     }
 
@@ -92,7 +159,9 @@ public class DecryptionBuilder
     /// </summary>
     public DecryptionBuilder WithAssociatedData(byte[] associatedData)
     {
-        this.associatedData = associatedData;
+        ThrowIfDisposed();
+        ClearAssociatedData();
+        this.associatedData = [.. associatedData];
         return this;
     }
 
@@ -101,7 +170,53 @@ public class DecryptionBuilder
     /// </summary>
     public DecryptionBuilder WithEncapsulatedKey(byte[] encapsulatedKey)
     {
-        this.encapsulatedKey = encapsulatedKey;
+        ThrowIfDisposed();
+        ClearEncapsulatedKey();
+        this.encapsulatedKey = [.. encapsulatedKey];
+        return this;
+    }
+
+    /// <summary>
+    /// Configures the decryption builder from an encryption result.
+    /// </summary>
+    /// <param name="result">The encryption result containing the nonce and optional encapsulated key.</param>
+    /// <returns>This builder instance for method chaining.</returns>
+    /// <remarks>
+    /// <para>
+    /// This method sets the nonce and encapsulated key (if present) from the encryption result,
+    /// simplifying the decryption workflow. You still need to:
+    /// </para>
+    /// <list type="bullet">
+    /// <item>Set the algorithm using <see cref="WithAlgorithm"/> (or use the default AES-GCM)</item>
+    /// <item>Set the decryption key using <see cref="WithKey"/></item>
+    /// <item>Set associated data if any was used during encryption</item>
+    /// </list>
+    /// <para>
+    /// Example usage:
+    /// </para>
+    /// <code>
+    /// var decrypted = HeroCryptBuilder.Decrypt()
+    ///     .FromEncryptionResult(result)
+    ///     .WithAlgorithm(algorithm)
+    ///     .WithKey(key)
+    ///     .Decrypt(result.Ciphertext);
+    /// </code>
+    /// </remarks>
+    public DecryptionBuilder FromEncryptionResult(EncryptionResult result)
+    {
+        ThrowIfDisposed();
+
+        // Set nonce
+        ClearNonce();
+        nonce = [.. result.Nonce];
+
+        // Set encapsulated key if present (for hybrid encryption)
+        if (result.EncapsulatedKey != null)
+        {
+            ClearEncapsulatedKey();
+            encapsulatedKey = [.. result.EncapsulatedKey];
+        }
+
         return this;
     }
 
@@ -111,6 +226,8 @@ public class DecryptionBuilder
     /// <exception cref="CryptographicException">Thrown when authentication fails.</exception>
     public byte[] Decrypt(byte[] ciphertext)
     {
+        ThrowIfDisposed();
+
         if (key == null)
             throw new InvalidOperationException("Decryption key must be set using WithKey()");
 

@@ -355,6 +355,22 @@ var plaintext = HeroCryptBuilder.Decrypt()
     .DecryptFromBase64UrlToString(apiPayload.c);
 ```
 
+### Text Encoding Quick Reference
+
+| Pattern | When to Use | Example |
+|---------|-------------|---------|
+| `*AsHex` | Properties on result structs | `result.CiphertextAsHex` |
+| `*AsBase64` | Properties on result structs | `result.NonceAsBase64` |
+| `*AsBase64Url` | URL-safe output for APIs | `result.CiphertextAsBase64Url` |
+| `*ToHex()` | Action methods returning hex | `kdf.DeriveKeyToHex()` |
+| `*ToBase64()` | Action methods returning Base64 | `signer.SignToBase64(data)` |
+| `Get*AsHex()` | Retrieve builder state as hex | `builder.GetKeyAsHex()` |
+| `With*FromHex()` | Set value from hex string | `.WithKeyFromHex(hexKey)` |
+| `With*FromBase64Url()` | Set value from URL-safe Base64 | `.WithNonceFromBase64Url(nonce)` |
+| `*FromHexToString()` | Decode, process, return string | `.DecryptFromHexToString(hex)` |
+
+> **Tip:** Use `Base64Url` for URLs, APIs, and JWTs. Use `Hex` for logs and debugging. See [API Patterns](docs/api-patterns.md#text-encoding-conventions) for full details.
+
 ### Post-Quantum Cryptography (.NET 10+)
 
 ```csharp
@@ -415,6 +431,7 @@ HeroCrypt is built with a small, layered architecture:
 ### Getting Started
 
 - **[Getting Started Guide](docs/getting-started.md)** - Quick start guide with examples
+- **[Algorithm Selection Guide](docs/algorithm-selection.md)** - Choosing the right algorithm for your use case
 - **[API Patterns](docs/api-patterns.md)** - API design patterns and conventions
 - **[Examples](examples/)** - Practical code examples for common use cases
 

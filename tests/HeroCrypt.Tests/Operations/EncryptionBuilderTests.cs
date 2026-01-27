@@ -1822,8 +1822,7 @@ public class EncryptionBuilderTests
 
             builder.Dispose();
 
-            Assert.Throws<ObjectDisposedException>(() =>
-                builder.GetKey());
+            Assert.Throws<ObjectDisposedException>(builder.GetKey);
         }
 
         [Fact]
@@ -1835,8 +1834,7 @@ public class EncryptionBuilderTests
 
             builder.Dispose();
 
-            Assert.Throws<ObjectDisposedException>(() =>
-                builder.GetKeyAsHex());
+            Assert.Throws<ObjectDisposedException>(builder.GetKeyAsHex);
         }
 
         [Fact]
@@ -1876,7 +1874,7 @@ public class EncryptionBuilderTests
     public class ConcurrentDisposal
     {
         [Fact]
-        public void ConcurrentDispose_DoesNotThrow()
+        public async Task ConcurrentDispose_DoesNotThrow()
         {
             var builder = HeroCryptBuilder.Encrypt()
                 .WithAesGcm()
@@ -1886,11 +1884,11 @@ public class EncryptionBuilderTests
                 .Select(_ => Task.Run(() => builder.Dispose()))
                 .ToArray();
 
-            Task.WaitAll(tasks);
+            await Task.WhenAll(tasks);
         }
 
         [Fact]
-        public void ConcurrentDisposeAndEncrypt_HandlesGracefully()
+        public async Task ConcurrentDisposeAndEncrypt_HandlesGracefully()
         {
             var builder = HeroCryptBuilder.Encrypt()
                 .WithAesGcm()
@@ -1917,16 +1915,16 @@ public class EncryptionBuilderTests
                 {
                     lock (exceptions) { exceptions.Add(ex); }
                 }
-            });
+            }, TestContext.Current.CancellationToken);
 
             var disposeTask = Task.Run(() =>
             {
                 barrier.SignalAndWait();
                 Thread.Sleep(1); // Let encrypt start
                 builder.Dispose();
-            });
+            }, TestContext.Current.CancellationToken);
 
-            Task.WaitAll(encryptTask, disposeTask);
+            await Task.WhenAll(encryptTask, disposeTask);
 
             // No unexpected exceptions should have occurred
             Assert.Empty(exceptions);

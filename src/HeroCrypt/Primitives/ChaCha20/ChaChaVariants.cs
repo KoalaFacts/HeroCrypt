@@ -4,9 +4,38 @@ using HeroCrypt.Security;
 namespace HeroCrypt.Primitives.ChaCha20;
 
 /// <summary>
-/// ChaCha cipher variants with configurable round counts
-/// Supports ChaCha8, ChaCha12, and ChaCha20
+/// ChaCha cipher variants with configurable round counts.
+/// Supports ChaCha8, ChaCha12, and ChaCha20.
 /// </summary>
+/// <remarks>
+/// <para>
+/// The ChaCha family offers different round counts trading security for performance:
+/// </para>
+/// <list type="table">
+///   <listheader>
+///     <term>Variant</term>
+///     <description>Use Case</description>
+///   </listheader>
+///   <item>
+///     <term>ChaCha20</term>
+///     <description><b>Default</b> - Full 128-bit security, RFC 8439 standard</description>
+///   </item>
+///   <item>
+///     <term>ChaCha12</term>
+///     <description>Performance-critical scenarios with ~96-bit security</description>
+///   </item>
+///   <item>
+///     <term>ChaCha8</term>
+///     <description>Non-cryptographic or very high-throughput needs only</description>
+///   </item>
+/// </list>
+/// <para>
+/// <b>Recommendation:</b> Always use ChaCha20 unless you have specific performance
+/// requirements that have been validated through benchmarking. ChaCha12 is acceptable
+/// for high-throughput scenarios. ChaCha8 should generally be avoided for security-sensitive
+/// applications.
+/// </para>
+/// </remarks>
 public static class ChaChaVariants
 {
     /// <summary>
@@ -30,17 +59,39 @@ public static class ChaChaVariants
     public const int BLOCK_SIZE = 64;
 
     /// <summary>
-    /// ChaCha variant types with different security/performance tradeoffs
+    /// ChaCha variant types with different security/performance tradeoffs.
     /// </summary>
+    /// <remarks>
+    /// The numeric value represents the number of rounds in the cipher.
+    /// More rounds = more security but slower performance.
+    /// </remarks>
     public enum ChaChaVariant
     {
-        /// <summary>ChaCha8 - 8 rounds (4 double rounds) - Fast, lower security</summary>
+        /// <summary>
+        /// ChaCha8 - 8 rounds (4 double rounds).
+        /// </summary>
+        /// <remarks>
+        /// ~2.5x faster than ChaCha20 but with reduced security (~64-bit).
+        /// <b>Warning:</b> Not recommended for security-sensitive applications.
+        /// </remarks>
         ChaCha8 = 8,
 
-        /// <summary>ChaCha12 - 12 rounds (6 double rounds) - Balanced security/performance</summary>
+        /// <summary>
+        /// ChaCha12 - 12 rounds (6 double rounds).
+        /// </summary>
+        /// <remarks>
+        /// ~1.7x faster than ChaCha20 with good security (~96-bit).
+        /// Acceptable for high-throughput scenarios where performance is critical.
+        /// </remarks>
         ChaCha12 = 12,
 
-        /// <summary>ChaCha20 - 20 rounds (10 double rounds) - Full security</summary>
+        /// <summary>
+        /// ChaCha20 - 20 rounds (10 double rounds).
+        /// </summary>
+        /// <remarks>
+        /// Full 128-bit security level. This is the standard variant specified in RFC 8439
+        /// and used in TLS 1.3, WireGuard, and other protocols. <b>Use this by default.</b>
+        /// </remarks>
         ChaCha20 = 20
     }
 

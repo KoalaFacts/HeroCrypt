@@ -272,6 +272,64 @@ public sealed class HashBuilder : IDisposable
         return ComputeHash(System.Text.Encoding.UTF8.GetBytes(data));
     }
 
+    /// <summary>
+    /// Computes the hash of the data and returns it as a lowercase hexadecimal string.
+    /// </summary>
+    /// <param name="data">The data to hash.</param>
+    /// <returns>The computed hash as a lowercase hexadecimal string.</returns>
+    /// <remarks>
+    /// This is a convenience method for scenarios where the hash needs to be stored or compared as text.
+    /// For example: <c>"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"</c> (SHA-256 of empty string).
+    /// </remarks>
+    public string ComputeHashToHex(byte[] data)
+    {
+        var hash = ComputeHash(data);
+        return Convert.ToHexString(hash).ToLowerInvariant();
+    }
+
+    /// <summary>
+    /// Computes the hash of the string data (UTF-8 encoded) and returns it as a lowercase hexadecimal string.
+    /// </summary>
+    /// <param name="data">The string data to hash.</param>
+    /// <returns>The computed hash as a lowercase hexadecimal string.</returns>
+    /// <remarks>
+    /// This is a convenience method for scenarios where the hash needs to be stored or compared as text.
+    /// For example: <c>"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"</c> (SHA-256 of empty string).
+    /// </remarks>
+    public string ComputeHashToHex(string data)
+    {
+        return ComputeHashToHex(System.Text.Encoding.UTF8.GetBytes(data));
+    }
+
+    /// <summary>
+    /// Computes the hash of the data and returns it as a Base64-encoded string.
+    /// </summary>
+    /// <param name="data">The data to hash.</param>
+    /// <returns>The computed hash as a Base64-encoded string.</returns>
+    /// <remarks>
+    /// This is a convenience method for scenarios where the hash needs to be stored compactly as text,
+    /// such as in HTTP headers, JWTs, or configuration files.
+    /// </remarks>
+    public string ComputeHashToBase64(byte[] data)
+    {
+        var hash = ComputeHash(data);
+        return Convert.ToBase64String(hash);
+    }
+
+    /// <summary>
+    /// Computes the hash of the string data (UTF-8 encoded) and returns it as a Base64-encoded string.
+    /// </summary>
+    /// <param name="data">The string data to hash.</param>
+    /// <returns>The computed hash as a Base64-encoded string.</returns>
+    /// <remarks>
+    /// This is a convenience method for scenarios where the hash needs to be stored compactly as text,
+    /// such as in HTTP headers, JWTs, or configuration files.
+    /// </remarks>
+    public string ComputeHashToBase64(string data)
+    {
+        return ComputeHashToBase64(System.Text.Encoding.UTF8.GetBytes(data));
+    }
+
     private static byte[] Compute(byte[] data, HashingAlgorithm algorithm, int? outputLength)
     {
         return algorithm switch

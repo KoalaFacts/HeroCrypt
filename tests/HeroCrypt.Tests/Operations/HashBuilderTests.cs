@@ -417,4 +417,114 @@ public class HashBuilderTests
                 HeroCryptBuilder.Hash().WithSha3_256().WithKey(key).ComputeHash(TestData));
         }
     }
+
+    /// <summary>
+    /// Tests for hash output format convenience methods.
+    /// </summary>
+    [Trait("Category", TestCategories.UNIT)]
+    [Trait("Category", TestCategories.FAST)]
+    public class OutputFormatConvenienceMethods
+    {
+        [Fact]
+        public void ComputeHashToHex_ReturnsLowercaseHexString()
+        {
+            // Arrange - SHA-256 of "abc" is a well-known RFC test vector
+            var abcHash = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
+
+            // Act
+            var hex = HeroCryptBuilder.Hash()
+                .WithSha256()
+                .ComputeHashToHex("abc");
+
+            // Assert
+            Assert.Equal(abcHash, hex);
+            Assert.Equal(hex, hex.ToLowerInvariant()); // Verify lowercase
+        }
+
+        [Fact]
+        public void ComputeHashToHex_ByteArray_ReturnsCorrectHex()
+        {
+            // Arrange
+            var data = System.Text.Encoding.UTF8.GetBytes("test");
+
+            // Act
+            var hexFromBytes = HeroCryptBuilder.Hash()
+                .WithSha256()
+                .ComputeHashToHex(data);
+
+            var hexFromString = HeroCryptBuilder.Hash()
+                .WithSha256()
+                .ComputeHashToHex("test");
+
+            // Assert - Both should produce same result
+            Assert.Equal(hexFromBytes, hexFromString);
+            Assert.Equal(64, hexFromString.Length); // SHA-256 = 32 bytes = 64 hex chars
+        }
+
+        [Theory]
+        [InlineData(HashingAlgorithm.Sha256, 64)]  // 32 bytes
+        [InlineData(HashingAlgorithm.Sha384, 96)]  // 48 bytes
+        [InlineData(HashingAlgorithm.Sha512, 128)] // 64 bytes
+        [InlineData(HashingAlgorithm.Blake2b256, 64)] // 32 bytes
+        [InlineData(HashingAlgorithm.Blake2b512, 128)] // 64 bytes
+        public void ComputeHashToHex_AllAlgorithms_ReturnsCorrectLength(HashingAlgorithm algorithm, int expectedHexLength)
+        {
+            // Act
+            var hex = HeroCryptBuilder.Hash()
+                .WithAlgorithm(algorithm)
+                .ComputeHashToHex(TestData);
+
+            // Assert
+            Assert.Equal(expectedHexLength, hex.Length);
+        }
+
+        [Fact]
+        public void ComputeHashToBase64_ReturnsValidBase64()
+        {
+            // Act
+            var base64 = HeroCryptBuilder.Hash()
+                .WithSha256()
+                .ComputeHashToBase64("test");
+
+            // Assert - Should be valid base64
+            var decoded = Convert.FromBase64String(base64);
+            Assert.Equal(32, decoded.Length); // SHA-256 = 32 bytes
+        }
+
+        [Fact]
+        public void ComputeHashToBase64_ByteArray_MatchesStringVersion()
+        {
+            // Arrange
+            var data = System.Text.Encoding.UTF8.GetBytes("Hello, World!");
+
+            // Act
+            var base64FromBytes = HeroCryptBuilder.Hash()
+                .WithSha256()
+                .ComputeHashToBase64(data);
+
+            var base64FromString = HeroCryptBuilder.Hash()
+                .WithSha256()
+                .ComputeHashToBase64("Hello, World!");
+
+            // Assert
+            Assert.Equal(base64FromBytes, base64FromString);
+        }
+
+        [Fact]
+        public void ComputeHashToHex_And_ComputeHash_ProduceSameResult()
+        {
+            // Act
+            var hashBytes = HeroCryptBuilder.Hash()
+                .WithSha256()
+                .ComputeHash(TestData);
+
+            var hashHex = HeroCryptBuilder.Hash()
+                .WithSha256()
+                .ComputeHashToHex(TestData);
+
+            // Assert - Hex string should represent the same bytes
+            var expectedHex = Convert.ToHexString(hashBytes).ToLowerInvariant();
+            Assert.Equal(expectedHex, hashHex);
+        }
+    }
 }

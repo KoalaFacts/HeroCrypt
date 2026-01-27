@@ -801,4 +801,58 @@ public class HashBuilderTests
             Assert.Equal(fromString, fromBytes);
         }
     }
+
+    /// <summary>
+    /// Tests for malformed input handling in HashBuilder.
+    /// </summary>
+    [Trait("Category", TestCategories.INPUT_VALIDATION)]
+    [Trait("Category", TestCategories.FAST)]
+    public class InputValidation
+    {
+        public static TheoryData<string> InvalidHexStrings => new()
+        {
+            "not-valid-hex",
+            "GHIJKL",
+            "123",
+            "0x1234",
+            "!@#$%^&*()",
+        };
+
+        public static TheoryData<string> InvalidBase64Strings => new()
+        {
+            "not valid base64!",
+            "!!!",
+            "====",
+            "a===",
+        };
+
+        [Theory]
+        [MemberData(nameof(InvalidHexStrings))]
+        public void WithKeyFromHex_InvalidHex_ThrowsFormatException(string invalidHex)
+        {
+            Assert.Throws<FormatException>(() =>
+                HeroCryptBuilder.Hash()
+                    .WithSha256()
+                    .WithKeyFromHex(invalidHex));
+        }
+
+        [Theory]
+        [MemberData(nameof(InvalidBase64Strings))]
+        public void WithKeyFromBase64_InvalidBase64_ThrowsFormatException(string invalidBase64)
+        {
+            Assert.Throws<FormatException>(() =>
+                HeroCryptBuilder.Hash()
+                    .WithSha256()
+                    .WithKeyFromBase64(invalidBase64));
+        }
+
+        [Fact]
+        public void WithNullKey_ThrowsArgumentNullException()
+        {
+            Assert.Throws<ArgumentNullException>(() =>
+                HeroCryptBuilder.Hash()
+                    .WithSha256()
+                    .WithKey(null!));
+        }
+    }
 }

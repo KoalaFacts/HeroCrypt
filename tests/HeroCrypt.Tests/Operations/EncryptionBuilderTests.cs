@@ -1636,4 +1636,160 @@ public class EncryptionBuilderTests
             return Convert.FromBase64String(base64);
         }
     }
+
+    /// <summary>
+    /// Tests for malformed input handling in EncryptionBuilder.
+    /// </summary>
+    [Trait("Category", TestCategories.INPUT_VALIDATION)]
+    [Trait("Category", TestCategories.FAST)]
+    public class InputValidation
+    {
+        public static TheoryData<string> InvalidHexStrings => new()
+        {
+            "not-valid-hex",
+            "GHIJKL",
+            "123",
+            "0x1234",
+            "!@#$%^&*()",
+        };
+
+        public static TheoryData<string> InvalidBase64Strings => new()
+        {
+            "not valid base64!",
+            "!!!",
+            "====",
+            "a===",
+        };
+
+        [Theory]
+        [MemberData(nameof(InvalidHexStrings))]
+        public void WithKeyFromHex_InvalidHex_ThrowsFormatException(string invalidHex)
+        {
+            Assert.Throws<FormatException>(() =>
+                HeroCryptBuilder.Encrypt()
+                    .WithAesGcm()
+                    .WithKeyFromHex(invalidHex));
+        }
+
+        [Theory]
+        [MemberData(nameof(InvalidBase64Strings))]
+        public void WithKeyFromBase64_InvalidBase64_ThrowsFormatException(string invalidBase64)
+        {
+            Assert.Throws<FormatException>(() =>
+                HeroCryptBuilder.Encrypt()
+                    .WithAesGcm()
+                    .WithKeyFromBase64(invalidBase64));
+        }
+
+        [Theory]
+        [InlineData(15)]
+        [InlineData(17)]
+        [InlineData(31)]
+        [InlineData(33)]
+        public void AesGcm_WithWrongKeySize_ThrowsException(int keySize)
+        {
+            var key = TestHelpers.RandomBytes(keySize);
+
+            Assert.ThrowsAny<Exception>(() =>
+                HeroCryptBuilder.Encrypt()
+                    .WithAesGcm()
+                    .WithKey(key)
+                    .Encrypt("test"));
+        }
+
+        [Theory]
+        [InlineData(15)]
+        [InlineData(31)]
+        [InlineData(33)]
+        public void ChaCha20Poly1305_WithWrongKeySize_ThrowsException(int keySize)
+        {
+            var key = TestHelpers.RandomBytes(keySize);
+
+            Assert.ThrowsAny<Exception>(() =>
+                HeroCryptBuilder.Encrypt()
+                    .WithChaCha20Poly1305()
+                    .WithKey(key)
+                    .Encrypt("test"));
+        }
+
+        [Theory]
+        [InlineData(11)]
+        [InlineData(13)]
+        public void AesGcm_WithWrongNonceSize_ThrowsException(int nonceSize)
+        {
+            var key = TestHelpers.RandomBytes(32);
+            var nonce = TestHelpers.RandomBytes(nonceSize);
+
+            Assert.ThrowsAny<Exception>(() =>
+                HeroCryptBuilder.Encrypt()
+                    .WithAesGcm()
+                    .WithKey(key)
+                    .WithNonce(nonce)
+                    .Encrypt("test"));
+        }
+
+        [Fact]
+        public void WithNullKey_ThrowsArgumentNullException()
+        {
+            Assert.Throws<ArgumentNullException>(() =>
+                HeroCryptBuilder.Encrypt()
+                    .WithAesGcm()
+                    .WithKey(null!));
+        }
+
+        [Fact]
+        public void WithNullNonce_ThrowsArgumentNullException()
+        {
+            var key = TestHelpers.RandomBytes(32);
+            Assert.Throws<ArgumentNullException>(() =>
+                HeroCryptBuilder.Encrypt()
+                    .WithAesGcm()
+                    .WithKey(key)
+                    .WithNonce(null!));
+        }
+
+        [Fact]
+        public void TamperedCiphertext_ThrowsCryptographicException()
+        {
+            var key = TestHelpers.RandomBytes(32);
+
+            using var encryptor = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithKey(key);
+
+            var result = encryptor.Encrypt("Secret message");
+
+            var tampered = result.Ciphertext.ToArray();
+            tampered[0] ^= 0xFF;
+
+            using var decryptor = HeroCryptBuilder.Decrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .WithNonce(result.Nonce);
+
+            Assert.ThrowsAny<CryptographicException>(() =>
+                decryptor.Decrypt(tampered));
+        }
+
+        [Fact]
+        public void DecryptWithWrongKey_ThrowsCryptographicException()
+        {
+            var correctKey = TestHelpers.RandomBytes(32);
+            var wrongKey = TestHelpers.RandomBytes(32);
+
+            using var encryptor = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithKey(correctKey);
+
+            var result = encryptor.Encrypt("Secret message");
+
+            using var decryptor = HeroCryptBuilder.Decrypt()
+                .WithAesGcm()
+                .WithKey(wrongKey)
+                .WithNonce(result.Nonce);
+
+            Assert.ThrowsAny<CryptographicException>(() =>
+                decryptor.Decrypt(result.Ciphertext.ToArray()));
+        }
+    }
 }

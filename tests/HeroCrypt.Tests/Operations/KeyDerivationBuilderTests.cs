@@ -1380,4 +1380,70 @@ public class KeyDerivationBuilderTests
             Assert.Equal(64, decoded.Length);
         }
     }
+
+    /// <summary>
+    /// Tests for malformed input handling in KeyDerivationBuilder.
+    /// </summary>
+    [Trait("Category", TestCategories.INPUT_VALIDATION)]
+    [Trait("Category", TestCategories.FAST)]
+    public class InputValidation
+    {
+        public static TheoryData<string> InvalidHexStrings => new()
+        {
+            "not-valid-hex",
+            "GHIJKL",
+            "123",
+            "0x1234",
+            "!@#$%^&*()",
+        };
+
+        public static TheoryData<string> InvalidBase64Strings => new()
+        {
+            "not valid base64!",
+            "!!!",
+            "====",
+            "a===",
+        };
+
+        [Theory]
+        [MemberData(nameof(InvalidHexStrings))]
+        public void WithSaltFromHex_InvalidHex_ThrowsFormatException(string invalidHex)
+        {
+            Assert.Throws<FormatException>(() =>
+                HeroCryptBuilder.DeriveKey()
+                    .WithArgon2id()
+                    .WithPassword("test")
+                    .WithSaltFromHex(invalidHex));
+        }
+
+        [Theory]
+        [MemberData(nameof(InvalidBase64Strings))]
+        public void WithSaltFromBase64_InvalidBase64_ThrowsFormatException(string invalidBase64)
+        {
+            Assert.Throws<FormatException>(() =>
+                HeroCryptBuilder.DeriveKey()
+                    .WithArgon2id()
+                    .WithPassword("test")
+                    .WithSaltFromBase64(invalidBase64));
+        }
+
+        [Fact]
+        public void WithNullPassword_ThrowsArgumentNullException()
+        {
+            Assert.Throws<ArgumentNullException>(() =>
+                HeroCryptBuilder.DeriveKey()
+                    .WithArgon2id()
+                    .WithPassword((string)null!));
+        }
+
+        [Fact]
+        public void WithNullSalt_ThrowsArgumentNullException()
+        {
+            Assert.Throws<ArgumentNullException>(() =>
+                HeroCryptBuilder.DeriveKey()
+                    .WithArgon2id()
+                    .WithPassword("test")
+                    .WithSalt(null!));
+        }
+    }
 }

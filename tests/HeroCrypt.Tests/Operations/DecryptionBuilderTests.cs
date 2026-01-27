@@ -1665,4 +1665,82 @@ public class DecryptionBuilderTests
             Assert.Equal(plaintext, decrypted);
         }
     }
+
+    /// <summary>
+    /// Tests for malformed input handling in DecryptionBuilder.
+    /// </summary>
+    [Trait("Category", TestCategories.INPUT_VALIDATION)]
+    [Trait("Category", TestCategories.FAST)]
+    public class InputValidation
+    {
+        public static TheoryData<string> InvalidHexStrings => new()
+        {
+            "not-valid-hex",
+            "GHIJKL",
+            "123",
+            "0x1234",
+            "!@#$%^&*()",
+        };
+
+        public static TheoryData<string> InvalidBase64Strings => new()
+        {
+            "not valid base64!",
+            "!!!",
+            "====",
+            "a===",
+        };
+
+        [Theory]
+        [MemberData(nameof(InvalidHexStrings))]
+        public void WithKeyFromHex_InvalidHex_ThrowsFormatException(string invalidHex)
+        {
+            Assert.Throws<FormatException>(() =>
+                HeroCryptBuilder.Decrypt()
+                    .WithAesGcm()
+                    .WithKeyFromHex(invalidHex));
+        }
+
+        [Theory]
+        [MemberData(nameof(InvalidHexStrings))]
+        public void WithNonceFromHex_InvalidHex_ThrowsFormatException(string invalidHex)
+        {
+            var key = TestHelpers.RandomBytes(32);
+            Assert.Throws<FormatException>(() =>
+                HeroCryptBuilder.Decrypt()
+                    .WithAesGcm()
+                    .WithKey(key)
+                    .WithNonceFromHex(invalidHex));
+        }
+
+        [Theory]
+        [MemberData(nameof(InvalidBase64Strings))]
+        public void WithKeyFromBase64_InvalidBase64_ThrowsFormatException(string invalidBase64)
+        {
+            Assert.Throws<FormatException>(() =>
+                HeroCryptBuilder.Decrypt()
+                    .WithAesGcm()
+                    .WithKeyFromBase64(invalidBase64));
+        }
+
+        [Theory]
+        [MemberData(nameof(InvalidBase64Strings))]
+        public void WithNonceFromBase64_InvalidBase64_ThrowsFormatException(string invalidBase64)
+        {
+            var key = TestHelpers.RandomBytes(32);
+            Assert.Throws<FormatException>(() =>
+                HeroCryptBuilder.Decrypt()
+                    .WithAesGcm()
+                    .WithKey(key)
+                    .WithNonceFromBase64(invalidBase64));
+        }
+
+        [Fact]
+        public void WithNullKey_ThrowsArgumentNullException()
+        {
+            Assert.Throws<ArgumentNullException>(() =>
+                HeroCryptBuilder.Decrypt()
+                    .WithAesGcm()
+                    .WithKey(null!));
+        }
+    }
 }

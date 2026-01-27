@@ -1235,4 +1235,118 @@ public class VerificationBuilderTests
             Assert.True(isValid);
         }
     }
+
+    /// <summary>
+    /// Tests for malformed input handling in VerificationBuilder.
+    /// </summary>
+    [Trait("Category", TestCategories.INPUT_VALIDATION)]
+    [Trait("Category", TestCategories.FAST)]
+    public class InputValidation
+    {
+        public static TheoryData<string> InvalidHexStrings => new()
+        {
+            "not-valid-hex",
+            "GHIJKL",
+            "123",
+            "0x1234",
+            "!@#$%^&*()",
+        };
+
+        public static TheoryData<string> InvalidBase64Strings => new()
+        {
+            "not valid base64!",
+            "!!!",
+            "====",
+            "a===",
+        };
+
+        [Theory]
+        [MemberData(nameof(InvalidHexStrings))]
+        public void WithKeyFromHex_InvalidHex_ThrowsFormatException(string invalidHex)
+        {
+            Assert.Throws<FormatException>(() =>
+                HeroCryptBuilder.Verify()
+                    .WithHmacSha256()
+                    .WithKeyFromHex(invalidHex));
+        }
+
+        [Theory]
+        [MemberData(nameof(InvalidHexStrings))]
+        public void WithSignatureFromHex_InvalidHex_ThrowsFormatException(string invalidHex)
+        {
+            var key = TestHelpers.RandomBytes(32);
+            Assert.Throws<FormatException>(() =>
+                HeroCryptBuilder.Verify()
+                    .WithHmacSha256()
+                    .WithKey(key)
+                    .WithSignatureFromHex(invalidHex));
+        }
+
+        [Theory]
+        [MemberData(nameof(InvalidBase64Strings))]
+        public void WithKeyFromBase64_InvalidBase64_ThrowsFormatException(string invalidBase64)
+        {
+            Assert.Throws<FormatException>(() =>
+                HeroCryptBuilder.Verify()
+                    .WithHmacSha256()
+                    .WithKeyFromBase64(invalidBase64));
+        }
+
+        [Fact]
+        public void WithNullKey_ThrowsArgumentNullException()
+        {
+            Assert.Throws<ArgumentNullException>(() =>
+                HeroCryptBuilder.Verify()
+                    .WithHmacSha256()
+                    .WithKey(null!));
+        }
+
+        [Fact]
+        public void TamperedSignature_ReturnsFalse()
+        {
+            var key = TestHelpers.RandomBytes(32);
+            var message = "Message to sign"u8.ToArray();
+
+            using var signer = HeroCryptBuilder.Sign()
+                .WithHmacSha256()
+                .WithKey(key);
+
+            var signature = signer.Sign(message);
+
+            var tamperedSignature = signature.ToArray();
+            tamperedSignature[0] ^= 0xFF;
+
+            using var verifier = HeroCryptBuilder.Verify()
+                .WithHmacSha256()
+                .WithKey(key)
+                .WithSignature(tamperedSignature);
+
+            var isValid = verifier.Verify(message);
+
+            Assert.False(isValid);
+        }
+
+        [Fact]
+        public void WrongKey_ReturnsFalse()
+        {
+            var correctKey = TestHelpers.RandomBytes(32);
+            var wrongKey = TestHelpers.RandomBytes(32);
+            var message = "Message to sign"u8.ToArray();
+
+            using var signer = HeroCryptBuilder.Sign()
+                .WithHmacSha256()
+                .WithKey(correctKey);
+
+            var signature = signer.Sign(message);
+
+            using var verifier = HeroCryptBuilder.Verify()
+                .WithHmacSha256()
+                .WithKey(wrongKey)
+                .WithSignature(signature.ToArray());
+
+            var isValid = verifier.Verify(message);
+
+            Assert.False(isValid);
+        }
+    }
 }

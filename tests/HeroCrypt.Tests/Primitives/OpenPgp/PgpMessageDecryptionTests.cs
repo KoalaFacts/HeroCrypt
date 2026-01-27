@@ -1,13 +1,13 @@
 using System.Text;
 using HeroCrypt.Primitives.OpenPgp;
 
-namespace HeroCrypt.Tests;
+namespace HeroCrypt.Tests.Primitives.OpenPgp;
 
 /// <summary>
 /// Basic tests for PGP message encryption and decryption using generated keys.
 /// For comprehensive algorithm coverage, see PgpEndToEndAlgorithmTests.
 /// </summary>
-public class DecryptTest
+public class PgpMessageDecryptionTests
 {
     private const string TestPlaintext = "Hello, World! This is a test message for encryption/decryption.";
 

@@ -54,4 +54,9 @@ public static class TestCategories
     /// THREAD_SAFETY tests that verify concurrent access to shared builders
     /// </summary>
     public const string THREAD_SAFETY = "ThreadSafety";
+
+    /// <summary>
+    /// INPUT_VALIDATION tests that verify proper handling of malformed inputs
+    /// </summary>
+    public const string INPUT_VALIDATION = "InputValidation";
 }

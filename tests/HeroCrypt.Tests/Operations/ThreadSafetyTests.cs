@@ -480,7 +480,7 @@ public class ThreadSafetyTests
             // Assert
             Assert.Empty(exceptions);
             Assert.Equal(ConcurrentOperations, results.Count);
-            Assert.All(results, r => Assert.True(r));
+            Assert.All(results, Assert.True);
         }
 
         [Fact]
@@ -519,7 +519,7 @@ public class ThreadSafetyTests
             // Assert
             Assert.Empty(exceptions);
             Assert.Equal(ConcurrentOperations, results.Count);
-            Assert.All(results, r => Assert.True(r));
+            Assert.All(results, Assert.True);
         }
     }
 

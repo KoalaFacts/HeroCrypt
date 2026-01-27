@@ -899,4 +899,39 @@ public class HashBuilderTests
             builder.Dispose();
         }
     }
+
+    /// <summary>
+    /// Tests for concurrent disposal safety of HashBuilder.
+    /// </summary>
+    [Trait("Category", TestCategories.THREAD_SAFETY)]
+    [Trait("Category", TestCategories.FAST)]
+    public class ConcurrentDisposal
+    {
+        [Fact]
+        public void ConcurrentDispose_DoesNotThrow()
+        {
+            var builder = HeroCryptBuilder.Hash()
+                .WithSha256()
+                .WithKey(TestHelpers.RandomBytes(32));
+
+            var tasks = Enumerable.Range(0, 10)
+                .Select(_ => Task.Run(() => builder.Dispose()))
+                .ToArray();
+
+            Task.WaitAll(tasks);
+        }
+
+        [Fact]
+        public void RapidCreateDisposeLoop_NoIssues()
+        {
+            for (int i = 0; i < 100; i++)
+            {
+                var builder = HeroCryptBuilder.Hash()
+                    .WithSha256();
+
+                builder.ComputeHash("test data");
+                builder.Dispose();
+            }
+        }
+    }
 }

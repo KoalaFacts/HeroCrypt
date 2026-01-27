@@ -3,8 +3,35 @@ using System.Security.Cryptography;
 namespace HeroCrypt.Primitives.Common;
 
 /// <summary>
-/// Shared constants and utilities for Key Derivation Functions
+/// Shared constants and utilities for Key Derivation Functions.
 /// </summary>
+/// <remarks>
+/// <para>
+/// This class provides common constants and salt generation utilities used across
+/// all KDF implementations (Argon2, PBKDF2, Scrypt, HKDF, Balloon).
+/// </para>
+/// <para>
+/// <b>Salt requirements:</b>
+/// </para>
+/// <list type="bullet">
+///   <item>
+///     <term>Minimum length</term>
+///     <description>16 bytes (128 bits) per NIST SP 800-132 recommendations</description>
+///   </item>
+///   <item>
+///     <term>Recommended length</term>
+///     <description>32 bytes (256 bits) for maximum security margin</description>
+///   </item>
+///   <item>
+///     <term>Uniqueness</term>
+///     <description>Each password should have a unique, randomly generated salt</description>
+///   </item>
+/// </list>
+/// <para>
+/// Salts prevent rainbow table attacks and ensure that identical passwords
+/// produce different derived keys across different users or contexts.
+/// </para>
+/// </remarks>
 internal static class KdfConstants
 {
     /// <summary>

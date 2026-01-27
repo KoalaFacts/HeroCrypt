@@ -7,6 +7,31 @@ namespace HeroCrypt.Primitives.Common;
 /// Shared utilities for ChaCha-based cipher implementations.
 /// Contains common operations used by ChaCha20, XChaCha20, and related constructions.
 /// </summary>
+/// <remarks>
+/// <para>
+/// The ChaCha family of stream ciphers operates on a 4x4 matrix of 32-bit words (512 bits total):
+/// </para>
+/// <code>
+/// State layout (16 x 32-bit words):
+/// ┌────────┬────────┬────────┬────────┐
+/// │ const0 │ const1 │ const2 │ const3 │  [0-3]   "expand 32-byte k"
+/// ├────────┼────────┼────────┼────────┤
+/// │ key0   │ key1   │ key2   │ key3   │  [4-7]   First 128 bits of key
+/// ├────────┼────────┼────────┼────────┤
+/// │ key4   │ key5   │ key6   │ key7   │  [8-11]  Second 128 bits of key
+/// ├────────┼────────┼────────┼────────┤
+/// │ counter│ nonce0 │ nonce1 │ nonce2 │  [12-15] Counter + 96-bit nonce
+/// └────────┴────────┴────────┴────────┘
+/// </code>
+/// <para>
+/// <b>Variants supported:</b>
+/// </para>
+/// <list type="bullet">
+///   <item><term>ChaCha20</term><description>RFC 8439 - 96-bit nonce, 32-bit counter</description></item>
+///   <item><term>XChaCha20</term><description>192-bit nonce via HChaCha20 subkey derivation</description></item>
+///   <item><term>ChaCha20-Poly1305</term><description>AEAD construction (RFC 8439)</description></item>
+/// </list>
+/// </remarks>
 internal static class ChaChaUtils
 {
     /// <summary>

@@ -5,6 +5,31 @@ namespace HeroCrypt.Primitives.Common;
 /// <summary>
 /// Utility class for selecting appropriate elliptic curves based on key size.
 /// </summary>
+/// <remarks>
+/// <para>
+/// This class provides NIST P-curve selection for ECDSA and ECDH operations.
+/// The supported curves are:
+/// </para>
+/// <list type="bullet">
+///   <item>
+///     <term>P-256 (secp256r1)</term>
+///     <description>128-bit security level, most widely deployed</description>
+///   </item>
+///   <item>
+///     <term>P-384 (secp384r1)</term>
+///     <description>192-bit security level, required by NSA Suite B</description>
+///   </item>
+///   <item>
+///     <term>P-521 (secp521r1)</term>
+///     <description>256-bit security level, highest security NIST curve</description>
+///   </item>
+/// </list>
+/// <para>
+/// <b>Note:</b> For new applications, consider using Ed25519/X25519 (Curve25519) which
+/// offers better performance and simpler implementation. Use NIST curves when
+/// interoperability with existing systems or compliance requirements dictate.
+/// </para>
+/// </remarks>
 public static class EccCurveSelector
 {
     /// <summary>

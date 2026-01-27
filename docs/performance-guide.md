@@ -12,6 +12,7 @@ This guide covers performance optimization strategies for HeroCrypt.
 6. [Algorithm Selection](#algorithm-selection)
 7. [Benchmarking](#benchmarking)
 8. [Common Pitfalls](#common-pitfalls)
+9. [Text Encoding Performance](#text-encoding-performance)
 
 ## Performance Overview
 
@@ -557,6 +558,108 @@ var hash = Argon2.Hash(
     type: Argon2Type.Argon2id
 );
 ```
+
+## Text Encoding Performance
+
+### Encoding Overhead
+
+Text encoding adds overhead. Choose the right approach for your use case:
+
+| Format | Overhead | Best For |
+|--------|----------|----------|
+| Raw bytes | 0% | Internal APIs, in-memory |
+| Hex | +100% size | Debugging, logs |
+| Base64 | +33% size | Storage, JSON |
+| Base64Url | +33% size | URLs, APIs |
+
+### Avoid Repeated Encoding
+
+```csharp
+// ❌ BAD: Encode multiple times
+for (int i = 0; i < 1000; i++)
+{
+    var hex = builder.GetKeyAsHex();  // Encodes each iteration
+    SendToApi(hex);
+}
+
+// ✅ GOOD: Encode once, reuse
+var hex = builder.GetKeyAsHex();
+for (int i = 0; i < 1000; i++)
+{
+    SendToApi(hex);  // Reuse encoded string
+}
+```
+
+### Use Bytes Internally, Encode at Boundaries
+
+```csharp
+// ✅ GOOD: Keep bytes internally, encode only at API boundaries
+public class CryptoService
+{
+    private byte[] _key;  // Store as bytes internally
+
+    public string EncryptForApi(string plaintext)
+    {
+        var result = Encrypt(plaintext, _key);  // Use bytes internally
+        return result.CiphertextAsBase64Url;     // Encode only for output
+    }
+
+    public void LoadKeyFromApi(string hexKey)
+    {
+        _key = Convert.FromHexString(hexKey);   // Decode at boundary
+    }
+}
+
+// ❌ BAD: Store and pass encoded strings internally
+public class SlowCryptoService
+{
+    private string _keyHex;  // String storage = slower
+
+    public string EncryptForApi(string plaintext)
+    {
+        var key = Convert.FromHexString(_keyHex);  // Decode every time
+        var result = Encrypt(plaintext, key);
+        return Convert.ToHexString(result);         // Encode every time
+    }
+}
+```
+
+### Span-Based Encoding (Advanced)
+
+```csharp
+// ✅ GOOD: Use Span for encoding without allocations
+Span<char> hexBuffer = stackalloc char[64];  // 32 bytes = 64 hex chars
+Convert.TryToHexString(keyBytes, hexBuffer, out int written);
+var hexString = hexBuffer[..written].ToString();
+
+// ✅ GOOD: Pre-sized buffers for Base64
+var base64Length = ((keyBytes.Length + 2) / 3) * 4;
+Span<char> base64Buffer = stackalloc char[base64Length];
+Convert.TryToBase64Chars(keyBytes, base64Buffer, out written);
+```
+
+### Caching Encoded Values
+
+```csharp
+// ✅ GOOD: Cache frequently used encoded values
+public readonly struct EncryptionResult
+{
+    private readonly byte[] _ciphertext;
+    private string? _cachedHex;
+    private string? _cachedBase64Url;
+
+    public string CiphertextAsHex => _cachedHex ??= Convert.ToHexString(_ciphertext);
+    public string CiphertextAsBase64Url => _cachedBase64Url ??= TextEncodings.ToBase64Url(_ciphertext);
+}
+```
+
+### Encoding Performance Tips
+
+1. **Use bytes for internal processing** - Only encode at system boundaries
+2. **Cache encoded values** - If you need the same encoding multiple times
+3. **Choose the smallest format** - Base64 is 33% smaller than Hex
+4. **Use Span<T> when possible** - Reduces allocations for high-throughput scenarios
+5. **Batch encoding** - Encode multiple items together when possible
 
 ## Performance Checklist
 

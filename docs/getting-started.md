@@ -8,7 +8,8 @@ Welcome to HeroCrypt! This guide will help you get started with the library quic
 2. [Quick Start](#quick-start)
 3. [Core Concepts](#core-concepts)
 4. [Common Use Cases](#common-use-cases)
-5. [Next Steps](#next-steps)
+5. [Working with Text Formats](#working-with-text-formats-hex-base64-base64url)
+6. [Next Steps](#next-steps)
 
 ## Installation
 
@@ -263,6 +264,101 @@ var derivedKey = HkdfCore.DeriveKey(
     salt: null
 );
 ```
+
+### Working with Text Formats (Hex, Base64, Base64Url)
+
+Cryptographic data is binary, but you often need to store or transmit it as text. HeroCrypt provides consistent encoding methods across all builders.
+
+#### Encryption with Text Storage
+
+```csharp
+using HeroCrypt;
+
+// ENCRYPT: Get everything as text for storage
+using var encryptor = HeroCryptBuilder.Encrypt()
+    .WithAesGcm()
+    .WithRandomKey();
+
+var result = encryptor.Encrypt("Sensitive data");
+
+// Save as text (choose format based on your needs)
+var record = new {
+    KeyHex = encryptor.GetKeyAsHex(),           // For logs, debugging
+    CiphertextBase64 = result.CiphertextAsBase64,   // For databases, JSON
+    NonceBase64Url = result.NonceAsBase64Url        // For URLs, APIs
+};
+
+// DECRYPT: Load from text
+var plaintext = HeroCryptBuilder.Decrypt()
+    .WithAesGcm()
+    .WithKeyFromHex(record.KeyHex)
+    .WithNonceFromBase64Url(record.NonceBase64Url)
+    .DecryptFromBase64ToString(record.CiphertextBase64);
+```
+
+#### Password Hashing with Text Storage
+
+```csharp
+using HeroCrypt;
+
+// HASH: Store salt and hash as text
+using var kdf = HeroCryptBuilder.DeriveKey()
+    .WithArgon2id()
+    .WithPassword(userPassword)
+    .WithRandomSalt(16);
+
+var hashHex = kdf.DeriveKeyToHex();
+var saltHex = kdf.GetSaltAsHex();
+
+// Store hashHex and saltHex in your database
+await db.SaveUserCredentials(userId, hashHex, saltHex);
+
+// VERIFY: Load from text and compare
+var storedSaltHex = await db.GetSalt(userId);
+var storedHashHex = await db.GetHash(userId);
+
+var computedHash = HeroCryptBuilder.DeriveKey()
+    .WithArgon2id()
+    .WithPassword(enteredPassword)
+    .WithSaltFromHex(storedSaltHex)
+    .DeriveKeyToHex();
+
+bool isValid = computedHash == storedHashHex;
+```
+
+#### HMAC Signatures for APIs
+
+```csharp
+using HeroCrypt;
+
+// Sign API request
+using var signer = HeroCryptBuilder.Sign()
+    .WithHmacSha256()
+    .WithKey(sharedSecret);
+
+var signatureBase64Url = signer.SignToBase64Url($"{timestamp}:{requestBody}");
+
+// Add to HTTP header (URL-safe, no padding issues)
+request.Headers.Add("X-Signature", signatureBase64Url);
+
+// Verify on server
+using var verifier = HeroCryptBuilder.Verify()
+    .WithHmacSha256()
+    .WithKey(sharedSecret)
+    .WithSignatureFromBase64Url(signatureBase64Url);
+
+bool isValid = verifier.Verify($"{timestamp}:{requestBody}");
+```
+
+#### Quick Reference: When to Use Each Format
+
+| Format | Best For | Example Methods |
+|--------|----------|-----------------|
+| **Hex** | Logs, debugging, config files | `GetKeyAsHex()`, `WithKeyFromHex()` |
+| **Base64** | Databases, JSON, general storage | `CiphertextAsBase64`, `WithNonceFromBase64()` |
+| **Base64Url** | URLs, APIs, JWTs, query strings | `SignToBase64Url()`, `DecryptFromBase64UrlToString()` |
+
+> **Tip:** Use `Base64Url` for web APIs and `Hex` for debugging. See [API Patterns](api-patterns.md#text-encoding-conventions) and [Troubleshooting](troubleshooting.md#text-encoding-issues) for more details.
 
 ## Next Steps
 

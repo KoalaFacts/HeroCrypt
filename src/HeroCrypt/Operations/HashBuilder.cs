@@ -383,6 +383,8 @@ public sealed class HashBuilder : IDisposable
     /// This is a convenience method for scenarios where the hash needs to be stored or compared as text.
     /// For example: <c>"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"</c> (SHA-256 of empty string).
     /// </remarks>
+    /// <seealso cref="ComputeHashToBase64(byte[])"/>
+    /// <seealso cref="ComputeHashToBase64Url(byte[])"/>
     public string ComputeHashToHex(byte[] data)
     {
         var hash = ComputeHash(data);
@@ -412,6 +414,8 @@ public sealed class HashBuilder : IDisposable
     /// This is a convenience method for scenarios where the hash needs to be stored compactly as text,
     /// such as in HTTP headers, JWTs, or configuration files.
     /// </remarks>
+    /// <seealso cref="ComputeHashToHex(byte[])"/>
+    /// <seealso cref="ComputeHashToBase64Url(byte[])"/>
     public string ComputeHashToBase64(byte[] data)
     {
         var hash = ComputeHash(data);
@@ -446,6 +450,8 @@ public sealed class HashBuilder : IDisposable
     /// standard Base64 characters may cause issues.
     /// </para>
     /// </remarks>
+    /// <seealso cref="ComputeHashToHex(byte[])"/>
+    /// <seealso cref="ComputeHashToBase64(byte[])"/>
     public string ComputeHashToBase64Url(byte[] data)
     {
         var hash = ComputeHash(data);

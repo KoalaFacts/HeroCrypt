@@ -28,16 +28,12 @@ internal sealed class SyncLock
     /// <summary>
     /// Disposable scope that releases the lock when disposed.
     /// </summary>
-    internal readonly struct LockScope : IDisposable
+    internal readonly struct LockScope(object lockObj) : IDisposable
     {
-        private readonly object @lock;
-
-        public LockScope(object lockObj)
-        {
-            @lock = lockObj;
-        }
-
-        public void Dispose() => Monitor.Exit(@lock);
+        /// <summary>
+        /// Releases the lock.
+        /// </summary>
+        public void Dispose() => Monitor.Exit(lockObj);
     }
 #endif
 }

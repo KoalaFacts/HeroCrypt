@@ -47,6 +47,17 @@ namespace HeroCrypt.Operations;
 /// string message = builder.DecryptToString(result.Ciphertext);
 /// </code>
 /// </example>
+/// <example>
+/// <para><b>Decryption from text-encoded data (from storage/transmission):</b></para>
+/// <code>
+/// // Load from stored Base64 values
+/// using var builder = HeroCryptBuilder.Decrypt()
+///     .WithChaCha20Poly1305()
+///     .WithKeyFromBase64(storedKeyBase64)
+///     .WithNonceFromBase64(storedNonceBase64);
+/// string message = builder.DecryptFromBase64ToString(storedCiphertextBase64);
+/// </code>
+/// </example>
 /// </remarks>
 public sealed class DecryptionBuilder : IDisposable
 {
@@ -554,6 +565,9 @@ public sealed class DecryptionBuilder : IDisposable
     /// This is a convenience method for decrypting ciphertext that has been encoded as hex.
     /// Use this when receiving ciphertext from APIs or databases that store data as hex strings.
     /// </remarks>
+    /// <seealso cref="DecryptFromBase64"/>
+    /// <seealso cref="DecryptFromBase64Url"/>
+    /// <seealso cref="DecryptFromHexToString"/>
     public byte[] DecryptFromHex(string hexCiphertext)
     {
         var ciphertext = Convert.FromHexString(hexCiphertext);
@@ -583,6 +597,9 @@ public sealed class DecryptionBuilder : IDisposable
     /// This is a convenience method for decrypting ciphertext that has been encoded as Base64.
     /// Use this when receiving ciphertext from APIs or storage that use Base64 encoding.
     /// </remarks>
+    /// <seealso cref="DecryptFromHex"/>
+    /// <seealso cref="DecryptFromBase64Url"/>
+    /// <seealso cref="DecryptFromBase64ToString"/>
     public byte[] DecryptFromBase64(string base64Ciphertext)
     {
         var ciphertext = Convert.FromBase64String(base64Ciphertext);
@@ -616,6 +633,9 @@ public sealed class DecryptionBuilder : IDisposable
     /// URL-safe Base64 uses '-' instead of '+', '_' instead of '/', and may omit padding '=' characters.
     /// </para>
     /// </remarks>
+    /// <seealso cref="DecryptFromHex"/>
+    /// <seealso cref="DecryptFromBase64"/>
+    /// <seealso cref="DecryptFromBase64UrlToString"/>
     public byte[] DecryptFromBase64Url(string base64UrlCiphertext)
     {
         var ciphertext = TextEncodings.FromBase64Url(base64UrlCiphertext);

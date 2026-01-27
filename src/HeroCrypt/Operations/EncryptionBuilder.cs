@@ -103,11 +103,26 @@ public readonly struct EncryptionResult
 /// This class is thread-safe. All public methods can be safely called from multiple threads concurrently.
 /// </para>
 /// <example>
+/// <para><b>Basic encryption:</b></para>
 /// <code>
 /// using var builder = HeroCryptBuilder.Encrypt()
 ///     .WithAesGcm()
 ///     .WithKey(key);
 /// var result = builder.Encrypt(plaintext);
+/// </code>
+/// </example>
+/// <example>
+/// <para><b>Encryption with text encoding (for storage/transmission):</b></para>
+/// <code>
+/// using var builder = HeroCryptBuilder.Encrypt()
+///     .WithChaCha20Poly1305()
+///     .WithRandomKey();
+/// var result = builder.Encrypt("secret message");
+///
+/// // Get values as text for storage
+/// string keyBase64 = builder.GetKeyAsBase64();
+/// string ciphertextBase64 = result.CiphertextAsBase64;
+/// string nonceBase64 = result.NonceAsBase64;
 /// </code>
 /// </example>
 /// </remarks>
@@ -342,6 +357,8 @@ public sealed class EncryptionBuilder : IDisposable
     /// <returns>The encryption key as a hex string.</returns>
     /// <exception cref="ObjectDisposedException">If the builder has been disposed.</exception>
     /// <exception cref="InvalidOperationException">If the key has not been set.</exception>
+    /// <seealso cref="GetKeyAsBase64"/>
+    /// <seealso cref="GetKeyAsBase64Url"/>
     public string GetKeyAsHex()
     {
         using (syncLock.EnterScope())
@@ -358,6 +375,8 @@ public sealed class EncryptionBuilder : IDisposable
     /// <returns>The encryption key as a Base64 string.</returns>
     /// <exception cref="ObjectDisposedException">If the builder has been disposed.</exception>
     /// <exception cref="InvalidOperationException">If the key has not been set.</exception>
+    /// <seealso cref="GetKeyAsHex"/>
+    /// <seealso cref="GetKeyAsBase64Url"/>
     public string GetKeyAsBase64()
     {
         using (syncLock.EnterScope())
@@ -374,6 +393,8 @@ public sealed class EncryptionBuilder : IDisposable
     /// <returns>The encryption key as a URL-safe Base64 string.</returns>
     /// <exception cref="ObjectDisposedException">If the builder has been disposed.</exception>
     /// <exception cref="InvalidOperationException">If the key has not been set.</exception>
+    /// <seealso cref="GetKeyAsHex"/>
+    /// <seealso cref="GetKeyAsBase64"/>
     public string GetKeyAsBase64Url()
     {
         using (syncLock.EnterScope())

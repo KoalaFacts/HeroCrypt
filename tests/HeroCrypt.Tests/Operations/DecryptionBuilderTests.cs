@@ -1743,4 +1743,52 @@ public class DecryptionBuilderTests
                     .WithKey(null!));
         }
     }
+
+    /// <summary>
+    /// Tests for concurrent disposal safety of DecryptionBuilder.
+    /// </summary>
+    [Trait("Category", TestCategories.THREAD_SAFETY)]
+    [Trait("Category", TestCategories.FAST)]
+    public class ConcurrentDisposal
+    {
+        [Fact]
+        public void ConcurrentDispose_DoesNotThrow()
+        {
+            var key = TestHelpers.RandomBytes(32);
+            var nonce = TestHelpers.RandomBytes(12);
+
+            var builder = HeroCryptBuilder.Decrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .WithNonce(nonce);
+
+            var tasks = Enumerable.Range(0, 10)
+                .Select(_ => Task.Run(() => builder.Dispose()))
+                .ToArray();
+
+            Task.WaitAll(tasks);
+        }
+
+        [Fact]
+        public void RapidCreateDisposeLoop_NoIssues()
+        {
+            var key = TestHelpers.RandomBytes(32);
+
+            for (int i = 0; i < 100; i++)
+            {
+                var encryptResult = HeroCryptBuilder.Encrypt()
+                    .WithAesGcm()
+                    .WithKey(key)
+                    .Encrypt("test data");
+
+                var builder = HeroCryptBuilder.Decrypt()
+                    .WithAesGcm()
+                    .WithKey(key)
+                    .WithNonce(encryptResult.Nonce);
+
+                builder.Decrypt(encryptResult.Ciphertext);
+                builder.Dispose();
+            }
+        }
+    }
 }

@@ -1446,4 +1446,42 @@ public class KeyDerivationBuilderTests
                     .WithSalt(null!));
         }
     }
+
+    /// <summary>
+    /// Tests for concurrent disposal safety of KeyDerivationBuilder.
+    /// </summary>
+    [Trait("Category", TestCategories.THREAD_SAFETY)]
+    [Trait("Category", TestCategories.FAST)]
+    public class ConcurrentDisposal
+    {
+        [Fact]
+        public void ConcurrentDispose_DoesNotThrow()
+        {
+            var builder = HeroCryptBuilder.DeriveKey()
+                .WithHkdfSha256()
+                .WithPassword(TestPassword)
+                .WithRandomSalt();
+
+            var tasks = Enumerable.Range(0, 10)
+                .Select(_ => Task.Run(() => builder.Dispose()))
+                .ToArray();
+
+            Task.WaitAll(tasks);
+        }
+
+        [Fact]
+        public void RapidCreateDisposeLoop_NoIssues()
+        {
+            for (int i = 0; i < 100; i++)
+            {
+                var builder = HeroCryptBuilder.DeriveKey()
+                    .WithHkdfSha256()
+                    .WithPassword(TestPassword)
+                    .WithRandomSalt();
+
+                builder.DeriveKey();
+                builder.Dispose();
+            }
+        }
+    }
 }

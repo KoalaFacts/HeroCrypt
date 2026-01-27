@@ -1867,4 +1867,84 @@ public class EncryptionBuilderTests
             Assert.False(keyCopy.All(b => b == 0));
         }
     }
+
+    /// <summary>
+    /// Tests for concurrent disposal safety of EncryptionBuilder.
+    /// </summary>
+    [Trait("Category", TestCategories.THREAD_SAFETY)]
+    [Trait("Category", TestCategories.FAST)]
+    public class ConcurrentDisposal
+    {
+        [Fact]
+        public void ConcurrentDispose_DoesNotThrow()
+        {
+            var builder = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithRandomKey();
+
+            var tasks = Enumerable.Range(0, 10)
+                .Select(_ => Task.Run(() => builder.Dispose()))
+                .ToArray();
+
+            Task.WaitAll(tasks);
+        }
+
+        [Fact]
+        public void ConcurrentDisposeAndEncrypt_HandlesGracefully()
+        {
+            var builder = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithRandomKey();
+
+            var exceptions = new List<Exception>();
+            var barrier = new Barrier(2);
+
+            var encryptTask = Task.Run(() =>
+            {
+                barrier.SignalAndWait();
+                try
+                {
+                    for (int i = 0; i < 100; i++)
+                    {
+                        builder.Encrypt("test");
+                    }
+                }
+                catch (ObjectDisposedException)
+                {
+                    // Expected - dispose happened during encryption
+                }
+                catch (Exception ex)
+                {
+                    lock (exceptions) { exceptions.Add(ex); }
+                }
+            });
+
+            var disposeTask = Task.Run(() =>
+            {
+                barrier.SignalAndWait();
+                Thread.Sleep(1); // Let encrypt start
+                builder.Dispose();
+            });
+
+            Task.WaitAll(encryptTask, disposeTask);
+
+            // No unexpected exceptions should have occurred
+            Assert.Empty(exceptions);
+        }
+
+        [Fact]
+        public void RapidCreateDisposeLoop_NoMemoryLeaks()
+        {
+            // Stress test: rapid create/dispose cycles should not cause issues
+            for (int i = 0; i < 100; i++)
+            {
+                var builder = HeroCryptBuilder.Encrypt()
+                    .WithAesGcm()
+                    .WithRandomKey();
+
+                builder.Encrypt("test data");
+                builder.Dispose();
+            }
+        }
+    }
 }

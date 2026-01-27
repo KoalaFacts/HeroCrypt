@@ -1402,4 +1402,53 @@ public class VerificationBuilderTests
             builder.Dispose();
         }
     }
+
+    /// <summary>
+    /// Tests for concurrent disposal safety of VerificationBuilder.
+    /// </summary>
+    [Trait("Category", TestCategories.THREAD_SAFETY)]
+    [Trait("Category", TestCategories.FAST)]
+    public class ConcurrentDisposal
+    {
+        [Fact]
+        public void ConcurrentDispose_DoesNotThrow()
+        {
+            var key = TestHelpers.RandomBytes(32);
+            var signature = TestHelpers.RandomBytes(32);
+
+            var builder = HeroCryptBuilder.Verify()
+                .WithHmacSha256()
+                .WithKey(key)
+                .WithSignature(signature);
+
+            var tasks = Enumerable.Range(0, 10)
+                .Select(_ => Task.Run(() => builder.Dispose()))
+                .ToArray();
+
+            Task.WaitAll(tasks);
+        }
+
+        [Fact]
+        public void RapidCreateDisposeLoop_NoIssues()
+        {
+            var key = TestHelpers.RandomBytes(32);
+
+            for (int i = 0; i < 100; i++)
+            {
+                using var signer = HeroCryptBuilder.Sign()
+                    .WithHmacSha256()
+                    .WithKey(key);
+
+                var signature = signer.Sign("test data");
+
+                var builder = HeroCryptBuilder.Verify()
+                    .WithHmacSha256()
+                    .WithKey(key)
+                    .WithSignature(signature.ToArray());
+
+                builder.Verify("test data");
+                builder.Dispose();
+            }
+        }
+    }
 }

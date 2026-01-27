@@ -1492,4 +1492,40 @@ public class SignatureBuilderTests
             builder.Dispose();
         }
     }
+
+    /// <summary>
+    /// Tests for concurrent disposal safety of SignatureBuilder.
+    /// </summary>
+    [Trait("Category", TestCategories.THREAD_SAFETY)]
+    [Trait("Category", TestCategories.FAST)]
+    public class ConcurrentDisposal
+    {
+        [Fact]
+        public void ConcurrentDispose_DoesNotThrow()
+        {
+            var builder = HeroCryptBuilder.Sign()
+                .WithHmacSha256()
+                .WithKey(TestHelpers.RandomBytes(32));
+
+            var tasks = Enumerable.Range(0, 10)
+                .Select(_ => Task.Run(() => builder.Dispose()))
+                .ToArray();
+
+            Task.WaitAll(tasks);
+        }
+
+        [Fact]
+        public void RapidCreateDisposeLoop_NoIssues()
+        {
+            for (int i = 0; i < 100; i++)
+            {
+                var builder = HeroCryptBuilder.Sign()
+                    .WithHmacSha256()
+                    .WithKey(TestHelpers.RandomBytes(32));
+
+                builder.Sign("test data");
+                builder.Dispose();
+            }
+        }
+    }
 }

@@ -114,3 +114,59 @@ public async Task<byte[]> EncryptAsync(byte[] plaintext, byte[] key)
 - Core implementations: `{Algorithm}Core` (e.g., `Argon2Core`, `HkdfCore`).
 - Builders: `{Purpose}Builder` exposed via `HeroCryptBuilder`.
 - Methods: verbs (`Encrypt`, `Decrypt`, `Hash`, `Verify`), async suffix where applicable, `Try*` for non-throwing patterns.
+
+## Text Encoding Conventions
+
+HeroCrypt uses consistent naming patterns for text encoding conversions (Hex, Base64, Base64Url):
+
+### Output Encoding (Converting bytes to text)
+
+| Context | Pattern | Example | Description |
+|---------|---------|---------|-------------|
+| Properties on result structs | `{Property}As{Format}` | `CiphertextAsHex` | Read-only format conversion of existing data |
+| Action methods | `{Action}To{Format}` | `ComputeHashToHex()` | Returns result of action in specified format |
+| Getter methods | `Get{Property}As{Format}` | `GetKeyAsHex()` | Retrieves and converts builder state |
+
+### Input Decoding (Converting text to bytes)
+
+| Context | Pattern | Example | Description |
+|---------|---------|---------|-------------|
+| Builder configuration | `With{Property}From{Format}` | `WithKeyFromHex()` | Decodes input and configures builder |
+| Action methods | `{Action}From{Format}` | `DecryptFromBase64()` | Decodes input then performs action |
+| Combined | `{Action}From{Format}To{Result}` | `DecryptFromHexToString()` | Decodes input, performs action, converts output |
+
+### Format Names
+
+- **Hex** - Lowercase hexadecimal (e.g., `"48656c6c6f"`)
+- **Base64** - Standard Base64 with padding (e.g., `"SGVsbG8="`)
+- **Base64Url** - URL-safe Base64 without padding (e.g., `"SGVsbG8"`)
+
+### Examples
+
+```csharp
+// Result struct properties (AsXxx)
+var result = encryptBuilder.Encrypt(data);
+string hexCiphertext = result.CiphertextAsHex;
+string b64Nonce = result.NonceAsBase64Url;
+
+// Action methods returning encoded output (ToXxx)
+string hexHash = hashBuilder.ComputeHashToHex(data);
+string b64Signature = signBuilder.SignToBase64(data);
+
+// Getter methods for builder state (GetXxxAsXxx)
+string hexKey = encryptBuilder.GetKeyAsHex();
+string b64Salt = kdfBuilder.GetSaltAsBase64();
+
+// Input decoding (FromXxx)
+var builder = decryptBuilder
+    .WithKeyFromHex(hexKey)
+    .WithNonceFromBase64Url(b64Nonce);
+
+// Combined decode + action + encode
+string plaintext = decryptBuilder.DecryptFromBase64UrlToString(b64Ciphertext);
+```
+
+This consistent naming makes it easy to:
+- Store cryptographic values in databases (Hex or Base64)
+- Transmit values in JSON APIs (Base64Url for URL safety)
+- Round-trip between text and binary without manual conversion

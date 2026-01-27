@@ -304,6 +304,44 @@ await client.SetSecretAsync("encryption-key", Convert.ToBase64String(key));
 
 ## Memory Management
 
+### Builder Disposal Pattern
+
+All HeroCrypt operation builders implement `IDisposable` to securely clear key material from memory:
+
+```csharp
+// ✅ GOOD: Use `using` statement for automatic disposal
+using var encryptor = HeroCryptBuilder.Encrypt()
+    .WithAesGcm()
+    .WithRandomKey();
+
+var result = encryptor.Encrypt(plaintext);
+// Key is automatically cleared when encryptor goes out of scope
+
+// ✅ GOOD: Explicit disposal in try/finally
+var decryptor = HeroCryptBuilder.Decrypt()
+    .WithAesGcm()
+    .WithKeyFromHex(keyHex);
+try
+{
+    return decryptor.Decrypt(ciphertext);
+}
+finally
+{
+    decryptor.Dispose();
+}
+
+// ❌ BAD: Forgetting to dispose
+// var builder = HeroCryptBuilder.Encrypt().WithKey(key);
+// var result = builder.Encrypt(data);
+// // Key remains in memory until GC!
+```
+
+**Important**: Disposing a builder clears:
+- Symmetric keys
+- Salts
+- Private keys
+- Any other sensitive cryptographic material
+
 ### Secure Memory Cleanup
 
 ```csharp

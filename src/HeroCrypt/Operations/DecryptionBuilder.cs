@@ -629,6 +629,28 @@ public sealed class DecryptionBuilder : IDisposable
     /// <returns>The decrypted plaintext as a UTF-8 string.</returns>
     /// <exception cref="FormatException">Thrown if the input is not valid URL-safe Base64.</exception>
     /// <exception cref="System.Text.DecoderFallbackException">Thrown if the decrypted bytes are not valid UTF-8.</exception>
+    /// <example>
+    /// <para><b>Complete round-trip workflow with URL-safe Base64:</b></para>
+    /// <code>
+    /// // Encryption
+    /// using var encryptor = HeroCryptBuilder.Encrypt()
+    ///     .WithAesGcm()
+    ///     .WithRandomKey();
+    ///
+    /// var result = encryptor.Encrypt("Hello, World!");
+    /// var keyHex = encryptor.GetKeyAsHex();
+    ///
+    /// // Store/transmit as URL-safe strings (ideal for APIs)
+    /// var payload = new { c = result.CiphertextAsBase64Url, n = result.NonceAsBase64Url };
+    ///
+    /// // Decryption
+    /// var plaintext = HeroCryptBuilder.Decrypt()
+    ///     .WithAesGcm()
+    ///     .WithKeyFromHex(keyHex)
+    ///     .WithNonceFromBase64Url(payload.n)
+    ///     .DecryptFromBase64UrlToString(payload.c);
+    /// </code>
+    /// </example>
     public string DecryptFromBase64UrlToString(string base64UrlCiphertext)
     {
         var plaintext = DecryptFromBase64Url(base64UrlCiphertext);

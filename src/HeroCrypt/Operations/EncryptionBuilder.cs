@@ -196,6 +196,14 @@ public sealed class EncryptionBuilder : IDisposable
     /// <returns>This builder for method chaining.</returns>
     /// <exception cref="ObjectDisposedException">If the builder has been disposed.</exception>
     /// <exception cref="FormatException">If the string is not a valid hexadecimal string.</exception>
+    /// <example>
+    /// <code>
+    /// // Load a 256-bit key from hex (64 hex chars = 32 bytes)
+    /// using var builder = HeroCryptBuilder.Encrypt()
+    ///     .WithAesGcm()
+    ///     .WithKeyFromHex("0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20");
+    /// </code>
+    /// </example>
     public EncryptionBuilder WithKeyFromHex(string hexKey)
     {
         ThrowIfDisposed();
@@ -210,6 +218,14 @@ public sealed class EncryptionBuilder : IDisposable
     /// <returns>This builder for method chaining.</returns>
     /// <exception cref="ObjectDisposedException">If the builder has been disposed.</exception>
     /// <exception cref="FormatException">If the string is not valid Base64.</exception>
+    /// <example>
+    /// <code>
+    /// // Load a key from standard Base64 (with padding)
+    /// using var builder = HeroCryptBuilder.Encrypt()
+    ///     .WithAesGcm()
+    ///     .WithKeyFromBase64("AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyA=");
+    /// </code>
+    /// </example>
     public EncryptionBuilder WithKeyFromBase64(string base64Key)
     {
         ThrowIfDisposed();
@@ -228,6 +244,14 @@ public sealed class EncryptionBuilder : IDisposable
     /// URL-safe Base64 uses '-' instead of '+', '_' instead of '/', and may omit padding '=' characters.
     /// This method accepts both padded and unpadded URL-safe Base64 strings.
     /// </remarks>
+    /// <example>
+    /// <code>
+    /// // Load a key from URL-safe Base64 (ideal for query strings and URLs)
+    /// using var builder = HeroCryptBuilder.Encrypt()
+    ///     .WithAesGcm()
+    ///     .WithKeyFromBase64Url("AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyA");
+    /// </code>
+    /// </example>
     public EncryptionBuilder WithKeyFromBase64Url(string base64UrlKey)
     {
         ThrowIfDisposed();

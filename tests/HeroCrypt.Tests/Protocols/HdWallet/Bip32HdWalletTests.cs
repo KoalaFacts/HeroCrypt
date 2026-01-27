@@ -1,4 +1,5 @@
 using HeroCrypt.Protocols.HdWallet;
+using HeroCrypt.Tests.Infrastructure;
 
 namespace HeroCrypt.Tests.Protocols.HdWallet;
 
@@ -33,6 +34,8 @@ namespace HeroCrypt.Tests.Protocols.HdWallet;
 /// (e.g., libsecp256k1 via P/Invoke or a managed implementation).
 /// </para>
 /// </remarks>
+[Trait("Category", TestCategories.UNIT)]
+[Trait("Category", TestCategories.FAST)]
 public class Bip32HdWalletTests
 {
     [Fact]

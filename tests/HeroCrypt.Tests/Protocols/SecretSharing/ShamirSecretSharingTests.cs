@@ -1,13 +1,16 @@
 using System.Text;
 using HeroCrypt.Protocols.SecretSharing;
+using HeroCrypt.Tests.Infrastructure;
 
 namespace HeroCrypt.Tests.Protocols.SecretSharing;
 
 #if !NETSTANDARD2_0
 
 /// <summary>
-/// Tests for Shamir's Secret Sharing
+/// Tests for Shamir's Secret Sharing scheme.
 /// </summary>
+[Trait("Category", TestCategories.UNIT)]
+[Trait("Category", TestCategories.FAST)]
 public class ShamirSecretSharingTests
 {
     [Fact]

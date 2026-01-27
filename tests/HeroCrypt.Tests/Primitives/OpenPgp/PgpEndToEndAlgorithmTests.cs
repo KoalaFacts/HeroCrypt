@@ -1,6 +1,7 @@
 using System.Text;
 using HeroCrypt.Primitives.Armor;
 using HeroCrypt.Primitives.OpenPgp;
+using HeroCrypt.Tests.Infrastructure;
 
 namespace HeroCrypt.Tests.Primitives.OpenPgp;
 
@@ -9,6 +10,8 @@ namespace HeroCrypt.Tests.Primitives.OpenPgp;
 /// covering all supported algorithms with both known test vectors
 /// and round-trip verification.
 /// </summary>
+[Trait("Category", TestCategories.INTEGRATION)]
+[Trait("Category", TestCategories.SLOW)]
 public class PgpEndToEndAlgorithmTests
 {
     private const string TestPlaintext = "Hello, World! This is a test message for encryption/decryption.";

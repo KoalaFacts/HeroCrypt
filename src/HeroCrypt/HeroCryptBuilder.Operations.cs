@@ -22,6 +22,14 @@ public static partial class HeroCryptBuilder
     /// <summary>
     /// Starts building a decryption operation with algorithm selection.
     /// </summary>
+    /// <example>
+    /// <code>
+    /// var plaintext = HeroCryptBuilder.Decrypt()
+    ///     .WithChaCha20Poly1305()
+    ///     .WithKey(key)
+    ///     .Decrypt(ciphertext, nonce);
+    /// </code>
+    /// </example>
     /// <returns>A decryption builder instance.</returns>
     public static DecryptionBuilder Decrypt() => new();
 
@@ -55,6 +63,14 @@ public static partial class HeroCryptBuilder
     /// <summary>
     /// Starts building a signature verification operation with algorithm selection.
     /// </summary>
+    /// <example>
+    /// <code>
+    /// bool isValid = HeroCryptBuilder.Verify()
+    ///     .WithEd25519()
+    ///     .WithPublicKey(publicKey)
+    ///     .Verify(data, signature);
+    /// </code>
+    /// </example>
     /// <returns>A verification builder instance.</returns>
     public static VerificationBuilder Verify() => new();
 

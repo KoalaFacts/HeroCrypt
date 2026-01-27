@@ -45,6 +45,15 @@ public static partial class HeroCryptBuilder
     /// ChaCha20-Poly1305 is a fast, secure AEAD cipher ideal for general-purpose encryption.
     /// Uses a 256-bit key and 96-bit nonce.
     /// </remarks>
+    /// <example>
+    /// <code>
+    /// using var cipher = HeroCryptBuilder.ChaCha20Poly1305()
+    ///     .WithRandomKey()
+    ///     .WithRandomNonce();
+    /// var result = cipher.Encrypt("Hello, World!");
+    /// var plaintext = cipher.DecryptToString(result.Ciphertext, result.Nonce);
+    /// </code>
+    /// </example>
     /// <returns>A ChaCha20-Poly1305 builder instance.</returns>
     public static ChaCha20Poly1305Builder ChaCha20Poly1305() => ChaCha20Poly1305Builder.Create();
 
@@ -55,6 +64,14 @@ public static partial class HeroCryptBuilder
     /// XChaCha20-Poly1305 extends ChaCha20-Poly1305 with a 192-bit nonce,
     /// allowing safe random nonce generation for large message volumes.
     /// </remarks>
+    /// <example>
+    /// <code>
+    /// using var cipher = HeroCryptBuilder.XChaCha20Poly1305()
+    ///     .WithRandomKey()
+    ///     .WithRandomNonce();  // Safe to use random nonces
+    /// var result = cipher.Encrypt(largeData);
+    /// </code>
+    /// </example>
     /// <returns>An XChaCha20-Poly1305 builder instance.</returns>
     public static XChaCha20Poly1305Builder XChaCha20Poly1305() => XChaCha20Poly1305Builder.Create();
 
@@ -84,6 +101,14 @@ public static partial class HeroCryptBuilder
     /// AES-SIV is nonce-misuse resistant, providing security even if nonces are reused.
     /// Ideal for key wrapping and deterministic encryption scenarios.
     /// </remarks>
+    /// <example>
+    /// <code>
+    /// using var cipher = HeroCryptBuilder.AesSiv()
+    ///     .WithRandomKey();
+    /// // Deterministic encryption - same plaintext + nonce = same ciphertext
+    /// var result = cipher.Encrypt(plaintext);
+    /// </code>
+    /// </example>
     /// <returns>An AES-SIV builder instance.</returns>
     public static AesSivBuilder AesSiv() => AesSivBuilder.Create();
 
@@ -149,6 +174,20 @@ public static partial class HeroCryptBuilder
     /// while providing security comparable to SHA-3. Supports variable output lengths
     /// from 1 to 64 bytes and optional keying for MAC functionality.
     /// </remarks>
+    /// <example>
+    /// <code>
+    /// // Simple hashing
+    /// using var hasher = HeroCryptBuilder.Blake2b()
+    ///     .WithOutputLength(32);
+    /// var hash = hasher.ComputeHash(data);
+    ///
+    /// // Keyed hashing (MAC)
+    /// using var mac = HeroCryptBuilder.Blake2b()
+    ///     .WithKey(key)
+    ///     .WithOutputLength(32);
+    /// var tag = mac.ComputeHash(data);
+    /// </code>
+    /// </example>
     /// <returns>A Blake2b builder instance.</returns>
     public static Blake2bBuilder Blake2b() => Blake2bBuilder.Create();
 
@@ -205,6 +244,16 @@ public static partial class HeroCryptBuilder
     /// Argon2id is recommended for password hashing, providing resistance against
     /// both GPU and side-channel attacks.
     /// </remarks>
+    /// <example>
+    /// <code>
+    /// using var kdf = HeroCryptBuilder.Argon2()
+    ///     .WithPassword("my-secret-password")
+    ///     .WithRandomSalt()
+    ///     .WithInteractivePreset();  // Or WithModeratePreset(), WithSensitivePreset()
+    /// var key = kdf.DeriveKey(32);
+    /// var salt = kdf.GetSalt();  // Store with the hash for later verification
+    /// </code>
+    /// </example>
     /// <returns>An Argon2 builder instance.</returns>
     public static Argon2Builder Argon2() => Argon2Builder.Create();
 
@@ -246,6 +295,15 @@ public static partial class HeroCryptBuilder
     /// HKDF (RFC 5869) is designed for deriving keys from existing cryptographic material.
     /// It is NOT suitable for password hashing - use Argon2 or Scrypt for passwords.
     /// </remarks>
+    /// <example>
+    /// <code>
+    /// using var hkdf = HeroCryptBuilder.Hkdf()
+    ///     .WithInputKeyMaterial(sharedSecret)
+    ///     .WithSalt(salt)
+    ///     .WithInfo("encryption key"u8.ToArray());
+    /// var encryptionKey = hkdf.DeriveKey(32);
+    /// </code>
+    /// </example>
     /// <returns>An HKDF builder instance.</returns>
     public static HkdfBuilder Hkdf() => HkdfBuilder.Create();
 
@@ -260,6 +318,18 @@ public static partial class HeroCryptBuilder
     /// Ed25519 provides fast, secure digital signatures using the Edwards curve.
     /// Signatures are deterministic and provide 128-bit security.
     /// </remarks>
+    /// <example>
+    /// <code>
+    /// using var signer = HeroCryptBuilder.Ed25519();
+    /// var (privateKey, publicKey) = signer.GenerateKeyPair();
+    ///
+    /// // Sign
+    /// var signature = signer.WithPrivateKey(privateKey).Sign(message);
+    ///
+    /// // Verify
+    /// bool isValid = signer.WithPublicKey(publicKey).Verify(message, signature);
+    /// </code>
+    /// </example>
     /// <returns>An Ed25519 builder instance.</returns>
     public static Ed25519Builder Ed25519() => Ed25519Builder.Create();
 
@@ -281,6 +351,18 @@ public static partial class HeroCryptBuilder
     /// Secp256k1 is the elliptic curve used by Bitcoin and Ethereum.
     /// Provides ECDSA signatures compatible with blockchain applications.
     /// </remarks>
+    /// <example>
+    /// <code>
+    /// using var secp = HeroCryptBuilder.Secp256k1();
+    /// var keyPair = secp.GenerateKeyPair();
+    ///
+    /// // Sign a transaction hash
+    /// var signature = secp.Sign(transactionHash, keyPair.PrivateKey);
+    ///
+    /// // Verify the signature
+    /// bool isValid = secp.Verify(transactionHash, signature, keyPair.PublicKey);
+    /// </code>
+    /// </example>
     /// <returns>A Secp256k1 builder instance.</returns>
     public static Secp256k1Builder Secp256k1() => Secp256k1Builder.Create();
 
@@ -291,6 +373,19 @@ public static partial class HeroCryptBuilder
     /// Curve25519 provides Diffie-Hellman key exchange using the Montgomery curve.
     /// Ideal for establishing shared secrets between parties.
     /// </remarks>
+    /// <example>
+    /// <code>
+    /// using var alice = HeroCryptBuilder.Curve25519();
+    /// using var bob = HeroCryptBuilder.Curve25519();
+    ///
+    /// var aliceKeyPair = alice.GenerateKeyPair();
+    /// var bobKeyPair = bob.GenerateKeyPair();
+    ///
+    /// // Both derive the same shared secret
+    /// var aliceShared = alice.ComputeSharedSecret(aliceKeyPair.PrivateKey, bobKeyPair.PublicKey);
+    /// var bobShared = bob.ComputeSharedSecret(bobKeyPair.PrivateKey, aliceKeyPair.PublicKey);
+    /// </code>
+    /// </example>
     /// <returns>A Curve25519 builder instance.</returns>
     public static Curve25519Builder Curve25519() => Curve25519Builder.Create();
 
@@ -301,6 +396,24 @@ public static partial class HeroCryptBuilder
     /// RSA provides asymmetric encryption and digital signatures.
     /// Supports key sizes from 2048 to 4096 bits. RSA-2048 is the minimum recommended.
     /// </remarks>
+    /// <example>
+    /// <code>
+    /// using var rsa = HeroCryptBuilder.Rsa();
+    /// var keyPair = rsa.GenerateKeyPair(keySize: 4096);
+    ///
+    /// // Encrypt (with public key)
+    /// var ciphertext = rsa.Encrypt(data, keyPair.PublicKey);
+    ///
+    /// // Decrypt (with private key)
+    /// var plaintext = rsa.Decrypt(ciphertext, keyPair.PrivateKey);
+    ///
+    /// // Sign (with private key)
+    /// var signature = rsa.Sign(data, keyPair.PrivateKey);
+    ///
+    /// // Verify (with public key)
+    /// bool isValid = rsa.Verify(data, signature, keyPair.PublicKey);
+    /// </code>
+    /// </example>
     /// <returns>An RSA builder instance.</returns>
     public static RsaBuilder Rsa() => RsaBuilder.Create();
 

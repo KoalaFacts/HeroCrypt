@@ -307,6 +307,65 @@ public sealed class DecryptionBuilder : IDisposable
     }
 
     /// <summary>
+    /// Sets the encapsulated key for hybrid encryption from a hexadecimal string.
+    /// </summary>
+    /// <param name="hexEncapsulatedKey">The encapsulated key as a hexadecimal string (case-insensitive).</param>
+    /// <returns>This builder for method chaining.</returns>
+    /// <exception cref="ObjectDisposedException">If the builder has been disposed.</exception>
+    /// <exception cref="FormatException">Thrown if the string is not valid hexadecimal.</exception>
+    /// <remarks>
+    /// This is a convenience method for using encapsulated keys that have been stored as hex strings.
+    /// Commonly used with keys from <c>EncryptionResult.EncapsulatedKeyAsHex</c>.
+    /// </remarks>
+    public DecryptionBuilder WithEncapsulatedKeyFromHex(string hexEncapsulatedKey)
+    {
+        ThrowIfDisposed();
+        var keyBytes = Convert.FromHexString(hexEncapsulatedKey);
+        return WithEncapsulatedKey(keyBytes);
+    }
+
+    /// <summary>
+    /// Sets the encapsulated key for hybrid encryption from a Base64-encoded string.
+    /// </summary>
+    /// <param name="base64EncapsulatedKey">The encapsulated key as a Base64-encoded string.</param>
+    /// <returns>This builder for method chaining.</returns>
+    /// <exception cref="ObjectDisposedException">If the builder has been disposed.</exception>
+    /// <exception cref="FormatException">Thrown if the string is not valid Base64.</exception>
+    /// <remarks>
+    /// This is a convenience method for using encapsulated keys that have been stored as Base64 strings.
+    /// Commonly used with keys from <c>EncryptionResult.EncapsulatedKeyAsBase64</c>.
+    /// </remarks>
+    public DecryptionBuilder WithEncapsulatedKeyFromBase64(string base64EncapsulatedKey)
+    {
+        ThrowIfDisposed();
+        var keyBytes = Convert.FromBase64String(base64EncapsulatedKey);
+        return WithEncapsulatedKey(keyBytes);
+    }
+
+    /// <summary>
+    /// Sets the encapsulated key for hybrid encryption from a URL-safe Base64-encoded string.
+    /// </summary>
+    /// <param name="base64UrlEncapsulatedKey">The encapsulated key as a URL-safe Base64-encoded string (with or without padding).</param>
+    /// <returns>This builder for method chaining.</returns>
+    /// <exception cref="ObjectDisposedException">If the builder has been disposed.</exception>
+    /// <exception cref="FormatException">Thrown if the string is not valid URL-safe Base64.</exception>
+    /// <remarks>
+    /// <para>
+    /// This is a convenience method for using encapsulated keys that have been stored as URL-safe Base64 strings.
+    /// Commonly used with keys from <c>EncryptionResult.EncapsulatedKeyAsBase64Url</c>.
+    /// </para>
+    /// <para>
+    /// URL-safe Base64 uses '-' instead of '+', '_' instead of '/', and may omit padding '=' characters.
+    /// </para>
+    /// </remarks>
+    public DecryptionBuilder WithEncapsulatedKeyFromBase64Url(string base64UrlEncapsulatedKey)
+    {
+        ThrowIfDisposed();
+        var keyBytes = FromBase64Url(base64UrlEncapsulatedKey);
+        return WithEncapsulatedKey(keyBytes);
+    }
+
+    /// <summary>
     /// Configures the decryption builder from an encryption result.
     /// </summary>
     /// <param name="result">The encryption result containing the nonce and optional encapsulated key.</param>

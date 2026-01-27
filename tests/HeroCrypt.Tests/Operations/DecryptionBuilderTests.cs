@@ -1234,4 +1234,209 @@ public class DecryptionBuilderTests
             Assert.Equal(plaintext, decrypted);
         }
     }
+
+    /// <summary>
+    /// Tests for encapsulated key input format convenience methods (for hybrid encryption).
+    /// </summary>
+    [Trait("Category", TestCategories.UNIT)]
+    [Trait("Category", TestCategories.FAST)]
+    public class EncapsulatedKeyInputFormatTests
+    {
+        [Fact]
+        public void WithEncapsulatedKeyFromHex_SuccessfullyDecrypts()
+        {
+            // Arrange
+            var plaintext = "Test X25519 with hex encapsulated key"u8.ToArray();
+            var privateKey = Curve25519Core.GeneratePrivateKey();
+            var publicKey = Curve25519Core.DerivePublicKey(privateKey);
+
+            var result = HeroCryptBuilder.Encrypt()
+                .WithAlgorithm(EncryptionAlgorithm.X25519ChaCha20Poly1305)
+                .WithKey(publicKey)
+                .Encrypt(plaintext);
+
+            var hexEncapsulatedKey = Convert.ToHexString(result.EncapsulatedKey!);
+
+            // Act
+            var decrypted = HeroCryptBuilder.Decrypt()
+                .WithAlgorithm(EncryptionAlgorithm.X25519ChaCha20Poly1305)
+                .WithKey(privateKey)
+                .WithNonce(result.Nonce)
+                .WithEncapsulatedKeyFromHex(hexEncapsulatedKey)
+                .Decrypt(result.Ciphertext);
+
+            // Assert
+            Assert.Equal(plaintext, decrypted);
+        }
+
+        [Fact]
+        public void WithEncapsulatedKeyFromBase64_SuccessfullyDecrypts()
+        {
+            // Arrange
+            var plaintext = "Test X25519 with Base64 encapsulated key"u8.ToArray();
+            var privateKey = Curve25519Core.GeneratePrivateKey();
+            var publicKey = Curve25519Core.DerivePublicKey(privateKey);
+
+            var result = HeroCryptBuilder.Encrypt()
+                .WithAlgorithm(EncryptionAlgorithm.X25519ChaCha20Poly1305)
+                .WithKey(publicKey)
+                .Encrypt(plaintext);
+
+            var base64EncapsulatedKey = Convert.ToBase64String(result.EncapsulatedKey!);
+
+            // Act
+            var decrypted = HeroCryptBuilder.Decrypt()
+                .WithAlgorithm(EncryptionAlgorithm.X25519ChaCha20Poly1305)
+                .WithKey(privateKey)
+                .WithNonce(result.Nonce)
+                .WithEncapsulatedKeyFromBase64(base64EncapsulatedKey)
+                .Decrypt(result.Ciphertext);
+
+            // Assert
+            Assert.Equal(plaintext, decrypted);
+        }
+
+        [Fact]
+        public void WithEncapsulatedKeyFromBase64Url_SuccessfullyDecrypts()
+        {
+            // Arrange
+            var plaintext = "Test X25519 with Base64Url encapsulated key"u8.ToArray();
+            var privateKey = Curve25519Core.GeneratePrivateKey();
+            var publicKey = Curve25519Core.DerivePublicKey(privateKey);
+
+            var result = HeroCryptBuilder.Encrypt()
+                .WithAlgorithm(EncryptionAlgorithm.X25519ChaCha20Poly1305)
+                .WithKey(publicKey)
+                .Encrypt(plaintext);
+
+            var base64UrlEncapsulatedKey = Convert.ToBase64String(result.EncapsulatedKey!)
+                .TrimEnd('=')
+                .Replace('+', '-')
+                .Replace('/', '_');
+
+            // Act
+            var decrypted = HeroCryptBuilder.Decrypt()
+                .WithAlgorithm(EncryptionAlgorithm.X25519ChaCha20Poly1305)
+                .WithKey(privateKey)
+                .WithNonce(result.Nonce)
+                .WithEncapsulatedKeyFromBase64Url(base64UrlEncapsulatedKey)
+                .Decrypt(result.Ciphertext);
+
+            // Assert
+            Assert.Equal(plaintext, decrypted);
+        }
+
+        [Fact]
+        public void WithEncapsulatedKeyFromHex_WithInvalidHex_ThrowsFormatException()
+        {
+            // Act & Assert
+            Assert.Throws<FormatException>(() =>
+                HeroCryptBuilder.Decrypt()
+                    .WithAlgorithm(EncryptionAlgorithm.X25519ChaCha20Poly1305)
+                    .WithEncapsulatedKeyFromHex("not-valid-hex!@#$"));
+        }
+
+        [Fact]
+        public void WithEncapsulatedKeyFromBase64_WithInvalidBase64_ThrowsFormatException()
+        {
+            // Act & Assert
+            Assert.Throws<FormatException>(() =>
+                HeroCryptBuilder.Decrypt()
+                    .WithAlgorithm(EncryptionAlgorithm.X25519ChaCha20Poly1305)
+                    .WithEncapsulatedKeyFromBase64("not-valid-base64!@#$"));
+        }
+
+        [Fact]
+        public void WithEncapsulatedKeyFromHex_AfterDispose_ThrowsObjectDisposedException()
+        {
+            // Arrange
+            var builder = HeroCryptBuilder.Decrypt();
+            builder.Dispose();
+
+            // Act & Assert
+            Assert.Throws<ObjectDisposedException>(() => builder.WithEncapsulatedKeyFromHex("abcd"));
+        }
+
+        [Fact]
+        public void WithEncapsulatedKeyFromBase64_AfterDispose_ThrowsObjectDisposedException()
+        {
+            // Arrange
+            var builder = HeroCryptBuilder.Decrypt();
+            builder.Dispose();
+
+            // Act & Assert
+            Assert.Throws<ObjectDisposedException>(() => builder.WithEncapsulatedKeyFromBase64("dGVzdA=="));
+        }
+
+        [Fact]
+        public void WithEncapsulatedKeyFromBase64Url_AfterDispose_ThrowsObjectDisposedException()
+        {
+            // Arrange
+            var builder = HeroCryptBuilder.Decrypt();
+            builder.Dispose();
+
+            // Act & Assert
+            Assert.Throws<ObjectDisposedException>(() => builder.WithEncapsulatedKeyFromBase64Url("dGVzdA"));
+        }
+
+        [Fact]
+        public void EncryptionResultTextProperties_DecryptWithTextFormats_RoundTrip()
+        {
+            // Arrange - Full workflow: encrypt, get encapsulated key as hex, decrypt with hex
+            var plaintext = "Test complete text format workflow for hybrid encryption"u8.ToArray();
+            var privateKey = Curve25519Core.GeneratePrivateKey();
+            var publicKey = Curve25519Core.DerivePublicKey(privateKey);
+
+            var result = HeroCryptBuilder.Encrypt()
+                .WithAlgorithm(EncryptionAlgorithm.X25519ChaCha20Poly1305)
+                .WithKey(publicKey)
+                .Encrypt(plaintext);
+
+            // Use text format properties from EncryptionResult
+            var hexCiphertext = result.CiphertextAsHex;
+            var hexNonce = result.NonceAsHex;
+            var hexEncapsulatedKey = result.EncapsulatedKeyAsHex!;
+
+            // Act - Decrypt using all hex inputs
+            var decrypted = HeroCryptBuilder.Decrypt()
+                .WithAlgorithm(EncryptionAlgorithm.X25519ChaCha20Poly1305)
+                .WithKey(privateKey)
+                .WithNonceFromHex(hexNonce)
+                .WithEncapsulatedKeyFromHex(hexEncapsulatedKey)
+                .DecryptFromHex(hexCiphertext);
+
+            // Assert
+            Assert.Equal(plaintext, decrypted);
+        }
+
+        [Fact]
+        public void EncryptionResultTextProperties_DecryptWithBase64UrlFormats_RoundTrip()
+        {
+            // Arrange
+            var plaintext = "Test Base64Url workflow"u8.ToArray();
+            var privateKey = Curve25519Core.GeneratePrivateKey();
+            var publicKey = Curve25519Core.DerivePublicKey(privateKey);
+
+            var result = HeroCryptBuilder.Encrypt()
+                .WithAlgorithm(EncryptionAlgorithm.X25519XChaCha20Poly1305)
+                .WithKey(publicKey)
+                .Encrypt(plaintext);
+
+            // Use URL-safe text format properties from EncryptionResult
+            var base64UrlCiphertext = result.CiphertextAsBase64Url;
+            var base64UrlNonce = result.NonceAsBase64Url;
+            var base64UrlEncapsulatedKey = result.EncapsulatedKeyAsBase64Url!;
+
+            // Act - Decrypt using all Base64Url inputs
+            var decrypted = HeroCryptBuilder.Decrypt()
+                .WithAlgorithm(EncryptionAlgorithm.X25519XChaCha20Poly1305)
+                .WithKey(privateKey)
+                .WithNonceFromBase64Url(base64UrlNonce)
+                .WithEncapsulatedKeyFromBase64Url(base64UrlEncapsulatedKey)
+                .DecryptFromBase64Url(base64UrlCiphertext);
+
+            // Assert
+            Assert.Equal(plaintext, decrypted);
+        }
+    }
 }

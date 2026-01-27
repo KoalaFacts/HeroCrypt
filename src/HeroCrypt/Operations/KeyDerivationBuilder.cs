@@ -241,6 +241,103 @@ public sealed class KeyDerivationBuilder : IDisposable
     }
 
     /// <summary>
+    /// Sets the salt for key derivation from a hexadecimal string.
+    /// </summary>
+    /// <param name="hexSalt">The salt as a hexadecimal string (case-insensitive).</param>
+    /// <returns>This builder instance for method chaining.</returns>
+    /// <exception cref="FormatException">Thrown when the input is not a valid hexadecimal string.</exception>
+    /// <remarks>
+    /// <para>
+    /// This is a convenience method for setting the salt from a hex-encoded string,
+    /// typically retrieved from storage or configuration.
+    /// </para>
+    /// <para>
+    /// Example:
+    /// <code>
+    /// // Retrieve stored salt and verify a password
+    /// var storedSaltHex = "a1b2c3d4e5f6...";
+    /// using var kdf = HeroCryptBuilder.DeriveKey()
+    ///     .WithArgon2id()
+    ///     .WithPassword(password)
+    ///     .WithSaltFromHex(storedSaltHex);
+    /// var derivedKey = kdf.DeriveKey();
+    /// </code>
+    /// </para>
+    /// </remarks>
+    public KeyDerivationBuilder WithSaltFromHex(string hexSalt)
+    {
+        ThrowIfDisposed();
+        var saltBytes = Convert.FromHexString(hexSalt);
+        return WithSalt(saltBytes);
+    }
+
+    /// <summary>
+    /// Sets the salt for key derivation from a Base64-encoded string.
+    /// </summary>
+    /// <param name="base64Salt">The salt as a Base64-encoded string.</param>
+    /// <returns>This builder instance for method chaining.</returns>
+    /// <exception cref="FormatException">Thrown when the input is not a valid Base64 string.</exception>
+    /// <remarks>
+    /// This is a convenience method for setting the salt from a Base64-encoded string,
+    /// typically retrieved from JSON, databases, or other text-based storage.
+    /// </remarks>
+    public KeyDerivationBuilder WithSaltFromBase64(string base64Salt)
+    {
+        ThrowIfDisposed();
+        var saltBytes = Convert.FromBase64String(base64Salt);
+        return WithSalt(saltBytes);
+    }
+
+    /// <summary>
+    /// Sets the salt for key derivation from a URL-safe Base64-encoded string.
+    /// </summary>
+    /// <param name="base64UrlSalt">The salt as a URL-safe Base64-encoded string (with or without padding).</param>
+    /// <returns>This builder instance for method chaining.</returns>
+    /// <exception cref="FormatException">Thrown when the input is not a valid Base64 URL string.</exception>
+    /// <remarks>
+    /// <para>
+    /// URL-safe Base64 uses '-' instead of '+', '_' instead of '/', and may omit padding '=' characters.
+    /// This method accepts both padded and unpadded input.
+    /// </para>
+    /// </remarks>
+    public KeyDerivationBuilder WithSaltFromBase64Url(string base64UrlSalt)
+    {
+        ThrowIfDisposed();
+        var saltBytes = FromBase64Url(base64UrlSalt);
+        return WithSalt(saltBytes);
+    }
+
+    private static byte[] FromBase64Url(string base64Url)
+    {
+        // Replace URL-safe characters with standard Base64 characters
+        var base64 = base64Url
+            .Replace('-', '+')
+            .Replace('_', '/');
+
+        // Add padding if necessary
+        switch (base64.Length % 4)
+        {
+            case 0:
+                // No padding needed
+                break;
+            case 1:
+                // Invalid Base64 length, will throw on decode
+                break;
+            case 2:
+                base64 += "==";
+                break;
+            case 3:
+                base64 += "=";
+                break;
+            default:
+                // This is unreachable for % 4, but required for completeness
+                break;
+        }
+
+        return Convert.FromBase64String(base64);
+    }
+
+    /// <summary>
     /// Gets a copy of the current salt.
     /// </summary>
     /// <returns>A copy of the salt bytes.</returns>
@@ -447,5 +544,70 @@ public sealed class KeyDerivationBuilder : IDisposable
 
             _ => throw new NotSupportedException($"Algorithm {algorithm} is not supported")
         };
+    }
+
+    /// <summary>
+    /// Derives a key and returns it as a lowercase hexadecimal string.
+    /// </summary>
+    /// <returns>The derived key as a lowercase hexadecimal string.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when password or salt has not been set.</exception>
+    /// <remarks>
+    /// <para>
+    /// This is a convenience method equivalent to calling <see cref="DeriveKey"/> and converting the result.
+    /// </para>
+    /// <para>
+    /// Example:
+    /// <code>
+    /// using var kdf = HeroCryptBuilder.DeriveKey()
+    ///     .WithArgon2id()
+    ///     .WithPassword("secret")
+    ///     .WithRandomSalt();
+    /// var derivedKeyHex = kdf.DeriveKeyToHex();
+    /// var saltHex = kdf.GetSaltAsHex();
+    /// // Store both derivedKeyHex and saltHex
+    /// </code>
+    /// </para>
+    /// </remarks>
+    public string DeriveKeyToHex()
+    {
+        var key = DeriveKey();
+        return Convert.ToHexString(key).ToLowerInvariant();
+    }
+
+    /// <summary>
+    /// Derives a key and returns it as a Base64-encoded string.
+    /// </summary>
+    /// <returns>The derived key as a Base64-encoded string.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when password or salt has not been set.</exception>
+    /// <remarks>
+    /// This is a convenience method equivalent to calling <see cref="DeriveKey"/> and converting the result.
+    /// Useful when storing derived keys in JSON, databases, or other text-based formats.
+    /// </remarks>
+    public string DeriveKeyToBase64()
+    {
+        var key = DeriveKey();
+        return Convert.ToBase64String(key);
+    }
+
+    /// <summary>
+    /// Derives a key and returns it as a URL-safe Base64-encoded string (no padding).
+    /// </summary>
+    /// <returns>The derived key as a URL-safe Base64-encoded string.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when password or salt has not been set.</exception>
+    /// <remarks>
+    /// <para>
+    /// URL-safe Base64 replaces '+' with '-', '/' with '_', and omits padding '=' characters.
+    /// </para>
+    /// <para>
+    /// Use this when embedding derived keys in URLs or when standard Base64 characters may cause issues.
+    /// </para>
+    /// </remarks>
+    public string DeriveKeyToBase64Url()
+    {
+        var key = DeriveKey();
+        return Convert.ToBase64String(key)
+            .TrimEnd('=')
+            .Replace('+', '-')
+            .Replace('/', '_');
     }
 }

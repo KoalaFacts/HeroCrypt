@@ -651,7 +651,7 @@ public class HashBuilderTests
         public void ComputeHashToHex_ByteArray_ReturnsCorrectHex()
         {
             // Arrange
-            var data = System.Text.Encoding.UTF8.GetBytes("test");
+            var data = Encoding.UTF8.GetBytes("test");
 
             // Act
             var hexFromBytes = HeroCryptBuilder.Hash()
@@ -701,7 +701,7 @@ public class HashBuilderTests
         public void ComputeHashToBase64_ByteArray_MatchesStringVersion()
         {
             // Arrange
-            var data = System.Text.Encoding.UTF8.GetBytes("Hello, World!");
+            var data = Encoding.UTF8.GetBytes("Hello, World!");
 
             // Act
             var base64FromBytes = HeroCryptBuilder.Hash()
@@ -786,7 +786,7 @@ public class HashBuilderTests
         {
             // Arrange
             var stringData = "Hello, World!";
-            var byteData = System.Text.Encoding.UTF8.GetBytes(stringData);
+            var byteData = Encoding.UTF8.GetBytes(stringData);
 
             // Act
             var fromString = HeroCryptBuilder.Hash()

@@ -533,7 +533,7 @@ public class EncryptionBuilderTests
                 .Encrypt(plaintext);
 
             // Act & Assert - Different AAD should fail
-            Assert.ThrowsAny<System.Security.Cryptography.CryptographicException>(() =>
+            Assert.ThrowsAny<CryptographicException>(() =>
                 HeroCryptBuilder.Decrypt()
                     .WithAesGcm()
                     .WithKey(key)
@@ -690,7 +690,7 @@ public class EncryptionBuilderTests
                 .WithAesGcm();
 
             // Act & Assert
-            Assert.Throws<InvalidOperationException>(() => builder.GetKey());
+            Assert.Throws<InvalidOperationException>(builder.GetKey);
         }
 
         [Fact]
@@ -724,7 +724,7 @@ public class EncryptionBuilderTests
             // Assert
             Assert.Equal(64, hexKey.Length); // 32 bytes = 64 hex chars
             Assert.Equal(hexKey, hexKey.ToLowerInvariant());
-            Assert.True(hexKey.All(c => char.IsLetterOrDigit(c)));
+            Assert.True(hexKey.All(char.IsLetterOrDigit));
         }
 
         [Fact]
@@ -853,7 +853,7 @@ public class EncryptionBuilderTests
                 .WithRsaOaep();
 
             // Act & Assert
-            Assert.Throws<NotSupportedException>(() => builder.WithRandomKey());
+            Assert.Throws<NotSupportedException>(builder.WithRandomKey);
         }
 
         [Fact]
@@ -864,7 +864,7 @@ public class EncryptionBuilderTests
                 .WithAlgorithm(EncryptionAlgorithm.X25519ChaCha20Poly1305);
 
             // Act & Assert
-            Assert.Throws<NotSupportedException>(() => builder.WithRandomKey());
+            Assert.Throws<NotSupportedException>(builder.WithRandomKey);
         }
     }
 
@@ -1188,7 +1188,7 @@ public class EncryptionBuilderTests
             // Assert
             Assert.NotNull(result.CiphertextAsHex);
             Assert.Equal(result.CiphertextAsHex, result.CiphertextAsHex.ToLowerInvariant());
-            Assert.True(result.CiphertextAsHex.All(c => char.IsLetterOrDigit(c)));
+            Assert.True(result.CiphertextAsHex.All(char.IsLetterOrDigit));
         }
 
         [Fact]

@@ -1,5 +1,4 @@
 using HeroCrypt.Protocols.HdWallet;
-using HeroCrypt.Tests.Infrastructure;
 
 namespace HeroCrypt.Tests.Protocols.HdWallet;
 
@@ -19,33 +18,33 @@ public class Bip39MnemonicTests
     {
         [Fact]
         public void GenerateMnemonic_12Words_Success()
-    {
-        // Arrange - 128 bits = 16 bytes = 12 words
-        var entropy = new byte[16];
-        new Random(42).NextBytes(entropy);
+        {
+            // Arrange - 128 bits = 16 bytes = 12 words
+            var entropy = new byte[16];
+            new Random(42).NextBytes(entropy);
 
-        // Act
-        var mnemonic = Bip39Mnemonic.GenerateMnemonic(entropy);
+            // Act
+            var mnemonic = Bip39Mnemonic.GenerateMnemonic(entropy);
 
-        // Assert
-        var words = mnemonic.Split(' ');
-        Assert.Equal(12, words.Length);
-    }
+            // Assert
+            var words = mnemonic.Split(' ');
+            Assert.Equal(12, words.Length);
+        }
 
-    [Fact]
-    public void GenerateMnemonic_24Words_Success()
-    {
-        // Arrange - 256 bits = 32 bytes = 24 words
-        var entropy = new byte[32];
-        new Random(42).NextBytes(entropy);
+        [Fact]
+        public void GenerateMnemonic_24Words_Success()
+        {
+            // Arrange - 256 bits = 32 bytes = 24 words
+            var entropy = new byte[32];
+            new Random(42).NextBytes(entropy);
 
-        // Act
-        var mnemonic = Bip39Mnemonic.GenerateMnemonic(entropy);
+            // Act
+            var mnemonic = Bip39Mnemonic.GenerateMnemonic(entropy);
 
-        // Assert
-        var words = mnemonic.Split(' ');
-        Assert.Equal(24, words.Length);
-    }
+            // Assert
+            var words = mnemonic.Split(' ');
+            Assert.Equal(24, words.Length);
+        }
 
         [Theory]
         [InlineData(16, 12)]  // 128 bits -> 12 words

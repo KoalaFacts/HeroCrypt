@@ -173,6 +173,49 @@ public sealed class VerificationBuilder : IDisposable
     public VerificationBuilder WithKey(byte[] key) => WithPublicKey(key);
 
     /// <summary>
+    /// Sets the shared secret key from a hexadecimal string for symmetric MAC verification.
+    /// </summary>
+    /// <param name="hexKey">The key as a hexadecimal string (case-insensitive).</param>
+    /// <returns>This builder instance for method chaining.</returns>
+    /// <exception cref="FormatException">Thrown if the string is not a valid hexadecimal string.</exception>
+    public VerificationBuilder WithKeyFromHex(string hexKey)
+    {
+        ThrowIfDisposed();
+        var keyBytes = Convert.FromHexString(hexKey);
+        return WithKey(keyBytes);
+    }
+
+    /// <summary>
+    /// Sets the shared secret key from a Base64-encoded string for symmetric MAC verification.
+    /// </summary>
+    /// <param name="base64Key">The key as a Base64-encoded string.</param>
+    /// <returns>This builder instance for method chaining.</returns>
+    /// <exception cref="FormatException">Thrown if the string is not valid Base64.</exception>
+    public VerificationBuilder WithKeyFromBase64(string base64Key)
+    {
+        ThrowIfDisposed();
+        var keyBytes = Convert.FromBase64String(base64Key);
+        return WithKey(keyBytes);
+    }
+
+    /// <summary>
+    /// Sets the shared secret key from a URL-safe Base64-encoded string for symmetric MAC verification.
+    /// </summary>
+    /// <param name="base64UrlKey">The key as a URL-safe Base64-encoded string (with or without padding).</param>
+    /// <returns>This builder instance for method chaining.</returns>
+    /// <remarks>
+    /// URL-safe Base64 uses '-' instead of '+', '_' instead of '/', and may omit padding '=' characters.
+    /// This method accepts both padded and unpadded URL-safe Base64 strings.
+    /// </remarks>
+    /// <exception cref="FormatException">Thrown if the string is not valid URL-safe Base64.</exception>
+    public VerificationBuilder WithKeyFromBase64Url(string base64UrlKey)
+    {
+        ThrowIfDisposed();
+        var keyBytes = FromBase64Url(base64UrlKey);
+        return WithKey(keyBytes);
+    }
+
+    /// <summary>
     /// Sets the signature to verify.
     /// </summary>
     public VerificationBuilder WithSignature(byte[] signature)

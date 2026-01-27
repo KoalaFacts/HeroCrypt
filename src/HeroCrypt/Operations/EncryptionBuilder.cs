@@ -34,6 +34,68 @@ public readonly struct EncryptionResult
     /// Optional: Ciphertext for the encapsulated key (for hybrid encryption).
     /// </summary>
     public readonly byte[]? EncapsulatedKey { get; init; }
+
+    /// <summary>
+    /// Gets the ciphertext as a lowercase hexadecimal string.
+    /// </summary>
+    public string CiphertextAsHex => Convert.ToHexString(Ciphertext).ToLowerInvariant();
+
+    /// <summary>
+    /// Gets the ciphertext as a Base64-encoded string.
+    /// </summary>
+    public string CiphertextAsBase64 => Convert.ToBase64String(Ciphertext);
+
+    /// <summary>
+    /// Gets the ciphertext as a URL-safe Base64-encoded string (no padding).
+    /// </summary>
+    public string CiphertextAsBase64Url => ToBase64Url(Ciphertext);
+
+    /// <summary>
+    /// Gets the nonce as a lowercase hexadecimal string.
+    /// </summary>
+    public string NonceAsHex => Convert.ToHexString(Nonce).ToLowerInvariant();
+
+    /// <summary>
+    /// Gets the nonce as a Base64-encoded string.
+    /// </summary>
+    public string NonceAsBase64 => Convert.ToBase64String(Nonce);
+
+    /// <summary>
+    /// Gets the nonce as a URL-safe Base64-encoded string (no padding).
+    /// </summary>
+    public string NonceAsBase64Url => ToBase64Url(Nonce);
+
+    /// <summary>
+    /// Gets the encapsulated key as a lowercase hexadecimal string (for hybrid encryption).
+    /// Returns null if no encapsulated key is present.
+    /// </summary>
+    public string? EncapsulatedKeyAsHex => EncapsulatedKey != null
+        ? Convert.ToHexString(EncapsulatedKey).ToLowerInvariant()
+        : null;
+
+    /// <summary>
+    /// Gets the encapsulated key as a Base64-encoded string (for hybrid encryption).
+    /// Returns null if no encapsulated key is present.
+    /// </summary>
+    public string? EncapsulatedKeyAsBase64 => EncapsulatedKey != null
+        ? Convert.ToBase64String(EncapsulatedKey)
+        : null;
+
+    /// <summary>
+    /// Gets the encapsulated key as a URL-safe Base64-encoded string (for hybrid encryption).
+    /// Returns null if no encapsulated key is present.
+    /// </summary>
+    public string? EncapsulatedKeyAsBase64Url => EncapsulatedKey != null
+        ? ToBase64Url(EncapsulatedKey)
+        : null;
+
+    private static string ToBase64Url(byte[] bytes)
+    {
+        return Convert.ToBase64String(bytes)
+            .TrimEnd('=')
+            .Replace('+', '-')
+            .Replace('/', '_');
+    }
 }
 
 /// <summary>
@@ -123,6 +185,72 @@ public sealed class EncryptionBuilder : IDisposable
         ClearKey();
         this.key = [.. key];
         return this;
+    }
+
+    /// <summary>
+    /// Sets the encryption key from a hexadecimal string.
+    /// </summary>
+    /// <param name="hexKey">The key as a hexadecimal string (case-insensitive).</param>
+    /// <returns>This builder for method chaining.</returns>
+    /// <exception cref="ObjectDisposedException">If the builder has been disposed.</exception>
+    /// <exception cref="FormatException">If the string is not a valid hexadecimal string.</exception>
+    public EncryptionBuilder WithKeyFromHex(string hexKey)
+    {
+        ThrowIfDisposed();
+        var keyBytes = Convert.FromHexString(hexKey);
+        return WithKey(keyBytes);
+    }
+
+    /// <summary>
+    /// Sets the encryption key from a Base64-encoded string.
+    /// </summary>
+    /// <param name="base64Key">The key as a Base64-encoded string.</param>
+    /// <returns>This builder for method chaining.</returns>
+    /// <exception cref="ObjectDisposedException">If the builder has been disposed.</exception>
+    /// <exception cref="FormatException">If the string is not valid Base64.</exception>
+    public EncryptionBuilder WithKeyFromBase64(string base64Key)
+    {
+        ThrowIfDisposed();
+        var keyBytes = Convert.FromBase64String(base64Key);
+        return WithKey(keyBytes);
+    }
+
+    /// <summary>
+    /// Sets the encryption key from a URL-safe Base64-encoded string.
+    /// </summary>
+    /// <param name="base64UrlKey">The key as a URL-safe Base64-encoded string (with or without padding).</param>
+    /// <returns>This builder for method chaining.</returns>
+    /// <exception cref="ObjectDisposedException">If the builder has been disposed.</exception>
+    /// <exception cref="FormatException">If the string is not valid URL-safe Base64.</exception>
+    /// <remarks>
+    /// URL-safe Base64 uses '-' instead of '+', '_' instead of '/', and may omit padding '=' characters.
+    /// This method accepts both padded and unpadded URL-safe Base64 strings.
+    /// </remarks>
+    public EncryptionBuilder WithKeyFromBase64Url(string base64UrlKey)
+    {
+        ThrowIfDisposed();
+        var keyBytes = FromBase64Url(base64UrlKey);
+        return WithKey(keyBytes);
+    }
+
+    private static byte[] FromBase64Url(string base64Url)
+    {
+        // Convert URL-safe Base64 to standard Base64
+        var base64 = base64Url
+            .Replace('-', '+')
+            .Replace('_', '/');
+
+        // Add padding if needed
+        switch (base64.Length % 4)
+        {
+            case 0: break; // No padding needed
+            case 1: break; // Invalid Base64 - let Convert.FromBase64String handle the error
+            case 2: base64 += "=="; break;
+            case 3: base64 += "="; break;
+            default: break; // Unreachable, but required for exhaustive switch
+        }
+
+        return Convert.FromBase64String(base64);
     }
 
     /// <summary>

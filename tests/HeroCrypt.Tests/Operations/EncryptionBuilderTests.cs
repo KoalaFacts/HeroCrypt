@@ -867,4 +867,580 @@ public class EncryptionBuilderTests
             Assert.Throws<NotSupportedException>(() => builder.WithRandomKey());
         }
     }
+
+    /// <summary>
+    /// Tests for key input format convenience methods (WithKeyFromHex, WithKeyFromBase64, WithKeyFromBase64Url).
+    /// </summary>
+    [Trait("Category", TestCategories.UNIT)]
+    [Trait("Category", TestCategories.FAST)]
+    public class KeyInputFormatTests
+    {
+        [Fact]
+        public void WithKeyFromHex_EncryptsCorrectly()
+        {
+            // Arrange
+            var key = TestHelpers.RandomBytes(32);
+            var hexKey = Convert.ToHexString(key);
+            var plaintext = "Test message for encryption";
+
+            // Act
+            var resultFromBytes = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .WithDeterministicMode()
+                .Encrypt(plaintext);
+
+            var resultFromHex = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithKeyFromHex(hexKey)
+                .WithDeterministicMode()
+                .Encrypt(plaintext);
+
+            // Assert - both should produce the same ciphertext with deterministic mode
+            Assert.Equal(resultFromBytes.Ciphertext, resultFromHex.Ciphertext);
+        }
+
+        [Fact]
+        public void WithKeyFromHex_AcceptsLowercaseHex()
+        {
+            // Arrange
+            var key = TestHelpers.RandomBytes(32);
+            var hexKey = Convert.ToHexString(key).ToLowerInvariant();
+            var plaintext = "Test message";
+
+            // Act
+            var result = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithKeyFromHex(hexKey)
+                .Encrypt(plaintext);
+
+            // Assert
+            Assert.NotNull(result.Ciphertext);
+            Assert.NotEmpty(result.Ciphertext);
+        }
+
+        [Fact]
+        public void WithKeyFromHex_AcceptsUppercaseHex()
+        {
+            // Arrange
+            var key = TestHelpers.RandomBytes(32);
+            var hexKey = Convert.ToHexString(key).ToUpperInvariant();
+            var plaintext = "Test message";
+
+            // Act
+            var result = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithKeyFromHex(hexKey)
+                .Encrypt(plaintext);
+
+            // Assert
+            Assert.NotNull(result.Ciphertext);
+            Assert.NotEmpty(result.Ciphertext);
+        }
+
+        [Fact]
+        public void WithKeyFromHex_WithInvalidHex_ThrowsFormatException()
+        {
+            // Act & Assert
+            Assert.Throws<FormatException>(() =>
+                HeroCryptBuilder.Encrypt()
+                    .WithAesGcm()
+                    .WithKeyFromHex("not-valid-hex!@#$"));
+        }
+
+        [Fact]
+        public void WithKeyFromBase64_EncryptsCorrectly()
+        {
+            // Arrange
+            var key = TestHelpers.RandomBytes(32);
+            var base64Key = Convert.ToBase64String(key);
+            var plaintext = "Test message for encryption";
+
+            // Act
+            var resultFromBytes = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .WithDeterministicMode()
+                .Encrypt(plaintext);
+
+            var resultFromBase64 = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithKeyFromBase64(base64Key)
+                .WithDeterministicMode()
+                .Encrypt(plaintext);
+
+            // Assert
+            Assert.Equal(resultFromBytes.Ciphertext, resultFromBase64.Ciphertext);
+        }
+
+        [Fact]
+        public void WithKeyFromBase64_WithInvalidBase64_ThrowsFormatException()
+        {
+            // Act & Assert
+            Assert.Throws<FormatException>(() =>
+                HeroCryptBuilder.Encrypt()
+                    .WithAesGcm()
+                    .WithKeyFromBase64("not-valid-base64!@#$"));
+        }
+
+        [Fact]
+        public void WithKeyFromBase64Url_EncryptsCorrectly()
+        {
+            // Arrange
+            var key = TestHelpers.RandomBytes(32);
+            var base64UrlKey = Convert.ToBase64String(key)
+                .TrimEnd('=')
+                .Replace('+', '-')
+                .Replace('/', '_');
+            var plaintext = "Test message for encryption";
+
+            // Act
+            var resultFromBytes = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .WithDeterministicMode()
+                .Encrypt(plaintext);
+
+            var resultFromBase64Url = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithKeyFromBase64Url(base64UrlKey)
+                .WithDeterministicMode()
+                .Encrypt(plaintext);
+
+            // Assert
+            Assert.Equal(resultFromBytes.Ciphertext, resultFromBase64Url.Ciphertext);
+        }
+
+        [Fact]
+        public void WithKeyFromBase64Url_AcceptsPaddedInput()
+        {
+            // Arrange
+            var key = TestHelpers.RandomBytes(32);
+            var base64UrlKey = Convert.ToBase64String(key)
+                .Replace('+', '-')
+                .Replace('/', '_');
+            // Keep padding
+            var plaintext = "Test message";
+
+            // Act
+            var result = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithKeyFromBase64Url(base64UrlKey)
+                .Encrypt(plaintext);
+
+            // Assert
+            Assert.NotNull(result.Ciphertext);
+        }
+
+        [Fact]
+        public void WithKeyFromHex_EncryptAndDecrypt_RoundTrip()
+        {
+            // Arrange
+            var key = TestHelpers.RandomBytes(32);
+            var hexKey = Convert.ToHexString(key).ToLowerInvariant();
+            var plaintext = "Secret message encrypted with hex key";
+
+            // Act - Encrypt with hex key
+            var result = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithKeyFromHex(hexKey)
+                .Encrypt(plaintext);
+
+            // Act - Decrypt with same hex key
+            var decrypted = HeroCryptBuilder.Decrypt()
+                .WithAesGcm()
+                .WithKeyFromHex(hexKey)
+                .WithNonce(result.Nonce)
+                .DecryptToString(result.Ciphertext);
+
+            // Assert
+            Assert.Equal(plaintext, decrypted);
+        }
+
+        [Fact]
+        public void WithKeyFromBase64Url_EncryptAndDecrypt_RoundTrip()
+        {
+            // Arrange
+            var key = TestHelpers.RandomBytes(32);
+            var base64UrlKey = Convert.ToBase64String(key)
+                .TrimEnd('=')
+                .Replace('+', '-')
+                .Replace('/', '_');
+            var plaintext = "Secret message encrypted with URL-safe base64 key";
+
+            // Act - Encrypt with base64url key
+            var result = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithKeyFromBase64Url(base64UrlKey)
+                .Encrypt(plaintext);
+
+            // Act - Decrypt with same base64url key
+            var decrypted = HeroCryptBuilder.Decrypt()
+                .WithAesGcm()
+                .WithKeyFromBase64Url(base64UrlKey)
+                .WithNonce(result.Nonce)
+                .DecryptToString(result.Ciphertext);
+
+            // Assert
+            Assert.Equal(plaintext, decrypted);
+        }
+
+        [Theory]
+        [InlineData(EncryptionAlgorithm.AesGcm, 32)]
+        [InlineData(EncryptionAlgorithm.ChaCha20Poly1305, 32)]
+        [InlineData(EncryptionAlgorithm.XChaCha20Poly1305, 32)]
+        [InlineData(EncryptionAlgorithm.AesOcb, 32)]
+        [InlineData(EncryptionAlgorithm.AesSiv, 64)]
+        public void WithKeyFromHex_WorksWithAllSymmetricAlgorithms(EncryptionAlgorithm algorithm, int keySize)
+        {
+            // Arrange
+            var key = TestHelpers.RandomBytes(keySize);
+            var hexKey = Convert.ToHexString(key);
+            var plaintext = "Test message";
+
+            // Act
+            var result = HeroCryptBuilder.Encrypt()
+                .WithAlgorithm(algorithm)
+                .WithKeyFromHex(hexKey)
+                .Encrypt(plaintext);
+
+            var decrypted = HeroCryptBuilder.Decrypt()
+                .WithAlgorithm(algorithm)
+                .WithKeyFromHex(hexKey)
+                .WithNonce(result.Nonce)
+                .DecryptToString(result.Ciphertext);
+
+            // Assert
+            Assert.Equal(plaintext, decrypted);
+        }
+
+        [Fact]
+        public void GetKeyAsHex_And_WithKeyFromHex_RoundTrip()
+        {
+            // Arrange
+            var plaintext = "Message to encrypt and decrypt";
+
+            // Act - Generate random key and get as hex
+            using var encryptBuilder = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithRandomKey();
+
+            var hexKey = encryptBuilder.GetKeyAsHex();
+            var result = encryptBuilder.Encrypt(plaintext);
+
+            // Act - Use hex key for decryption
+            var decrypted = HeroCryptBuilder.Decrypt()
+                .WithAesGcm()
+                .WithKeyFromHex(hexKey)
+                .WithNonce(result.Nonce)
+                .DecryptToString(result.Ciphertext);
+
+            // Assert
+            Assert.Equal(plaintext, decrypted);
+        }
+
+        [Fact]
+        public void GetKeyAsBase64Url_And_WithKeyFromBase64Url_RoundTrip()
+        {
+            // Arrange
+            var plaintext = "Message to encrypt and decrypt";
+
+            // Act - Generate random key and get as Base64Url
+            using var encryptBuilder = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithRandomKey();
+
+            var base64UrlKey = encryptBuilder.GetKeyAsBase64Url();
+            var result = encryptBuilder.Encrypt(plaintext);
+
+            // Act - Use Base64Url key for decryption
+            var decrypted = HeroCryptBuilder.Decrypt()
+                .WithAesGcm()
+                .WithKeyFromBase64Url(base64UrlKey)
+                .WithNonce(result.Nonce)
+                .DecryptToString(result.Ciphertext);
+
+            // Assert
+            Assert.Equal(plaintext, decrypted);
+        }
+    }
+
+    /// <summary>
+    /// Tests for EncryptionResult text format output properties.
+    /// </summary>
+    [Trait("Category", TestCategories.UNIT)]
+    [Trait("Category", TestCategories.FAST)]
+    public class EncryptionResultOutputFormatTests
+    {
+        [Fact]
+        public void CiphertextAsHex_ReturnsLowercaseHexString()
+        {
+            // Arrange
+            var key = TestHelpers.RandomBytes(32);
+            var plaintext = "Test message";
+
+            // Act
+            var result = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .Encrypt(plaintext);
+
+            // Assert
+            Assert.NotNull(result.CiphertextAsHex);
+            Assert.Equal(result.CiphertextAsHex, result.CiphertextAsHex.ToLowerInvariant());
+            Assert.True(result.CiphertextAsHex.All(c => char.IsLetterOrDigit(c)));
+        }
+
+        [Fact]
+        public void CiphertextAsHex_MatchesCiphertext()
+        {
+            // Arrange
+            var key = TestHelpers.RandomBytes(32);
+            var plaintext = "Test message";
+
+            // Act
+            var result = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .Encrypt(plaintext);
+
+            // Assert
+            Assert.Equal(Convert.ToHexString(result.Ciphertext).ToLowerInvariant(), result.CiphertextAsHex);
+        }
+
+        [Fact]
+        public void CiphertextAsBase64_ReturnsValidBase64()
+        {
+            // Arrange
+            var key = TestHelpers.RandomBytes(32);
+            var plaintext = "Test message";
+
+            // Act
+            var result = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .Encrypt(plaintext);
+
+            // Assert
+            var decoded = Convert.FromBase64String(result.CiphertextAsBase64);
+            Assert.Equal(result.Ciphertext, decoded);
+        }
+
+        [Fact]
+        public void CiphertextAsBase64Url_ReturnsUrlSafeString()
+        {
+            // Arrange
+            var key = TestHelpers.RandomBytes(32);
+            var plaintext = "Test message";
+
+            // Act
+            var result = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .Encrypt(plaintext);
+
+            // Assert
+            Assert.DoesNotContain("+", result.CiphertextAsBase64Url);
+            Assert.DoesNotContain("/", result.CiphertextAsBase64Url);
+            Assert.DoesNotContain("=", result.CiphertextAsBase64Url);
+        }
+
+        [Fact]
+        public void NonceAsHex_ReturnsLowercaseHexString()
+        {
+            // Arrange
+            var key = TestHelpers.RandomBytes(32);
+            var plaintext = "Test message";
+
+            // Act
+            var result = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .Encrypt(plaintext);
+
+            // Assert
+            Assert.NotNull(result.NonceAsHex);
+            Assert.Equal(result.NonceAsHex, result.NonceAsHex.ToLowerInvariant());
+        }
+
+        [Fact]
+        public void NonceAsHex_MatchesNonce()
+        {
+            // Arrange
+            var key = TestHelpers.RandomBytes(32);
+            var plaintext = "Test message";
+
+            // Act
+            var result = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .Encrypt(plaintext);
+
+            // Assert
+            Assert.Equal(Convert.ToHexString(result.Nonce).ToLowerInvariant(), result.NonceAsHex);
+        }
+
+        [Fact]
+        public void NonceAsBase64_ReturnsValidBase64()
+        {
+            // Arrange
+            var key = TestHelpers.RandomBytes(32);
+            var plaintext = "Test message";
+
+            // Act
+            var result = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .Encrypt(plaintext);
+
+            // Assert
+            var decoded = Convert.FromBase64String(result.NonceAsBase64);
+            Assert.Equal(result.Nonce, decoded);
+        }
+
+        [Fact]
+        public void NonceAsBase64Url_ReturnsUrlSafeString()
+        {
+            // Arrange
+            var key = TestHelpers.RandomBytes(32);
+            var plaintext = "Test message";
+
+            // Act
+            var result = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .Encrypt(plaintext);
+
+            // Assert
+            Assert.DoesNotContain("+", result.NonceAsBase64Url);
+            Assert.DoesNotContain("/", result.NonceAsBase64Url);
+            Assert.DoesNotContain("=", result.NonceAsBase64Url);
+        }
+
+        [Fact]
+        public void EncapsulatedKeyProperties_ReturnNullWhenNotPresent()
+        {
+            // Arrange
+            var key = TestHelpers.RandomBytes(32);
+            var plaintext = "Test message";
+
+            // Act - AES-GCM doesn't produce encapsulated keys
+            var result = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .Encrypt(plaintext);
+
+            // Assert
+            Assert.Null(result.EncapsulatedKey);
+            Assert.Null(result.EncapsulatedKeyAsHex);
+            Assert.Null(result.EncapsulatedKeyAsBase64);
+            Assert.Null(result.EncapsulatedKeyAsBase64Url);
+        }
+
+        [Fact]
+        public void CiphertextAsHex_CanBeUsedForDecryption()
+        {
+            // Arrange
+            var key = TestHelpers.RandomBytes(32);
+            var plaintext = "Secret message to encrypt and decrypt";
+
+            // Act - Encrypt and get text format outputs
+            var result = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .Encrypt(plaintext);
+
+            var ciphertextHex = result.CiphertextAsHex;
+            var nonceHex = result.NonceAsHex;
+
+            // Decrypt using the hex values
+            var ciphertextBytes = Convert.FromHexString(ciphertextHex);
+            var nonceBytes = Convert.FromHexString(nonceHex);
+
+            var decrypted = HeroCryptBuilder.Decrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .WithNonce(nonceBytes)
+                .DecryptToString(ciphertextBytes);
+
+            // Assert
+            Assert.Equal(plaintext, decrypted);
+        }
+
+        [Fact]
+        public void CiphertextAsBase64Url_CanBeUsedForDecryption()
+        {
+            // Arrange
+            var key = TestHelpers.RandomBytes(32);
+            var plaintext = "Secret message to encrypt and decrypt";
+
+            // Act - Encrypt and get text format outputs
+            var result = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .Encrypt(plaintext);
+
+            var ciphertextBase64Url = result.CiphertextAsBase64Url;
+            var nonceBase64Url = result.NonceAsBase64Url;
+
+            // Decrypt using WithCiphertextFromBase64Url would be nice, but for now convert manually
+            var ciphertextBytes = FromBase64Url(ciphertextBase64Url);
+            var nonceBytes = FromBase64Url(nonceBase64Url);
+
+            var decrypted = HeroCryptBuilder.Decrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .WithNonce(nonceBytes)
+                .DecryptToString(ciphertextBytes);
+
+            // Assert
+            Assert.Equal(plaintext, decrypted);
+        }
+
+        [Theory]
+        [InlineData(EncryptionAlgorithm.AesGcm)]
+        [InlineData(EncryptionAlgorithm.ChaCha20Poly1305)]
+        [InlineData(EncryptionAlgorithm.XChaCha20Poly1305)]
+        [InlineData(EncryptionAlgorithm.AesOcb)]
+        [InlineData(EncryptionAlgorithm.AesSiv)]
+        public void TextFormatProperties_WorkWithAllSymmetricAlgorithms(EncryptionAlgorithm algorithm)
+        {
+            // Arrange
+            var keySize = algorithm == EncryptionAlgorithm.AesSiv ? 64 : 32;
+            var key = TestHelpers.RandomBytes(keySize);
+            var plaintext = "Test message";
+
+            // Act
+            var result = HeroCryptBuilder.Encrypt()
+                .WithAlgorithm(algorithm)
+                .WithKey(key)
+                .Encrypt(plaintext);
+
+            // Assert - All text format properties should work
+            Assert.NotNull(result.CiphertextAsHex);
+            Assert.NotNull(result.CiphertextAsBase64);
+            Assert.NotNull(result.CiphertextAsBase64Url);
+            Assert.NotNull(result.NonceAsHex);
+            Assert.NotNull(result.NonceAsBase64);
+            Assert.NotNull(result.NonceAsBase64Url);
+        }
+
+        private static byte[] FromBase64Url(string base64Url)
+        {
+            var base64 = base64Url
+                .Replace('-', '+')
+                .Replace('_', '/');
+
+            switch (base64.Length % 4)
+            {
+                case 0: break;
+                case 1: break;
+                case 2: base64 += "=="; break;
+                case 3: base64 += "="; break;
+                default: break;
+            }
+
+            return Convert.FromBase64String(base64);
+        }
+    }
 }

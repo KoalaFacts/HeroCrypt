@@ -171,6 +171,69 @@ public sealed class SignatureBuilder : IDisposable
     public SignatureBuilder WithKey(byte[] key) => WithPrivateKey(key);
 
     /// <summary>
+    /// Sets the shared secret key from a hexadecimal string for symmetric MAC algorithms.
+    /// </summary>
+    /// <param name="hexKey">The key as a hexadecimal string (case-insensitive).</param>
+    /// <returns>This builder instance for method chaining.</returns>
+    /// <exception cref="FormatException">Thrown if the string is not a valid hexadecimal string.</exception>
+    public SignatureBuilder WithKeyFromHex(string hexKey)
+    {
+        ThrowIfDisposed();
+        var keyBytes = Convert.FromHexString(hexKey);
+        return WithKey(keyBytes);
+    }
+
+    /// <summary>
+    /// Sets the shared secret key from a Base64-encoded string for symmetric MAC algorithms.
+    /// </summary>
+    /// <param name="base64Key">The key as a Base64-encoded string.</param>
+    /// <returns>This builder instance for method chaining.</returns>
+    /// <exception cref="FormatException">Thrown if the string is not valid Base64.</exception>
+    public SignatureBuilder WithKeyFromBase64(string base64Key)
+    {
+        ThrowIfDisposed();
+        var keyBytes = Convert.FromBase64String(base64Key);
+        return WithKey(keyBytes);
+    }
+
+    /// <summary>
+    /// Sets the shared secret key from a URL-safe Base64-encoded string for symmetric MAC algorithms.
+    /// </summary>
+    /// <param name="base64UrlKey">The key as a URL-safe Base64-encoded string (with or without padding).</param>
+    /// <returns>This builder instance for method chaining.</returns>
+    /// <remarks>
+    /// URL-safe Base64 uses '-' instead of '+', '_' instead of '/', and may omit padding '=' characters.
+    /// This method accepts both padded and unpadded URL-safe Base64 strings.
+    /// </remarks>
+    /// <exception cref="FormatException">Thrown if the string is not valid URL-safe Base64.</exception>
+    public SignatureBuilder WithKeyFromBase64Url(string base64UrlKey)
+    {
+        ThrowIfDisposed();
+        var keyBytes = FromBase64Url(base64UrlKey);
+        return WithKey(keyBytes);
+    }
+
+    private static byte[] FromBase64Url(string base64Url)
+    {
+        // Convert URL-safe Base64 to standard Base64
+        var base64 = base64Url
+            .Replace('-', '+')
+            .Replace('_', '/');
+
+        // Add padding if needed
+        switch (base64.Length % 4)
+        {
+            case 0: break; // No padding needed
+            case 1: break; // Invalid Base64 - let Convert.FromBase64String handle the error
+            case 2: base64 += "=="; break;
+            case 3: base64 += "="; break;
+            default: break; // Unreachable, but required for exhaustive switch
+        }
+
+        return Convert.FromBase64String(base64);
+    }
+
+    /// <summary>
     /// Signs the data and returns the signature.
     /// </summary>
     public byte[] Sign(byte[] data)

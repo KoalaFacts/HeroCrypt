@@ -419,6 +419,212 @@ public class HashBuilderTests
     }
 
     /// <summary>
+    /// Tests for key input format convenience methods (WithKeyFromHex, WithKeyFromBase64, WithKeyFromBase64Url).
+    /// </summary>
+    [Trait("Category", TestCategories.UNIT)]
+    [Trait("Category", TestCategories.FAST)]
+    public class KeyInputFormatTests
+    {
+        [Fact]
+        public void WithKeyFromHex_ComputesCorrectHash()
+        {
+            // Arrange
+            var key = TestHelpers.RandomBytes(32);
+            var hexKey = Convert.ToHexString(key);
+
+            // Act
+            var hashFromBytes = HeroCryptBuilder.Hash()
+                .WithSha256()
+                .WithKey(key)
+                .ComputeHash(TestData);
+
+            var hashFromHex = HeroCryptBuilder.Hash()
+                .WithSha256()
+                .WithKeyFromHex(hexKey)
+                .ComputeHash(TestData);
+
+            // Assert
+            Assert.Equal(hashFromBytes, hashFromHex);
+        }
+
+        [Fact]
+        public void WithKeyFromHex_AcceptsLowercaseHex()
+        {
+            // Arrange
+            var key = TestHelpers.RandomBytes(32);
+            var hexKey = Convert.ToHexString(key).ToLowerInvariant();
+
+            // Act
+            var hash = HeroCryptBuilder.Hash()
+                .WithSha256()
+                .WithKeyFromHex(hexKey)
+                .ComputeHash(TestData);
+
+            // Assert
+            Assert.NotNull(hash);
+            Assert.Equal(32, hash.Length);
+        }
+
+        [Fact]
+        public void WithKeyFromHex_AcceptsUppercaseHex()
+        {
+            // Arrange
+            var key = TestHelpers.RandomBytes(32);
+            var hexKey = Convert.ToHexString(key).ToUpperInvariant();
+
+            // Act
+            var hash = HeroCryptBuilder.Hash()
+                .WithSha256()
+                .WithKeyFromHex(hexKey)
+                .ComputeHash(TestData);
+
+            // Assert
+            Assert.NotNull(hash);
+            Assert.Equal(32, hash.Length);
+        }
+
+        [Fact]
+        public void WithKeyFromHex_WithInvalidHex_ThrowsFormatException()
+        {
+            // Act & Assert
+            Assert.Throws<FormatException>(() =>
+                HeroCryptBuilder.Hash()
+                    .WithSha256()
+                    .WithKeyFromHex("not-valid-hex!@#$"));
+        }
+
+        [Fact]
+        public void WithKeyFromBase64_ComputesCorrectHash()
+        {
+            // Arrange
+            var key = TestHelpers.RandomBytes(32);
+            var base64Key = Convert.ToBase64String(key);
+
+            // Act
+            var hashFromBytes = HeroCryptBuilder.Hash()
+                .WithSha256()
+                .WithKey(key)
+                .ComputeHash(TestData);
+
+            var hashFromBase64 = HeroCryptBuilder.Hash()
+                .WithSha256()
+                .WithKeyFromBase64(base64Key)
+                .ComputeHash(TestData);
+
+            // Assert
+            Assert.Equal(hashFromBytes, hashFromBase64);
+        }
+
+        [Fact]
+        public void WithKeyFromBase64_WithInvalidBase64_ThrowsFormatException()
+        {
+            // Act & Assert
+            Assert.Throws<FormatException>(() =>
+                HeroCryptBuilder.Hash()
+                    .WithSha256()
+                    .WithKeyFromBase64("not-valid-base64!@#$"));
+        }
+
+        [Fact]
+        public void WithKeyFromBase64Url_ComputesCorrectHash()
+        {
+            // Arrange
+            var key = TestHelpers.RandomBytes(32);
+            var base64UrlKey = Convert.ToBase64String(key)
+                .TrimEnd('=')
+                .Replace('+', '-')
+                .Replace('/', '_');
+
+            // Act
+            var hashFromBytes = HeroCryptBuilder.Hash()
+                .WithSha256()
+                .WithKey(key)
+                .ComputeHash(TestData);
+
+            var hashFromBase64Url = HeroCryptBuilder.Hash()
+                .WithSha256()
+                .WithKeyFromBase64Url(base64UrlKey)
+                .ComputeHash(TestData);
+
+            // Assert
+            Assert.Equal(hashFromBytes, hashFromBase64Url);
+        }
+
+        [Fact]
+        public void WithKeyFromBase64Url_AcceptsPaddedInput()
+        {
+            // Arrange
+            var key = TestHelpers.RandomBytes(32);
+            var base64UrlKey = Convert.ToBase64String(key)
+                .Replace('+', '-')
+                .Replace('/', '_');
+            // Keep padding
+
+            // Act
+            var hashFromBytes = HeroCryptBuilder.Hash()
+                .WithSha256()
+                .WithKey(key)
+                .ComputeHash(TestData);
+
+            var hashFromBase64Url = HeroCryptBuilder.Hash()
+                .WithSha256()
+                .WithKeyFromBase64Url(base64UrlKey)
+                .ComputeHash(TestData);
+
+            // Assert
+            Assert.Equal(hashFromBytes, hashFromBase64Url);
+        }
+
+        [Fact]
+        public void WithKeyFromBase64Url_WithBlake2b_Succeeds()
+        {
+            // Arrange
+            var key = TestHelpers.RandomBytes(32);
+            var base64UrlKey = Convert.ToBase64String(key)
+                .TrimEnd('=')
+                .Replace('+', '-')
+                .Replace('/', '_');
+
+            // Act
+            var hash = HeroCryptBuilder.Hash()
+                .WithBlake2b256()
+                .WithKeyFromBase64Url(base64UrlKey)
+                .ComputeHash(TestData);
+
+            // Assert
+            Assert.NotNull(hash);
+            Assert.Equal(32, hash.Length);
+        }
+
+        [Theory]
+        [InlineData(HashingAlgorithm.Sha256)]
+        [InlineData(HashingAlgorithm.Sha384)]
+        [InlineData(HashingAlgorithm.Sha512)]
+        [InlineData(HashingAlgorithm.Blake2b256)]
+        [InlineData(HashingAlgorithm.Blake2b512)]
+        public void WithKeyFromHex_WorksWithAllKeyedAlgorithms(HashingAlgorithm algorithm)
+        {
+            // Arrange
+            var key = TestHelpers.RandomBytes(32);
+            var hexKey = Convert.ToHexString(key);
+
+            // Act
+            var hashFromBytes = HeroCryptBuilder.Hash()
+                .WithAlgorithm(algorithm)
+                .WithKey(key)
+                .ComputeHash(TestData);
+
+            var hashFromHex = HeroCryptBuilder.Hash()
+                .WithAlgorithm(algorithm)
+                .WithKeyFromHex(hexKey)
+                .ComputeHash(TestData);
+
+            // Assert
+            Assert.Equal(hashFromBytes, hashFromHex);
+        }
+    }
+
+    /// <summary>
     /// Tests for hash output format convenience methods.
     /// </summary>
     [Trait("Category", TestCategories.UNIT)]

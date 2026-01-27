@@ -662,6 +662,233 @@ public class SignatureBuilderTests
     }
 
     /// <summary>
+    /// Tests for key input format convenience methods (WithKeyFromHex, WithKeyFromBase64, WithKeyFromBase64Url).
+    /// </summary>
+    [Trait("Category", TestCategories.UNIT)]
+    [Trait("Category", TestCategories.FAST)]
+    public class KeyInputFormatTests
+    {
+        [Fact]
+        public void WithKeyFromHex_SignsCorrectly()
+        {
+            // Arrange
+            var key = TestHelpers.RandomBytes(64);
+            var hexKey = Convert.ToHexString(key);
+
+            // Act
+            var signatureFromBytes = HeroCryptBuilder.Sign()
+                .WithHmacSha256()
+                .WithKey(key)
+                .Sign(TestMessage);
+
+            var signatureFromHex = HeroCryptBuilder.Sign()
+                .WithHmacSha256()
+                .WithKeyFromHex(hexKey)
+                .Sign(TestMessage);
+
+            // Assert
+            Assert.Equal(signatureFromBytes, signatureFromHex);
+        }
+
+        [Fact]
+        public void WithKeyFromHex_AcceptsLowercaseHex()
+        {
+            // Arrange
+            var key = TestHelpers.RandomBytes(64);
+            var hexKey = Convert.ToHexString(key).ToLowerInvariant();
+
+            // Act
+            var signature = HeroCryptBuilder.Sign()
+                .WithHmacSha256()
+                .WithKeyFromHex(hexKey)
+                .Sign(TestMessage);
+
+            // Assert
+            Assert.NotNull(signature);
+            Assert.Equal(32, signature.Length); // HMAC-SHA256
+        }
+
+        [Fact]
+        public void WithKeyFromHex_AcceptsUppercaseHex()
+        {
+            // Arrange
+            var key = TestHelpers.RandomBytes(64);
+            var hexKey = Convert.ToHexString(key).ToUpperInvariant();
+
+            // Act
+            var signature = HeroCryptBuilder.Sign()
+                .WithHmacSha256()
+                .WithKeyFromHex(hexKey)
+                .Sign(TestMessage);
+
+            // Assert
+            Assert.NotNull(signature);
+            Assert.Equal(32, signature.Length);
+        }
+
+        [Fact]
+        public void WithKeyFromHex_WithInvalidHex_ThrowsFormatException()
+        {
+            // Act & Assert
+            Assert.Throws<FormatException>(() =>
+                HeroCryptBuilder.Sign()
+                    .WithHmacSha256()
+                    .WithKeyFromHex("not-valid-hex!@#$"));
+        }
+
+        [Fact]
+        public void WithKeyFromBase64_SignsCorrectly()
+        {
+            // Arrange
+            var key = TestHelpers.RandomBytes(64);
+            var base64Key = Convert.ToBase64String(key);
+
+            // Act
+            var signatureFromBytes = HeroCryptBuilder.Sign()
+                .WithHmacSha256()
+                .WithKey(key)
+                .Sign(TestMessage);
+
+            var signatureFromBase64 = HeroCryptBuilder.Sign()
+                .WithHmacSha256()
+                .WithKeyFromBase64(base64Key)
+                .Sign(TestMessage);
+
+            // Assert
+            Assert.Equal(signatureFromBytes, signatureFromBase64);
+        }
+
+        [Fact]
+        public void WithKeyFromBase64_WithInvalidBase64_ThrowsFormatException()
+        {
+            // Act & Assert
+            Assert.Throws<FormatException>(() =>
+                HeroCryptBuilder.Sign()
+                    .WithHmacSha256()
+                    .WithKeyFromBase64("not-valid-base64!@#$"));
+        }
+
+        [Fact]
+        public void WithKeyFromBase64Url_SignsCorrectly()
+        {
+            // Arrange
+            var key = TestHelpers.RandomBytes(64);
+            var base64UrlKey = Convert.ToBase64String(key)
+                .TrimEnd('=')
+                .Replace('+', '-')
+                .Replace('/', '_');
+
+            // Act
+            var signatureFromBytes = HeroCryptBuilder.Sign()
+                .WithHmacSha256()
+                .WithKey(key)
+                .Sign(TestMessage);
+
+            var signatureFromBase64Url = HeroCryptBuilder.Sign()
+                .WithHmacSha256()
+                .WithKeyFromBase64Url(base64UrlKey)
+                .Sign(TestMessage);
+
+            // Assert
+            Assert.Equal(signatureFromBytes, signatureFromBase64Url);
+        }
+
+        [Fact]
+        public void WithKeyFromBase64Url_AcceptsPaddedInput()
+        {
+            // Arrange
+            var key = TestHelpers.RandomBytes(64);
+            var base64UrlKey = Convert.ToBase64String(key)
+                .Replace('+', '-')
+                .Replace('/', '_');
+            // Keep padding
+
+            // Act
+            var signatureFromBytes = HeroCryptBuilder.Sign()
+                .WithHmacSha256()
+                .WithKey(key)
+                .Sign(TestMessage);
+
+            var signatureFromBase64Url = HeroCryptBuilder.Sign()
+                .WithHmacSha256()
+                .WithKeyFromBase64Url(base64UrlKey)
+                .Sign(TestMessage);
+
+            // Assert
+            Assert.Equal(signatureFromBytes, signatureFromBase64Url);
+        }
+
+        [Theory]
+        [InlineData(SignatureAlgorithm.HmacSha256, 64)]
+        [InlineData(SignatureAlgorithm.HmacSha384, 64)]
+        [InlineData(SignatureAlgorithm.HmacSha512, 64)]
+        public void WithKeyFromHex_WorksWithAllHmacAlgorithms(SignatureAlgorithm algorithm, int keySize)
+        {
+            // Arrange
+            var key = TestHelpers.RandomBytes(keySize);
+            var hexKey = Convert.ToHexString(key);
+
+            // Act
+            var signatureFromBytes = HeroCryptBuilder.Sign()
+                .WithAlgorithm(algorithm)
+                .WithKey(key)
+                .Sign(TestMessage);
+
+            var signatureFromHex = HeroCryptBuilder.Sign()
+                .WithAlgorithm(algorithm)
+                .WithKeyFromHex(hexKey)
+                .Sign(TestMessage);
+
+            // Assert
+            Assert.Equal(signatureFromBytes, signatureFromHex);
+        }
+
+        [Fact]
+        public void WithKeyFromHex_WorksWithAesCmac()
+        {
+            // Arrange
+            var key = TestHelpers.RandomBytes(16);
+            var hexKey = Convert.ToHexString(key);
+
+            // Act
+            var signatureFromBytes = HeroCryptBuilder.Sign()
+                .WithAesCmac128()
+                .WithKey(key)
+                .Sign(TestMessage);
+
+            var signatureFromHex = HeroCryptBuilder.Sign()
+                .WithAesCmac128()
+                .WithKeyFromHex(hexKey)
+                .Sign(TestMessage);
+
+            // Assert
+            Assert.Equal(signatureFromBytes, signatureFromHex);
+        }
+
+        [Fact]
+        public void WithKeyFromHex_WorksWithPoly1305()
+        {
+            // Arrange
+            var key = TestHelpers.RandomBytes(32);
+            var hexKey = Convert.ToHexString(key);
+
+            // Act
+            var signatureFromBytes = HeroCryptBuilder.Sign()
+                .WithPoly1305()
+                .WithKey(key)
+                .Sign(TestMessage);
+
+            var signatureFromHex = HeroCryptBuilder.Sign()
+                .WithPoly1305()
+                .WithKeyFromHex(hexKey)
+                .Sign(TestMessage);
+
+            // Assert
+            Assert.Equal(signatureFromBytes, signatureFromHex);
+        }
+    }
+
+    /// <summary>
     /// Tests for signature output format convenience methods (SignToHex, SignToBase64).
     /// </summary>
     [Trait("Category", TestCategories.UNIT)]

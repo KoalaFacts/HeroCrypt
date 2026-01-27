@@ -99,6 +99,9 @@ public readonly struct EncryptionResult
 /// from memory when the builder is no longer needed. It is recommended to use this builder
 /// within a <c>using</c> statement.
 /// </para>
+/// <para>
+/// This class is thread-safe. All public methods can be safely called from multiple threads concurrently.
+/// </para>
 /// <example>
 /// <code>
 /// using var builder = HeroCryptBuilder.Encrypt()
@@ -110,6 +113,7 @@ public readonly struct EncryptionResult
 /// </remarks>
 public sealed class EncryptionBuilder : IDisposable
 {
+    private readonly SyncLock syncLock = new();
     private EncryptionAlgorithm algorithm = EncryptionAlgorithm.AesGcm;
     private byte[]? key;
     private byte[]? nonce;
@@ -125,9 +129,12 @@ public sealed class EncryptionBuilder : IDisposable
     /// <exception cref="ObjectDisposedException">If the builder has been disposed.</exception>
     public EncryptionBuilder WithAlgorithm(EncryptionAlgorithm algorithm)
     {
-        ThrowIfDisposed();
-        this.algorithm = algorithm;
-        return this;
+        using (syncLock.EnterScope())
+        {
+            ThrowIfDisposed();
+            this.algorithm = algorithm;
+            return this;
+        }
     }
 
     /// <summary>
@@ -173,10 +180,13 @@ public sealed class EncryptionBuilder : IDisposable
     /// <exception cref="ObjectDisposedException">If the builder has been disposed.</exception>
     public EncryptionBuilder WithKey(byte[] key)
     {
-        ThrowIfDisposed();
-        ClearKey();
-        this.key = [.. key];
-        return this;
+        using (syncLock.EnterScope())
+        {
+            ThrowIfDisposed();
+            ClearKey();
+            this.key = [.. key];
+            return this;
+        }
     }
 
     /// <summary>
@@ -242,9 +252,12 @@ public sealed class EncryptionBuilder : IDisposable
     /// </remarks>
     public EncryptionBuilder WithRandomKey()
     {
-        ThrowIfDisposed();
-        var keySize = GetDefaultKeySize(algorithm);
-        return WithRandomKey(keySize);
+        using (syncLock.EnterScope())
+        {
+            ThrowIfDisposed();
+            var keySize = GetDefaultKeySize(algorithm);
+            return WithRandomKeyCore(keySize);
+        }
     }
 
     /// <summary>
@@ -256,7 +269,15 @@ public sealed class EncryptionBuilder : IDisposable
     /// <exception cref="ArgumentOutOfRangeException">If the key size is not valid.</exception>
     public EncryptionBuilder WithRandomKey(int keySize)
     {
-        ThrowIfDisposed();
+        using (syncLock.EnterScope())
+        {
+            ThrowIfDisposed();
+            return WithRandomKeyCore(keySize);
+        }
+    }
+
+    private EncryptionBuilder WithRandomKeyCore(int keySize)
+    {
         if (keySize <= 0)
             throw new ArgumentOutOfRangeException(nameof(keySize), "Key size must be positive");
 
@@ -277,7 +298,15 @@ public sealed class EncryptionBuilder : IDisposable
     /// </remarks>
     public byte[] GetKey()
     {
-        ThrowIfDisposed();
+        using (syncLock.EnterScope())
+        {
+            ThrowIfDisposed();
+            return GetKeyCore();
+        }
+    }
+
+    private byte[] GetKeyCore()
+    {
         if (key == null)
             throw new InvalidOperationException("Key must be set using WithKey() or WithRandomKey()");
         return [.. key];
@@ -291,8 +320,12 @@ public sealed class EncryptionBuilder : IDisposable
     /// <exception cref="InvalidOperationException">If the key has not been set.</exception>
     public string GetKeyAsHex()
     {
-        var keyBytes = GetKey();
-        return TextEncodings.ToHexLower(keyBytes);
+        using (syncLock.EnterScope())
+        {
+            ThrowIfDisposed();
+            var keyBytes = GetKeyCore();
+            return TextEncodings.ToHexLower(keyBytes);
+        }
     }
 
     /// <summary>
@@ -303,8 +336,12 @@ public sealed class EncryptionBuilder : IDisposable
     /// <exception cref="InvalidOperationException">If the key has not been set.</exception>
     public string GetKeyAsBase64()
     {
-        var keyBytes = GetKey();
-        return Convert.ToBase64String(keyBytes);
+        using (syncLock.EnterScope())
+        {
+            ThrowIfDisposed();
+            var keyBytes = GetKeyCore();
+            return Convert.ToBase64String(keyBytes);
+        }
     }
 
     /// <summary>
@@ -315,8 +352,12 @@ public sealed class EncryptionBuilder : IDisposable
     /// <exception cref="InvalidOperationException">If the key has not been set.</exception>
     public string GetKeyAsBase64Url()
     {
-        var keyBytes = GetKey();
-        return TextEncodings.ToBase64Url(keyBytes);
+        using (syncLock.EnterScope())
+        {
+            ThrowIfDisposed();
+            var keyBytes = GetKeyCore();
+            return TextEncodings.ToBase64Url(keyBytes);
+        }
     }
 
     private static int GetDefaultKeySize(EncryptionAlgorithm algorithm)
@@ -364,10 +405,13 @@ public sealed class EncryptionBuilder : IDisposable
     /// </remarks>
     public EncryptionBuilder WithNonce(byte[] nonce)
     {
-        ThrowIfDisposed();
-        ClearNonce();
-        this.nonce = [.. nonce];
-        return this;
+        using (syncLock.EnterScope())
+        {
+            ThrowIfDisposed();
+            ClearNonce();
+            this.nonce = [.. nonce];
+            return this;
+        }
     }
 
     /// <summary>
@@ -378,10 +422,13 @@ public sealed class EncryptionBuilder : IDisposable
     /// <exception cref="ObjectDisposedException">If the builder has been disposed.</exception>
     public EncryptionBuilder WithAssociatedData(byte[] associatedData)
     {
-        ThrowIfDisposed();
-        ClearAssociatedData();
-        this.associatedData = [.. associatedData];
-        return this;
+        using (syncLock.EnterScope())
+        {
+            ThrowIfDisposed();
+            ClearAssociatedData();
+            this.associatedData = [.. associatedData];
+            return this;
+        }
     }
 
     /// <summary>
@@ -415,9 +462,12 @@ public sealed class EncryptionBuilder : IDisposable
     /// </remarks>
     public EncryptionBuilder WithDeterministicMode()
     {
-        ThrowIfDisposed();
-        deterministicMode = true;
-        return this;
+        using (syncLock.EnterScope())
+        {
+            ThrowIfDisposed();
+            deterministicMode = true;
+            return this;
+        }
     }
 
     /// <summary>
@@ -429,56 +479,59 @@ public sealed class EncryptionBuilder : IDisposable
     /// <exception cref="InvalidOperationException">If the key has not been set.</exception>
     public EncryptionResult Encrypt(byte[] plaintext)
     {
-        ThrowIfDisposed();
-
-        if (key == null)
-            throw new InvalidOperationException("Encryption key must be set using WithKey()");
-
-        InputValidator.ValidateByteArray(plaintext, nameof(plaintext), allowEmpty: true);
-        InputValidator.ValidateByteArray(key, nameof(key));
-
-        if (associatedData != null)
-            InputValidator.ValidateByteArray(associatedData, nameof(associatedData), allowEmpty: true);
-
-        if (nonce != null)
-            InputValidator.ValidateByteArray(nonce, nameof(nonce), allowEmpty: true);
-
-        var aad = associatedData ?? [];
-        ReadOnlySpan<byte> nonceSpan = nonce ?? default;
-
-        return algorithm switch
+        using (syncLock.EnterScope())
         {
-            EncryptionAlgorithm.AesGcm => EncryptAesGcm(plaintext, key, nonceSpan, aad, deterministicMode),
-            EncryptionAlgorithm.AesCcm => EncryptAesCcm(plaintext, key, nonceSpan, aad, deterministicMode),
-            EncryptionAlgorithm.AesOcb => EncryptAesOcb(plaintext, key, nonceSpan, aad, deterministicMode),
-            EncryptionAlgorithm.AesSiv => EncryptAesSiv(plaintext, key, nonceSpan, aad, deterministicMode),
-            EncryptionAlgorithm.ChaCha20Poly1305 => EncryptChaCha20Poly1305(plaintext, key, nonceSpan, aad, deterministicMode),
-            EncryptionAlgorithm.XChaCha20Poly1305 => EncryptXChaCha20Poly1305(plaintext, key, nonceSpan, aad, deterministicMode),
-            EncryptionAlgorithm.RsaOaepSha256 => EncryptRsa(plaintext, key, RSAEncryptionPadding.OaepSHA256),
-            EncryptionAlgorithm.RsaOaepSha384 => EncryptRsa(plaintext, key, RSAEncryptionPadding.OaepSHA384),
-            EncryptionAlgorithm.RsaOaepSha512 => EncryptRsa(plaintext, key, RSAEncryptionPadding.OaepSHA512),
-            EncryptionAlgorithm.RsaPkcs1v15 => EncryptRsa(plaintext, key, RSAEncryptionPadding.Pkcs1),
-            EncryptionAlgorithm.X25519ChaCha20Poly1305 => EncryptX25519ChaCha20Poly1305(plaintext, key, aad),
-            EncryptionAlgorithm.X25519XChaCha20Poly1305 => EncryptX25519XChaCha20Poly1305(plaintext, key, aad),
-            EncryptionAlgorithm.X25519AesGcm => EncryptX25519AesGcm(plaintext, key, aad),
-            EncryptionAlgorithm.AesGcmSiv => throw new NotImplementedException(),
-            EncryptionAlgorithm.Ascon128 => throw new NotImplementedException(),
-            EncryptionAlgorithm.Ascon128a => throw new NotImplementedException(),
-            EncryptionAlgorithm.EciesP256 => throw new NotImplementedException(),
-            EncryptionAlgorithm.EciesP384 => throw new NotImplementedException(),
-            EncryptionAlgorithm.HpkeX25519ChaCha20Poly1305 => throw new NotImplementedException(),
-            EncryptionAlgorithm.HpkeX25519AesGcm128 => throw new NotImplementedException(),
-            EncryptionAlgorithm.HpkeX25519AesGcm256 => throw new NotImplementedException(),
-            EncryptionAlgorithm.HpkeP256AesGcm128 => throw new NotImplementedException(),
-            EncryptionAlgorithm.AesCbcHmacSha256 => throw new NotImplementedException(),
+            ThrowIfDisposed();
+
+            if (key == null)
+                throw new InvalidOperationException("Encryption key must be set using WithKey()");
+
+            InputValidator.ValidateByteArray(plaintext, nameof(plaintext), allowEmpty: true);
+            InputValidator.ValidateByteArray(key, nameof(key));
+
+            if (associatedData != null)
+                InputValidator.ValidateByteArray(associatedData, nameof(associatedData), allowEmpty: true);
+
+            if (nonce != null)
+                InputValidator.ValidateByteArray(nonce, nameof(nonce), allowEmpty: true);
+
+            var aad = associatedData ?? [];
+            ReadOnlySpan<byte> nonceSpan = nonce ?? default;
+
+            return algorithm switch
+            {
+                EncryptionAlgorithm.AesGcm => EncryptAesGcm(plaintext, key, nonceSpan, aad, deterministicMode),
+                EncryptionAlgorithm.AesCcm => EncryptAesCcm(plaintext, key, nonceSpan, aad, deterministicMode),
+                EncryptionAlgorithm.AesOcb => EncryptAesOcb(plaintext, key, nonceSpan, aad, deterministicMode),
+                EncryptionAlgorithm.AesSiv => EncryptAesSiv(plaintext, key, nonceSpan, aad, deterministicMode),
+                EncryptionAlgorithm.ChaCha20Poly1305 => EncryptChaCha20Poly1305(plaintext, key, nonceSpan, aad, deterministicMode),
+                EncryptionAlgorithm.XChaCha20Poly1305 => EncryptXChaCha20Poly1305(plaintext, key, nonceSpan, aad, deterministicMode),
+                EncryptionAlgorithm.RsaOaepSha256 => EncryptRsa(plaintext, key, RSAEncryptionPadding.OaepSHA256),
+                EncryptionAlgorithm.RsaOaepSha384 => EncryptRsa(plaintext, key, RSAEncryptionPadding.OaepSHA384),
+                EncryptionAlgorithm.RsaOaepSha512 => EncryptRsa(plaintext, key, RSAEncryptionPadding.OaepSHA512),
+                EncryptionAlgorithm.RsaPkcs1v15 => EncryptRsa(plaintext, key, RSAEncryptionPadding.Pkcs1),
+                EncryptionAlgorithm.X25519ChaCha20Poly1305 => EncryptX25519ChaCha20Poly1305(plaintext, key, aad),
+                EncryptionAlgorithm.X25519XChaCha20Poly1305 => EncryptX25519XChaCha20Poly1305(plaintext, key, aad),
+                EncryptionAlgorithm.X25519AesGcm => EncryptX25519AesGcm(plaintext, key, aad),
+                EncryptionAlgorithm.AesGcmSiv => throw new NotImplementedException(),
+                EncryptionAlgorithm.Ascon128 => throw new NotImplementedException(),
+                EncryptionAlgorithm.Ascon128a => throw new NotImplementedException(),
+                EncryptionAlgorithm.EciesP256 => throw new NotImplementedException(),
+                EncryptionAlgorithm.EciesP384 => throw new NotImplementedException(),
+                EncryptionAlgorithm.HpkeX25519ChaCha20Poly1305 => throw new NotImplementedException(),
+                EncryptionAlgorithm.HpkeX25519AesGcm128 => throw new NotImplementedException(),
+                EncryptionAlgorithm.HpkeX25519AesGcm256 => throw new NotImplementedException(),
+                EncryptionAlgorithm.HpkeP256AesGcm128 => throw new NotImplementedException(),
+                EncryptionAlgorithm.AesCbcHmacSha256 => throw new NotImplementedException(),
 #if NET10_OR_GREATER
-            EncryptionAlgorithm.MLKem768AesGcm => EncryptMLKemAesGcm(plaintext, key, aad),
-            EncryptionAlgorithm.MLKem1024AesGcm => EncryptMLKemAesGcm(plaintext, key, aad),
-            EncryptionAlgorithm.MLKem768ChaCha20Poly1305 => EncryptMLKemChaCha20Poly1305(plaintext, key, aad),
-            EncryptionAlgorithm.MLKem1024ChaCha20Poly1305 => EncryptMLKemChaCha20Poly1305(plaintext, key, aad),
+                EncryptionAlgorithm.MLKem768AesGcm => EncryptMLKemAesGcm(plaintext, key, aad),
+                EncryptionAlgorithm.MLKem1024AesGcm => EncryptMLKemAesGcm(plaintext, key, aad),
+                EncryptionAlgorithm.MLKem768ChaCha20Poly1305 => EncryptMLKemChaCha20Poly1305(plaintext, key, aad),
+                EncryptionAlgorithm.MLKem1024ChaCha20Poly1305 => EncryptMLKemChaCha20Poly1305(plaintext, key, aad),
 #endif
-            _ => throw new NotSupportedException($"Algorithm {algorithm} is not supported")
-        };
+                _ => throw new NotSupportedException($"Algorithm {algorithm} is not supported")
+            };
+        }
     }
 
     /// <summary>
@@ -733,11 +786,14 @@ public sealed class EncryptionBuilder : IDisposable
     /// </summary>
     public void Dispose()
     {
-        if (disposed) return;
-        ClearKey();
-        ClearNonce();
-        ClearAssociatedData();
-        disposed = true;
+        using (syncLock.EnterScope())
+        {
+            if (disposed) return;
+            ClearKey();
+            ClearNonce();
+            ClearAssociatedData();
+            disposed = true;
+        }
         GC.SuppressFinalize(this);
     }
 

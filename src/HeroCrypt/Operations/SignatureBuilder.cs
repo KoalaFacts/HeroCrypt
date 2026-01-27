@@ -21,9 +21,13 @@ namespace HeroCrypt.Operations;
 /// from memory when the builder is no longer needed. It is recommended to use this builder
 /// within a <c>using</c> statement.
 /// </para>
+/// <para>
+/// This class is thread-safe. All public methods can be safely called from multiple threads concurrently.
+/// </para>
 /// </remarks>
 public sealed class SignatureBuilder : IDisposable
 {
+    private readonly SyncLock syncLock = new();
     private SignatureAlgorithm algorithm = SignatureAlgorithm.Ed25519;
     private byte[]? privateKey;
     private bool disposed;
@@ -52,9 +56,12 @@ public sealed class SignatureBuilder : IDisposable
     /// </summary>
     public void Dispose()
     {
-        if (disposed) return;
-        ClearPrivateKey();
-        disposed = true;
+        using (syncLock.EnterScope())
+        {
+            if (disposed) return;
+            ClearPrivateKey();
+            disposed = true;
+        }
         GC.SuppressFinalize(this);
     }
 
@@ -63,9 +70,12 @@ public sealed class SignatureBuilder : IDisposable
     /// </summary>
     public SignatureBuilder WithAlgorithm(SignatureAlgorithm algorithm)
     {
-        ThrowIfDisposed();
-        this.algorithm = algorithm;
-        return this;
+        using (syncLock.EnterScope())
+        {
+            ThrowIfDisposed();
+            this.algorithm = algorithm;
+            return this;
+        }
     }
 
     // HMAC (Symmetric MAC)
@@ -141,10 +151,13 @@ public sealed class SignatureBuilder : IDisposable
     /// </remarks>
     public SignatureBuilder WithPrivateKey(byte[] privateKey)
     {
-        ThrowIfDisposed();
-        ClearPrivateKey();
-        this.privateKey = [.. privateKey];
-        return this;
+        using (syncLock.EnterScope())
+        {
+            ThrowIfDisposed();
+            ClearPrivateKey();
+            this.privateKey = [.. privateKey];
+            return this;
+        }
     }
 
     /// <summary>
@@ -219,15 +232,18 @@ public sealed class SignatureBuilder : IDisposable
     /// </summary>
     public byte[] Sign(byte[] data)
     {
-        ThrowIfDisposed();
+        using (syncLock.EnterScope())
+        {
+            ThrowIfDisposed();
 
-        if (privateKey == null)
-            throw new InvalidOperationException("Private key must be set using WithPrivateKey()");
+            if (privateKey == null)
+                throw new InvalidOperationException("Private key must be set using WithPrivateKey()");
 
-        InputValidator.ValidateByteArray(data, nameof(data));
-        InputValidator.ValidateByteArray(privateKey, nameof(privateKey));
+            InputValidator.ValidateByteArray(data, nameof(data));
+            InputValidator.ValidateByteArray(privateKey, nameof(privateKey));
 
-        return SignInternal(data, privateKey, algorithm);
+            return SignInternal(data, privateKey, algorithm);
+        }
     }
 
     /// <summary>

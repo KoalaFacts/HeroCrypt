@@ -14,9 +14,13 @@ namespace HeroCrypt.Operations;
 /// secret. It is recommended to use this builder within a <c>using</c> statement when using
 /// symmetric MAC algorithms.
 /// </para>
+/// <para>
+/// This class is thread-safe. All public methods can be safely called from multiple threads concurrently.
+/// </para>
 /// </remarks>
 public sealed class VerificationBuilder : IDisposable
 {
+    private readonly SyncLock syncLock = new();
     private SignatureAlgorithm algorithm = SignatureAlgorithm.Ed25519;
     private byte[]? publicKey;
     private byte[]? signature;
@@ -53,10 +57,13 @@ public sealed class VerificationBuilder : IDisposable
     /// </summary>
     public void Dispose()
     {
-        if (disposed) return;
-        ClearPublicKey();
-        ClearSignature();
-        disposed = true;
+        using (syncLock.EnterScope())
+        {
+            if (disposed) return;
+            ClearPublicKey();
+            ClearSignature();
+            disposed = true;
+        }
         GC.SuppressFinalize(this);
     }
 
@@ -65,9 +72,12 @@ public sealed class VerificationBuilder : IDisposable
     /// </summary>
     public VerificationBuilder WithAlgorithm(SignatureAlgorithm algorithm)
     {
-        ThrowIfDisposed();
-        this.algorithm = algorithm;
-        return this;
+        using (syncLock.EnterScope())
+        {
+            ThrowIfDisposed();
+            this.algorithm = algorithm;
+            return this;
+        }
     }
 
     // HMAC (Symmetric MAC)
@@ -143,10 +153,13 @@ public sealed class VerificationBuilder : IDisposable
     /// </remarks>
     public VerificationBuilder WithPublicKey(byte[] publicKey)
     {
-        ThrowIfDisposed();
-        ClearPublicKey();
-        this.publicKey = [.. publicKey];
-        return this;
+        using (syncLock.EnterScope())
+        {
+            ThrowIfDisposed();
+            ClearPublicKey();
+            this.publicKey = [.. publicKey];
+            return this;
+        }
     }
 
     /// <summary>
@@ -221,10 +234,13 @@ public sealed class VerificationBuilder : IDisposable
     /// </summary>
     public VerificationBuilder WithSignature(byte[] signature)
     {
-        ThrowIfDisposed();
-        ClearSignature();
-        this.signature = [.. signature];
-        return this;
+        using (syncLock.EnterScope())
+        {
+            ThrowIfDisposed();
+            ClearSignature();
+            this.signature = [.. signature];
+            return this;
+        }
     }
 
     /// <summary>
@@ -291,19 +307,22 @@ public sealed class VerificationBuilder : IDisposable
     /// </summary>
     public bool Verify(byte[] data)
     {
-        ThrowIfDisposed();
+        using (syncLock.EnterScope())
+        {
+            ThrowIfDisposed();
 
-        if (publicKey == null)
-            throw new InvalidOperationException("Public key must be set using WithPublicKey()");
+            if (publicKey == null)
+                throw new InvalidOperationException("Public key must be set using WithPublicKey()");
 
-        if (signature == null)
-            throw new InvalidOperationException("Signature must be set using WithSignature()");
+            if (signature == null)
+                throw new InvalidOperationException("Signature must be set using WithSignature()");
 
-        InputValidator.ValidateByteArray(data, nameof(data));
-        InputValidator.ValidateByteArray(signature, nameof(signature));
-        InputValidator.ValidateByteArray(publicKey, nameof(publicKey));
+            InputValidator.ValidateByteArray(data, nameof(data));
+            InputValidator.ValidateByteArray(signature, nameof(signature));
+            InputValidator.ValidateByteArray(publicKey, nameof(publicKey));
 
-        return SignatureBuilder.VerifyInternal(data, signature, publicKey, algorithm);
+            return SignatureBuilder.VerifyInternal(data, signature, publicKey, algorithm);
+        }
     }
 
     /// <summary>

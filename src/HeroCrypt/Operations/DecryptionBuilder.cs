@@ -24,9 +24,13 @@ namespace HeroCrypt.Operations;
 /// from memory when the builder is no longer needed. It is recommended to use this builder
 /// within a <c>using</c> statement.
 /// </para>
+/// <para>
+/// This class is thread-safe. All public methods can be safely called from multiple threads concurrently.
+/// </para>
 /// </remarks>
 public sealed class DecryptionBuilder : IDisposable
 {
+    private readonly SyncLock syncLock = new();
     private EncryptionAlgorithm algorithm = EncryptionAlgorithm.AesGcm;
     private byte[]? key;
     private byte[]? nonce;
@@ -79,12 +83,15 @@ public sealed class DecryptionBuilder : IDisposable
     /// </summary>
     public void Dispose()
     {
-        if (disposed) return;
-        ClearKey();
-        ClearNonce();
-        ClearAssociatedData();
-        ClearEncapsulatedKey();
-        disposed = true;
+        using (syncLock.EnterScope())
+        {
+            if (disposed) return;
+            ClearKey();
+            ClearNonce();
+            ClearAssociatedData();
+            ClearEncapsulatedKey();
+            disposed = true;
+        }
         GC.SuppressFinalize(this);
     }
 
@@ -93,9 +100,12 @@ public sealed class DecryptionBuilder : IDisposable
     /// </summary>
     public DecryptionBuilder WithAlgorithm(EncryptionAlgorithm algorithm)
     {
-        ThrowIfDisposed();
-        this.algorithm = algorithm;
-        return this;
+        using (syncLock.EnterScope())
+        {
+            ThrowIfDisposed();
+            this.algorithm = algorithm;
+            return this;
+        }
     }
 
     /// <summary>
@@ -138,10 +148,13 @@ public sealed class DecryptionBuilder : IDisposable
     /// </summary>
     public DecryptionBuilder WithKey(byte[] key)
     {
-        ThrowIfDisposed();
-        ClearKey();
-        this.key = [.. key];
-        return this;
+        using (syncLock.EnterScope())
+        {
+            ThrowIfDisposed();
+            ClearKey();
+            this.key = [.. key];
+            return this;
+        }
     }
 
     /// <summary>
@@ -208,10 +221,13 @@ public sealed class DecryptionBuilder : IDisposable
     /// </summary>
     public DecryptionBuilder WithNonce(byte[] nonce)
     {
-        ThrowIfDisposed();
-        ClearNonce();
-        this.nonce = [.. nonce];
-        return this;
+        using (syncLock.EnterScope())
+        {
+            ThrowIfDisposed();
+            ClearNonce();
+            this.nonce = [.. nonce];
+            return this;
+        }
     }
 
     /// <summary>
@@ -275,10 +291,13 @@ public sealed class DecryptionBuilder : IDisposable
     /// </summary>
     public DecryptionBuilder WithAssociatedData(byte[] associatedData)
     {
-        ThrowIfDisposed();
-        ClearAssociatedData();
-        this.associatedData = [.. associatedData];
-        return this;
+        using (syncLock.EnterScope())
+        {
+            ThrowIfDisposed();
+            ClearAssociatedData();
+            this.associatedData = [.. associatedData];
+            return this;
+        }
     }
 
     /// <summary>
@@ -300,10 +319,13 @@ public sealed class DecryptionBuilder : IDisposable
     /// </summary>
     public DecryptionBuilder WithEncapsulatedKey(byte[] encapsulatedKey)
     {
-        ThrowIfDisposed();
-        ClearEncapsulatedKey();
-        this.encapsulatedKey = [.. encapsulatedKey];
-        return this;
+        using (syncLock.EnterScope())
+        {
+            ThrowIfDisposed();
+            ClearEncapsulatedKey();
+            this.encapsulatedKey = [.. encapsulatedKey];
+            return this;
+        }
     }
 
     /// <summary>
@@ -393,20 +415,23 @@ public sealed class DecryptionBuilder : IDisposable
     /// </remarks>
     public DecryptionBuilder FromEncryptionResult(EncryptionResult result)
     {
-        ThrowIfDisposed();
-
-        // Set nonce
-        ClearNonce();
-        nonce = [.. result.Nonce];
-
-        // Set encapsulated key if present (for hybrid encryption)
-        if (result.EncapsulatedKey != null)
+        using (syncLock.EnterScope())
         {
-            ClearEncapsulatedKey();
-            encapsulatedKey = [.. result.EncapsulatedKey];
-        }
+            ThrowIfDisposed();
 
-        return this;
+            // Set nonce
+            ClearNonce();
+            nonce = [.. result.Nonce];
+
+            // Set encapsulated key if present (for hybrid encryption)
+            if (result.EncapsulatedKey != null)
+            {
+                ClearEncapsulatedKey();
+                encapsulatedKey = [.. result.EncapsulatedKey];
+            }
+
+            return this;
+        }
     }
 
     /// <summary>
@@ -415,68 +440,71 @@ public sealed class DecryptionBuilder : IDisposable
     /// <exception cref="CryptographicException">Thrown when authentication fails.</exception>
     public byte[] Decrypt(byte[] ciphertext)
     {
-        ThrowIfDisposed();
-
-        if (key == null)
-            throw new InvalidOperationException("Decryption key must be set using WithKey()");
-
-        InputValidator.ValidateByteArray(ciphertext, nameof(ciphertext));
-        InputValidator.ValidateByteArray(key, nameof(key));
-
-        var isRsaAlgorithm = algorithm is EncryptionAlgorithm.RsaOaepSha256
-            or EncryptionAlgorithm.RsaOaepSha384
-            or EncryptionAlgorithm.RsaOaepSha512
-            or EncryptionAlgorithm.RsaPkcs1v15;
-
-        if (!isRsaAlgorithm)
+        using (syncLock.EnterScope())
         {
-            if (nonce == null)
-                throw new InvalidOperationException("Nonce must be set using WithNonce()");
+            ThrowIfDisposed();
 
-            InputValidator.ValidateByteArray(nonce, nameof(nonce));
-        }
+            if (key == null)
+                throw new InvalidOperationException("Decryption key must be set using WithKey()");
 
-        if (associatedData != null)
-            InputValidator.ValidateByteArray(associatedData, nameof(associatedData), allowEmpty: true);
+            InputValidator.ValidateByteArray(ciphertext, nameof(ciphertext));
+            InputValidator.ValidateByteArray(key, nameof(key));
 
-        if (encapsulatedKey != null)
-            InputValidator.ValidateByteArray(encapsulatedKey, nameof(encapsulatedKey));
+            var isRsaAlgorithm = algorithm is EncryptionAlgorithm.RsaOaepSha256
+                or EncryptionAlgorithm.RsaOaepSha384
+                or EncryptionAlgorithm.RsaOaepSha512
+                or EncryptionAlgorithm.RsaPkcs1v15;
 
-        var aad = associatedData ?? [];
+            if (!isRsaAlgorithm)
+            {
+                if (nonce == null)
+                    throw new InvalidOperationException("Nonce must be set using WithNonce()");
 
-        return algorithm switch
-        {
-            EncryptionAlgorithm.AesGcm => DecryptAesGcm(ciphertext, key, nonce!, aad),
-            EncryptionAlgorithm.AesCcm => DecryptAesCcm(ciphertext, key, nonce!, aad),
-            EncryptionAlgorithm.AesOcb => DecryptAesOcb(ciphertext, key, nonce!, aad),
-            EncryptionAlgorithm.AesSiv => DecryptAesSiv(ciphertext, key, nonce!, aad),
-            EncryptionAlgorithm.ChaCha20Poly1305 => DecryptChaCha20Poly1305(ciphertext, key, nonce!, aad),
-            EncryptionAlgorithm.XChaCha20Poly1305 => DecryptXChaCha20Poly1305(ciphertext, key, nonce!, aad),
-            EncryptionAlgorithm.RsaOaepSha256 => DecryptRsa(ciphertext, key, RSAEncryptionPadding.OaepSHA256),
-            EncryptionAlgorithm.RsaOaepSha384 => DecryptRsa(ciphertext, key, RSAEncryptionPadding.OaepSHA384),
-            EncryptionAlgorithm.RsaOaepSha512 => DecryptRsa(ciphertext, key, RSAEncryptionPadding.OaepSHA512),
-            EncryptionAlgorithm.RsaPkcs1v15 => DecryptRsa(ciphertext, key, RSAEncryptionPadding.Pkcs1),
-            EncryptionAlgorithm.X25519ChaCha20Poly1305 => DecryptX25519ChaCha20Poly1305(ciphertext, key, nonce!, aad, encapsulatedKey),
-            EncryptionAlgorithm.X25519XChaCha20Poly1305 => DecryptX25519XChaCha20Poly1305(ciphertext, key, nonce!, aad, encapsulatedKey),
-            EncryptionAlgorithm.X25519AesGcm => DecryptX25519AesGcm(ciphertext, key, nonce!, aad, encapsulatedKey),
-            EncryptionAlgorithm.AesGcmSiv => throw new NotImplementedException(),
-            EncryptionAlgorithm.Ascon128 => throw new NotImplementedException(),
-            EncryptionAlgorithm.Ascon128a => throw new NotImplementedException(),
-            EncryptionAlgorithm.EciesP256 => throw new NotImplementedException(),
-            EncryptionAlgorithm.EciesP384 => throw new NotImplementedException(),
-            EncryptionAlgorithm.HpkeX25519ChaCha20Poly1305 => throw new NotImplementedException(),
-            EncryptionAlgorithm.HpkeX25519AesGcm128 => throw new NotImplementedException(),
-            EncryptionAlgorithm.HpkeX25519AesGcm256 => throw new NotImplementedException(),
-            EncryptionAlgorithm.HpkeP256AesGcm128 => throw new NotImplementedException(),
-            EncryptionAlgorithm.AesCbcHmacSha256 => throw new NotImplementedException(),
+                InputValidator.ValidateByteArray(nonce, nameof(nonce));
+            }
+
+            if (associatedData != null)
+                InputValidator.ValidateByteArray(associatedData, nameof(associatedData), allowEmpty: true);
+
+            if (encapsulatedKey != null)
+                InputValidator.ValidateByteArray(encapsulatedKey, nameof(encapsulatedKey));
+
+            var aad = associatedData ?? [];
+
+            return algorithm switch
+            {
+                EncryptionAlgorithm.AesGcm => DecryptAesGcm(ciphertext, key, nonce!, aad),
+                EncryptionAlgorithm.AesCcm => DecryptAesCcm(ciphertext, key, nonce!, aad),
+                EncryptionAlgorithm.AesOcb => DecryptAesOcb(ciphertext, key, nonce!, aad),
+                EncryptionAlgorithm.AesSiv => DecryptAesSiv(ciphertext, key, nonce!, aad),
+                EncryptionAlgorithm.ChaCha20Poly1305 => DecryptChaCha20Poly1305(ciphertext, key, nonce!, aad),
+                EncryptionAlgorithm.XChaCha20Poly1305 => DecryptXChaCha20Poly1305(ciphertext, key, nonce!, aad),
+                EncryptionAlgorithm.RsaOaepSha256 => DecryptRsa(ciphertext, key, RSAEncryptionPadding.OaepSHA256),
+                EncryptionAlgorithm.RsaOaepSha384 => DecryptRsa(ciphertext, key, RSAEncryptionPadding.OaepSHA384),
+                EncryptionAlgorithm.RsaOaepSha512 => DecryptRsa(ciphertext, key, RSAEncryptionPadding.OaepSHA512),
+                EncryptionAlgorithm.RsaPkcs1v15 => DecryptRsa(ciphertext, key, RSAEncryptionPadding.Pkcs1),
+                EncryptionAlgorithm.X25519ChaCha20Poly1305 => DecryptX25519ChaCha20Poly1305(ciphertext, key, nonce!, aad, encapsulatedKey),
+                EncryptionAlgorithm.X25519XChaCha20Poly1305 => DecryptX25519XChaCha20Poly1305(ciphertext, key, nonce!, aad, encapsulatedKey),
+                EncryptionAlgorithm.X25519AesGcm => DecryptX25519AesGcm(ciphertext, key, nonce!, aad, encapsulatedKey),
+                EncryptionAlgorithm.AesGcmSiv => throw new NotImplementedException(),
+                EncryptionAlgorithm.Ascon128 => throw new NotImplementedException(),
+                EncryptionAlgorithm.Ascon128a => throw new NotImplementedException(),
+                EncryptionAlgorithm.EciesP256 => throw new NotImplementedException(),
+                EncryptionAlgorithm.EciesP384 => throw new NotImplementedException(),
+                EncryptionAlgorithm.HpkeX25519ChaCha20Poly1305 => throw new NotImplementedException(),
+                EncryptionAlgorithm.HpkeX25519AesGcm128 => throw new NotImplementedException(),
+                EncryptionAlgorithm.HpkeX25519AesGcm256 => throw new NotImplementedException(),
+                EncryptionAlgorithm.HpkeP256AesGcm128 => throw new NotImplementedException(),
+                EncryptionAlgorithm.AesCbcHmacSha256 => throw new NotImplementedException(),
 #if NET10_OR_GREATER
-            EncryptionAlgorithm.MLKem768AesGcm => DecryptMLKemAesGcm(ciphertext, key, nonce!, aad, encapsulatedKey),
-            EncryptionAlgorithm.MLKem1024AesGcm => DecryptMLKemAesGcm(ciphertext, key, nonce!, aad, encapsulatedKey),
-            EncryptionAlgorithm.MLKem768ChaCha20Poly1305 => DecryptMLKemChaCha20Poly1305(ciphertext, key, nonce!, aad, encapsulatedKey),
-            EncryptionAlgorithm.MLKem1024ChaCha20Poly1305 => DecryptMLKemChaCha20Poly1305(ciphertext, key, nonce!, aad, encapsulatedKey),
+                EncryptionAlgorithm.MLKem768AesGcm => DecryptMLKemAesGcm(ciphertext, key, nonce!, aad, encapsulatedKey),
+                EncryptionAlgorithm.MLKem1024AesGcm => DecryptMLKemAesGcm(ciphertext, key, nonce!, aad, encapsulatedKey),
+                EncryptionAlgorithm.MLKem768ChaCha20Poly1305 => DecryptMLKemChaCha20Poly1305(ciphertext, key, nonce!, aad, encapsulatedKey),
+                EncryptionAlgorithm.MLKem1024ChaCha20Poly1305 => DecryptMLKemChaCha20Poly1305(ciphertext, key, nonce!, aad, encapsulatedKey),
 #endif
-            _ => throw new NotSupportedException($"Algorithm {algorithm} is not supported")
-        };
+                _ => throw new NotSupportedException($"Algorithm {algorithm} is not supported")
+            };
+        }
     }
 
     /// <summary>

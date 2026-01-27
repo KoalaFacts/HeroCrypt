@@ -18,9 +18,13 @@ namespace HeroCrypt.Operations;
 /// from memory when the builder is no longer needed. It is recommended to use this builder
 /// within a <c>using</c> statement.
 /// </para>
+/// <para>
+/// This class is thread-safe. All public methods can be safely called from multiple threads concurrently.
+/// </para>
 /// </remarks>
 public sealed class KeyDerivationBuilder : IDisposable
 {
+    private readonly SyncLock syncLock = new();
     private KeyDerivationAlgorithm algorithm = KeyDerivationAlgorithm.Argon2id;
     private byte[]? password;
     private byte[]? salt;
@@ -66,11 +70,14 @@ public sealed class KeyDerivationBuilder : IDisposable
     /// </summary>
     public void Dispose()
     {
-        if (disposed) return;
-        ClearPassword();
-        ClearSalt();
-        ClearInfo();
-        disposed = true;
+        using (syncLock.EnterScope())
+        {
+            if (disposed) return;
+            ClearPassword();
+            ClearSalt();
+            ClearInfo();
+            disposed = true;
+        }
         GC.SuppressFinalize(this);
     }
 
@@ -92,9 +99,12 @@ public sealed class KeyDerivationBuilder : IDisposable
     /// </summary>
     public KeyDerivationBuilder WithAlgorithm(KeyDerivationAlgorithm algorithm)
     {
-        ThrowIfDisposed();
-        this.algorithm = algorithm;
-        return this;
+        using (syncLock.EnterScope())
+        {
+            ThrowIfDisposed();
+            this.algorithm = algorithm;
+            return this;
+        }
     }
 
     // Password Hashing KDFs (Memory-hard, slow by design)
@@ -190,10 +200,13 @@ public sealed class KeyDerivationBuilder : IDisposable
     /// </summary>
     public KeyDerivationBuilder WithPassword(byte[] password)
     {
-        ThrowIfDisposed();
-        ClearPassword();
-        this.password = [.. password];
-        return this;
+        using (syncLock.EnterScope())
+        {
+            ThrowIfDisposed();
+            ClearPassword();
+            this.password = [.. password];
+            return this;
+        }
     }
 
     /// <summary>
@@ -201,10 +214,13 @@ public sealed class KeyDerivationBuilder : IDisposable
     /// </summary>
     public KeyDerivationBuilder WithPassword(string password)
     {
-        ThrowIfDisposed();
-        ClearPassword();
-        this.password = System.Text.Encoding.UTF8.GetBytes(password);
-        return this;
+        using (syncLock.EnterScope())
+        {
+            ThrowIfDisposed();
+            ClearPassword();
+            this.password = System.Text.Encoding.UTF8.GetBytes(password);
+            return this;
+        }
     }
 
     /// <summary>
@@ -212,10 +228,13 @@ public sealed class KeyDerivationBuilder : IDisposable
     /// </summary>
     public KeyDerivationBuilder WithSalt(byte[] salt)
     {
-        ThrowIfDisposed();
-        ClearSalt();
-        this.salt = [.. salt];
-        return this;
+        using (syncLock.EnterScope())
+        {
+            ThrowIfDisposed();
+            ClearSalt();
+            this.salt = [.. salt];
+            return this;
+        }
     }
 
     /// <summary>
@@ -229,16 +248,19 @@ public sealed class KeyDerivationBuilder : IDisposable
     /// </remarks>
     public KeyDerivationBuilder WithRandomSalt(int length = 16)
     {
-        ThrowIfDisposed();
-        if (length <= 0)
+        using (syncLock.EnterScope())
         {
-            throw new ArgumentOutOfRangeException(nameof(length), "Salt length must be positive.");
-        }
+            ThrowIfDisposed();
+            if (length <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(length), "Salt length must be positive.");
+            }
 
-        ClearSalt();
-        salt = new byte[length];
-        SecureRandomNumberGenerator.Fill(salt);
-        return this;
+            ClearSalt();
+            salt = new byte[length];
+            SecureRandomNumberGenerator.Fill(salt);
+            return this;
+        }
     }
 
     /// <summary>
@@ -319,7 +341,15 @@ public sealed class KeyDerivationBuilder : IDisposable
     /// </remarks>
     public byte[] GetSalt()
     {
-        ThrowIfDisposed();
+        using (syncLock.EnterScope())
+        {
+            ThrowIfDisposed();
+            return GetSaltCore();
+        }
+    }
+
+    private byte[] GetSaltCore()
+    {
         if (salt == null)
         {
             throw new InvalidOperationException("Salt must be set using WithSalt() or WithRandomSalt()");
@@ -349,8 +379,12 @@ public sealed class KeyDerivationBuilder : IDisposable
     /// </remarks>
     public string GetSaltAsHex()
     {
-        var saltBytes = GetSalt();
-        return TextEncodings.ToHexLower(saltBytes);
+        using (syncLock.EnterScope())
+        {
+            ThrowIfDisposed();
+            var saltBytes = GetSaltCore();
+            return TextEncodings.ToHexLower(saltBytes);
+        }
     }
 
     /// <summary>
@@ -364,8 +398,12 @@ public sealed class KeyDerivationBuilder : IDisposable
     /// </remarks>
     public string GetSaltAsBase64()
     {
-        var saltBytes = GetSalt();
-        return Convert.ToBase64String(saltBytes);
+        using (syncLock.EnterScope())
+        {
+            ThrowIfDisposed();
+            var saltBytes = GetSaltCore();
+            return Convert.ToBase64String(saltBytes);
+        }
     }
 
     /// <summary>
@@ -383,8 +421,12 @@ public sealed class KeyDerivationBuilder : IDisposable
     /// </remarks>
     public string GetSaltAsBase64Url()
     {
-        var saltBytes = GetSalt();
-        return TextEncodings.ToBase64Url(saltBytes);
+        using (syncLock.EnterScope())
+        {
+            ThrowIfDisposed();
+            var saltBytes = GetSaltCore();
+            return TextEncodings.ToBase64Url(saltBytes);
+        }
     }
 
     /// <summary>
@@ -392,9 +434,12 @@ public sealed class KeyDerivationBuilder : IDisposable
     /// </summary>
     public KeyDerivationBuilder WithOutputLength(int length)
     {
-        ThrowIfDisposed();
-        outputLength = length;
-        return this;
+        using (syncLock.EnterScope())
+        {
+            ThrowIfDisposed();
+            outputLength = length;
+            return this;
+        }
     }
 
     /// <summary>
@@ -422,10 +467,13 @@ public sealed class KeyDerivationBuilder : IDisposable
     /// </remarks>
     public KeyDerivationBuilder WithInfo(byte[] info)
     {
-        ThrowIfDisposed();
-        ClearInfo();
-        this.info = [.. info];
-        return this;
+        using (syncLock.EnterScope())
+        {
+            ThrowIfDisposed();
+            ClearInfo();
+            this.info = [.. info];
+            return this;
+        }
     }
 
     /// <summary>
@@ -441,10 +489,13 @@ public sealed class KeyDerivationBuilder : IDisposable
     /// </remarks>
     public KeyDerivationBuilder WithInfo(string info)
     {
-        ThrowIfDisposed();
-        ClearInfo();
-        this.info = System.Text.Encoding.UTF8.GetBytes(info);
-        return this;
+        using (syncLock.EnterScope())
+        {
+            ThrowIfDisposed();
+            ClearInfo();
+            this.info = System.Text.Encoding.UTF8.GetBytes(info);
+            return this;
+        }
     }
 
     /// <summary>
@@ -452,66 +503,69 @@ public sealed class KeyDerivationBuilder : IDisposable
     /// </summary>
     public byte[] DeriveKey()
     {
-        ThrowIfDisposed();
-
-        if (password == null)
+        using (syncLock.EnterScope())
         {
-            throw new InvalidOperationException("Password must be set using WithPassword()");
-        }
+            ThrowIfDisposed();
 
-        if (salt == null)
-        {
-            throw new InvalidOperationException("Salt must be set using WithSalt()");
-        }
+            if (password == null)
+            {
+                throw new InvalidOperationException("Password must be set using WithPassword()");
+            }
 
-        InputValidator.ValidateByteArray(password, nameof(password));
-        InputValidator.ValidateByteArray(salt, nameof(salt));
+            if (salt == null)
+            {
+                throw new InvalidOperationException("Salt must be set using WithSalt()");
+            }
 
-        return algorithm switch
-        {
-            // Password Hashing KDFs (Memory-hard)
-            KeyDerivationAlgorithm.Argon2id => Argon2Core.Hash(
-                password, salt, DefaultArgon2Iterations, DefaultArgon2MemoryKiB,
-                DefaultArgon2Parallelism, outputLength, Argon2Type.Argon2id),
-            KeyDerivationAlgorithm.Argon2d => Argon2Core.Hash(
-                password, salt, DefaultArgon2Iterations, DefaultArgon2MemoryKiB,
-                DefaultArgon2Parallelism, outputLength, Argon2Type.Argon2d),
-            KeyDerivationAlgorithm.Argon2i => Argon2Core.Hash(
-                password, salt, DefaultArgon2Iterations, DefaultArgon2MemoryKiB,
-                DefaultArgon2Parallelism, outputLength, Argon2Type.Argon2i),
-            KeyDerivationAlgorithm.Scrypt => ScryptCore.DeriveKey(
-                password, salt, DefaultScryptN, DefaultScryptR, DefaultScryptP, outputLength),
+            InputValidator.ValidateByteArray(password, nameof(password));
+            InputValidator.ValidateByteArray(salt, nameof(salt));
+
+            return algorithm switch
+            {
+                // Password Hashing KDFs (Memory-hard)
+                KeyDerivationAlgorithm.Argon2id => Argon2Core.Hash(
+                    password, salt, DefaultArgon2Iterations, DefaultArgon2MemoryKiB,
+                    DefaultArgon2Parallelism, outputLength, Argon2Type.Argon2id),
+                KeyDerivationAlgorithm.Argon2d => Argon2Core.Hash(
+                    password, salt, DefaultArgon2Iterations, DefaultArgon2MemoryKiB,
+                    DefaultArgon2Parallelism, outputLength, Argon2Type.Argon2d),
+                KeyDerivationAlgorithm.Argon2i => Argon2Core.Hash(
+                    password, salt, DefaultArgon2Iterations, DefaultArgon2MemoryKiB,
+                    DefaultArgon2Parallelism, outputLength, Argon2Type.Argon2i),
+                KeyDerivationAlgorithm.Scrypt => ScryptCore.DeriveKey(
+                    password, salt, DefaultScryptN, DefaultScryptR, DefaultScryptP, outputLength),
 #if !NETSTANDARD2_0
-            KeyDerivationAlgorithm.BalloonSha256 => BalloonHashing.Hash(
-                password, salt, DefaultBalloonSpaceCost, DefaultBalloonTimeCost, outputLength, HashAlgorithmName.SHA256),
-            KeyDerivationAlgorithm.BalloonSha512 => BalloonHashing.Hash(
-                password, salt, DefaultBalloonSpaceCost, DefaultBalloonTimeCost, outputLength, HashAlgorithmName.SHA512),
+                KeyDerivationAlgorithm.BalloonSha256 => BalloonHashing.Hash(
+                    password, salt, DefaultBalloonSpaceCost, DefaultBalloonTimeCost, outputLength, HashAlgorithmName.SHA256),
+                KeyDerivationAlgorithm.BalloonSha512 => BalloonHashing.Hash(
+                    password, salt, DefaultBalloonSpaceCost, DefaultBalloonTimeCost, outputLength, HashAlgorithmName.SHA512),
 #endif
-            KeyDerivationAlgorithm.Bcrypt => throw new NotImplementedException(
-                "Bcrypt is not yet implemented. Use Argon2id or Scrypt as recommended alternatives."),
+                KeyDerivationAlgorithm.Bcrypt => throw new NotImplementedException(
+                    "Bcrypt is not yet implemented. Use Argon2id or Scrypt as recommended alternatives."),
 
-            // Password-Based KDFs (Iterative)
-            KeyDerivationAlgorithm.Pbkdf2Sha256 => Pbkdf2Core.DeriveKey(
-                password, salt, DefaultPbkdf2Iterations, outputLength, HashAlgorithmName.SHA256),
-            KeyDerivationAlgorithm.Pbkdf2Sha512 => Pbkdf2Core.DeriveKey(
-                password, salt, DefaultPbkdf2Iterations, outputLength, HashAlgorithmName.SHA512),
-            KeyDerivationAlgorithm.Pbkdf2Sha384 => Pbkdf2Core.DeriveKey(
-                password, salt, DefaultPbkdf2Iterations, outputLength, HashAlgorithmName.SHA384),
-            KeyDerivationAlgorithm.Pbkdf2Sha1 => Pbkdf2Core.DeriveKey(
-                password, salt, DefaultPbkdf2Iterations, outputLength, HashAlgorithmName.SHA1),
+                // Password-Based KDFs (Iterative)
+                KeyDerivationAlgorithm.Pbkdf2Sha256 => Pbkdf2Core.DeriveKey(
+                    password, salt, DefaultPbkdf2Iterations, outputLength, HashAlgorithmName.SHA256),
+                KeyDerivationAlgorithm.Pbkdf2Sha512 => Pbkdf2Core.DeriveKey(
+                    password, salt, DefaultPbkdf2Iterations, outputLength, HashAlgorithmName.SHA512),
+                KeyDerivationAlgorithm.Pbkdf2Sha384 => Pbkdf2Core.DeriveKey(
+                    password, salt, DefaultPbkdf2Iterations, outputLength, HashAlgorithmName.SHA384),
+                KeyDerivationAlgorithm.Pbkdf2Sha1 => Pbkdf2Core.DeriveKey(
+                    password, salt, DefaultPbkdf2Iterations, outputLength, HashAlgorithmName.SHA1),
 
-            // Key Expansion KDFs (Fast)
-            KeyDerivationAlgorithm.HkdfSha256 => HkdfCore.DeriveKey(
-                password, salt, info ?? [], outputLength, HashAlgorithmName.SHA256),
-            KeyDerivationAlgorithm.HkdfSha512 => HkdfCore.DeriveKey(
-                password, salt, info ?? [], outputLength, HashAlgorithmName.SHA512),
-            KeyDerivationAlgorithm.HkdfSha384 => HkdfCore.DeriveKey(
-                password, salt, info ?? [], outputLength, HashAlgorithmName.SHA384),
-            KeyDerivationAlgorithm.HkdfSha1 => HkdfCore.DeriveKey(
-                password, salt, info ?? [], outputLength, HashAlgorithmName.SHA1),
+                // Key Expansion KDFs (Fast)
+                KeyDerivationAlgorithm.HkdfSha256 => HkdfCore.DeriveKey(
+                    password, salt, info ?? [], outputLength, HashAlgorithmName.SHA256),
+                KeyDerivationAlgorithm.HkdfSha512 => HkdfCore.DeriveKey(
+                    password, salt, info ?? [], outputLength, HashAlgorithmName.SHA512),
+                KeyDerivationAlgorithm.HkdfSha384 => HkdfCore.DeriveKey(
+                    password, salt, info ?? [], outputLength, HashAlgorithmName.SHA384),
+                KeyDerivationAlgorithm.HkdfSha1 => HkdfCore.DeriveKey(
+                    password, salt, info ?? [], outputLength, HashAlgorithmName.SHA1),
 
-            _ => throw new NotSupportedException($"Algorithm {algorithm} is not supported")
-        };
+                _ => throw new NotSupportedException($"Algorithm {algorithm} is not supported")
+            };
+        }
     }
 
     /// <summary>

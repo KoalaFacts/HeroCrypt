@@ -14,9 +14,13 @@ namespace HeroCrypt.Operations;
 /// from memory when the builder is no longer needed. It is recommended to use this builder
 /// within a <c>using</c> statement when performing keyed hashing (HMAC).
 /// </para>
+/// <para>
+/// This class is thread-safe. All public methods can be safely called from multiple threads concurrently.
+/// </para>
 /// </remarks>
 public sealed class HashBuilder : IDisposable
 {
+    private readonly SyncLock syncLock = new();
     private HashingAlgorithm algorithm = HashingAlgorithm.Sha256;
     private byte[]? key;
     private int? outputLength;
@@ -47,9 +51,12 @@ public sealed class HashBuilder : IDisposable
     /// </summary>
     public void Dispose()
     {
-        if (disposed) return;
-        ClearKey();
-        disposed = true;
+        using (syncLock.EnterScope())
+        {
+            if (disposed) return;
+            ClearKey();
+            disposed = true;
+        }
         GC.SuppressFinalize(this);
     }
 
@@ -69,9 +76,12 @@ public sealed class HashBuilder : IDisposable
     /// <returns>This builder instance for method chaining.</returns>
     public HashBuilder AllowLegacyAlgorithms()
     {
-        ThrowIfDisposed();
-        allowLegacyAlgorithms = true;
-        return this;
+        using (syncLock.EnterScope())
+        {
+            ThrowIfDisposed();
+            allowLegacyAlgorithms = true;
+            return this;
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -83,9 +93,12 @@ public sealed class HashBuilder : IDisposable
     /// </summary>
     public HashBuilder WithAlgorithm(HashingAlgorithm algorithm)
     {
-        ThrowIfDisposed();
-        this.algorithm = algorithm;
-        return this;
+        using (syncLock.EnterScope())
+        {
+            ThrowIfDisposed();
+            this.algorithm = algorithm;
+            return this;
+        }
     }
 
     /// <summary>
@@ -136,10 +149,13 @@ public sealed class HashBuilder : IDisposable
     /// <remarks>Requires .NET 9 or later.</remarks>
     public HashBuilder WithShake128(int outputLength)
     {
-        ThrowIfDisposed();
-        algorithm = HashingAlgorithm.Shake128;
-        this.outputLength = outputLength;
-        return this;
+        using (syncLock.EnterScope())
+        {
+            ThrowIfDisposed();
+            algorithm = HashingAlgorithm.Shake128;
+            this.outputLength = outputLength;
+            return this;
+        }
     }
 
     /// <summary>
@@ -149,10 +165,13 @@ public sealed class HashBuilder : IDisposable
     /// <remarks>Requires .NET 9 or later.</remarks>
     public HashBuilder WithShake256(int outputLength)
     {
-        ThrowIfDisposed();
-        algorithm = HashingAlgorithm.Shake256;
-        this.outputLength = outputLength;
-        return this;
+        using (syncLock.EnterScope())
+        {
+            ThrowIfDisposed();
+            algorithm = HashingAlgorithm.Shake256;
+            this.outputLength = outputLength;
+            return this;
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -192,8 +211,13 @@ public sealed class HashBuilder : IDisposable
     [Obsolete("SHA-1 is cryptographically broken. Use WithSha256() or WithSha3_256() for new applications.")]
     public HashBuilder WithSha1()
     {
-        ThrowIfLegacyNotAllowed("SHA-1", "Use SHA-256 or SHA-3 instead.");
-        return WithAlgorithm(HashingAlgorithm.Sha1);
+        using (syncLock.EnterScope())
+        {
+            ThrowIfDisposed();
+            ThrowIfLegacyNotAllowed("SHA-1", "Use SHA-256 or SHA-3 instead.");
+            algorithm = HashingAlgorithm.Sha1;
+            return this;
+        }
     }
 
     /// <summary>
@@ -215,15 +239,20 @@ public sealed class HashBuilder : IDisposable
     [Obsolete("MD5 is cryptographically broken. Use WithSha256() or WithBlake2b256() for new applications.")]
     public HashBuilder WithMd5()
     {
-        ThrowIfLegacyNotAllowed("MD5", "Use SHA-256 or Blake2b instead.");
-        return WithAlgorithm(HashingAlgorithm.Md5);
+        using (syncLock.EnterScope())
+        {
+            ThrowIfDisposed();
+            ThrowIfLegacyNotAllowed("MD5", "Use SHA-256 or Blake2b instead.");
+            algorithm = HashingAlgorithm.Md5;
+            return this;
+        }
     }
 
-    private void ThrowIfLegacyNotAllowed(string algorithm, string recommendation)
+    private void ThrowIfLegacyNotAllowed(string algorithmName, string recommendation)
     {
         if (!allowLegacyAlgorithms)
         {
-            throw new StrictModeException(algorithm, recommendation);
+            throw new StrictModeException(algorithmName, recommendation);
         }
     }
 
@@ -236,10 +265,13 @@ public sealed class HashBuilder : IDisposable
     /// </summary>
     public HashBuilder WithKey(byte[] key)
     {
-        ThrowIfDisposed();
-        ClearKey();
-        this.key = [.. key];
-        return this;
+        using (syncLock.EnterScope())
+        {
+            ThrowIfDisposed();
+            ClearKey();
+            this.key = [.. key];
+            return this;
+        }
     }
 
     /// <summary>
@@ -294,16 +326,19 @@ public sealed class HashBuilder : IDisposable
     /// </summary>
     public byte[] ComputeHash(byte[] data)
     {
-        ThrowIfDisposed();
-        InputValidator.ValidateByteArray(data, nameof(data));
-
-        if (key != null)
+        using (syncLock.EnterScope())
         {
-            InputValidator.ValidateByteArray(key, nameof(key));
-            return ComputeKeyed(data, key, algorithm);
-        }
+            ThrowIfDisposed();
+            InputValidator.ValidateByteArray(data, nameof(data));
 
-        return Compute(data, algorithm, outputLength);
+            if (key != null)
+            {
+                InputValidator.ValidateByteArray(key, nameof(key));
+                return ComputeKeyed(data, key, algorithm);
+            }
+
+            return Compute(data, algorithm, outputLength);
+        }
     }
 
     /// <summary>

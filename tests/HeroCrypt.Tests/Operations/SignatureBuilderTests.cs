@@ -1501,7 +1501,7 @@ public class SignatureBuilderTests
     public class ConcurrentDisposal
     {
         [Fact]
-        public void ConcurrentDispose_DoesNotThrow()
+        public async Task ConcurrentDispose_DoesNotThrowAsync()
         {
             var builder = HeroCryptBuilder.Sign()
                 .WithHmacSha256()
@@ -1511,7 +1511,7 @@ public class SignatureBuilderTests
                 .Select(_ => Task.Run(() => builder.Dispose()))
                 .ToArray();
 
-            Task.WaitAll(tasks);
+            await Task.WhenAll(tasks);
         }
 
         [Fact]

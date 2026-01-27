@@ -1752,7 +1752,7 @@ public class DecryptionBuilderTests
     public class ConcurrentDisposal
     {
         [Fact]
-        public void ConcurrentDispose_DoesNotThrow()
+        public async Task ConcurrentDispose_DoesNotThrowAsync()
         {
             var key = TestHelpers.RandomBytes(32);
             var nonce = TestHelpers.RandomBytes(12);
@@ -1766,7 +1766,7 @@ public class DecryptionBuilderTests
                 .Select(_ => Task.Run(() => builder.Dispose()))
                 .ToArray();
 
-            Task.WaitAll(tasks);
+            await Task.WhenAll(tasks);
         }
 
         [Fact]

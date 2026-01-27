@@ -1455,7 +1455,7 @@ public class KeyDerivationBuilderTests
     public class ConcurrentDisposal
     {
         [Fact]
-        public void ConcurrentDispose_DoesNotThrow()
+        public async Task ConcurrentDispose_DoesNotThrowAsync()
         {
             var builder = HeroCryptBuilder.DeriveKey()
                 .WithHkdfSha256()
@@ -1466,7 +1466,7 @@ public class KeyDerivationBuilderTests
                 .Select(_ => Task.Run(() => builder.Dispose()))
                 .ToArray();
 
-            Task.WaitAll(tasks);
+            await Task.WhenAll(tasks);
         }
 
         [Fact]

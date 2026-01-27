@@ -292,6 +292,8 @@ public sealed class SignatureBuilder : IDisposable
     /// This is a convenience method that combines <see cref="Sign(byte[])"/> with hex encoding.
     /// Useful for displaying signatures in logs, storing in text-based formats, or comparing signatures.
     /// </remarks>
+    /// <seealso cref="SignToBase64(byte[])"/>
+    /// <seealso cref="SignToBase64Url(byte[])"/>
     public string SignToHex(byte[] data)
     {
         var signature = Sign(data);
@@ -317,6 +319,8 @@ public sealed class SignatureBuilder : IDisposable
     /// This is a convenience method that combines <see cref="Sign(byte[])"/> with Base64 encoding.
     /// Useful for embedding signatures in JSON, JWTs, HTTP headers, or other text-based protocols.
     /// </remarks>
+    /// <seealso cref="SignToHex(byte[])"/>
+    /// <seealso cref="SignToBase64Url(byte[])"/>
     public string SignToBase64(byte[] data)
     {
         var signature = Sign(data);
@@ -348,6 +352,8 @@ public sealed class SignatureBuilder : IDisposable
     /// standard Base64 characters may cause issues.
     /// </para>
     /// </remarks>
+    /// <seealso cref="SignToHex(byte[])"/>
+    /// <seealso cref="SignToBase64(byte[])"/>
     public string SignToBase64Url(byte[] data)
     {
         var signature = Sign(data);

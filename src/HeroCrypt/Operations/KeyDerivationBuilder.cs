@@ -411,6 +411,8 @@ public sealed class KeyDerivationBuilder : IDisposable
     /// </code>
     /// </para>
     /// </remarks>
+    /// <seealso cref="GetSaltAsBase64"/>
+    /// <seealso cref="GetSaltAsBase64Url"/>
     public string GetSaltAsHex()
     {
         using (syncLock.EnterScope())
@@ -430,6 +432,8 @@ public sealed class KeyDerivationBuilder : IDisposable
     /// This is a convenience method for obtaining the salt in a format suitable for storage
     /// in JSON, databases, or other text-based formats.
     /// </remarks>
+    /// <seealso cref="GetSaltAsHex"/>
+    /// <seealso cref="GetSaltAsBase64Url"/>
     public string GetSaltAsBase64()
     {
         using (syncLock.EnterScope())
@@ -453,6 +457,8 @@ public sealed class KeyDerivationBuilder : IDisposable
     /// Use this when embedding the salt in URLs or when standard Base64 characters may cause issues.
     /// </para>
     /// </remarks>
+    /// <seealso cref="GetSaltAsHex"/>
+    /// <seealso cref="GetSaltAsBase64"/>
     public string GetSaltAsBase64Url()
     {
         using (syncLock.EnterScope())
@@ -624,6 +630,8 @@ public sealed class KeyDerivationBuilder : IDisposable
     /// </code>
     /// </para>
     /// </remarks>
+    /// <seealso cref="DeriveKeyToBase64"/>
+    /// <seealso cref="DeriveKeyToBase64Url"/>
     public string DeriveKeyToHex()
     {
         var key = DeriveKey();
@@ -639,6 +647,8 @@ public sealed class KeyDerivationBuilder : IDisposable
     /// This is a convenience method equivalent to calling <see cref="DeriveKey"/> and converting the result.
     /// Useful when storing derived keys in JSON, databases, or other text-based formats.
     /// </remarks>
+    /// <seealso cref="DeriveKeyToHex"/>
+    /// <seealso cref="DeriveKeyToBase64Url"/>
     public string DeriveKeyToBase64()
     {
         var key = DeriveKey();
@@ -658,6 +668,8 @@ public sealed class KeyDerivationBuilder : IDisposable
     /// Use this when embedding derived keys in URLs or when standard Base64 characters may cause issues.
     /// </para>
     /// </remarks>
+    /// <seealso cref="DeriveKeyToHex"/>
+    /// <seealso cref="DeriveKeyToBase64"/>
     public string DeriveKeyToBase64Url()
     {
         var key = DeriveKey();

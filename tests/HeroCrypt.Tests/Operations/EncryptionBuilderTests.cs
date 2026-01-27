@@ -1874,7 +1874,7 @@ public class EncryptionBuilderTests
     public class ConcurrentDisposal
     {
         [Fact]
-        public async Task ConcurrentDispose_DoesNotThrow()
+        public async Task ConcurrentDispose_DoesNotThrowAsync()
         {
             var builder = HeroCryptBuilder.Encrypt()
                 .WithAesGcm()
@@ -1888,7 +1888,7 @@ public class EncryptionBuilderTests
         }
 
         [Fact]
-        public async Task ConcurrentDisposeAndEncrypt_HandlesGracefully()
+        public async Task ConcurrentDisposeAndEncrypt_HandlesGracefullyAsync()
         {
             var builder = HeroCryptBuilder.Encrypt()
                 .WithAesGcm()

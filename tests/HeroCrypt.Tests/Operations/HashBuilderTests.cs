@@ -908,7 +908,7 @@ public class HashBuilderTests
     public class ConcurrentDisposal
     {
         [Fact]
-        public void ConcurrentDispose_DoesNotThrow()
+        public async Task ConcurrentDispose_DoesNotThrowAsync()
         {
             var builder = HeroCryptBuilder.Hash()
                 .WithSha256()
@@ -918,7 +918,7 @@ public class HashBuilderTests
                 .Select(_ => Task.Run(() => builder.Dispose()))
                 .ToArray();
 
-            Task.WaitAll(tasks);
+            await Task.WhenAll(tasks);
         }
 
         [Fact]

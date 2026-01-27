@@ -1411,7 +1411,7 @@ public class VerificationBuilderTests
     public class ConcurrentDisposal
     {
         [Fact]
-        public void ConcurrentDispose_DoesNotThrow()
+        public async Task ConcurrentDispose_DoesNotThrowAsync()
         {
             var key = TestHelpers.RandomBytes(32);
             var signature = TestHelpers.RandomBytes(32);
@@ -1425,7 +1425,7 @@ public class VerificationBuilderTests
                 .Select(_ => Task.Run(() => builder.Dispose()))
                 .ToArray();
 
-            Task.WaitAll(tasks);
+            await Task.WhenAll(tasks);
         }
 
         [Fact]

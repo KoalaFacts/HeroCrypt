@@ -150,6 +150,199 @@ public class EncryptionBuilderTests
             Assert.Equal(plaintext, decrypted);
             Assert.NotEmpty(result.Ciphertext); // tag present
         }
+
+        [Theory]
+        [MemberData(nameof(AeadCases), MemberType = typeof(EncryptionBuilderTests))]
+        public void EncryptDecrypt_SingleByte_Succeeds(EncryptionAlgorithm algorithm, int keySize)
+        {
+            if (algorithm == EncryptionAlgorithm.AesCcm && OperatingSystem.IsMacOS())
+            {
+                Assert.Skip("AES-CCM not supported on macOS");
+                return;
+            }
+
+            var plaintext = new byte[] { 0x42 };
+            var key = TestHelpers.RandomBytes(keySize);
+
+            var result = HeroCryptBuilder.Encrypt()
+                .WithAlgorithm(algorithm)
+                .WithKey(key)
+                .Encrypt(plaintext);
+
+            var decrypted = HeroCryptBuilder.Decrypt()
+                .WithAlgorithm(algorithm)
+                .WithKey(key)
+                .WithNonce(result.Nonce)
+                .Decrypt(result.Ciphertext);
+
+            Assert.Equal(plaintext, decrypted);
+        }
+
+        [Theory]
+        [MemberData(nameof(AeadCases), MemberType = typeof(EncryptionBuilderTests))]
+        public void EncryptDecrypt_AllZeros_Succeeds(EncryptionAlgorithm algorithm, int keySize)
+        {
+            if (algorithm == EncryptionAlgorithm.AesCcm && OperatingSystem.IsMacOS())
+            {
+                Assert.Skip("AES-CCM not supported on macOS");
+                return;
+            }
+
+            var plaintext = new byte[256]; // 256 bytes of zeros
+            var key = TestHelpers.RandomBytes(keySize);
+
+            var result = HeroCryptBuilder.Encrypt()
+                .WithAlgorithm(algorithm)
+                .WithKey(key)
+                .Encrypt(plaintext);
+
+            var decrypted = HeroCryptBuilder.Decrypt()
+                .WithAlgorithm(algorithm)
+                .WithKey(key)
+                .WithNonce(result.Nonce)
+                .Decrypt(result.Ciphertext);
+
+            Assert.Equal(plaintext, decrypted);
+            Assert.NotEqual(plaintext, result.Ciphertext); // ciphertext should differ
+        }
+
+        [Theory]
+        [InlineData(EncryptionAlgorithm.AesGcm, 32)]
+        [InlineData(EncryptionAlgorithm.ChaCha20Poly1305, 32)]
+        [InlineData(EncryptionAlgorithm.XChaCha20Poly1305, 32)]
+        public void EncryptDecrypt_LargeData_Succeeds(EncryptionAlgorithm algorithm, int keySize)
+        {
+            // Test with 64KB of data
+            var plaintext = TestHelpers.RandomBytes(64 * 1024);
+            var key = TestHelpers.RandomBytes(keySize);
+
+            var result = HeroCryptBuilder.Encrypt()
+                .WithAlgorithm(algorithm)
+                .WithKey(key)
+                .Encrypt(plaintext);
+
+            var decrypted = HeroCryptBuilder.Decrypt()
+                .WithAlgorithm(algorithm)
+                .WithKey(key)
+                .WithNonce(result.Nonce)
+                .Decrypt(result.Ciphertext);
+
+            Assert.Equal(plaintext, decrypted);
+        }
+
+        [Fact]
+        public void EncryptDecrypt_EmptyString_Succeeds()
+        {
+            var key = TestHelpers.RandomBytes(32);
+
+            var result = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .Encrypt(string.Empty);
+
+            var decrypted = HeroCryptBuilder.Decrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .WithNonce(result.Nonce)
+                .DecryptToString(result.Ciphertext);
+
+            Assert.Equal(string.Empty, decrypted);
+        }
+
+        [Fact]
+        public void EncryptDecrypt_SingleCharacterString_Succeeds()
+        {
+            var key = TestHelpers.RandomBytes(32);
+            var plaintext = "X";
+
+            var result = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .Encrypt(plaintext);
+
+            var decrypted = HeroCryptBuilder.Decrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .WithNonce(result.Nonce)
+                .DecryptToString(result.Ciphertext);
+
+            Assert.Equal(plaintext, decrypted);
+        }
+
+        [Fact]
+        public void EncryptDecrypt_UnicodeEmoji_Succeeds()
+        {
+            var key = TestHelpers.RandomBytes(32);
+            var plaintext = "\U0001F680\U0001F4BB\U0001F512"; // rocket, laptop, lock emojis
+
+            var result = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .Encrypt(plaintext);
+
+            var decrypted = HeroCryptBuilder.Decrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .WithNonce(result.Nonce)
+                .DecryptToString(result.Ciphertext);
+
+            Assert.Equal(plaintext, decrypted);
+        }
+
+        [Fact]
+        public void EncryptDecrypt_MultiByteUnicode_Succeeds()
+        {
+            var key = TestHelpers.RandomBytes(32);
+            // Mix of 1-byte, 2-byte, 3-byte, and 4-byte UTF-8 sequences
+            var plaintext = "A\u00e9\u4e2d\U0001F600"; // A, é (2-byte), 中 (3-byte), 😀 (4-byte)
+
+            var result = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .Encrypt(plaintext);
+
+            var decrypted = HeroCryptBuilder.Decrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .WithNonce(result.Nonce)
+                .DecryptToString(result.Ciphertext);
+
+            Assert.Equal(plaintext, decrypted);
+        }
+
+        [Theory]
+        [MemberData(nameof(AeadCases), MemberType = typeof(EncryptionBuilderTests))]
+        public void EncryptDecrypt_RepeatingPattern_Succeeds(EncryptionAlgorithm algorithm, int keySize)
+        {
+            if (algorithm == EncryptionAlgorithm.AesCcm && OperatingSystem.IsMacOS())
+            {
+                Assert.Skip("AES-CCM not supported on macOS");
+                return;
+            }
+
+            // Create a repeating pattern (tests that encryption doesn't produce patterns)
+            var pattern = new byte[] { 0xAA, 0xBB, 0xCC, 0xDD };
+            var plaintext = new byte[256];
+            for (int i = 0; i < plaintext.Length; i++)
+            {
+                plaintext[i] = pattern[i % pattern.Length];
+            }
+
+            var key = TestHelpers.RandomBytes(keySize);
+
+            var result = HeroCryptBuilder.Encrypt()
+                .WithAlgorithm(algorithm)
+                .WithKey(key)
+                .Encrypt(plaintext);
+
+            var decrypted = HeroCryptBuilder.Decrypt()
+                .WithAlgorithm(algorithm)
+                .WithKey(key)
+                .WithNonce(result.Nonce)
+                .Decrypt(result.Ciphertext);
+
+            Assert.Equal(plaintext, decrypted);
+        }
     }
 
     /// <summary>

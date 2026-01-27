@@ -259,6 +259,220 @@ public class VerificationBuilderTests
     }
 
     /// <summary>
+    /// Edge case tests for boundary conditions.
+    /// </summary>
+    [Trait("Category", TestCategories.EDGE_CASE)]
+    [Trait("Category", TestCategories.FAST)]
+    public class EdgeCases
+    {
+        [Theory]
+        [InlineData(SignatureAlgorithm.HmacSha256)]
+        [InlineData(SignatureAlgorithm.HmacSha384)]
+        [InlineData(SignatureAlgorithm.HmacSha512)]
+        public void Verify_SingleByte_Succeeds(SignatureAlgorithm algorithm)
+        {
+            var key = TestHelpers.RandomBytes(64);
+            var data = new byte[] { 0x42 };
+            var signature = HeroCryptBuilder.Sign()
+                .WithAlgorithm(algorithm)
+                .WithKey(key)
+                .Sign(data);
+
+            var isValid = HeroCryptBuilder.Verify()
+                .WithAlgorithm(algorithm)
+                .WithKey(key)
+                .WithSignature(signature)
+                .Verify(data);
+
+            Assert.True(isValid);
+        }
+
+        [Theory]
+        [InlineData(SignatureAlgorithm.HmacSha256)]
+        [InlineData(SignatureAlgorithm.HmacSha384)]
+        [InlineData(SignatureAlgorithm.HmacSha512)]
+        public void Verify_AllZeros_Succeeds(SignatureAlgorithm algorithm)
+        {
+            var key = TestHelpers.RandomBytes(64);
+            var data = new byte[256];
+            var signature = HeroCryptBuilder.Sign()
+                .WithAlgorithm(algorithm)
+                .WithKey(key)
+                .Sign(data);
+
+            var isValid = HeroCryptBuilder.Verify()
+                .WithAlgorithm(algorithm)
+                .WithKey(key)
+                .WithSignature(signature)
+                .Verify(data);
+
+            Assert.True(isValid);
+        }
+
+        [Theory]
+        [InlineData(SignatureAlgorithm.HmacSha256)]
+        [InlineData(SignatureAlgorithm.HmacSha384)]
+        [InlineData(SignatureAlgorithm.HmacSha512)]
+        public void Verify_LargeData_Succeeds(SignatureAlgorithm algorithm)
+        {
+            var key = TestHelpers.RandomBytes(64);
+            var data = TestHelpers.RandomBytes(64 * 1024);
+            var signature = HeroCryptBuilder.Sign()
+                .WithAlgorithm(algorithm)
+                .WithKey(key)
+                .Sign(data);
+
+            var isValid = HeroCryptBuilder.Verify()
+                .WithAlgorithm(algorithm)
+                .WithKey(key)
+                .WithSignature(signature)
+                .Verify(data);
+
+            Assert.True(isValid);
+        }
+
+        [Fact]
+        public void Verify_SingleCharacterString_Succeeds()
+        {
+            var key = TestHelpers.RandomBytes(64);
+            var data = "X";
+            var signature = HeroCryptBuilder.Sign()
+                .WithHmacSha256()
+                .WithKey(key)
+                .Sign(data);
+
+            var isValid = HeroCryptBuilder.Verify()
+                .WithHmacSha256()
+                .WithKey(key)
+                .WithSignature(signature)
+                .Verify(data);
+
+            Assert.True(isValid);
+        }
+
+        [Fact]
+        public void Verify_UnicodeString_Succeeds()
+        {
+            var key = TestHelpers.RandomBytes(64);
+            var data = "\u4e2d\u6587\U0001F680"; // Chinese + rocket emoji
+            var signature = HeroCryptBuilder.Sign()
+                .WithHmacSha256()
+                .WithKey(key)
+                .Sign(data);
+
+            var isValid = HeroCryptBuilder.Verify()
+                .WithHmacSha256()
+                .WithKey(key)
+                .WithSignature(signature)
+                .Verify(data);
+
+            Assert.True(isValid);
+        }
+
+        [Fact]
+        public void Verify_MultiByteUnicode_Succeeds()
+        {
+            var key = TestHelpers.RandomBytes(64);
+            // Mix of 1-byte, 2-byte, 3-byte, and 4-byte UTF-8 sequences
+            var data = "A\u00e9\u4e2d\U0001F600"; // A, é (2-byte), 中 (3-byte), 😀 (4-byte)
+            var signature = HeroCryptBuilder.Sign()
+                .WithHmacSha256()
+                .WithKey(key)
+                .Sign(data);
+
+            var isValid = HeroCryptBuilder.Verify()
+                .WithHmacSha256()
+                .WithKey(key)
+                .WithSignature(signature)
+                .Verify(data);
+
+            Assert.True(isValid);
+        }
+
+        [Fact]
+        public void Verify_RepeatingPattern_Succeeds()
+        {
+            var key = TestHelpers.RandomBytes(64);
+            var pattern = new byte[] { 0xAA, 0xBB, 0xCC, 0xDD };
+            var data = new byte[256];
+            for (int i = 0; i < data.Length; i++)
+            {
+                data[i] = pattern[i % pattern.Length];
+            }
+
+            var signature = HeroCryptBuilder.Sign()
+                .WithHmacSha256()
+                .WithKey(key)
+                .Sign(data);
+
+            var isValid = HeroCryptBuilder.Verify()
+                .WithHmacSha256()
+                .WithKey(key)
+                .WithSignature(signature)
+                .Verify(data);
+
+            Assert.True(isValid);
+        }
+
+        [Fact]
+        public void Ed25519_Verify_SingleByte_Succeeds()
+        {
+            var (privateKey, publicKey) = Ed25519Core.GenerateKeyPair();
+            var data = new byte[] { 0x42 };
+            var signature = HeroCryptBuilder.Sign()
+                .WithEd25519()
+                .WithPrivateKey(privateKey)
+                .Sign(data);
+
+            var isValid = HeroCryptBuilder.Verify()
+                .WithEd25519()
+                .WithPublicKey(publicKey)
+                .WithSignature(signature)
+                .Verify(data);
+
+            Assert.True(isValid);
+        }
+
+        [Fact]
+        public void Ed25519_Verify_AllZeros_Succeeds()
+        {
+            var (privateKey, publicKey) = Ed25519Core.GenerateKeyPair();
+            var data = new byte[256];
+            var signature = HeroCryptBuilder.Sign()
+                .WithEd25519()
+                .WithPrivateKey(privateKey)
+                .Sign(data);
+
+            var isValid = HeroCryptBuilder.Verify()
+                .WithEd25519()
+                .WithPublicKey(publicKey)
+                .WithSignature(signature)
+                .Verify(data);
+
+            Assert.True(isValid);
+        }
+
+        [Fact]
+        public void Ed25519_Verify_LargeData_Succeeds()
+        {
+            var (privateKey, publicKey) = Ed25519Core.GenerateKeyPair();
+            var data = TestHelpers.RandomBytes(64 * 1024);
+            var signature = HeroCryptBuilder.Sign()
+                .WithEd25519()
+                .WithPrivateKey(privateKey)
+                .Sign(data);
+
+            var isValid = HeroCryptBuilder.Verify()
+                .WithEd25519()
+                .WithPublicKey(publicKey)
+                .WithSignature(signature)
+                .Verify(data);
+
+            Assert.True(isValid);
+        }
+    }
+
+    /// <summary>
     /// Tests for parameter validation.
     /// </summary>
     [Trait("Category", TestCategories.UNIT)]

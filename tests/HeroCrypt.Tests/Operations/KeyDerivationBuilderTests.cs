@@ -406,7 +406,7 @@ public class KeyDerivationBuilderTests
             builder.Dispose();
 
             // Act & Assert
-            Assert.Throws<ObjectDisposedException>(() => builder.DeriveKey());
+            Assert.Throws<ObjectDisposedException>(builder.DeriveKey);
         }
 
         [Fact]
@@ -516,7 +516,7 @@ public class KeyDerivationBuilderTests
             using var builder = HeroCryptBuilder.DeriveKey();
 
             // Act & Assert
-            Assert.Throws<InvalidOperationException>(() => builder.GetSalt());
+            Assert.Throws<InvalidOperationException>(builder.GetSalt);
         }
 
         [Fact]
@@ -567,6 +567,187 @@ public class KeyDerivationBuilderTests
             Assert.NotNull(key);
             Assert.False(TestHelpers.AllZeros(salt));
             Assert.False(TestHelpers.AllZeros(key));
+        }
+    }
+
+    /// <summary>
+    /// Tests for HKDF info parameter functionality.
+    /// </summary>
+    [Trait("Category", TestCategories.UNIT)]
+    [Trait("Category", TestCategories.FAST)]
+    public class HkdfInfoParameter
+    {
+        [Fact]
+        public void WithInfo_ByteArray_ProducesDifferentKeyThanWithoutInfo()
+        {
+            // Arrange
+            var salt = TestHelpers.RandomBytes(16);
+            var info = Encoding.UTF8.GetBytes("my-application-context");
+
+            // Act
+            var keyWithoutInfo = HeroCryptBuilder.DeriveKey()
+                .WithHkdfSha256()
+                .WithPassword(TestPassword)
+                .WithSalt(salt)
+                .DeriveKey();
+
+            var keyWithInfo = HeroCryptBuilder.DeriveKey()
+                .WithHkdfSha256()
+                .WithPassword(TestPassword)
+                .WithSalt(salt)
+                .WithInfo(info)
+                .DeriveKey();
+
+            // Assert - Different info should produce different keys
+            Assert.NotEqual(keyWithoutInfo, keyWithInfo);
+        }
+
+        [Fact]
+        public void WithInfo_String_ProducesDifferentKeyThanWithoutInfo()
+        {
+            // Arrange
+            var salt = TestHelpers.RandomBytes(16);
+
+            // Act
+            var keyWithoutInfo = HeroCryptBuilder.DeriveKey()
+                .WithHkdfSha256()
+                .WithPassword(TestPassword)
+                .WithSalt(salt)
+                .DeriveKey();
+
+            var keyWithInfo = HeroCryptBuilder.DeriveKey()
+                .WithHkdfSha256()
+                .WithPassword(TestPassword)
+                .WithSalt(salt)
+                .WithInfo("my-application-context")
+                .DeriveKey();
+
+            // Assert - Different info should produce different keys
+            Assert.NotEqual(keyWithoutInfo, keyWithInfo);
+        }
+
+        [Fact]
+        public void WithInfo_DifferentInfoValues_ProduceDifferentKeys()
+        {
+            // Arrange
+            var salt = TestHelpers.RandomBytes(16);
+
+            // Act
+            var encryptionKey = HeroCryptBuilder.DeriveKey()
+                .WithHkdfSha256()
+                .WithPassword(TestPassword)
+                .WithSalt(salt)
+                .WithInfo("encryption")
+                .DeriveKey();
+
+            var authKey = HeroCryptBuilder.DeriveKey()
+                .WithHkdfSha256()
+                .WithPassword(TestPassword)
+                .WithSalt(salt)
+                .WithInfo("authentication")
+                .DeriveKey();
+
+            // Assert - Different info values should produce different keys
+            Assert.NotEqual(encryptionKey, authKey);
+        }
+
+        [Fact]
+        public void WithInfo_SameInfo_ProducesSameKey()
+        {
+            // Arrange
+            var salt = TestHelpers.RandomBytes(16);
+            var info = Encoding.UTF8.GetBytes("my-context");
+
+            // Act
+            var key1 = HeroCryptBuilder.DeriveKey()
+                .WithHkdfSha256()
+                .WithPassword(TestPassword)
+                .WithSalt(salt)
+                .WithInfo(info)
+                .DeriveKey();
+
+            var key2 = HeroCryptBuilder.DeriveKey()
+                .WithHkdfSha256()
+                .WithPassword(TestPassword)
+                .WithSalt(salt)
+                .WithInfo(info)
+                .DeriveKey();
+
+            // Assert
+            CryptoAssertions.AssertBytesEqual(key1, key2);
+        }
+
+        [Theory]
+        [InlineData(KeyDerivationAlgorithm.HkdfSha256)]
+        [InlineData(KeyDerivationAlgorithm.HkdfSha384)]
+        [InlineData(KeyDerivationAlgorithm.HkdfSha512)]
+        public void WithInfo_AllHkdfVariants_ProducesDifferentKeysWithInfo(KeyDerivationAlgorithm algorithm)
+        {
+            // Arrange
+            var salt = TestHelpers.RandomBytes(16);
+
+            // Act
+            var keyWithoutInfo = HeroCryptBuilder.DeriveKey()
+                .WithAlgorithm(algorithm)
+                .WithPassword(TestPassword)
+                .WithSalt(salt)
+                .DeriveKey();
+
+            var keyWithInfo = HeroCryptBuilder.DeriveKey()
+                .WithAlgorithm(algorithm)
+                .WithPassword(TestPassword)
+                .WithSalt(salt)
+                .WithInfo("context")
+                .DeriveKey();
+
+            // Assert
+            Assert.NotEqual(keyWithoutInfo, keyWithInfo);
+        }
+
+        [Fact]
+        public void WithInfo_EmptyInfo_IsSameAsNoInfo()
+        {
+            // Arrange
+            var salt = TestHelpers.RandomBytes(16);
+
+            // Act
+            var keyWithoutInfo = HeroCryptBuilder.DeriveKey()
+                .WithHkdfSha256()
+                .WithPassword(TestPassword)
+                .WithSalt(salt)
+                .DeriveKey();
+
+            var keyWithEmptyInfo = HeroCryptBuilder.DeriveKey()
+                .WithHkdfSha256()
+                .WithPassword(TestPassword)
+                .WithSalt(salt)
+                .WithInfo([])
+                .DeriveKey();
+
+            // Assert - Empty info should be equivalent to no info
+            CryptoAssertions.AssertBytesEqual(keyWithoutInfo, keyWithEmptyInfo);
+        }
+
+        [Fact]
+        public void WithInfo_AfterDispose_ThrowsObjectDisposedException()
+        {
+            // Arrange
+            var builder = HeroCryptBuilder.DeriveKey();
+            builder.Dispose();
+
+            // Act & Assert
+            Assert.Throws<ObjectDisposedException>(() => builder.WithInfo("context"));
+        }
+
+        [Fact]
+        public void WithInfo_ByteArray_AfterDispose_ThrowsObjectDisposedException()
+        {
+            // Arrange
+            var builder = HeroCryptBuilder.DeriveKey();
+            builder.Dispose();
+
+            // Act & Assert
+            Assert.Throws<ObjectDisposedException>(() => builder.WithInfo(Encoding.UTF8.GetBytes("context")));
         }
     }
 }

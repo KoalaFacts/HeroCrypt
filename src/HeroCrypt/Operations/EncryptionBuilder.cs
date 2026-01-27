@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using HeroCrypt.Operations.Internal;
 using HeroCrypt.Primitives.AesCcm;
 using HeroCrypt.Primitives.AesGcm;
 using HeroCrypt.Primitives.AesOcb;
@@ -318,20 +319,20 @@ public sealed class EncryptionBuilder : IDisposable
 
     private static EncryptionResult EncryptX25519ChaCha20Poly1305(byte[] plaintext, byte[] recipientPublicKey, byte[] aad)
     {
-        return EncryptX25519Hybrid(plaintext, recipientPublicKey, aad, X25519AeadCipher.ChaCha20Poly1305);
+        return EncryptX25519Hybrid(plaintext, recipientPublicKey, aad, HybridCipherType.ChaCha20Poly1305);
     }
 
     private static EncryptionResult EncryptX25519XChaCha20Poly1305(byte[] plaintext, byte[] recipientPublicKey, byte[] aad)
     {
-        return EncryptX25519Hybrid(plaintext, recipientPublicKey, aad, X25519AeadCipher.XChaCha20Poly1305);
+        return EncryptX25519Hybrid(plaintext, recipientPublicKey, aad, HybridCipherType.XChaCha20Poly1305);
     }
 
     private static EncryptionResult EncryptX25519AesGcm(byte[] plaintext, byte[] recipientPublicKey, byte[] aad)
     {
-        return EncryptX25519Hybrid(plaintext, recipientPublicKey, aad, X25519AeadCipher.AesGcm);
+        return EncryptX25519Hybrid(plaintext, recipientPublicKey, aad, HybridCipherType.AesGcm);
     }
 
-    private static EncryptionResult EncryptX25519Hybrid(byte[] plaintext, byte[] recipientPublicKey, byte[] aad, X25519AeadCipher cipher)
+    private static EncryptionResult EncryptX25519Hybrid(byte[] plaintext, byte[] recipientPublicKey, byte[] aad, HybridCipherType cipher)
     {
         _ = plaintext;
         _ = recipientPublicKey;
@@ -356,20 +357,20 @@ public sealed class EncryptionBuilder : IDisposable
 
     private static EncryptionResult EncryptX25519ChaCha20Poly1305(byte[] plaintext, byte[] recipientPublicKey, byte[] aad)
     {
-        return EncryptX25519Hybrid(plaintext, recipientPublicKey, aad, X25519AeadCipher.ChaCha20Poly1305);
+        return EncryptX25519Hybrid(plaintext, recipientPublicKey, aad, HybridCipherType.ChaCha20Poly1305);
     }
 
     private static EncryptionResult EncryptX25519XChaCha20Poly1305(byte[] plaintext, byte[] recipientPublicKey, byte[] aad)
     {
-        return EncryptX25519Hybrid(plaintext, recipientPublicKey, aad, X25519AeadCipher.XChaCha20Poly1305);
+        return EncryptX25519Hybrid(plaintext, recipientPublicKey, aad, HybridCipherType.XChaCha20Poly1305);
     }
 
     private static EncryptionResult EncryptX25519AesGcm(byte[] plaintext, byte[] recipientPublicKey, byte[] aad)
     {
-        return EncryptX25519Hybrid(plaintext, recipientPublicKey, aad, X25519AeadCipher.AesGcm);
+        return EncryptX25519Hybrid(plaintext, recipientPublicKey, aad, HybridCipherType.AesGcm);
     }
 
-    private static EncryptionResult EncryptX25519Hybrid(byte[] plaintext, byte[] recipientPublicKey, byte[] aad, X25519AeadCipher cipher)
+    private static EncryptionResult EncryptX25519Hybrid(byte[] plaintext, byte[] recipientPublicKey, byte[] aad, HybridCipherType cipher)
     {
         // Generate ephemeral key pair
         var ephemeralPrivateKey = Curve25519Core.GeneratePrivateKey();
@@ -395,9 +396,9 @@ public sealed class EncryptionBuilder : IDisposable
                     // Encrypt with the selected AEAD cipher
                     var (ciphertext, nonce) = cipher switch
                     {
-                        X25519AeadCipher.ChaCha20Poly1305 => EncryptWithChaCha20Poly1305(plaintext, symmetricKey, aad),
-                        X25519AeadCipher.XChaCha20Poly1305 => EncryptWithXChaCha20Poly1305(plaintext, symmetricKey, aad),
-                        X25519AeadCipher.AesGcm => EncryptWithAesGcm(plaintext, symmetricKey, aad),
+                        HybridCipherType.ChaCha20Poly1305 => EncryptWithChaCha20Poly1305(plaintext, symmetricKey, aad),
+                        HybridCipherType.XChaCha20Poly1305 => EncryptWithXChaCha20Poly1305(plaintext, symmetricKey, aad),
+                        HybridCipherType.AesGcm => EncryptWithAesGcm(plaintext, symmetricKey, aad),
                         _ => throw new NotSupportedException($"Cipher {cipher} is not supported")
                     };
 
@@ -442,13 +443,6 @@ public sealed class EncryptionBuilder : IDisposable
         return (result.Ciphertext, result.Nonce);
     }
 #endif
-
-    private enum X25519AeadCipher
-    {
-        ChaCha20Poly1305,
-        XChaCha20Poly1305,
-        AesGcm
-    }
 
     private void ThrowIfDisposed()
     {

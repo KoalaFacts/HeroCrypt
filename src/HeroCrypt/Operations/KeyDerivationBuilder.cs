@@ -23,6 +23,7 @@ public sealed class KeyDerivationBuilder : IDisposable
     private KeyDerivationAlgorithm algorithm = KeyDerivationAlgorithm.Argon2id;
     private byte[]? password;
     private byte[]? salt;
+    private byte[]? info;
     private int outputLength = 32;
     private bool disposed;
 
@@ -52,6 +53,13 @@ public sealed class KeyDerivationBuilder : IDisposable
         salt = null;
     }
 
+    private void ClearInfo()
+    {
+        if (info == null) return;
+        SecureMemoryOperations.SecureClear(info);
+        info = null;
+    }
+
     /// <summary>
     /// Releases all resources used by this builder and securely clears sensitive password and salt material.
     /// </summary>
@@ -60,6 +68,7 @@ public sealed class KeyDerivationBuilder : IDisposable
         if (disposed) return;
         ClearPassword();
         ClearSalt();
+        ClearInfo();
         disposed = true;
         GC.SuppressFinalize(this);
     }
@@ -262,6 +271,56 @@ public sealed class KeyDerivationBuilder : IDisposable
     }
 
     /// <summary>
+    /// Sets the context/application-specific info for HKDF key derivation.
+    /// </summary>
+    /// <param name="info">The info/context bytes used for domain separation in HKDF.</param>
+    /// <returns>This builder instance for method chaining.</returns>
+    /// <remarks>
+    /// <para>
+    /// The info parameter is only used by HKDF algorithms (HkdfSha256, HkdfSha384, HkdfSha512, HkdfSha1).
+    /// For other KDFs (Argon2, Scrypt, PBKDF2, Balloon), this parameter is ignored.
+    /// </para>
+    /// <para>
+    /// The info parameter enables deriving multiple independent keys from the same input keying material
+    /// by using different info values. This is useful for key separation in protocols.
+    /// </para>
+    /// <para>
+    /// Example:
+    /// </para>
+    /// <code>
+    /// // Derive separate keys for encryption and authentication
+    /// var encryptionKey = builder.WithInfo("encryption"u8.ToArray()).DeriveKey();
+    /// var authKey = builder.WithInfo("authentication"u8.ToArray()).DeriveKey();
+    /// </code>
+    /// </remarks>
+    public KeyDerivationBuilder WithInfo(byte[] info)
+    {
+        ThrowIfDisposed();
+        ClearInfo();
+        this.info = [.. info];
+        return this;
+    }
+
+    /// <summary>
+    /// Sets the context/application-specific info for HKDF key derivation using a string.
+    /// </summary>
+    /// <param name="info">The info/context string used for domain separation in HKDF (UTF-8 encoded).</param>
+    /// <returns>This builder instance for method chaining.</returns>
+    /// <remarks>
+    /// <para>
+    /// The info parameter is only used by HKDF algorithms. For other KDFs, this parameter is ignored.
+    /// The string is converted to bytes using UTF-8 encoding.
+    /// </para>
+    /// </remarks>
+    public KeyDerivationBuilder WithInfo(string info)
+    {
+        ThrowIfDisposed();
+        ClearInfo();
+        this.info = System.Text.Encoding.UTF8.GetBytes(info);
+        return this;
+    }
+
+    /// <summary>
     /// Derives a key from the configured parameters.
     /// </summary>
     public byte[] DeriveKey()
@@ -316,13 +375,13 @@ public sealed class KeyDerivationBuilder : IDisposable
 
             // Key Expansion KDFs (Fast)
             KeyDerivationAlgorithm.HkdfSha256 => HkdfCore.DeriveKey(
-                password, salt, [], outputLength, HashAlgorithmName.SHA256),
+                password, salt, info ?? [], outputLength, HashAlgorithmName.SHA256),
             KeyDerivationAlgorithm.HkdfSha512 => HkdfCore.DeriveKey(
-                password, salt, [], outputLength, HashAlgorithmName.SHA512),
+                password, salt, info ?? [], outputLength, HashAlgorithmName.SHA512),
             KeyDerivationAlgorithm.HkdfSha384 => HkdfCore.DeriveKey(
-                password, salt, [], outputLength, HashAlgorithmName.SHA384),
+                password, salt, info ?? [], outputLength, HashAlgorithmName.SHA384),
             KeyDerivationAlgorithm.HkdfSha1 => HkdfCore.DeriveKey(
-                password, salt, [], outputLength, HashAlgorithmName.SHA1),
+                password, salt, info ?? [], outputLength, HashAlgorithmName.SHA1),
 
             _ => throw new NotSupportedException($"Algorithm {algorithm} is not supported")
         };

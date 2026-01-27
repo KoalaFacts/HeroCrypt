@@ -132,8 +132,14 @@ public sealed class VerificationBuilder : IDisposable
 #endif
 
     /// <summary>
-    /// Sets the public key for verification.
+    /// Sets the public key for asymmetric signature verification (RSA, ECDSA, Ed25519, ML-DSA).
     /// </summary>
+    /// <param name="publicKey">The public key bytes.</param>
+    /// <returns>This builder instance for method chaining.</returns>
+    /// <remarks>
+    /// For symmetric MAC verification (HMAC, AES-CMAC, Poly1305), use <see cref="WithKey(byte[])"/> instead,
+    /// which is semantically more appropriate as these use shared secret keys rather than public keys.
+    /// </remarks>
     public VerificationBuilder WithPublicKey(byte[] publicKey)
     {
         ThrowIfDisposed();
@@ -141,6 +147,30 @@ public sealed class VerificationBuilder : IDisposable
         this.publicKey = [.. publicKey];
         return this;
     }
+
+    /// <summary>
+    /// Sets the shared secret key for symmetric MAC verification (HMAC, AES-CMAC, Poly1305).
+    /// </summary>
+    /// <param name="key">The shared secret key bytes.</param>
+    /// <returns>This builder instance for method chaining.</returns>
+    /// <remarks>
+    /// <para>
+    /// This method is an alias for <see cref="WithPublicKey(byte[])"/> but with semantics more appropriate
+    /// for symmetric MACs where the key is a shared secret rather than a public key.
+    /// </para>
+    /// <para>
+    /// Use this method when working with:
+    /// </para>
+    /// <list type="bullet">
+    /// <item><description>HMAC-SHA256/384/512</description></item>
+    /// <item><description>AES-CMAC-128/192/256</description></item>
+    /// <item><description>Poly1305</description></item>
+    /// </list>
+    /// <para>
+    /// For asymmetric verification (RSA, ECDSA, Ed25519, ML-DSA), use <see cref="WithPublicKey(byte[])"/>.
+    /// </para>
+    /// </remarks>
+    public VerificationBuilder WithKey(byte[] key) => WithPublicKey(key);
 
     /// <summary>
     /// Sets the signature to verify.

@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using HeroCrypt.Operations.Internal;
 using HeroCrypt.Primitives.AesCcm;
 using HeroCrypt.Primitives.AesGcm;
 using HeroCrypt.Primitives.AesOcb;
@@ -331,20 +332,20 @@ public sealed class DecryptionBuilder : IDisposable
 
     private static byte[] DecryptX25519ChaCha20Poly1305(byte[] ciphertext, byte[] privateKey, byte[] nonce, byte[] aad, byte[]? ephemeralPublicKey)
     {
-        return DecryptX25519Hybrid(ciphertext, privateKey, nonce, aad, ephemeralPublicKey, X25519AeadCipher.ChaCha20Poly1305);
+        return DecryptX25519Hybrid(ciphertext, privateKey, nonce, aad, ephemeralPublicKey, HybridCipherType.ChaCha20Poly1305);
     }
 
     private static byte[] DecryptX25519XChaCha20Poly1305(byte[] ciphertext, byte[] privateKey, byte[] nonce, byte[] aad, byte[]? ephemeralPublicKey)
     {
-        return DecryptX25519Hybrid(ciphertext, privateKey, nonce, aad, ephemeralPublicKey, X25519AeadCipher.XChaCha20Poly1305);
+        return DecryptX25519Hybrid(ciphertext, privateKey, nonce, aad, ephemeralPublicKey, HybridCipherType.XChaCha20Poly1305);
     }
 
     private static byte[] DecryptX25519AesGcm(byte[] ciphertext, byte[] privateKey, byte[] nonce, byte[] aad, byte[]? ephemeralPublicKey)
     {
-        return DecryptX25519Hybrid(ciphertext, privateKey, nonce, aad, ephemeralPublicKey, X25519AeadCipher.AesGcm);
+        return DecryptX25519Hybrid(ciphertext, privateKey, nonce, aad, ephemeralPublicKey, HybridCipherType.AesGcm);
     }
 
-    private static byte[] DecryptX25519Hybrid(byte[] ciphertext, byte[] privateKey, byte[] nonce, byte[] aad, byte[]? ephemeralPublicKey, X25519AeadCipher cipher)
+    private static byte[] DecryptX25519Hybrid(byte[] ciphertext, byte[] privateKey, byte[] nonce, byte[] aad, byte[]? ephemeralPublicKey, HybridCipherType cipher)
     {
         _ = ciphertext;
         _ = privateKey;
@@ -365,20 +366,20 @@ public sealed class DecryptionBuilder : IDisposable
 
     private static byte[] DecryptX25519ChaCha20Poly1305(byte[] ciphertext, byte[] privateKey, byte[] nonce, byte[] aad, byte[]? ephemeralPublicKey)
     {
-        return DecryptX25519Hybrid(ciphertext, privateKey, nonce, aad, ephemeralPublicKey, X25519AeadCipher.ChaCha20Poly1305);
+        return DecryptX25519Hybrid(ciphertext, privateKey, nonce, aad, ephemeralPublicKey, HybridCipherType.ChaCha20Poly1305);
     }
 
     private static byte[] DecryptX25519XChaCha20Poly1305(byte[] ciphertext, byte[] privateKey, byte[] nonce, byte[] aad, byte[]? ephemeralPublicKey)
     {
-        return DecryptX25519Hybrid(ciphertext, privateKey, nonce, aad, ephemeralPublicKey, X25519AeadCipher.XChaCha20Poly1305);
+        return DecryptX25519Hybrid(ciphertext, privateKey, nonce, aad, ephemeralPublicKey, HybridCipherType.XChaCha20Poly1305);
     }
 
     private static byte[] DecryptX25519AesGcm(byte[] ciphertext, byte[] privateKey, byte[] nonce, byte[] aad, byte[]? ephemeralPublicKey)
     {
-        return DecryptX25519Hybrid(ciphertext, privateKey, nonce, aad, ephemeralPublicKey, X25519AeadCipher.AesGcm);
+        return DecryptX25519Hybrid(ciphertext, privateKey, nonce, aad, ephemeralPublicKey, HybridCipherType.AesGcm);
     }
 
-    private static byte[] DecryptX25519Hybrid(byte[] ciphertext, byte[] privateKey, byte[] nonce, byte[] aad, byte[]? ephemeralPublicKey, X25519AeadCipher cipher)
+    private static byte[] DecryptX25519Hybrid(byte[] ciphertext, byte[] privateKey, byte[] nonce, byte[] aad, byte[]? ephemeralPublicKey, HybridCipherType cipher)
     {
         if (ephemeralPublicKey == null)
             throw new InvalidOperationException("Hybrid decryption requires the encapsulated key. Use WithEncapsulatedKey(result.EncapsulatedKey) or FromEncryptionResult(result) which sets this automatically.");
@@ -401,9 +402,9 @@ public sealed class DecryptionBuilder : IDisposable
                 // Decrypt with the selected AEAD cipher
                 return cipher switch
                 {
-                    X25519AeadCipher.ChaCha20Poly1305 => ChaCha20Poly1305Core.Decrypt(ciphertext, symmetricKey, nonce, aad),
-                    X25519AeadCipher.XChaCha20Poly1305 => XChaCha20Poly1305Core.Decrypt(ciphertext, symmetricKey, nonce, aad),
-                    X25519AeadCipher.AesGcm => AesGcmCore.Decrypt(ciphertext, symmetricKey, nonce, aad),
+                    HybridCipherType.ChaCha20Poly1305 => ChaCha20Poly1305Core.Decrypt(ciphertext, symmetricKey, nonce, aad),
+                    HybridCipherType.XChaCha20Poly1305 => XChaCha20Poly1305Core.Decrypt(ciphertext, symmetricKey, nonce, aad),
+                    HybridCipherType.AesGcm => AesGcmCore.Decrypt(ciphertext, symmetricKey, nonce, aad),
                     _ => throw new NotSupportedException($"Cipher {cipher} is not supported")
                 };
             }
@@ -418,13 +419,6 @@ public sealed class DecryptionBuilder : IDisposable
         }
     }
 #endif
-
-    private enum X25519AeadCipher
-    {
-        ChaCha20Poly1305,
-        XChaCha20Poly1305,
-        AesGcm
-    }
 
 #if NET10_OR_GREATER
 #pragma warning disable SYSLIB5006

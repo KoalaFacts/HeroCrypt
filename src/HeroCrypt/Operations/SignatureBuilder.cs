@@ -130,8 +130,14 @@ public sealed class SignatureBuilder : IDisposable
 #endif
 
     /// <summary>
-    /// Sets the private key for signing.
+    /// Sets the private key for asymmetric signing algorithms (RSA, ECDSA, Ed25519, ML-DSA).
     /// </summary>
+    /// <param name="privateKey">The private key bytes.</param>
+    /// <returns>This builder instance for method chaining.</returns>
+    /// <remarks>
+    /// For symmetric MAC algorithms (HMAC, AES-CMAC, Poly1305), use <see cref="WithKey(byte[])"/> instead,
+    /// which is semantically more appropriate as these use shared secret keys rather than asymmetric private keys.
+    /// </remarks>
     public SignatureBuilder WithPrivateKey(byte[] privateKey)
     {
         ThrowIfDisposed();
@@ -139,6 +145,30 @@ public sealed class SignatureBuilder : IDisposable
         this.privateKey = [.. privateKey];
         return this;
     }
+
+    /// <summary>
+    /// Sets the shared secret key for symmetric MAC algorithms (HMAC, AES-CMAC, Poly1305).
+    /// </summary>
+    /// <param name="key">The shared secret key bytes.</param>
+    /// <returns>This builder instance for method chaining.</returns>
+    /// <remarks>
+    /// <para>
+    /// This method is an alias for <see cref="WithPrivateKey(byte[])"/> but with semantics more appropriate
+    /// for symmetric MACs where the key is a shared secret rather than a private key.
+    /// </para>
+    /// <para>
+    /// Use this method when working with:
+    /// </para>
+    /// <list type="bullet">
+    /// <item><description>HMAC-SHA256/384/512</description></item>
+    /// <item><description>AES-CMAC-128/192/256</description></item>
+    /// <item><description>Poly1305</description></item>
+    /// </list>
+    /// <para>
+    /// For asymmetric signing (RSA, ECDSA, Ed25519, ML-DSA), use <see cref="WithPrivateKey(byte[])"/>.
+    /// </para>
+    /// </remarks>
+    public SignatureBuilder WithKey(byte[] key) => WithPrivateKey(key);
 
     /// <summary>
     /// Signs the data and returns the signature.

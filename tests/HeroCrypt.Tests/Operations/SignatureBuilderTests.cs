@@ -526,4 +526,138 @@ public class SignatureBuilderTests
                 HeroCryptBuilder.Verify().WithHmacSha256().WithSignature(signature).Verify(TestMessage));
         }
     }
+
+    /// <summary>
+    /// Tests for the WithKey alias method for symmetric MAC algorithms.
+    /// </summary>
+    [Trait("Category", TestCategories.UNIT)]
+    [Trait("Category", TestCategories.FAST)]
+    public class SymmetricKeyAliasTests
+    {
+        [Theory]
+        [InlineData(SignatureAlgorithm.HmacSha256)]
+        [InlineData(SignatureAlgorithm.HmacSha384)]
+        [InlineData(SignatureAlgorithm.HmacSha512)]
+        public void SignAndVerify_UsingWithKey_Succeeds(SignatureAlgorithm algorithm)
+        {
+            // Arrange
+            var key = TestHelpers.RandomBytes(64);
+
+            // Act - Sign using WithKey (alias for WithPrivateKey)
+            var signature = HeroCryptBuilder.Sign()
+                .WithAlgorithm(algorithm)
+                .WithKey(key)
+                .Sign(TestMessage);
+
+            // Act - Verify using WithKey (alias for WithPublicKey)
+            var isValid = HeroCryptBuilder.Verify()
+                .WithAlgorithm(algorithm)
+                .WithKey(key)
+                .WithSignature(signature)
+                .Verify(TestMessage);
+
+            // Assert
+            Assert.NotNull(signature);
+            Assert.True(isValid);
+        }
+
+        [Fact]
+        public void WithKey_IsSemanticallyEquivalentToWithPrivateKey()
+        {
+            // Arrange
+            var key = TestHelpers.RandomBytes(64);
+
+            // Act - Sign using WithKey
+            var signatureFromWithKey = HeroCryptBuilder.Sign()
+                .WithHmacSha256()
+                .WithKey(key)
+                .Sign(TestMessage);
+
+            // Act - Sign using WithPrivateKey
+            var signatureFromWithPrivateKey = HeroCryptBuilder.Sign()
+                .WithHmacSha256()
+                .WithPrivateKey(key)
+                .Sign(TestMessage);
+
+            // Assert - Both should produce identical signatures
+            Assert.Equal(signatureFromWithKey, signatureFromWithPrivateKey);
+        }
+
+        [Fact]
+        public void WithKey_OnVerificationBuilder_IsSemanticallyEquivalentToWithPublicKey()
+        {
+            // Arrange
+            var key = TestHelpers.RandomBytes(64);
+            var signature = HeroCryptBuilder.Sign()
+                .WithHmacSha256()
+                .WithKey(key)
+                .Sign(TestMessage);
+
+            // Act - Verify using WithKey
+            var isValidWithKey = HeroCryptBuilder.Verify()
+                .WithHmacSha256()
+                .WithKey(key)
+                .WithSignature(signature)
+                .Verify(TestMessage);
+
+            // Act - Verify using WithPublicKey
+            var isValidWithPublicKey = HeroCryptBuilder.Verify()
+                .WithHmacSha256()
+                .WithPublicKey(key)
+                .WithSignature(signature)
+                .Verify(TestMessage);
+
+            // Assert - Both should verify successfully
+            Assert.True(isValidWithKey);
+            Assert.True(isValidWithPublicKey);
+        }
+
+        [Fact]
+        public void AesCmac_WithKey_Succeeds()
+        {
+            // Arrange
+            var key = TestHelpers.RandomBytes(16); // 128-bit key for AES-CMAC-128
+
+            // Act - Sign using WithKey
+            var signature = HeroCryptBuilder.Sign()
+                .WithAesCmac128()
+                .WithKey(key)
+                .Sign(TestMessage);
+
+            // Act - Verify using WithKey
+            var isValid = HeroCryptBuilder.Verify()
+                .WithAesCmac128()
+                .WithKey(key)
+                .WithSignature(signature)
+                .Verify(TestMessage);
+
+            // Assert
+            Assert.NotNull(signature);
+            Assert.True(isValid);
+        }
+
+        [Fact]
+        public void Poly1305_WithKey_Succeeds()
+        {
+            // Arrange
+            var key = TestHelpers.RandomBytes(32); // 256-bit key for Poly1305
+
+            // Act - Sign using WithKey
+            var signature = HeroCryptBuilder.Sign()
+                .WithPoly1305()
+                .WithKey(key)
+                .Sign(TestMessage);
+
+            // Act - Verify using WithKey
+            var isValid = HeroCryptBuilder.Verify()
+                .WithPoly1305()
+                .WithKey(key)
+                .WithSignature(signature)
+                .Verify(TestMessage);
+
+            // Assert
+            Assert.NotNull(signature);
+            Assert.True(isValid);
+        }
+    }
 }

@@ -563,4 +563,158 @@ public class DecryptionBuilderTests
             Assert.Equal(plaintext, decrypted);
         }
     }
+
+    /// <summary>
+    /// Tests for FromEncryptionResult() convenience method.
+    /// </summary>
+    [Trait("Category", TestCategories.UNIT)]
+    [Trait("Category", TestCategories.FAST)]
+    public class FromEncryptionResultTests
+    {
+        [Theory]
+        [MemberData(nameof(AeadCases), MemberType = typeof(DecryptionBuilderTests))]
+        public void FromEncryptionResult_SetsNonce_SuccessfullyDecrypts(EncryptionAlgorithm algorithm, int keySize)
+        {
+            if (algorithm == EncryptionAlgorithm.AesCcm && OperatingSystem.IsMacOS())
+            {
+                Assert.Skip("AES-CCM not supported on macOS");
+                return;
+            }
+
+            var plaintext = "Test FromEncryptionResult"u8.ToArray();
+            var key = TestHelpers.RandomBytes(keySize);
+
+            var result = HeroCryptBuilder.Encrypt()
+                .WithAlgorithm(algorithm)
+                .WithKey(key)
+                .Encrypt(plaintext);
+
+            var decrypted = HeroCryptBuilder.Decrypt()
+                .FromEncryptionResult(result)
+                .WithAlgorithm(algorithm)
+                .WithKey(key)
+                .Decrypt(result.Ciphertext);
+
+            Assert.Equal(plaintext, decrypted);
+        }
+
+        [Fact]
+        public void FromEncryptionResult_WithX25519Hybrid_SetsEncapsulatedKey()
+        {
+            var plaintext = "Test X25519 with FromEncryptionResult"u8.ToArray();
+            var privateKey = Curve25519Core.GeneratePrivateKey();
+            var publicKey = Curve25519Core.DerivePublicKey(privateKey);
+
+            var result = HeroCryptBuilder.Encrypt()
+                .WithAlgorithm(EncryptionAlgorithm.X25519ChaCha20Poly1305)
+                .WithKey(publicKey)
+                .Encrypt(plaintext);
+
+            // FromEncryptionResult should set both nonce and encapsulated key
+            var decrypted = HeroCryptBuilder.Decrypt()
+                .FromEncryptionResult(result)
+                .WithAlgorithm(EncryptionAlgorithm.X25519ChaCha20Poly1305)
+                .WithKey(privateKey)
+                .Decrypt(result.Ciphertext);
+
+            Assert.Equal(plaintext, decrypted);
+        }
+
+        [Fact]
+        public void FromEncryptionResult_CanBeChainedWithOtherMethods()
+        {
+            var plaintext = "Test chaining"u8.ToArray();
+            var key = TestHelpers.RandomBytes(32);
+            var aad = "additional data"u8.ToArray();
+
+            var result = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .WithAssociatedData(aad)
+                .Encrypt(plaintext);
+
+            // Chain FromEncryptionResult with WithAssociatedData
+            var decrypted = HeroCryptBuilder.Decrypt()
+                .WithAesGcm()
+                .FromEncryptionResult(result)
+                .WithKey(key)
+                .WithAssociatedData(aad)
+                .Decrypt(result.Ciphertext);
+
+            Assert.Equal(plaintext, decrypted);
+        }
+    }
+
+    /// <summary>
+    /// Tests for IDisposable implementation and secure memory clearing.
+    /// </summary>
+    [Trait("Category", TestCategories.UNIT)]
+    [Trait("Category", TestCategories.FAST)]
+    public class DisposalBehaviorTests
+    {
+        [Fact]
+        public void Decrypt_AfterDispose_ThrowsObjectDisposedException()
+        {
+            // Arrange
+            var builder = HeroCryptBuilder.Decrypt()
+                .WithAesGcm()
+                .WithKey(TestHelpers.RandomBytes(32))
+                .WithNonce(TestHelpers.RandomBytes(12));
+            builder.Dispose();
+
+            // Act & Assert
+            Assert.Throws<ObjectDisposedException>(() => builder.Decrypt(TestHelpers.RandomBytes(32)));
+        }
+
+        [Fact]
+        public void WithKey_AfterDispose_ThrowsObjectDisposedException()
+        {
+            // Arrange
+            var builder = HeroCryptBuilder.Decrypt();
+            builder.Dispose();
+
+            // Act & Assert
+            Assert.Throws<ObjectDisposedException>(() => builder.WithKey(TestHelpers.RandomBytes(32)));
+        }
+
+        [Fact]
+        public void WithNonce_AfterDispose_ThrowsObjectDisposedException()
+        {
+            // Arrange
+            var builder = HeroCryptBuilder.Decrypt();
+            builder.Dispose();
+
+            // Act & Assert
+            Assert.Throws<ObjectDisposedException>(() => builder.WithNonce(TestHelpers.RandomBytes(12)));
+        }
+
+        [Fact]
+        public void FromEncryptionResult_AfterDispose_ThrowsObjectDisposedException()
+        {
+            // Arrange
+            var builder = HeroCryptBuilder.Decrypt();
+            builder.Dispose();
+
+            var result = new EncryptionResult
+            {
+                Ciphertext = TestHelpers.RandomBytes(32),
+                Nonce = TestHelpers.RandomBytes(12),
+                EncapsulatedKey = null
+            };
+
+            // Act & Assert
+            Assert.Throws<ObjectDisposedException>(() => builder.FromEncryptionResult(result));
+        }
+
+        [Fact]
+        public void Dispose_MultipleTimes_DoesNotThrow()
+        {
+            // Arrange
+            var builder = HeroCryptBuilder.Decrypt();
+
+            // Act & Assert - Should not throw
+            builder.Dispose();
+            builder.Dispose();
+        }
+    }
 }

@@ -314,7 +314,7 @@ public class VerificationBuilderTests
                     .WithHmacSha256()
                     .WithPublicKey(key)
                     .WithSignature(signature)
-                    .Verify(null!));
+                    .Verify((byte[])null!));
         }
     }
 

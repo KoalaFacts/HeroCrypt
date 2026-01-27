@@ -381,7 +381,7 @@ public sealed class DecryptionBuilder : IDisposable
     private static byte[] DecryptX25519Hybrid(byte[] ciphertext, byte[] privateKey, byte[] nonce, byte[] aad, byte[]? ephemeralPublicKey, X25519AeadCipher cipher)
     {
         if (ephemeralPublicKey == null)
-            throw new InvalidOperationException("Encapsulated key (ephemeral public key) must be set using WithEncapsulatedKey() for X25519 hybrid decryption");
+            throw new InvalidOperationException("Hybrid decryption requires the encapsulated key. Use WithEncapsulatedKey(result.EncapsulatedKey) or FromEncryptionResult(result) which sets this automatically.");
 
         // Compute shared secret via X25519 key agreement
         var sharedSecret = Curve25519Core.ComputeSharedSecret(privateKey, ephemeralPublicKey);
@@ -431,7 +431,7 @@ public sealed class DecryptionBuilder : IDisposable
     private static byte[] DecryptMLKemAesGcm(byte[] ciphertext, byte[] secretKeyPemBytes, byte[] nonce, byte[] aad, byte[]? encapsulatedKey)
     {
         if (encapsulatedKey == null)
-            throw new InvalidOperationException("Encapsulated key must be set using WithEncapsulatedKey() for ML-KEM hybrid decryption");
+            throw new InvalidOperationException("Hybrid decryption requires the encapsulated key. Use WithEncapsulatedKey(result.EncapsulatedKey) or FromEncryptionResult(result) which sets this automatically.");
 
         var secretKeyPem = System.Text.Encoding.UTF8.GetString(secretKeyPemBytes);
 
@@ -451,7 +451,7 @@ public sealed class DecryptionBuilder : IDisposable
     private static byte[] DecryptMLKemChaCha20Poly1305(byte[] ciphertext, byte[] secretKeyPemBytes, byte[] nonce, byte[] aad, byte[]? encapsulatedKey)
     {
         if (encapsulatedKey == null)
-            throw new InvalidOperationException("Encapsulated key must be set using WithEncapsulatedKey() for ML-KEM hybrid decryption");
+            throw new InvalidOperationException("Hybrid decryption requires the encapsulated key. Use WithEncapsulatedKey(result.EncapsulatedKey) or FromEncryptionResult(result) which sets this automatically.");
 
         var secretKeyPem = System.Text.Encoding.UTF8.GetString(secretKeyPemBytes);
 

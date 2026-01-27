@@ -387,4 +387,186 @@ public class KeyDerivationBuilderTests
                     .DeriveKey());
         }
     }
+
+    /// <summary>
+    /// Tests for IDisposable implementation and secure memory clearing.
+    /// </summary>
+    [Trait("Category", TestCategories.UNIT)]
+    [Trait("Category", TestCategories.FAST)]
+    public class DisposalBehavior
+    {
+        [Fact]
+        public void DeriveKey_AfterDispose_ThrowsObjectDisposedException()
+        {
+            // Arrange
+            var builder = HeroCryptBuilder.DeriveKey()
+                .WithHkdfSha256()
+                .WithPassword(TestPassword)
+                .WithSalt(TestHelpers.RandomBytes(16));
+            builder.Dispose();
+
+            // Act & Assert
+            Assert.Throws<ObjectDisposedException>(() => builder.DeriveKey());
+        }
+
+        [Fact]
+        public void WithPassword_AfterDispose_ThrowsObjectDisposedException()
+        {
+            // Arrange
+            var builder = HeroCryptBuilder.DeriveKey();
+            builder.Dispose();
+
+            // Act & Assert
+            Assert.Throws<ObjectDisposedException>(() => builder.WithPassword(TestPassword));
+        }
+
+        [Fact]
+        public void WithSalt_AfterDispose_ThrowsObjectDisposedException()
+        {
+            // Arrange
+            var builder = HeroCryptBuilder.DeriveKey();
+            builder.Dispose();
+
+            // Act & Assert
+            Assert.Throws<ObjectDisposedException>(() => builder.WithSalt(TestHelpers.RandomBytes(16)));
+        }
+
+        [Fact]
+        public void Dispose_MultipleTimes_DoesNotThrow()
+        {
+            // Arrange
+            var builder = HeroCryptBuilder.DeriveKey();
+
+            // Act & Assert - Should not throw
+            builder.Dispose();
+            builder.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// Tests for WithRandomSalt() and GetSalt() convenience methods.
+    /// </summary>
+    [Trait("Category", TestCategories.UNIT)]
+    [Trait("Category", TestCategories.FAST)]
+    public class RandomSaltGeneration
+    {
+        [Fact]
+        public void WithRandomSalt_GeneratesValidSalt()
+        {
+            // Act
+            using var builder = HeroCryptBuilder.DeriveKey()
+                .WithHkdfSha256()
+                .WithPassword(TestPassword)
+                .WithRandomSalt();
+            var key = builder.DeriveKey();
+
+            // Assert
+            Assert.NotNull(key);
+            Assert.Equal(32, key.Length);
+        }
+
+        [Fact]
+        public void WithRandomSalt_DefaultLength_Is16Bytes()
+        {
+            // Act
+            using var builder = HeroCryptBuilder.DeriveKey()
+                .WithRandomSalt();
+            var salt = builder.GetSalt();
+
+            // Assert
+            Assert.Equal(16, salt.Length);
+        }
+
+        [Theory]
+        [InlineData(8)]
+        [InlineData(16)]
+        [InlineData(32)]
+        [InlineData(64)]
+        public void WithRandomSalt_CustomLength_ProducesCorrectSize(int length)
+        {
+            // Act
+            using var builder = HeroCryptBuilder.DeriveKey()
+                .WithRandomSalt(length);
+            var salt = builder.GetSalt();
+
+            // Assert
+            Assert.Equal(length, salt.Length);
+        }
+
+        [Fact]
+        public void WithRandomSalt_ZeroLength_ThrowsArgumentOutOfRangeException()
+        {
+            // Act & Assert
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                HeroCryptBuilder.DeriveKey().WithRandomSalt(0));
+        }
+
+        [Fact]
+        public void WithRandomSalt_NegativeLength_ThrowsArgumentOutOfRangeException()
+        {
+            // Act & Assert
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                HeroCryptBuilder.DeriveKey().WithRandomSalt(-1));
+        }
+
+        [Fact]
+        public void GetSalt_WithoutSettingSalt_ThrowsInvalidOperationException()
+        {
+            // Arrange
+            using var builder = HeroCryptBuilder.DeriveKey();
+
+            // Act & Assert
+            Assert.Throws<InvalidOperationException>(() => builder.GetSalt());
+        }
+
+        [Fact]
+        public void GetSalt_ReturnsCopyOfSalt()
+        {
+            // Arrange
+            using var builder = HeroCryptBuilder.DeriveKey()
+                .WithRandomSalt();
+
+            // Act
+            var salt1 = builder.GetSalt();
+            var salt2 = builder.GetSalt();
+
+            // Assert - Should return copies, not the same reference
+            Assert.Equal(salt1, salt2);
+            Assert.NotSame(salt1, salt2);
+        }
+
+        [Fact]
+        public void WithRandomSalt_MultipleCalls_ProducesDifferentSalts()
+        {
+            // Act
+            using var builder1 = HeroCryptBuilder.DeriveKey().WithRandomSalt();
+            using var builder2 = HeroCryptBuilder.DeriveKey().WithRandomSalt();
+
+            var salt1 = builder1.GetSalt();
+            var salt2 = builder2.GetSalt();
+
+            // Assert - Random salts should be different
+            Assert.NotEqual(salt1, salt2);
+        }
+
+        [Fact]
+        public void WithRandomSalt_CanBeUsedWithDeriveKey()
+        {
+            // Arrange
+            using var builder = HeroCryptBuilder.DeriveKey()
+                .WithHkdfSha256()
+                .WithPassword(TestPassword)
+                .WithRandomSalt();
+
+            // Act
+            var salt = builder.GetSalt();
+            var key = builder.DeriveKey();
+
+            // Assert
+            Assert.NotNull(salt);
+            Assert.NotNull(key);
+            Assert.False(TestHelpers.AllZeros(salt));
+            Assert.False(TestHelpers.AllZeros(key));
+        }
+    }
 }

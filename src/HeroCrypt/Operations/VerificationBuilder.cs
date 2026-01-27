@@ -17,6 +17,26 @@ namespace HeroCrypt.Operations;
 /// <para>
 /// This class is thread-safe. All public methods can be safely called from multiple threads concurrently.
 /// </para>
+/// <example>
+/// <para><b>Verifying an Ed25519 signature:</b></para>
+/// <code>
+/// var verifier = HeroCryptBuilder.Verify()
+///     .WithEd25519()
+///     .WithPublicKey(publicKey)
+///     .WithSignature(signature);
+/// bool isValid = verifier.Verify(message);
+/// </code>
+/// </example>
+/// <example>
+/// <para><b>Verifying HMAC from hex-encoded strings:</b></para>
+/// <code>
+/// using var verifier = HeroCryptBuilder.Verify()
+///     .WithHmacSha256()
+///     .WithKeyFromHex(storedKeyHex)
+///     .WithSignatureFromHex(receivedMacHex);
+/// bool isValid = verifier.Verify(data);
+/// </code>
+/// </example>
 /// </remarks>
 public sealed class VerificationBuilder : IDisposable
 {

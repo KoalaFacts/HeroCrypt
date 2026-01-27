@@ -17,6 +17,29 @@ namespace HeroCrypt.Operations;
 /// <para>
 /// This class is thread-safe. All public methods can be safely called from multiple threads concurrently.
 /// </para>
+/// <example>
+/// <para><b>Basic hashing with SHA-256:</b></para>
+/// <code>
+/// var hasher = HeroCryptBuilder.Hash().WithSha256();
+/// string hashHex = hasher.ComputeHashToHex("Hello, World!");
+/// </code>
+/// </example>
+/// <example>
+/// <para><b>Keyed hashing with HMAC-SHA256:</b></para>
+/// <code>
+/// using var hasher = HeroCryptBuilder.Hash()
+///     .WithSha256()
+///     .WithKey(secretKey);
+/// byte[] mac = hasher.ComputeHash(data);
+/// </code>
+/// </example>
+/// <example>
+/// <para><b>Using Blake2b for fast, secure hashing:</b></para>
+/// <code>
+/// var hasher = HeroCryptBuilder.Hash().WithBlake2b256();
+/// string hashBase64 = hasher.ComputeHashToBase64(document);
+/// </code>
+/// </example>
 /// </remarks>
 public sealed class HashBuilder : IDisposable
 {

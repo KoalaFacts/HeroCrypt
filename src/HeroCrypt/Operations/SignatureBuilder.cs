@@ -24,6 +24,33 @@ namespace HeroCrypt.Operations;
 /// <para>
 /// This class is thread-safe. All public methods can be safely called from multiple threads concurrently.
 /// </para>
+/// <example>
+/// <para><b>Signing with Ed25519 (recommended):</b></para>
+/// <code>
+/// using var signer = HeroCryptBuilder.Sign()
+///     .WithEd25519()
+///     .WithPrivateKey(privateKey);
+/// byte[] signature = signer.Sign(message);
+/// </code>
+/// </example>
+/// <example>
+/// <para><b>Creating HMAC-SHA256 message authentication code:</b></para>
+/// <code>
+/// using var signer = HeroCryptBuilder.Sign()
+///     .WithHmacSha256()
+///     .WithKey(sharedSecret);
+/// string macHex = signer.SignToHex(data);
+/// </code>
+/// </example>
+/// <example>
+/// <para><b>Signing for blockchain (secp256k1):</b></para>
+/// <code>
+/// using var signer = HeroCryptBuilder.Sign()
+///     .WithSecp256k1()
+///     .WithPrivateKey(walletPrivateKey);
+/// byte[] signature = signer.Sign(transactionHash);
+/// </code>
+/// </example>
 /// </remarks>
 public sealed class SignatureBuilder : IDisposable
 {

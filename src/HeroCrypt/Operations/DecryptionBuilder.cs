@@ -27,6 +27,26 @@ namespace HeroCrypt.Operations;
 /// <para>
 /// This class is thread-safe. All public methods can be safely called from multiple threads concurrently.
 /// </para>
+/// <example>
+/// <para><b>Basic decryption with AES-GCM:</b></para>
+/// <code>
+/// using var builder = HeroCryptBuilder.Decrypt()
+///     .WithAesGcm()
+///     .WithKey(key)
+///     .WithNonce(encryptionResult.Nonce);
+/// byte[] plaintext = builder.Decrypt(encryptionResult.Ciphertext);
+/// </code>
+/// </example>
+/// <example>
+/// <para><b>Using FromEncryptionResult for simplified workflow:</b></para>
+/// <code>
+/// using var builder = HeroCryptBuilder.Decrypt()
+///     .FromEncryptionResult(result)
+///     .WithAesGcm()
+///     .WithKey(key);
+/// string message = builder.DecryptToString(result.Ciphertext);
+/// </code>
+/// </example>
 /// </remarks>
 public sealed class DecryptionBuilder : IDisposable
 {

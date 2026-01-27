@@ -21,6 +21,40 @@ namespace HeroCrypt.Operations;
 /// <para>
 /// This class is thread-safe. All public methods can be safely called from multiple threads concurrently.
 /// </para>
+/// <example>
+/// <para><b>Password hashing with Argon2id (recommended):</b></para>
+/// <code>
+/// using var kdf = HeroCryptBuilder.DeriveKey()
+///     .WithArgon2id()
+///     .WithPassword(password)
+///     .WithRandomSalt();
+/// byte[] derivedKey = kdf.DeriveKey();
+/// string saltHex = kdf.GetSaltAsHex(); // Store alongside the key
+/// </code>
+/// </example>
+/// <example>
+/// <para><b>Verifying a password against stored values:</b></para>
+/// <code>
+/// using var kdf = HeroCryptBuilder.DeriveKey()
+///     .WithArgon2id()
+///     .WithPassword(enteredPassword)
+///     .WithSaltFromHex(storedSaltHex);
+/// byte[] derivedKey = kdf.DeriveKey();
+/// bool isMatch = CryptographicOperations.FixedTimeEquals(derivedKey, storedKeyHash);
+/// </code>
+/// </example>
+/// <example>
+/// <para><b>Key expansion with HKDF:</b></para>
+/// <code>
+/// using var kdf = HeroCryptBuilder.DeriveKey()
+///     .WithHkdfSha256()
+///     .WithPassword(masterKey)
+///     .WithSalt(context)
+///     .WithInfo("encryption-key")
+///     .WithOutputLength(32);
+/// byte[] encryptionKey = kdf.DeriveKey();
+/// </code>
+/// </example>
 /// </remarks>
 public sealed class KeyDerivationBuilder : IDisposable
 {

@@ -452,4 +452,419 @@ public class EncryptionBuilderTests
             Assert.Equal(string.Empty, decrypted);
         }
     }
+
+    /// <summary>
+    /// Tests for associated data string convenience methods.
+    /// </summary>
+    [Trait("Category", TestCategories.UNIT)]
+    [Trait("Category", TestCategories.FAST)]
+    public class AssociatedDataStringMethods
+    {
+        [Fact]
+        public void WithAssociatedDataString_EncryptDecrypt_RoundTrip_Succeeds()
+        {
+            // Arrange
+            var plaintext = "Secret message";
+            var key = TestHelpers.RandomBytes(32);
+            var associatedData = "user-id:12345";
+
+            // Act - Encrypt with string AAD
+            var result = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .WithAssociatedData(associatedData)
+                .Encrypt(plaintext);
+
+            // Act - Decrypt with matching string AAD
+            var decrypted = HeroCryptBuilder.Decrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .WithNonce(result.Nonce)
+                .WithAssociatedData(associatedData)
+                .DecryptToString(result.Ciphertext);
+
+            // Assert
+            Assert.Equal(plaintext, decrypted);
+        }
+
+        [Fact]
+        public void WithAssociatedDataString_MatchesByteOverload()
+        {
+            // Arrange
+            var plaintext = "Test message"u8.ToArray();
+            var key = TestHelpers.RandomBytes(32);
+            var aadString = "context-info";
+            var aadBytes = System.Text.Encoding.UTF8.GetBytes(aadString);
+            var nonce = TestHelpers.RandomBytes(12);
+
+            // Act - Encrypt with string AAD
+            var resultFromString = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .WithNonce(nonce)
+                .WithDeterministicMode()
+                .WithAssociatedData(aadString)
+                .Encrypt(plaintext);
+
+            // Act - Encrypt with bytes AAD
+            var resultFromBytes = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .WithNonce(nonce)
+                .WithDeterministicMode()
+                .WithAssociatedData(aadBytes)
+                .Encrypt(plaintext);
+
+            // Assert - Both should produce identical ciphertext
+            Assert.Equal(resultFromBytes.Ciphertext, resultFromString.Ciphertext);
+        }
+
+        [Fact]
+        public void WithAssociatedDataString_DifferentAad_FailsDecryption()
+        {
+            // Arrange
+            var plaintext = "Secret message";
+            var key = TestHelpers.RandomBytes(32);
+
+            var result = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .WithAssociatedData("correct-aad")
+                .Encrypt(plaintext);
+
+            // Act & Assert - Different AAD should fail
+            Assert.ThrowsAny<System.Security.Cryptography.CryptographicException>(() =>
+                HeroCryptBuilder.Decrypt()
+                    .WithAesGcm()
+                    .WithKey(key)
+                    .WithNonce(result.Nonce)
+                    .WithAssociatedData("wrong-aad")
+                    .Decrypt(result.Ciphertext));
+        }
+
+        [Fact]
+        public void WithAssociatedDataString_EmptyString_Succeeds()
+        {
+            // Arrange
+            var plaintext = "Secret message";
+            var key = TestHelpers.RandomBytes(32);
+
+            // Act
+            var result = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .WithAssociatedData(string.Empty)
+                .Encrypt(plaintext);
+
+            var decrypted = HeroCryptBuilder.Decrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .WithNonce(result.Nonce)
+                .WithAssociatedData(string.Empty)
+                .DecryptToString(result.Ciphertext);
+
+            // Assert
+            Assert.Equal(plaintext, decrypted);
+        }
+
+        [Fact]
+        public void WithAssociatedDataString_UnicodeCharacters_Succeeds()
+        {
+            // Arrange
+            var plaintext = "Secret message";
+            var key = TestHelpers.RandomBytes(32);
+            var aad = "Unicode AAD: \u4e2d\u6587 \u00e9\u00e8\u00ea";
+
+            // Act
+            var result = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .WithAssociatedData(aad)
+                .Encrypt(plaintext);
+
+            var decrypted = HeroCryptBuilder.Decrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .WithNonce(result.Nonce)
+                .WithAssociatedData(aad)
+                .DecryptToString(result.Ciphertext);
+
+            // Assert
+            Assert.Equal(plaintext, decrypted);
+        }
+    }
+
+    /// <summary>
+    /// Tests for key management convenience methods.
+    /// </summary>
+    [Trait("Category", TestCategories.UNIT)]
+    [Trait("Category", TestCategories.FAST)]
+    public class KeyManagementMethods
+    {
+        [Theory]
+        [InlineData(EncryptionAlgorithm.AesGcm, 32)]
+        [InlineData(EncryptionAlgorithm.AesCcm, 32)]
+        [InlineData(EncryptionAlgorithm.AesOcb, 32)]
+        [InlineData(EncryptionAlgorithm.ChaCha20Poly1305, 32)]
+        [InlineData(EncryptionAlgorithm.XChaCha20Poly1305, 32)]
+        [InlineData(EncryptionAlgorithm.AesSiv, 64)]
+        public void WithRandomKey_GeneratesCorrectSizeKey(EncryptionAlgorithm algorithm, int expectedKeySize)
+        {
+            // Arrange & Act
+            using var builder = HeroCryptBuilder.Encrypt()
+                .WithAlgorithm(algorithm)
+                .WithRandomKey();
+
+            var key = builder.GetKey();
+
+            // Assert
+            Assert.Equal(expectedKeySize, key.Length);
+        }
+
+        [Fact]
+        public void WithRandomKey_GeneratesDifferentKeysEachTime()
+        {
+            // Arrange & Act
+            using var builder1 = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithRandomKey();
+
+            using var builder2 = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithRandomKey();
+
+            var key1 = builder1.GetKey();
+            var key2 = builder2.GetKey();
+
+            // Assert
+            Assert.NotEqual(key1, key2);
+        }
+
+        [Theory]
+        [InlineData(16)]
+        [InlineData(32)]
+        [InlineData(64)]
+        public void WithRandomKey_ExplicitSize_GeneratesCorrectSizeKey(int keySize)
+        {
+            // Arrange & Act
+            using var builder = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithRandomKey(keySize);
+
+            var key = builder.GetKey();
+
+            // Assert
+            Assert.Equal(keySize, key.Length);
+        }
+
+        [Fact]
+        public void WithRandomKey_EncryptDecrypt_RoundTrip_Succeeds()
+        {
+            // Arrange
+            var plaintext = "Secret message encrypted with random key";
+
+            // Act - Encrypt with random key
+            using var encryptBuilder = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithRandomKey();
+
+            var key = encryptBuilder.GetKey();
+            var result = encryptBuilder.Encrypt(plaintext);
+
+            // Act - Decrypt with retrieved key
+            var decrypted = HeroCryptBuilder.Decrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .WithNonce(result.Nonce)
+                .DecryptToString(result.Ciphertext);
+
+            // Assert
+            Assert.Equal(plaintext, decrypted);
+        }
+
+        [Fact]
+        public void GetKey_WithoutSettingKey_ThrowsInvalidOperationException()
+        {
+            // Arrange
+            using var builder = HeroCryptBuilder.Encrypt()
+                .WithAesGcm();
+
+            // Act & Assert
+            Assert.Throws<InvalidOperationException>(() => builder.GetKey());
+        }
+
+        [Fact]
+        public void GetKey_AfterWithKey_ReturnsSameKey()
+        {
+            // Arrange
+            var originalKey = TestHelpers.RandomBytes(32);
+
+            using var builder = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithKey(originalKey);
+
+            // Act
+            var retrievedKey = builder.GetKey();
+
+            // Assert
+            Assert.Equal(originalKey, retrievedKey);
+        }
+
+        [Fact]
+        public void GetKeyAsHex_ReturnsLowercaseHexString()
+        {
+            // Arrange
+            using var builder = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithRandomKey();
+
+            // Act
+            var hexKey = builder.GetKeyAsHex();
+
+            // Assert
+            Assert.Equal(64, hexKey.Length); // 32 bytes = 64 hex chars
+            Assert.Equal(hexKey, hexKey.ToLowerInvariant());
+            Assert.True(hexKey.All(c => char.IsLetterOrDigit(c)));
+        }
+
+        [Fact]
+        public void GetKeyAsHex_MatchesGetKey()
+        {
+            // Arrange
+            using var builder = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithRandomKey();
+
+            // Act
+            var key = builder.GetKey();
+            var hexKey = builder.GetKeyAsHex();
+
+            // Assert
+            Assert.Equal(Convert.ToHexString(key).ToLowerInvariant(), hexKey);
+        }
+
+        [Fact]
+        public void GetKeyAsBase64_ReturnsValidBase64()
+        {
+            // Arrange
+            using var builder = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithRandomKey();
+
+            // Act
+            var base64Key = builder.GetKeyAsBase64();
+
+            // Assert
+            var decoded = Convert.FromBase64String(base64Key);
+            Assert.Equal(32, decoded.Length);
+        }
+
+        [Fact]
+        public void GetKeyAsBase64_MatchesGetKey()
+        {
+            // Arrange
+            using var builder = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithRandomKey();
+
+            // Act
+            var key = builder.GetKey();
+            var base64Key = builder.GetKeyAsBase64();
+
+            // Assert
+            Assert.Equal(Convert.ToBase64String(key), base64Key);
+        }
+
+        [Fact]
+        public void GetKeyAsBase64Url_ReturnsUrlSafeString()
+        {
+            // Arrange
+            using var builder = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithRandomKey();
+
+            // Act
+            var base64UrlKey = builder.GetKeyAsBase64Url();
+
+            // Assert
+            Assert.DoesNotContain("+", base64UrlKey);
+            Assert.DoesNotContain("/", base64UrlKey);
+            Assert.DoesNotContain("=", base64UrlKey);
+        }
+
+        [Fact]
+        public void GetKeyAsBase64Url_CanBeDecodedBack()
+        {
+            // Arrange
+            using var builder = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithRandomKey();
+
+            var originalKey = builder.GetKey();
+
+            // Act
+            var base64UrlKey = builder.GetKeyAsBase64Url();
+
+            // Decode URL-safe Base64
+            var base64 = base64UrlKey
+                .Replace('-', '+')
+                .Replace('_', '/');
+            switch (base64.Length % 4)
+            {
+                case 0: break;
+                case 1: break;
+                case 2: base64 += "=="; break;
+                case 3: base64 += "="; break;
+                default: break;
+            }
+            var decodedKey = Convert.FromBase64String(base64);
+
+            // Assert
+            Assert.Equal(originalKey, decodedKey);
+        }
+
+        [Fact]
+        public void WithRandomKey_ZeroSize_ThrowsArgumentOutOfRangeException()
+        {
+            // Arrange
+            using var builder = HeroCryptBuilder.Encrypt()
+                .WithAesGcm();
+
+            // Act & Assert
+            Assert.Throws<ArgumentOutOfRangeException>(() => builder.WithRandomKey(0));
+        }
+
+        [Fact]
+        public void WithRandomKey_NegativeSize_ThrowsArgumentOutOfRangeException()
+        {
+            // Arrange
+            using var builder = HeroCryptBuilder.Encrypt()
+                .WithAesGcm();
+
+            // Act & Assert
+            Assert.Throws<ArgumentOutOfRangeException>(() => builder.WithRandomKey(-1));
+        }
+
+        [Fact]
+        public void WithRandomKey_RsaAlgorithm_ThrowsNotSupportedException()
+        {
+            // Arrange
+            using var builder = HeroCryptBuilder.Encrypt()
+                .WithRsaOaep();
+
+            // Act & Assert
+            Assert.Throws<NotSupportedException>(() => builder.WithRandomKey());
+        }
+
+        [Fact]
+        public void WithRandomKey_X25519Algorithm_ThrowsNotSupportedException()
+        {
+            // Arrange
+            using var builder = HeroCryptBuilder.Encrypt()
+                .WithAlgorithm(EncryptionAlgorithm.X25519ChaCha20Poly1305);
+
+            // Act & Assert
+            Assert.Throws<NotSupportedException>(() => builder.WithRandomKey());
+        }
+    }
 }

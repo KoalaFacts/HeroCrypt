@@ -126,6 +126,133 @@ public sealed class EncryptionBuilder : IDisposable
     }
 
     /// <summary>
+    /// Generates a cryptographically secure random key of the default size for the selected algorithm.
+    /// </summary>
+    /// <returns>This builder for method chaining.</returns>
+    /// <exception cref="ObjectDisposedException">If the builder has been disposed.</exception>
+    /// <exception cref="NotSupportedException">If the algorithm does not support symmetric key generation (e.g., RSA, X25519, ML-KEM).</exception>
+    /// <remarks>
+    /// <para>Default key sizes:</para>
+    /// <list type="bullet">
+    /// <item>AES-GCM, AES-CCM, AES-OCB: 32 bytes (256-bit)</item>
+    /// <item>ChaCha20-Poly1305, XChaCha20-Poly1305: 32 bytes</item>
+    /// <item>AES-SIV: 64 bytes (two 256-bit keys)</item>
+    /// </list>
+    /// <para>Use <see cref="GetKey()"/> to retrieve the generated key for storage.</para>
+    /// </remarks>
+    public EncryptionBuilder WithRandomKey()
+    {
+        ThrowIfDisposed();
+        var keySize = GetDefaultKeySize(algorithm);
+        return WithRandomKey(keySize);
+    }
+
+    /// <summary>
+    /// Generates a cryptographically secure random key of the specified size.
+    /// </summary>
+    /// <param name="keySize">The key size in bytes.</param>
+    /// <returns>This builder for method chaining.</returns>
+    /// <exception cref="ObjectDisposedException">If the builder has been disposed.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">If the key size is not valid.</exception>
+    public EncryptionBuilder WithRandomKey(int keySize)
+    {
+        ThrowIfDisposed();
+        if (keySize <= 0)
+            throw new ArgumentOutOfRangeException(nameof(keySize), "Key size must be positive");
+
+        ClearKey();
+        key = RandomNumberGenerator.GetBytes(keySize);
+        return this;
+    }
+
+    /// <summary>
+    /// Gets the current encryption key.
+    /// </summary>
+    /// <returns>A copy of the encryption key.</returns>
+    /// <exception cref="ObjectDisposedException">If the builder has been disposed.</exception>
+    /// <exception cref="InvalidOperationException">If the key has not been set.</exception>
+    /// <remarks>
+    /// Returns a copy of the key to prevent external modification.
+    /// Useful after calling <see cref="WithRandomKey()"/> to store the generated key.
+    /// </remarks>
+    public byte[] GetKey()
+    {
+        ThrowIfDisposed();
+        if (key == null)
+            throw new InvalidOperationException("Key must be set using WithKey() or WithRandomKey()");
+        return [.. key];
+    }
+
+    /// <summary>
+    /// Gets the current encryption key as a lowercase hexadecimal string.
+    /// </summary>
+    /// <returns>The encryption key as a hex string.</returns>
+    /// <exception cref="ObjectDisposedException">If the builder has been disposed.</exception>
+    /// <exception cref="InvalidOperationException">If the key has not been set.</exception>
+    public string GetKeyAsHex()
+    {
+        var keyBytes = GetKey();
+        return Convert.ToHexString(keyBytes).ToLowerInvariant();
+    }
+
+    /// <summary>
+    /// Gets the current encryption key as a Base64-encoded string.
+    /// </summary>
+    /// <returns>The encryption key as a Base64 string.</returns>
+    /// <exception cref="ObjectDisposedException">If the builder has been disposed.</exception>
+    /// <exception cref="InvalidOperationException">If the key has not been set.</exception>
+    public string GetKeyAsBase64()
+    {
+        var keyBytes = GetKey();
+        return Convert.ToBase64String(keyBytes);
+    }
+
+    /// <summary>
+    /// Gets the current encryption key as a URL-safe Base64-encoded string (no padding).
+    /// </summary>
+    /// <returns>The encryption key as a URL-safe Base64 string.</returns>
+    /// <exception cref="ObjectDisposedException">If the builder has been disposed.</exception>
+    /// <exception cref="InvalidOperationException">If the key has not been set.</exception>
+    public string GetKeyAsBase64Url()
+    {
+        var keyBytes = GetKey();
+        return Convert.ToBase64String(keyBytes)
+            .TrimEnd('=')
+            .Replace('+', '-')
+            .Replace('/', '_');
+    }
+
+    private static int GetDefaultKeySize(EncryptionAlgorithm algorithm)
+    {
+        return algorithm switch
+        {
+            EncryptionAlgorithm.AesGcm => 32,
+            EncryptionAlgorithm.AesCcm => 32,
+            EncryptionAlgorithm.AesOcb => 32,
+            EncryptionAlgorithm.ChaCha20Poly1305 => 32,
+            EncryptionAlgorithm.XChaCha20Poly1305 => 32,
+            EncryptionAlgorithm.AesSiv => 64,
+            EncryptionAlgorithm.RsaOaepSha256 or
+            EncryptionAlgorithm.RsaOaepSha384 or
+            EncryptionAlgorithm.RsaOaepSha512 or
+            EncryptionAlgorithm.RsaPkcs1v15 =>
+                throw new NotSupportedException("RSA encryption uses public keys, not symmetric keys. Use WithKey() with an RSA public key."),
+            EncryptionAlgorithm.X25519ChaCha20Poly1305 or
+            EncryptionAlgorithm.X25519XChaCha20Poly1305 or
+            EncryptionAlgorithm.X25519AesGcm =>
+                throw new NotSupportedException("X25519 hybrid encryption uses recipient public keys. Use WithKey() with the recipient's public key."),
+#if NET10_OR_GREATER
+            EncryptionAlgorithm.MLKem768AesGcm or
+            EncryptionAlgorithm.MLKem1024AesGcm or
+            EncryptionAlgorithm.MLKem768ChaCha20Poly1305 or
+            EncryptionAlgorithm.MLKem1024ChaCha20Poly1305 =>
+                throw new NotSupportedException("ML-KEM hybrid encryption uses recipient public keys. Use WithKey() with the recipient's public key."),
+#endif
+            _ => throw new NotSupportedException($"Algorithm {algorithm} does not support random key generation")
+        };
+    }
+
+    /// <summary>
     /// Sets a specific nonce/IV for encryption.
     /// When not set, a secure random nonce is auto-generated (recommended).
     /// </summary>
@@ -158,6 +285,21 @@ public sealed class EncryptionBuilder : IDisposable
         ClearAssociatedData();
         this.associatedData = [.. associatedData];
         return this;
+    }
+
+    /// <summary>
+    /// Sets optional authenticated associated data from a string (UTF-8 encoded).
+    /// </summary>
+    /// <param name="associatedData">The associated data as a string (will be UTF-8 encoded).</param>
+    /// <returns>This builder for method chaining.</returns>
+    /// <exception cref="ObjectDisposedException">If the builder has been disposed.</exception>
+    /// <remarks>
+    /// Common use case: authenticate metadata like file names, user IDs, or context strings
+    /// that should be verified during decryption but don't need to be encrypted.
+    /// </remarks>
+    public EncryptionBuilder WithAssociatedData(string associatedData)
+    {
+        return WithAssociatedData(System.Text.Encoding.UTF8.GetBytes(associatedData));
     }
 
     /// <summary>

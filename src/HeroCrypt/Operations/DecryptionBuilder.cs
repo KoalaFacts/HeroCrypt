@@ -145,6 +145,65 @@ public sealed class DecryptionBuilder : IDisposable
     }
 
     /// <summary>
+    /// Sets the decryption key from a hexadecimal string.
+    /// </summary>
+    /// <param name="hexKey">The key as a hexadecimal string (case-insensitive).</param>
+    /// <returns>This builder for method chaining.</returns>
+    /// <exception cref="ObjectDisposedException">If the builder has been disposed.</exception>
+    /// <exception cref="FormatException">Thrown if the string is not valid hexadecimal.</exception>
+    /// <remarks>
+    /// This is a convenience method for using keys that have been stored as hex strings.
+    /// Commonly used with keys retrieved from <c>EncryptionBuilder.GetKeyAsHex()</c>.
+    /// </remarks>
+    public DecryptionBuilder WithKeyFromHex(string hexKey)
+    {
+        ThrowIfDisposed();
+        var keyBytes = Convert.FromHexString(hexKey);
+        return WithKey(keyBytes);
+    }
+
+    /// <summary>
+    /// Sets the decryption key from a Base64-encoded string.
+    /// </summary>
+    /// <param name="base64Key">The key as a Base64-encoded string.</param>
+    /// <returns>This builder for method chaining.</returns>
+    /// <exception cref="ObjectDisposedException">If the builder has been disposed.</exception>
+    /// <exception cref="FormatException">Thrown if the string is not valid Base64.</exception>
+    /// <remarks>
+    /// This is a convenience method for using keys that have been stored as Base64 strings.
+    /// Commonly used with keys retrieved from <c>EncryptionBuilder.GetKeyAsBase64()</c>.
+    /// </remarks>
+    public DecryptionBuilder WithKeyFromBase64(string base64Key)
+    {
+        ThrowIfDisposed();
+        var keyBytes = Convert.FromBase64String(base64Key);
+        return WithKey(keyBytes);
+    }
+
+    /// <summary>
+    /// Sets the decryption key from a URL-safe Base64-encoded string.
+    /// </summary>
+    /// <param name="base64UrlKey">The key as a URL-safe Base64-encoded string (with or without padding).</param>
+    /// <returns>This builder for method chaining.</returns>
+    /// <exception cref="ObjectDisposedException">If the builder has been disposed.</exception>
+    /// <exception cref="FormatException">Thrown if the string is not valid URL-safe Base64.</exception>
+    /// <remarks>
+    /// <para>
+    /// This is a convenience method for using keys that have been stored as URL-safe Base64 strings.
+    /// Commonly used with keys retrieved from <c>EncryptionBuilder.GetKeyAsBase64Url()</c>.
+    /// </para>
+    /// <para>
+    /// URL-safe Base64 uses '-' instead of '+', '_' instead of '/', and may omit padding '=' characters.
+    /// </para>
+    /// </remarks>
+    public DecryptionBuilder WithKeyFromBase64Url(string base64UrlKey)
+    {
+        ThrowIfDisposed();
+        var keyBytes = FromBase64Url(base64UrlKey);
+        return WithKey(keyBytes);
+    }
+
+    /// <summary>
     /// Sets the nonce used during encryption.
     /// </summary>
     public DecryptionBuilder WithNonce(byte[] nonce)
@@ -156,6 +215,62 @@ public sealed class DecryptionBuilder : IDisposable
     }
 
     /// <summary>
+    /// Sets the nonce from a hexadecimal string.
+    /// </summary>
+    /// <param name="hexNonce">The nonce as a hexadecimal string (case-insensitive).</param>
+    /// <returns>This builder for method chaining.</returns>
+    /// <exception cref="ObjectDisposedException">If the builder has been disposed.</exception>
+    /// <exception cref="FormatException">Thrown if the string is not valid hexadecimal.</exception>
+    /// <remarks>
+    /// This is a convenience method for using nonces that have been stored as hex strings.
+    /// </remarks>
+    public DecryptionBuilder WithNonceFromHex(string hexNonce)
+    {
+        ThrowIfDisposed();
+        var nonceBytes = Convert.FromHexString(hexNonce);
+        return WithNonce(nonceBytes);
+    }
+
+    /// <summary>
+    /// Sets the nonce from a Base64-encoded string.
+    /// </summary>
+    /// <param name="base64Nonce">The nonce as a Base64-encoded string.</param>
+    /// <returns>This builder for method chaining.</returns>
+    /// <exception cref="ObjectDisposedException">If the builder has been disposed.</exception>
+    /// <exception cref="FormatException">Thrown if the string is not valid Base64.</exception>
+    /// <remarks>
+    /// This is a convenience method for using nonces that have been stored as Base64 strings.
+    /// </remarks>
+    public DecryptionBuilder WithNonceFromBase64(string base64Nonce)
+    {
+        ThrowIfDisposed();
+        var nonceBytes = Convert.FromBase64String(base64Nonce);
+        return WithNonce(nonceBytes);
+    }
+
+    /// <summary>
+    /// Sets the nonce from a URL-safe Base64-encoded string.
+    /// </summary>
+    /// <param name="base64UrlNonce">The nonce as a URL-safe Base64-encoded string (with or without padding).</param>
+    /// <returns>This builder for method chaining.</returns>
+    /// <exception cref="ObjectDisposedException">If the builder has been disposed.</exception>
+    /// <exception cref="FormatException">Thrown if the string is not valid URL-safe Base64.</exception>
+    /// <remarks>
+    /// <para>
+    /// This is a convenience method for using nonces that have been stored as URL-safe Base64 strings.
+    /// </para>
+    /// <para>
+    /// URL-safe Base64 uses '-' instead of '+', '_' instead of '/', and may omit padding '=' characters.
+    /// </para>
+    /// </remarks>
+    public DecryptionBuilder WithNonceFromBase64Url(string base64UrlNonce)
+    {
+        ThrowIfDisposed();
+        var nonceBytes = FromBase64Url(base64UrlNonce);
+        return WithNonce(nonceBytes);
+    }
+
+    /// <summary>
     /// Sets optional authenticated associated data (for AEAD).
     /// </summary>
     public DecryptionBuilder WithAssociatedData(byte[] associatedData)
@@ -164,6 +279,20 @@ public sealed class DecryptionBuilder : IDisposable
         ClearAssociatedData();
         this.associatedData = [.. associatedData];
         return this;
+    }
+
+    /// <summary>
+    /// Sets optional authenticated associated data from a string (UTF-8 encoded).
+    /// </summary>
+    /// <param name="associatedData">The associated data as a string (will be UTF-8 encoded).</param>
+    /// <returns>This builder for method chaining.</returns>
+    /// <exception cref="ObjectDisposedException">If the builder has been disposed.</exception>
+    /// <remarks>
+    /// Use the same string value that was used during encryption to authenticate the data.
+    /// </remarks>
+    public DecryptionBuilder WithAssociatedData(string associatedData)
+    {
+        return WithAssociatedData(System.Text.Encoding.UTF8.GetBytes(associatedData));
     }
 
     /// <summary>
@@ -308,6 +437,117 @@ public sealed class DecryptionBuilder : IDisposable
         return System.Text.Encoding.UTF8.GetString(plaintext);
     }
 
+    /// <summary>
+    /// Decrypts ciphertext provided as a hexadecimal string.
+    /// </summary>
+    /// <param name="hexCiphertext">The ciphertext as a hexadecimal string (case-insensitive).</param>
+    /// <returns>The decrypted plaintext as bytes.</returns>
+    /// <exception cref="FormatException">Thrown if the string is not valid hexadecimal.</exception>
+    /// <remarks>
+    /// This is a convenience method for decrypting ciphertext that has been encoded as hex.
+    /// Use this when receiving ciphertext from APIs or databases that store data as hex strings.
+    /// </remarks>
+    public byte[] DecryptFromHex(string hexCiphertext)
+    {
+        var ciphertext = Convert.FromHexString(hexCiphertext);
+        return Decrypt(ciphertext);
+    }
+
+    /// <summary>
+    /// Decrypts ciphertext provided as a hexadecimal string and returns the result as a UTF-8 string.
+    /// </summary>
+    /// <param name="hexCiphertext">The ciphertext as a hexadecimal string (case-insensitive).</param>
+    /// <returns>The decrypted plaintext as a UTF-8 string.</returns>
+    /// <exception cref="FormatException">Thrown if the input is not valid hexadecimal.</exception>
+    /// <exception cref="System.Text.DecoderFallbackException">Thrown if the decrypted bytes are not valid UTF-8.</exception>
+    public string DecryptFromHexToString(string hexCiphertext)
+    {
+        var plaintext = DecryptFromHex(hexCiphertext);
+        return System.Text.Encoding.UTF8.GetString(plaintext);
+    }
+
+    /// <summary>
+    /// Decrypts ciphertext provided as a Base64-encoded string.
+    /// </summary>
+    /// <param name="base64Ciphertext">The ciphertext as a Base64-encoded string.</param>
+    /// <returns>The decrypted plaintext as bytes.</returns>
+    /// <exception cref="FormatException">Thrown if the string is not valid Base64.</exception>
+    /// <remarks>
+    /// This is a convenience method for decrypting ciphertext that has been encoded as Base64.
+    /// Use this when receiving ciphertext from APIs or storage that use Base64 encoding.
+    /// </remarks>
+    public byte[] DecryptFromBase64(string base64Ciphertext)
+    {
+        var ciphertext = Convert.FromBase64String(base64Ciphertext);
+        return Decrypt(ciphertext);
+    }
+
+    /// <summary>
+    /// Decrypts ciphertext provided as a Base64-encoded string and returns the result as a UTF-8 string.
+    /// </summary>
+    /// <param name="base64Ciphertext">The ciphertext as a Base64-encoded string.</param>
+    /// <returns>The decrypted plaintext as a UTF-8 string.</returns>
+    /// <exception cref="FormatException">Thrown if the input is not valid Base64.</exception>
+    /// <exception cref="System.Text.DecoderFallbackException">Thrown if the decrypted bytes are not valid UTF-8.</exception>
+    public string DecryptFromBase64ToString(string base64Ciphertext)
+    {
+        var plaintext = DecryptFromBase64(base64Ciphertext);
+        return System.Text.Encoding.UTF8.GetString(plaintext);
+    }
+
+    /// <summary>
+    /// Decrypts ciphertext provided as a URL-safe Base64-encoded string.
+    /// </summary>
+    /// <param name="base64UrlCiphertext">The ciphertext as a URL-safe Base64-encoded string (with or without padding).</param>
+    /// <returns>The decrypted plaintext as bytes.</returns>
+    /// <exception cref="FormatException">Thrown if the string is not valid URL-safe Base64.</exception>
+    /// <remarks>
+    /// <para>
+    /// This is a convenience method for decrypting ciphertext that has been encoded as URL-safe Base64.
+    /// </para>
+    /// <para>
+    /// URL-safe Base64 uses '-' instead of '+', '_' instead of '/', and may omit padding '=' characters.
+    /// </para>
+    /// </remarks>
+    public byte[] DecryptFromBase64Url(string base64UrlCiphertext)
+    {
+        var ciphertext = FromBase64Url(base64UrlCiphertext);
+        return Decrypt(ciphertext);
+    }
+
+    /// <summary>
+    /// Decrypts ciphertext provided as a URL-safe Base64-encoded string and returns the result as a UTF-8 string.
+    /// </summary>
+    /// <param name="base64UrlCiphertext">The ciphertext as a URL-safe Base64-encoded string (with or without padding).</param>
+    /// <returns>The decrypted plaintext as a UTF-8 string.</returns>
+    /// <exception cref="FormatException">Thrown if the input is not valid URL-safe Base64.</exception>
+    /// <exception cref="System.Text.DecoderFallbackException">Thrown if the decrypted bytes are not valid UTF-8.</exception>
+    public string DecryptFromBase64UrlToString(string base64UrlCiphertext)
+    {
+        var plaintext = DecryptFromBase64Url(base64UrlCiphertext);
+        return System.Text.Encoding.UTF8.GetString(plaintext);
+    }
+
+    private static byte[] FromBase64Url(string base64Url)
+    {
+        // Convert URL-safe Base64 to standard Base64
+        var base64 = base64Url
+            .Replace('-', '+')
+            .Replace('_', '/');
+
+        // Add padding if needed
+        switch (base64.Length % 4)
+        {
+            case 0: break;
+            case 1: break;
+            case 2: base64 += "=="; break;
+            case 3: base64 += "="; break;
+            default: break;
+        }
+
+        return Convert.FromBase64String(base64);
+    }
+
     private static byte[] DecryptAesGcm(byte[] ciphertext, byte[] key, byte[] nonce, byte[] aad)
     {
         return AesGcmCore.Decrypt(ciphertext, key, nonce, aad);
@@ -399,7 +639,7 @@ public sealed class DecryptionBuilder : IDisposable
     private static byte[] DecryptX25519Hybrid(byte[] ciphertext, byte[] privateKey, byte[] nonce, byte[] aad, byte[]? ephemeralPublicKey, HybridCipherType cipher)
     {
         if (ephemeralPublicKey == null)
-            throw new InvalidOperationException("Hybrid decryption requires the encapsulated key. Use WithEncapsulatedKey(result.EncapsulatedKey) or FromEncryptionResult(result) which sets this automatically.");
+            throw new InvalidOperationException("Encapsulated key must be set using WithEncapsulatedKey() or FromEncryptionResult()");
 
         // Compute shared secret via X25519 key agreement
         var sharedSecret = Curve25519Core.ComputeSharedSecret(privateKey, ephemeralPublicKey);
@@ -442,7 +682,7 @@ public sealed class DecryptionBuilder : IDisposable
     private static byte[] DecryptMLKemAesGcm(byte[] ciphertext, byte[] secretKeyPemBytes, byte[] nonce, byte[] aad, byte[]? encapsulatedKey)
     {
         if (encapsulatedKey == null)
-            throw new InvalidOperationException("Hybrid decryption requires the encapsulated key. Use WithEncapsulatedKey(result.EncapsulatedKey) or FromEncryptionResult(result) which sets this automatically.");
+            throw new InvalidOperationException("Encapsulated key must be set using WithEncapsulatedKey() or FromEncryptionResult()");
 
         var secretKeyPem = System.Text.Encoding.UTF8.GetString(secretKeyPemBytes);
 
@@ -462,7 +702,7 @@ public sealed class DecryptionBuilder : IDisposable
     private static byte[] DecryptMLKemChaCha20Poly1305(byte[] ciphertext, byte[] secretKeyPemBytes, byte[] nonce, byte[] aad, byte[]? encapsulatedKey)
     {
         if (encapsulatedKey == null)
-            throw new InvalidOperationException("Hybrid decryption requires the encapsulated key. Use WithEncapsulatedKey(result.EncapsulatedKey) or FromEncryptionResult(result) which sets this automatically.");
+            throw new InvalidOperationException("Encapsulated key must be set using WithEncapsulatedKey() or FromEncryptionResult()");
 
         var secretKeyPem = System.Text.Encoding.UTF8.GetString(secretKeyPemBytes);
 

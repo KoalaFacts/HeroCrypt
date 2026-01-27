@@ -184,6 +184,85 @@ public sealed class VerificationBuilder : IDisposable
     }
 
     /// <summary>
+    /// Sets the signature to verify from a hexadecimal string.
+    /// </summary>
+    /// <param name="hexSignature">The signature as a hexadecimal string (case-insensitive).</param>
+    /// <returns>This builder instance for method chaining.</returns>
+    /// <remarks>
+    /// This is a convenience method for verifying signatures that were encoded using
+    /// <see cref="SignatureBuilder.SignToHex(byte[])"/> or any other hex encoding.
+    /// Both uppercase and lowercase hex strings are accepted.
+    /// </remarks>
+    /// <exception cref="FormatException">Thrown if the string is not a valid hexadecimal string.</exception>
+    public VerificationBuilder WithSignatureFromHex(string hexSignature)
+    {
+        ThrowIfDisposed();
+        var signatureBytes = Convert.FromHexString(hexSignature);
+        return WithSignature(signatureBytes);
+    }
+
+    /// <summary>
+    /// Sets the signature to verify from a Base64-encoded string.
+    /// </summary>
+    /// <param name="base64Signature">The signature as a Base64-encoded string.</param>
+    /// <returns>This builder instance for method chaining.</returns>
+    /// <remarks>
+    /// This is a convenience method for verifying signatures that were encoded using
+    /// <see cref="SignatureBuilder.SignToBase64(byte[])"/> or any other Base64 encoding.
+    /// Standard Base64 encoding is expected (not URL-safe Base64).
+    /// </remarks>
+    /// <exception cref="FormatException">Thrown if the string is not valid Base64.</exception>
+    public VerificationBuilder WithSignatureFromBase64(string base64Signature)
+    {
+        ThrowIfDisposed();
+        var signatureBytes = Convert.FromBase64String(base64Signature);
+        return WithSignature(signatureBytes);
+    }
+
+    /// <summary>
+    /// Sets the signature to verify from a URL-safe Base64-encoded string.
+    /// </summary>
+    /// <param name="base64UrlSignature">The signature as a URL-safe Base64-encoded string (with or without padding).</param>
+    /// <returns>This builder instance for method chaining.</returns>
+    /// <remarks>
+    /// <para>
+    /// This is a convenience method for verifying signatures that were encoded using
+    /// <see cref="SignatureBuilder.SignToBase64Url(byte[])"/> or any URL-safe Base64 encoding.
+    /// </para>
+    /// <para>
+    /// URL-safe Base64 uses '-' instead of '+', '_' instead of '/', and may omit padding '=' characters.
+    /// This method accepts both padded and unpadded URL-safe Base64 strings.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="FormatException">Thrown if the string is not valid URL-safe Base64.</exception>
+    public VerificationBuilder WithSignatureFromBase64Url(string base64UrlSignature)
+    {
+        ThrowIfDisposed();
+        var signatureBytes = FromBase64Url(base64UrlSignature);
+        return WithSignature(signatureBytes);
+    }
+
+    private static byte[] FromBase64Url(string base64Url)
+    {
+        // Convert URL-safe Base64 to standard Base64
+        var base64 = base64Url
+            .Replace('-', '+')
+            .Replace('_', '/');
+
+        // Add padding if needed
+        switch (base64.Length % 4)
+        {
+            case 0: break; // No padding needed
+            case 1: break; // Invalid Base64 - let Convert.FromBase64String handle the error
+            case 2: base64 += "=="; break;
+            case 3: base64 += "="; break;
+            default: break; // Unreachable, but required for exhaustive switch
+        }
+
+        return Convert.FromBase64String(base64);
+    }
+
+    /// <summary>
     /// Verifies the signature against the data.
     /// </summary>
     public bool Verify(byte[] data)

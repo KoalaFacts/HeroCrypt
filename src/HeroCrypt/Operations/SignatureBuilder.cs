@@ -196,6 +196,95 @@ public sealed class SignatureBuilder : IDisposable
         return Sign(System.Text.Encoding.UTF8.GetBytes(data));
     }
 
+    /// <summary>
+    /// Signs the data and returns the signature as a lowercase hexadecimal string.
+    /// </summary>
+    /// <param name="data">The data to sign.</param>
+    /// <returns>The digital signature as a lowercase hexadecimal string.</returns>
+    /// <remarks>
+    /// This is a convenience method that combines <see cref="Sign(byte[])"/> with hex encoding.
+    /// Useful for displaying signatures in logs, storing in text-based formats, or comparing signatures.
+    /// </remarks>
+    public string SignToHex(byte[] data)
+    {
+        var signature = Sign(data);
+        return Convert.ToHexString(signature).ToLowerInvariant();
+    }
+
+    /// <summary>
+    /// Signs the string data using UTF-8 encoding and returns the signature as a lowercase hexadecimal string.
+    /// </summary>
+    /// <param name="data">The string data to sign.</param>
+    /// <returns>The digital signature as a lowercase hexadecimal string.</returns>
+    public string SignToHex(string data)
+    {
+        return SignToHex(System.Text.Encoding.UTF8.GetBytes(data));
+    }
+
+    /// <summary>
+    /// Signs the data and returns the signature as a Base64-encoded string.
+    /// </summary>
+    /// <param name="data">The data to sign.</param>
+    /// <returns>The digital signature as a Base64-encoded string.</returns>
+    /// <remarks>
+    /// This is a convenience method that combines <see cref="Sign(byte[])"/> with Base64 encoding.
+    /// Useful for embedding signatures in JSON, JWTs, HTTP headers, or other text-based protocols.
+    /// </remarks>
+    public string SignToBase64(byte[] data)
+    {
+        var signature = Sign(data);
+        return Convert.ToBase64String(signature);
+    }
+
+    /// <summary>
+    /// Signs the string data using UTF-8 encoding and returns the signature as a Base64-encoded string.
+    /// </summary>
+    /// <param name="data">The string data to sign.</param>
+    /// <returns>The digital signature as a Base64-encoded string.</returns>
+    public string SignToBase64(string data)
+    {
+        return SignToBase64(System.Text.Encoding.UTF8.GetBytes(data));
+    }
+
+    /// <summary>
+    /// Signs the data and returns the signature as a URL-safe Base64-encoded string.
+    /// </summary>
+    /// <param name="data">The data to sign.</param>
+    /// <returns>The digital signature as a URL-safe Base64-encoded string (no padding).</returns>
+    /// <remarks>
+    /// <para>
+    /// This is a convenience method that combines <see cref="Sign(byte[])"/> with URL-safe Base64 encoding.
+    /// URL-safe Base64 replaces '+' with '-', '/' with '_', and omits padding '=' characters.
+    /// </para>
+    /// <para>
+    /// Use this method when embedding signatures in URLs, JWT tokens, or other contexts where
+    /// standard Base64 characters may cause issues.
+    /// </para>
+    /// </remarks>
+    public string SignToBase64Url(byte[] data)
+    {
+        var signature = Sign(data);
+        return ToBase64Url(signature);
+    }
+
+    /// <summary>
+    /// Signs the string data using UTF-8 encoding and returns the signature as a URL-safe Base64-encoded string.
+    /// </summary>
+    /// <param name="data">The string data to sign.</param>
+    /// <returns>The digital signature as a URL-safe Base64-encoded string (no padding).</returns>
+    public string SignToBase64Url(string data)
+    {
+        return SignToBase64Url(System.Text.Encoding.UTF8.GetBytes(data));
+    }
+
+    private static string ToBase64Url(byte[] data)
+    {
+        return Convert.ToBase64String(data)
+            .TrimEnd('=')
+            .Replace('+', '-')
+            .Replace('/', '_');
+    }
+
     internal static byte[] SignInternal(byte[] data, byte[] key, SignatureAlgorithm algorithm)
     {
         return algorithm switch

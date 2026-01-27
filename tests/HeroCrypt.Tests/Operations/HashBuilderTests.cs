@@ -526,5 +526,73 @@ public class HashBuilderTests
             var expectedHex = Convert.ToHexString(hashBytes).ToLowerInvariant();
             Assert.Equal(expectedHex, hashHex);
         }
+
+        [Fact]
+        public void ComputeHashToBase64Url_ReturnsUrlSafeString()
+        {
+            // Act
+            var base64Url = HeroCryptBuilder.Hash()
+                .WithSha256()
+                .ComputeHashToBase64Url("test");
+
+            // Assert - Should not contain URL-unsafe characters
+            Assert.NotNull(base64Url);
+            Assert.DoesNotContain("+", base64Url);
+            Assert.DoesNotContain("/", base64Url);
+            Assert.DoesNotContain("=", base64Url);
+        }
+
+        [Fact]
+        public void ComputeHashToBase64Url_CanBeDecodedBack()
+        {
+            // Arrange
+            var data = "test message";
+
+            // Act
+            var hashBytes = HeroCryptBuilder.Hash()
+                .WithSha256()
+                .ComputeHash(data);
+
+            var base64Url = HeroCryptBuilder.Hash()
+                .WithSha256()
+                .ComputeHashToBase64Url(data);
+
+            // Convert back from URL-safe Base64
+            var base64 = base64Url
+                .Replace('-', '+')
+                .Replace('_', '/');
+            switch (base64.Length % 4)
+            {
+                case 0: break;
+                case 1: break;
+                case 2: base64 += "=="; break;
+                case 3: base64 += "="; break;
+                default: break;
+            }
+            var decoded = Convert.FromBase64String(base64);
+
+            // Assert
+            Assert.Equal(hashBytes, decoded);
+        }
+
+        [Fact]
+        public void ComputeHashToBase64Url_StringOverload_MatchesByteOverload()
+        {
+            // Arrange
+            var stringData = "Hello, World!";
+            var byteData = System.Text.Encoding.UTF8.GetBytes(stringData);
+
+            // Act
+            var fromString = HeroCryptBuilder.Hash()
+                .WithSha256()
+                .ComputeHashToBase64Url(stringData);
+
+            var fromBytes = HeroCryptBuilder.Hash()
+                .WithSha256()
+                .ComputeHashToBase64Url(byteData);
+
+            // Assert
+            Assert.Equal(fromString, fromBytes);
+        }
     }
 }

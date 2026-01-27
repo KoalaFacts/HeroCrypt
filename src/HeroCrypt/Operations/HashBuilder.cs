@@ -330,6 +330,44 @@ public sealed class HashBuilder : IDisposable
         return ComputeHashToBase64(System.Text.Encoding.UTF8.GetBytes(data));
     }
 
+    /// <summary>
+    /// Computes the hash of the data and returns it as a URL-safe Base64-encoded string.
+    /// </summary>
+    /// <param name="data">The data to hash.</param>
+    /// <returns>The computed hash as a URL-safe Base64-encoded string (no padding).</returns>
+    /// <remarks>
+    /// <para>
+    /// URL-safe Base64 replaces '+' with '-', '/' with '_', and omits padding '=' characters.
+    /// </para>
+    /// <para>
+    /// Use this method when embedding hashes in URLs, JWT tokens, or other contexts where
+    /// standard Base64 characters may cause issues.
+    /// </para>
+    /// </remarks>
+    public string ComputeHashToBase64Url(byte[] data)
+    {
+        var hash = ComputeHash(data);
+        return ToBase64Url(hash);
+    }
+
+    /// <summary>
+    /// Computes the hash of the string data (UTF-8 encoded) and returns it as a URL-safe Base64-encoded string.
+    /// </summary>
+    /// <param name="data">The string data to hash.</param>
+    /// <returns>The computed hash as a URL-safe Base64-encoded string (no padding).</returns>
+    public string ComputeHashToBase64Url(string data)
+    {
+        return ComputeHashToBase64Url(System.Text.Encoding.UTF8.GetBytes(data));
+    }
+
+    private static string ToBase64Url(byte[] data)
+    {
+        return Convert.ToBase64String(data)
+            .TrimEnd('=')
+            .Replace('+', '-')
+            .Replace('/', '_');
+    }
+
     private static byte[] Compute(byte[] data, HashingAlgorithm algorithm, int? outputLength)
     {
         return algorithm switch

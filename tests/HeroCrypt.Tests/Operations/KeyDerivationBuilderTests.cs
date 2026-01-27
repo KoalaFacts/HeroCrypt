@@ -750,4 +750,156 @@ public class KeyDerivationBuilderTests
             Assert.Throws<ObjectDisposedException>(() => builder.WithInfo(Encoding.UTF8.GetBytes("context")));
         }
     }
+
+    /// <summary>
+    /// Tests for salt output format convenience methods.
+    /// </summary>
+    [Trait("Category", TestCategories.UNIT)]
+    [Trait("Category", TestCategories.FAST)]
+    public class SaltOutputFormatTests
+    {
+        [Fact]
+        public void GetSaltAsHex_ReturnsLowercaseHexString()
+        {
+            // Arrange
+            using var kdf = HeroCryptBuilder.DeriveKey()
+                .WithAlgorithm(KeyDerivationAlgorithm.HkdfSha256)
+                .WithPassword(TestPassword)
+                .WithRandomSalt(16);
+
+            // Act
+            var saltHex = kdf.GetSaltAsHex();
+
+            // Assert
+            Assert.Equal(32, saltHex.Length); // 16 bytes = 32 hex chars
+            Assert.Equal(saltHex.ToLowerInvariant(), saltHex); // lowercase
+            Assert.Matches("^[0-9a-f]+$", saltHex); // valid hex
+        }
+
+        [Fact]
+        public void GetSaltAsHex_MatchesGetSalt()
+        {
+            // Arrange
+            using var kdf = HeroCryptBuilder.DeriveKey()
+                .WithAlgorithm(KeyDerivationAlgorithm.HkdfSha256)
+                .WithPassword(TestPassword)
+                .WithRandomSalt(16);
+
+            // Act
+            var saltBytes = kdf.GetSalt();
+            var saltHex = kdf.GetSaltAsHex();
+
+            // Assert
+            Assert.Equal(Convert.ToHexString(saltBytes).ToLowerInvariant(), saltHex);
+        }
+
+        [Fact]
+        public void GetSaltAsBase64_ReturnsValidBase64()
+        {
+            // Arrange
+            using var kdf = HeroCryptBuilder.DeriveKey()
+                .WithAlgorithm(KeyDerivationAlgorithm.HkdfSha256)
+                .WithPassword(TestPassword)
+                .WithRandomSalt(16);
+
+            // Act
+            var saltBase64 = kdf.GetSaltAsBase64();
+
+            // Assert
+            var decoded = Convert.FromBase64String(saltBase64);
+            Assert.Equal(16, decoded.Length);
+        }
+
+        [Fact]
+        public void GetSaltAsBase64_MatchesGetSalt()
+        {
+            // Arrange
+            using var kdf = HeroCryptBuilder.DeriveKey()
+                .WithAlgorithm(KeyDerivationAlgorithm.HkdfSha256)
+                .WithPassword(TestPassword)
+                .WithRandomSalt(16);
+
+            // Act
+            var saltBytes = kdf.GetSalt();
+            var saltBase64 = kdf.GetSaltAsBase64();
+
+            // Assert
+            Assert.Equal(Convert.ToBase64String(saltBytes), saltBase64);
+        }
+
+        [Fact]
+        public void GetSaltAsBase64Url_ReturnsUrlSafeString()
+        {
+            // Arrange
+            using var kdf = HeroCryptBuilder.DeriveKey()
+                .WithAlgorithm(KeyDerivationAlgorithm.HkdfSha256)
+                .WithPassword(TestPassword)
+                .WithRandomSalt(16);
+
+            // Act
+            var saltBase64Url = kdf.GetSaltAsBase64Url();
+
+            // Assert
+            Assert.DoesNotContain("+", saltBase64Url);
+            Assert.DoesNotContain("/", saltBase64Url);
+            Assert.DoesNotContain("=", saltBase64Url);
+        }
+
+        [Fact]
+        public void GetSaltAsBase64Url_CanBeDecodedBack()
+        {
+            // Arrange
+            using var kdf = HeroCryptBuilder.DeriveKey()
+                .WithAlgorithm(KeyDerivationAlgorithm.HkdfSha256)
+                .WithPassword(TestPassword)
+                .WithRandomSalt(16);
+
+            // Act
+            var saltBytes = kdf.GetSalt();
+            var saltBase64Url = kdf.GetSaltAsBase64Url();
+
+            // Convert back from URL-safe Base64
+            var base64 = saltBase64Url
+                .Replace('-', '+')
+                .Replace('_', '/');
+            switch (base64.Length % 4)
+            {
+                case 0: break;
+                case 1: break;
+                case 2: base64 += "=="; break;
+                case 3: base64 += "="; break;
+                default: break;
+            }
+            var decoded = Convert.FromBase64String(base64);
+
+            // Assert
+            Assert.Equal(saltBytes, decoded);
+        }
+
+        [Fact]
+        public void GetSaltAsHex_WithoutSalt_ThrowsInvalidOperationException()
+        {
+            // Arrange
+            using var kdf = HeroCryptBuilder.DeriveKey()
+                .WithAlgorithm(KeyDerivationAlgorithm.HkdfSha256)
+                .WithPassword(TestPassword);
+            // Salt not set
+
+            // Act & Assert
+            Assert.Throws<InvalidOperationException>(() => kdf.GetSaltAsHex());
+        }
+
+        [Fact]
+        public void GetSaltAsBase64_WithoutSalt_ThrowsInvalidOperationException()
+        {
+            // Arrange
+            using var kdf = HeroCryptBuilder.DeriveKey()
+                .WithAlgorithm(KeyDerivationAlgorithm.HkdfSha256)
+                .WithPassword(TestPassword);
+            // Salt not set
+
+            // Act & Assert
+            Assert.Throws<InvalidOperationException>(() => kdf.GetSaltAsBase64());
+        }
+    }
 }

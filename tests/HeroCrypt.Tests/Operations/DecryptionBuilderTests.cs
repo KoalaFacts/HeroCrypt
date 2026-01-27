@@ -717,4 +717,521 @@ public class DecryptionBuilderTests
             builder.Dispose();
         }
     }
+
+    /// <summary>
+    /// Tests for ciphertext input format convenience methods.
+    /// </summary>
+    [Trait("Category", TestCategories.UNIT)]
+    [Trait("Category", TestCategories.FAST)]
+    public class CiphertextInputFormatTests
+    {
+        [Fact]
+        public void DecryptFromHex_Succeeds()
+        {
+            // Arrange
+            var plaintext = "Hello, World!";
+            var key = TestHelpers.RandomBytes(32);
+
+            var result = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .Encrypt(plaintext);
+
+            var hexCiphertext = Convert.ToHexString(result.Ciphertext);
+
+            // Act
+            var decrypted = HeroCryptBuilder.Decrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .WithNonce(result.Nonce)
+                .DecryptFromHex(hexCiphertext);
+
+            // Assert
+            Assert.Equal(System.Text.Encoding.UTF8.GetBytes(plaintext), decrypted);
+        }
+
+        [Fact]
+        public void DecryptFromHexToString_Succeeds()
+        {
+            // Arrange
+            var plaintext = "Hello, World!";
+            var key = TestHelpers.RandomBytes(32);
+
+            var result = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .Encrypt(plaintext);
+
+            var hexCiphertext = Convert.ToHexString(result.Ciphertext);
+
+            // Act
+            var decrypted = HeroCryptBuilder.Decrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .WithNonce(result.Nonce)
+                .DecryptFromHexToString(hexCiphertext);
+
+            // Assert
+            Assert.Equal(plaintext, decrypted);
+        }
+
+        [Fact]
+        public void DecryptFromBase64_Succeeds()
+        {
+            // Arrange
+            var plaintext = "Hello, World!";
+            var key = TestHelpers.RandomBytes(32);
+
+            var result = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .Encrypt(plaintext);
+
+            var base64Ciphertext = Convert.ToBase64String(result.Ciphertext);
+
+            // Act
+            var decrypted = HeroCryptBuilder.Decrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .WithNonce(result.Nonce)
+                .DecryptFromBase64(base64Ciphertext);
+
+            // Assert
+            Assert.Equal(System.Text.Encoding.UTF8.GetBytes(plaintext), decrypted);
+        }
+
+        [Fact]
+        public void DecryptFromBase64ToString_Succeeds()
+        {
+            // Arrange
+            var plaintext = "Hello, World!";
+            var key = TestHelpers.RandomBytes(32);
+
+            var result = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .Encrypt(plaintext);
+
+            var base64Ciphertext = Convert.ToBase64String(result.Ciphertext);
+
+            // Act
+            var decrypted = HeroCryptBuilder.Decrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .WithNonce(result.Nonce)
+                .DecryptFromBase64ToString(base64Ciphertext);
+
+            // Assert
+            Assert.Equal(plaintext, decrypted);
+        }
+
+        [Fact]
+        public void DecryptFromBase64Url_Succeeds()
+        {
+            // Arrange
+            var plaintext = "Hello, World!";
+            var key = TestHelpers.RandomBytes(32);
+
+            var result = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .Encrypt(plaintext);
+
+            var base64UrlCiphertext = Convert.ToBase64String(result.Ciphertext)
+                .TrimEnd('=')
+                .Replace('+', '-')
+                .Replace('/', '_');
+
+            // Act
+            var decrypted = HeroCryptBuilder.Decrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .WithNonce(result.Nonce)
+                .DecryptFromBase64Url(base64UrlCiphertext);
+
+            // Assert
+            Assert.Equal(System.Text.Encoding.UTF8.GetBytes(plaintext), decrypted);
+        }
+
+        [Fact]
+        public void DecryptFromBase64UrlToString_Succeeds()
+        {
+            // Arrange
+            var plaintext = "Hello, World!";
+            var key = TestHelpers.RandomBytes(32);
+
+            var result = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .Encrypt(plaintext);
+
+            var base64UrlCiphertext = Convert.ToBase64String(result.Ciphertext)
+                .TrimEnd('=')
+                .Replace('+', '-')
+                .Replace('/', '_');
+
+            // Act
+            var decrypted = HeroCryptBuilder.Decrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .WithNonce(result.Nonce)
+                .DecryptFromBase64UrlToString(base64UrlCiphertext);
+
+            // Assert
+            Assert.Equal(plaintext, decrypted);
+        }
+
+        [Fact]
+        public void DecryptFromHex_WithInvalidHex_ThrowsFormatException()
+        {
+            // Arrange
+            var key = TestHelpers.RandomBytes(32);
+            var nonce = TestHelpers.RandomBytes(12);
+
+            // Act & Assert
+            Assert.Throws<FormatException>(() =>
+                HeroCryptBuilder.Decrypt()
+                    .WithAesGcm()
+                    .WithKey(key)
+                    .WithNonce(nonce)
+                    .DecryptFromHex("not-valid-hex!@#$"));
+        }
+
+        [Fact]
+        public void DecryptFromBase64_WithInvalidBase64_ThrowsFormatException()
+        {
+            // Arrange
+            var key = TestHelpers.RandomBytes(32);
+            var nonce = TestHelpers.RandomBytes(12);
+
+            // Act & Assert
+            Assert.Throws<FormatException>(() =>
+                HeroCryptBuilder.Decrypt()
+                    .WithAesGcm()
+                    .WithKey(key)
+                    .WithNonce(nonce)
+                    .DecryptFromBase64("not-valid-base64!@#$"));
+        }
+    }
+
+    /// <summary>
+    /// Tests for key and nonce input format convenience methods.
+    /// </summary>
+    [Trait("Category", TestCategories.UNIT)]
+    [Trait("Category", TestCategories.FAST)]
+    public class KeyAndNonceInputFormatTests
+    {
+        [Fact]
+        public void WithKeyFromHex_SuccessfullyDecrypts()
+        {
+            // Arrange
+            var plaintext = "Hello, World!";
+            var key = TestHelpers.RandomBytes(32);
+            var hexKey = Convert.ToHexString(key).ToLowerInvariant();
+
+            var result = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .Encrypt(plaintext);
+
+            // Act
+            var decrypted = HeroCryptBuilder.Decrypt()
+                .WithAesGcm()
+                .WithKeyFromHex(hexKey)
+                .WithNonce(result.Nonce)
+                .DecryptToString(result.Ciphertext);
+
+            // Assert
+            Assert.Equal(plaintext, decrypted);
+        }
+
+        [Fact]
+        public void WithKeyFromBase64_SuccessfullyDecrypts()
+        {
+            // Arrange
+            var plaintext = "Hello, World!";
+            var key = TestHelpers.RandomBytes(32);
+            var base64Key = Convert.ToBase64String(key);
+
+            var result = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .Encrypt(plaintext);
+
+            // Act
+            var decrypted = HeroCryptBuilder.Decrypt()
+                .WithAesGcm()
+                .WithKeyFromBase64(base64Key)
+                .WithNonce(result.Nonce)
+                .DecryptToString(result.Ciphertext);
+
+            // Assert
+            Assert.Equal(plaintext, decrypted);
+        }
+
+        [Fact]
+        public void WithKeyFromBase64Url_SuccessfullyDecrypts()
+        {
+            // Arrange
+            var plaintext = "Hello, World!";
+            var key = TestHelpers.RandomBytes(32);
+            var base64UrlKey = Convert.ToBase64String(key)
+                .TrimEnd('=')
+                .Replace('+', '-')
+                .Replace('/', '_');
+
+            var result = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .Encrypt(plaintext);
+
+            // Act
+            var decrypted = HeroCryptBuilder.Decrypt()
+                .WithAesGcm()
+                .WithKeyFromBase64Url(base64UrlKey)
+                .WithNonce(result.Nonce)
+                .DecryptToString(result.Ciphertext);
+
+            // Assert
+            Assert.Equal(plaintext, decrypted);
+        }
+
+        [Fact]
+        public void WithNonceFromHex_SuccessfullyDecrypts()
+        {
+            // Arrange
+            var plaintext = "Hello, World!";
+            var key = TestHelpers.RandomBytes(32);
+
+            var result = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .Encrypt(plaintext);
+
+            var hexNonce = Convert.ToHexString(result.Nonce).ToLowerInvariant();
+
+            // Act
+            var decrypted = HeroCryptBuilder.Decrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .WithNonceFromHex(hexNonce)
+                .DecryptToString(result.Ciphertext);
+
+            // Assert
+            Assert.Equal(plaintext, decrypted);
+        }
+
+        [Fact]
+        public void WithNonceFromBase64_SuccessfullyDecrypts()
+        {
+            // Arrange
+            var plaintext = "Hello, World!";
+            var key = TestHelpers.RandomBytes(32);
+
+            var result = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .Encrypt(plaintext);
+
+            var base64Nonce = Convert.ToBase64String(result.Nonce);
+
+            // Act
+            var decrypted = HeroCryptBuilder.Decrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .WithNonceFromBase64(base64Nonce)
+                .DecryptToString(result.Ciphertext);
+
+            // Assert
+            Assert.Equal(plaintext, decrypted);
+        }
+
+        [Fact]
+        public void WithNonceFromBase64Url_SuccessfullyDecrypts()
+        {
+            // Arrange
+            var plaintext = "Hello, World!";
+            var key = TestHelpers.RandomBytes(32);
+
+            var result = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .Encrypt(plaintext);
+
+            var base64UrlNonce = Convert.ToBase64String(result.Nonce)
+                .TrimEnd('=')
+                .Replace('+', '-')
+                .Replace('/', '_');
+
+            // Act
+            var decrypted = HeroCryptBuilder.Decrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .WithNonceFromBase64Url(base64UrlNonce)
+                .DecryptToString(result.Ciphertext);
+
+            // Assert
+            Assert.Equal(plaintext, decrypted);
+        }
+
+        [Fact]
+        public void WithKeyAndNonceFromHex_SuccessfullyDecrypts()
+        {
+            // Arrange - Test using both key and nonce from hex
+            var plaintext = "Test complete hex workflow";
+            var key = TestHelpers.RandomBytes(32);
+            var hexKey = Convert.ToHexString(key).ToLowerInvariant();
+
+            var result = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .Encrypt(plaintext);
+
+            var hexNonce = Convert.ToHexString(result.Nonce);
+
+            // Act
+            var decrypted = HeroCryptBuilder.Decrypt()
+                .WithAesGcm()
+                .WithKeyFromHex(hexKey)
+                .WithNonceFromHex(hexNonce)
+                .DecryptToString(result.Ciphertext);
+
+            // Assert
+            Assert.Equal(plaintext, decrypted);
+        }
+
+        [Fact]
+        public void WithKeyFromHex_InvalidHex_ThrowsFormatException()
+        {
+            // Act & Assert
+            Assert.Throws<FormatException>(() =>
+                HeroCryptBuilder.Decrypt()
+                    .WithAesGcm()
+                    .WithKeyFromHex("not-valid-hex!@#$"));
+        }
+
+        [Fact]
+        public void WithKeyFromBase64_InvalidBase64_ThrowsFormatException()
+        {
+            // Act & Assert
+            Assert.Throws<FormatException>(() =>
+                HeroCryptBuilder.Decrypt()
+                    .WithAesGcm()
+                    .WithKeyFromBase64("not-valid-base64!@#$"));
+        }
+
+        [Fact]
+        public void WithNonceFromHex_InvalidHex_ThrowsFormatException()
+        {
+            // Act & Assert
+            Assert.Throws<FormatException>(() =>
+                HeroCryptBuilder.Decrypt()
+                    .WithAesGcm()
+                    .WithNonceFromHex("not-valid-hex!@#$"));
+        }
+
+        [Fact]
+        public void WithNonceFromBase64_InvalidBase64_ThrowsFormatException()
+        {
+            // Act & Assert
+            Assert.Throws<FormatException>(() =>
+                HeroCryptBuilder.Decrypt()
+                    .WithAesGcm()
+                    .WithNonceFromBase64("not-valid-base64!@#$"));
+        }
+
+        [Fact]
+        public void WithKeyFromHex_AfterDispose_ThrowsObjectDisposedException()
+        {
+            // Arrange
+            var builder = HeroCryptBuilder.Decrypt();
+            builder.Dispose();
+
+            // Act & Assert
+            Assert.Throws<ObjectDisposedException>(() => builder.WithKeyFromHex("abcd"));
+        }
+
+        [Fact]
+        public void WithNonceFromHex_AfterDispose_ThrowsObjectDisposedException()
+        {
+            // Arrange
+            var builder = HeroCryptBuilder.Decrypt();
+            builder.Dispose();
+
+            // Act & Assert
+            Assert.Throws<ObjectDisposedException>(() => builder.WithNonceFromHex("abcd"));
+        }
+
+        [Fact]
+        public void EncryptWithRandomKey_DecryptWithKeyFromHex_RoundTrip()
+        {
+            // Arrange - Full workflow: generate key, get as hex, decrypt with hex key
+            var plaintext = "Test encryption with random key and hex key decryption";
+
+            using var encryptBuilder = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithRandomKey();
+
+            var hexKey = encryptBuilder.GetKeyAsHex();
+            var result = encryptBuilder.Encrypt(plaintext);
+
+            // Act - Decrypt using hex key
+            var decrypted = HeroCryptBuilder.Decrypt()
+                .WithAesGcm()
+                .WithKeyFromHex(hexKey)
+                .WithNonce(result.Nonce)
+                .DecryptToString(result.Ciphertext);
+
+            // Assert
+            Assert.Equal(plaintext, decrypted);
+        }
+
+        [Fact]
+        public void EncryptWithRandomKey_DecryptWithKeyFromBase64_RoundTrip()
+        {
+            // Arrange
+            var plaintext = "Test encryption with random key and base64 key decryption";
+
+            using var encryptBuilder = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithRandomKey();
+
+            var base64Key = encryptBuilder.GetKeyAsBase64();
+            var result = encryptBuilder.Encrypt(plaintext);
+
+            // Act
+            var decrypted = HeroCryptBuilder.Decrypt()
+                .WithAesGcm()
+                .WithKeyFromBase64(base64Key)
+                .WithNonce(result.Nonce)
+                .DecryptToString(result.Ciphertext);
+
+            // Assert
+            Assert.Equal(plaintext, decrypted);
+        }
+
+        [Fact]
+        public void EncryptWithRandomKey_DecryptWithKeyFromBase64Url_RoundTrip()
+        {
+            // Arrange
+            var plaintext = "Test encryption with random key and URL-safe base64 key decryption";
+
+            using var encryptBuilder = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithRandomKey();
+
+            var base64UrlKey = encryptBuilder.GetKeyAsBase64Url();
+            var result = encryptBuilder.Encrypt(plaintext);
+
+            // Act
+            var decrypted = HeroCryptBuilder.Decrypt()
+                .WithAesGcm()
+                .WithKeyFromBase64Url(base64UrlKey)
+                .WithNonce(result.Nonce)
+                .DecryptToString(result.Ciphertext);
+
+            // Assert
+            Assert.Equal(plaintext, decrypted);
+        }
+    }
 }

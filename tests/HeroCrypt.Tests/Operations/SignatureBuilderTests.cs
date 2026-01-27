@@ -660,4 +660,280 @@ public class SignatureBuilderTests
             Assert.True(isValid);
         }
     }
+
+    /// <summary>
+    /// Tests for signature output format convenience methods (SignToHex, SignToBase64).
+    /// </summary>
+    [Trait("Category", TestCategories.UNIT)]
+    [Trait("Category", TestCategories.FAST)]
+    public class OutputFormatConvenienceMethods
+    {
+        [Fact]
+        public void SignToHex_ReturnsLowercaseHexString()
+        {
+            // Arrange
+            var key = TestHelpers.RandomBytes(64);
+            var data = "test message";
+
+            // Act
+            var hexSignature = HeroCryptBuilder.Sign()
+                .WithHmacSha256()
+                .WithKey(key)
+                .SignToHex(data);
+
+            // Assert
+            Assert.NotNull(hexSignature);
+            Assert.Equal(64, hexSignature.Length); // HMAC-SHA256 = 32 bytes = 64 hex chars
+            Assert.Equal(hexSignature.ToLowerInvariant(), hexSignature); // lowercase
+            Assert.Matches("^[0-9a-f]+$", hexSignature); // valid hex
+        }
+
+        [Fact]
+        public void SignToHex_ByteArray_ReturnsCorrectHex()
+        {
+            // Arrange
+            var key = TestHelpers.RandomBytes(64);
+            var data = Encoding.UTF8.GetBytes("test message");
+
+            // Act
+            var hexSignature = HeroCryptBuilder.Sign()
+                .WithHmacSha256()
+                .WithKey(key)
+                .SignToHex(data);
+
+            // Assert
+            Assert.NotNull(hexSignature);
+            Assert.Matches("^[0-9a-f]+$", hexSignature);
+        }
+
+        [Fact]
+        public void SignToHex_MatchesManualConversion()
+        {
+            // Arrange
+            var key = TestHelpers.RandomBytes(64);
+            var data = "test message";
+
+            // Act
+            var signatureBytes = HeroCryptBuilder.Sign()
+                .WithHmacSha256()
+                .WithKey(key)
+                .Sign(data);
+
+            var hexSignature = HeroCryptBuilder.Sign()
+                .WithHmacSha256()
+                .WithKey(key)
+                .SignToHex(data);
+
+            var expectedHex = Convert.ToHexString(signatureBytes).ToLowerInvariant();
+
+            // Assert
+            Assert.Equal(expectedHex, hexSignature);
+        }
+
+        [Fact]
+        public void SignToBase64_ReturnsValidBase64()
+        {
+            // Arrange
+            var key = TestHelpers.RandomBytes(64);
+            var data = "test message";
+
+            // Act
+            var base64Signature = HeroCryptBuilder.Sign()
+                .WithHmacSha256()
+                .WithKey(key)
+                .SignToBase64(data);
+
+            // Assert
+            Assert.NotNull(base64Signature);
+            Assert.DoesNotContain(" ", base64Signature);
+
+            // Verify it's valid Base64 by decoding
+            var decoded = Convert.FromBase64String(base64Signature);
+            Assert.Equal(32, decoded.Length); // HMAC-SHA256 = 32 bytes
+        }
+
+        [Fact]
+        public void SignToBase64_ByteArray_MatchesStringVersion()
+        {
+            // Arrange
+            var key = TestHelpers.RandomBytes(64);
+            var stringData = "test message";
+            var byteData = Encoding.UTF8.GetBytes(stringData);
+
+            // Act
+            var base64FromString = HeroCryptBuilder.Sign()
+                .WithHmacSha256()
+                .WithKey(key)
+                .SignToBase64(stringData);
+
+            var base64FromBytes = HeroCryptBuilder.Sign()
+                .WithHmacSha256()
+                .WithKey(key)
+                .SignToBase64(byteData);
+
+            // Assert
+            Assert.Equal(base64FromString, base64FromBytes);
+        }
+
+        [Fact]
+        public void SignToBase64_MatchesManualConversion()
+        {
+            // Arrange
+            var key = TestHelpers.RandomBytes(64);
+            var data = "test message";
+
+            // Act
+            var signatureBytes = HeroCryptBuilder.Sign()
+                .WithHmacSha256()
+                .WithKey(key)
+                .Sign(data);
+
+            var base64Signature = HeroCryptBuilder.Sign()
+                .WithHmacSha256()
+                .WithKey(key)
+                .SignToBase64(data);
+
+            var expectedBase64 = Convert.ToBase64String(signatureBytes);
+
+            // Assert
+            Assert.Equal(expectedBase64, base64Signature);
+        }
+
+        [Fact]
+        public void SignToHex_WithEd25519_Succeeds()
+        {
+            // Arrange
+            var (privateKey, _) = Ed25519Core.GenerateKeyPair();
+            var data = "test message";
+
+            // Act
+            var hexSignature = HeroCryptBuilder.Sign()
+                .WithEd25519()
+                .WithPrivateKey(privateKey)
+                .SignToHex(data);
+
+            // Assert
+            Assert.NotNull(hexSignature);
+            Assert.Equal(128, hexSignature.Length); // Ed25519 = 64 bytes = 128 hex chars
+            Assert.Matches("^[0-9a-f]+$", hexSignature);
+        }
+
+        [Fact]
+        public void SignToBase64_WithEd25519_Succeeds()
+        {
+            // Arrange
+            var (privateKey, _) = Ed25519Core.GenerateKeyPair();
+            var data = "test message";
+
+            // Act
+            var base64Signature = HeroCryptBuilder.Sign()
+                .WithEd25519()
+                .WithPrivateKey(privateKey)
+                .SignToBase64(data);
+
+            // Assert
+            Assert.NotNull(base64Signature);
+            var decoded = Convert.FromBase64String(base64Signature);
+            Assert.Equal(64, decoded.Length); // Ed25519 = 64 bytes
+        }
+
+        [Theory]
+        [InlineData(SignatureAlgorithm.HmacSha256, 64)]  // 32 bytes = 64 hex chars
+        [InlineData(SignatureAlgorithm.HmacSha384, 96)]  // 48 bytes = 96 hex chars
+        [InlineData(SignatureAlgorithm.HmacSha512, 128)] // 64 bytes = 128 hex chars
+        public void SignToHex_AllHmacAlgorithms_ReturnsCorrectLength(SignatureAlgorithm algorithm, int expectedHexLength)
+        {
+            // Arrange
+            var key = TestHelpers.RandomBytes(64);
+            var data = "test message";
+
+            // Act
+            var hexSignature = HeroCryptBuilder.Sign()
+                .WithAlgorithm(algorithm)
+                .WithKey(key)
+                .SignToHex(data);
+
+            // Assert
+            Assert.Equal(expectedHexLength, hexSignature.Length);
+        }
+
+        [Fact]
+        public void SignToBase64Url_ReturnsUrlSafeString()
+        {
+            // Arrange
+            var key = TestHelpers.RandomBytes(64);
+            var data = "test message";
+
+            // Act
+            var base64UrlSignature = HeroCryptBuilder.Sign()
+                .WithHmacSha256()
+                .WithKey(key)
+                .SignToBase64Url(data);
+
+            // Assert
+            Assert.NotNull(base64UrlSignature);
+            Assert.DoesNotContain("+", base64UrlSignature);
+            Assert.DoesNotContain("/", base64UrlSignature);
+            Assert.DoesNotContain("=", base64UrlSignature);
+        }
+
+        [Fact]
+        public void SignToBase64Url_CanBeDecodedBack()
+        {
+            // Arrange
+            var key = TestHelpers.RandomBytes(64);
+            var data = "test message";
+
+            // Act
+            var signature = HeroCryptBuilder.Sign()
+                .WithHmacSha256()
+                .WithKey(key)
+                .Sign(data);
+
+            var base64UrlSignature = HeroCryptBuilder.Sign()
+                .WithHmacSha256()
+                .WithKey(key)
+                .SignToBase64Url(data);
+
+            // Convert back from URL-safe Base64
+            var base64 = base64UrlSignature
+                .Replace('-', '+')
+                .Replace('_', '/');
+            switch (base64.Length % 4)
+            {
+                case 0: break;
+                case 1: break;
+                case 2: base64 += "=="; break;
+                case 3: base64 += "="; break;
+                default: break;
+            }
+            var decoded = Convert.FromBase64String(base64);
+
+            // Assert
+            Assert.Equal(signature, decoded);
+        }
+
+        [Fact]
+        public void SignToBase64Url_StringOverload_MatchesByteOverload()
+        {
+            // Arrange
+            var key = TestHelpers.RandomBytes(64);
+            var stringData = "test message";
+            var byteData = Encoding.UTF8.GetBytes(stringData);
+
+            // Act
+            var fromString = HeroCryptBuilder.Sign()
+                .WithHmacSha256()
+                .WithKey(key)
+                .SignToBase64Url(stringData);
+
+            var fromBytes = HeroCryptBuilder.Sign()
+                .WithHmacSha256()
+                .WithKey(key)
+                .SignToBase64Url(byteData);
+
+            // Assert
+            Assert.Equal(fromString, fromBytes);
+        }
+    }
 }

@@ -254,10 +254,72 @@ public sealed class KeyDerivationBuilder : IDisposable
         ThrowIfDisposed();
         if (salt == null)
         {
-            throw new InvalidOperationException("Salt has not been set. Use WithSalt() or WithRandomSalt() first.");
+            throw new InvalidOperationException("Salt must be set using WithSalt() or WithRandomSalt()");
         }
 
         return [.. salt];
+    }
+
+    /// <summary>
+    /// Returns the salt as a lowercase hexadecimal string.
+    /// </summary>
+    /// <returns>The salt as a lowercase hexadecimal string.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when salt has not been set.</exception>
+    /// <remarks>
+    /// <para>
+    /// This is a convenience method for obtaining the salt in a format suitable for storage or display.
+    /// </para>
+    /// <para>
+    /// Example usage with random salt:
+    /// <code>
+    /// using var kdf = HeroCryptBuilder.Argon2();
+    /// kdf.WithPassword(password).WithRandomSalt();
+    /// var saltHex = kdf.GetSaltAsHex();  // Store this alongside the derived key
+    /// var derivedKey = kdf.DeriveKey();
+    /// </code>
+    /// </para>
+    /// </remarks>
+    public string GetSaltAsHex()
+    {
+        var saltBytes = GetSalt();
+        return Convert.ToHexString(saltBytes).ToLowerInvariant();
+    }
+
+    /// <summary>
+    /// Returns the salt as a Base64-encoded string.
+    /// </summary>
+    /// <returns>The salt as a Base64-encoded string.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when salt has not been set.</exception>
+    /// <remarks>
+    /// This is a convenience method for obtaining the salt in a format suitable for storage
+    /// in JSON, databases, or other text-based formats.
+    /// </remarks>
+    public string GetSaltAsBase64()
+    {
+        var saltBytes = GetSalt();
+        return Convert.ToBase64String(saltBytes);
+    }
+
+    /// <summary>
+    /// Returns the salt as a URL-safe Base64-encoded string (no padding).
+    /// </summary>
+    /// <returns>The salt as a URL-safe Base64-encoded string.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when salt has not been set.</exception>
+    /// <remarks>
+    /// <para>
+    /// URL-safe Base64 replaces '+' with '-', '/' with '_', and omits padding '=' characters.
+    /// </para>
+    /// <para>
+    /// Use this when embedding the salt in URLs or when standard Base64 characters may cause issues.
+    /// </para>
+    /// </remarks>
+    public string GetSaltAsBase64Url()
+    {
+        var saltBytes = GetSalt();
+        return Convert.ToBase64String(saltBytes)
+            .TrimEnd('=')
+            .Replace('+', '-')
+            .Replace('/', '_');
     }
 
     /// <summary>

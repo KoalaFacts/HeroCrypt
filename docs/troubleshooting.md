@@ -10,8 +10,9 @@ Common issues and solutions when using HeroCrypt.
 4. [Platform-Specific Issues](#platform-specific-issues)
 5. [Memory Issues](#memory-issues)
 6. [Encryption/Decryption Failures](#encryptiondecryption-failures)
-7. [Key Management Issues](#key-management-issues)
-8. [Getting Help](#getting-help)
+7. [Text Encoding Issues](#text-encoding-issues)
+8. [Key Management Issues](#key-management-issues)
+9. [Getting Help](#getting-help)
 
 ## Installation Issues
 
@@ -475,6 +476,194 @@ else
 }
 ```
 
+## Text Encoding Issues
+
+### FormatException: Invalid Hex String
+
+**Problem**:
+```
+FormatException: The input is not a valid hex string.
+```
+
+**Causes and Solutions**:
+
+```csharp
+// ❌ Odd number of characters
+var bytes = Convert.FromHexString("ABC");  // 3 chars = invalid
+
+// ✅ Even number of characters
+var bytes = Convert.FromHexString("ABCD");  // 4 chars = 2 bytes
+
+// ❌ Invalid hex characters
+var bytes = Convert.FromHexString("GHIJ");  // G-Z are invalid
+
+// ✅ Valid hex characters (0-9, A-F, a-f)
+var bytes = Convert.FromHexString("0123456789abcdef");
+
+// ❌ Spaces or prefixes
+var bytes = Convert.FromHexString("0x1234");  // "0x" prefix invalid
+var bytes = Convert.FromHexString("12 34");   // Spaces invalid
+
+// ✅ Clean hex string
+var bytes = Convert.FromHexString("1234");
+```
+
+### FormatException: Invalid Base64 String
+
+**Problem**:
+```
+FormatException: The input is not a valid Base-64 string.
+```
+
+**Causes and Solutions**:
+
+```csharp
+// ❌ Invalid characters
+var bytes = Convert.FromBase64String("Hello World!");  // Spaces, ! invalid
+
+// ✅ Valid Base64
+var bytes = Convert.FromBase64String("SGVsbG8gV29ybGQh");
+
+// ❌ Missing padding
+var bytes = Convert.FromBase64String("SGVsbG8");  // Should be "SGVsbG8="
+
+// ✅ With padding
+var bytes = Convert.FromBase64String("SGVsbG8=");
+
+// ❌ URL-safe Base64 decoded with standard decoder
+var bytes = Convert.FromBase64String("SGVsbG8-V29ybGQ_");  // - and _ invalid
+
+// ✅ Use URL-safe decoder for URL-safe strings
+var bytes = TextEncodings.FromBase64Url("SGVsbG8-V29ybGQ_");
+```
+
+### Mixing Up Base64 and Base64Url
+
+**Problem**: Decryption fails even though the key "looks right"
+
+**Solution**:
+```csharp
+// Standard Base64 uses: + / =
+// URL-safe Base64 uses: - _ (no padding)
+
+// ❌ Using wrong decoder
+var key = "a+b/c==";
+var bytes = TextEncodings.FromBase64Url(key);  // WRONG: + and / are invalid
+
+// ✅ Match encoder and decoder
+var key = "a+b/c==";
+var bytes = Convert.FromBase64String(key);  // Standard Base64
+
+var urlSafeKey = "a-b_c";
+var urlBytes = TextEncodings.FromBase64Url(urlSafeKey);  // URL-safe Base64
+```
+
+### Key/Data Length Mismatch After Decoding
+
+**Problem**:
+```
+ArgumentException: Invalid key size: expected 32, got 24
+```
+
+**Cause**: Encoding issues leading to wrong byte length
+
+**Diagnostic**:
+```csharp
+// Check expected vs actual length
+var hexKey = "0102030405060708090a0b0c0d0e0f10";  // 32 hex chars = 16 bytes
+Console.WriteLine($"Hex length: {hexKey.Length}");
+Console.WriteLine($"Byte length: {Convert.FromHexString(hexKey).Length}");
+
+// Hex: 2 characters per byte
+// Base64: 4 characters per 3 bytes (plus padding)
+// Base64Url: Same as Base64 but no padding
+
+// For 32-byte key:
+// - Hex: 64 characters
+// - Base64: 44 characters (with =)
+// - Base64Url: 43 characters (no padding)
+```
+
+**Quick Reference - Expected String Lengths**:
+| Bytes | Hex | Base64 | Base64Url |
+|-------|-----|--------|-----------|
+| 12 (nonce) | 24 | 16 | 16 |
+| 16 (AES-128 key) | 32 | 24 | 22 |
+| 24 (AES-192 key) | 48 | 32 | 32 |
+| 32 (AES-256 key) | 64 | 44 | 43 |
+
+### Ciphertext Decoded Incorrectly
+
+**Problem**: MAC verification fails when decrypting from text
+
+**Solution**: Ensure consistent encoding through round-trip
+```csharp
+// ENCRYPTION: Store all values with same encoding
+using var encryptor = HeroCryptBuilder.Encrypt()
+    .WithAesGcm()
+    .WithRandomKey();
+
+var result = encryptor.Encrypt(plaintext);
+var stored = new {
+    key = encryptor.GetKeyAsBase64Url(),      // All Base64Url
+    nonce = result.NonceAsBase64Url,
+    ciphertext = result.CiphertextAsBase64Url
+};
+
+// DECRYPTION: Use matching decoders
+var decrypted = HeroCryptBuilder.Decrypt()
+    .WithAesGcm()
+    .WithKeyFromBase64Url(stored.key)         // All FromBase64Url
+    .WithNonceFromBase64Url(stored.nonce)
+    .DecryptFromBase64Url(stored.ciphertext);
+```
+
+### Cross-Platform Encoding Issues
+
+**Problem**: Data encoded on one system can't be decoded on another
+
+**Common causes**:
+1. **Case sensitivity**: Hex on Windows may be uppercase, Linux lowercase
+2. **Padding differences**: Some systems strip Base64 padding
+3. **Line breaks**: Some encoders add line breaks to long strings
+
+**Solutions**:
+```csharp
+// HeroCrypt handles all cases:
+
+// Hex: Case-insensitive
+var bytes1 = Convert.FromHexString("ABCD");  // Works
+var bytes2 = Convert.FromHexString("abcd");  // Also works
+
+// Base64Url: With or without padding
+var bytes1 = TextEncodings.FromBase64Url("SGVsbG8=");   // With padding
+var bytes2 = TextEncodings.FromBase64Url("SGVsbG8");    // Without padding
+
+// Remove line breaks from Base64
+var cleanBase64 = base64WithLineBreaks.Replace("\n", "").Replace("\r", "");
+var bytes = Convert.FromBase64String(cleanBase64);
+```
+
+### Empty String Encoding
+
+**Problem**: Empty encoded strings cause issues
+
+**Solution**:
+```csharp
+// ✅ Empty string encodes to empty bytes
+var empty = Convert.FromHexString("");  // Returns byte[0]
+
+// ⚠️ But crypto operations need non-empty data
+using var hasher = HeroCryptBuilder.Hash().WithSha256();
+
+// ❌ This may throw or return unexpected results
+var hash = hasher.ComputeHash(Array.Empty<byte>());
+
+// ✅ Validate input before processing
+if (string.IsNullOrEmpty(hexInput))
+    throw new ArgumentException("Input cannot be empty");
+```
+
 ## Key Management Issues
 
 ### Lost Encryption Keys
@@ -676,6 +865,9 @@ catch (Exception ex)
 | `Out of memory` | Argon2 memory too high | Reduce `memorySizeKB` parameter |
 | `Permission denied` | Cannot lock memory | Increase `memlock` limit (Linux) |
 | `Platform not supported` | Feature not available | Check [PRODUCTION_READINESS.md](../PRODUCTION_READINESS.md) |
+| `Invalid hex string` | Odd length or invalid chars | Use even number of 0-9, A-F, a-f chars only |
+| `Invalid Base-64 string` | Wrong chars or missing padding | Use standard Base64 chars with padding |
+| `Invalid Base64Url` | Using +/ instead of -_ | Use `TextEncodings.FromBase64Url()` for URL-safe strings |
 
 ## Still Having Issues?
 

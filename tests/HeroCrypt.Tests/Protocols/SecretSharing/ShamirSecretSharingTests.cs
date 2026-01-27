@@ -1,6 +1,5 @@
 using System.Text;
 using HeroCrypt.Protocols.SecretSharing;
-using HeroCrypt.Tests.Infrastructure;
 
 namespace HeroCrypt.Tests.Protocols.SecretSharing;
 

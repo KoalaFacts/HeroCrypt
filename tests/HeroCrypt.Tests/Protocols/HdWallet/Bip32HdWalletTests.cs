@@ -1,5 +1,4 @@
 using HeroCrypt.Protocols.HdWallet;
-using HeroCrypt.Tests.Infrastructure;
 
 namespace HeroCrypt.Tests.Protocols.HdWallet;
 

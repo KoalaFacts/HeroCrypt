@@ -1,3 +1,4 @@
+using HeroCrypt.Operations.Internal;
 using HeroCrypt.Primitives.Blake2b;
 using HeroCrypt.Primitives.Sha;
 using HeroCrypt.Security;
@@ -280,28 +281,8 @@ public sealed class HashBuilder : IDisposable
     public HashBuilder WithKeyFromBase64Url(string base64UrlKey)
     {
         ThrowIfDisposed();
-        var keyBytes = FromBase64Url(base64UrlKey);
+        var keyBytes = TextEncodings.FromBase64Url(base64UrlKey);
         return WithKey(keyBytes);
-    }
-
-    private static byte[] FromBase64Url(string base64Url)
-    {
-        // Convert URL-safe Base64 to standard Base64
-        var base64 = base64Url
-            .Replace('-', '+')
-            .Replace('_', '/');
-
-        // Add padding if needed
-        switch (base64.Length % 4)
-        {
-            case 0: break; // No padding needed
-            case 1: break; // Invalid Base64 - let Convert.FromBase64String handle the error
-            case 2: base64 += "=="; break;
-            case 3: base64 += "="; break;
-            default: break; // Unreachable, but required for exhaustive switch
-        }
-
-        return Convert.FromBase64String(base64);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -347,7 +328,7 @@ public sealed class HashBuilder : IDisposable
     public string ComputeHashToHex(byte[] data)
     {
         var hash = ComputeHash(data);
-        return Convert.ToHexString(hash).ToLowerInvariant();
+        return TextEncodings.ToHexLower(hash);
     }
 
     /// <summary>
@@ -410,7 +391,7 @@ public sealed class HashBuilder : IDisposable
     public string ComputeHashToBase64Url(byte[] data)
     {
         var hash = ComputeHash(data);
-        return ToBase64Url(hash);
+        return TextEncodings.ToBase64Url(hash);
     }
 
     /// <summary>
@@ -421,14 +402,6 @@ public sealed class HashBuilder : IDisposable
     public string ComputeHashToBase64Url(string data)
     {
         return ComputeHashToBase64Url(System.Text.Encoding.UTF8.GetBytes(data));
-    }
-
-    private static string ToBase64Url(byte[] data)
-    {
-        return Convert.ToBase64String(data)
-            .TrimEnd('=')
-            .Replace('+', '-')
-            .Replace('/', '_');
     }
 
     private static byte[] Compute(byte[] data, HashingAlgorithm algorithm, int? outputLength)

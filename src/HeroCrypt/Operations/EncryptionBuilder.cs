@@ -38,7 +38,7 @@ public readonly struct EncryptionResult
     /// <summary>
     /// Gets the ciphertext as a lowercase hexadecimal string.
     /// </summary>
-    public string CiphertextAsHex => Convert.ToHexString(Ciphertext).ToLowerInvariant();
+    public string CiphertextAsHex => TextEncodings.ToHexLower(Ciphertext);
 
     /// <summary>
     /// Gets the ciphertext as a Base64-encoded string.
@@ -48,12 +48,12 @@ public readonly struct EncryptionResult
     /// <summary>
     /// Gets the ciphertext as a URL-safe Base64-encoded string (no padding).
     /// </summary>
-    public string CiphertextAsBase64Url => ToBase64Url(Ciphertext);
+    public string CiphertextAsBase64Url => TextEncodings.ToBase64Url(Ciphertext);
 
     /// <summary>
     /// Gets the nonce as a lowercase hexadecimal string.
     /// </summary>
-    public string NonceAsHex => Convert.ToHexString(Nonce).ToLowerInvariant();
+    public string NonceAsHex => TextEncodings.ToHexLower(Nonce);
 
     /// <summary>
     /// Gets the nonce as a Base64-encoded string.
@@ -63,14 +63,14 @@ public readonly struct EncryptionResult
     /// <summary>
     /// Gets the nonce as a URL-safe Base64-encoded string (no padding).
     /// </summary>
-    public string NonceAsBase64Url => ToBase64Url(Nonce);
+    public string NonceAsBase64Url => TextEncodings.ToBase64Url(Nonce);
 
     /// <summary>
     /// Gets the encapsulated key as a lowercase hexadecimal string (for hybrid encryption).
     /// Returns null if no encapsulated key is present.
     /// </summary>
     public string? EncapsulatedKeyAsHex => EncapsulatedKey != null
-        ? Convert.ToHexString(EncapsulatedKey).ToLowerInvariant()
+        ? TextEncodings.ToHexLower(EncapsulatedKey)
         : null;
 
     /// <summary>
@@ -86,16 +86,8 @@ public readonly struct EncryptionResult
     /// Returns null if no encapsulated key is present.
     /// </summary>
     public string? EncapsulatedKeyAsBase64Url => EncapsulatedKey != null
-        ? ToBase64Url(EncapsulatedKey)
+        ? TextEncodings.ToBase64Url(EncapsulatedKey)
         : null;
-
-    private static string ToBase64Url(byte[] bytes)
-    {
-        return Convert.ToBase64String(bytes)
-            .TrimEnd('=')
-            .Replace('+', '-')
-            .Replace('/', '_');
-    }
 }
 
 /// <summary>
@@ -229,28 +221,8 @@ public sealed class EncryptionBuilder : IDisposable
     public EncryptionBuilder WithKeyFromBase64Url(string base64UrlKey)
     {
         ThrowIfDisposed();
-        var keyBytes = FromBase64Url(base64UrlKey);
+        var keyBytes = TextEncodings.FromBase64Url(base64UrlKey);
         return WithKey(keyBytes);
-    }
-
-    private static byte[] FromBase64Url(string base64Url)
-    {
-        // Convert URL-safe Base64 to standard Base64
-        var base64 = base64Url
-            .Replace('-', '+')
-            .Replace('_', '/');
-
-        // Add padding if needed
-        switch (base64.Length % 4)
-        {
-            case 0: break; // No padding needed
-            case 1: break; // Invalid Base64 - let Convert.FromBase64String handle the error
-            case 2: base64 += "=="; break;
-            case 3: base64 += "="; break;
-            default: break; // Unreachable, but required for exhaustive switch
-        }
-
-        return Convert.FromBase64String(base64);
     }
 
     /// <summary>
@@ -320,7 +292,7 @@ public sealed class EncryptionBuilder : IDisposable
     public string GetKeyAsHex()
     {
         var keyBytes = GetKey();
-        return Convert.ToHexString(keyBytes).ToLowerInvariant();
+        return TextEncodings.ToHexLower(keyBytes);
     }
 
     /// <summary>
@@ -344,10 +316,7 @@ public sealed class EncryptionBuilder : IDisposable
     public string GetKeyAsBase64Url()
     {
         var keyBytes = GetKey();
-        return Convert.ToBase64String(keyBytes)
-            .TrimEnd('=')
-            .Replace('+', '-')
-            .Replace('/', '_');
+        return TextEncodings.ToBase64Url(keyBytes);
     }
 
     private static int GetDefaultKeySize(EncryptionAlgorithm algorithm)

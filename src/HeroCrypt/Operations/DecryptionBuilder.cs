@@ -199,7 +199,7 @@ public sealed class DecryptionBuilder : IDisposable
     public DecryptionBuilder WithKeyFromBase64Url(string base64UrlKey)
     {
         ThrowIfDisposed();
-        var keyBytes = FromBase64Url(base64UrlKey);
+        var keyBytes = TextEncodings.FromBase64Url(base64UrlKey);
         return WithKey(keyBytes);
     }
 
@@ -266,7 +266,7 @@ public sealed class DecryptionBuilder : IDisposable
     public DecryptionBuilder WithNonceFromBase64Url(string base64UrlNonce)
     {
         ThrowIfDisposed();
-        var nonceBytes = FromBase64Url(base64UrlNonce);
+        var nonceBytes = TextEncodings.FromBase64Url(base64UrlNonce);
         return WithNonce(nonceBytes);
     }
 
@@ -361,7 +361,7 @@ public sealed class DecryptionBuilder : IDisposable
     public DecryptionBuilder WithEncapsulatedKeyFromBase64Url(string base64UrlEncapsulatedKey)
     {
         ThrowIfDisposed();
-        var keyBytes = FromBase64Url(base64UrlEncapsulatedKey);
+        var keyBytes = TextEncodings.FromBase64Url(base64UrlEncapsulatedKey);
         return WithEncapsulatedKey(keyBytes);
     }
 
@@ -570,7 +570,7 @@ public sealed class DecryptionBuilder : IDisposable
     /// </remarks>
     public byte[] DecryptFromBase64Url(string base64UrlCiphertext)
     {
-        var ciphertext = FromBase64Url(base64UrlCiphertext);
+        var ciphertext = TextEncodings.FromBase64Url(base64UrlCiphertext);
         return Decrypt(ciphertext);
     }
 
@@ -585,26 +585,6 @@ public sealed class DecryptionBuilder : IDisposable
     {
         var plaintext = DecryptFromBase64Url(base64UrlCiphertext);
         return System.Text.Encoding.UTF8.GetString(plaintext);
-    }
-
-    private static byte[] FromBase64Url(string base64Url)
-    {
-        // Convert URL-safe Base64 to standard Base64
-        var base64 = base64Url
-            .Replace('-', '+')
-            .Replace('_', '/');
-
-        // Add padding if needed
-        switch (base64.Length % 4)
-        {
-            case 0: break;
-            case 1: break;
-            case 2: base64 += "=="; break;
-            case 3: base64 += "="; break;
-            default: break;
-        }
-
-        return Convert.FromBase64String(base64);
     }
 
     private static byte[] DecryptAesGcm(byte[] ciphertext, byte[] key, byte[] nonce, byte[] aad)

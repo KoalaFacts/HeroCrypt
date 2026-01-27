@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using HeroCrypt.Operations.Internal;
 using HeroCrypt.Primitives.Argon2;
 using HeroCrypt.Primitives.Common;
 using HeroCrypt.Primitives.Hkdf;
@@ -303,38 +304,8 @@ public sealed class KeyDerivationBuilder : IDisposable
     public KeyDerivationBuilder WithSaltFromBase64Url(string base64UrlSalt)
     {
         ThrowIfDisposed();
-        var saltBytes = FromBase64Url(base64UrlSalt);
+        var saltBytes = TextEncodings.FromBase64Url(base64UrlSalt);
         return WithSalt(saltBytes);
-    }
-
-    private static byte[] FromBase64Url(string base64Url)
-    {
-        // Replace URL-safe characters with standard Base64 characters
-        var base64 = base64Url
-            .Replace('-', '+')
-            .Replace('_', '/');
-
-        // Add padding if necessary
-        switch (base64.Length % 4)
-        {
-            case 0:
-                // No padding needed
-                break;
-            case 1:
-                // Invalid Base64 length, will throw on decode
-                break;
-            case 2:
-                base64 += "==";
-                break;
-            case 3:
-                base64 += "=";
-                break;
-            default:
-                // This is unreachable for % 4, but required for completeness
-                break;
-        }
-
-        return Convert.FromBase64String(base64);
     }
 
     /// <summary>
@@ -379,7 +350,7 @@ public sealed class KeyDerivationBuilder : IDisposable
     public string GetSaltAsHex()
     {
         var saltBytes = GetSalt();
-        return Convert.ToHexString(saltBytes).ToLowerInvariant();
+        return TextEncodings.ToHexLower(saltBytes);
     }
 
     /// <summary>
@@ -413,10 +384,7 @@ public sealed class KeyDerivationBuilder : IDisposable
     public string GetSaltAsBase64Url()
     {
         var saltBytes = GetSalt();
-        return Convert.ToBase64String(saltBytes)
-            .TrimEnd('=')
-            .Replace('+', '-')
-            .Replace('/', '_');
+        return TextEncodings.ToBase64Url(saltBytes);
     }
 
     /// <summary>
@@ -571,7 +539,7 @@ public sealed class KeyDerivationBuilder : IDisposable
     public string DeriveKeyToHex()
     {
         var key = DeriveKey();
-        return Convert.ToHexString(key).ToLowerInvariant();
+        return TextEncodings.ToHexLower(key);
     }
 
     /// <summary>
@@ -605,9 +573,6 @@ public sealed class KeyDerivationBuilder : IDisposable
     public string DeriveKeyToBase64Url()
     {
         var key = DeriveKey();
-        return Convert.ToBase64String(key)
-            .TrimEnd('=')
-            .Replace('+', '-')
-            .Replace('/', '_');
+        return TextEncodings.ToBase64Url(key);
     }
 }

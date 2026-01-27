@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using HeroCrypt.Operations.Internal;
 using HeroCrypt.Primitives.AesCmac;
 using HeroCrypt.Primitives.Common;
 using HeroCrypt.Primitives.Ed25519;
@@ -209,28 +210,8 @@ public sealed class SignatureBuilder : IDisposable
     public SignatureBuilder WithKeyFromBase64Url(string base64UrlKey)
     {
         ThrowIfDisposed();
-        var keyBytes = FromBase64Url(base64UrlKey);
+        var keyBytes = TextEncodings.FromBase64Url(base64UrlKey);
         return WithKey(keyBytes);
-    }
-
-    private static byte[] FromBase64Url(string base64Url)
-    {
-        // Convert URL-safe Base64 to standard Base64
-        var base64 = base64Url
-            .Replace('-', '+')
-            .Replace('_', '/');
-
-        // Add padding if needed
-        switch (base64.Length % 4)
-        {
-            case 0: break; // No padding needed
-            case 1: break; // Invalid Base64 - let Convert.FromBase64String handle the error
-            case 2: base64 += "=="; break;
-            case 3: base64 += "="; break;
-            default: break; // Unreachable, but required for exhaustive switch
-        }
-
-        return Convert.FromBase64String(base64);
     }
 
     /// <summary>
@@ -271,7 +252,7 @@ public sealed class SignatureBuilder : IDisposable
     public string SignToHex(byte[] data)
     {
         var signature = Sign(data);
-        return Convert.ToHexString(signature).ToLowerInvariant();
+        return TextEncodings.ToHexLower(signature);
     }
 
     /// <summary>
@@ -327,7 +308,7 @@ public sealed class SignatureBuilder : IDisposable
     public string SignToBase64Url(byte[] data)
     {
         var signature = Sign(data);
-        return ToBase64Url(signature);
+        return TextEncodings.ToBase64Url(signature);
     }
 
     /// <summary>
@@ -338,14 +319,6 @@ public sealed class SignatureBuilder : IDisposable
     public string SignToBase64Url(string data)
     {
         return SignToBase64Url(System.Text.Encoding.UTF8.GetBytes(data));
-    }
-
-    private static string ToBase64Url(byte[] data)
-    {
-        return Convert.ToBase64String(data)
-            .TrimEnd('=')
-            .Replace('+', '-')
-            .Replace('/', '_');
     }
 
     internal static byte[] SignInternal(byte[] data, byte[] key, SignatureAlgorithm algorithm)

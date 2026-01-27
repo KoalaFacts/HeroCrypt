@@ -5,6 +5,26 @@ namespace HeroCrypt.Protocols.KeyManagement;
 /// <summary>
 /// Supported symmetric algorithms for key generation.
 /// </summary>
+/// <remarks>
+/// <para>
+/// Use with <see cref="KeyManager"/> to generate appropriately-sized keys for each algorithm:
+/// </para>
+/// <list type="table">
+///   <listheader>
+///     <term>Algorithm</term>
+///     <description>Key Size</description>
+///   </listheader>
+///   <item><term>Aes128</term><description>16 bytes (128 bits)</description></item>
+///   <item><term>Aes192</term><description>24 bytes (192 bits)</description></item>
+///   <item><term>Aes256</term><description>32 bytes (256 bits)</description></item>
+///   <item><term>ChaCha20</term><description>32 bytes (256 bits)</description></item>
+///   <item><term>ChaCha20Poly1305</term><description>32 bytes (256 bits)</description></item>
+/// </list>
+/// <para>
+/// <b>Recommendation:</b> Use <c>Aes256</c> for hardware-accelerated encryption (AES-NI)
+/// or <c>ChaCha20Poly1305</c> for software-only environments.
+/// </para>
+/// </remarks>
 public enum CryptographicAlgorithm
 {
     /// <summary>
@@ -36,6 +56,25 @@ public enum CryptographicAlgorithm
 /// <summary>
 /// Supported algorithms that rely on nonces.
 /// </summary>
+/// <remarks>
+/// <para>
+/// Use with <see cref="KeyManager"/> to generate appropriately-sized nonces for each algorithm:
+/// </para>
+/// <list type="table">
+///   <listheader>
+///     <term>Algorithm</term>
+///     <description>Nonce Size</description>
+///   </listheader>
+///   <item><term>ChaCha20</term><description>12 bytes (96 bits)</description></item>
+///   <item><term>ChaCha20Poly1305</term><description>12 bytes (96 bits)</description></item>
+///   <item><term>AesGcm</term><description>12 bytes (96 bits, recommended)</description></item>
+/// </list>
+/// <para>
+/// <b>Important:</b> Nonces must never be reused with the same key. Use counter-based
+/// nonces when possible, or ensure random nonces are generated with sufficient entropy.
+/// For random nonces, consider XChaCha20-Poly1305 which has a 192-bit nonce space.
+/// </para>
+/// </remarks>
 public enum NonceAlgorithm
 {
     /// <summary>
@@ -57,6 +96,23 @@ public enum NonceAlgorithm
 /// <summary>
 /// Hash algorithm names used by key derivation routines.
 /// </summary>
+/// <remarks>
+/// <para>
+/// This struct provides strongly-typed hash algorithm identifiers compatible with
+/// <see cref="System.Security.Cryptography.HashAlgorithmName"/> but with additional
+/// algorithms like Blake2b.
+/// </para>
+/// <para>
+/// <b>Hash output sizes:</b>
+/// </para>
+/// <list type="bullet">
+///   <item><term>SHA256</term><description>32 bytes (256 bits) - recommended default</description></item>
+///   <item><term>SHA384</term><description>48 bytes (384 bits)</description></item>
+///   <item><term>SHA512</term><description>64 bytes (512 bits)</description></item>
+///   <item><term>SHA3-256/384/512</term><description>32/48/64 bytes (.NET 8+)</description></item>
+///   <item><term>Blake2b</term><description>Configurable, up to 64 bytes</description></item>
+/// </list>
+/// </remarks>
 public readonly struct CryptographicHashName : IEquatable<CryptographicHashName>
 {
     private readonly string? name;

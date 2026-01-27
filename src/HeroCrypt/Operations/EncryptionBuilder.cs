@@ -242,6 +242,18 @@ public sealed class EncryptionBuilder : IDisposable
         };
     }
 
+    /// <summary>
+    /// Encrypts the plaintext string (UTF-8 encoded) and returns the result containing ciphertext and nonce.
+    /// </summary>
+    /// <param name="plaintext">The string data to encrypt (will be UTF-8 encoded).</param>
+    /// <returns>The encryption result containing ciphertext and nonce.</returns>
+    /// <exception cref="ObjectDisposedException">If the builder has been disposed.</exception>
+    /// <exception cref="InvalidOperationException">If the key has not been set.</exception>
+    public EncryptionResult Encrypt(string plaintext)
+    {
+        return Encrypt(System.Text.Encoding.UTF8.GetBytes(plaintext));
+    }
+
     private static EncryptionResult EncryptAesGcm(ReadOnlySpan<byte> plaintext, ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce, ReadOnlySpan<byte> aad, bool deterministicMode)
     {
         var result = AesGcmCore.Encrypt(plaintext, key, nonce, aad, deterministicMode);

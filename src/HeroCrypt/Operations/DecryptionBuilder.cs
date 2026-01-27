@@ -291,6 +291,23 @@ public sealed class DecryptionBuilder : IDisposable
         };
     }
 
+    /// <summary>
+    /// Decrypts the ciphertext and returns the plaintext as a UTF-8 string.
+    /// </summary>
+    /// <param name="ciphertext">The encrypted data to decrypt.</param>
+    /// <returns>The decrypted plaintext as a UTF-8 string.</returns>
+    /// <exception cref="CryptographicException">Thrown when authentication fails.</exception>
+    /// <exception cref="System.Text.DecoderFallbackException">Thrown if the decrypted bytes are not valid UTF-8.</exception>
+    /// <remarks>
+    /// This is a convenience method for decrypting data that was originally encrypted as a UTF-8 string.
+    /// The decrypted bytes are converted to a string using UTF-8 encoding.
+    /// </remarks>
+    public string DecryptToString(byte[] ciphertext)
+    {
+        var plaintext = Decrypt(ciphertext);
+        return System.Text.Encoding.UTF8.GetString(plaintext);
+    }
+
     private static byte[] DecryptAesGcm(byte[] ciphertext, byte[] key, byte[] nonce, byte[] aad)
     {
         return AesGcmCore.Decrypt(ciphertext, key, nonce, aad);

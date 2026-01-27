@@ -344,4 +344,112 @@ public class EncryptionBuilderTests
                     .Decrypt(ciphertext));
         }
     }
+
+    /// <summary>
+    /// Tests for string convenience methods.
+    /// </summary>
+    [Trait("Category", TestCategories.UNIT)]
+    [Trait("Category", TestCategories.FAST)]
+    public class StringConvenienceMethods
+    {
+        [Theory]
+        [InlineData(EncryptionAlgorithm.ChaCha20Poly1305, 32)]
+        [InlineData(EncryptionAlgorithm.AesGcm, 32)]
+        [InlineData(EncryptionAlgorithm.XChaCha20Poly1305, 32)]
+        public void EncryptString_DecryptToString_RoundTrip_Succeeds(EncryptionAlgorithm algorithm, int keySize)
+        {
+            // Arrange
+            var originalMessage = "Hello, World! This is a test message with UTF-8: \u00e9\u00e8\u00ea";
+            var key = TestHelpers.RandomBytes(keySize);
+
+            // Act - Encrypt string directly
+            var result = HeroCryptBuilder.Encrypt()
+                .WithAlgorithm(algorithm)
+                .WithKey(key)
+                .Encrypt(originalMessage);
+
+            // Act - Decrypt to string directly
+            var decryptedMessage = HeroCryptBuilder.Decrypt()
+                .WithAlgorithm(algorithm)
+                .WithKey(key)
+                .WithNonce(result.Nonce)
+                .DecryptToString(result.Ciphertext);
+
+            // Assert
+            Assert.Equal(originalMessage, decryptedMessage);
+        }
+
+        [Fact]
+        public void EncryptString_ProducesSameResultAsEncryptBytes()
+        {
+            // Arrange
+            var message = "Test message";
+            var key = TestHelpers.RandomBytes(32);
+            var nonce = TestHelpers.RandomBytes(12);
+
+            // Act - Encrypt as string
+            var resultFromString = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .WithNonce(nonce)
+                .WithDeterministicMode()
+                .Encrypt(message);
+
+            // Act - Encrypt as bytes
+            var resultFromBytes = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .WithNonce(nonce)
+                .WithDeterministicMode()
+                .Encrypt(System.Text.Encoding.UTF8.GetBytes(message));
+
+            // Assert - Both should produce identical ciphertext
+            Assert.Equal(resultFromBytes.Ciphertext, resultFromString.Ciphertext);
+        }
+
+        [Fact]
+        public void DecryptToString_ReturnsUtf8String()
+        {
+            // Arrange
+            var originalMessage = "Test with special chars: \u4e2d\u6587"; // Chinese characters
+            var key = TestHelpers.RandomBytes(32);
+
+            var result = HeroCryptBuilder.Encrypt()
+                .WithChaCha20Poly1305()
+                .WithKey(key)
+                .Encrypt(originalMessage);
+
+            // Act
+            var decrypted = HeroCryptBuilder.Decrypt()
+                .WithChaCha20Poly1305()
+                .WithKey(key)
+                .WithNonce(result.Nonce)
+                .DecryptToString(result.Ciphertext);
+
+            // Assert
+            Assert.Equal(originalMessage, decrypted);
+        }
+
+        [Fact]
+        public void EncryptString_EmptyString_Succeeds()
+        {
+            // Arrange
+            var key = TestHelpers.RandomBytes(32);
+
+            // Act - AES-SIV handles empty plaintext
+            var result = HeroCryptBuilder.Encrypt()
+                .WithAesSiv()
+                .WithKey(key)
+                .Encrypt(string.Empty);
+
+            var decrypted = HeroCryptBuilder.Decrypt()
+                .WithAesSiv()
+                .WithKey(key)
+                .WithNonce(result.Nonce)
+                .DecryptToString(result.Ciphertext);
+
+            // Assert
+            Assert.Equal(string.Empty, decrypted);
+        }
+    }
 }

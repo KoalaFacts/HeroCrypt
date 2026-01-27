@@ -273,6 +273,88 @@ var envelope = pgp.Encrypt("Secret message", keyPair.PublicKey);
 var plaintext = pgp.DecryptToString(envelope, keyPair.PrivateKey);
 ```
 
+### Working with Text Formats (Hex, Base64, Base64Url)
+
+All builders support convenient text format methods for storing and transmitting cryptographic data:
+
+```csharp
+using HeroCrypt;
+
+// ENCRYPTION: Get key and result as text formats
+using var encryptBuilder = HeroCryptBuilder.Encrypt()
+    .WithAesGcm()
+    .WithRandomKey();
+
+var keyHex = encryptBuilder.GetKeyAsHex();  // or GetKeyAsBase64(), GetKeyAsBase64Url()
+var result = encryptBuilder.Encrypt("Hello, World!");
+
+// Access result as text - perfect for JSON, databases, URLs
+var encryptedData = new {
+    key = keyHex,
+    ciphertext = result.CiphertextAsBase64Url,  // URL-safe encoding
+    nonce = result.NonceAsBase64Url
+};
+
+// DECRYPTION: Use text format inputs directly
+var decrypted = HeroCryptBuilder.Decrypt()
+    .WithAesGcm()
+    .WithKeyFromHex(encryptedData.key)
+    .WithNonceFromBase64Url(encryptedData.nonce)
+    .DecryptFromBase64UrlToString(encryptedData.ciphertext);
+```
+
+### Password Hashing with Text Storage
+
+```csharp
+using HeroCrypt;
+
+// Hash a password and get values as text for storage
+using var kdf = HeroCryptBuilder.DeriveKey()
+    .WithArgon2id()
+    .WithPassword("mySecurePassword")
+    .WithRandomSalt(16);
+
+var saltHex = kdf.GetSaltAsHex();
+var keyHex = kdf.DeriveKeyToHex();
+// Store saltHex and keyHex in your database
+
+// Later: Verify password using stored text values
+var derivedKey = HeroCryptBuilder.DeriveKey()
+    .WithArgon2id()
+    .WithPassword(enteredPassword)
+    .WithSaltFromHex(storedSaltHex)
+    .DeriveKeyToHex();
+
+bool isValid = derivedKey == storedKeyHex;
+```
+
+### Hybrid Encryption with Text Formats (X25519)
+
+```csharp
+using HeroCrypt;
+
+// Encrypt with X25519 hybrid encryption
+var result = HeroCryptBuilder.Encrypt()
+    .WithAlgorithm(EncryptionAlgorithm.X25519ChaCha20Poly1305)
+    .WithKey(recipientPublicKey)
+    .Encrypt("Confidential message");
+
+// All components as URL-safe text for API transmission
+var apiPayload = new {
+    c = result.CiphertextAsBase64Url,
+    n = result.NonceAsBase64Url,
+    k = result.EncapsulatedKeyAsBase64Url
+};
+
+// Decrypt using text inputs
+var plaintext = HeroCryptBuilder.Decrypt()
+    .WithAlgorithm(EncryptionAlgorithm.X25519ChaCha20Poly1305)
+    .WithKey(recipientPrivateKey)
+    .WithNonceFromBase64Url(apiPayload.n)
+    .WithEncapsulatedKeyFromBase64Url(apiPayload.k)
+    .DecryptFromBase64UrlToString(apiPayload.c);
+```
+
 ### Post-Quantum Cryptography (.NET 10+)
 
 ```csharp

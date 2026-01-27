@@ -23,10 +23,17 @@ Welcome to the HeroCrypt documentation! This directory contains comprehensive gu
    - API design principles
    - Builder-first usage
    - Fluent API examples
+   - [Text encoding conventions](api-patterns.md#text-encoding-conventions) (Hex, Base64, Base64Url)
+
+3. **[Algorithm Selection](algorithm-selection.md)**
+   - Choosing the right encryption algorithm
+   - Password hashing recommendations
+   - Digital signature options
+   - Post-quantum considerations
 
 ### For Production Deployment
 
-3. **[Best Practices](best-practices.md)**
+4. **[Best Practices](best-practices.md)**
    - Security principles
    - Password hashing guidelines
    - Encryption best practices
@@ -35,14 +42,14 @@ Welcome to the HeroCrypt documentation! This directory contains comprehensive gu
    - Error handling
    - Logging and monitoring
 
-4. **[Production Readiness](../PRODUCTION_READINESS.md)**
+5. **[Production Readiness](../PRODUCTION_READINESS.md)**
    - Feature status (production vs. educational)
    - Compliance requirements
    - Security audit results
 
 ### Performance Optimization
 
-5. **[Performance Guide](performance-guide.md)**
+6. **[Performance Guide](performance-guide.md)**
    - Hardware acceleration
    - Batch operations
    - Memory optimization
@@ -52,17 +59,18 @@ Welcome to the HeroCrypt documentation! This directory contains comprehensive gu
 
 ### Troubleshooting and Support
 
-6. **[Troubleshooting](troubleshooting.md)**
+7. **[Troubleshooting](troubleshooting.md)**
    - Installation issues
    - Runtime errors
    - Performance problems
    - Platform-specific issues
    - Memory issues
    - Encryption/decryption failures
+   - [Text encoding issues](troubleshooting.md#text-encoding-issues)
 
 ### Migration
 
-7. **[Migration Guide](migration-guide.md)**
+8. **[Migration Guide](migration-guide.md)**
    - Migrating between HeroCrypt versions
    - Migrating from other libraries
    - Breaking changes
@@ -72,13 +80,15 @@ Welcome to the HeroCrypt documentation! This directory contains comprehensive gu
 
 The [examples](../examples/) directory contains practical examples:
 
-- **[FluentApiDemo.cs](../examples/HeroCrypt.Examples/FluentApiDemo.cs)** - Fluent builder demonstration
-- **[Program.cs](../examples/HeroCrypt.Examples/Program.cs)** - Legacy API examples (for comparison)
-- **[UseCases/](../examples/HeroCrypt.Examples/UseCases/)**
-  - Password storage example
-  - Data encryption example
-  - Digital signatures example
-  - And more...
+- **[FluentApiDemo.cs](../examples/HeroCrypt.Examples/FluentApiDemo.cs)** - Text encoding convenience methods demo
+- **[Program.cs](../examples/HeroCrypt.Examples/Program.cs)** - Main entry point for running examples
+- **[UseCases/](../examples/HeroCrypt.Examples/UseCases/)** - Practical use case demonstrations:
+  - [PasswordStorageExample.cs](../examples/HeroCrypt.Examples/UseCases/PasswordStorageExample.cs) - Secure password hashing with Argon2id
+  - [DataEncryptionExample.cs](../examples/HeroCrypt.Examples/UseCases/DataEncryptionExample.cs) - ChaCha20-Poly1305 encryption
+  - [DigitalSignaturesExample.cs](../examples/HeroCrypt.Examples/UseCases/DigitalSignaturesExample.cs) - RSA and ECDSA signing
+  - [SecretSharingExample.cs](../examples/HeroCrypt.Examples/UseCases/SecretSharingExample.cs) - Shamir's secret sharing
+  - [CryptographicWalletExample.cs](../examples/HeroCrypt.Examples/UseCases/CryptographicWalletExample.cs) - BIP39/BIP32 HD wallets
+- **[PostQuantum/](../examples/HeroCrypt.Examples/PostQuantum/)** - Post-quantum cryptography examples (.NET 10+)
 
 ## Additional Resources
 
@@ -177,6 +187,7 @@ var hash = WeakHash(password);  // Don't do this!
 | Encrypt data | [Getting Started](getting-started.md#quick-start) | ChaCha20-Poly1305 |
 | Digital signatures | [Examples](../examples/) | RSA PSS, ECDSA |
 | Key derivation | [Best Practices](best-practices.md#key-management) | HKDF, PBKDF2 |
+| Text encoding | [API Patterns](api-patterns.md#text-encoding-conventions) | Hex, Base64, Base64Url |
 
 ### Algorithm Selection
 
@@ -198,6 +209,16 @@ var hash = WeakHash(password);  // Don't do this!
 | VeryHigh | High-value data | Very strong |
 | Military | Maximum security | Very slow |
 
+### Text Encoding Formats
+
+| Format | Best For | Size Overhead | Example Pattern |
+|--------|----------|---------------|-----------------|
+| Hex | Logging, debugging | +100% | `*AsHex`, `*ToHex()` |
+| Base64 | Database storage, JSON | +33% | `*AsBase64`, `*ToBase64()` |
+| Base64Url | URLs, APIs, JWTs | +33% | `*AsBase64Url`, `*ToBase64Url()` |
+
+See [API Patterns](api-patterns.md#text-encoding-conventions) for complete naming conventions.
+
 ## Documentation Structure
 
 ```
@@ -205,9 +226,10 @@ docs/
 ├── README.md                 # This file
 ├── getting-started.md        # Quick start guide
 ├── best-practices.md         # Security best practices
-├── api-patterns.md           # API design patterns
+├── api-patterns.md           # API design patterns & encoding conventions
+├── algorithm-selection.md    # Algorithm selection guide
 ├── performance-guide.md      # Performance optimization
-├── troubleshooting.md        # Common issues
+├── troubleshooting.md        # Common issues & encoding errors
 └── migration-guide.md        # Version migration
 ```
 

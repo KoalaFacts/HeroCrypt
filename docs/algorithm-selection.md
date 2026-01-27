@@ -377,6 +377,8 @@ using var mlKem = HeroCryptBuilder.MlKem()
 
 ## Additional Resources
 
-- [API Patterns](api-patterns.md) - API conventions and encoding patterns
+- [Getting Started](getting-started.md#working-with-text-formats-hex-base64-base64url) - Encoding examples
+- [API Patterns](api-patterns.md#text-encoding-conventions) - Encoding naming conventions
+- [Troubleshooting](troubleshooting.md) - Common issues and solutions
 - [Best Practices](best-practices.md) - Security best practices
 - [Performance Guide](performance-guide.md) - Optimization strategies

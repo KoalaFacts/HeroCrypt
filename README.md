@@ -364,6 +364,7 @@ var plaintext = HeroCryptBuilder.Decrypt()
 | `*AsBase64Url` | URL-safe output for APIs | `result.CiphertextAsBase64Url` |
 | `*ToHex()` | Action methods returning hex | `kdf.DeriveKeyToHex()` |
 | `*ToBase64()` | Action methods returning Base64 | `signer.SignToBase64(data)` |
+| `ComputeHashTo*()` | Compute hash with text output | `hasher.ComputeHashToHex(data)` |
 | `Get*AsHex()` | Retrieve builder state as hex | `builder.GetKeyAsHex()` |
 | `With*FromHex()` | Set value from hex string | `.WithKeyFromHex(hexKey)` |
 | `With*FromBase64Url()` | Set value from URL-safe Base64 | `.WithNonceFromBase64Url(nonce)` |

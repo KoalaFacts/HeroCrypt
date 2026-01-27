@@ -28,6 +28,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Text encoding convenience methods on operation builders (EncryptionBuilder, DecryptionBuilder, HashBuilder, SignatureBuilder, VerificationBuilder, KeyDerivationBuilder)
+  - Hex encoding: `*AsHex`, `*ToHex()`, `Get*AsHex()`, `With*FromHex()`
+  - Base64 encoding: `*AsBase64`, `*ToBase64()`, `Get*AsBase64()`, `With*FromBase64()`
+  - Base64Url encoding: `*AsBase64Url`, `*ToBase64Url()`, `Get*AsBase64Url()`, `With*FromBase64Url()`
 - Post-Quantum Cryptography - .NET 10+ Native Support ✅ **Production Ready**
   - ML-KEM (FIPS 203) - Key encapsulation mechanism with ML-KEM-512/768/1024
   - ML-DSA (FIPS 204) - Digital signatures with ML-DSA-44/65/87
@@ -64,6 +68,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - GitHub issue and pull request templates
   - Dependabot configuration for automated dependency updates
   - CodeQL security scanning workflow
+
+### Documentation
+- Added comprehensive algorithm selection guide (docs/algorithm-selection.md)
+- Added text encoding conventions section to API patterns guide
+- Added text encoding issues section to troubleshooting guide
+- Added text encoding performance section to performance guide
+- Added working with text formats section to getting started guide
+- Enhanced XML documentation on operation builders with encoding examples
+- Added cross-references between all documentation pages for encoding topics
 
 ### Changed
 - **BREAKING**: Dropped .NET 6.0 and .NET 7.0 support - Now requires .NET 8.0+ or .NET Standard 2.0

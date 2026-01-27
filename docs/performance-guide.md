@@ -699,8 +699,10 @@ public readonly struct EncryptionResult
 
 ## Additional Resources
 
+- [API Patterns](api-patterns.md#text-encoding-conventions) - Encoding naming conventions
+- [Troubleshooting](troubleshooting.md#text-encoding-issues) - Common encoding errors
+- [Best Practices](best-practices.md) - Security best practices
 - [Hardware Acceleration](../src/HeroCrypt/Hardware/)
 - [Batch Operations](../src/HeroCrypt/Performance/Batch/)
 - [Memory Pooling](../src/HeroCrypt/Performance/Memory/)
 - [Parallel Operations](../src/HeroCrypt/Performance/Parallel/)
-- [Best Practices](best-practices.md)

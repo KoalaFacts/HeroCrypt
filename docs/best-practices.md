@@ -572,5 +572,6 @@ await _auditLogger.LogCryptoOperation(
 
 - [PRODUCTION_READINESS.md](../PRODUCTION_READINESS.md) - Feature status
 - [SECURITY.md](../SECURITY.md) - Security policy and reporting
-- [API Patterns](api-patterns.md) - API design patterns
-- [Performance Guide](performance-guide.md) - Optimization best practices
+- [API Patterns](api-patterns.md#text-encoding-conventions) - Encoding conventions
+- [Troubleshooting](troubleshooting.md#text-encoding-issues) - Common encoding errors
+- [Performance Guide](performance-guide.md#text-encoding-performance) - Encoding performance tips

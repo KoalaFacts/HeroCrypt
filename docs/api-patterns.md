@@ -164,9 +164,22 @@ var builder = decryptBuilder
 
 // Combined decode + action + encode
 string plaintext = decryptBuilder.DecryptFromBase64UrlToString(b64Ciphertext);
+
+// Keyed hashing (HMAC) with key from text
+using var hmacBuilder = HeroCryptBuilder.Hash()
+    .WithSha256()
+    .WithKeyFromHex(secretKeyHex);
+string macHex = hmacBuilder.ComputeHashToHex(message);
 ```
 
 This consistent naming makes it easy to:
 - Store cryptographic values in databases (Hex or Base64)
 - Transmit values in JSON APIs (Base64Url for URL safety)
 - Round-trip between text and binary without manual conversion
+
+## Additional Resources
+
+- [Getting Started](getting-started.md#working-with-text-formats-hex-base64-base64url) - Encoding examples
+- [Troubleshooting](troubleshooting.md#text-encoding-issues) - Common encoding errors
+- [Performance Guide](performance-guide.md#text-encoding-performance) - Encoding performance tips
+- [Best Practices](best-practices.md) - Security best practices

@@ -31,9 +31,16 @@ Welcome to the HeroCrypt documentation! This directory contains comprehensive gu
    - Digital signature options
    - Post-quantum considerations
 
+4. **[Common Patterns](common-patterns.md)**
+   - Builder disposal patterns
+   - Error handling strategies
+   - Encryption/decryption workflows
+   - Sign/verify workflows
+   - Thread safety
+
 ### For Production Deployment
 
-4. **[Best Practices](best-practices.md)**
+5. **[Best Practices](best-practices.md)**
    - Security principles
    - Password hashing guidelines
    - Encryption best practices
@@ -42,14 +49,14 @@ Welcome to the HeroCrypt documentation! This directory contains comprehensive gu
    - Error handling
    - Logging and monitoring
 
-5. **[Production Readiness](../PRODUCTION_READINESS.md)**
+6. **[Production Readiness](../PRODUCTION_READINESS.md)**
    - Feature status (production vs. educational)
    - Compliance requirements
    - Security audit results
 
 ### Performance Optimization
 
-6. **[Performance Guide](performance-guide.md)**
+7. **[Performance Guide](performance-guide.md)**
    - Hardware acceleration
    - Batch operations
    - Memory optimization
@@ -59,7 +66,7 @@ Welcome to the HeroCrypt documentation! This directory contains comprehensive gu
 
 ### Troubleshooting and Support
 
-7. **[Troubleshooting](troubleshooting.md)**
+8. **[Troubleshooting](troubleshooting.md)**
    - Installation issues
    - Runtime errors
    - Performance problems
@@ -70,7 +77,7 @@ Welcome to the HeroCrypt documentation! This directory contains comprehensive gu
 
 ### Migration
 
-8. **[Migration Guide](migration-guide.md)**
+9. **[Migration Guide](migration-guide.md)**
    - Migrating between HeroCrypt versions
    - Migrating from other libraries
    - Breaking changes
@@ -188,6 +195,8 @@ var hash = WeakHash(password);  // Don't do this!
 | Digital signatures | [Examples](../examples/) | RSA PSS, ECDSA |
 | Key derivation | [Best Practices](best-practices.md#key-management) | HKDF, PBKDF2 |
 | Text encoding | [API Patterns](api-patterns.md#text-encoding-conventions) | Hex, Base64, Base64Url |
+| Error handling | [Common Patterns](common-patterns.md#error-handling) | Try-catch patterns |
+| Thread safety | [Common Patterns](common-patterns.md#thread-safety) | Builder per thread |
 
 ### Algorithm Selection
 
@@ -228,6 +237,7 @@ docs/
 ├── best-practices.md         # Security best practices
 ├── api-patterns.md           # API design patterns & encoding conventions
 ├── algorithm-selection.md    # Algorithm selection guide
+├── common-patterns.md        # Common usage patterns & workflows
 ├── performance-guide.md      # Performance optimization
 ├── troubleshooting.md        # Common issues & encoding errors
 └── migration-guide.md        # Version migration

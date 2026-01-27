@@ -91,10 +91,11 @@ The [examples](../examples/) directory contains practical examples:
 - **[Program.cs](../examples/HeroCrypt.Examples/Program.cs)** - Main entry point for running examples
 - **[UseCases/](../examples/HeroCrypt.Examples/UseCases/)** - Practical use case demonstrations:
   - [PasswordStorageExample.cs](../examples/HeroCrypt.Examples/UseCases/PasswordStorageExample.cs) - Secure password hashing with Argon2id
-  - [DataEncryptionExample.cs](../examples/HeroCrypt.Examples/UseCases/DataEncryptionExample.cs) - ChaCha20-Poly1305 encryption
-  - [DigitalSignaturesExample.cs](../examples/HeroCrypt.Examples/UseCases/DigitalSignaturesExample.cs) - RSA and ECDSA signing
+  - [DataEncryptionExample.cs](../examples/HeroCrypt.Examples/UseCases/DataEncryptionExample.cs) - AES-GCM encryption
+  - [SecureMessagingExample.cs](../examples/HeroCrypt.Examples/UseCases/SecureMessagingExample.cs) - Hybrid encryption for secure messaging
   - [SecretSharingExample.cs](../examples/HeroCrypt.Examples/UseCases/SecretSharingExample.cs) - Shamir's secret sharing
   - [CryptographicWalletExample.cs](../examples/HeroCrypt.Examples/UseCases/CryptographicWalletExample.cs) - BIP39/BIP32 HD wallets
+  - [CorporateApprovalExample.cs](../examples/HeroCrypt.Examples/UseCases/CorporateApprovalExample.cs) - Threshold signatures
 - **[PostQuantum/](../examples/HeroCrypt.Examples/PostQuantum/)** - Post-quantum cryptography examples (.NET 10+)
 
 ## Additional Resources
@@ -169,7 +170,7 @@ Throughout this documentation, we use the following conventions:
 
 ### Code Examples
 
-`csharp
+```csharp
 // GOOD: Recommended pattern
 var hash = Argon2.Hash(
     password: "password"u8.ToArray(),
@@ -182,7 +183,7 @@ var hash = Argon2.Hash(
 
 // BAD: Anti-pattern to avoid
 var hash = WeakHash(password);  // Don't do this!
-`
+```
 
 ## Quick Reference
 
@@ -227,6 +228,16 @@ var hash = WeakHash(password);  // Don't do this!
 | Base64Url | URLs, APIs, JWTs | +33% | `*AsBase64Url`, `*ToBase64Url()` |
 
 See [API Patterns](api-patterns.md#text-encoding-conventions) for complete naming conventions.
+
+### IntelliSense Cross-References
+
+All encoding methods include `<seealso>` XML documentation tags linking to related format alternatives:
+
+- `GetKeyAsHex()` links to `GetKeyAsBase64()` and `GetKeyAsBase64Url()`
+- `ComputeHashToBase64()` links to `ComputeHashToHex()` and `ComputeHashToBase64Url()`
+- `WithKeyFromHex()` links to `WithKeyFromBase64()` and `WithKeyFromBase64Url()`
+
+This helps you discover all available encoding options directly in your IDE.
 
 ## Documentation Structure
 

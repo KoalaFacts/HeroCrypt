@@ -321,6 +321,8 @@ public sealed class KeyDerivationBuilder : IDisposable
     /// </code>
     /// </para>
     /// </remarks>
+    /// <seealso cref="WithSaltFromBase64"/>
+    /// <seealso cref="WithSaltFromBase64Url"/>
     public KeyDerivationBuilder WithSaltFromHex(string hexSalt)
     {
         ThrowIfDisposed();
@@ -338,6 +340,8 @@ public sealed class KeyDerivationBuilder : IDisposable
     /// This is a convenience method for setting the salt from a Base64-encoded string,
     /// typically retrieved from JSON, databases, or other text-based storage.
     /// </remarks>
+    /// <seealso cref="WithSaltFromHex"/>
+    /// <seealso cref="WithSaltFromBase64Url"/>
     public KeyDerivationBuilder WithSaltFromBase64(string base64Salt)
     {
         ThrowIfDisposed();
@@ -357,6 +361,8 @@ public sealed class KeyDerivationBuilder : IDisposable
     /// This method accepts both padded and unpadded input.
     /// </para>
     /// </remarks>
+    /// <seealso cref="WithSaltFromHex"/>
+    /// <seealso cref="WithSaltFromBase64"/>
     public KeyDerivationBuilder WithSaltFromBase64Url(string base64UrlSalt)
     {
         ThrowIfDisposed();

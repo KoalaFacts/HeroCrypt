@@ -76,6 +76,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added text encoding performance section to performance guide
 - Added working with text formats section to getting started guide
 - Enhanced XML documentation on operation builders with encoding examples
+- Added `<seealso>` tags to all encoding methods for IntelliSense discoverability
 - Added cross-references between all documentation pages for encoding topics
 - Added FluentApiDemo.cs example showcasing all text encoding convenience methods
 - Enhanced migration guide with text encoding migration patterns

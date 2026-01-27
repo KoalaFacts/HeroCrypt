@@ -212,6 +212,8 @@ public sealed class VerificationBuilder : IDisposable
     /// <param name="hexKey">The key as a hexadecimal string (case-insensitive).</param>
     /// <returns>This builder instance for method chaining.</returns>
     /// <exception cref="FormatException">Thrown if the string is not a valid hexadecimal string.</exception>
+    /// <seealso cref="WithKeyFromBase64"/>
+    /// <seealso cref="WithKeyFromBase64Url"/>
     public VerificationBuilder WithKeyFromHex(string hexKey)
     {
         ThrowIfDisposed();
@@ -225,6 +227,8 @@ public sealed class VerificationBuilder : IDisposable
     /// <param name="base64Key">The key as a Base64-encoded string.</param>
     /// <returns>This builder instance for method chaining.</returns>
     /// <exception cref="FormatException">Thrown if the string is not valid Base64.</exception>
+    /// <seealso cref="WithKeyFromHex"/>
+    /// <seealso cref="WithKeyFromBase64Url"/>
     public VerificationBuilder WithKeyFromBase64(string base64Key)
     {
         ThrowIfDisposed();
@@ -242,6 +246,8 @@ public sealed class VerificationBuilder : IDisposable
     /// This method accepts both padded and unpadded URL-safe Base64 strings.
     /// </remarks>
     /// <exception cref="FormatException">Thrown if the string is not valid URL-safe Base64.</exception>
+    /// <seealso cref="WithKeyFromHex"/>
+    /// <seealso cref="WithKeyFromBase64"/>
     public VerificationBuilder WithKeyFromBase64Url(string base64UrlKey)
     {
         ThrowIfDisposed();
@@ -274,6 +280,8 @@ public sealed class VerificationBuilder : IDisposable
     /// Both uppercase and lowercase hex strings are accepted.
     /// </remarks>
     /// <exception cref="FormatException">Thrown if the string is not a valid hexadecimal string.</exception>
+    /// <seealso cref="WithSignatureFromBase64"/>
+    /// <seealso cref="WithSignatureFromBase64Url"/>
     public VerificationBuilder WithSignatureFromHex(string hexSignature)
     {
         ThrowIfDisposed();
@@ -292,6 +300,8 @@ public sealed class VerificationBuilder : IDisposable
     /// Standard Base64 encoding is expected (not URL-safe Base64).
     /// </remarks>
     /// <exception cref="FormatException">Thrown if the string is not valid Base64.</exception>
+    /// <seealso cref="WithSignatureFromHex"/>
+    /// <seealso cref="WithSignatureFromBase64Url"/>
     public VerificationBuilder WithSignatureFromBase64(string base64Signature)
     {
         ThrowIfDisposed();
@@ -315,6 +325,8 @@ public sealed class VerificationBuilder : IDisposable
     /// </para>
     /// </remarks>
     /// <exception cref="FormatException">Thrown if the string is not valid URL-safe Base64.</exception>
+    /// <seealso cref="WithSignatureFromHex"/>
+    /// <seealso cref="WithSignatureFromBase64"/>
     public VerificationBuilder WithSignatureFromBase64Url(string base64UrlSignature)
     {
         ThrowIfDisposed();

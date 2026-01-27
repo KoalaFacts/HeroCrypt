@@ -199,6 +199,8 @@ public sealed class DecryptionBuilder : IDisposable
     /// This is a convenience method for using keys that have been stored as hex strings.
     /// Commonly used with keys retrieved from <c>EncryptionBuilder.GetKeyAsHex()</c>.
     /// </remarks>
+    /// <seealso cref="WithKeyFromBase64"/>
+    /// <seealso cref="WithKeyFromBase64Url"/>
     public DecryptionBuilder WithKeyFromHex(string hexKey)
     {
         ThrowIfDisposed();
@@ -217,6 +219,8 @@ public sealed class DecryptionBuilder : IDisposable
     /// This is a convenience method for using keys that have been stored as Base64 strings.
     /// Commonly used with keys retrieved from <c>EncryptionBuilder.GetKeyAsBase64()</c>.
     /// </remarks>
+    /// <seealso cref="WithKeyFromHex"/>
+    /// <seealso cref="WithKeyFromBase64Url"/>
     public DecryptionBuilder WithKeyFromBase64(string base64Key)
     {
         ThrowIfDisposed();
@@ -240,6 +244,8 @@ public sealed class DecryptionBuilder : IDisposable
     /// URL-safe Base64 uses '-' instead of '+', '_' instead of '/', and may omit padding '=' characters.
     /// </para>
     /// </remarks>
+    /// <seealso cref="WithKeyFromHex"/>
+    /// <seealso cref="WithKeyFromBase64"/>
     public DecryptionBuilder WithKeyFromBase64Url(string base64UrlKey)
     {
         ThrowIfDisposed();
@@ -271,6 +277,8 @@ public sealed class DecryptionBuilder : IDisposable
     /// <remarks>
     /// This is a convenience method for using nonces that have been stored as hex strings.
     /// </remarks>
+    /// <seealso cref="WithNonceFromBase64"/>
+    /// <seealso cref="WithNonceFromBase64Url"/>
     public DecryptionBuilder WithNonceFromHex(string hexNonce)
     {
         ThrowIfDisposed();
@@ -288,6 +296,8 @@ public sealed class DecryptionBuilder : IDisposable
     /// <remarks>
     /// This is a convenience method for using nonces that have been stored as Base64 strings.
     /// </remarks>
+    /// <seealso cref="WithNonceFromHex"/>
+    /// <seealso cref="WithNonceFromBase64Url"/>
     public DecryptionBuilder WithNonceFromBase64(string base64Nonce)
     {
         ThrowIfDisposed();
@@ -310,6 +320,8 @@ public sealed class DecryptionBuilder : IDisposable
     /// URL-safe Base64 uses '-' instead of '+', '_' instead of '/', and may omit padding '=' characters.
     /// </para>
     /// </remarks>
+    /// <seealso cref="WithNonceFromHex"/>
+    /// <seealso cref="WithNonceFromBase64"/>
     public DecryptionBuilder WithNonceFromBase64Url(string base64UrlNonce)
     {
         ThrowIfDisposed();

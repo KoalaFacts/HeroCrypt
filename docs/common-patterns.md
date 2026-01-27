@@ -433,6 +433,8 @@ public class EncryptionService
 ## Related Documentation
 
 - [API Patterns](api-patterns.md) - API design conventions
+- [API Patterns - Text Encoding](api-patterns.md#text-encoding-conventions) - Encoding naming patterns
 - [Best Practices](best-practices.md) - Security best practices
 - [Troubleshooting](troubleshooting.md) - Common issues
+- [Troubleshooting - Text Encoding](troubleshooting.md#text-encoding-issues) - Encoding errors
 - [Algorithm Selection](algorithm-selection.md) - Choosing algorithms

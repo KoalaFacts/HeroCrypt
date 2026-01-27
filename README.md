@@ -434,6 +434,7 @@ HeroCrypt is built with a small, layered architecture:
 - **[Getting Started Guide](docs/getting-started.md)** - Quick start guide with examples
 - **[Algorithm Selection Guide](docs/algorithm-selection.md)** - Choosing the right algorithm for your use case
 - **[API Patterns](docs/api-patterns.md)** - API design patterns and conventions
+- **[Common Patterns](docs/common-patterns.md)** - Builder disposal, error handling, and workflows
 - **[Examples](examples/)** - Practical code examples for common use cases
 
 ### Production Use

@@ -219,6 +219,8 @@ public sealed class EncryptionBuilder : IDisposable
     ///     .WithKeyFromHex("0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20");
     /// </code>
     /// </example>
+    /// <seealso cref="WithKeyFromBase64"/>
+    /// <seealso cref="WithKeyFromBase64Url"/>
     public EncryptionBuilder WithKeyFromHex(string hexKey)
     {
         ThrowIfDisposed();
@@ -241,6 +243,8 @@ public sealed class EncryptionBuilder : IDisposable
     ///     .WithKeyFromBase64("AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyA=");
     /// </code>
     /// </example>
+    /// <seealso cref="WithKeyFromHex"/>
+    /// <seealso cref="WithKeyFromBase64Url"/>
     public EncryptionBuilder WithKeyFromBase64(string base64Key)
     {
         ThrowIfDisposed();
@@ -267,6 +271,8 @@ public sealed class EncryptionBuilder : IDisposable
     ///     .WithKeyFromBase64Url("AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyA");
     /// </code>
     /// </example>
+    /// <seealso cref="WithKeyFromHex"/>
+    /// <seealso cref="WithKeyFromBase64"/>
     public EncryptionBuilder WithKeyFromBase64Url(string base64UrlKey)
     {
         ThrowIfDisposed();

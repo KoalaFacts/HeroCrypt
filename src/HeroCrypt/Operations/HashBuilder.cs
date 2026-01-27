@@ -303,6 +303,8 @@ public sealed class HashBuilder : IDisposable
     /// <param name="hexKey">The key as a hexadecimal string (case-insensitive).</param>
     /// <returns>This builder instance for method chaining.</returns>
     /// <exception cref="FormatException">Thrown if the string is not a valid hexadecimal string.</exception>
+    /// <seealso cref="WithKeyFromBase64"/>
+    /// <seealso cref="WithKeyFromBase64Url"/>
     public HashBuilder WithKeyFromHex(string hexKey)
     {
         ThrowIfDisposed();
@@ -316,6 +318,8 @@ public sealed class HashBuilder : IDisposable
     /// <param name="base64Key">The key as a Base64-encoded string.</param>
     /// <returns>This builder instance for method chaining.</returns>
     /// <exception cref="FormatException">Thrown if the string is not valid Base64.</exception>
+    /// <seealso cref="WithKeyFromHex"/>
+    /// <seealso cref="WithKeyFromBase64Url"/>
     public HashBuilder WithKeyFromBase64(string base64Key)
     {
         ThrowIfDisposed();
@@ -333,6 +337,8 @@ public sealed class HashBuilder : IDisposable
     /// This method accepts both padded and unpadded URL-safe Base64 strings.
     /// </remarks>
     /// <exception cref="FormatException">Thrown if the string is not valid URL-safe Base64.</exception>
+    /// <seealso cref="WithKeyFromHex"/>
+    /// <seealso cref="WithKeyFromBase64"/>
     public HashBuilder WithKeyFromBase64Url(string base64UrlKey)
     {
         ThrowIfDisposed();

@@ -49,4 +49,9 @@ public static class TestCategories
     /// KNOWN_ANSWER tests using official test vectors from standards
     /// </summary>
     public const string KNOWN_ANSWER = "KnownAnswer";
+
+    /// <summary>
+    /// THREAD_SAFETY tests that verify concurrent access to shared builders
+    /// </summary>
+    public const string THREAD_SAFETY = "ThreadSafety";
 }

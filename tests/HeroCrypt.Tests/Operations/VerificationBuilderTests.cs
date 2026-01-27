@@ -1349,4 +1349,57 @@ public class VerificationBuilderTests
             Assert.False(isValid);
         }
     }
+
+    /// <summary>
+    /// Tests for memory safety and secure disposal of VerificationBuilder.
+    /// </summary>
+    [Trait("Category", TestCategories.MEMORY)]
+    [Trait("Category", TestCategories.FAST)]
+    public class MemorySafety
+    {
+        [Fact]
+        public void AfterDispose_Verify_ThrowsObjectDisposedException()
+        {
+            var key = TestHelpers.RandomBytes(32);
+            var signature = TestHelpers.RandomBytes(32);
+
+            var builder = HeroCryptBuilder.Verify()
+                .WithHmacSha256()
+                .WithKey(key)
+                .WithSignature(signature);
+
+            builder.Dispose();
+
+            Assert.Throws<ObjectDisposedException>(() =>
+                builder.Verify("test"));
+        }
+
+        [Fact]
+        public void AfterDispose_WithKey_ThrowsObjectDisposedException()
+        {
+            var builder = HeroCryptBuilder.Verify()
+                .WithHmacSha256();
+
+            builder.Dispose();
+
+            Assert.Throws<ObjectDisposedException>(() =>
+                builder.WithKey(TestHelpers.RandomBytes(32)));
+        }
+
+        [Fact]
+        public void MultipleDispose_DoesNotThrow()
+        {
+            var key = TestHelpers.RandomBytes(32);
+            var signature = TestHelpers.RandomBytes(32);
+
+            var builder = HeroCryptBuilder.Verify()
+                .WithHmacSha256()
+                .WithKey(key)
+                .WithSignature(signature);
+
+            builder.Dispose();
+            builder.Dispose();
+            builder.Dispose();
+        }
+    }
 }

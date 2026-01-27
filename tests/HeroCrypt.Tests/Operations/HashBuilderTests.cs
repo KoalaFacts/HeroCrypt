@@ -855,4 +855,48 @@ public class HashBuilderTests
                     .WithKey(null!));
         }
     }
+
+    /// <summary>
+    /// Tests for memory safety and secure disposal of HashBuilder.
+    /// </summary>
+    [Trait("Category", TestCategories.MEMORY)]
+    [Trait("Category", TestCategories.FAST)]
+    public class MemorySafety
+    {
+        [Fact]
+        public void AfterDispose_ComputeHash_ThrowsObjectDisposedException()
+        {
+            var builder = HeroCryptBuilder.Hash()
+                .WithSha256();
+
+            builder.Dispose();
+
+            Assert.Throws<ObjectDisposedException>(() =>
+                builder.ComputeHash("test"));
+        }
+
+        [Fact]
+        public void AfterDispose_WithKey_ThrowsObjectDisposedException()
+        {
+            var builder = HeroCryptBuilder.Hash()
+                .WithSha256();
+
+            builder.Dispose();
+
+            Assert.Throws<ObjectDisposedException>(() =>
+                builder.WithKey(TestHelpers.RandomBytes(32)));
+        }
+
+        [Fact]
+        public void MultipleDispose_DoesNotThrow()
+        {
+            var builder = HeroCryptBuilder.Hash()
+                .WithSha256()
+                .WithKey(TestHelpers.RandomBytes(32));
+
+            builder.Dispose();
+            builder.Dispose();
+            builder.Dispose();
+        }
+    }
 }

@@ -1792,4 +1792,79 @@ public class EncryptionBuilderTests
                 decryptor.Decrypt(result.Ciphertext.ToArray()));
         }
     }
+
+    /// <summary>
+    /// Tests for memory safety and secure disposal of EncryptionBuilder.
+    /// </summary>
+    [Trait("Category", TestCategories.MEMORY)]
+    [Trait("Category", TestCategories.FAST)]
+    public class MemorySafety
+    {
+        [Fact]
+        public void AfterDispose_Encrypt_ThrowsObjectDisposedException()
+        {
+            var builder = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithRandomKey();
+
+            builder.Dispose();
+
+            Assert.Throws<ObjectDisposedException>(() =>
+                builder.Encrypt("test"));
+        }
+
+        [Fact]
+        public void AfterDispose_GetKey_ThrowsObjectDisposedException()
+        {
+            var builder = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithRandomKey();
+
+            builder.Dispose();
+
+            Assert.Throws<ObjectDisposedException>(() =>
+                builder.GetKey());
+        }
+
+        [Fact]
+        public void AfterDispose_GetKeyAsHex_ThrowsObjectDisposedException()
+        {
+            var builder = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithRandomKey();
+
+            builder.Dispose();
+
+            Assert.Throws<ObjectDisposedException>(() =>
+                builder.GetKeyAsHex());
+        }
+
+        [Fact]
+        public void MultipleDispose_DoesNotThrow()
+        {
+            var builder = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithRandomKey();
+
+            builder.Dispose();
+            builder.Dispose();
+            builder.Dispose();
+        }
+
+        [Fact]
+        public void KeyCopyFromGetKey_NotClearedAfterDispose()
+        {
+            var builder = HeroCryptBuilder.Encrypt()
+                .WithAesGcm()
+                .WithRandomKey();
+
+            var keyCopy = builder.GetKey();
+            var originalKey = keyCopy.ToArray();
+
+            builder.Dispose();
+
+            Assert.Equal(originalKey, keyCopy);
+            Assert.False(keyCopy.All(b => b == 0));
+        }
+    }
 }

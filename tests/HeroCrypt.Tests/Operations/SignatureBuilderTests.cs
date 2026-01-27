@@ -1447,4 +1447,49 @@ public class SignatureBuilderTests
                     .Sign("test"));
         }
     }
+
+    /// <summary>
+    /// Tests for memory safety and secure disposal of SignatureBuilder.
+    /// </summary>
+    [Trait("Category", TestCategories.MEMORY)]
+    [Trait("Category", TestCategories.FAST)]
+    public class MemorySafety
+    {
+        [Fact]
+        public void AfterDispose_Sign_ThrowsObjectDisposedException()
+        {
+            var builder = HeroCryptBuilder.Sign()
+                .WithHmacSha256()
+                .WithKey(TestHelpers.RandomBytes(32));
+
+            builder.Dispose();
+
+            Assert.Throws<ObjectDisposedException>(() =>
+                builder.Sign("test"));
+        }
+
+        [Fact]
+        public void AfterDispose_WithKey_ThrowsObjectDisposedException()
+        {
+            var builder = HeroCryptBuilder.Sign()
+                .WithHmacSha256();
+
+            builder.Dispose();
+
+            Assert.Throws<ObjectDisposedException>(() =>
+                builder.WithKey(TestHelpers.RandomBytes(32)));
+        }
+
+        [Fact]
+        public void MultipleDispose_DoesNotThrow()
+        {
+            var builder = HeroCryptBuilder.Sign()
+                .WithHmacSha256()
+                .WithKey(TestHelpers.RandomBytes(32));
+
+            builder.Dispose();
+            builder.Dispose();
+            builder.Dispose();
+        }
+    }
 }

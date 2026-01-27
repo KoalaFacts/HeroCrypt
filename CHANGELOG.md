@@ -77,6 +77,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added working with text formats section to getting started guide
 - Enhanced XML documentation on operation builders with encoding examples
 - Added cross-references between all documentation pages for encoding topics
+- Added FluentApiDemo.cs example showcasing all text encoding convenience methods
+- Enhanced migration guide with text encoding migration patterns
 
 ### Changed
 - **BREAKING**: Dropped .NET 6.0 and .NET 7.0 support - Now requires .NET 8.0+ or .NET Standard 2.0

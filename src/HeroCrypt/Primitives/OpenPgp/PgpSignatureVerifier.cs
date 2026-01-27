@@ -39,8 +39,6 @@ public sealed class PgpSignatureVerifier : IDisposable
     /// <returns>A new PgpSignatureVerifier instance.</returns>
     public static PgpSignatureVerifier Create() => new();
 
-    #region Key Configuration
-
     /// <summary>
     /// Adds a public key for verification.
     /// </summary>
@@ -69,10 +67,6 @@ public sealed class PgpSignatureVerifier : IDisposable
 
         return this;
     }
-
-    #endregion
-
-    #region Verification
 
     /// <summary>
     /// Verifies a detached signature.
@@ -186,10 +180,6 @@ public sealed class PgpSignatureVerifier : IDisposable
             return false;
         }
     }
-
-    #endregion
-
-    #region Key-Based Signature Verification
 
     /// <summary>
     /// Verifies a key revocation signature (type 0x20).
@@ -595,10 +585,6 @@ public sealed class PgpSignatureVerifier : IDisposable
             hashedSubpackets);
     }
 
-    #endregion
-
-    #region Internal Verification
-
     private PgpSignatureResult VerifyWithKey(ReadOnlySpan<byte> data, PgpSignaturePacket signature, PgpPublicKeyPacket publicKey)
     {
         var hashAlgorithm = (PgpHashAlgorithmId)signature.HashAlgorithm;
@@ -832,10 +818,6 @@ public sealed class PgpSignatureVerifier : IDisposable
         throw new NotSupportedException("ECDSA verification is not yet implemented.");
     }
 
-    #endregion
-
-    #region Helpers
-
     private void ThrowIfDisposed()
     {
 #if NET8_0_OR_GREATER
@@ -859,6 +841,4 @@ public sealed class PgpSignatureVerifier : IDisposable
             disposed = true;
         }
     }
-
-    #endregion
 }

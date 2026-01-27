@@ -1,6 +1,7 @@
 using System.Numerics;
 using HeroCrypt.Primitives.OpenPgp;
 using HeroCrypt.Primitives.S2K;
+using HeroCrypt.Security;
 using HeroCrypt.Tests.Infrastructure;
 
 namespace HeroCrypt.Tests.Primitives.OpenPgp;
@@ -1301,7 +1302,7 @@ public class PgpKeyPacketTests
         [InlineData((ushort)0x1234, (ushort)0x4321, false)]
         public void ConstantTimeEquals_UInt16_ReturnsCorrectResult(ushort a, ushort b, bool expected)
         {
-            Assert.Equal(expected, SecureMemoryClear.ConstantTimeEquals(a, b));
+            Assert.Equal(expected, SecureMemoryOperations.ConstantTimeEquals(a, b));
         }
 
         [Fact]
@@ -1310,7 +1311,7 @@ public class PgpKeyPacketTests
             byte[] a = [1, 2, 3, 4, 5];
             byte[] b = [1, 2, 3, 4, 5];
 
-            Assert.True(SecureMemoryClear.ConstantTimeEquals(a, b));
+            Assert.True(SecureMemoryOperations.ConstantTimeEquals(a, b));
         }
 
         [Fact]
@@ -1319,7 +1320,7 @@ public class PgpKeyPacketTests
             byte[] a = [1, 2, 3, 4, 5];
             byte[] b = [1, 2, 3, 4, 6];
 
-            Assert.False(SecureMemoryClear.ConstantTimeEquals(a, b));
+            Assert.False(SecureMemoryOperations.ConstantTimeEquals(a, b));
         }
 
         [Fact]
@@ -1328,13 +1329,13 @@ public class PgpKeyPacketTests
             byte[] a = [1, 2, 3];
             byte[] b = [1, 2, 3, 4];
 
-            Assert.False(SecureMemoryClear.ConstantTimeEquals(a, b));
+            Assert.False(SecureMemoryOperations.ConstantTimeEquals(a, b));
         }
 
         [Fact]
         public void ConstantTimeEquals_ByteSpan_EmptySpans_ReturnsTrue()
         {
-            Assert.True(SecureMemoryClear.ConstantTimeEquals([], []));
+            Assert.True(SecureMemoryOperations.ConstantTimeEquals([], []));
         }
     }
 }

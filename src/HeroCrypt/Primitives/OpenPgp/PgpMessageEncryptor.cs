@@ -52,8 +52,6 @@ public sealed class PgpMessageEncryptor : IDisposable
     /// <returns>A new PgpMessageEncryptor instance.</returns>
     public static PgpMessageEncryptor Create() => new();
 
-    #region Recipient Configuration
-
     /// <summary>
     /// Adds a recipient by their public key ring.
     /// </summary>
@@ -160,10 +158,6 @@ public sealed class PgpMessageEncryptor : IDisposable
         return WithS2KType(S2KType.Argon2);
     }
 
-    #endregion
-
-    #region Algorithm Configuration
-
     /// <summary>
     /// Sets the symmetric cipher algorithm.
     /// </summary>
@@ -215,10 +209,6 @@ public sealed class PgpMessageEncryptor : IDisposable
         return this;
     }
 
-    #endregion
-
-    #region Metadata Configuration
-
     /// <summary>
     /// Sets the filename stored in the literal data packet.
     /// </summary>
@@ -254,10 +244,6 @@ public sealed class PgpMessageEncryptor : IDisposable
         dataFormat = format;
         return this;
     }
-
-    #endregion
-
-    #region Encryption
 
     /// <summary>
     /// Encrypts the specified plaintext.
@@ -398,10 +384,6 @@ public sealed class PgpMessageEncryptor : IDisposable
         return WithFormat(PgpLiteralDataFormat.Utf8).Encrypt(Encoding.UTF8.GetBytes(text));
     }
 
-    #endregion
-
-    #region PKESK Creation
-
     private byte[] CreatePkeskPacket(PgpPublicKeyPacket recipient, byte[] sessionKey)
     {
         byte[] encryptedSessionKey;
@@ -444,10 +426,6 @@ public sealed class PgpMessageEncryptor : IDisposable
         return pkesk.ToArray();
     }
 
-    #endregion
-
-    #region SKESK Creation
-
     private byte[] CreateSkeskPacket(byte[] passphrase, byte[] sessionKey)
     {
         // Create SKESK packet using the passphrase
@@ -460,10 +438,6 @@ public sealed class PgpMessageEncryptor : IDisposable
 
         return skesk.ToArray();
     }
-
-    #endregion
-
-    #region SEIPD v1 Encryption (CFB + MDC)
 
     private byte[] EncryptSeipdV1(byte[] plaintext, byte[] sessionKey)
     {
@@ -610,10 +584,6 @@ public sealed class PgpMessageEncryptor : IDisposable
 
         return ciphertext;
     }
-
-    #endregion
-
-    #region SEIPD v2 Encryption (AEAD)
 
     private byte[] EncryptSeipdV2(byte[] plaintext, byte[] sessionKey)
     {
@@ -764,10 +734,6 @@ public sealed class PgpMessageEncryptor : IDisposable
 #endif
     }
 
-    #endregion
-
-    #region Helpers
-
     private static int GetBlockSize(SymmetricCipherAlgorithm algorithm)
     {
         // Suppress obsolete warnings - OpenPGP requires legacy algorithm support for interoperability
@@ -832,6 +798,4 @@ public sealed class PgpMessageEncryptor : IDisposable
             disposed = true;
         }
     }
-
-    #endregion
 }

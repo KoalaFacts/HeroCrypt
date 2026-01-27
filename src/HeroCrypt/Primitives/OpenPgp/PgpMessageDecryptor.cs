@@ -41,8 +41,6 @@ public sealed class PgpMessageDecryptor : IDisposable
     /// <returns>A new PgpMessageDecryptor instance.</returns>
     public static PgpMessageDecryptor Create() => new();
 
-    #region Key Configuration
-
     /// <summary>
     /// Adds a secret key ring for decryption.
     /// </summary>
@@ -131,10 +129,6 @@ public sealed class PgpMessageDecryptor : IDisposable
         messagePassphrases.Add(Encoding.UTF8.GetBytes(passphrase));
         return this;
     }
-
-    #endregion
-
-    #region Decryption
 
     /// <summary>
     /// Decrypts an encrypted message.
@@ -353,10 +347,6 @@ public sealed class PgpMessageDecryptor : IDisposable
         }
     }
 
-    #endregion
-
-    #region Key Matching
-
     private static bool KeyMatches(PgpPublicKeyEncryptedSessionKeyPacket pkesk, PgpSecretKeyPacket secretKey)
     {
         // Version 3 PKESK uses 8-byte key ID
@@ -374,10 +364,6 @@ public sealed class PgpMessageDecryptor : IDisposable
 
         return false;
     }
-
-    #endregion
-
-    #region Session Key Decryption
 
     private (SymmetricCipherAlgorithm Algorithm, byte[] SessionKey)? TryDecryptSessionKey(
         PgpPublicKeyEncryptedSessionKeyPacket pkesk,
@@ -438,10 +424,6 @@ public sealed class PgpMessageDecryptor : IDisposable
             return null;
         }
     }
-
-    #endregion
-
-    #region SEIPD v1 Decryption (CFB + MDC)
 
     private static byte[] DecryptSeipdV1(
         PgpSymEncryptedIntegrityProtectedDataPacket seipd,
@@ -627,10 +609,6 @@ public sealed class PgpMessageDecryptor : IDisposable
     }
 #pragma warning restore CA5350
 
-    #endregion
-
-    #region SEIPD v2 Decryption (AEAD)
-
     private byte[] DecryptSeipdV2(
         PgpSymEncryptedIntegrityProtectedDataPacket seipd,
         byte[] sessionKey)
@@ -785,10 +763,6 @@ public sealed class PgpMessageDecryptor : IDisposable
     }
 #endif
 
-    #endregion
-
-    #region Content Parsing
-
     private static bool ParseDecryptedContent(
         byte[] plaintext,
         byte[] decryptionKeyId,
@@ -860,10 +834,6 @@ public sealed class PgpMessageDecryptor : IDisposable
 
         return true;
     }
-
-    #endregion
-
-    #region Helpers
 
     private static int GetBlockSize(SymmetricCipherAlgorithm algorithm)
     {
@@ -942,6 +912,4 @@ public sealed class PgpMessageDecryptor : IDisposable
             disposed = true;
         }
     }
-
-    #endregion
 }

@@ -59,8 +59,6 @@ public sealed class PgpKeyValidator : IDisposable
     /// <returns>A new validator instance.</returns>
     public static PgpKeyValidator Create() => new();
 
-    #region Configuration
-
     /// <summary>
     /// Sets the public key ring to validate.
     /// </summary>
@@ -192,10 +190,6 @@ public sealed class PgpKeyValidator : IDisposable
         return this;
     }
 
-    #endregion
-
-    #region Validation
-
     /// <summary>
     /// Performs validation and returns the result.
     /// </summary>
@@ -260,10 +254,6 @@ public sealed class PgpKeyValidator : IDisposable
         ValidateStructure(publicKeyRing.Value, issues);
         return new PgpKeyValidationResult(issues);
     }
-
-    #endregion
-
-    #region Internal Validation Methods
 
     private static void ValidateStructure(PgpPublicKeyRing keyRing, List<PgpKeyValidationIssue> issues)
     {
@@ -470,10 +460,6 @@ public sealed class PgpKeyValidator : IDisposable
             _ => false
         };
 
-    #endregion
-
-    #region Helpers
-
     private void ThrowIfDisposed()
     {
 #if NET8_0_OR_GREATER
@@ -494,8 +480,6 @@ public sealed class PgpKeyValidator : IDisposable
             disposed = true;
         }
     }
-
-    #endregion
 }
 
 /// <summary>

@@ -9,8 +9,6 @@ namespace HeroCrypt.Primitives.OpenPgp;
 /// </summary>
 public static class ExtensionsToPgpSecretKeyRing
 {
-    #region Export (ToArmor)
-
     /// <summary>
     /// Exports the secret key ring to ASCII Armor format.
     /// </summary>
@@ -121,10 +119,6 @@ public static class ExtensionsToPgpSecretKeyRing
         await writer.WriteAsync(armored).ConfigureAwait(false);
 #endif
     }
-
-    #endregion
-
-    #region Import (FromArmor)
 
     /// <summary>
     /// Parses a secret key ring from ASCII Armor format.
@@ -278,8 +272,6 @@ public static class ExtensionsToPgpSecretKeyRing
             return false;
         }
     }
-
-    #endregion
 }
 
 /// <summary>

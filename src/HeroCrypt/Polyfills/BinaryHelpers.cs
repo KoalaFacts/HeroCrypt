@@ -8,8 +8,6 @@ namespace HeroCrypt.Polyfills;
 /// </summary>
 internal static class BinaryHelpers
 {
-    #region WriteUInt64LittleEndian
-
     /// <summary>
     /// Writes a 64-bit unsigned integer in little-endian format to a span.
     /// </summary>
@@ -38,10 +36,6 @@ internal static class BinaryHelpers
     {
         WriteUInt64LittleEndian(destination.Slice(offset), value);
     }
-
-    #endregion
-
-    #region ReadUInt64LittleEndian
 
     /// <summary>
     /// Reads a 64-bit unsigned integer in little-endian format from a span.
@@ -72,10 +66,6 @@ internal static class BinaryHelpers
         return ReadUInt64LittleEndian(source.Slice(offset));
     }
 
-    #endregion
-
-    #region WriteUInt32LittleEndian
-
     /// <summary>
     /// Writes a 32-bit unsigned integer in little-endian format to a span.
     /// </summary>
@@ -100,10 +90,6 @@ internal static class BinaryHelpers
     {
         WriteUInt32LittleEndian(destination.Slice(offset), value);
     }
-
-    #endregion
-
-    #region WriteInt32LittleEndian
 
     /// <summary>
     /// Writes a 32-bit signed integer in little-endian format to a span.
@@ -130,10 +116,6 @@ internal static class BinaryHelpers
         WriteInt32LittleEndian(destination.Slice(offset), value);
     }
 
-    #endregion
-
-    #region ReadUInt32LittleEndian
-
     /// <summary>
     /// Reads a 32-bit unsigned integer in little-endian format from a span.
     /// </summary>
@@ -155,6 +137,4 @@ internal static class BinaryHelpers
     {
         return ReadUInt32LittleEndian(source.Slice(offset));
     }
-
-    #endregion
 }

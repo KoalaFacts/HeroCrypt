@@ -49,8 +49,6 @@ public sealed class PgpKeyRevoker : IDisposable
     /// <returns>A new PgpKeyRevoker instance.</returns>
     public static PgpKeyRevoker Create() => new();
 
-    #region Configuration
-
     /// <summary>
     /// Sets the secret key used to create the revocation signature.
     /// </summary>
@@ -106,10 +104,6 @@ public sealed class PgpKeyRevoker : IDisposable
         revocationTime = time;
         return this;
     }
-
-    #endregion
-
-    #region Revocation Operations
 
     /// <summary>
     /// Creates a key revocation signature (type 0x20).
@@ -182,10 +176,6 @@ public sealed class PgpKeyRevoker : IDisposable
             secretKey.Value.PublicKey,
             subkey.Value);
     }
-
-    #endregion
-
-    #region Signature Creation
 
     private PgpSignaturePacket CreateRevocationSignature(
         PgpSignatureType sigType,
@@ -376,10 +366,6 @@ public sealed class PgpKeyRevoker : IDisposable
         return salt;
     }
 
-    #endregion
-
-    #region IDisposable
-
     private void ThrowIfDisposed()
     {
 #if NET8_0_OR_GREATER
@@ -403,6 +389,4 @@ public sealed class PgpKeyRevoker : IDisposable
             disposed = true;
         }
     }
-
-    #endregion
 }

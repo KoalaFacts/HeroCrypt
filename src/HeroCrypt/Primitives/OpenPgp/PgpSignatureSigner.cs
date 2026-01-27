@@ -45,8 +45,6 @@ public sealed class PgpSignatureSigner : IDisposable
     /// <returns>A new PgpSignatureSigner instance.</returns>
     public static PgpSignatureSigner Create() => new();
 
-    #region Key Configuration
-
     /// <summary>
     /// Sets the secret key to use for signing.
     /// </summary>
@@ -111,10 +109,6 @@ public sealed class PgpSignatureSigner : IDisposable
         return WithSecretKey(keyRing.MasterKey);
     }
 
-    #endregion
-
-    #region Hash Algorithm Configuration
-
     /// <summary>
     /// Sets the hash algorithm.
     /// </summary>
@@ -147,10 +141,6 @@ public sealed class PgpSignatureSigner : IDisposable
     /// </summary>
     public PgpSignatureSigner WithSha3_256() => WithHashAlgorithm(PgpHashAlgorithmId.Sha3_256);
 
-    #endregion
-
-    #region Signature Options
-
     /// <summary>
     /// Sets the signature type.
     /// </summary>
@@ -173,10 +163,6 @@ public sealed class PgpSignatureSigner : IDisposable
         useVersion6 = true;
         return this;
     }
-
-    #endregion
-
-    #region Signing
 
     /// <summary>
     /// Signs the specified data and returns a signed message.
@@ -262,10 +248,6 @@ public sealed class PgpSignatureSigner : IDisposable
 
         return CreateSignature(data);
     }
-
-    #endregion
-
-    #region Signature Creation
 
     private PgpSignaturePacket CreateSignature(ReadOnlySpan<byte> data)
     {
@@ -477,10 +459,6 @@ public sealed class PgpSignatureSigner : IDisposable
         throw new NotSupportedException("ECDSA signing is not yet implemented.");
     }
 
-    #endregion
-
-    #region Helpers
-
     private static string CanonicalizeText(string text)
     {
         // Split into lines, trim trailing whitespace, join with CRLF
@@ -525,6 +503,4 @@ public sealed class PgpSignatureSigner : IDisposable
             disposed = true;
         }
     }
-
-    #endregion
 }

@@ -298,8 +298,6 @@ internal static class Ed25519Impl
         return true;
     }
 
-    #region Core Operations
-
     private static void Set25519(long[] r, long[] a)
     {
         for (var i = 0; i < 16; i++)
@@ -472,10 +470,6 @@ internal static class Ed25519Impl
         }
     }
 
-    #endregion
-
-    #region Point Operations
-
     private static void Pack(byte[] r, long[][] p)
     {
         var tx = new long[16];
@@ -632,10 +626,6 @@ internal static class Ed25519Impl
         }
     }
 
-    #endregion
-
-    #region Reduction
-
     private static void ModL(byte[] r, int roff, long[] x)
     {
         for (var i = 63; i >= 32; i--)
@@ -685,10 +675,6 @@ internal static class Ed25519Impl
         ModL(r, 0, x);
     }
 
-    #endregion
-
-    #region Constants
-
     private static long[] Gf0()
     {
         return new long[16];
@@ -726,10 +712,6 @@ internal static class Ed25519Impl
         return (long[])GfIConst.Clone();
     }
 
-    #endregion
-
-    #region Utilities
-
     /// <summary>
     /// Performs constant-time comparison of two 32-byte arrays.
     /// Uses SecureMemoryOperations.ConstantTimeEquals for timing attack resistance.
@@ -758,6 +740,4 @@ internal static class Ed25519Impl
     {
         SecureMemoryOperations.SecureClear(a.AsSpan());
     }
-
-    #endregion
 }

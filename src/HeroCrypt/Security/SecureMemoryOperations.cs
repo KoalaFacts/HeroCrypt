@@ -178,6 +178,32 @@ public static class SecureMemoryOperations
     }
 
     /// <summary>
+    /// Compares two unsigned 16-bit integers in constant time.
+    /// </summary>
+    /// <param name="a">The first value.</param>
+    /// <param name="b">The second value.</param>
+    /// <returns>True if the values are equal; otherwise, false.</returns>
+    /// <remarks>
+    /// This method prevents timing attacks by ensuring the comparison takes
+    /// the same amount of time regardless of the values being compared.
+    /// </remarks>
+    public static bool ConstantTimeEquals(ushort a, ushort b)
+    {
+        // XOR the values - result is 0 only if equal
+        // Then use bitwise operations to check for zero in constant time
+        uint diff = (uint)(a ^ b);
+
+        // Propagate any set bit to all lower bits, then check lowest bit
+        // This avoids branching on the comparison result
+        diff |= diff >> 8;
+        diff |= diff >> 4;
+        diff |= diff >> 2;
+        diff |= diff >> 1;
+
+        return (diff & 1) == 0;
+    }
+
+    /// <summary>
     /// Creates a secure copy of sensitive data with automatic cleanup
     /// </summary>
     /// <param name="source">Source data to copy</param>

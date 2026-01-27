@@ -58,8 +58,6 @@ public sealed class PgpKeyRotator : IDisposable
     /// <returns>A new PgpKeyRotator instance.</returns>
     public static PgpKeyRotator Create() => new();
 
-    #region Configuration
-
     /// <summary>
     /// Sets the old secret key that will sign the new key.
     /// </summary>
@@ -153,10 +151,6 @@ public sealed class PgpKeyRotator : IDisposable
         return this;
     }
 
-    #endregion
-
-    #region Rotation Operations
-
     /// <summary>
     /// Performs the key rotation.
     /// </summary>
@@ -216,10 +210,6 @@ public sealed class PgpKeyRotator : IDisposable
             oldSecretKey.Value.PublicKey,
             newKeyRing.Value.MasterKey);
     }
-
-    #endregion
-
-    #region Signature Creation
 
     private PgpSignaturePacket CreateTransitionSignature(
         PgpSecretKeyPacket oldKey,
@@ -379,10 +369,6 @@ public sealed class PgpKeyRotator : IDisposable
         return salt;
     }
 
-    #endregion
-
-    #region IDisposable
-
     private void ThrowIfDisposed()
     {
 #if NET8_0_OR_GREATER
@@ -406,8 +392,6 @@ public sealed class PgpKeyRotator : IDisposable
             disposed = true;
         }
     }
-
-    #endregion
 }
 
 /// <summary>

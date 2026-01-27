@@ -63,8 +63,6 @@ public sealed class PgpKeyGenerator
     /// <returns>A new PgpKeyGenerator instance.</returns>
     public static PgpKeyGenerator Create() => new();
 
-    #region User Identity
-
     /// <summary>
     /// Sets the user ID for the key.
     /// </summary>
@@ -94,10 +92,6 @@ public sealed class PgpKeyGenerator
         userId = packet.UserId;
         return this;
     }
-
-    #endregion
-
-    #region Passphrase Protection
 
     /// <summary>
     /// Sets the passphrase for encrypting the secret key.
@@ -273,9 +267,6 @@ public sealed class PgpKeyGenerator
         return this;
     }
 
-    #endregion
-
-    #region Key Configuration
 
     /// <summary>
     /// Sets the RSA key size in bits.
@@ -452,9 +443,6 @@ public sealed class PgpKeyGenerator
         return WithSubkeyExpiration(lifetime);
     }
 
-    #endregion
-
-    #region Preferred Algorithms
 
     /// <summary>
     /// Sets the preferred symmetric encryption algorithms.
@@ -605,9 +593,6 @@ public sealed class PgpKeyGenerator
         return this;
     }
 
-    #endregion
-
-    #region Subkeys
 
     /// <summary>
     /// Adds a signing-capable subkey.
@@ -629,9 +614,6 @@ public sealed class PgpKeyGenerator
         return this;
     }
 
-    #endregion
-
-    #region Key Generation
 
     /// <summary>
     /// Generates an RSA key pair with the default key size (4096 bits).
@@ -904,9 +886,6 @@ public sealed class PgpKeyGenerator
         }
     }
 
-    #endregion
-
-    #region Private Helpers
 
     // AES-256 cipher algorithm ID
     private const byte AES_256 = 9;
@@ -1579,8 +1558,6 @@ public sealed class PgpKeyGenerator
         return salt;
     }
 
-    #region Ed25519 Signature Helpers
-
     private PgpSignaturePacket CreateEd25519UserIdCertification(
         PgpPublicKeyPacket publicKey,
         byte[] ed25519PrivateKey,
@@ -1736,8 +1713,6 @@ public sealed class PgpKeyGenerator
             signatureData);
     }
 
-    #endregion
-
     /// <summary>
     /// Converts a big-endian byte array to BigInteger.
     /// </summary>
@@ -1752,6 +1727,4 @@ public sealed class PgpKeyGenerator
         leBytes[bytes.Length] = 0; // Ensure positive
         return new BigInteger(leBytes);
     }
-
-    #endregion
 }

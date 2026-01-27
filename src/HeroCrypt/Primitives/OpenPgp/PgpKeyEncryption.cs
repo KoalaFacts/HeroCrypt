@@ -39,8 +39,6 @@ internal static class PgpKeyEncryption
     /// </summary>
     private static readonly byte[] AnonymousSenderLabel = "Anonymous Sender    "u8.ToArray();
 
-    #region RSA Session Key Encryption
-
     /// <summary>
     /// Encrypts a session key using RSA PKCS#1 v1.5.
     /// </summary>
@@ -202,9 +200,6 @@ internal static class PgpKeyEncryption
         }
     }
 
-    #endregion
-
-    #region X25519 Session Key Encryption (RFC 9580)
 
     /// <summary>
     /// Encrypts a session key using X25519 ECDH + HKDF + AES-KeyWrap.
@@ -367,9 +362,6 @@ internal static class PgpKeyEncryption
         return info;
     }
 
-    #endregion
-
-    #region ECDH Session Key Decryption (RFC 6637)
 
     /// <summary>
     /// Curve25519 OID bytes for ECDH (algorithm 18).
@@ -797,9 +789,6 @@ internal static class PgpKeyEncryption
         throw new CryptographicException("Hash output too short for KEK.");
     }
 
-    #endregion
-
-    #region AES Key Wrap (RFC 3394)
 
     /// <summary>
     /// Wraps a key using AES Key Wrap (RFC 3394).
@@ -986,9 +975,6 @@ internal static class PgpKeyEncryption
         data[7] ^= (byte)counter;
     }
 
-    #endregion
-
-    #region MPI Encoding/Decoding
 
     /// <summary>
     /// Encodes a byte array as an OpenPGP MPI.
@@ -1073,9 +1059,6 @@ internal static class PgpKeyEncryption
         return length;
     }
 
-    #endregion
-
-    #region Session Key Generation
 
     /// <summary>
     /// Gets the session key size for a symmetric algorithm.
@@ -1117,6 +1100,4 @@ internal static class PgpKeyEncryption
         rng.GetBytes(sessionKey);
         return sessionKey;
     }
-
-    #endregion
 }

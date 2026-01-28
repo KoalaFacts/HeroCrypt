@@ -429,6 +429,9 @@ public static class SecurityPolicy
             Current = level;
         }
 
+        /// <summary>
+        /// Restores the previous security level.
+        /// </summary>
         public void Dispose()
         {
             if (!disposed)

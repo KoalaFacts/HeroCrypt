@@ -102,7 +102,7 @@ internal static class PgpKeyEncryption
             byte[] ciphertext = RsaCore.Encrypt(plaintext, rsaPublicKey, RsaPaddingMode.Pkcs1);
 
             // Encode as MPI
-            return EncodeMpi(ciphertext);
+            return Mpi.Encode(ciphertext);
         }
         finally
         {
@@ -139,7 +139,7 @@ internal static class PgpKeyEncryption
         var (d, p, q, _) = secretKey.ReadRsaSecretKey();
 
         // Decode MPI
-        byte[] ciphertext = DecodeMpi(encryptedMpi);
+        byte[] ciphertext = Mpi.ReadBytes(encryptedMpi, out _);
 
         // Pad ciphertext to modulus length if needed
         // MPI encoding strips leading zeros, but RSA decryption requires exact modulus length
@@ -975,67 +975,6 @@ internal static class PgpKeyEncryption
         data[7] ^= (byte)counter;
     }
 
-
-    /// <summary>
-    /// Encodes a byte array as an OpenPGP MPI.
-    /// </summary>
-    /// <param name="data">The data to encode.</param>
-    /// <returns>MPI-encoded data (2-byte bit count + data).</returns>
-    private static byte[] EncodeMpi(byte[] data)
-    {
-        // Skip leading zeros
-        int start = 0;
-        while (start < data.Length && data[start] == 0)
-        {
-            start++;
-        }
-
-        if (start == data.Length)
-        {
-            // All zeros
-            return [0, 0];
-        }
-
-        // Calculate bit length
-        int dataLen = data.Length - start;
-        int bitLen = (dataLen - 1) * 8;
-        byte msb = data[start];
-        while (msb != 0)
-        {
-            bitLen++;
-            msb >>= 1;
-        }
-
-        byte[] result = new byte[2 + dataLen];
-        result[0] = (byte)(bitLen >> 8);
-        result[1] = (byte)bitLen;
-        Array.Copy(data, start, result, 2, dataLen);
-
-        return result;
-    }
-
-    /// <summary>
-    /// Decodes an OpenPGP MPI to a byte array.
-    /// </summary>
-    /// <param name="mpi">The MPI-encoded data.</param>
-    /// <returns>The decoded byte data.</returns>
-    private static byte[] DecodeMpi(ReadOnlySpan<byte> mpi)
-    {
-        if (mpi.Length < 2)
-        {
-            throw new ArgumentException("MPI too short.", nameof(mpi));
-        }
-
-        int bitLen = (mpi[0] << 8) | mpi[1];
-        int byteLen = (bitLen + 7) / 8;
-
-        if (mpi.Length < 2 + byteLen)
-        {
-            throw new ArgumentException("MPI data truncated.", nameof(mpi));
-        }
-
-        return mpi.Slice(2, byteLen).ToArray();
-    }
 
     /// <summary>
     /// Gets the byte length of a BigInteger (excluding sign byte).

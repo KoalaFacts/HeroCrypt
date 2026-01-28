@@ -283,6 +283,19 @@ public static class Mpi
     }
 
     /// <summary>
+    /// Encodes raw bytes as an MPI, returning a new byte array.
+    /// </summary>
+    /// <param name="value">The value bytes (big-endian, may have leading zeros).</param>
+    /// <returns>A new byte array containing the MPI-encoded data.</returns>
+    public static byte[] Encode(ReadOnlySpan<byte> value)
+    {
+        int length = GetEncodedLength(value);
+        byte[] result = new byte[length];
+        Write(value, result);
+        return result;
+    }
+
+    /// <summary>
     /// Gets the encoded length of raw bytes as an MPI.
     /// </summary>
     /// <param name="value">The value bytes (big-endian).</param>

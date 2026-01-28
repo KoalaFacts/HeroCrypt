@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using System.Numerics;
 using System.Security.Cryptography;
+using HeroCrypt.Primitives.AesCfb;
 using HeroCrypt.Primitives.Curve25519;
 using HeroCrypt.Primitives.Ed25519;
 using HeroCrypt.Primitives.Rsa;
@@ -897,8 +898,6 @@ public sealed class PgpKeyGenerator
     private const byte DEFAULT_ITERATION_COUNT = 255;
     // AES-256 key size in bytes
     private const int AES_256_KEY_SIZE = 32;
-    // AES block size in bytes
-    private const int AES_BLOCK_SIZE = 16;
 
     private void ValidateConfiguration()
     {
@@ -1010,14 +1009,14 @@ public sealed class PgpKeyGenerator
             sha1Hash.CopyTo(plaintextWithHash.AsSpan(secretMaterial.Length));
 
             // Generate IV for CFB encryption
-            byte[] iv = new byte[AES_BLOCK_SIZE];
+            byte[] iv = new byte[AesCfbCore.BlockSize];
             using (var rng = RandomNumberGenerator.Create())
             {
                 rng.GetBytes(iv);
             }
 
             // Encrypt using standard CFB mode
-            byte[] encrypted = CfbEncryptStandard(plaintextWithHash, encryptionKey, iv);
+            byte[] encrypted = AesCfbCore.Encrypt(plaintextWithHash, encryptionKey, iv);
 
             // Create S2K specifier
             var s2kSpecifier = PgpS2KSpecifier.CreateIterated(SHA256_HASH, salt, DEFAULT_ITERATION_COUNT);
@@ -1090,14 +1089,14 @@ public sealed class PgpKeyGenerator
             sha1Hash.CopyTo(plaintextWithHash.AsSpan(secretMaterial.Length));
 
             // Generate IV for CFB encryption
-            byte[] iv = new byte[AES_BLOCK_SIZE];
+            byte[] iv = new byte[AesCfbCore.BlockSize];
             using (var rng = RandomNumberGenerator.Create())
             {
                 rng.GetBytes(iv);
             }
 
             // Encrypt using standard CFB mode
-            byte[] encrypted = CfbEncryptStandard(plaintextWithHash, encryptionKey, iv);
+            byte[] encrypted = AesCfbCore.Encrypt(plaintextWithHash, encryptionKey, iv);
 
             // Create Argon2 S2K specifier
             var s2kSpecifier = PgpS2KSpecifier.CreateArgon2(SHA256_HASH, salt, passes, parallelism, memoryExponent);
@@ -1171,55 +1170,6 @@ public sealed class PgpKeyGenerator
         }
 
         return CreateEncryptedSecretKeyFromBytes(publicKey, secretMaterial, passphraseBytes);
-    }
-
-    /// <summary>
-    /// Encrypts data using standard AES-CFB mode.
-    /// </summary>
-    /// <param name="plaintext">The data to encrypt.</param>
-    /// <param name="key">The encryption key.</param>
-    /// <param name="iv">The initialization vector.</param>
-    /// <returns>The encrypted data.</returns>
-    private static byte[] CfbEncryptStandard(byte[] plaintext, byte[] key, byte[] iv)
-    {
-        using var aes = Aes.Create();
-        aes.Key = key;
-        aes.Mode = CipherMode.ECB; // We implement CFB manually
-        aes.Padding = PaddingMode.None;
-
-        byte[] ciphertext = new byte[plaintext.Length];
-        byte[] fr = new byte[AES_BLOCK_SIZE]; // Feedback register
-        byte[] fre = new byte[AES_BLOCK_SIZE]; // Encrypted feedback register
-
-        // Initialize FR with IV
-        iv.CopyTo(fr, 0);
-
-        using var encryptor = aes.CreateEncryptor();
-
-        int pos = 0;
-        while (pos < plaintext.Length)
-        {
-            // Encrypt the feedback register
-            encryptor.TransformBlock(fr, 0, AES_BLOCK_SIZE, fre, 0);
-
-            // XOR plaintext with encrypted FR
-            int bytesToProcess = Math.Min(AES_BLOCK_SIZE, plaintext.Length - pos);
-            for (int i = 0; i < bytesToProcess; i++)
-            {
-                ciphertext[pos + i] = (byte)(plaintext[pos + i] ^ fre[i]);
-            }
-
-            // Update FR with ciphertext for next iteration
-            Array.Copy(ciphertext, pos, fr, 0, bytesToProcess);
-            if (bytesToProcess < AES_BLOCK_SIZE)
-            {
-                Array.Clear(fr, bytesToProcess, AES_BLOCK_SIZE - bytesToProcess);
-            }
-
-            pos += bytesToProcess;
-        }
-
-        return ciphertext;
     }
 
     private PgpSignaturePacket CreateUserIdCertification(

@@ -464,6 +464,25 @@ public sealed class PgpKeyGenerator
     /// </remarks>
     public PgpKeyGenerator WithPreferredSymmetricAlgorithms(params byte[] algorithms)
     {
+        // Emit runtime warnings for weak algorithms in preferences
+        foreach (var algId in algorithms)
+        {
+            var algorithmName = algId switch
+            {
+                1 => "IDEA",
+                2 => "3DES",
+                3 => "CAST5",
+                4 => "Blowfish",
+                _ => null
+            };
+
+            if (algorithmName != null)
+            {
+                Security.CryptoAudit.CheckAlgorithm(algorithmName);
+                Security.SecurityPolicy.ValidateOpenPgpSymmetric(algId);
+            }
+        }
+
         preferredSymmetricAlgorithms = algorithms.Length > 0 ? algorithms : null;
         return this;
     }
@@ -487,6 +506,24 @@ public sealed class PgpKeyGenerator
     /// </remarks>
     public PgpKeyGenerator WithPreferredHashAlgorithms(params byte[] algorithms)
     {
+        // Emit runtime warnings for weak hash algorithms in preferences
+        foreach (var algId in algorithms)
+        {
+            var algorithmName = algId switch
+            {
+                1 => "MD5",
+                2 => "SHA-1",
+                3 => "RIPEMD-160",
+                _ => null
+            };
+
+            if (algorithmName != null)
+            {
+                Security.CryptoAudit.CheckAlgorithm(algorithmName);
+                Security.SecurityPolicy.ValidateOpenPgpHash(algId);
+            }
+        }
+
         preferredHashAlgorithms = algorithms.Length > 0 ? algorithms : null;
         return this;
     }

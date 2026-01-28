@@ -485,7 +485,8 @@ public sealed class PgpMessageDecryptor : IDisposable
 #endif
 #pragma warning restore CA5350
 
-        if (!actualMdc.AsSpan().SequenceEqual(expectedMdc))
+        // Use constant-time comparison to prevent timing attacks on MDC verification
+        if (!SecureMemoryOperations.ConstantTimeEquals(actualMdc.AsSpan(), expectedMdc))
         {
             throw new CryptographicException("MDC verification failed. Message may have been tampered with.");
         }

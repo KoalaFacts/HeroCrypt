@@ -374,19 +374,19 @@ public class HashBuilderTests
 
         [Fact]
         [Obsolete]
-        public void WithMd5_WithoutAllowLegacy_ThrowsStrictModeException()
+        public void WithMd5_WithoutAllowLegacy_ThrowsSecurityPolicyException()
         {
             // Act & Assert - should throw when AllowLegacyAlgorithms() not called
-            Assert.Throws<HeroCrypt.Security.StrictModeException>(() =>
+            Assert.Throws<HeroCrypt.Security.SecurityPolicyException>(() =>
                 HeroCryptBuilder.Hash().WithMd5());
         }
 
         [Fact]
         [Obsolete]
-        public void WithSha1_WithoutAllowLegacy_ThrowsStrictModeException()
+        public void WithSha1_WithoutAllowLegacy_ThrowsSecurityPolicyException()
         {
             // Act & Assert - should throw when AllowLegacyAlgorithms() not called
-            Assert.Throws<HeroCrypt.Security.StrictModeException>(() =>
+            Assert.Throws<HeroCrypt.Security.SecurityPolicyException>(() =>
                 HeroCryptBuilder.Hash().WithSha1());
         }
     }

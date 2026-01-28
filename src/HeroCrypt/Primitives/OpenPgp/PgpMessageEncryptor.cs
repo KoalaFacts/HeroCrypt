@@ -163,9 +163,35 @@ public sealed class PgpMessageEncryptor : IDisposable
     /// </summary>
     /// <param name="algorithm">The symmetric algorithm to use.</param>
     /// <returns>This encryptor for chaining.</returns>
+    /// <remarks>
+    /// <para>
+    /// <b>Security Warning:</b> Legacy algorithms (3DES, Blowfish, CAST5, IDEA) have
+    /// 64-bit block sizes and are vulnerable to birthday attacks. Use AES-256 for new messages.
+    /// </para>
+    /// </remarks>
     public PgpMessageEncryptor WithSymmetricAlgorithm(SymmetricCipherAlgorithm algorithm)
     {
         ThrowIfDisposed();
+
+        // Emit runtime warnings for weak algorithms
+        // Suppress obsolete warning - we're intentionally checking for deprecated algorithms
+#pragma warning disable CS0618
+        var algorithmName = algorithm switch
+        {
+            SymmetricCipherAlgorithm.TripleDes => "3DES",
+            SymmetricCipherAlgorithm.Blowfish => "Blowfish",
+            SymmetricCipherAlgorithm.Cast5 => "CAST5",
+            SymmetricCipherAlgorithm.Idea => "IDEA",
+            _ => null
+        };
+#pragma warning restore CS0618
+
+        if (algorithmName != null)
+        {
+            CryptoAudit.CheckAlgorithm(algorithmName);
+            SecurityPolicy.ValidateOpenPgpSymmetric((byte)algorithm);
+        }
+
         symmetricAlgorithm = algorithm;
         return this;
     }

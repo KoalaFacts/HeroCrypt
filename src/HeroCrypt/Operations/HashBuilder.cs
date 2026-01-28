@@ -225,10 +225,10 @@ public sealed class HashBuilder : IDisposable
     /// </para>
     /// <para>
     /// Requires calling <see cref="AllowLegacyAlgorithms"/> first, otherwise throws
-    /// <see cref="StrictModeException"/>.
+    /// <see cref="SecurityPolicyException"/>.
     /// </para>
     /// </remarks>
-    /// <exception cref="StrictModeException">
+    /// <exception cref="SecurityPolicyException">
     /// Thrown if <see cref="AllowLegacyAlgorithms"/> was not called.
     /// </exception>
     [Obsolete("SHA-1 is cryptographically broken. Use WithSha256() or WithSha3_256() for new applications.")]
@@ -253,10 +253,10 @@ public sealed class HashBuilder : IDisposable
     /// </para>
     /// <para>
     /// Requires calling <see cref="AllowLegacyAlgorithms"/> first, otherwise throws
-    /// <see cref="StrictModeException"/>.
+    /// <see cref="SecurityPolicyException"/>.
     /// </para>
     /// </remarks>
-    /// <exception cref="StrictModeException">
+    /// <exception cref="SecurityPolicyException">
     /// Thrown if <see cref="AllowLegacyAlgorithms"/> was not called.
     /// </exception>
     [Obsolete("MD5 is cryptographically broken. Use WithSha256() or WithBlake2b256() for new applications.")]
@@ -275,7 +275,11 @@ public sealed class HashBuilder : IDisposable
     {
         if (!allowLegacyAlgorithms)
         {
-            throw new StrictModeException(algorithmName, recommendation);
+            throw new SecurityPolicyException(
+                algorithmName,
+                recommendation,
+                $"{algorithmName} is a deprecated/insecure algorithm",
+                SecurityLevel.Standard);
         }
     }
 

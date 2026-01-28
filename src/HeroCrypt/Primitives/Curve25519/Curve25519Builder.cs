@@ -40,11 +40,15 @@ public sealed class Curve25519Builder : IDisposable
 {
     private const int KeySize = 32;
 
+    private readonly Curve25519Core core;
     private byte[]? privateKey;
     private byte[]? remotePublicKey;
     private bool disposed;
 
-    private Curve25519Builder() { }
+    private Curve25519Builder(SecurityPolicyOptions? policy = null)
+    {
+        core = new Curve25519Core(policy);
+    }
 
     /// <summary>
     /// Creates a new Curve25519 builder instance.
@@ -136,8 +140,8 @@ public sealed class Curve25519Builder : IDisposable
     public (byte[] privateKey, byte[] publicKey) GenerateKeyPair()
     {
         ArgumentHelper.ThrowIfDisposed(disposed, this);
-        var privateKey = Curve25519Core.GeneratePrivateKey();
-        var publicKey = Curve25519Core.DerivePublicKey(privateKey);
+        var privateKey = core.GeneratePrivateKey();
+        var publicKey = core.DerivePublicKey(privateKey);
         return (privateKey, publicKey);
     }
 
@@ -151,7 +155,7 @@ public sealed class Curve25519Builder : IDisposable
     {
         ArgumentHelper.ThrowIfDisposed(disposed, this);
         ValidatePrivateKey();
-        return Curve25519Core.DerivePublicKey(privateKey!);
+        return core.DerivePublicKey(privateKey!);
     }
 
     /// <summary>
@@ -165,7 +169,7 @@ public sealed class Curve25519Builder : IDisposable
         ArgumentHelper.ThrowIfDisposed(disposed, this);
         ValidatePrivateKey();
         ValidateRemotePublicKey();
-        return Curve25519Core.ComputeSharedSecret(privateKey!, remotePublicKey!);
+        return core.ComputeSharedSecret(privateKey!, remotePublicKey!);
     }
 
     private void ValidatePrivateKey()

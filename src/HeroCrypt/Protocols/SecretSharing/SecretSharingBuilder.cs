@@ -51,7 +51,8 @@ public sealed class SecretSharingBuilder
     /// <returns>Array of shares.</returns>
     public ShamirSecretSharing.Share[] Split(ReadOnlySpan<byte> secret)
     {
-        return ShamirSecretSharing.Split(secret, threshold, shareCount);
+        var shamir = new ShamirSecretSharing();
+        return shamir.Split(secret, threshold, shareCount);
     }
 
     /// <summary>
@@ -61,7 +62,8 @@ public sealed class SecretSharingBuilder
     /// <returns>Array of shares.</returns>
     public ShamirSecretSharing.Share[] Split(byte[] secret)
     {
-        return ShamirSecretSharing.Split(secret, threshold, shareCount);
+        var shamir = new ShamirSecretSharing();
+        return shamir.Split(secret, threshold, shareCount);
     }
 
     /// <summary>
@@ -75,7 +77,8 @@ public sealed class SecretSharingBuilder
             throw new InvalidOperationException("No shares provided. Use WithShares() first.");
         }
 
-        return ShamirSecretSharing.Reconstruct(shares);
+        var shamir = new ShamirSecretSharing();
+        return shamir.Reconstruct(shares);
     }
 
     /// <summary>
@@ -85,7 +88,8 @@ public sealed class SecretSharingBuilder
     /// <returns>The reconstructed secret.</returns>
     public byte[] Reconstruct(ShamirSecretSharing.Share[] shares)
     {
-        return ShamirSecretSharing.Reconstruct(shares);
+        var shamir = new ShamirSecretSharing();
+        return shamir.Reconstruct(shares);
     }
 
     /// <summary>
@@ -100,7 +104,8 @@ public sealed class SecretSharingBuilder
             throw new InvalidOperationException("No shares provided. Use WithShares() first.");
         }
 
-        return ShamirSecretSharing.Verify(shares, expectedSecret);
+        var shamir = new ShamirSecretSharing();
+        return shamir.Verify(shares, expectedSecret);
     }
 }
 

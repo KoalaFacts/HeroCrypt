@@ -30,12 +30,18 @@ public readonly struct AesSivEncryptionResult
 /// RFC 5297 compliant nonce-misuse resistant AEAD.
 /// Provides deterministic authenticated encryption.
 /// </summary>
-internal static class AesSivCore
+internal sealed class AesSivCore
 {
+    private readonly SecurityPolicyOptions policy;
     private const int BLOCK_SIZE = AesConstants.BlockSize;
     private const int SIV_SIZE = 16;
     private const int DEFAULT_NONCE_SIZE = 16;
     private static readonly int[] SupportedKeySizes = AesConstants.SivKeySizes;
+
+    public AesSivCore(SecurityPolicyOptions? policy = null)
+    {
+        this.policy = policy ?? SecurityPolicyOptions.Default;
+    }
 
     /// <summary>
     /// Encrypts plaintext using AES-SIV.
@@ -46,7 +52,7 @@ internal static class AesSivCore
     /// <param name="associatedData">Additional authenticated data. Default: empty.</param>
     /// <param name="deterministicMode">When true, uses empty nonce for RFC 5297 deterministic mode. Default: false (auto-generates nonce).</param>
     /// <returns>Encryption result containing ciphertext, nonce, and metadata.</returns>
-    public static AesSivEncryptionResult Encrypt(
+    public AesSivEncryptionResult Encrypt(
         ReadOnlySpan<byte> plaintext,
         ReadOnlySpan<byte> key,
         ReadOnlySpan<byte> nonce = default,
@@ -96,7 +102,7 @@ internal static class AesSivCore
     /// <param name="associatedData">Additional authenticated data used during encryption. Default: empty.</param>
     /// <returns>The decrypted plaintext.</returns>
     /// <exception cref="CryptographicException">Thrown when authentication fails.</exception>
-    public static byte[] Decrypt(
+    public byte[] Decrypt(
         ReadOnlySpan<byte> ciphertext,
         ReadOnlySpan<byte> key,
         ReadOnlySpan<byte> nonce = default,
@@ -126,7 +132,7 @@ internal static class AesSivCore
     /// <summary>
     /// Core encryption implementation.
     /// </summary>
-    private static int EncryptCore(
+    private int EncryptCore(
         Span<byte> ciphertext,
         ReadOnlySpan<byte> plaintext,
         ReadOnlySpan<byte> key,
@@ -168,7 +174,7 @@ internal static class AesSivCore
     /// <summary>
     /// Core decryption implementation.
     /// </summary>
-    private static int DecryptCore(
+    private int DecryptCore(
         Span<byte> plaintext,
         ReadOnlySpan<byte> ciphertext,
         ReadOnlySpan<byte> key,
@@ -222,7 +228,7 @@ internal static class AesSivCore
     /// Creates synthetic IV from multiple input strings using AES-CMAC
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void S2V(
+    private void S2V(
         Span<byte> output,
         ReadOnlySpan<byte> key,
         ReadOnlySpan<byte> associatedData,
@@ -230,16 +236,17 @@ internal static class AesSivCore
         ReadOnlySpan<byte> nonce)
     {
         // D = AES-CMAC(K, <zero>)
+        var cmacCore = new AesCmacCore(policy);
         Span<byte> d = stackalloc byte[BLOCK_SIZE];
         Span<byte> zero = stackalloc byte[BLOCK_SIZE];
         zero.Clear();
-        AesCmacCore.ComputeTag(d, zero, key);
+        cmacCore.ComputeTag(d, zero, key);
 
         // Process associated data if present
         if (associatedData.Length > 0)
         {
             Span<byte> cmac = stackalloc byte[BLOCK_SIZE];
-            AesCmacCore.ComputeTag(cmac, associatedData, key);
+            cmacCore.ComputeTag(cmac, associatedData, key);
             Dbl(d);
             XorBlock(d, cmac);
             SecureMemoryOperations.SecureClear(cmac);
@@ -249,7 +256,7 @@ internal static class AesSivCore
         if (nonce.Length > 0)
         {
             Span<byte> cmac = stackalloc byte[BLOCK_SIZE];
-            AesCmacCore.ComputeTag(cmac, nonce, key);
+            cmacCore.ComputeTag(cmac, nonce, key);
             Dbl(d);
             XorBlock(d, cmac);
             SecureMemoryOperations.SecureClear(cmac);
@@ -275,7 +282,7 @@ internal static class AesSivCore
                 plaintext[..xorLen].CopyTo(combined);
                 t.CopyTo(combined.AsSpan(xorLen, BLOCK_SIZE));
 
-                AesCmacCore.ComputeTag(output, combined.AsSpan(0, combinedLength), key);
+                cmacCore.ComputeTag(output, combined.AsSpan(0, combinedLength), key);
             }
             finally
             {
@@ -297,7 +304,7 @@ internal static class AesSivCore
             }
 
             XorBlock(t, d);
-            AesCmacCore.ComputeTag(output, t, key);
+            cmacCore.ComputeTag(output, t, key);
         }
 
         // Clear sensitive data
@@ -310,7 +317,7 @@ internal static class AesSivCore
     /// Encrypts plaintext using AES-CTR mode
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void EncryptCtr(
+    private void EncryptCtr(
         Span<byte> ciphertext,
         ReadOnlySpan<byte> plaintext,
         ReadOnlySpan<byte> key,
@@ -372,7 +379,7 @@ internal static class AesSivCore
     /// Decrypts ciphertext using AES-CTR mode (same as encryption)
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void DecryptCtr(
+    private void DecryptCtr(
         Span<byte> plaintext,
         ReadOnlySpan<byte> ciphertext,
         ReadOnlySpan<byte> key,
@@ -386,7 +393,7 @@ internal static class AesSivCore
     /// Doubles a value in GF(2^128) (dbl operation from RFC 5297)
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void Dbl(Span<byte> value)
+    private void Dbl(Span<byte> value)
     {
         byte overflow = 0;
 
@@ -408,7 +415,7 @@ internal static class AesSivCore
     /// XORs two blocks
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void XorBlock(Span<byte> a, ReadOnlySpan<byte> b)
+    private void XorBlock(Span<byte> a, ReadOnlySpan<byte> b)
     {
         for (var i = 0; i < BLOCK_SIZE; i++)
         {
@@ -420,7 +427,7 @@ internal static class AesSivCore
     /// Increments counter in big-endian format
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void IncrementCounter(byte[] counter)
+    private void IncrementCounter(byte[] counter)
     {
         for (var i = BLOCK_SIZE - 1; i >= 0; i--)
         {
@@ -434,7 +441,7 @@ internal static class AesSivCore
     /// <summary>
     /// Validates AES-SIV parameters
     /// </summary>
-    private static void ValidateParameters(ReadOnlySpan<byte> key, int ciphertextLength, int plaintextLength)
+    private void ValidateParameters(ReadOnlySpan<byte> key, int ciphertextLength, int plaintextLength)
     {
         _ = ciphertextLength;
 
@@ -452,7 +459,7 @@ internal static class AesSivCore
     /// <summary>
     /// Validates AES-SIV key size.
     /// </summary>
-    private static void ValidateKeySize(ReadOnlySpan<byte> key)
+    private void ValidateKeySize(ReadOnlySpan<byte> key)
     {
         if (SupportedKeySizes.Contains(key.Length))
             return;

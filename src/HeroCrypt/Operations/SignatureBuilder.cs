@@ -405,7 +405,7 @@ public sealed class SignatureBuilder : IDisposable
             // ECDSA Blockchain
             SignatureAlgorithm.Secp256k1 => SignSecp256k1(data, key),
             // EdDSA
-            SignatureAlgorithm.Ed25519 => Ed25519Core.Sign(data, key),
+            SignatureAlgorithm.Ed25519 => SignEd25519(data, key),
 #if NET10_0_OR_GREATER
             // ML-DSA
             SignatureAlgorithm.MLDsa44 => SignMLDsa(data, key, 44),
@@ -445,7 +445,7 @@ public sealed class SignatureBuilder : IDisposable
             // ECDSA Blockchain
             SignatureAlgorithm.Secp256k1 => VerifySecp256k1(data, signature, key),
             // EdDSA
-            SignatureAlgorithm.Ed25519 => Ed25519Core.Verify(data, signature, key),
+            SignatureAlgorithm.Ed25519 => VerifyEd25519(data, signature, key),
 #if NET10_0_OR_GREATER
             // ML-DSA
             SignatureAlgorithm.MLDsa44 => VerifyMLDsa(data, signature, key, 44),
@@ -481,7 +481,8 @@ public sealed class SignatureBuilder : IDisposable
         if (key.Length != expectedKeySize)
             throw new ArgumentException($"Key must be {expectedKeySize} bytes for AES-CMAC-{expectedKeySize * 8}", nameof(key));
         var tag = new byte[16];
-        AesCmacCore.ComputeTag(tag, data, key);
+        var core = new AesCmacCore();
+        core.ComputeTag(tag, data, key);
         return tag;
     }
 
@@ -489,20 +490,23 @@ public sealed class SignatureBuilder : IDisposable
     {
         if (key.Length != expectedKeySize)
             throw new ArgumentException($"Key must be {expectedKeySize} bytes for AES-CMAC-{expectedKeySize * 8}", nameof(key));
-        return AesCmacCore.VerifyTag(signature, data, key);
+        var core = new AesCmacCore();
+        return core.VerifyTag(signature, data, key);
     }
 
     // Poly1305
     private static byte[] SignPoly1305(byte[] data, byte[] key)
     {
         var tag = new byte[16];
-        Poly1305Core.ComputeMac(tag, data, key);
+        var core = new Poly1305Core();
+        core.ComputeMac(tag, data, key);
         return tag;
     }
 
     private static bool VerifyPoly1305(byte[] data, byte[] signature, byte[] key)
     {
-        return Poly1305Core.VerifyMac(signature, data, key);
+        var core = new Poly1305Core();
+        return core.VerifyMac(signature, data, key);
     }
 
     // RSA
@@ -559,6 +563,23 @@ public sealed class SignatureBuilder : IDisposable
         throw new NotSupportedException("ECDSA verification requires .NET 8.0 or greater.");
 #endif
 
+    // Ed25519
+    private static byte[] SignEd25519(byte[] data, byte[] privateKey)
+    {
+        var core = new Ed25519Core();
+        return core.Sign(data, privateKey);
+    }
+
+    private static bool VerifyEd25519(byte[] data, byte[] signature, byte[] publicKey)
+    {
+        try
+        {
+            var core = new Ed25519Core();
+            return core.Verify(data, signature, publicKey);
+        }
+        catch (CryptographicException) { return false; }
+    }
+
     // Secp256k1
     private static byte[] SignSecp256k1(byte[] data, byte[] privateKey)
     {
@@ -569,7 +590,8 @@ public sealed class SignatureBuilder : IDisposable
 #else
         var messageHash = SHA256.HashData(data);
 #endif
-        return Secp256k1Core.Sign(messageHash, privateKey);
+        var core = new Secp256k1Core();
+        return core.Sign(messageHash, privateKey);
     }
 
     private static bool VerifySecp256k1(byte[] data, byte[] signature, byte[] publicKey)
@@ -582,7 +604,8 @@ public sealed class SignatureBuilder : IDisposable
 #else
             var messageHash = SHA256.HashData(data);
 #endif
-            return Secp256k1Core.Verify(messageHash, signature, publicKey);
+            var core = new Secp256k1Core();
+            return core.Verify(messageHash, signature, publicKey);
         }
         catch (CryptographicException) { return false; }
     }
@@ -592,12 +615,13 @@ public sealed class SignatureBuilder : IDisposable
 #pragma warning disable SYSLIB5006
     private static byte[] SignMLDsa(byte[] data, byte[] privateKeyPem, int parameterSet)
     {
+        var core = new MLDsaCore();
         var pem = System.Text.Encoding.UTF8.GetString(privateKeyPem);
         return parameterSet switch
         {
-            44 => MLDsaCore.Sign(pem, data, securityBits: 128),
-            65 => MLDsaCore.Sign(pem, data, securityBits: 192),
-            87 => MLDsaCore.Sign(pem, data, securityBits: 256),
+            44 => core.Sign(pem, data, securityBits: 128),
+            65 => core.Sign(pem, data, securityBits: 192),
+            87 => core.Sign(pem, data, securityBits: 256),
             _ => throw new ArgumentException($"Unsupported ML-DSA parameter set: {parameterSet}")
         };
     }
@@ -606,12 +630,13 @@ public sealed class SignatureBuilder : IDisposable
     {
         try
         {
+            var core = new MLDsaCore();
             var pem = System.Text.Encoding.UTF8.GetString(publicKeyPem);
             return parameterSet switch
             {
-                44 => MLDsaCore.Verify(pem, data, signature),
-                65 => MLDsaCore.Verify(pem, data, signature),
-                87 => MLDsaCore.Verify(pem, data, signature),
+                44 => core.Verify(pem, data, signature),
+                65 => core.Verify(pem, data, signature),
+                87 => core.Verify(pem, data, signature),
                 _ => throw new ArgumentException($"Unsupported ML-DSA parameter set: {parameterSet}")
             };
         }

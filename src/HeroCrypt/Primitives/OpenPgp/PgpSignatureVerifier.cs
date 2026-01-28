@@ -749,7 +749,8 @@ public sealed class PgpSignatureVerifier : IDisposable
 
         // Use RsaCore infrastructure
         var rsaPublicKey = new RsaPublicKey(n, e);
-        var rsaParams = RsaCore.ToRsaParameters(rsaPublicKey);
+        var rsaCore = new RsaCore();
+        var rsaParams = rsaCore.ToRsaParameters(rsaPublicKey);
 
         using var rsa = RSA.Create();
         rsa.ImportParameters(rsaParams);
@@ -810,7 +811,7 @@ public sealed class PgpSignatureVerifier : IDisposable
         }
 
         // Verify using Ed25519Core
-        return Ed25519Core.Verify(hash, signatureData, ed25519PublicKey);
+        return new Ed25519Core().Verify(hash, signatureData, ed25519PublicKey);
     }
 
     private static bool VerifyEcdsaSignature(byte[] hash, byte[] signatureData, PgpPublicKeyPacket publicKey)

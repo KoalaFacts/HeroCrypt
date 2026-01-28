@@ -105,7 +105,7 @@ public class VerificationBuilderTests
         [Fact]
         public void WithEd25519_SetsAlgorithm_VerifiesSuccessfully()
         {
-            var (privateKey, publicKey) = Ed25519Core.GenerateKeyPair();
+            var (privateKey, publicKey) = new Ed25519Core().GenerateKeyPair();
             var signature = HeroCryptBuilder.Sign().WithEd25519().WithPrivateKey(privateKey).Sign(TestMessage);
 
             var isValid = HeroCryptBuilder.Verify().WithEd25519().WithPublicKey(publicKey).WithSignature(signature).Verify(TestMessage);
@@ -249,7 +249,7 @@ public class VerificationBuilderTests
         [Fact]
         public void WithSecp256k1_SetsAlgorithm_VerifiesSuccessfully()
         {
-            var (privateKey, publicKey) = HeroCrypt.Primitives.Secp256k1.Secp256k1Core.GenerateKeyPair();
+            var (privateKey, publicKey) = new HeroCrypt.Primitives.Secp256k1.Secp256k1Core().GenerateKeyPair();
             var signature = HeroCryptBuilder.Sign().WithSecp256k1().WithPrivateKey(privateKey).Sign(TestMessage);
 
             var isValid = HeroCryptBuilder.Verify().WithSecp256k1().WithPublicKey(publicKey).WithSignature(signature).Verify(TestMessage);
@@ -417,7 +417,7 @@ public class VerificationBuilderTests
         [Fact]
         public void Ed25519_Verify_SingleByte_Succeeds()
         {
-            var (privateKey, publicKey) = Ed25519Core.GenerateKeyPair();
+            var (privateKey, publicKey) = new Ed25519Core().GenerateKeyPair();
             var data = new byte[] { 0x42 };
             var signature = HeroCryptBuilder.Sign()
                 .WithEd25519()
@@ -436,7 +436,7 @@ public class VerificationBuilderTests
         [Fact]
         public void Ed25519_Verify_AllZeros_Succeeds()
         {
-            var (privateKey, publicKey) = Ed25519Core.GenerateKeyPair();
+            var (privateKey, publicKey) = new Ed25519Core().GenerateKeyPair();
             var data = new byte[256];
             var signature = HeroCryptBuilder.Sign()
                 .WithEd25519()
@@ -455,7 +455,7 @@ public class VerificationBuilderTests
         [Fact]
         public void Ed25519_Verify_LargeData_Succeeds()
         {
-            var (privateKey, publicKey) = Ed25519Core.GenerateKeyPair();
+            var (privateKey, publicKey) = new Ed25519Core().GenerateKeyPair();
             var data = TestHelpers.RandomBytes(64 * 1024);
             var signature = HeroCryptBuilder.Sign()
                 .WithEd25519()
@@ -1019,7 +1019,7 @@ public class VerificationBuilderTests
         public void WithSignatureFromHex_WorksWithEd25519()
         {
             // Arrange
-            var (privateKey, publicKey) = Ed25519Core.GenerateKeyPair();
+            var (privateKey, publicKey) = new Ed25519Core().GenerateKeyPair();
             var hexSignature = HeroCryptBuilder.Sign()
                 .WithEd25519()
                 .WithPrivateKey(privateKey)
@@ -1040,7 +1040,7 @@ public class VerificationBuilderTests
         public void WithSignatureFromBase64_WorksWithEd25519()
         {
             // Arrange
-            var (privateKey, publicKey) = Ed25519Core.GenerateKeyPair();
+            var (privateKey, publicKey) = new Ed25519Core().GenerateKeyPair();
             var base64Signature = HeroCryptBuilder.Sign()
                 .WithEd25519()
                 .WithPrivateKey(privateKey)
@@ -1218,7 +1218,7 @@ public class VerificationBuilderTests
         public void WithSignatureFromBase64Url_WithEd25519_Succeeds()
         {
             // Arrange
-            var (privateKey, publicKey) = Ed25519Core.GenerateKeyPair();
+            var (privateKey, publicKey) = new Ed25519Core().GenerateKeyPair();
             var base64UrlSignature = HeroCryptBuilder.Sign()
                 .WithEd25519()
                 .WithPrivateKey(privateKey)

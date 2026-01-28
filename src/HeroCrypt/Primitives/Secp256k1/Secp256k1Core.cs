@@ -23,8 +23,16 @@ namespace HeroCrypt.Primitives.Secp256k1;
 ///   <item>Security: ~128-bit symmetric equivalent</item>
 /// </list>
 /// </remarks>
-internal static class Secp256k1Core
+internal sealed class Secp256k1Core
 {
+#pragma warning disable IDE0052 // Remove unread private member - policy reserved for future security validation
+    private readonly SecurityPolicyOptions policy;
+#pragma warning restore IDE0052
+
+    public Secp256k1Core(SecurityPolicyOptions? policy = null)
+    {
+        this.policy = policy ?? SecurityPolicyOptions.Default;
+    }
     /// <summary>
     /// Field prime: p = 2^256 - 2^32 - 977
     /// </summary>
@@ -93,7 +101,7 @@ internal static class Secp256k1Core
     /// Generates a new secp256k1 key pair
     /// </summary>
     /// <returns>Key pair with private key and uncompressed public key</returns>
-    public static (byte[] privateKey, byte[] publicKey) GenerateKeyPair()
+    public (byte[] privateKey, byte[] publicKey) GenerateKeyPair()
     {
         byte[] privateKey;
 
@@ -116,7 +124,7 @@ internal static class Secp256k1Core
     /// <param name="privateKey">32-byte private key</param>
     /// <param name="compressed">Whether to return compressed public key</param>
     /// <returns>Public key (33 bytes if compressed, 65 bytes if uncompressed)</returns>
-    public static byte[] DerivePublicKey(byte[] privateKey, bool compressed = false)
+    public byte[] DerivePublicKey(byte[] privateKey, bool compressed = false)
     {
 #if NETSTANDARD2_0
         if (privateKey == null)
@@ -150,7 +158,7 @@ internal static class Secp256k1Core
     /// <param name="messageHash">32-byte message hash (e.g., SHA-256)</param>
     /// <param name="privateKey">32-byte private key</param>
     /// <returns>64-byte signature (r || s)</returns>
-    public static byte[] Sign(byte[] messageHash, byte[] privateKey)
+    public byte[] Sign(byte[] messageHash, byte[] privateKey)
     {
 #if NETSTANDARD2_0
         if (messageHash == null)
@@ -200,7 +208,7 @@ internal static class Secp256k1Core
     /// <param name="signature">64-byte signature (r || s)</param>
     /// <param name="publicKey">Public key (33 or 65 bytes)</param>
     /// <returns>True if signature is valid</returns>
-    public static bool Verify(byte[] messageHash, byte[] signature, byte[] publicKey)
+    public bool Verify(byte[] messageHash, byte[] signature, byte[] publicKey)
     {
 #if NETSTANDARD2_0
         if (messageHash == null)
@@ -259,7 +267,7 @@ internal static class Secp256k1Core
     /// </summary>
     /// <param name="uncompressedKey">65-byte uncompressed public key</param>
     /// <returns>33-byte compressed public key</returns>
-    public static byte[] CompressPublicKey(byte[] uncompressedKey)
+    public byte[] CompressPublicKey(byte[] uncompressedKey)
     {
 #if NETSTANDARD2_0
         if (uncompressedKey == null)
@@ -296,7 +304,7 @@ internal static class Secp256k1Core
     /// </summary>
     /// <param name="compressedKey">33-byte compressed public key</param>
     /// <returns>65-byte uncompressed public key</returns>
-    public static byte[] DecompressPublicKey(byte[] compressedKey)
+    public byte[] DecompressPublicKey(byte[] compressedKey)
     {
 #if NETSTANDARD2_0
         if (compressedKey == null)
@@ -357,7 +365,7 @@ internal static class Secp256k1Core
     /// Scalar multiplication using double-and-add with BigInteger arithmetic
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static (BigInteger x, BigInteger y) ScalarMultiply(BigInteger px, BigInteger py, BigInteger scalar)
+    private (BigInteger x, BigInteger y) ScalarMultiply(BigInteger px, BigInteger py, BigInteger scalar)
     {
         // Handle edge cases
         if (scalar == BigInteger.Zero)
@@ -403,7 +411,7 @@ internal static class Secp256k1Core
     /// Point addition on secp256k1 using BigInteger
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static (BigInteger x, BigInteger y) PointAdd(BigInteger x1, BigInteger y1, BigInteger x2, BigInteger y2)
+    private (BigInteger x, BigInteger y) PointAdd(BigInteger x1, BigInteger y1, BigInteger x2, BigInteger y2)
     {
         // Handle point at infinity cases
         if (x1 == BigInteger.Zero && y1 == BigInteger.Zero)
@@ -450,7 +458,7 @@ internal static class Secp256k1Core
     /// Point doubling on secp256k1 using BigInteger
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static (BigInteger x, BigInteger y) PointDouble(BigInteger x, BigInteger y)
+    private (BigInteger x, BigInteger y) PointDouble(BigInteger x, BigInteger y)
     {
         // Handle point at infinity
         if (x == BigInteger.Zero && y == BigInteger.Zero)
@@ -490,7 +498,7 @@ internal static class Secp256k1Core
     /// Modular subtraction: (a - b) mod p, ensuring positive result
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static BigInteger ModSub(BigInteger a, BigInteger b, BigInteger p)
+    private BigInteger ModSub(BigInteger a, BigInteger b, BigInteger p)
     {
         var result = (a - b) % p;
         if (result < 0) result += p;
@@ -501,7 +509,7 @@ internal static class Secp256k1Core
     /// Modular multiplicative inverse using extended Euclidean algorithm
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static BigInteger ModInverse(BigInteger a, BigInteger p)
+    private BigInteger ModInverse(BigInteger a, BigInteger p)
     {
         // Extended Euclidean algorithm
         BigInteger t = 0, newT = 1;
@@ -534,7 +542,7 @@ internal static class Secp256k1Core
     /// Encodes a public key point to bytes
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static byte[] EncodePublicKey(BigInteger x, BigInteger y, bool compressed)
+    private byte[] EncodePublicKey(BigInteger x, BigInteger y, bool compressed)
     {
         if (compressed)
         {
@@ -557,7 +565,7 @@ internal static class Secp256k1Core
     /// Converts a big-endian byte array to BigInteger
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static BigInteger BytesToBigInteger(byte[] bytes)
+    private BigInteger BytesToBigInteger(byte[] bytes)
     {
         // BigInteger constructor expects little-endian with optional sign byte
         var leBytes = new byte[bytes.Length + 1];
@@ -573,7 +581,7 @@ internal static class Secp256k1Core
     /// Converts a BigInteger to big-endian bytes at the specified offset
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static void BigIntegerToBytes(BigInteger value, byte[] destination, int offset)
+    private void BigIntegerToBytes(BigInteger value, byte[] destination, int offset)
     {
         var bytes = value.ToByteArray(); // Little-endian, may have sign byte
 
@@ -603,14 +611,14 @@ internal static class Secp256k1Core
     /// Checks if a private key is valid
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static bool IsValidPrivateKey(byte[] privateKey)
+    private bool IsValidPrivateKey(byte[] privateKey)
     {
         var k = BytesToBigInteger(privateKey);
         // Private key must be in range [1, n-1]
         return k > BigInteger.Zero && k < GroupOrderN;
     }
 
-    private static byte[] NormalizePublicKey(byte[] publicKey)
+    private byte[] NormalizePublicKey(byte[] publicKey)
     {
         if (publicKey.Length == 65)
         {
@@ -624,7 +632,7 @@ internal static class Secp256k1Core
         return DecompressPublicKey(publicKey);
     }
 
-    private static byte[] DeriveSignatureKey(byte[] uncompressedKey)
+    private byte[] DeriveSignatureKey(byte[] uncompressedKey)
     {
         var buffer = new byte[uncompressedKey.Length + SignatureKeySalt.Length];
         Array.Copy(uncompressedKey, buffer, uncompressedKey.Length);
@@ -636,7 +644,7 @@ internal static class Secp256k1Core
         return key;
     }
 
-    private static byte[] ComputeSha512(ReadOnlySpan<byte> data)
+    private byte[] ComputeSha512(ReadOnlySpan<byte> data)
     {
 #if NETSTANDARD2_0
         using var sha = SHA512.Create();
@@ -646,7 +654,7 @@ internal static class Secp256k1Core
 #endif
     }
 
-    private static bool FixedTimeEquals(ReadOnlySpan<byte> left, ReadOnlySpan<byte> right)
+    private bool FixedTimeEquals(ReadOnlySpan<byte> left, ReadOnlySpan<byte> right)
     {
         if (left.Length != right.Length)
         {

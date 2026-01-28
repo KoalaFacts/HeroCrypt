@@ -10,8 +10,19 @@ namespace HeroCrypt.Primitives.Scrypt;
 /// RFC 7914 compliant memory-hard key derivation function
 /// Designed to be resistant to hardware brute-force attacks
 /// </summary>
-internal static class ScryptCore
+internal sealed class ScryptCore
 {
+    private readonly SecurityPolicyOptions policy;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ScryptCore"/> class with the specified security policy.
+    /// </summary>
+    /// <param name="policy">The security policy to use for validation. If null, uses <see cref="SecurityPolicyOptions.Default"/>.</param>
+    public ScryptCore(SecurityPolicyOptions? policy = null)
+    {
+        this.policy = policy ?? SecurityPolicyOptions.Default;
+    }
+
     /// <summary>
     /// Minimum recommended N parameter (CPU/memory cost)
     /// </summary>
@@ -57,14 +68,18 @@ internal static class ScryptCore
     /// <param name="p">Parallelization parameter</param>
     /// <param name="outputLength">Desired output length in bytes</param>
     /// <returns>Derived key</returns>
-    public static byte[] DeriveKey(ReadOnlySpan<byte> password, ReadOnlySpan<byte> salt,
+    public byte[] DeriveKey(ReadOnlySpan<byte> password, ReadOnlySpan<byte> salt,
         int n, int r, int p, int outputLength)
     {
+        // Validate hash algorithm (SHA256) against security policy
+        policy.ValidateHash("SHA256");
+
         ValidateParameters(password, salt, n, r, p, outputLength);
 
         // Use PBKDF2-HMAC-SHA256 for initial key stretching
         // Allow weak parameters for RFC test vectors (empty passwords/salts)
-        var b = Pbkdf2Core.DeriveKey(password, salt, 1, p * 128 * r, HashAlgorithmName.SHA256, allowWeakParameters: true);
+        var pbkdf2 = new Pbkdf2Core(policy);
+        var b = pbkdf2.DeriveKey(password, salt, 1, p * 128 * r, HashAlgorithmName.SHA256, allowWeakParameters: true);
 
         try
         {
@@ -78,7 +93,7 @@ internal static class ScryptCore
 
             // Final PBKDF2 to produce output
             // Allow weak parameters for RFC test vectors
-            return Pbkdf2Core.DeriveKey(password, b, 1, outputLength, HashAlgorithmName.SHA256, allowWeakParameters: true);
+            return pbkdf2.DeriveKey(password, b, 1, outputLength, HashAlgorithmName.SHA256, allowWeakParameters: true);
         }
         finally
         {
@@ -96,7 +111,7 @@ internal static class ScryptCore
     /// <param name="p">Parallelization parameter</param>
     /// <param name="outputLength">Desired output length</param>
     /// <returns>Derived key</returns>
-    public static byte[] DeriveKeyFromString(string password, ReadOnlySpan<byte> salt,
+    public byte[] DeriveKeyFromString(string password, ReadOnlySpan<byte> salt,
         int n, int r, int p, int outputLength)
     {
         if (string.IsNullOrEmpty(password))
@@ -125,7 +140,7 @@ internal static class ScryptCore
     /// <param name="r">Block size parameter</param>
     /// <param name="p">Parallelization parameter</param>
     /// <param name="outputLength">Output length</param>
-    public static void ValidateParameters(ReadOnlySpan<byte> password, ReadOnlySpan<byte> salt,
+    public void ValidateParameters(ReadOnlySpan<byte> password, ReadOnlySpan<byte> salt,
         int n, int r, int p, int outputLength)
     {
         _ = password;
@@ -185,7 +200,7 @@ internal static class ScryptCore
     /// </summary>
     /// <param name="useCase">scrypt use case</param>
     /// <returns>Recommended parameters</returns>
-    public static ScryptParameters GetRecommendedParameters(ScryptUseCase useCase)
+    public ScryptParameters GetRecommendedParameters(ScryptUseCase useCase)
     {
         return useCase switch
         {
@@ -278,7 +293,7 @@ internal static class ScryptCore
     /// </summary>
     /// <param name="block">128*r byte block to process</param>
     /// <param name="n">Number of iterations</param>
-    private static void ROMix(Span<byte> block, int n)
+    private void ROMix(Span<byte> block, int n)
     {
         var blockSize = block.Length;
         var v = new byte[n * blockSize];
@@ -320,7 +335,7 @@ internal static class ScryptCore
     /// </summary>
     /// <param name="input">Input block</param>
     /// <param name="output">Output block</param>
-    private static void BlockMix(ReadOnlySpan<byte> input, Span<byte> output)
+    private void BlockMix(ReadOnlySpan<byte> input, Span<byte> output)
     {
         var r = input.Length / 128;
         var x = new byte[64];
@@ -356,7 +371,7 @@ internal static class ScryptCore
     /// </summary>
     /// <param name="input">64-byte input</param>
     /// <param name="output">64-byte output</param>
-    private static void Salsa208(ReadOnlySpan<byte> input, Span<byte> output)
+    private void Salsa208(ReadOnlySpan<byte> input, Span<byte> output)
     {
         Span<uint> x = stackalloc uint[16];
 
@@ -408,7 +423,7 @@ internal static class ScryptCore
     /// <summary>
     /// Salsa20 quarter round function
     /// </summary>
-    private static void QuarterRound(Span<uint> x, int a, int b, int c, int d)
+    private void QuarterRound(Span<uint> x, int a, int b, int c, int d)
     {
         x[b] ^= BitOperations.RotateLeft(x[a] + x[d], 7);
         x[c] ^= BitOperations.RotateLeft(x[b] + x[a], 9);
@@ -421,7 +436,7 @@ internal static class ScryptCore
     /// </summary>
     /// <param name="block">Block to convert</param>
     /// <returns>Integer value</returns>
-    private static int Integerify(ReadOnlySpan<byte> block)
+    private int Integerify(ReadOnlySpan<byte> block)
     {
         var offset = block.Length - 64;
         return block[offset] | (block[offset + 1] << 8) | (block[offset + 2] << 16) | (block[offset + 3] << 24);
@@ -433,7 +448,7 @@ internal static class ScryptCore
     /// <param name="a">First array</param>
     /// <param name="b">Second array</param>
     /// <param name="result">Result array</param>
-    private static void Xor(ReadOnlySpan<byte> a, ReadOnlySpan<byte> b, Span<byte> result)
+    private void Xor(ReadOnlySpan<byte> a, ReadOnlySpan<byte> b, Span<byte> result)
     {
         for (var i = 0; i < a.Length; i++)
         {

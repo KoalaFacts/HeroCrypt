@@ -19,6 +19,8 @@ public class Poly1305CoreTests
     [Trait("Category", TestCategories.FAST)]
     public class BasicFunctionality
     {
+        private readonly Poly1305Core core = new();
+
         [Fact]
         public void ComputeMac_WithValidInput_ReturnsCorrectSize()
         {
@@ -28,7 +30,7 @@ public class Poly1305CoreTests
             var tag = new byte[TAG_SIZE];
 
             // Act
-            Poly1305Core.ComputeMac(tag, message, key);
+            core.ComputeMac(tag, message, key);
 
             // Assert
             Assert.False(TestHelpers.AllZeros(tag));
@@ -44,8 +46,8 @@ public class Poly1305CoreTests
             var tag2 = new byte[TAG_SIZE];
 
             // Act
-            Poly1305Core.ComputeMac(tag1, message, key);
-            Poly1305Core.ComputeMac(tag2, message, key);
+            core.ComputeMac(tag1, message, key);
+            core.ComputeMac(tag2, message, key);
 
             // Assert
             CryptoAssertions.AssertBytesEqual(tag1, tag2);
@@ -62,8 +64,8 @@ public class Poly1305CoreTests
             var tag2 = new byte[TAG_SIZE];
 
             // Act
-            Poly1305Core.ComputeMac(tag1, message, key1);
-            Poly1305Core.ComputeMac(tag2, message, key2);
+            core.ComputeMac(tag1, message, key1);
+            core.ComputeMac(tag2, message, key2);
 
             // Assert
             Assert.NotEqual(tag1, tag2);
@@ -80,8 +82,8 @@ public class Poly1305CoreTests
             var tag2 = new byte[TAG_SIZE];
 
             // Act
-            Poly1305Core.ComputeMac(tag1, message1, key);
-            Poly1305Core.ComputeMac(tag2, message2, key);
+            core.ComputeMac(tag1, message1, key);
+            core.ComputeMac(tag2, message2, key);
 
             // Assert
             Assert.NotEqual(tag1, tag2);
@@ -95,6 +97,8 @@ public class Poly1305CoreTests
     [Trait("Category", TestCategories.FAST)]
     public class EdgeCases
     {
+        private readonly Poly1305Core core = new();
+
         [Fact]
         public void ComputeMac_EmptyMessage_Succeeds()
         {
@@ -104,7 +108,7 @@ public class Poly1305CoreTests
             var tag = new byte[TAG_SIZE];
 
             // Act
-            Poly1305Core.ComputeMac(tag, message, key);
+            core.ComputeMac(tag, message, key);
 
             // Assert
             Assert.False(TestHelpers.AllZeros(tag));
@@ -119,7 +123,7 @@ public class Poly1305CoreTests
             var tag = new byte[TAG_SIZE];
 
             // Act
-            Poly1305Core.ComputeMac(tag, message, key);
+            core.ComputeMac(tag, message, key);
 
             // Assert
             Assert.False(TestHelpers.AllZeros(tag));
@@ -135,7 +139,7 @@ public class Poly1305CoreTests
             var tag = new byte[TAG_SIZE];
 
             // Act
-            Poly1305Core.ComputeMac(tag, message, key);
+            core.ComputeMac(tag, message, key);
 
             // Assert
             Assert.False(TestHelpers.AllZeros(tag));
@@ -149,6 +153,8 @@ public class Poly1305CoreTests
     [Trait("Category", TestCategories.FAST)]
     public class Security
     {
+        private readonly Poly1305Core core = new();
+
         [Fact]
         public void Verify_ModifiedMessage_ChangesTag()
         {
@@ -159,10 +165,10 @@ public class Poly1305CoreTests
             var newTag = new byte[TAG_SIZE];
 
             // Act
-            Poly1305Core.ComputeMac(originalTag, message, key);
+            core.ComputeMac(originalTag, message, key);
 
             var tamperedMessage = TestHelpers.TamperFirst(message);
-            Poly1305Core.ComputeMac(newTag, tamperedMessage, key);
+            core.ComputeMac(newTag, tamperedMessage, key);
 
             // Assert
             Assert.NotEqual(originalTag, newTag);
@@ -178,10 +184,10 @@ public class Poly1305CoreTests
             var newTag = new byte[TAG_SIZE];
 
             // Act
-            Poly1305Core.ComputeMac(originalTag, message, key);
+            core.ComputeMac(originalTag, message, key);
 
             var tamperedKey = TestHelpers.TamperLast(key);
-            Poly1305Core.ComputeMac(newTag, message, tamperedKey);
+            core.ComputeMac(newTag, message, tamperedKey);
 
             // Assert
             Assert.NotEqual(originalTag, newTag);
@@ -195,6 +201,8 @@ public class Poly1305CoreTests
     [Trait("Category", TestCategories.FAST)]
     public class ParameterValidation
     {
+        private readonly Poly1305Core core = new();
+
         [Fact]
         public void ComputeMac_InvalidKeySize_ThrowsArgumentException()
         {
@@ -203,7 +211,7 @@ public class Poly1305CoreTests
             var tag = new byte[TAG_SIZE];
 
             CryptoAssertions.AssertExceptionContains<ArgumentException>(
-                () => Poly1305Core.ComputeMac(tag, message, key),
+                () => core.ComputeMac(tag, message, key),
                 "32 bytes");
         }
 
@@ -215,7 +223,7 @@ public class Poly1305CoreTests
             var tag = new byte[TAG_SIZE - 1];
 
             CryptoAssertions.AssertExceptionContains<ArgumentException>(
-                () => Poly1305Core.ComputeMac(tag, message, key),
+                () => core.ComputeMac(tag, message, key),
                 "16 bytes");
         }
     }
@@ -228,6 +236,8 @@ public class Poly1305CoreTests
     [Trait("Category", TestCategories.FAST)]
     public class KnownAnswerTests
     {
+        private readonly Poly1305Core core = new();
+
         [Fact]
         public void RFC7539_Section252_TestVector()
         {
@@ -243,7 +253,7 @@ public class Poly1305CoreTests
             var actualTag = new byte[TAG_SIZE];
 
             // Act
-            Poly1305Core.ComputeMac(actualTag, message, key);
+            core.ComputeMac(actualTag, message, key);
 
             // Assert
             CryptoAssertions.AssertBytesEqual(expectedTag, actualTag);
@@ -258,6 +268,8 @@ public class Poly1305CoreTests
     [Trait("Category", TestCategories.FAST)]
     public class MemoryHygiene
     {
+        private readonly Poly1305Core core = new();
+
         [Fact]
         public void ComputeMac_RepeatedCalls_NoMemoryAccumulation()
         {
@@ -269,7 +281,7 @@ public class Poly1305CoreTests
             // Act
             for (int i = 0; i < 100; i++)
             {
-                Poly1305Core.ComputeMac(tag, message, key);
+                core.ComputeMac(tag, message, key);
             }
 
             // Assert

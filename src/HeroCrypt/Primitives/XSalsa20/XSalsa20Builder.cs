@@ -24,12 +24,16 @@ public sealed class XSalsa20Builder : IDisposable
     private const int KeySize = XSalsa20Core.KEY_SIZE;
     private const int NonceSize = XSalsa20Core.NONCE_SIZE;
 
+    private readonly XSalsa20Core core;
     private byte[]? key;
     private byte[]? nonce;
     private uint counter;
     private bool disposed;
 
-    private XSalsa20Builder() { }
+    private XSalsa20Builder(SecurityPolicyOptions? policy = null)
+    {
+        core = new XSalsa20Core(policy);
+    }
 
     /// <summary>
     /// Creates a new XSalsa20 builder instance.
@@ -166,7 +170,7 @@ public sealed class XSalsa20Builder : IDisposable
         ValidateState();
 
         var output = new byte[input.Length];
-        XSalsa20Core.Transform(output, input, key, nonce, counter);
+        core.Transform(output, input, key!, nonce!, counter);
         return output;
     }
 
@@ -183,7 +187,7 @@ public sealed class XSalsa20Builder : IDisposable
         ArgumentHelper.ThrowIfDisposed(disposed, this);
         ValidateState();
 
-        XSalsa20Core.Transform(output, input, key, nonce, counter);
+        core.Transform(output, input, key!, nonce!, counter);
     }
 
     /// <summary>

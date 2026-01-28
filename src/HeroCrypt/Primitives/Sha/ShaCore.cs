@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using HeroCrypt.Security;
 
 namespace HeroCrypt.Primitives.Sha;
 
@@ -6,8 +7,18 @@ namespace HeroCrypt.Primitives.Sha;
 /// SHA cryptographic hash function family implementation.
 /// Wraps the platform SHA implementations with consistent API.
 /// </summary>
-internal static class ShaCore
+internal sealed class ShaCore
 {
+    private readonly SecurityPolicyOptions policy;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ShaCore"/> class with the specified security policy.
+    /// </summary>
+    /// <param name="policy">The security policy to use for validation. If null, uses <see cref="SecurityPolicyOptions.Default"/>.</param>
+    public ShaCore(SecurityPolicyOptions? policy = null)
+    {
+        this.policy = policy ?? SecurityPolicyOptions.Default;
+    }
     /// <summary>
     /// Output size in bytes for MD5.
     /// </summary>
@@ -47,8 +58,11 @@ internal static class ShaCore
     /// Only use for checksums, cache keys, or legacy compatibility.
     /// </remarks>
 #pragma warning disable CA5351 // Do Not Use Broken Cryptographic Algorithms - MD5 intentionally provided for legacy compatibility
-    public static byte[] ComputeHashMd5(byte[] data)
+    public byte[] ComputeHashMd5(byte[] data)
     {
+        // Validate hash algorithm against security policy
+        policy.ValidateHash("MD5");
+
 #if NETSTANDARD2_0
         using var md5 = MD5.Create();
         return md5.ComputeHash(data);
@@ -68,8 +82,11 @@ internal static class ShaCore
     /// Only use for Git compatibility or legacy systems.
     /// </remarks>
 #pragma warning disable CA5350 // Do Not Use Weak Cryptographic Algorithms - SHA-1 intentionally provided for legacy compatibility
-    public static byte[] ComputeHashSha1(byte[] data)
+    public byte[] ComputeHashSha1(byte[] data)
     {
+        // Validate hash algorithm against security policy
+        policy.ValidateHash("SHA-1");
+
 #if NETSTANDARD2_0
         using var sha = SHA1.Create();
         return sha.ComputeHash(data);
@@ -88,8 +105,11 @@ internal static class ShaCore
     /// </summary>
     /// <param name="data">The data to hash.</param>
     /// <returns>The 32-byte SHA-256 hash.</returns>
-    public static byte[] ComputeHashSha256(byte[] data)
+    public byte[] ComputeHashSha256(byte[] data)
     {
+        // Validate hash algorithm against security policy
+        policy.ValidateHash("SHA-256");
+
 #if NETSTANDARD2_0
         using var sha = SHA256.Create();
         return sha.ComputeHash(data);
@@ -103,8 +123,11 @@ internal static class ShaCore
     /// </summary>
     /// <param name="data">The data to hash.</param>
     /// <returns>The 48-byte SHA-384 hash.</returns>
-    public static byte[] ComputeHashSha384(byte[] data)
+    public byte[] ComputeHashSha384(byte[] data)
     {
+        // Validate hash algorithm against security policy
+        policy.ValidateHash("SHA-384");
+
 #if NETSTANDARD2_0
         using var sha = SHA384.Create();
         return sha.ComputeHash(data);
@@ -118,8 +141,11 @@ internal static class ShaCore
     /// </summary>
     /// <param name="data">The data to hash.</param>
     /// <returns>The 64-byte SHA-512 hash.</returns>
-    public static byte[] ComputeHashSha512(byte[] data)
+    public byte[] ComputeHashSha512(byte[] data)
     {
+        // Validate hash algorithm against security policy
+        policy.ValidateHash("SHA-512");
+
 #if NETSTANDARD2_0
         using var sha = SHA512.Create();
         return sha.ComputeHash(data);
@@ -138,8 +164,11 @@ internal static class ShaCore
     /// </summary>
     /// <param name="data">The data to hash.</param>
     /// <returns>The 32-byte SHA3-256 hash.</returns>
-    public static byte[] ComputeHashSha3_256(byte[] data)
+    public byte[] ComputeHashSha3_256(byte[] data)
     {
+        // Validate hash algorithm against security policy
+        policy.ValidateHash("SHA3-256");
+
         return SHA3_256.HashData(data);
     }
 
@@ -148,8 +177,11 @@ internal static class ShaCore
     /// </summary>
     /// <param name="data">The data to hash.</param>
     /// <returns>The 48-byte SHA3-384 hash.</returns>
-    public static byte[] ComputeHashSha3_384(byte[] data)
+    public byte[] ComputeHashSha3_384(byte[] data)
     {
+        // Validate hash algorithm against security policy
+        policy.ValidateHash("SHA3-384");
+
         return SHA3_384.HashData(data);
     }
 
@@ -158,8 +190,11 @@ internal static class ShaCore
     /// </summary>
     /// <param name="data">The data to hash.</param>
     /// <returns>The 64-byte SHA3-512 hash.</returns>
-    public static byte[] ComputeHashSha3_512(byte[] data)
+    public byte[] ComputeHashSha3_512(byte[] data)
     {
+        // Validate hash algorithm against security policy
+        policy.ValidateHash("SHA3-512");
+
         return SHA3_512.HashData(data);
     }
 #endif
@@ -175,8 +210,11 @@ internal static class ShaCore
     /// <param name="data">The data to hash.</param>
     /// <param name="outputLength">The desired output length in bytes.</param>
     /// <returns>The SHAKE128 hash with the specified length.</returns>
-    public static byte[] ComputeHashShake128(byte[] data, int outputLength)
+    public byte[] ComputeHashShake128(byte[] data, int outputLength)
     {
+        // Validate hash algorithm against security policy
+        policy.ValidateHash("SHAKE128");
+
         if (outputLength <= 0)
         {
             throw new ArgumentException("Output length must be positive", nameof(outputLength));
@@ -193,8 +231,11 @@ internal static class ShaCore
     /// <param name="data">The data to hash.</param>
     /// <param name="outputLength">The desired output length in bytes.</param>
     /// <returns>The SHAKE256 hash with the specified length.</returns>
-    public static byte[] ComputeHashShake256(byte[] data, int outputLength)
+    public byte[] ComputeHashShake256(byte[] data, int outputLength)
     {
+        // Validate hash algorithm against security policy
+        policy.ValidateHash("SHAKE256");
+
         if (outputLength <= 0)
         {
             throw new ArgumentException("Output length must be positive", nameof(outputLength));
@@ -222,8 +263,11 @@ internal static class ShaCore
     /// prefer HMAC-SHA256 or newer for new systems.
     /// </remarks>
 #pragma warning disable CA5351 // Do Not Use Broken Cryptographic Algorithms - HMAC-MD5 intentionally provided for legacy compatibility
-    public static byte[] ComputeHashHmacMd5(byte[] data, byte[] key)
+    public byte[] ComputeHashHmacMd5(byte[] data, byte[] key)
     {
+        // Validate hash algorithm against security policy
+        policy.ValidateHash("MD5");
+
         using var hmac = new HMACMD5(key);
         return hmac.ComputeHash(data);
     }
@@ -240,8 +284,11 @@ internal static class ShaCore
     /// Prefer HMAC-SHA256 or newer.
     /// </remarks>
 #pragma warning disable CA5350 // Do Not Use Weak Cryptographic Algorithms - HMAC-SHA1 intentionally provided for legacy compatibility
-    public static byte[] ComputeHashHmacSha1(byte[] data, byte[] key)
+    public byte[] ComputeHashHmacSha1(byte[] data, byte[] key)
     {
+        // Validate hash algorithm against security policy
+        policy.ValidateHash("SHA-1");
+
         using var hmac = new HMACSHA1(key);
         return hmac.ComputeHash(data);
     }
@@ -253,8 +300,11 @@ internal static class ShaCore
     /// <param name="data">The data to authenticate.</param>
     /// <param name="key">The HMAC key.</param>
     /// <returns>The 32-byte HMAC-SHA-256 tag.</returns>
-    public static byte[] ComputeHashHmacSha256(byte[] data, byte[] key)
+    public byte[] ComputeHashHmacSha256(byte[] data, byte[] key)
     {
+        // Validate hash algorithm against security policy
+        policy.ValidateHash("SHA-256");
+
         using var hmac = new HMACSHA256(key);
         return hmac.ComputeHash(data);
     }
@@ -265,8 +315,11 @@ internal static class ShaCore
     /// <param name="data">The data to authenticate.</param>
     /// <param name="key">The HMAC key.</param>
     /// <returns>The 48-byte HMAC-SHA-384 tag.</returns>
-    public static byte[] ComputeHashHmacSha384(byte[] data, byte[] key)
+    public byte[] ComputeHashHmacSha384(byte[] data, byte[] key)
     {
+        // Validate hash algorithm against security policy
+        policy.ValidateHash("SHA-384");
+
         using var hmac = new HMACSHA384(key);
         return hmac.ComputeHash(data);
     }
@@ -277,8 +330,11 @@ internal static class ShaCore
     /// <param name="data">The data to authenticate.</param>
     /// <param name="key">The HMAC key.</param>
     /// <returns>The 64-byte HMAC-SHA-512 tag.</returns>
-    public static byte[] ComputeHashHmacSha512(byte[] data, byte[] key)
+    public byte[] ComputeHashHmacSha512(byte[] data, byte[] key)
     {
+        // Validate hash algorithm against security policy
+        policy.ValidateHash("SHA-512");
+
         using var hmac = new HMACSHA512(key);
         return hmac.ComputeHash(data);
     }

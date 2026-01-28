@@ -19,6 +19,8 @@ public class Hc128CoreTests
     [Trait("Category", TestCategories.FAST)]
     public class BasicFunctionality
     {
+        private readonly Hc128Core core = new();
+
         [Fact]
         public void Transform_WithValidParameters_Success()
         {
@@ -29,7 +31,7 @@ public class Hc128CoreTests
             var ciphertext = new byte[plaintext.Length];
 
             // Act
-            Hc128Core.Transform(ciphertext, plaintext, key, iv);
+            core.Transform(ciphertext, plaintext, key, iv);
 
             // Assert
             Assert.NotEqual(plaintext, ciphertext);
@@ -47,8 +49,8 @@ public class Hc128CoreTests
             var decrypted = new byte[plaintext.Length];
 
             // Act
-            Hc128Core.Transform(ciphertext, plaintext, key, iv);
-            Hc128Core.Transform(decrypted, ciphertext, key, iv);
+            core.Transform(ciphertext, plaintext, key, iv);
+            core.Transform(decrypted, ciphertext, key, iv);
 
             // Assert
             CryptoAssertions.AssertBytesEqual(plaintext, decrypted);
@@ -66,8 +68,8 @@ public class Hc128CoreTests
             var ciphertext2 = new byte[plaintext.Length];
 
             // Act
-            Hc128Core.Transform(ciphertext1, plaintext, key, iv1);
-            Hc128Core.Transform(ciphertext2, plaintext, key, iv2);
+            core.Transform(ciphertext1, plaintext, key, iv1);
+            core.Transform(ciphertext2, plaintext, key, iv2);
 
             // Assert
             Assert.NotEqual(ciphertext1, ciphertext2);
@@ -81,6 +83,8 @@ public class Hc128CoreTests
     [Trait("Category", TestCategories.FAST)]
     public class EdgeCases
     {
+        private readonly Hc128Core core = new();
+
         [Fact]
         public void Transform_EmptyInput_Succeeds()
         {
@@ -91,7 +95,7 @@ public class Hc128CoreTests
             var ciphertext = Array.Empty<byte>();
 
             // Act & Assert
-            Hc128Core.Transform(ciphertext, plaintext, key, iv);
+            core.Transform(ciphertext, plaintext, key, iv);
         }
 
         [Fact]
@@ -108,8 +112,8 @@ public class Hc128CoreTests
             var decrypted = new byte[plaintext.Length];
 
             // Act
-            Hc128Core.Transform(ciphertext, plaintext, key, iv);
-            Hc128Core.Transform(decrypted, ciphertext, key, iv);
+            core.Transform(ciphertext, plaintext, key, iv);
+            core.Transform(decrypted, ciphertext, key, iv);
 
             // Assert
             CryptoAssertions.AssertBytesEqual(plaintext, decrypted);
@@ -127,8 +131,8 @@ public class Hc128CoreTests
             var decrypted = new byte[plaintext.Length];
 
             // Act
-            Hc128Core.Transform(ciphertext, plaintext, key, iv);
-            Hc128Core.Transform(decrypted, ciphertext, key, iv);
+            core.Transform(ciphertext, plaintext, key, iv);
+            core.Transform(decrypted, ciphertext, key, iv);
 
             // Assert
             CryptoAssertions.AssertBytesEqual(plaintext, decrypted);
@@ -142,6 +146,7 @@ public class Hc128CoreTests
     [Trait("Category", TestCategories.FAST)]
     public class Security
     {
+        private readonly Hc128Core core = new();
         private const int KEY_SIZE = 16;
         private const int IV_SIZE = 16;
 
@@ -157,8 +162,8 @@ public class Hc128CoreTests
             var ciphertext1 = new byte[plaintext1.Length];
             var ciphertext2 = new byte[plaintext2.Length];
 
-            Hc128Core.Transform(ciphertext1, plaintext1, key, iv);
-            Hc128Core.Transform(ciphertext2, plaintext2, key, iv);
+            core.Transform(ciphertext1, plaintext1, key, iv);
+            core.Transform(ciphertext2, plaintext2, key, iv);
 
             // XOR of ciphertexts reveals XOR of plaintexts (catastrophic)
             var xorCiphertext = new byte[plaintext1.Length];
@@ -181,8 +186,8 @@ public class Hc128CoreTests
             var ciphertext1 = new byte[plaintext.Length];
             var ciphertext2 = new byte[plaintext.Length];
 
-            Hc128Core.Transform(ciphertext1, plaintext, key1, iv);
-            Hc128Core.Transform(ciphertext2, plaintext, key2, iv);
+            core.Transform(ciphertext1, plaintext, key1, iv);
+            core.Transform(ciphertext2, plaintext, key2, iv);
 
             Assert.NotEqual(ciphertext1, ciphertext2);
         }
@@ -195,7 +200,7 @@ public class Hc128CoreTests
             var plaintext = TestHelpers.RandomBytes(TestDataSizes.Medium);
             var ciphertext = new byte[plaintext.Length];
 
-            Hc128Core.Transform(ciphertext, plaintext, key, iv);
+            core.Transform(ciphertext, plaintext, key, iv);
 
             CryptoAssertions.AssertAppearsRandom(ciphertext);
         }
@@ -212,8 +217,8 @@ public class Hc128CoreTests
             var ciphertext1 = new byte[plaintext.Length];
             var ciphertext2 = new byte[plaintext.Length];
 
-            Hc128Core.Transform(ciphertext1, plaintext, key1, iv);
-            Hc128Core.Transform(ciphertext2, plaintext, key2, iv);
+            core.Transform(ciphertext1, plaintext, key1, iv);
+            core.Transform(ciphertext2, plaintext, key2, iv);
 
             // Outputs should be completely different
             Assert.NotEqual(ciphertext1, ciphertext2);
@@ -236,6 +241,8 @@ public class Hc128CoreTests
     [Trait("Category", TestCategories.FAST)]
     public class ParameterValidation
     {
+        private readonly Hc128Core core = new();
+
         [Fact]
         public void Transform_InvalidKeySize_ThrowsArgumentException()
         {
@@ -245,7 +252,7 @@ public class Hc128CoreTests
             var ciphertext = new byte[10];
 
             CryptoAssertions.AssertExceptionContains<ArgumentException>(
-                () => Hc128Core.Transform(ciphertext, plaintext, invalidKey, iv),
+                () => core.Transform(ciphertext, plaintext, invalidKey, iv),
                 "16 bytes");
         }
 
@@ -258,7 +265,7 @@ public class Hc128CoreTests
             var ciphertext = new byte[10];
 
             CryptoAssertions.AssertExceptionContains<ArgumentException>(
-                () => Hc128Core.Transform(ciphertext, plaintext, key, invalidIv),
+                () => core.Transform(ciphertext, plaintext, key, invalidIv),
                 "16 bytes");
         }
     }
@@ -271,6 +278,8 @@ public class Hc128CoreTests
     [Trait("Category", TestCategories.FAST)]
     public class KnownAnswerTests
     {
+        private readonly Hc128Core core = new();
+
         [Fact]
         public void Hc128_AllZeroKeyAndIv_IsDeterministic()
         {
@@ -281,8 +290,8 @@ public class Hc128CoreTests
 
             var ciphertext1 = new byte[64];
             var ciphertext2 = new byte[64];
-            Hc128Core.Transform(ciphertext1, plaintext, key, iv);
-            Hc128Core.Transform(ciphertext2, plaintext, key, iv);
+            core.Transform(ciphertext1, plaintext, key, iv);
+            core.Transform(ciphertext2, plaintext, key, iv);
 
             CryptoAssertions.AssertBytesEqual(ciphertext1, ciphertext2);
             CryptoAssertions.AssertAppearsRandom(ciphertext1);
@@ -299,8 +308,8 @@ public class Hc128CoreTests
 
             var ciphertext1 = new byte[64];
             var ciphertext2 = new byte[64];
-            Hc128Core.Transform(ciphertext1, plaintext, key, iv1);
-            Hc128Core.Transform(ciphertext2, plaintext, key, iv2);
+            core.Transform(ciphertext1, plaintext, key, iv1);
+            core.Transform(ciphertext2, plaintext, key, iv2);
 
             Assert.NotEqual(ciphertext1, ciphertext2);
         }
@@ -316,8 +325,8 @@ public class Hc128CoreTests
 
             var ciphertext1 = new byte[64];
             var ciphertext2 = new byte[64];
-            Hc128Core.Transform(ciphertext1, plaintext, key1, iv);
-            Hc128Core.Transform(ciphertext2, plaintext, key2, iv);
+            core.Transform(ciphertext1, plaintext, key1, iv);
+            core.Transform(ciphertext2, plaintext, key2, iv);
 
             Assert.NotEqual(ciphertext1, ciphertext2);
         }

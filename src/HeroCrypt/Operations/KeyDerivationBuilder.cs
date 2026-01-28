@@ -64,6 +64,7 @@ public sealed class KeyDerivationBuilder : IDisposable
     private byte[]? salt;
     private byte[]? info;
     private int outputLength = 32;
+    private SecurityPolicyOptions securityPolicy = SecurityPolicyOptions.Default;
     private bool disposed;
 
     private void ThrowIfDisposed()
@@ -137,6 +138,36 @@ public sealed class KeyDerivationBuilder : IDisposable
         {
             ThrowIfDisposed();
             this.algorithm = algorithm;
+            return this;
+        }
+    }
+
+    /// <summary>
+    /// Sets the security policy for cryptographic validation.
+    /// </summary>
+    /// <param name="policy">The security policy to use.</param>
+    /// <returns>This builder for chaining.</returns>
+    public KeyDerivationBuilder WithSecurityPolicy(SecurityPolicyOptions policy)
+    {
+        using (syncLock.EnterScope())
+        {
+            ThrowIfDisposed();
+            securityPolicy = policy;
+            return this;
+        }
+    }
+
+    /// <summary>
+    /// Sets the security policy for cryptographic validation.
+    /// </summary>
+    /// <param name="configure">Function to configure the security policy.</param>
+    /// <returns>This builder for chaining.</returns>
+    public KeyDerivationBuilder WithSecurityPolicy(Func<SecurityPolicyOptions, SecurityPolicyOptions> configure)
+    {
+        using (syncLock.EnterScope())
+        {
+            ThrowIfDisposed();
+            securityPolicy = configure(SecurityPolicyOptions.Default);
             return this;
         }
     }
@@ -569,16 +600,16 @@ public sealed class KeyDerivationBuilder : IDisposable
             return algorithm switch
             {
                 // Password Hashing KDFs (Memory-hard)
-                KeyDerivationAlgorithm.Argon2id => Argon2Core.Hash(
+                KeyDerivationAlgorithm.Argon2id => new Argon2Core(securityPolicy).Hash(
                     password, salt, DefaultArgon2Iterations, DefaultArgon2MemoryKiB,
                     DefaultArgon2Parallelism, outputLength, Argon2Type.Argon2id),
-                KeyDerivationAlgorithm.Argon2d => Argon2Core.Hash(
+                KeyDerivationAlgorithm.Argon2d => new Argon2Core(securityPolicy).Hash(
                     password, salt, DefaultArgon2Iterations, DefaultArgon2MemoryKiB,
                     DefaultArgon2Parallelism, outputLength, Argon2Type.Argon2d),
-                KeyDerivationAlgorithm.Argon2i => Argon2Core.Hash(
+                KeyDerivationAlgorithm.Argon2i => new Argon2Core(securityPolicy).Hash(
                     password, salt, DefaultArgon2Iterations, DefaultArgon2MemoryKiB,
                     DefaultArgon2Parallelism, outputLength, Argon2Type.Argon2i),
-                KeyDerivationAlgorithm.Scrypt => ScryptCore.DeriveKey(
+                KeyDerivationAlgorithm.Scrypt => new ScryptCore(securityPolicy).DeriveKey(
                     password, salt, DefaultScryptN, DefaultScryptR, DefaultScryptP, outputLength),
 #if !NETSTANDARD2_0
                 KeyDerivationAlgorithm.BalloonSha256 => BalloonHashing.Hash(
@@ -590,23 +621,23 @@ public sealed class KeyDerivationBuilder : IDisposable
                     "Bcrypt is not yet implemented. Use Argon2id or Scrypt as recommended alternatives."),
 
                 // Password-Based KDFs (Iterative)
-                KeyDerivationAlgorithm.Pbkdf2Sha256 => Pbkdf2Core.DeriveKey(
+                KeyDerivationAlgorithm.Pbkdf2Sha256 => new Pbkdf2Core(securityPolicy).DeriveKey(
                     password, salt, DefaultPbkdf2Iterations, outputLength, HashAlgorithmName.SHA256),
-                KeyDerivationAlgorithm.Pbkdf2Sha512 => Pbkdf2Core.DeriveKey(
+                KeyDerivationAlgorithm.Pbkdf2Sha512 => new Pbkdf2Core(securityPolicy).DeriveKey(
                     password, salt, DefaultPbkdf2Iterations, outputLength, HashAlgorithmName.SHA512),
-                KeyDerivationAlgorithm.Pbkdf2Sha384 => Pbkdf2Core.DeriveKey(
+                KeyDerivationAlgorithm.Pbkdf2Sha384 => new Pbkdf2Core(securityPolicy).DeriveKey(
                     password, salt, DefaultPbkdf2Iterations, outputLength, HashAlgorithmName.SHA384),
-                KeyDerivationAlgorithm.Pbkdf2Sha1 => Pbkdf2Core.DeriveKey(
+                KeyDerivationAlgorithm.Pbkdf2Sha1 => new Pbkdf2Core(securityPolicy).DeriveKey(
                     password, salt, DefaultPbkdf2Iterations, outputLength, HashAlgorithmName.SHA1),
 
                 // Key Expansion KDFs (Fast)
-                KeyDerivationAlgorithm.HkdfSha256 => HkdfCore.DeriveKey(
+                KeyDerivationAlgorithm.HkdfSha256 => new HkdfCore(securityPolicy).DeriveKey(
                     password, salt, info ?? [], outputLength, HashAlgorithmName.SHA256),
-                KeyDerivationAlgorithm.HkdfSha512 => HkdfCore.DeriveKey(
+                KeyDerivationAlgorithm.HkdfSha512 => new HkdfCore(securityPolicy).DeriveKey(
                     password, salt, info ?? [], outputLength, HashAlgorithmName.SHA512),
-                KeyDerivationAlgorithm.HkdfSha384 => HkdfCore.DeriveKey(
+                KeyDerivationAlgorithm.HkdfSha384 => new HkdfCore(securityPolicy).DeriveKey(
                     password, salt, info ?? [], outputLength, HashAlgorithmName.SHA384),
-                KeyDerivationAlgorithm.HkdfSha1 => HkdfCore.DeriveKey(
+                KeyDerivationAlgorithm.HkdfSha1 => new HkdfCore(securityPolicy).DeriveKey(
                     password, salt, info ?? [], outputLength, HashAlgorithmName.SHA1),
 
                 _ => throw new NotSupportedException($"Algorithm {algorithm} is not supported")

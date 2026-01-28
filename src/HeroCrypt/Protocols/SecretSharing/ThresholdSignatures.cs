@@ -41,8 +41,18 @@ namespace HeroCrypt.Protocols.SecretSharing;
 /// - Secure key backup and recovery
 /// - Corporate authorization workflows
 /// </summary>
-public static class ThresholdSignatures
+public sealed class ThresholdSignatures
 {
+    private readonly SecurityPolicyOptions policy;
+
+    /// <summary>
+    /// Initializes a new instance of the ThresholdSignatures class.
+    /// </summary>
+    /// <param name="policy">Optional security policy. If null, uses SecurityPolicyOptions.Default.</param>
+    public ThresholdSignatures(SecurityPolicyOptions? policy = null)
+    {
+        this.policy = policy ?? SecurityPolicyOptions.Default;
+    }
     /// <summary>
     /// Signature scheme for threshold signatures
     /// </summary>
@@ -201,7 +211,7 @@ public static class ThresholdSignatures
     /// <param name="threshold">Threshold (t) - need t+1 to sign</param>
     /// <param name="scheme">Signature scheme</param>
     /// <returns>Key shares for each party and the public key</returns>
-    public static KeyGenerationResult GenerateKeys(int numParties, int threshold,
+    public KeyGenerationResult GenerateKeys(int numParties, int threshold,
         SignatureScheme scheme = SignatureScheme.Schnorr)
     {
         if (numParties < 2)
@@ -231,7 +241,8 @@ public static class ThresholdSignatures
             var publicKey = DerivePublicKey(masterSecretKey, scheme);
 
             // Secret share the master key using Shamir's scheme
-            var shares = ShamirSecretSharing.Split(masterSecretKey, threshold, numParties);
+            var shamir = new ShamirSecretSharing(policy);
+            var shares = shamir.Split(masterSecretKey, threshold, numParties);
 
             // Generate polynomial commitments for verification
             var publicCommitments = GeneratePolynomialCommitments(threshold + 1, scheme);
@@ -278,7 +289,7 @@ public static class ThresholdSignatures
     /// <param name="signers">List of all participating signers (must be ≥ threshold+1)</param>
     /// <param name="nonce">Optional nonce (if null, generated securely)</param>
     /// <returns>Partial signature from this party</returns>
-    public static PartialSignature SignPartial(ReadOnlySpan<byte> message, KeyShare keyShare,
+    public PartialSignature SignPartial(ReadOnlySpan<byte> message, KeyShare keyShare,
         int[] signers, byte[]? nonce = null)
     {
         ArgumentNullException.ThrowIfNull(keyShare);
@@ -365,7 +376,7 @@ public static class ThresholdSignatures
     /// <param name="publicKey">Public key for verification</param>
     /// <param name="scheme">Signature scheme</param>
     /// <returns>Complete threshold signature</returns>
-    public static ThresholdSignature CombineSignatures(ReadOnlySpan<byte> message,
+    public ThresholdSignature CombineSignatures(ReadOnlySpan<byte> message,
         PartialSignature[] partialSignatures, byte[] publicKey, SignatureScheme scheme)
     {
         _ = scheme;
@@ -413,7 +424,7 @@ public static class ThresholdSignatures
     /// <param name="signature">The threshold signature</param>
     /// <param name="publicKey">The public key</param>
     /// <returns>True if signature is valid, false otherwise</returns>
-    public static bool VerifySignature(ReadOnlySpan<byte> message,
+    public bool VerifySignature(ReadOnlySpan<byte> message,
         ThresholdSignature signature, byte[] publicKey)
     {
         ArgumentNullException.ThrowIfNull(signature);

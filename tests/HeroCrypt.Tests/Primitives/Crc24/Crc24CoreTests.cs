@@ -18,12 +18,14 @@ public class Crc24CoreTests
     [Trait("Category", TestCategories.FAST)]
     public class BasicFunctionality
     {
+        private readonly Crc24Core core = new();
+
         [Fact]
         public void Compute_WithValidInput_ReturnsNonZero()
         {
             var data = TestHelpers.RandomBytes(TestDataSizes.Medium);
 
-            var crc = Crc24Core.Compute(data);
+            var crc = core.Compute(data);
 
             Assert.True(crc <= 0xFFFFFF, "CRC24 should be 24-bit value");
         }
@@ -33,8 +35,8 @@ public class Crc24CoreTests
         {
             var data = TestHelpers.RandomBytes(TestDataSizes.Medium);
 
-            var crc1 = Crc24Core.Compute(data);
-            var crc2 = Crc24Core.Compute(data);
+            var crc1 = core.Compute(data);
+            var crc2 = core.Compute(data);
 
             Assert.Equal(crc1, crc2);
         }
@@ -45,8 +47,8 @@ public class Crc24CoreTests
             var data1 = TestHelpers.RandomBytes(TestDataSizes.Medium);
             var data2 = TestHelpers.RandomBytes(TestDataSizes.Medium);
 
-            var crc1 = Crc24Core.Compute(data1);
-            var crc2 = Crc24Core.Compute(data2);
+            var crc1 = core.Compute(data1);
+            var crc2 = core.Compute(data2);
 
             Assert.NotEqual(crc1, crc2);
         }
@@ -56,7 +58,7 @@ public class Crc24CoreTests
         {
             var data = TestHelpers.RandomBytes(TestDataSizes.Medium);
 
-            var crcBytes = Crc24Core.ComputeToBytes(data);
+            var crcBytes = core.ComputeToBytes(data);
 
             Assert.Equal(CRC_SIZE, crcBytes.Length);
         }
@@ -66,8 +68,8 @@ public class Crc24CoreTests
         {
             var data = TestHelpers.RandomBytes(TestDataSizes.Medium);
 
-            var crc = Crc24Core.Compute(data);
-            var crcBytes = Crc24Core.ComputeToBytes(data);
+            var crc = core.Compute(data);
+            var crcBytes = core.ComputeToBytes(data);
 
             // Convert bytes to uint (big-endian)
             var crcFromBytes = ((uint)crcBytes[0] << 16) | ((uint)crcBytes[1] << 8) | crcBytes[2];
@@ -81,9 +83,9 @@ public class Crc24CoreTests
             var data = TestHelpers.RandomBytes(TestDataSizes.Medium);
             var output = new byte[CRC_SIZE];
 
-            Crc24Core.Compute(output, data);
+            core.Compute(output, data);
 
-            var crc = Crc24Core.Compute(data);
+            var crc = core.Compute(data);
             var crcFromSpan = ((uint)output[0] << 16) | ((uint)output[1] << 8) | output[2];
 
             Assert.Equal(crc, crcFromSpan);
@@ -97,13 +99,15 @@ public class Crc24CoreTests
     [Trait("Category", TestCategories.FAST)]
     public class VerificationTests
     {
+        private readonly Crc24Core core = new();
+
         [Fact]
         public void Verify_CorrectCrc_ReturnsTrue()
         {
             var data = TestHelpers.RandomBytes(TestDataSizes.Medium);
-            var crc = Crc24Core.Compute(data);
+            var crc = core.Compute(data);
 
-            var result = Crc24Core.Verify(crc, data);
+            var result = core.Verify(crc, data);
 
             Assert.True(result);
         }
@@ -112,10 +116,10 @@ public class Crc24CoreTests
         public void Verify_IncorrectCrc_ReturnsFalse()
         {
             var data = TestHelpers.RandomBytes(TestDataSizes.Medium);
-            var crc = Crc24Core.Compute(data);
+            var crc = core.Compute(data);
             var wrongCrc = crc ^ 0x01;
 
-            var result = Crc24Core.Verify(wrongCrc, data);
+            var result = core.Verify(wrongCrc, data);
 
             Assert.False(result);
         }
@@ -124,9 +128,9 @@ public class Crc24CoreTests
         public void Verify_WithBytes_CorrectCrc_ReturnsTrue()
         {
             var data = TestHelpers.RandomBytes(TestDataSizes.Medium);
-            var crcBytes = Crc24Core.ComputeToBytes(data);
+            var crcBytes = core.ComputeToBytes(data);
 
-            var result = Crc24Core.Verify(crcBytes, data);
+            var result = core.Verify(crcBytes, data);
 
             Assert.True(result);
         }
@@ -135,10 +139,10 @@ public class Crc24CoreTests
         public void Verify_WithBytes_IncorrectCrc_ReturnsFalse()
         {
             var data = TestHelpers.RandomBytes(TestDataSizes.Medium);
-            var crcBytes = Crc24Core.ComputeToBytes(data);
+            var crcBytes = core.ComputeToBytes(data);
             crcBytes[2] ^= 0x01;
 
-            var result = Crc24Core.Verify(crcBytes, data);
+            var result = core.Verify(crcBytes, data);
 
             Assert.False(result);
         }
@@ -147,10 +151,10 @@ public class Crc24CoreTests
         public void Verify_ModifiedData_ReturnsFalse()
         {
             var data = TestHelpers.RandomBytes(TestDataSizes.Medium);
-            var crc = Crc24Core.Compute(data);
+            var crc = core.Compute(data);
             var modifiedData = TestHelpers.TamperFirst(data);
 
-            var result = Crc24Core.Verify(crc, modifiedData);
+            var result = core.Verify(crc, modifiedData);
 
             Assert.False(result);
         }
@@ -163,12 +167,14 @@ public class Crc24CoreTests
     [Trait("Category", TestCategories.FAST)]
     public class EdgeCases
     {
+        private readonly Crc24Core core = new();
+
         [Fact]
         public void Compute_EmptyData_ProducesInitialValue()
         {
             var data = Array.Empty<byte>();
 
-            var crc = Crc24Core.Compute(data);
+            var crc = core.Compute(data);
 
             // Empty data should return the initial CRC value (0xB704CE)
             Assert.Equal(0xB704CEu, crc);
@@ -179,7 +185,7 @@ public class Crc24CoreTests
         {
             var data = new byte[] { 0x42 };
 
-            var crc = Crc24Core.Compute(data);
+            var crc = core.Compute(data);
 
             Assert.True(crc <= 0xFFFFFF);
         }
@@ -189,7 +195,7 @@ public class Crc24CoreTests
         {
             var data = TestHelpers.ZeroBytes(TestDataSizes.Medium);
 
-            var crc = Crc24Core.Compute(data);
+            var crc = core.Compute(data);
 
             Assert.True(crc <= 0xFFFFFF);
         }
@@ -199,7 +205,7 @@ public class Crc24CoreTests
         {
             var data = TestHelpers.FilledBytes(TestDataSizes.Medium, 0xFF);
 
-            var crc = Crc24Core.Compute(data);
+            var crc = core.Compute(data);
 
             Assert.True(crc <= 0xFFFFFF);
         }
@@ -210,7 +216,7 @@ public class Crc24CoreTests
         {
             var data = TestHelpers.RandomBytes(TestDataSizes.VeryLarge);
 
-            var crc = Crc24Core.Compute(data);
+            var crc = core.Compute(data);
 
             Assert.True(crc <= 0xFFFFFF);
         }
@@ -221,7 +227,7 @@ public class Crc24CoreTests
             var data = TestHelpers.RandomBytes(TestDataSizes.Medium);
             var shortCrc = new byte[2]; // Only 2 bytes instead of 3
 
-            var result = Crc24Core.Verify(shortCrc, data);
+            var result = core.Verify(shortCrc, data);
 
             Assert.False(result);
         }
@@ -234,13 +240,15 @@ public class Crc24CoreTests
     [Trait("Category", TestCategories.FAST)]
     public class ParameterValidation
     {
+        private readonly Crc24Core core = new();
+
         [Fact]
         public void Compute_OutputTooSmall_ThrowsArgumentException()
         {
             var data = TestHelpers.RandomBytes(TestDataSizes.Medium);
             var smallOutput = new byte[2]; // Too small
 
-            var ex = Assert.Throws<ArgumentException>(() => Crc24Core.Compute(smallOutput, data));
+            var ex = Assert.Throws<ArgumentException>(() => core.Compute(smallOutput, data));
             Assert.Contains("3 bytes", ex.Message);
         }
     }
@@ -253,13 +261,15 @@ public class Crc24CoreTests
     [Trait("Category", TestCategories.FAST)]
     public class KnownAnswerTests
     {
+        private readonly Crc24Core core = new();
+
         [Fact]
         public void RFC4880_EmptyInput_ReturnsInitialValue()
         {
             // Empty input should return the initial CRC24 value
             var data = Array.Empty<byte>();
 
-            var crc = Crc24Core.Compute(data);
+            var crc = core.Compute(data);
 
             // Initial value: 0xB704CE
             Assert.Equal(0xB704CEu, crc);
@@ -271,15 +281,15 @@ public class Crc24CoreTests
             // Test with "test" string
             var data = System.Text.Encoding.ASCII.GetBytes("test");
 
-            var crc = Crc24Core.Compute(data);
-            var crcBytes = Crc24Core.ComputeToBytes(data);
+            var crc = core.Compute(data);
+            var crcBytes = core.ComputeToBytes(data);
 
             // Verify CRC is within 24-bit range
             Assert.True(crc <= 0xFFFFFF);
             Assert.Equal(CRC_SIZE, crcBytes.Length);
 
             // Verify deterministic
-            Assert.Equal(crc, Crc24Core.Compute(data));
+            Assert.Equal(crc, core.Compute(data));
         }
 
         [Theory]
@@ -293,8 +303,8 @@ public class Crc24CoreTests
         {
             var data = System.Text.Encoding.ASCII.GetBytes(input);
 
-            var crc1 = Crc24Core.Compute(data);
-            var crc2 = Crc24Core.Compute(data);
+            var crc1 = core.Compute(data);
+            var crc2 = core.Compute(data);
 
             // Verify CRC is deterministic and within 24-bit range
             Assert.Equal(crc1, crc2);
@@ -307,7 +317,7 @@ public class Crc24CoreTests
             // Per RFC 4880, empty data returns the initial CRC value
             var data = Array.Empty<byte>();
 
-            var crc = Crc24Core.Compute(data);
+            var crc = core.Compute(data);
 
             Assert.Equal(0xB704CEu, crc);
         }
@@ -316,7 +326,7 @@ public class Crc24CoreTests
         public void DifferentInputs_ProduceDifferentCrcs()
         {
             var inputs = new[] { "", "a", "ab", "abc", "abcd" };
-            var crcs = inputs.Select(s => Crc24Core.Compute(System.Text.Encoding.ASCII.GetBytes(s))).ToArray();
+            var crcs = inputs.Select(s => core.Compute(System.Text.Encoding.ASCII.GetBytes(s))).ToArray();
 
             // All CRCs should be unique
             Assert.Equal(inputs.Length, crcs.Distinct().Count());
@@ -330,12 +340,14 @@ public class Crc24CoreTests
     [Trait("Category", TestCategories.FAST)]
     public class BuilderApiTests
     {
+        private readonly Crc24Core core = new();
+
         [Fact]
         public void Builder_Compute_MatchesCore()
         {
             var data = TestHelpers.RandomBytes(TestDataSizes.Medium);
 
-            var coreCrc = Crc24Core.Compute(data);
+            var coreCrc = core.Compute(data);
             var builderCrc = Crc24Builder.Create().Compute(data);
 
             Assert.Equal(coreCrc, builderCrc);
@@ -346,7 +358,7 @@ public class Crc24CoreTests
         {
             var data = TestHelpers.RandomBytes(TestDataSizes.Medium);
 
-            var coreCrcBytes = Crc24Core.ComputeToBytes(data);
+            var coreCrcBytes = core.ComputeToBytes(data);
             var builderCrcBytes = Crc24Builder.Create().ComputeToBytes(data);
 
             Assert.Equal(coreCrcBytes, builderCrcBytes);
@@ -356,9 +368,9 @@ public class Crc24CoreTests
         public void Builder_Verify_MatchesCore()
         {
             var data = TestHelpers.RandomBytes(TestDataSizes.Medium);
-            var crc = Crc24Core.Compute(data);
+            var crc = core.Compute(data);
 
-            var coreResult = Crc24Core.Verify(crc, data);
+            var coreResult = core.Verify(crc, data);
             var builderResult = Crc24Builder.Create().Verify(crc, data);
 
             Assert.Equal(coreResult, builderResult);
@@ -381,6 +393,8 @@ public class Crc24CoreTests
     [Trait("Category", TestCategories.FAST)]
     public class ErrorDetectionTests
     {
+        private readonly Crc24Core core = new();
+
         [Theory]
         [InlineData(0)]
         [InlineData(1)]
@@ -390,13 +404,13 @@ public class Crc24CoreTests
         public void SingleBitFlip_DetectedAtPosition(int position)
         {
             var data = TestHelpers.RandomBytes(TestDataSizes.Medium);
-            var originalCrc = Crc24Core.Compute(data);
+            var originalCrc = core.Compute(data);
 
             // Flip a single bit
             var modifiedData = (byte[])data.Clone();
             modifiedData[position % data.Length] ^= 0x01;
 
-            var modifiedCrc = Crc24Core.Compute(modifiedData);
+            var modifiedCrc = core.Compute(modifiedData);
 
             Assert.NotEqual(originalCrc, modifiedCrc);
         }
@@ -410,13 +424,13 @@ public class Crc24CoreTests
             data[0] = 0x00;
             data[1] = 0xFF;
 
-            var originalCrc = Crc24Core.Compute(data);
+            var originalCrc = core.Compute(data);
 
             // Swap two bytes
             var modifiedData = (byte[])data.Clone();
             (modifiedData[0], modifiedData[1]) = (modifiedData[1], modifiedData[0]);
 
-            var modifiedCrc = Crc24Core.Compute(modifiedData);
+            var modifiedCrc = core.Compute(modifiedData);
 
             Assert.NotEqual(originalCrc, modifiedCrc);
         }

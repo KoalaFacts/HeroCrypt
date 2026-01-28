@@ -29,7 +29,7 @@ public class HkdfCoreTests
             var length = 32;
 
             // Act
-            var key = HkdfCore.DeriveKey(ikm, salt, info, length, HashAlgorithmName.SHA256);
+            var key = new HkdfCore(SecurityPolicyOptions.Default).DeriveKey(ikm, salt, info, length, HashAlgorithmName.SHA256);
 
             // Assert
             Assert.Equal(length, key.Length);
@@ -45,8 +45,8 @@ public class HkdfCoreTests
             var length = 32;
 
             // Act
-            var key1 = HkdfCore.DeriveKey(ikm, salt, info, length, HashAlgorithmName.SHA256);
-            var key2 = HkdfCore.DeriveKey(ikm, salt, info, length, HashAlgorithmName.SHA256);
+            var key1 = new HkdfCore(SecurityPolicyOptions.Default).DeriveKey(ikm, salt, info, length, HashAlgorithmName.SHA256);
+            var key2 = new HkdfCore(SecurityPolicyOptions.Default).DeriveKey(ikm, salt, info, length, HashAlgorithmName.SHA256);
 
             // Assert
             CryptoAssertions.AssertBytesEqual(key1, key2);
@@ -61,8 +61,8 @@ public class HkdfCoreTests
             var length = 32;
 
             // Act
-            var key1 = HkdfCore.DeriveKey(ikm, salt, Encoding.UTF8.GetBytes("context1"), length, HashAlgorithmName.SHA256);
-            var key2 = HkdfCore.DeriveKey(ikm, salt, Encoding.UTF8.GetBytes("context2"), length, HashAlgorithmName.SHA256);
+            var key1 = new HkdfCore(SecurityPolicyOptions.Default).DeriveKey(ikm, salt, Encoding.UTF8.GetBytes("context1"), length, HashAlgorithmName.SHA256);
+            var key2 = new HkdfCore(SecurityPolicyOptions.Default).DeriveKey(ikm, salt, Encoding.UTF8.GetBytes("context2"), length, HashAlgorithmName.SHA256);
 
             // Assert
             Assert.NotEqual(key1, key2);
@@ -75,13 +75,13 @@ public class HkdfCoreTests
             // This exercises the code path where a zero-filled salt is created
             var ikm = Encoding.UTF8.GetBytes("input_key_material");
 
-            var prk = HkdfCore.Extract(ikm, [], HashAlgorithmName.SHA256);
+            var prk = new HkdfCore(SecurityPolicyOptions.Default).Extract(ikm, [], HashAlgorithmName.SHA256);
 
             // PRK should be hash length (32 bytes for SHA-256)
             Assert.Equal(32, prk.Length);
 
             // PRK should be deterministic
-            var prk2 = HkdfCore.Extract(ikm, [], HashAlgorithmName.SHA256);
+            var prk2 = new HkdfCore(SecurityPolicyOptions.Default).Extract(ikm, [], HashAlgorithmName.SHA256);
             Assert.Equal(prk, prk2);
         }
 
@@ -92,13 +92,13 @@ public class HkdfCoreTests
             var ikm = Encoding.UTF8.GetBytes("input_key_material");
             var salt = Encoding.UTF8.GetBytes("some_salt_value");
 
-            var prk = HkdfCore.Extract(ikm, salt, HashAlgorithmName.SHA256);
+            var prk = new HkdfCore(SecurityPolicyOptions.Default).Extract(ikm, salt, HashAlgorithmName.SHA256);
 
             // PRK should be hash length (32 bytes for SHA-256)
             Assert.Equal(32, prk.Length);
 
             // PRK should be deterministic
-            var prk2 = HkdfCore.Extract(ikm, salt, HashAlgorithmName.SHA256);
+            var prk2 = new HkdfCore(SecurityPolicyOptions.Default).Extract(ikm, salt, HashAlgorithmName.SHA256);
             Assert.Equal(prk, prk2);
         }
 
@@ -109,8 +109,8 @@ public class HkdfCoreTests
             var ikm = Encoding.UTF8.GetBytes("input_key_material");
             var salt = Encoding.UTF8.GetBytes("some_salt_value");
 
-            var prkWithEmptySalt = HkdfCore.Extract(ikm, [], HashAlgorithmName.SHA256);
-            var prkWithSalt = HkdfCore.Extract(ikm, salt, HashAlgorithmName.SHA256);
+            var prkWithEmptySalt = new HkdfCore(SecurityPolicyOptions.Default).Extract(ikm, [], HashAlgorithmName.SHA256);
+            var prkWithSalt = new HkdfCore(SecurityPolicyOptions.Default).Extract(ikm, salt, HashAlgorithmName.SHA256);
 
             // PRKs should be different
             Assert.False(prkWithEmptySalt.AsSpan().SequenceEqual(prkWithSalt));
@@ -123,15 +123,15 @@ public class HkdfCoreTests
             var salt = Encoding.UTF8.GetBytes("salt");
 
             // Test SHA-256
-            var prkSha256 = HkdfCore.Extract(ikm, salt, HashAlgorithmName.SHA256);
+            var prkSha256 = new HkdfCore(SecurityPolicyOptions.Default).Extract(ikm, salt, HashAlgorithmName.SHA256);
             Assert.Equal(32, prkSha256.Length);
 
             // Test SHA-384
-            var prkSha384 = HkdfCore.Extract(ikm, salt, HashAlgorithmName.SHA384);
+            var prkSha384 = new HkdfCore(SecurityPolicyOptions.Default).Extract(ikm, salt, HashAlgorithmName.SHA384);
             Assert.Equal(48, prkSha384.Length);
 
             // Test SHA-512
-            var prkSha512 = HkdfCore.Extract(ikm, salt, HashAlgorithmName.SHA512);
+            var prkSha512 = new HkdfCore(SecurityPolicyOptions.Default).Extract(ikm, salt, HashAlgorithmName.SHA512);
             Assert.Equal(64, prkSha512.Length);
         }
     }
@@ -149,7 +149,7 @@ public class HkdfCoreTests
             var ikm = Encoding.UTF8.GetBytes("input_key_material");
             var salt = Encoding.UTF8.GetBytes("salt");
 
-            var key = HkdfCore.DeriveKey(ikm, salt, [], 32, HashAlgorithmName.SHA256);
+            var key = new HkdfCore(SecurityPolicyOptions.Default).DeriveKey(ikm, salt, [], 32, HashAlgorithmName.SHA256);
 
             Assert.Equal(32, key.Length);
         }
@@ -160,7 +160,7 @@ public class HkdfCoreTests
             var ikm = Encoding.UTF8.GetBytes("input_key_material");
             var info = Encoding.UTF8.GetBytes("info");
 
-            var key = HkdfCore.DeriveKey(ikm, [], info, 32, HashAlgorithmName.SHA256);
+            var key = new HkdfCore(SecurityPolicyOptions.Default).DeriveKey(ikm, [], info, 32, HashAlgorithmName.SHA256);
 
             Assert.Equal(32, key.Length);
         }
@@ -180,7 +180,7 @@ public class HkdfCoreTests
             var salt = Encoding.UTF8.GetBytes("salt");
             var info = Encoding.UTF8.GetBytes("info");
 
-            var key = HkdfCore.DeriveKey(ikm, salt, info, 32, HashAlgorithmName.SHA256);
+            var key = new HkdfCore(SecurityPolicyOptions.Default).DeriveKey(ikm, salt, info, 32, HashAlgorithmName.SHA256);
 
             CryptoAssertions.AssertAppearsRandom(key);
         }
@@ -193,8 +193,8 @@ public class HkdfCoreTests
             var salt = Encoding.UTF8.GetBytes("salt");
             var info = Encoding.UTF8.GetBytes("info");
 
-            var key1 = HkdfCore.DeriveKey(ikm1, salt, info, 32, HashAlgorithmName.SHA256);
-            var key2 = HkdfCore.DeriveKey(ikm2, salt, info, 32, HashAlgorithmName.SHA256);
+            var key1 = new HkdfCore(SecurityPolicyOptions.Default).DeriveKey(ikm1, salt, info, 32, HashAlgorithmName.SHA256);
+            var key2 = new HkdfCore(SecurityPolicyOptions.Default).DeriveKey(ikm2, salt, info, 32, HashAlgorithmName.SHA256);
 
             Assert.NotEqual(key1, key2);
         }
@@ -206,8 +206,8 @@ public class HkdfCoreTests
             var ikm = Encoding.UTF8.GetBytes("master_secret");
             var salt = Encoding.UTF8.GetBytes("salt");
 
-            var encryptionKey = HkdfCore.DeriveKey(ikm, salt, Encoding.UTF8.GetBytes("encryption"), 32, HashAlgorithmName.SHA256);
-            var macKey = HkdfCore.DeriveKey(ikm, salt, Encoding.UTF8.GetBytes("mac"), 32, HashAlgorithmName.SHA256);
+            var encryptionKey = new HkdfCore(SecurityPolicyOptions.Default).DeriveKey(ikm, salt, Encoding.UTF8.GetBytes("encryption"), 32, HashAlgorithmName.SHA256);
+            var macKey = new HkdfCore(SecurityPolicyOptions.Default).DeriveKey(ikm, salt, Encoding.UTF8.GetBytes("mac"), 32, HashAlgorithmName.SHA256);
 
             Assert.NotEqual(encryptionKey, macKey);
         }
@@ -219,8 +219,8 @@ public class HkdfCoreTests
             var salt = Encoding.UTF8.GetBytes("salt");
             var info = Encoding.UTF8.GetBytes("info");
 
-            var key256 = HkdfCore.DeriveKey(ikm, salt, info, 32, HashAlgorithmName.SHA256);
-            var key512 = HkdfCore.DeriveKey(ikm, salt, info, 32, HashAlgorithmName.SHA512);
+            var key256 = new HkdfCore(SecurityPolicyOptions.Default).DeriveKey(ikm, salt, info, 32, HashAlgorithmName.SHA256);
+            var key512 = new HkdfCore(SecurityPolicyOptions.Default).DeriveKey(ikm, salt, info, 32, HashAlgorithmName.SHA512);
 
             Assert.NotEqual(key256, key512);
         }
@@ -240,17 +240,17 @@ public class HkdfCoreTests
             var salt = Encoding.UTF8.GetBytes("salt");
 
             Assert.Throws<ArgumentException>(() =>
-                HkdfCore.DeriveKey(ikm, salt, [], 0, HashAlgorithmName.SHA256));
+                new HkdfCore(SecurityPolicyOptions.Default).DeriveKey(ikm, salt, [], 0, HashAlgorithmName.SHA256));
 
             Assert.Throws<ArgumentException>(() =>
-                HkdfCore.DeriveKey(ikm, salt, [], -1, HashAlgorithmName.SHA256));
+                new HkdfCore(SecurityPolicyOptions.Default).DeriveKey(ikm, salt, [], -1, HashAlgorithmName.SHA256));
         }
 
         [Fact]
         public void Extract_EmptyIkm_ThrowsArgumentException()
         {
             Assert.Throws<ArgumentException>(() =>
-               HkdfCore.Extract([], [], HashAlgorithmName.SHA256));
+               new HkdfCore(SecurityPolicyOptions.Default).Extract([], [], HashAlgorithmName.SHA256));
         }
 
         [Fact]
@@ -261,7 +261,7 @@ public class HkdfCoreTests
             var salt = Encoding.UTF8.GetBytes("salt");
 
             var ex = Assert.Throws<SecurityPolicyException>(() =>
-                HkdfCore.DeriveKey(ikm, salt, [], 32, HashAlgorithmName.SHA1));
+                new HkdfCore(SecurityPolicyOptions.Default).DeriveKey(ikm, salt, [], 32, HashAlgorithmName.SHA1));
 
             Assert.Equal("SHA1", ex.Algorithm);
             Assert.Equal("SHA-256", ex.Alternative);
@@ -275,7 +275,7 @@ public class HkdfCoreTests
             var salt = Encoding.UTF8.GetBytes("salt");
 
             var ex = Assert.Throws<SecurityPolicyException>(() =>
-                HkdfCore.Extract(ikm, salt, HashAlgorithmName.SHA1));
+                new HkdfCore(SecurityPolicyOptions.Default).Extract(ikm, salt, HashAlgorithmName.SHA1));
 
             Assert.Equal("SHA1", ex.Algorithm);
         }
@@ -285,7 +285,7 @@ public class HkdfCoreTests
         {
             // Verify LegacyCompatibility (SHA-1) throws at Standard level
             var ex = Assert.Throws<SecurityPolicyException>(() =>
-                HkdfCore.GetRecommendedParameters(HkdfUseCase.LegacyCompatibility));
+                new HkdfCore(SecurityPolicyOptions.Default).GetRecommendedParameters(HkdfUseCase.LegacyCompatibility));
 
             Assert.Equal("SHA1", ex.Algorithm);
         }
@@ -295,7 +295,7 @@ public class HkdfCoreTests
         {
             using (SecurityPolicy.LegacyScope())
             {
-                var parameters = HkdfCore.GetRecommendedParameters(HkdfUseCase.LegacyCompatibility);
+                var parameters = new HkdfCore(SecurityPolicy.CurrentPolicy).GetRecommendedParameters(HkdfUseCase.LegacyCompatibility);
                 Assert.Equal(HashAlgorithmName.SHA1, parameters.HashAlgorithm);
             }
         }
@@ -309,7 +309,7 @@ public class HkdfCoreTests
 
             using (SecurityPolicy.LegacyScope())
             {
-                var key = HkdfCore.DeriveKey(ikm, salt, [], 32, HashAlgorithmName.SHA1);
+                var key = new HkdfCore(SecurityPolicy.CurrentPolicy).DeriveKey(ikm, salt, [], 32, HashAlgorithmName.SHA1);
                 Assert.Equal(32, key.Length);
             }
         }
@@ -335,11 +335,11 @@ public class HkdfCoreTests
             var expectedOkm = TestHelpers.HexToBytes("3cb25f25faacd57a90434f64d0362f2a2d2d0a90cf1a5a4c5db02d56ecc4c5bf34007208d5b887185865");
 
             // Test Extract
-            var prk = HkdfCore.Extract(ikm, salt, HashAlgorithmName.SHA256);
+            var prk = new HkdfCore(SecurityPolicyOptions.Default).Extract(ikm, salt, HashAlgorithmName.SHA256);
             CryptoAssertions.AssertBytesEqual(expectedPrk, prk);
 
             // Test full DeriveKey
-            var okm = HkdfCore.DeriveKey(ikm, salt, info, 42, HashAlgorithmName.SHA256);
+            var okm = new HkdfCore(SecurityPolicyOptions.Default).DeriveKey(ikm, salt, info, 42, HashAlgorithmName.SHA256);
             CryptoAssertions.AssertBytesEqual(expectedOkm, okm);
         }
 
@@ -366,11 +366,11 @@ public class HkdfCoreTests
                 "cc30c58179ec3e87c14c01d5c1f3434f1d87");
 
             // Test Extract
-            var prk = HkdfCore.Extract(ikm, salt, HashAlgorithmName.SHA256);
+            var prk = new HkdfCore(SecurityPolicyOptions.Default).Extract(ikm, salt, HashAlgorithmName.SHA256);
             CryptoAssertions.AssertBytesEqual(expectedPrk, prk);
 
             // Test full DeriveKey
-            var okm = HkdfCore.DeriveKey(ikm, salt, info, 82, HashAlgorithmName.SHA256);
+            var okm = new HkdfCore(SecurityPolicyOptions.Default).DeriveKey(ikm, salt, info, 82, HashAlgorithmName.SHA256);
             CryptoAssertions.AssertBytesEqual(expectedOkm, okm);
         }
 
@@ -385,11 +385,11 @@ public class HkdfCoreTests
             var expectedOkm = TestHelpers.HexToBytes("8da4e775a563c18f715f802a063c5a31b8a11f5c5ee1879ec3454e5f3c738d2d9d201395faa4b61a96c8");
 
             // Test Extract
-            var prk = HkdfCore.Extract(ikm, salt, HashAlgorithmName.SHA256);
+            var prk = new HkdfCore(SecurityPolicyOptions.Default).Extract(ikm, salt, HashAlgorithmName.SHA256);
             CryptoAssertions.AssertBytesEqual(expectedPrk, prk);
 
             // Test full DeriveKey
-            var okm = HkdfCore.DeriveKey(ikm, salt, info, 42, HashAlgorithmName.SHA256);
+            var okm = new HkdfCore(SecurityPolicyOptions.Default).DeriveKey(ikm, salt, info, 42, HashAlgorithmName.SHA256);
             CryptoAssertions.AssertBytesEqual(expectedOkm, okm);
         }
 
@@ -407,11 +407,11 @@ public class HkdfCoreTests
             using (SecurityPolicy.LegacyScope())
             {
                 // Test Extract
-                var prk = HkdfCore.Extract(ikm, salt, HashAlgorithmName.SHA1);
+                var prk = new HkdfCore(SecurityPolicy.CurrentPolicy).Extract(ikm, salt, HashAlgorithmName.SHA1);
                 CryptoAssertions.AssertBytesEqual(expectedPrk, prk);
 
                 // Test full DeriveKey
-                var okm = HkdfCore.DeriveKey(ikm, salt, info, 42, HashAlgorithmName.SHA1);
+                var okm = new HkdfCore(SecurityPolicy.CurrentPolicy).DeriveKey(ikm, salt, info, 42, HashAlgorithmName.SHA1);
                 CryptoAssertions.AssertBytesEqual(expectedOkm, okm);
             }
         }
@@ -442,11 +442,11 @@ public class HkdfCoreTests
             using (SecurityPolicy.LegacyScope())
             {
                 // Test Extract
-                var prk = HkdfCore.Extract(ikm, salt, HashAlgorithmName.SHA1);
+                var prk = new HkdfCore(SecurityPolicy.CurrentPolicy).Extract(ikm, salt, HashAlgorithmName.SHA1);
                 CryptoAssertions.AssertBytesEqual(expectedPrk, prk);
 
                 // Test full DeriveKey
-                var okm = HkdfCore.DeriveKey(ikm, salt, info, 82, HashAlgorithmName.SHA1);
+                var okm = new HkdfCore(SecurityPolicy.CurrentPolicy).DeriveKey(ikm, salt, info, 82, HashAlgorithmName.SHA1);
                 CryptoAssertions.AssertBytesEqual(expectedOkm, okm);
             }
         }
@@ -465,11 +465,11 @@ public class HkdfCoreTests
             using (SecurityPolicy.LegacyScope())
             {
                 // Test Extract
-                var prk = HkdfCore.Extract(ikm, salt, HashAlgorithmName.SHA1);
+                var prk = new HkdfCore(SecurityPolicy.CurrentPolicy).Extract(ikm, salt, HashAlgorithmName.SHA1);
                 CryptoAssertions.AssertBytesEqual(expectedPrk, prk);
 
                 // Test full DeriveKey
-                var okm = HkdfCore.DeriveKey(ikm, salt, info, 42, HashAlgorithmName.SHA1);
+                var okm = new HkdfCore(SecurityPolicy.CurrentPolicy).DeriveKey(ikm, salt, info, 42, HashAlgorithmName.SHA1);
                 CryptoAssertions.AssertBytesEqual(expectedOkm, okm);
             }
         }
@@ -489,11 +489,11 @@ public class HkdfCoreTests
             using (SecurityPolicy.LegacyScope())
             {
                 // Test Extract
-                var prk = HkdfCore.Extract(ikm, salt, HashAlgorithmName.SHA1);
+                var prk = new HkdfCore(SecurityPolicy.CurrentPolicy).Extract(ikm, salt, HashAlgorithmName.SHA1);
                 CryptoAssertions.AssertBytesEqual(expectedPrk, prk);
 
                 // Test full DeriveKey
-                var okm = HkdfCore.DeriveKey(ikm, salt, info, 42, HashAlgorithmName.SHA1);
+                var okm = new HkdfCore(SecurityPolicy.CurrentPolicy).DeriveKey(ikm, salt, info, 42, HashAlgorithmName.SHA1);
                 CryptoAssertions.AssertBytesEqual(expectedOkm, okm);
             }
         }

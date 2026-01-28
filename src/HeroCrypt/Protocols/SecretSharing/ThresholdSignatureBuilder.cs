@@ -110,7 +110,8 @@ public sealed class ThresholdSignatureBuilder
     /// <returns>Key generation result with shares for each party.</returns>
     public ThresholdSignatures.KeyGenerationResult GenerateKeys()
     {
-        return ThresholdSignatures.GenerateKeys(numParties, threshold, scheme);
+        var threshold = new ThresholdSignatures();
+        return threshold.GenerateKeys(numParties, this.threshold, scheme);
     }
 
     /// <summary>
@@ -126,7 +127,8 @@ public sealed class ThresholdSignatureBuilder
         if (signers == null)
             throw new InvalidOperationException("Signers not set. Use WithSigners() first.");
 
-        return ThresholdSignatures.SignPartial(message, keyShare, signers);
+        var threshold = new ThresholdSignatures();
+        return threshold.SignPartial(message, keyShare, signers);
     }
 
     /// <summary>
@@ -142,7 +144,8 @@ public sealed class ThresholdSignatureBuilder
         if (publicKey == null)
             throw new InvalidOperationException("Public key not set. Use WithPublicKey() first.");
 
-        return ThresholdSignatures.CombineSignatures(message, partialSignatures, publicKey, scheme);
+        var threshold = new ThresholdSignatures();
+        return threshold.CombineSignatures(message, partialSignatures, publicKey, scheme);
     }
 
     /// <summary>
@@ -157,7 +160,8 @@ public sealed class ThresholdSignatureBuilder
         if (publicKey == null)
             throw new InvalidOperationException("Public key not set. Use WithPublicKey() first.");
 
-        return ThresholdSignatures.VerifySignature(message, signature, publicKey);
+        var threshold = new ThresholdSignatures();
+        return threshold.VerifySignature(message, signature, publicKey);
     }
 }
 

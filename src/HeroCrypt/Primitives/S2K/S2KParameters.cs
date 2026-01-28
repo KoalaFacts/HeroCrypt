@@ -1,4 +1,5 @@
 using HeroCrypt.Operations;
+using HeroCrypt.Security;
 
 namespace HeroCrypt.Primitives.S2K;
 
@@ -216,22 +217,24 @@ public readonly struct S2KParameters
     /// </summary>
     /// <param name="passphrase">The passphrase bytes.</param>
     /// <param name="keyLength">Desired key length in bytes.</param>
+    /// <param name="policy">Optional security policy. If null, uses <see cref="SecurityPolicyOptions.Default"/>.</param>
     /// <returns>The derived key.</returns>
-    public byte[] DeriveKey(ReadOnlySpan<byte> passphrase, int keyLength)
+    public byte[] DeriveKey(ReadOnlySpan<byte> passphrase, int keyLength, SecurityPolicyOptions? policy = null)
     {
-        var hashAlg = S2KCore.MapHashAlgorithm(HashAlgorithm);
+        var core = new S2KCore(policy);
+        var hashAlg = core.MapHashAlgorithm(HashAlgorithm);
 
         return Type switch
         {
-            S2KType.Simple => S2KCore.SimpleS2K(passphrase, keyLength, hashAlg),
-            S2KType.Salted => S2KCore.SaltedS2K(passphrase, Salt.Span, keyLength, hashAlg),
-            S2KType.IteratedAndSalted => S2KCore.IteratedS2K(
+            S2KType.Simple => core.SimpleS2K(passphrase, keyLength, hashAlg),
+            S2KType.Salted => core.SaltedS2K(passphrase, Salt.Span, keyLength, hashAlg),
+            S2KType.IteratedAndSalted => core.IteratedS2K(
                 passphrase,
                 Salt.Span,
-                S2KCore.DecodeIterationCount(EncodedCount),
+                core.DecodeIterationCount(EncodedCount),
                 keyLength,
                 hashAlg),
-            S2KType.Argon2 => S2KCore.Argon2S2K(
+            S2KType.Argon2 => core.Argon2S2K(
                 passphrase,
                 Salt.Span,
                 Argon2TimePasses,
@@ -264,11 +267,12 @@ public readonly struct S2KParameters
     /// <returns>New S2K parameters.</returns>
     public static S2KParameters CreateSalted(HashingAlgorithm hashAlgorithm = HashingAlgorithm.Sha256)
     {
+        var core = new S2KCore();
         return new S2KParameters
         {
             Type = S2KType.Salted,
             HashAlgorithm = hashAlgorithm,
-            Salt = S2KCore.GenerateSalt()
+            Salt = core.GenerateSalt()
         };
     }
 
@@ -282,11 +286,12 @@ public readonly struct S2KParameters
         HashingAlgorithm hashAlgorithm = HashingAlgorithm.Sha256,
         byte encodedCount = 0xC0)
     {
+        var core = new S2KCore();
         return new S2KParameters
         {
             Type = S2KType.IteratedAndSalted,
             HashAlgorithm = hashAlgorithm,
-            Salt = S2KCore.GenerateSalt(),
+            Salt = core.GenerateSalt(),
             EncodedCount = encodedCount
         };
     }
@@ -303,10 +308,11 @@ public readonly struct S2KParameters
         byte parallelism = 4,
         byte memoryExponent = 16)
     {
+        var core = new S2KCore();
         return new S2KParameters
         {
             Type = S2KType.Argon2,
-            Salt = S2KCore.GenerateArgon2Salt(),
+            Salt = core.GenerateArgon2Salt(),
             Argon2TimePasses = timePasses,
             Argon2Parallelism = parallelism,
             Argon2MemoryExponent = memoryExponent

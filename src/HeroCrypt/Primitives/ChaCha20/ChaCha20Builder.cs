@@ -23,12 +23,16 @@ public sealed class ChaCha20Builder : IDisposable
     private const int KeySize = ChaCha20Core.KEY_SIZE;
     private const int NonceSize = ChaCha20Core.NONCE_SIZE;
 
+    private readonly ChaCha20Core core;
     private byte[]? key;
     private byte[]? nonce;
     private uint counter;
     private bool disposed;
 
-    private ChaCha20Builder() { }
+    private ChaCha20Builder(SecurityPolicyOptions? policy = null)
+    {
+        core = new ChaCha20Core(policy);
+    }
 
     /// <summary>
     /// Creates a new ChaCha20 builder instance.
@@ -165,7 +169,7 @@ public sealed class ChaCha20Builder : IDisposable
         ValidateState();
 
         var output = new byte[input.Length];
-        ChaCha20Core.Transform(output, input, key, nonce, counter);
+        core.Transform(output, input, key!, nonce!, counter);
         return output;
     }
 
@@ -182,7 +186,7 @@ public sealed class ChaCha20Builder : IDisposable
         ArgumentHelper.ThrowIfDisposed(disposed, this);
         ValidateState();
 
-        ChaCha20Core.Transform(output, input, key, nonce, counter);
+        core.Transform(output, input, key!, nonce!, counter);
     }
 
     /// <summary>

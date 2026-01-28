@@ -20,11 +20,13 @@ public class Ed25519CoreTests
     [Trait("Category", TestCategories.FAST)]
     public class BasicFunctionality
     {
+        private readonly Ed25519Core core = new();
+
         [Fact]
         public void GenerateKeyPair_ReturnsValidSizedKeys()
         {
             // Act
-            var (privateKey, publicKey) = Ed25519Core.GenerateKeyPair();
+            var (privateKey, publicKey) = core.GenerateKeyPair();
 
             // Assert
             Assert.Equal(PRIVATE_KEY_SIZE, privateKey.Length);
@@ -35,7 +37,7 @@ public class Ed25519CoreTests
         public void GenerateKeyPair_ProducesNonZeroKeys()
         {
             // Act
-            var (privateKey, publicKey) = Ed25519Core.GenerateKeyPair();
+            var (privateKey, publicKey) = core.GenerateKeyPair();
 
             // Assert
             Assert.False(TestHelpers.AllZeros(privateKey));
@@ -46,8 +48,8 @@ public class Ed25519CoreTests
         public void GenerateKeyPair_ProducesDifferentKeysEachCall()
         {
             // Act
-            var (privateKey1, publicKey1) = Ed25519Core.GenerateKeyPair();
-            var (privateKey2, publicKey2) = Ed25519Core.GenerateKeyPair();
+            var (privateKey1, publicKey1) = core.GenerateKeyPair();
+            var (privateKey2, publicKey2) = core.GenerateKeyPair();
 
             // Assert
             Assert.NotEqual(privateKey1, privateKey2);
@@ -58,10 +60,10 @@ public class Ed25519CoreTests
         public void DerivePublicKey_FromPrivateKey_MatchesGenerated()
         {
             // Arrange
-            var (privateKey, expectedPublicKey) = Ed25519Core.GenerateKeyPair();
+            var (privateKey, expectedPublicKey) = core.GenerateKeyPair();
 
             // Act
-            var derivedPublicKey = Ed25519Core.DerivePublicKey(privateKey);
+            var derivedPublicKey = core.DerivePublicKey(privateKey);
 
             // Assert
             CryptoAssertions.AssertBytesEqual(expectedPublicKey, derivedPublicKey);
@@ -71,11 +73,11 @@ public class Ed25519CoreTests
         public void Sign_WithValidInput_ReturnsCorrectSizeSignature()
         {
             // Arrange
-            var (privateKey, _) = Ed25519Core.GenerateKeyPair();
+            var (privateKey, _) = core.GenerateKeyPair();
             var message = TestHelpers.RandomBytes(TestDataSizes.Medium);
 
             // Act
-            var signature = Ed25519Core.Sign(message, privateKey);
+            var signature = core.Sign(message, privateKey);
 
             // Assert
             Assert.Equal(SIGNATURE_SIZE, signature.Length);
@@ -86,12 +88,12 @@ public class Ed25519CoreTests
         public void Verify_ValidSignature_ReturnsTrue()
         {
             // Arrange
-            var (privateKey, publicKey) = Ed25519Core.GenerateKeyPair();
+            var (privateKey, publicKey) = core.GenerateKeyPair();
             var message = TestHelpers.RandomBytes(TestDataSizes.Medium);
-            var signature = Ed25519Core.Sign(message, privateKey);
+            var signature = core.Sign(message, privateKey);
 
             // Act - Note: Verify(message, signature, publicKey)
-            var result = Ed25519Core.Verify(message, signature, publicKey);
+            var result = core.Verify(message, signature, publicKey);
 
             // Assert
             Assert.True(result);
@@ -101,12 +103,12 @@ public class Ed25519CoreTests
         public void Sign_SameMessageSameKey_IsDeterministic()
         {
             // Ed25519 signatures are deterministic
-            var (privateKey, _) = Ed25519Core.GenerateKeyPair();
+            var (privateKey, _) = core.GenerateKeyPair();
             var message = TestHelpers.RandomBytes(TestDataSizes.Medium);
 
             // Act
-            var signature1 = Ed25519Core.Sign(message, privateKey);
-            var signature2 = Ed25519Core.Sign(message, privateKey);
+            var signature1 = core.Sign(message, privateKey);
+            var signature2 = core.Sign(message, privateKey);
 
             // Assert
             CryptoAssertions.AssertBytesEqual(signature1, signature2);
@@ -116,13 +118,13 @@ public class Ed25519CoreTests
         public void Sign_DifferentMessages_ProducesDifferentSignatures()
         {
             // Arrange
-            var (privateKey, _) = Ed25519Core.GenerateKeyPair();
+            var (privateKey, _) = core.GenerateKeyPair();
             var message1 = TestHelpers.RandomBytes(TestDataSizes.Medium);
             var message2 = TestHelpers.RandomBytes(TestDataSizes.Medium);
 
             // Act
-            var signature1 = Ed25519Core.Sign(message1, privateKey);
-            var signature2 = Ed25519Core.Sign(message2, privateKey);
+            var signature1 = core.Sign(message1, privateKey);
+            var signature2 = core.Sign(message2, privateKey);
 
             // Assert
             Assert.NotEqual(signature1, signature2);
@@ -136,16 +138,18 @@ public class Ed25519CoreTests
     [Trait("Category", TestCategories.FAST)]
     public class EdgeCases
     {
+        private readonly Ed25519Core core = new();
+
         [Fact]
         public void SignVerify_EmptyMessage_Succeeds()
         {
             // Arrange
-            var (privateKey, publicKey) = Ed25519Core.GenerateKeyPair();
+            var (privateKey, publicKey) = core.GenerateKeyPair();
             var message = Array.Empty<byte>();
 
             // Act
-            var signature = Ed25519Core.Sign(message, privateKey);
-            var isValid = Ed25519Core.Verify(message, signature, publicKey);
+            var signature = core.Sign(message, privateKey);
+            var isValid = core.Verify(message, signature, publicKey);
 
             // Assert
             Assert.Equal(SIGNATURE_SIZE, signature.Length);
@@ -156,13 +160,13 @@ public class Ed25519CoreTests
         public void SignVerify_SingleByte_Succeeds()
         {
             // Arrange
-            var (privateKey, publicKey) = Ed25519Core.GenerateKeyPair();
+            var (privateKey, publicKey) = core.GenerateKeyPair();
 
             var message = "B"u8.ToArray();
 
             // Act
-            var signature = Ed25519Core.Sign(message, privateKey);
-            var isValid = Ed25519Core.Verify(message, signature, publicKey);
+            var signature = core.Sign(message, privateKey);
+            var isValid = core.Verify(message, signature, publicKey);
 
             // Assert
             Assert.True(isValid);
@@ -173,12 +177,12 @@ public class Ed25519CoreTests
         public void SignVerify_LargeMessage_Succeeds()
         {
             // Arrange - 1 MB message
-            var (privateKey, publicKey) = Ed25519Core.GenerateKeyPair();
+            var (privateKey, publicKey) = core.GenerateKeyPair();
             var message = TestHelpers.RandomBytes(TestDataSizes.VeryLarge);
 
             // Act
-            var signature = Ed25519Core.Sign(message, privateKey);
-            var isValid = Ed25519Core.Verify(message, signature, publicKey);
+            var signature = core.Sign(message, privateKey);
+            var isValid = core.Verify(message, signature, publicKey);
 
             // Assert
             Assert.True(isValid);
@@ -188,12 +192,12 @@ public class Ed25519CoreTests
         public void SignVerify_AllZerosMessage_Succeeds()
         {
             // Arrange
-            var (privateKey, publicKey) = Ed25519Core.GenerateKeyPair();
+            var (privateKey, publicKey) = core.GenerateKeyPair();
             var message = TestHelpers.ZeroBytes(64);
 
             // Act
-            var signature = Ed25519Core.Sign(message, privateKey);
-            var isValid = Ed25519Core.Verify(message, signature, publicKey);
+            var signature = core.Sign(message, privateKey);
+            var isValid = core.Verify(message, signature, publicKey);
 
             // Assert
             Assert.True(isValid);
@@ -203,12 +207,12 @@ public class Ed25519CoreTests
         public void SignVerify_AllOnesMessage_Succeeds()
         {
             // Arrange
-            var (privateKey, publicKey) = Ed25519Core.GenerateKeyPair();
+            var (privateKey, publicKey) = core.GenerateKeyPair();
             var message = TestHelpers.FilledBytes(64, 0xFF);
 
             // Act
-            var signature = Ed25519Core.Sign(message, privateKey);
-            var isValid = Ed25519Core.Verify(message, signature, publicKey);
+            var signature = core.Sign(message, privateKey);
+            var isValid = core.Verify(message, signature, publicKey);
 
             // Assert
             Assert.True(isValid);
@@ -222,17 +226,19 @@ public class Ed25519CoreTests
     [Trait("Category", TestCategories.FAST)]
     public class Security
     {
+        private readonly Ed25519Core core = new();
+
         [Fact]
         public void Verify_ModifiedMessage_ReturnsFalse()
         {
             // Arrange
-            var (privateKey, publicKey) = Ed25519Core.GenerateKeyPair();
+            var (privateKey, publicKey) = core.GenerateKeyPair();
             var message = TestHelpers.RandomBytes(TestDataSizes.Medium);
-            var signature = Ed25519Core.Sign(message, privateKey);
+            var signature = core.Sign(message, privateKey);
 
             // Act - modify message
             var tamperedMessage = TestHelpers.TamperFirst(message);
-            var result = Ed25519Core.Verify(tamperedMessage, signature, publicKey);
+            var result = core.Verify(tamperedMessage, signature, publicKey);
 
             // Assert
             Assert.False(result);
@@ -242,13 +248,13 @@ public class Ed25519CoreTests
         public void Verify_ModifiedSignature_ReturnsFalse()
         {
             // Arrange
-            var (privateKey, publicKey) = Ed25519Core.GenerateKeyPair();
+            var (privateKey, publicKey) = core.GenerateKeyPair();
             var message = TestHelpers.RandomBytes(TestDataSizes.Medium);
-            var signature = Ed25519Core.Sign(message, privateKey);
+            var signature = core.Sign(message, privateKey);
 
             // Act - modify signature
             var tamperedSignature = TestHelpers.TamperFirst(signature);
-            var result = Ed25519Core.Verify(message, tamperedSignature, publicKey);
+            var result = core.Verify(message, tamperedSignature, publicKey);
 
             // Assert
             Assert.False(result);
@@ -258,13 +264,13 @@ public class Ed25519CoreTests
         public void Verify_WrongPublicKey_ReturnsFalse()
         {
             // Arrange
-            var (privateKey1, _) = Ed25519Core.GenerateKeyPair();
-            var (_, publicKey2) = Ed25519Core.GenerateKeyPair();
+            var (privateKey1, _) = core.GenerateKeyPair();
+            var (_, publicKey2) = core.GenerateKeyPair();
             var message = TestHelpers.RandomBytes(TestDataSizes.Medium);
-            var signature = Ed25519Core.Sign(message, privateKey1);
+            var signature = core.Sign(message, privateKey1);
 
             // Act - verify with wrong public key
-            var result = Ed25519Core.Verify(message, signature, publicKey2);
+            var result = core.Verify(message, signature, publicKey2);
 
             // Assert
             Assert.False(result);
@@ -274,12 +280,12 @@ public class Ed25519CoreTests
         public void Verify_RandomSignature_ReturnsFalse()
         {
             // Arrange
-            var (_, publicKey) = Ed25519Core.GenerateKeyPair();
+            var (_, publicKey) = core.GenerateKeyPair();
             var message = TestHelpers.RandomBytes(TestDataSizes.Medium);
             var randomSignature = TestHelpers.RandomBytes(SIGNATURE_SIZE);
 
             // Act
-            var result = Ed25519Core.Verify(message, randomSignature, publicKey);
+            var result = core.Verify(message, randomSignature, publicKey);
 
             // Assert
             Assert.False(result);
@@ -289,12 +295,12 @@ public class Ed25519CoreTests
         public void Verify_ZeroSignature_ReturnsFalse()
         {
             // Arrange
-            var (_, publicKey) = Ed25519Core.GenerateKeyPair();
+            var (_, publicKey) = core.GenerateKeyPair();
             var message = TestHelpers.RandomBytes(TestDataSizes.Medium);
             var zeroSignature = TestHelpers.ZeroBytes(SIGNATURE_SIZE);
 
             // Act
-            var result = Ed25519Core.Verify(message, zeroSignature, publicKey);
+            var result = core.Verify(message, zeroSignature, publicKey);
 
             // Assert
             Assert.False(result);
@@ -304,13 +310,13 @@ public class Ed25519CoreTests
         public void Verify_SignatureForDifferentMessage_ReturnsFalse()
         {
             // Arrange
-            var (privateKey, publicKey) = Ed25519Core.GenerateKeyPair();
+            var (privateKey, publicKey) = core.GenerateKeyPair();
             var message1 = TestHelpers.RandomBytes(TestDataSizes.Medium);
             var message2 = TestHelpers.RandomBytes(TestDataSizes.Medium);
-            var signature = Ed25519Core.Sign(message1, privateKey);
+            var signature = core.Sign(message1, privateKey);
 
             // Act - verify signature for different message
-            var result = Ed25519Core.Verify(message2, signature, publicKey);
+            var result = core.Verify(message2, signature, publicKey);
 
             // Assert
             Assert.False(result);
@@ -324,25 +330,27 @@ public class Ed25519CoreTests
     [Trait("Category", TestCategories.FAST)]
     public class ParameterValidation
     {
+        private readonly Ed25519Core core = new();
+
         [Fact]
         public void DerivePublicKey_InvalidSize_ThrowsArgumentException()
         {
             var invalidKey = TestHelpers.RandomBytes(PRIVATE_KEY_SIZE - 1);
 
             CryptoAssertions.AssertExceptionContains<ArgumentException>(
-                () => Ed25519Core.DerivePublicKey(invalidKey),
+                () => core.DerivePublicKey(invalidKey),
                 "32 bytes");
         }
 
         [Fact]
         public void Verify_InvalidSignatureSize_ThrowsArgumentException()
         {
-            var (_, publicKey) = Ed25519Core.GenerateKeyPair();
+            var (_, publicKey) = core.GenerateKeyPair();
             var message = TestHelpers.RandomBytes(TestDataSizes.Small);
             var invalidSignature = TestHelpers.RandomBytes(SIGNATURE_SIZE - 1);
 
             CryptoAssertions.AssertExceptionContains<ArgumentException>(
-                () => Ed25519Core.Verify(message, invalidSignature, publicKey),
+                () => core.Verify(message, invalidSignature, publicKey),
                 "64 bytes");
         }
     }
@@ -355,6 +363,8 @@ public class Ed25519CoreTests
     [Trait("Category", TestCategories.FAST)]
     public class KnownAnswerTests
     {
+        private readonly Ed25519Core core = new();
+
         [Fact]
         public void RFC8032_Test1_EmptyMessage()
         {
@@ -368,9 +378,9 @@ public class Ed25519CoreTests
                 "e5564300c360ac729086e2cc806e828a84877f1eb8e5d974d873e065224901555fb8821590a33bacc61e39701cf9b46bd25bf5f0595bbe24655141438e7a100b");
 
             // Act
-            var derivedPublicKey = Ed25519Core.DerivePublicKey(privateKey);
-            var signature = Ed25519Core.Sign(message, privateKey);
-            var isValid = Ed25519Core.Verify(message, signature, derivedPublicKey);
+            var derivedPublicKey = core.DerivePublicKey(privateKey);
+            var signature = core.Sign(message, privateKey);
+            var isValid = core.Verify(message, signature, derivedPublicKey);
 
             // Assert
             CryptoAssertions.AssertBytesEqual(expectedPublicKey, derivedPublicKey);
@@ -392,9 +402,9 @@ public class Ed25519CoreTests
                 "92a009a9f0d4cab8720e820b5f642540a2b27b5416503f8fb3762223ebdb69da085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00");
 
             // Act
-            var derivedPublicKey = Ed25519Core.DerivePublicKey(privateKey);
-            var signature = Ed25519Core.Sign(message, privateKey);
-            var isValid = Ed25519Core.Verify(message, signature, derivedPublicKey);
+            var derivedPublicKey = core.DerivePublicKey(privateKey);
+            var signature = core.Sign(message, privateKey);
+            var isValid = core.Verify(message, signature, derivedPublicKey);
 
             // Assert
             CryptoAssertions.AssertBytesEqual(expectedPublicKey, derivedPublicKey);
@@ -411,18 +421,20 @@ public class Ed25519CoreTests
     [Trait("Category", TestCategories.FAST)]
     public class MemoryHygiene
     {
+        private readonly Ed25519Core core = new();
+
         [Fact]
         public void SignVerify_RepeatedCalls_NoMemoryAccumulation()
         {
             // Arrange
-            var (privateKey, publicKey) = Ed25519Core.GenerateKeyPair();
+            var (privateKey, publicKey) = core.GenerateKeyPair();
             var message = TestHelpers.RandomBytes(TestDataSizes.Medium);
 
             // Act - repeated calls should not leak memory
             for (int i = 0; i < 100; i++)
             {
-                var signature = Ed25519Core.Sign(message, privateKey);
-                var isValid = Ed25519Core.Verify(message, signature, publicKey);
+                var signature = core.Sign(message, privateKey);
+                var isValid = core.Verify(message, signature, publicKey);
                 Assert.True(isValid);
             }
 

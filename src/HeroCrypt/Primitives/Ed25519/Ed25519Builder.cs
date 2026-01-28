@@ -38,13 +38,17 @@ public sealed class Ed25519Builder : IDisposable
     private const int PublicKeySize = Ed25519Core.PUBLIC_KEY_SIZE;
     private const int SignatureSize = Ed25519Core.SIGNATURE_SIZE;
 
+    private readonly Ed25519Core core;
     private byte[]? privateKey;
     private byte[]? publicKey;
     private byte[]? message;
     private byte[]? signature;
     private bool disposed;
 
-    private Ed25519Builder() { }
+    private Ed25519Builder(SecurityPolicyOptions? policy = null)
+    {
+        core = new Ed25519Core(policy);
+    }
 
     /// <summary>
     /// Creates a new Ed25519 builder instance.
@@ -198,7 +202,7 @@ public sealed class Ed25519Builder : IDisposable
     public (byte[] privateKey, byte[] publicKey) GenerateKeyPair()
     {
         ArgumentHelper.ThrowIfDisposed(disposed, this);
-        return Ed25519Core.GenerateKeyPair();
+        return core.GenerateKeyPair();
     }
 
     /// <summary>
@@ -211,7 +215,7 @@ public sealed class Ed25519Builder : IDisposable
     {
         ArgumentHelper.ThrowIfDisposed(disposed, this);
         ValidatePrivateKey();
-        return Ed25519Core.DerivePublicKey(privateKey);
+        return core.DerivePublicKey(privateKey!);
     }
 
     /// <summary>
@@ -225,7 +229,7 @@ public sealed class Ed25519Builder : IDisposable
         ArgumentHelper.ThrowIfDisposed(disposed, this);
         ValidatePrivateKey();
         ValidateMessage();
-        return Ed25519Core.Sign(message, privateKey);
+        return core.Sign(message!, privateKey!);
     }
 
     /// <summary>
@@ -240,7 +244,7 @@ public sealed class Ed25519Builder : IDisposable
         ValidatePublicKey();
         ValidateMessage();
         ValidateSignature();
-        return Ed25519Core.Verify(message, signature, publicKey);
+        return core.Verify(message!, signature!, publicKey!);
     }
 
     private void ValidatePrivateKey()

@@ -419,7 +419,8 @@ public sealed class PgpSignatureSigner : IDisposable
 
         // Use RsaCore infrastructure which handles all the RSA operations
         var rsaPrivateKey = new RsaPrivateKey(n, d, p, q, e);
-        var rsaParams = RsaCore.ToRsaParameters(rsaPrivateKey);
+        var rsaCore = new RsaCore();
+        var rsaParams = rsaCore.ToRsaParameters(rsaPrivateKey);
 
         using var rsa = RSA.Create();
         rsa.ImportParameters(rsaParams);
@@ -443,7 +444,7 @@ public sealed class PgpSignatureSigner : IDisposable
         {
             // Ed25519 in OpenPGP signs the hash (which includes the signature trailer)
             // Ed25519Core.Sign returns a 64-byte signature
-            var signature = Ed25519Core.Sign(hash, ed25519PrivateKey);
+            var signature = new Ed25519Core().Sign(hash, ed25519PrivateKey);
 
             // Return raw 64-byte signature (no MPI encoding for native format keys)
             return signature;

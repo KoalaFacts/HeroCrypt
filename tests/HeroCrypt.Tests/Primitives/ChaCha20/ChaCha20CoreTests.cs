@@ -21,6 +21,8 @@ public class ChaCha20CoreTests
     [Trait("Category", TestCategories.FAST)]
     public class BasicFunctionality
     {
+        private readonly ChaCha20Core core = new();
+
         [Fact]
         public void Transform_WithValidParameters_ProducesEncryptedOutput()
         {
@@ -31,7 +33,7 @@ public class ChaCha20CoreTests
             var ciphertext = new byte[plaintext.Length];
 
             // Act
-            ChaCha20Core.Transform(ciphertext, plaintext, key, nonce, 0);
+            core.Transform(ciphertext, plaintext, key, nonce, 0);
 
             // Assert
             Assert.NotEqual(plaintext, ciphertext);
@@ -49,8 +51,8 @@ public class ChaCha20CoreTests
             var decrypted = new byte[plaintext.Length];
 
             // Act
-            ChaCha20Core.Transform(ciphertext, plaintext, key, nonce, 0);
-            ChaCha20Core.Transform(decrypted, ciphertext, key, nonce, 0);
+            core.Transform(ciphertext, plaintext, key, nonce, 0);
+            core.Transform(decrypted, ciphertext, key, nonce, 0);
 
             // Assert
             CryptoAssertions.AssertBytesEqual(plaintext, decrypted);
@@ -67,8 +69,8 @@ public class ChaCha20CoreTests
             var ciphertext2 = new byte[plaintext.Length];
 
             // Act
-            ChaCha20Core.Transform(ciphertext1, plaintext, key, nonce, 0);
-            ChaCha20Core.Transform(ciphertext2, plaintext, key, nonce, 0);
+            core.Transform(ciphertext1, plaintext, key, nonce, 0);
+            core.Transform(ciphertext2, plaintext, key, nonce, 0);
 
             // Assert
             CryptoAssertions.AssertBytesEqual(ciphertext1, ciphertext2);
@@ -86,8 +88,8 @@ public class ChaCha20CoreTests
             var ciphertext2 = new byte[plaintext.Length];
 
             // Act
-            ChaCha20Core.Transform(ciphertext1, plaintext, key, nonce1, 0);
-            ChaCha20Core.Transform(ciphertext2, plaintext, key, nonce2, 0);
+            core.Transform(ciphertext1, plaintext, key, nonce1, 0);
+            core.Transform(ciphertext2, plaintext, key, nonce2, 0);
 
             // Assert
             Assert.NotEqual(ciphertext1, ciphertext2);
@@ -105,8 +107,8 @@ public class ChaCha20CoreTests
             var ciphertext2 = new byte[plaintext.Length];
 
             // Act
-            ChaCha20Core.Transform(ciphertext1, plaintext, key1, nonce, 0);
-            ChaCha20Core.Transform(ciphertext2, plaintext, key2, nonce, 0);
+            core.Transform(ciphertext1, plaintext, key1, nonce, 0);
+            core.Transform(ciphertext2, plaintext, key2, nonce, 0);
 
             // Assert
             Assert.NotEqual(ciphertext1, ciphertext2);
@@ -123,8 +125,8 @@ public class ChaCha20CoreTests
             var ciphertext2 = new byte[plaintext.Length];
 
             // Act
-            ChaCha20Core.Transform(ciphertext1, plaintext, key, nonce, 0);
-            ChaCha20Core.Transform(ciphertext2, plaintext, key, nonce, 1);
+            core.Transform(ciphertext1, plaintext, key, nonce, 0);
+            core.Transform(ciphertext2, plaintext, key, nonce, 1);
 
             // Assert
             Assert.NotEqual(ciphertext1, ciphertext2);
@@ -138,6 +140,8 @@ public class ChaCha20CoreTests
     [Trait("Category", TestCategories.FAST)]
     public class EdgeCases
     {
+        private readonly ChaCha20Core core = new();
+
         [Fact]
         public void Transform_EmptyInput_Succeeds()
         {
@@ -148,7 +152,7 @@ public class ChaCha20CoreTests
             var ciphertext = Array.Empty<byte>();
 
             // Act & Assert - should not throw
-            ChaCha20Core.Transform(ciphertext, plaintext, key, nonce, 0);
+            core.Transform(ciphertext, plaintext, key, nonce, 0);
         }
 
         [Fact]
@@ -163,8 +167,8 @@ public class ChaCha20CoreTests
             var decrypted = new byte[1];
 
             // Act
-            ChaCha20Core.Transform(ciphertext, plaintext, key, nonce, 0);
-            ChaCha20Core.Transform(decrypted, ciphertext, key, nonce, 0);
+            core.Transform(ciphertext, plaintext, key, nonce, 0);
+            core.Transform(decrypted, ciphertext, key, nonce, 0);
 
             // Assert
             Assert.Equal(plaintext, decrypted);
@@ -182,8 +186,8 @@ public class ChaCha20CoreTests
             var decrypted = new byte[BLOCK_SIZE];
 
             // Act
-            ChaCha20Core.Transform(ciphertext, plaintext, key, nonce, 0);
-            ChaCha20Core.Transform(decrypted, ciphertext, key, nonce, 0);
+            core.Transform(ciphertext, plaintext, key, nonce, 0);
+            core.Transform(decrypted, ciphertext, key, nonce, 0);
 
             // Assert
             CryptoAssertions.AssertBytesEqual(plaintext, decrypted);
@@ -204,8 +208,8 @@ public class ChaCha20CoreTests
             var decrypted = new byte[length];
 
             // Act
-            ChaCha20Core.Transform(ciphertext, plaintext, key, nonce, 0);
-            ChaCha20Core.Transform(decrypted, ciphertext, key, nonce, 0);
+            core.Transform(ciphertext, plaintext, key, nonce, 0);
+            core.Transform(decrypted, ciphertext, key, nonce, 0);
 
             // Assert
             CryptoAssertions.AssertBytesEqual(plaintext, decrypted);
@@ -222,8 +226,8 @@ public class ChaCha20CoreTests
             var decrypted = new byte[BLOCK_SIZE];
 
             // Act
-            ChaCha20Core.Transform(ciphertext, plaintext, key, nonce, 0);
-            ChaCha20Core.Transform(decrypted, ciphertext, key, nonce, 0);
+            core.Transform(ciphertext, plaintext, key, nonce, 0);
+            core.Transform(decrypted, ciphertext, key, nonce, 0);
 
             // Assert
             CryptoAssertions.AssertBytesEqual(plaintext, decrypted);
@@ -240,8 +244,8 @@ public class ChaCha20CoreTests
             var decrypted = new byte[BLOCK_SIZE];
 
             // Act - use max counter that won't overflow with single block
-            ChaCha20Core.Transform(ciphertext, plaintext, key, nonce, uint.MaxValue - 1);
-            ChaCha20Core.Transform(decrypted, ciphertext, key, nonce, uint.MaxValue - 1);
+            core.Transform(ciphertext, plaintext, key, nonce, uint.MaxValue - 1);
+            core.Transform(decrypted, ciphertext, key, nonce, uint.MaxValue - 1);
 
             // Assert
             CryptoAssertions.AssertBytesEqual(plaintext, decrypted);
@@ -255,6 +259,8 @@ public class ChaCha20CoreTests
     [Trait("Category", TestCategories.FAST)]
     public class Security
     {
+        private readonly ChaCha20Core core = new();
+
         [Fact]
         public void Transform_CounterOverflow_ThrowsCryptographicException()
         {
@@ -266,7 +272,7 @@ public class ChaCha20CoreTests
 
             // Act & Assert
             Assert.Throws<CryptographicException>(() =>
-                ChaCha20Core.Transform(ciphertext, plaintext, key, nonce, uint.MaxValue));
+                core.Transform(ciphertext, plaintext, key, nonce, uint.MaxValue));
         }
 
         [Fact]
@@ -284,8 +290,8 @@ public class ChaCha20CoreTests
             var ciphertext2 = new byte[BLOCK_SIZE];
 
             // Act
-            ChaCha20Core.Transform(ciphertext1, plaintext1, key, nonce, 0);
-            ChaCha20Core.Transform(ciphertext2, plaintext2, key, nonce, 0);
+            core.Transform(ciphertext1, plaintext1, key, nonce, 0);
+            core.Transform(ciphertext2, plaintext2, key, nonce, 0);
 
             // Assert - XOR of ciphertexts equals XOR of plaintexts
             var xorCiphertext = TestHelpers.Xor(ciphertext1, ciphertext2);
@@ -303,7 +309,7 @@ public class ChaCha20CoreTests
             var keystream = new byte[BLOCK_SIZE];
 
             // Act
-            ChaCha20Core.Transform(keystream, zeroPlaintext, key, nonce, 0);
+            core.Transform(keystream, zeroPlaintext, key, nonce, 0);
 
             // Assert - keystream should appear random
             CryptoAssertions.AssertAppearsRandom(keystream);
@@ -317,6 +323,8 @@ public class ChaCha20CoreTests
     [Trait("Category", TestCategories.FAST)]
     public class ParameterValidation
     {
+        private readonly ChaCha20Core core = new();
+
         [Fact]
         public void Transform_InvalidKeySize_ThrowsArgumentException()
         {
@@ -328,7 +336,7 @@ public class ChaCha20CoreTests
 
             // Act & Assert
             CryptoAssertions.AssertExceptionContains<ArgumentException>(
-                () => ChaCha20Core.Transform(ciphertext, plaintext, invalidKey, nonce, 0),
+                () => core.Transform(ciphertext, plaintext, invalidKey, nonce, 0),
                 "32 bytes");
         }
 
@@ -343,7 +351,7 @@ public class ChaCha20CoreTests
 
             // Act & Assert
             CryptoAssertions.AssertExceptionContains<ArgumentException>(
-                () => ChaCha20Core.Transform(ciphertext, plaintext, key, invalidNonce, 0),
+                () => core.Transform(ciphertext, plaintext, key, invalidNonce, 0),
                 "12 bytes");
         }
 
@@ -358,7 +366,7 @@ public class ChaCha20CoreTests
 
             // Act & Assert
             Assert.Throws<ArgumentException>(() =>
-                ChaCha20Core.Transform(ciphertext, plaintext, key, nonce, 0));
+                core.Transform(ciphertext, plaintext, key, nonce, 0));
         }
     }
 
@@ -368,6 +376,8 @@ public class ChaCha20CoreTests
     [Trait("Category", TestCategories.SLOW)]
     public class Performance
     {
+        private readonly ChaCha20Core core = new();
+
         [Fact]
         public void Transform_LargeData_RoundTripsCorrectly()
         {
@@ -379,8 +389,8 @@ public class ChaCha20CoreTests
             var decrypted = new byte[plaintext.Length];
 
             // Act
-            ChaCha20Core.Transform(ciphertext, plaintext, key, nonce, 0);
-            ChaCha20Core.Transform(decrypted, ciphertext, key, nonce, 0);
+            core.Transform(ciphertext, plaintext, key, nonce, 0);
+            core.Transform(decrypted, ciphertext, key, nonce, 0);
 
             // Assert
             CryptoAssertions.AssertBytesEqual(plaintext, decrypted);
@@ -398,7 +408,7 @@ public class ChaCha20CoreTests
             var fullCiphertext = new byte[plaintext.Length];
 
             // Act - full transformation
-            ChaCha20Core.Transform(fullCiphertext, plaintext, key, nonce, 0);
+            core.Transform(fullCiphertext, plaintext, key, nonce, 0);
 
             // Act - chunked transformation
             var chunk0 = new byte[BLOCK_SIZE];
@@ -406,10 +416,10 @@ public class ChaCha20CoreTests
             var chunk2 = new byte[BLOCK_SIZE];
             var chunk3 = new byte[BLOCK_SIZE];
 
-            ChaCha20Core.Transform(chunk0, plaintext.AsSpan(0, BLOCK_SIZE), key, nonce, 0);
-            ChaCha20Core.Transform(chunk1, plaintext.AsSpan(BLOCK_SIZE, BLOCK_SIZE), key, nonce, 1);
-            ChaCha20Core.Transform(chunk2, plaintext.AsSpan(BLOCK_SIZE * 2, BLOCK_SIZE), key, nonce, 2);
-            ChaCha20Core.Transform(chunk3, plaintext.AsSpan(BLOCK_SIZE * 3, BLOCK_SIZE), key, nonce, 3);
+            core.Transform(chunk0, plaintext.AsSpan(0, BLOCK_SIZE), key, nonce, 0);
+            core.Transform(chunk1, plaintext.AsSpan(BLOCK_SIZE, BLOCK_SIZE), key, nonce, 1);
+            core.Transform(chunk2, plaintext.AsSpan(BLOCK_SIZE * 2, BLOCK_SIZE), key, nonce, 2);
+            core.Transform(chunk3, plaintext.AsSpan(BLOCK_SIZE * 3, BLOCK_SIZE), key, nonce, 3);
 
             // Assert
             Assert.Equal(fullCiphertext[..(BLOCK_SIZE)], chunk0);
@@ -427,6 +437,8 @@ public class ChaCha20CoreTests
     [Trait("Category", TestCategories.FAST)]
     public class KnownAnswerTests
     {
+        private readonly ChaCha20Core core = new();
+
         [Fact]
         public void RFC8439_Section242_TestVector()
         {
@@ -446,7 +458,7 @@ public class ChaCha20CoreTests
             var ciphertext = new byte[plaintext.Length];
 
             // Act
-            ChaCha20Core.Transform(ciphertext, plaintext, key, nonce, 1); // Counter=1 per RFC
+            core.Transform(ciphertext, plaintext, key, nonce, 1); // Counter=1 per RFC
 
             // Assert
             CryptoAssertions.AssertBytesEqual(expectedCiphertext, ciphertext);
@@ -461,6 +473,8 @@ public class ChaCha20CoreTests
     [Trait("Category", TestCategories.FAST)]
     public class MemoryHygiene
     {
+        private readonly ChaCha20Core core = new();
+
         [Fact]
         public void Transform_RepeatedCalls_NoMemoryAccumulation()
         {
@@ -473,7 +487,7 @@ public class ChaCha20CoreTests
             // Act - repeated calls should not leak memory
             for (int i = 0; i < 100; i++)
             {
-                ChaCha20Core.Transform(ciphertext, plaintext, key, nonce, 0);
+                core.Transform(ciphertext, plaintext, key, nonce, 0);
             }
 
             // Assert - completing without OOM indicates proper cleanup

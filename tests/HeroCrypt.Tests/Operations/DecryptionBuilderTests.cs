@@ -212,8 +212,8 @@ public class DecryptionBuilderTests
         public void X25519ChaCha20Poly1305_DecryptsSuccessfully()
         {
             var plaintext = "Test data for X25519 + ChaCha20-Poly1305"u8.ToArray();
-            var privateKey = Curve25519Core.GeneratePrivateKey();
-            var publicKey = Curve25519Core.DerivePublicKey(privateKey);
+            var privateKey = new Curve25519Core().GeneratePrivateKey();
+            var publicKey = new Curve25519Core().DerivePublicKey(privateKey);
 
             var result = HeroCryptBuilder.Encrypt()
                 .WithAlgorithm(EncryptionAlgorithm.X25519ChaCha20Poly1305)
@@ -234,8 +234,8 @@ public class DecryptionBuilderTests
         public void X25519XChaCha20Poly1305_DecryptsSuccessfully()
         {
             var plaintext = "Test data for X25519 + XChaCha20-Poly1305"u8.ToArray();
-            var privateKey = Curve25519Core.GeneratePrivateKey();
-            var publicKey = Curve25519Core.DerivePublicKey(privateKey);
+            var privateKey = new Curve25519Core().GeneratePrivateKey();
+            var publicKey = new Curve25519Core().DerivePublicKey(privateKey);
 
             var result = HeroCryptBuilder.Encrypt()
                 .WithAlgorithm(EncryptionAlgorithm.X25519XChaCha20Poly1305)
@@ -256,8 +256,8 @@ public class DecryptionBuilderTests
         public void X25519AesGcm_DecryptsSuccessfully()
         {
             var plaintext = "Test data for X25519 + AES-GCM"u8.ToArray();
-            var privateKey = Curve25519Core.GeneratePrivateKey();
-            var publicKey = Curve25519Core.DerivePublicKey(privateKey);
+            var privateKey = new Curve25519Core().GeneratePrivateKey();
+            var publicKey = new Curve25519Core().DerivePublicKey(privateKey);
 
             var result = HeroCryptBuilder.Encrypt()
                 .WithAlgorithm(EncryptionAlgorithm.X25519AesGcm)
@@ -278,9 +278,9 @@ public class DecryptionBuilderTests
         public void X25519Hybrid_WithWrongPrivateKey_FailsAuthentication()
         {
             var plaintext = "Test data"u8.ToArray();
-            var privateKey1 = Curve25519Core.GeneratePrivateKey();
-            var publicKey1 = Curve25519Core.DerivePublicKey(privateKey1);
-            var privateKey2 = Curve25519Core.GeneratePrivateKey();
+            var privateKey1 = new Curve25519Core().GeneratePrivateKey();
+            var publicKey1 = new Curve25519Core().DerivePublicKey(privateKey1);
+            var privateKey2 = new Curve25519Core().GeneratePrivateKey();
 
             var result = HeroCryptBuilder.Encrypt()
                 .WithAlgorithm(EncryptionAlgorithm.X25519ChaCha20Poly1305)
@@ -300,8 +300,8 @@ public class DecryptionBuilderTests
         public void X25519Hybrid_WithoutEncapsulatedKey_ThrowsInvalidOperationException()
         {
             var plaintext = "Test data"u8.ToArray();
-            var privateKey = Curve25519Core.GeneratePrivateKey();
-            var publicKey = Curve25519Core.DerivePublicKey(privateKey);
+            var privateKey = new Curve25519Core().GeneratePrivateKey();
+            var publicKey = new Curve25519Core().DerivePublicKey(privateKey);
 
             var result = HeroCryptBuilder.Encrypt()
                 .WithAlgorithm(EncryptionAlgorithm.X25519ChaCha20Poly1305)
@@ -828,8 +828,8 @@ public class DecryptionBuilderTests
         public void FromEncryptionResult_WithX25519Hybrid_SetsEncapsulatedKey()
         {
             var plaintext = "Test X25519 with FromEncryptionResult"u8.ToArray();
-            var privateKey = Curve25519Core.GeneratePrivateKey();
-            var publicKey = Curve25519Core.DerivePublicKey(privateKey);
+            var privateKey = new Curve25519Core().GeneratePrivateKey();
+            var publicKey = new Curve25519Core().DerivePublicKey(privateKey);
 
             var result = HeroCryptBuilder.Encrypt()
                 .WithAlgorithm(EncryptionAlgorithm.X25519ChaCha20Poly1305)
@@ -1473,8 +1473,8 @@ public class DecryptionBuilderTests
         {
             // Arrange
             var plaintext = "Test X25519 with hex encapsulated key"u8.ToArray();
-            var privateKey = Curve25519Core.GeneratePrivateKey();
-            var publicKey = Curve25519Core.DerivePublicKey(privateKey);
+            var privateKey = new Curve25519Core().GeneratePrivateKey();
+            var publicKey = new Curve25519Core().DerivePublicKey(privateKey);
 
             var result = HeroCryptBuilder.Encrypt()
                 .WithAlgorithm(EncryptionAlgorithm.X25519ChaCha20Poly1305)
@@ -1500,8 +1500,8 @@ public class DecryptionBuilderTests
         {
             // Arrange
             var plaintext = "Test X25519 with Base64 encapsulated key"u8.ToArray();
-            var privateKey = Curve25519Core.GeneratePrivateKey();
-            var publicKey = Curve25519Core.DerivePublicKey(privateKey);
+            var privateKey = new Curve25519Core().GeneratePrivateKey();
+            var publicKey = new Curve25519Core().DerivePublicKey(privateKey);
 
             var result = HeroCryptBuilder.Encrypt()
                 .WithAlgorithm(EncryptionAlgorithm.X25519ChaCha20Poly1305)
@@ -1527,8 +1527,8 @@ public class DecryptionBuilderTests
         {
             // Arrange
             var plaintext = "Test X25519 with Base64Url encapsulated key"u8.ToArray();
-            var privateKey = Curve25519Core.GeneratePrivateKey();
-            var publicKey = Curve25519Core.DerivePublicKey(privateKey);
+            var privateKey = new Curve25519Core().GeneratePrivateKey();
+            var publicKey = new Curve25519Core().DerivePublicKey(privateKey);
 
             var result = HeroCryptBuilder.Encrypt()
                 .WithAlgorithm(EncryptionAlgorithm.X25519ChaCha20Poly1305)
@@ -1610,8 +1610,8 @@ public class DecryptionBuilderTests
         {
             // Arrange - Full workflow: encrypt, get encapsulated key as hex, decrypt with hex
             var plaintext = "Test complete text format workflow for hybrid encryption"u8.ToArray();
-            var privateKey = Curve25519Core.GeneratePrivateKey();
-            var publicKey = Curve25519Core.DerivePublicKey(privateKey);
+            var privateKey = new Curve25519Core().GeneratePrivateKey();
+            var publicKey = new Curve25519Core().DerivePublicKey(privateKey);
 
             var result = HeroCryptBuilder.Encrypt()
                 .WithAlgorithm(EncryptionAlgorithm.X25519ChaCha20Poly1305)
@@ -1640,8 +1640,8 @@ public class DecryptionBuilderTests
         {
             // Arrange
             var plaintext = "Test Base64Url workflow"u8.ToArray();
-            var privateKey = Curve25519Core.GeneratePrivateKey();
-            var publicKey = Curve25519Core.DerivePublicKey(privateKey);
+            var privateKey = new Curve25519Core().GeneratePrivateKey();
+            var publicKey = new Curve25519Core().DerivePublicKey(privateKey);
 
             var result = HeroCryptBuilder.Encrypt()
                 .WithAlgorithm(EncryptionAlgorithm.X25519XChaCha20Poly1305)

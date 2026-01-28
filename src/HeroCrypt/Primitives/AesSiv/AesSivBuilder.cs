@@ -48,12 +48,16 @@ public sealed class AesSivBuilder : IDisposable
 {
     private const int DefaultNonceSize = 16;
 
+    private readonly AesSivCore core;
     private byte[]? key;
     private byte[]? nonce;
     private byte[]? associatedData;
     private bool disposed;
 
-    private AesSivBuilder() { }
+    private AesSivBuilder(SecurityPolicyOptions? policy = null)
+    {
+        core = new AesSivCore(policy);
+    }
 
     /// <summary>
     /// Creates a new AES-SIV builder instance.
@@ -185,7 +189,7 @@ public sealed class AesSivBuilder : IDisposable
         ArgumentHelper.ThrowIfDisposed(disposed, this);
         ValidateState();
 
-        var result = AesSivCore.Encrypt(plaintext, key, nonce ?? ReadOnlySpan<byte>.Empty, associatedData ?? ReadOnlySpan<byte>.Empty);
+        var result = core.Encrypt(plaintext, key!, nonce ?? ReadOnlySpan<byte>.Empty, associatedData ?? ReadOnlySpan<byte>.Empty);
         return result.Ciphertext;
     }
 
@@ -217,7 +221,7 @@ public sealed class AesSivBuilder : IDisposable
         ArgumentHelper.ThrowIfDisposed(disposed, this);
         ValidateState();
 
-        return AesSivCore.Decrypt(ciphertext, key, nonce ?? ReadOnlySpan<byte>.Empty, associatedData ?? ReadOnlySpan<byte>.Empty);
+        return core.Decrypt(ciphertext, key!, nonce ?? ReadOnlySpan<byte>.Empty, associatedData ?? ReadOnlySpan<byte>.Empty);
     }
 
     /// <summary>

@@ -48,8 +48,20 @@ namespace HeroCrypt.Primitives.MLKem;
 /// </para>
 /// </remarks>
 
-public static class MLKemCore
+public sealed class MLKemCore
 {
+#pragma warning disable IDE0052 // Remove unread private member - policy reserved for future security validation
+    private readonly SecurityPolicyOptions policy;
+#pragma warning restore IDE0052
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="MLKemCore"/> class.
+    /// </summary>
+    /// <param name="policy">Optional security policy options. If null, uses <see cref="SecurityPolicyOptions.Default"/>.</param>
+    public MLKemCore(SecurityPolicyOptions? policy = null)
+    {
+        this.policy = policy ?? SecurityPolicyOptions.Default;
+    }
     /// <summary>
     /// ML-KEM security levels (FIPS 203)
     /// </summary>
@@ -206,7 +218,7 @@ public static class MLKemCore
     /// Checks if ML-KEM is supported on the current platform
     /// </summary>
     /// <returns>True if ML-KEM is available, false otherwise</returns>
-    public static bool IsSupported()
+    public bool IsSupported()
     {
         return SystemMLKem.IsSupported;
     }
@@ -218,7 +230,7 @@ public static class MLKemCore
     /// <returns>A new ML-KEM key pair</returns>
     /// <exception cref="PlatformNotSupportedException">If ML-KEM is not supported on this platform</exception>
     /// <exception cref="CryptographicException">If key generation fails</exception>
-    public static MLKemKeyPair GenerateKeyPair(SecurityLevel level = SecurityLevel.MLKem768)
+    public MLKemKeyPair GenerateKeyPair(SecurityLevel level = SecurityLevel.MLKem768)
     {
         if (!IsSupported())
         {
@@ -241,7 +253,7 @@ public static class MLKemCore
     /// <exception cref="ArgumentException">If publicKeyPem is not valid PEM format</exception>
     /// <exception cref="PlatformNotSupportedException">If ML-KEM is not supported on this platform</exception>
     /// <exception cref="CryptographicException">If encapsulation fails</exception>
-    public static EncapsulationResult Encapsulate(string publicKeyPem)
+    public EncapsulationResult Encapsulate(string publicKeyPem)
     {
         ValidatePemFormat(publicKeyPem, nameof(publicKeyPem));
 
@@ -279,7 +291,7 @@ public static class MLKemCore
     /// <exception cref="ArgumentNullException">If publicKeyPem is null</exception>
     /// <exception cref="ArgumentException">If publicKeyPem is not valid PEM format</exception>
     /// <exception cref="PlatformNotSupportedException">If ML-KEM is not supported</exception>
-    public static SystemMLKem ImportPublicKey(string publicKeyPem, SecurityLevel level = SecurityLevel.MLKem768)
+    public SystemMLKem ImportPublicKey(string publicKeyPem, SecurityLevel level = SecurityLevel.MLKem768)
     {
         _ = level;
 
@@ -326,7 +338,7 @@ public static class MLKemCore
         };
     }
 
-    private static MLKemAlgorithm ToMLKemAlgorithm(SecurityLevel level)
+    private MLKemAlgorithm ToMLKemAlgorithm(SecurityLevel level)
     {
         return level switch
         {
@@ -344,7 +356,7 @@ public static class MLKemCore
     /// <param name="paramName">The parameter name for exception messages</param>
     /// <exception cref="ArgumentNullException">If pem is null</exception>
     /// <exception cref="ArgumentException">If pem is not valid PEM format</exception>
-    private static void ValidatePemFormat(string pem, string paramName)
+    private void ValidatePemFormat(string pem, string paramName)
     {
         ArgumentNullException.ThrowIfNull(pem);
 

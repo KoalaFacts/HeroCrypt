@@ -55,6 +55,7 @@ namespace HeroCrypt.Primitives.Rsa;
 /// </example>
 public sealed class RsaBuilder : IDisposable
 {
+    private readonly RsaCore core;
     private RsaKeySize keySize = RsaKeySize.Rsa2048;
     private RsaPaddingMode paddingMode = RsaPaddingMode.Oaep;
     private HashAlgorithmName? hashAlgorithm = HashAlgorithmName.SHA256;
@@ -64,13 +65,17 @@ public sealed class RsaBuilder : IDisposable
     private byte[]? signature;
     private bool disposed;
 
-    private RsaBuilder() { }
+    private RsaBuilder(SecurityPolicyOptions? policy = null)
+    {
+        core = new RsaCore(policy);
+    }
 
     /// <summary>
     /// Creates a new RSA builder instance.
     /// </summary>
+    /// <param name="policy">Optional security policy for cryptographic validation.</param>
     /// <returns>A new builder instance.</returns>
-    public static RsaBuilder Create() => new();
+    public static RsaBuilder Create(SecurityPolicyOptions? policy = null) => new(policy);
 
     /// <summary>
     /// Sets the key size for key generation operations.
@@ -191,7 +196,7 @@ public sealed class RsaBuilder : IDisposable
     public (RsaPrivateKey PrivateKey, RsaPublicKey PublicKey) GenerateKeyPair()
     {
         ArgumentHelper.ThrowIfDisposed(disposed, this);
-        var keyPair = RsaCore.GenerateKeyPair((int)keySize);
+        var keyPair = core.GenerateKeyPair((int)keySize);
         return (keyPair.PrivateKey, keyPair.PublicKey);
     }
 
@@ -206,7 +211,7 @@ public sealed class RsaBuilder : IDisposable
         ArgumentHelper.ThrowIfDisposed(disposed, this);
         ValidatePublicKey();
         ValidateData();
-        return RsaCore.Encrypt(data!, publicKey!, paddingMode, hashAlgorithm);
+        return core.Encrypt(data!, publicKey!, paddingMode, hashAlgorithm);
     }
 
     /// <summary>
@@ -220,7 +225,7 @@ public sealed class RsaBuilder : IDisposable
         ArgumentHelper.ThrowIfDisposed(disposed, this);
         ValidatePrivateKey();
         ValidateData();
-        return RsaCore.Decrypt(data!, privateKey!, paddingMode, hashAlgorithm);
+        return core.Decrypt(data!, privateKey!, paddingMode, hashAlgorithm);
     }
 
     /// <summary>
@@ -234,7 +239,7 @@ public sealed class RsaBuilder : IDisposable
         ArgumentHelper.ThrowIfDisposed(disposed, this);
         ValidatePrivateKey();
         ValidateData();
-        return RsaCore.Sign(data!, privateKey!);
+        return core.Sign(data!, privateKey!);
     }
 
     /// <summary>
@@ -249,7 +254,7 @@ public sealed class RsaBuilder : IDisposable
         ValidatePublicKey();
         ValidateData();
         ValidateSignature();
-        return RsaCore.Verify(data!, signature!, publicKey!);
+        return core.Verify(data!, signature!, publicKey!);
     }
 
     private void ValidatePrivateKey()

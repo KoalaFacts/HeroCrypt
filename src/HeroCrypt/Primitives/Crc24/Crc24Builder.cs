@@ -1,4 +1,5 @@
 using HeroCrypt.Polyfills;
+using HeroCrypt.Security;
 
 namespace HeroCrypt.Primitives.Crc24;
 
@@ -27,13 +28,19 @@ namespace HeroCrypt.Primitives.Crc24;
 /// </example>
 public sealed class Crc24Builder
 {
-    private Crc24Builder() { }
+    private readonly SecurityPolicyOptions policy;
+
+    private Crc24Builder(SecurityPolicyOptions? policy = null)
+    {
+        this.policy = policy ?? SecurityPolicyOptions.Default;
+    }
 
     /// <summary>
     /// Creates a new CRC24 builder instance.
     /// </summary>
+    /// <param name="policy">Optional security policy to use. If null, uses <see cref="SecurityPolicyOptions.Default"/>.</param>
     /// <returns>A new builder instance.</returns>
-    public static Crc24Builder Create() => new();
+    public static Crc24Builder Create(SecurityPolicyOptions? policy = null) => new(policy);
 
     /// <summary>
     /// Computes the CRC24 checksum for the given data.
@@ -44,7 +51,8 @@ public sealed class Crc24Builder
     public uint Compute(byte[] data)
     {
         ArgumentHelper.ThrowIfNull(data);
-        return Crc24Core.Compute(data);
+        var core = new Crc24Core(policy);
+        return core.Compute(data);
     }
 
     /// <summary>
@@ -54,7 +62,8 @@ public sealed class Crc24Builder
     /// <returns>The 24-bit CRC value as a 32-bit unsigned integer (upper 8 bits are zero).</returns>
     public uint Compute(ReadOnlySpan<byte> data)
     {
-        return Crc24Core.Compute(data);
+        var core = new Crc24Core(policy);
+        return core.Compute(data);
     }
 
     /// <summary>
@@ -65,7 +74,8 @@ public sealed class Crc24Builder
     /// <exception cref="ArgumentException">If output buffer is too small.</exception>
     public void Compute(Span<byte> output, ReadOnlySpan<byte> data)
     {
-        Crc24Core.Compute(output, data);
+        var core = new Crc24Core(policy);
+        core.Compute(output, data);
     }
 
     /// <summary>
@@ -77,7 +87,8 @@ public sealed class Crc24Builder
     public byte[] ComputeToBytes(byte[] data)
     {
         ArgumentHelper.ThrowIfNull(data);
-        return Crc24Core.ComputeToBytes(data);
+        var core = new Crc24Core(policy);
+        return core.ComputeToBytes(data);
     }
 
     /// <summary>
@@ -87,7 +98,8 @@ public sealed class Crc24Builder
     /// <returns>A 3-byte array containing the CRC24 in big-endian format.</returns>
     public byte[] ComputeToBytes(ReadOnlySpan<byte> data)
     {
-        return Crc24Core.ComputeToBytes(data);
+        var core = new Crc24Core(policy);
+        return core.ComputeToBytes(data);
     }
 
     /// <summary>
@@ -100,7 +112,8 @@ public sealed class Crc24Builder
     public bool Verify(uint expectedCrc, byte[] data)
     {
         ArgumentHelper.ThrowIfNull(data);
-        return Crc24Core.Verify(expectedCrc, data);
+        var core = new Crc24Core(policy);
+        return core.Verify(expectedCrc, data);
     }
 
     /// <summary>
@@ -111,7 +124,8 @@ public sealed class Crc24Builder
     /// <returns>True if the checksum matches, false otherwise.</returns>
     public bool Verify(uint expectedCrc, ReadOnlySpan<byte> data)
     {
-        return Crc24Core.Verify(expectedCrc, data);
+        var core = new Crc24Core(policy);
+        return core.Verify(expectedCrc, data);
     }
 
     /// <summary>
@@ -125,7 +139,8 @@ public sealed class Crc24Builder
     {
         ArgumentHelper.ThrowIfNull(expectedCrc);
         ArgumentHelper.ThrowIfNull(data);
-        return Crc24Core.Verify(expectedCrc, data);
+        var core = new Crc24Core(policy);
+        return core.Verify(expectedCrc, data);
     }
 
     /// <summary>
@@ -136,6 +151,7 @@ public sealed class Crc24Builder
     /// <returns>True if the checksum matches, false otherwise.</returns>
     public bool Verify(ReadOnlySpan<byte> expectedCrc, ReadOnlySpan<byte> data)
     {
-        return Crc24Core.Verify(expectedCrc, data);
+        var core = new Crc24Core(policy);
+        return core.Verify(expectedCrc, data);
     }
 }

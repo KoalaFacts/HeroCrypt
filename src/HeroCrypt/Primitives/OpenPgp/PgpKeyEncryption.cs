@@ -45,6 +45,7 @@ internal static class PgpKeyEncryption
     /// <param name="sessionKey">The session key to encrypt.</param>
     /// <param name="symmetricAlgorithm">The symmetric algorithm ID for the session key.</param>
     /// <param name="publicKey">The recipient's RSA public key packet.</param>
+    /// <param name="securityPolicy">Optional security policy for cryptographic validation.</param>
     /// <returns>The encrypted session key as an MPI.</returns>
     /// <remarks>
     /// <para>
@@ -59,7 +60,8 @@ internal static class PgpKeyEncryption
     public static byte[] EncryptSessionKeyRsa(
         ReadOnlySpan<byte> sessionKey,
         SymmetricCipherAlgorithm symmetricAlgorithm,
-        PgpPublicKeyPacket publicKey)
+        PgpPublicKeyPacket publicKey,
+        SecurityPolicyOptions? securityPolicy = null)
     {
         if (publicKey.Algorithm != PgpPublicKeyAlgorithm.RsaEncryptOrSign &&
 #pragma warning disable CS0618 // Obsolete member
@@ -99,7 +101,8 @@ internal static class PgpKeyEncryption
 
             // RSA encrypt with PKCS#1 v1.5 padding
             var rsaPublicKey = new RsaPublicKey(n, e);
-            byte[] ciphertext = RsaCore.Encrypt(plaintext, rsaPublicKey, RsaPaddingMode.Pkcs1);
+            var rsaCore = new RsaCore(securityPolicy);
+            byte[] ciphertext = rsaCore.Encrypt(plaintext, rsaPublicKey, RsaPaddingMode.Pkcs1);
 
             // Encode as MPI
             return Mpi.Encode(ciphertext);
@@ -115,11 +118,13 @@ internal static class PgpKeyEncryption
     /// </summary>
     /// <param name="encryptedMpi">The encrypted session key MPI.</param>
     /// <param name="secretKey">The recipient's RSA secret key packet.</param>
+    /// <param name="securityPolicy">Optional security policy for cryptographic validation.</param>
     /// <returns>A tuple of (symmetric algorithm, session key).</returns>
     /// <exception cref="CryptographicException">If decryption or checksum verification fails.</exception>
     public static (SymmetricCipherAlgorithm Algorithm, byte[] SessionKey) DecryptSessionKeyRsa(
         ReadOnlySpan<byte> encryptedMpi,
-        PgpSecretKeyPacket secretKey)
+        PgpSecretKeyPacket secretKey,
+        SecurityPolicyOptions? securityPolicy = null)
     {
         if (secretKey.IsEncrypted)
         {
@@ -153,11 +158,12 @@ internal static class PgpKeyEncryption
 
         // RSA decrypt
         var rsaPrivateKey = new RsaPrivateKey(pubN, d, p, q, pubE);
+        var rsaCore = new RsaCore(securityPolicy);
         byte[] plaintext;
 
         try
         {
-            plaintext = RsaCore.Decrypt(ciphertext, rsaPrivateKey, RsaPaddingMode.Pkcs1);
+            plaintext = rsaCore.Decrypt(ciphertext, rsaPrivateKey, RsaPaddingMode.Pkcs1);
         }
         catch (CryptographicException ex)
         {
@@ -207,6 +213,7 @@ internal static class PgpKeyEncryption
     /// </summary>
     /// <param name="sessionKey">The session key to encrypt.</param>
     /// <param name="publicKey">The recipient's X25519 public key packet.</param>
+    /// <param name="securityPolicy">The security policy for cryptographic validation.</param>
     /// <returns>
     /// A tuple of (ephemeral public key, wrapped session key).
     /// The wire format is: ephemeralPub(32) + len(1) + wrappedKey(variable).
@@ -224,31 +231,36 @@ internal static class PgpKeyEncryption
     /// </remarks>
     public static byte[] EncryptSessionKeyX25519(
         ReadOnlySpan<byte> sessionKey,
-        PgpPublicKeyPacket publicKey)
+        PgpPublicKeyPacket publicKey,
+        SecurityPolicyOptions? securityPolicy = null)
     {
         if (publicKey.Algorithm != PgpPublicKeyAlgorithm.X25519)
         {
             throw new ArgumentException($"Expected X25519 key, got {publicKey.Algorithm}.", nameof(publicKey));
         }
 
+        var policy = securityPolicy ?? SecurityPolicyOptions.Default;
+
         // Get recipient's public key
         byte[] recipientPublic = publicKey.ReadNativePublicKey();
 
         // Generate ephemeral key pair
-        byte[] ephemeralPrivate = Curve25519Core.GeneratePrivateKey();
-        byte[] ephemeralPublic = Curve25519Core.DerivePublicKey(ephemeralPrivate);
+        var curve = new Curve25519Core();
+        byte[] ephemeralPrivate = curve.GeneratePrivateKey();
+        byte[] ephemeralPublic = curve.DerivePublicKey(ephemeralPrivate);
 
         try
         {
             // Compute shared secret
-            byte[] sharedSecret = Curve25519Core.ComputeSharedSecret(ephemeralPrivate, recipientPublic);
+            byte[] sharedSecret = curve.ComputeSharedSecret(ephemeralPrivate, recipientPublic);
 
             try
             {
                 // Derive KEK using HKDF-SHA256
                 // RFC 9580: info = "OpenPGP X25519" || ephemeralPublic || recipientPublic
                 byte[] info = BuildX25519HkdfInfo(ephemeralPublic, recipientPublic);
-                byte[] kek = HkdfCore.DeriveKey(sharedSecret, [], info, 32, HashAlgorithmName.SHA256);
+                var hkdf = new HkdfCore(policy);
+                byte[] kek = hkdf.DeriveKey(sharedSecret, [], info, 32, HashAlgorithmName.SHA256);
 
                 try
                 {
@@ -284,10 +296,12 @@ internal static class PgpKeyEncryption
     /// </summary>
     /// <param name="encryptedData">The encrypted data: ephemeralPub(32) + len(1) + wrappedKey.</param>
     /// <param name="secretKey">The recipient's X25519 secret key packet.</param>
+    /// <param name="securityPolicy">The security policy for validation.</param>
     /// <returns>The decrypted session key.</returns>
     public static byte[] DecryptSessionKeyX25519(
         ReadOnlySpan<byte> encryptedData,
-        PgpSecretKeyPacket secretKey)
+        PgpSecretKeyPacket secretKey,
+        SecurityPolicyOptions? securityPolicy = null)
     {
         if (secretKey.IsEncrypted)
         {
@@ -303,6 +317,8 @@ internal static class PgpKeyEncryption
         {
             throw new ArgumentException("Encrypted data too short.", nameof(encryptedData));
         }
+
+        var policy = securityPolicy ?? SecurityPolicyOptions.Default;
 
         // Parse input
         byte[] ephemeralPublic = encryptedData.Slice(0, 32).ToArray();
@@ -321,13 +337,15 @@ internal static class PgpKeyEncryption
         try
         {
             // Compute shared secret
-            byte[] sharedSecret = Curve25519Core.ComputeSharedSecret(privateKey, ephemeralPublic);
+            var curve = new Curve25519Core();
+            byte[] sharedSecret = curve.ComputeSharedSecret(privateKey, ephemeralPublic);
 
             try
             {
                 // Derive KEK using HKDF-SHA256
                 byte[] info = BuildX25519HkdfInfo(ephemeralPublic, ourPublic);
-                byte[] kek = HkdfCore.DeriveKey(sharedSecret, [], info, 32, HashAlgorithmName.SHA256);
+                var hkdf = new HkdfCore(policy);
+                byte[] kek = hkdf.DeriveKey(sharedSecret, [], info, 32, HashAlgorithmName.SHA256);
 
                 try
                 {
@@ -622,7 +640,8 @@ internal static class PgpKeyEncryption
         try
         {
             // Compute shared secret using X25519
-            return Curve25519Core.ComputeSharedSecret(privateKey, ephemeralPublic);
+            var curve = new Curve25519Core();
+            return curve.ComputeSharedSecret(privateKey, ephemeralPublic);
         }
         finally
         {

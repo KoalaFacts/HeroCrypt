@@ -36,14 +36,19 @@ public sealed class AesCmacBuilder : IDisposable
 
     private byte[]? key;
     private bool disposed;
+    private readonly SecurityPolicyOptions policy;
 
-    private AesCmacBuilder() { }
+    private AesCmacBuilder(SecurityPolicyOptions? policy = null)
+    {
+        this.policy = policy ?? SecurityPolicyOptions.Default;
+    }
 
     /// <summary>
     /// Creates a new AES-CMAC builder instance.
     /// </summary>
+    /// <param name="policy">Optional security policy to use. If null, uses <see cref="SecurityPolicyOptions.Default"/>.</param>
     /// <returns>A new builder instance.</returns>
-    public static AesCmacBuilder Create() => new();
+    public static AesCmacBuilder Create(SecurityPolicyOptions? policy = null) => new(policy);
 
     /// <summary>
     /// Sets the AES key.
@@ -121,7 +126,8 @@ public sealed class AesCmacBuilder : IDisposable
         ValidateState();
 
         var tag = new byte[TagSize];
-        AesCmacCore.ComputeTag(tag, data, key);
+        var core = new AesCmacCore(policy);
+        core.ComputeTag(tag, data, key!);
         return tag;
     }
 
@@ -138,7 +144,8 @@ public sealed class AesCmacBuilder : IDisposable
         ArgumentHelper.ThrowIfDisposed(disposed, this);
         ValidateState();
 
-        AesCmacCore.ComputeTag(tag, data, key);
+        var core = new AesCmacCore(policy);
+        core.ComputeTag(tag, data, key!);
     }
 
     /// <summary>
@@ -170,7 +177,8 @@ public sealed class AesCmacBuilder : IDisposable
         ArgumentHelper.ThrowIfDisposed(disposed, this);
         ValidateState();
 
-        return AesCmacCore.VerifyTag(tag, data, key);
+        var core = new AesCmacCore(policy);
+        return core.VerifyTag(tag, data, key!);
     }
 
     /// <summary>

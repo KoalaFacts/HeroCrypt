@@ -41,13 +41,17 @@ public sealed class Blake2bBuilder : IDisposable
     private const int SaltSize = 16;
     private const int PersonalizationSize = 16;
 
+    private readonly SecurityPolicyOptions securityPolicy;
     private int outputLength = DefaultOutputLength;
     private byte[]? key;
     private byte[]? salt;
     private byte[]? personalization;
     private bool disposed;
 
-    private Blake2bBuilder() { }
+    private Blake2bBuilder(SecurityPolicyOptions? securityPolicy = null)
+    {
+        this.securityPolicy = securityPolicy ?? SecurityPolicyOptions.Default;
+    }
 
     /// <summary>
     /// Creates a new Blake2b builder instance.
@@ -250,7 +254,8 @@ public sealed class Blake2bBuilder : IDisposable
     {
         ArgumentHelper.ThrowIfDisposed(disposed, this);
 
-        return Blake2bCore.ComputeHash(
+        var blake2bCore = new Blake2bCore(securityPolicy);
+        return blake2bCore.ComputeHash(
             input.ToArray(),
             outputLength,
             key,

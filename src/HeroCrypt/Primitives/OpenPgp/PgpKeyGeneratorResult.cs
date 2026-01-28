@@ -146,7 +146,8 @@ public readonly struct PgpKeyGeneratorResult
     /// </remarks>
     public string GetArmoredPublicKey()
     {
-        return ArmorCore.Encode(PublicKeyRing.ToArray(), ArmorType.PublicKey);
+        var core = new ArmorCore();
+        return core.Encode(PublicKeyRing.ToArray(), ArmorType.PublicKey);
     }
 
     /// <summary>
@@ -172,7 +173,8 @@ public readonly struct PgpKeyGeneratorResult
     /// </remarks>
     public string GetArmoredSecretKey()
     {
-        return ArmorCore.Encode(SecretKeyRing.ToArray(), ArmorType.PrivateKey);
+        var core = new ArmorCore();
+        return core.Encode(SecretKeyRing.ToArray(), ArmorType.PrivateKey);
     }
 
     /// <summary>

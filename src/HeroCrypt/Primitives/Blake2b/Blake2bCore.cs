@@ -8,8 +8,18 @@ namespace HeroCrypt.Primitives.Blake2b;
 /// Blake2b cryptographic hash function implementation.
 /// Implements RFC 7693 specification.
 /// </summary>
-internal static class Blake2bCore
+internal sealed class Blake2bCore
 {
+    private readonly SecurityPolicyOptions policy;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="Blake2bCore"/> class with the specified security policy.
+    /// </summary>
+    /// <param name="policy">The security policy to use for validation. If null, uses <see cref="SecurityPolicyOptions.Default"/>.</param>
+    public Blake2bCore(SecurityPolicyOptions? policy = null)
+    {
+        this.policy = policy ?? SecurityPolicyOptions.Default;
+    }
     /// <summary>
     /// Blake2b initialization vectors (first 64 bits of the fractional parts of the square roots of the first 8 primes).
     /// </summary>
@@ -176,13 +186,16 @@ internal static class Blake2bCore
     /// <param name="personalization">Optional personalization value (must be exactly 16 bytes)</param>
     /// <returns>Blake2b hash as byte array</returns>
     /// <exception cref="ArgumentException">Thrown when parameters are invalid</exception>
-    public static byte[] ComputeHash(
+    public byte[] ComputeHash(
         ReadOnlySpan<byte> input,
         int outputLength = 64,
         ReadOnlySpan<byte> key = default,
         ReadOnlySpan<byte> salt = default,
         ReadOnlySpan<byte> personalization = default)
     {
+        // Validate hash algorithm against security policy
+        policy.ValidateHash("BLAKE2b");
+
         if (outputLength is < 1 or > 64)
         {
             throw new ArgumentException("Output length must be between 1 and 64 bytes", nameof(outputLength));
@@ -227,8 +240,11 @@ internal static class Blake2bCore
     /// <param name="outputLength">Desired output length in bytes</param>
     /// <returns>Blake2b long hash as byte array</returns>
     /// <exception cref="ArgumentException">Thrown when output length is not positive</exception>
-    public static byte[] ComputeLongHash(ReadOnlySpan<byte> input, int outputLength)
+    public byte[] ComputeLongHash(ReadOnlySpan<byte> input, int outputLength)
     {
+        // Validate hash algorithm against security policy
+        policy.ValidateHash("BLAKE2b");
+
         if (outputLength < 1)
         {
             throw new ArgumentException("Output length must be positive", nameof(outputLength));
@@ -295,7 +311,7 @@ internal static class Blake2bCore
         }
     }
 
-    private static byte[] ComputeHashInternal(ReadOnlySpan<byte> input, Blake2bParams parameters, ReadOnlySpan<byte> key)
+    private byte[] ComputeHashInternal(ReadOnlySpan<byte> input, Blake2bParams parameters, ReadOnlySpan<byte> key)
     {
         // Initialize hash state with parameter block
         ulong[] h = new ulong[8];

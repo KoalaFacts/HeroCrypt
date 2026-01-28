@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using HeroCrypt.Primitives.Pbkdf2;
+using HeroCrypt.Security;
 using HeroCrypt.Tests.Infrastructure;
 
 namespace HeroCrypt.Tests.Primitives.Pbkdf2;
@@ -21,6 +22,8 @@ public class Pbkdf2CoreTests
     [Trait("Category", TestCategories.FAST)]
     public class BasicFunctionality
     {
+        private readonly Pbkdf2Core core = new();
+
         [Fact]
         public void DeriveKey_WithValidParameters_ReturnsCorrectLength()
         {
@@ -30,7 +33,7 @@ public class Pbkdf2CoreTests
 
             // Act
             // Use allowWeakParameters=true for lower iteration count in unit tests to keep them fast
-            var key = Pbkdf2Core.DeriveKey(password, salt, TEST_ITERATIONS, OUTPUT_LEN, HashAlgorithmName.SHA256, allowWeakParameters: true);
+            var key = core.DeriveKey(password, salt, TEST_ITERATIONS, OUTPUT_LEN, HashAlgorithmName.SHA256, allowWeakParameters: true);
 
             // Assert
             Assert.Equal(OUTPUT_LEN, key.Length);
@@ -44,8 +47,8 @@ public class Pbkdf2CoreTests
             var salt = Encoding.UTF8.GetBytes("salt1234");
 
             // Act
-            var key1 = Pbkdf2Core.DeriveKey(password, salt, TEST_ITERATIONS, OUTPUT_LEN, HashAlgorithmName.SHA256, allowWeakParameters: true);
-            var key2 = Pbkdf2Core.DeriveKey(password, salt, TEST_ITERATIONS, OUTPUT_LEN, HashAlgorithmName.SHA256, allowWeakParameters: true);
+            var key1 = core.DeriveKey(password, salt, TEST_ITERATIONS, OUTPUT_LEN, HashAlgorithmName.SHA256, allowWeakParameters: true);
+            var key2 = core.DeriveKey(password, salt, TEST_ITERATIONS, OUTPUT_LEN, HashAlgorithmName.SHA256, allowWeakParameters: true);
 
             // Assert
             CryptoAssertions.AssertBytesEqual(key1, key2);
@@ -60,8 +63,8 @@ public class Pbkdf2CoreTests
             var salt2 = Encoding.UTF8.GetBytes("salt5678");
 
             // Act
-            var key1 = Pbkdf2Core.DeriveKey(password, salt1, TEST_ITERATIONS, OUTPUT_LEN, HashAlgorithmName.SHA256, allowWeakParameters: true);
-            var key2 = Pbkdf2Core.DeriveKey(password, salt2, TEST_ITERATIONS, OUTPUT_LEN, HashAlgorithmName.SHA256, allowWeakParameters: true);
+            var key1 = core.DeriveKey(password, salt1, TEST_ITERATIONS, OUTPUT_LEN, HashAlgorithmName.SHA256, allowWeakParameters: true);
+            var key2 = core.DeriveKey(password, salt2, TEST_ITERATIONS, OUTPUT_LEN, HashAlgorithmName.SHA256, allowWeakParameters: true);
 
             // Assert
             Assert.NotEqual(key1, key2);
@@ -70,7 +73,7 @@ public class Pbkdf2CoreTests
         [Fact]
         public void GetRecommendedParameters_ReturnsValidParams()
         {
-            var p = Pbkdf2Core.GetRecommendedParameters(Pbkdf2UseCase.PasswordStorage);
+            var p = core.GetRecommendedParameters(Pbkdf2UseCase.PasswordStorage);
             Assert.NotNull(p);
             Assert.Equal(HashAlgorithmName.SHA256, p.HashAlgorithm);
         }
@@ -83,6 +86,8 @@ public class Pbkdf2CoreTests
     [Trait("Category", TestCategories.FAST)]
     public class EdgeCases
     {
+        private readonly Pbkdf2Core core = new();
+
         [Fact]
         public void DeriveKey_EmptyPassword_Success_WhenWeakParamsAllowed()
         {
@@ -91,7 +96,7 @@ public class Pbkdf2CoreTests
             var salt = Encoding.UTF8.GetBytes("salt1234");
 
             // Act
-            var key = Pbkdf2Core.DeriveKey(password, salt, TEST_ITERATIONS, OUTPUT_LEN, HashAlgorithmName.SHA256, allowWeakParameters: true);
+            var key = core.DeriveKey(password, salt, TEST_ITERATIONS, OUTPUT_LEN, HashAlgorithmName.SHA256, allowWeakParameters: true);
 
             // Assert
             Assert.Equal(OUTPUT_LEN, key.Length);
@@ -105,14 +110,16 @@ public class Pbkdf2CoreTests
     [Trait("Category", TestCategories.FAST)]
     public class Security
     {
+        private readonly Pbkdf2Core core = new();
+
         [Fact]
         public void DeriveKey_CorrectPassword_Matches()
         {
             var password = Encoding.UTF8.GetBytes("test_password");
             var salt = Encoding.UTF8.GetBytes("salt1234");
 
-            var key1 = Pbkdf2Core.DeriveKey(password, salt, TEST_ITERATIONS, OUTPUT_LEN, HashAlgorithmName.SHA256, allowWeakParameters: true);
-            var key2 = Pbkdf2Core.DeriveKey(password, salt, TEST_ITERATIONS, OUTPUT_LEN, HashAlgorithmName.SHA256, allowWeakParameters: true);
+            var key1 = core.DeriveKey(password, salt, TEST_ITERATIONS, OUTPUT_LEN, HashAlgorithmName.SHA256, allowWeakParameters: true);
+            var key2 = core.DeriveKey(password, salt, TEST_ITERATIONS, OUTPUT_LEN, HashAlgorithmName.SHA256, allowWeakParameters: true);
 
             CryptoAssertions.AssertBytesEqual(key1, key2);
         }
@@ -124,8 +131,8 @@ public class Pbkdf2CoreTests
             var wrongPassword = Encoding.UTF8.GetBytes("wrong_password");
             var salt = Encoding.UTF8.GetBytes("salt1234");
 
-            var key1 = Pbkdf2Core.DeriveKey(password, salt, TEST_ITERATIONS, OUTPUT_LEN, HashAlgorithmName.SHA256, allowWeakParameters: true);
-            var key2 = Pbkdf2Core.DeriveKey(wrongPassword, salt, TEST_ITERATIONS, OUTPUT_LEN, HashAlgorithmName.SHA256, allowWeakParameters: true);
+            var key1 = core.DeriveKey(password, salt, TEST_ITERATIONS, OUTPUT_LEN, HashAlgorithmName.SHA256, allowWeakParameters: true);
+            var key2 = core.DeriveKey(wrongPassword, salt, TEST_ITERATIONS, OUTPUT_LEN, HashAlgorithmName.SHA256, allowWeakParameters: true);
 
             Assert.NotEqual(key1, key2);
         }
@@ -136,7 +143,7 @@ public class Pbkdf2CoreTests
             var password = Encoding.UTF8.GetBytes("test_password");
             var salt = Encoding.UTF8.GetBytes("salt1234");
 
-            var key = Pbkdf2Core.DeriveKey(password, salt, TEST_ITERATIONS, OUTPUT_LEN, HashAlgorithmName.SHA256, allowWeakParameters: true);
+            var key = core.DeriveKey(password, salt, TEST_ITERATIONS, OUTPUT_LEN, HashAlgorithmName.SHA256, allowWeakParameters: true);
 
             CryptoAssertions.AssertAppearsRandom(key);
         }
@@ -147,8 +154,8 @@ public class Pbkdf2CoreTests
             var password = Encoding.UTF8.GetBytes("test_password");
             var salt = Encoding.UTF8.GetBytes("salt1234");
 
-            var key256 = Pbkdf2Core.DeriveKey(password, salt, TEST_ITERATIONS, OUTPUT_LEN, HashAlgorithmName.SHA256, allowWeakParameters: true);
-            var key512 = Pbkdf2Core.DeriveKey(password, salt, TEST_ITERATIONS, OUTPUT_LEN, HashAlgorithmName.SHA512, allowWeakParameters: true);
+            var key256 = core.DeriveKey(password, salt, TEST_ITERATIONS, OUTPUT_LEN, HashAlgorithmName.SHA256, allowWeakParameters: true);
+            var key512 = core.DeriveKey(password, salt, TEST_ITERATIONS, OUTPUT_LEN, HashAlgorithmName.SHA512, allowWeakParameters: true);
 
             Assert.NotEqual(key256, key512);
         }
@@ -161,6 +168,8 @@ public class Pbkdf2CoreTests
     [Trait("Category", TestCategories.FAST)]
     public class ParameterValidation
     {
+        private readonly Pbkdf2Core core = new();
+
         [Fact]
         public void DeriveKey_LowIterations_ThrowsArgumentException_UnlessWeakParamsAllowed()
         {
@@ -169,10 +178,10 @@ public class Pbkdf2CoreTests
 
             // Should throw if weak params not allowed (default iterations check)
             Assert.Throws<ArgumentException>(() =>
-                Pbkdf2Core.DeriveKey(password, salt, 1000, OUTPUT_LEN, HashAlgorithmName.SHA256, allowWeakParameters: false));
+                core.DeriveKey(password, salt, 1000, OUTPUT_LEN, HashAlgorithmName.SHA256, allowWeakParameters: false));
 
             // Should NOT throw if weak params allowed
-            var key = Pbkdf2Core.DeriveKey(password, salt, 1000, OUTPUT_LEN, HashAlgorithmName.SHA256, allowWeakParameters: true);
+            var key = core.DeriveKey(password, salt, 1000, OUTPUT_LEN, HashAlgorithmName.SHA256, allowWeakParameters: true);
             Assert.NotNull(key);
         }
 
@@ -183,7 +192,7 @@ public class Pbkdf2CoreTests
             var salt = new byte[2]; // Too short
 
             Assert.Throws<ArgumentException>(() =>
-                Pbkdf2Core.DeriveKey(password, salt, TEST_ITERATIONS, OUTPUT_LEN, HashAlgorithmName.SHA256, allowWeakParameters: false));
+                core.DeriveKey(password, salt, TEST_ITERATIONS, OUTPUT_LEN, HashAlgorithmName.SHA256, allowWeakParameters: false));
         }
 
         [Fact]
@@ -193,7 +202,7 @@ public class Pbkdf2CoreTests
             var salt = Encoding.UTF8.GetBytes("salt1234");
 
             Assert.Throws<ArgumentException>(() =>
-                Pbkdf2Core.DeriveKey(password, salt, TEST_ITERATIONS, 0, HashAlgorithmName.SHA256, allowWeakParameters: true));
+                core.DeriveKey(password, salt, TEST_ITERATIONS, 0, HashAlgorithmName.SHA256, allowWeakParameters: true));
         }
     }
 
@@ -207,6 +216,8 @@ public class Pbkdf2CoreTests
     [Trait("Category", TestCategories.FAST)]
     public class KnownAnswerTests
     {
+        private readonly Pbkdf2Core core = new(SecurityPolicyOptions.Testing);
+
         [Fact]
         public void Rfc6070_TestVector1_1Iteration()
         {
@@ -220,7 +231,7 @@ public class Pbkdf2CoreTests
             var salt = Encoding.UTF8.GetBytes("salt");
             var expected = TestHelpers.HexToBytes("0c60c80f961f0e71f3a9b524af6012062fe037a6");
 
-            var result = Pbkdf2Core.DeriveKey(password, salt, 1, 20, HashAlgorithmName.SHA1, allowWeakParameters: true);
+            var result = core.DeriveKey(password, salt, 1, 20, HashAlgorithmName.SHA1, allowWeakParameters: true);
 
             CryptoAssertions.AssertBytesEqual(expected, result);
         }
@@ -238,7 +249,7 @@ public class Pbkdf2CoreTests
             var salt = Encoding.UTF8.GetBytes("salt");
             var expected = TestHelpers.HexToBytes("ea6c014dc72d6f8ccd1ed92ace1d41f0d8de8957");
 
-            var result = Pbkdf2Core.DeriveKey(password, salt, 2, 20, HashAlgorithmName.SHA1, allowWeakParameters: true);
+            var result = core.DeriveKey(password, salt, 2, 20, HashAlgorithmName.SHA1, allowWeakParameters: true);
 
             CryptoAssertions.AssertBytesEqual(expected, result);
         }
@@ -256,7 +267,7 @@ public class Pbkdf2CoreTests
             var salt = Encoding.UTF8.GetBytes("salt");
             var expected = TestHelpers.HexToBytes("4b007901b765489abead49d926f721d065a429c1");
 
-            var result = Pbkdf2Core.DeriveKey(password, salt, 4096, 20, HashAlgorithmName.SHA1, allowWeakParameters: true);
+            var result = core.DeriveKey(password, salt, 4096, 20, HashAlgorithmName.SHA1, allowWeakParameters: true);
 
             CryptoAssertions.AssertBytesEqual(expected, result);
         }
@@ -288,7 +299,7 @@ public class Pbkdf2CoreTests
             var salt = Encoding.UTF8.GetBytes("saltSALTsaltSALTsaltSALTsaltSALTsalt");
             var expected = TestHelpers.HexToBytes("3d2eec4fe41c849b80c8d83662c0e44a8b291a964cf2f07038");
 
-            var result = Pbkdf2Core.DeriveKey(password, salt, 4096, 25, HashAlgorithmName.SHA1, allowWeakParameters: true);
+            var result = core.DeriveKey(password, salt, 4096, 25, HashAlgorithmName.SHA1, allowWeakParameters: true);
 
             CryptoAssertions.AssertBytesEqual(expected, result);
         }
@@ -306,7 +317,7 @@ public class Pbkdf2CoreTests
             var salt = Encoding.UTF8.GetBytes("sa\0lt");
             var expected = TestHelpers.HexToBytes("56fa6aa75548099dcc37d7f03425e0c3");
 
-            var result = Pbkdf2Core.DeriveKey(password, salt, 4096, 16, HashAlgorithmName.SHA1, allowWeakParameters: true);
+            var result = core.DeriveKey(password, salt, 4096, 16, HashAlgorithmName.SHA1, allowWeakParameters: true);
 
             CryptoAssertions.AssertBytesEqual(expected, result);
         }

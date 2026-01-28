@@ -32,13 +32,17 @@ namespace HeroCrypt.Primitives.Ecdsa;
 /// </example>
 public sealed class EcdsaBuilder : IDisposable
 {
+    private readonly EcdsaCore core;
     private ECParameters? keyParameters;
     private byte[]? data;
     private byte[]? hash;
     private byte[]? signature;
     private bool disposed;
 
-    private EcdsaBuilder() { }
+    private EcdsaBuilder(SecurityPolicyOptions? policy = null)
+    {
+        core = new EcdsaCore(policy);
+    }
 
     /// <summary>
     /// Creates a new ECDSA builder instance.
@@ -65,7 +69,7 @@ public sealed class EcdsaBuilder : IDisposable
     {
         Curve = curve;
         // Update default hash algorithm to match curve
-        HashAlgorithm = EcdsaCore.GetRecommendedHashAlgorithm((int)curve);
+        HashAlgorithm = core.GetRecommendedHashAlgorithm((int)curve);
         return this;
     }
 
@@ -103,7 +107,7 @@ public sealed class EcdsaBuilder : IDisposable
         ArgumentHelper.ThrowIfNull(x);
         ArgumentHelper.ThrowIfNull(y);
 
-        keyParameters = EcdsaCore.CreateParameters((int)Curve, d, x, y);
+        keyParameters = core.CreateParameters((int)Curve, d, x, y);
         return this;
     }
 
@@ -118,7 +122,7 @@ public sealed class EcdsaBuilder : IDisposable
         ArgumentHelper.ThrowIfNull(x);
         ArgumentHelper.ThrowIfNull(y);
 
-        keyParameters = EcdsaCore.CreatePublicKeyParameters((int)Curve, x, y);
+        keyParameters = core.CreatePublicKeyParameters((int)Curve, x, y);
         return this;
     }
 
@@ -223,7 +227,7 @@ public sealed class EcdsaBuilder : IDisposable
     public ECParameters GenerateKeyPair()
     {
         ArgumentHelper.ThrowIfDisposed(disposed, this);
-        var parameters = EcdsaCore.GenerateKeyPair((int)Curve);
+        var parameters = core.GenerateKeyPair((int)Curve);
         keyParameters = parameters;
         return parameters;
     }
@@ -238,7 +242,7 @@ public sealed class EcdsaBuilder : IDisposable
     {
         ArgumentHelper.ThrowIfDisposed(disposed, this);
         ValidateKeyParameters();
-        return EcdsaCore.ExtractPublicKey(keyParameters!.Value);
+        return core.ExtractPublicKey(keyParameters!.Value);
     }
 
     /// <summary>
@@ -255,11 +259,11 @@ public sealed class EcdsaBuilder : IDisposable
 
         if (hash != null)
         {
-            return EcdsaCore.SignHash(hash, keyParameters!.Value);
+            return core.SignHash(hash, keyParameters!.Value);
         }
 
         ValidateData();
-        return EcdsaCore.SignData(data!, keyParameters!.Value, HashAlgorithm);
+        return core.SignData(data!, keyParameters!.Value, HashAlgorithm);
     }
 
     /// <summary>
@@ -285,7 +289,7 @@ public sealed class EcdsaBuilder : IDisposable
             hashToSign = ComputeHash(data!);
         }
 
-        return EcdsaCore.SignHashRaw(hashToSign, keyParameters!.Value);
+        return core.SignHashRaw(hashToSign, keyParameters!.Value);
     }
 
     /// <summary>
@@ -302,11 +306,11 @@ public sealed class EcdsaBuilder : IDisposable
 
         if (hash != null)
         {
-            return EcdsaCore.VerifyHash(hash, signature!, keyParameters!.Value);
+            return core.VerifyHash(hash, signature!, keyParameters!.Value);
         }
 
         ValidateData();
-        return EcdsaCore.VerifyData(data!, signature!, keyParameters!.Value, HashAlgorithm);
+        return core.VerifyData(data!, signature!, keyParameters!.Value, HashAlgorithm);
     }
 
     /// <summary>
@@ -333,7 +337,7 @@ public sealed class EcdsaBuilder : IDisposable
             hashToVerify = ComputeHash(data!);
         }
 
-        return EcdsaCore.VerifyHashRaw(hashToVerify, r, s, keyParameters!.Value);
+        return core.VerifyHashRaw(hashToVerify, r, s, keyParameters!.Value);
     }
 
     /// <summary>

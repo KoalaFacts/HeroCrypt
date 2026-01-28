@@ -25,6 +25,8 @@ public class AesSivCoreTests
     [Trait("Category", TestCategories.FAST)]
     public class BasicFunctionality
     {
+        private readonly AesSivCore core = new();
+
         [Fact]
         public void EncryptDecrypt_RoundTrip_Success()
         {
@@ -34,8 +36,8 @@ public class AesSivCoreTests
             var plaintext = TestHelpers.RandomBytes(TestDataSizes.Medium);
 
             // Act
-            var result = AesSivCore.Encrypt(plaintext, key, nonce);
-            var decrypted = AesSivCore.Decrypt(result.Ciphertext, key, result.Nonce);
+            var result = core.Encrypt(plaintext, key, nonce);
+            var decrypted = core.Decrypt(result.Ciphertext, key, result.Nonce);
 
             // Assert
             Assert.Equal(plaintext.Length + SIV_SIZE, result.Ciphertext.Length);
@@ -52,8 +54,8 @@ public class AesSivCoreTests
             var associatedData = TestHelpers.RandomBytes(TestDataSizes.Small);
 
             // Act
-            var result = AesSivCore.Encrypt(plaintext, key, nonce, associatedData);
-            var decrypted = AesSivCore.Decrypt(result.Ciphertext, key, result.Nonce, associatedData);
+            var result = core.Encrypt(plaintext, key, nonce, associatedData);
+            var decrypted = core.Decrypt(result.Ciphertext, key, result.Nonce, associatedData);
 
             // Assert
             Assert.Equal(plaintext.Length + SIV_SIZE, result.Ciphertext.Length);
@@ -68,8 +70,8 @@ public class AesSivCoreTests
             var nonce = TestHelpers.RandomBytes(DEFAULT_NONCE_SIZE);
             var plaintext = TestHelpers.RandomBytes(TestDataSizes.Medium);
 
-            var result1 = AesSivCore.Encrypt(plaintext, key, nonce);
-            var result2 = AesSivCore.Encrypt(plaintext, key, nonce);
+            var result1 = core.Encrypt(plaintext, key, nonce);
+            var result2 = core.Encrypt(plaintext, key, nonce);
 
             CryptoAssertions.AssertBytesEqual(result1.Ciphertext, result2.Ciphertext);
         }
@@ -82,6 +84,8 @@ public class AesSivCoreTests
     [Trait("Category", TestCategories.FAST)]
     public class EdgeCases
     {
+        private readonly AesSivCore core = new();
+
         [Fact]
         public void Encrypt_EmptyPlaintext_ReturnsSivAsTag()
         {
@@ -91,8 +95,8 @@ public class AesSivCoreTests
             var plaintext = Array.Empty<byte>();
 
             // Act
-            var result = AesSivCore.Encrypt(plaintext, key, nonce);
-            var decrypted = AesSivCore.Decrypt(result.Ciphertext, key, result.Nonce);
+            var result = core.Encrypt(plaintext, key, nonce);
+            var decrypted = core.Decrypt(result.Ciphertext, key, result.Nonce);
 
             // Assert
             Assert.Equal(SIV_SIZE, result.Ciphertext.Length);
@@ -109,8 +113,8 @@ public class AesSivCoreTests
             var pt1 = TestHelpers.RandomBytes(32);
             var pt2 = TestHelpers.RandomBytes(32); // Different
 
-            var result1 = AesSivCore.Encrypt(pt1, key, nonce);
-            var result2 = AesSivCore.Encrypt(pt2, key, nonce);
+            var result1 = core.Encrypt(pt1, key, nonce);
+            var result2 = core.Encrypt(pt2, key, nonce);
 
             // Ciphertexts should be different
             Assert.NotEqual(result1.Ciphertext, result2.Ciphertext);
@@ -126,8 +130,8 @@ public class AesSivCoreTests
             var plaintext = TestHelpers.RandomBytes(TestDataSizes.VeryLarge);
 
             // Act
-            var result = AesSivCore.Encrypt(plaintext, key, nonce);
-            var decrypted = AesSivCore.Decrypt(result.Ciphertext, key, result.Nonce);
+            var result = core.Encrypt(plaintext, key, nonce);
+            var decrypted = core.Decrypt(result.Ciphertext, key, result.Nonce);
 
             // Assert
             Assert.Equal(plaintext.Length + SIV_SIZE, result.Ciphertext.Length);
@@ -142,6 +146,8 @@ public class AesSivCoreTests
     [Trait("Category", TestCategories.FAST)]
     public class Security
     {
+        private readonly AesSivCore core = new();
+
         [Fact]
         public void Decrypt_ModifiedCiphertext_ThrowsCryptographicException()
         {
@@ -150,7 +156,7 @@ public class AesSivCoreTests
             var nonce = TestHelpers.RandomBytes(DEFAULT_NONCE_SIZE);
             var plaintext = TestHelpers.RandomBytes(TestDataSizes.Medium);
 
-            var result = AesSivCore.Encrypt(plaintext, key, nonce);
+            var result = core.Encrypt(plaintext, key, nonce);
 
             // Act - Tamper with ciphertext (after SIV block)
             var tamperedCiphertext = (byte[])result.Ciphertext.Clone();
@@ -158,7 +164,7 @@ public class AesSivCoreTests
 
             // Assert
             Assert.Throws<CryptographicException>(() =>
-                AesSivCore.Decrypt(tamperedCiphertext, key, result.Nonce));
+                core.Decrypt(tamperedCiphertext, key, result.Nonce));
         }
 
         [Fact]
@@ -169,7 +175,7 @@ public class AesSivCoreTests
             var nonce = TestHelpers.RandomBytes(DEFAULT_NONCE_SIZE);
             var plaintext = TestHelpers.RandomBytes(TestDataSizes.Medium);
 
-            var result = AesSivCore.Encrypt(plaintext, key, nonce);
+            var result = core.Encrypt(plaintext, key, nonce);
 
             // Act - Tamper with SIV (header)
             var tamperedCiphertext = (byte[])result.Ciphertext.Clone();
@@ -177,7 +183,7 @@ public class AesSivCoreTests
 
             // Assert
             Assert.Throws<CryptographicException>(() =>
-                AesSivCore.Decrypt(tamperedCiphertext, key, result.Nonce));
+                core.Decrypt(tamperedCiphertext, key, result.Nonce));
         }
 
         [Fact]
@@ -189,14 +195,14 @@ public class AesSivCoreTests
             var plaintext = TestHelpers.RandomBytes(TestDataSizes.Medium);
             var associatedData = TestHelpers.RandomBytes(TestDataSizes.Small);
 
-            var result = AesSivCore.Encrypt(plaintext, key, nonce, associatedData);
+            var result = core.Encrypt(plaintext, key, nonce, associatedData);
 
             // Act - Tamper with AD
             var tamperedAD = TestHelpers.TamperFirst(associatedData);
 
             // Assert
             Assert.Throws<CryptographicException>(() =>
-                AesSivCore.Decrypt(result.Ciphertext, key, result.Nonce, tamperedAD));
+                core.Decrypt(result.Ciphertext, key, result.Nonce, tamperedAD));
         }
     }
 
@@ -207,6 +213,8 @@ public class AesSivCoreTests
     [Trait("Category", TestCategories.FAST)]
     public class ParameterValidation
     {
+        private readonly AesSivCore core = new();
+
         [Fact]
         public void Encrypt_InvalidKeySize_ThrowsArgumentException()
         {
@@ -215,7 +223,7 @@ public class AesSivCoreTests
             var plaintext = new byte[10];
 
             CryptoAssertions.AssertExceptionContains<ArgumentException>(
-                () => AesSivCore.Encrypt(plaintext, invalidKey, nonce),
+                () => core.Encrypt(plaintext, invalidKey, nonce),
                 "Key must be");
         }
     }
@@ -228,6 +236,8 @@ public class AesSivCoreTests
     [Trait("Category", TestCategories.FAST)]
     public class KnownAnswerTests
     {
+        private readonly AesSivCore core = new();
+
         [Fact]
         public void Rfc5297_TestVector1()
         {
@@ -247,7 +257,7 @@ public class AesSivCoreTests
                 "40c02b9690c4dc04daef7f6afe5c");     // Ciphertext
 
             // Act - Use deterministic mode (no nonce) for RFC test vector
-            var result = AesSivCore.Encrypt(plaintext, key, default, associatedData, deterministicMode: true);
+            var result = core.Encrypt(plaintext, key, default, associatedData, deterministicMode: true);
 
             // Assert
             Assert.Equal(expectedCiphertext.Length, result.Ciphertext.Length);

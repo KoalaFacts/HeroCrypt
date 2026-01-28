@@ -31,6 +31,7 @@ public sealed class PgpMessageDecryptor : IDisposable
     private string? passphrase;
     private int maxDecompressedSize = PgpPacketReader.DefaultMaxPacketSize;
     private bool disposed;
+    private SecurityPolicyOptions securityPolicy = SecurityPolicyOptions.Default;
 
     private PgpMessageDecryptor()
     {
@@ -41,6 +42,30 @@ public sealed class PgpMessageDecryptor : IDisposable
     /// </summary>
     /// <returns>A new PgpMessageDecryptor instance.</returns>
     public static PgpMessageDecryptor Create() => new();
+
+    /// <summary>
+    /// Sets the security policy for cryptographic validation.
+    /// </summary>
+    /// <param name="policy">The security policy to use.</param>
+    /// <returns>This decryptor for chaining.</returns>
+    public PgpMessageDecryptor WithSecurityPolicy(SecurityPolicyOptions policy)
+    {
+        ThrowIfDisposed();
+        securityPolicy = policy;
+        return this;
+    }
+
+    /// <summary>
+    /// Sets the security policy for cryptographic validation.
+    /// </summary>
+    /// <param name="configure">Function to configure the security policy.</param>
+    /// <returns>This decryptor for chaining.</returns>
+    public PgpMessageDecryptor WithSecurityPolicy(Func<SecurityPolicyOptions, SecurityPolicyOptions> configure)
+    {
+        ThrowIfDisposed();
+        securityPolicy = configure(SecurityPolicyOptions.Default);
+        return this;
+    }
 
     /// <summary>
     /// Adds a secret key ring for decryption.
@@ -443,7 +468,7 @@ public sealed class PgpMessageDecryptor : IDisposable
             else if (pkesk.Algorithm == PgpPublicKeyAlgorithm.X25519)
             {
                 // X25519 PKESK doesn't include algorithm byte, so we assume AES-256
-                byte[] sessionKey = PgpKeyEncryption.DecryptSessionKeyX25519(pkesk.EncryptedSessionKey.Span, secretKey);
+                byte[] sessionKey = PgpKeyEncryption.DecryptSessionKeyX25519(pkesk.EncryptedSessionKey.Span, secretKey, securityPolicy);
                 return (SymmetricCipherAlgorithm.Aes256, sessionKey);
             }
             else if (pkesk.Algorithm == PgpPublicKeyAlgorithm.Ecdh)
@@ -666,7 +691,8 @@ public sealed class PgpMessageDecryptor : IDisposable
 #else
         // Derive message key using HKDF
         byte[] info = [0x12, 0x02, (byte)seipd.CipherAlgorithm, (byte)seipd.AeadAlgorithm, seipd.ChunkSize];
-        byte[] messageKey = Hkdf.HkdfCore.DeriveKey(
+        var hkdf = new Hkdf.HkdfCore(securityPolicy);
+        byte[] messageKey = hkdf.DeriveKey(
             sessionKey,
             seipd.Salt.ToArray(),
             info,

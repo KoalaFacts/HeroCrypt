@@ -1891,7 +1891,8 @@ public class PgpKeyGeneratorTests
                 memoryExponent: 10);
 
             // Derive key using Argon2
-            var encryptionKey = S2KCore.Argon2S2K(
+            var core = new S2KCore();
+            var encryptionKey = core.Argon2S2K(
                 passphraseBytes,
                 salt,
                 timePasses: 1,

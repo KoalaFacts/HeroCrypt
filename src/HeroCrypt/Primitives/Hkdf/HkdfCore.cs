@@ -8,12 +8,23 @@ namespace HeroCrypt.Primitives.Hkdf;
 /// HKDF (HMAC-based Key Derivation Function) implementation
 /// RFC 5869 compliant implementation for extracting and expanding keys
 /// </summary>
-internal static class HkdfCore
+internal sealed class HkdfCore
 {
     /// <summary>
     /// Maximum output key material length for HKDF-Expand
     /// </summary>
     public const int MAX_OUTPUT_LENGTH = 255 * 64; // 255 * hash_len for SHA-512
+
+    private readonly SecurityPolicyOptions policy;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="HkdfCore"/> class with the specified security policy.
+    /// </summary>
+    /// <param name="policy">The security policy to use for validation. If null, uses <see cref="SecurityPolicyOptions.Default"/>.</param>
+    public HkdfCore(SecurityPolicyOptions? policy = null)
+    {
+        this.policy = policy ?? SecurityPolicyOptions.Default;
+    }
 
     /// <summary>
     /// Performs HKDF key derivation (Extract + Expand)
@@ -24,13 +35,16 @@ internal static class HkdfCore
     /// <param name="length">Length of output key material</param>
     /// <param name="hashAlgorithm">Hash algorithm to use</param>
     /// <returns>Derived key material</returns>
-    public static byte[] DeriveKey(
+    public byte[] DeriveKey(
         ReadOnlySpan<byte> ikm,
         ReadOnlySpan<byte> salt,
         ReadOnlySpan<byte> info,
         int length,
         HashAlgorithmName hashAlgorithm)
     {
+        // Validate hash algorithm against security policy (blocks SHA-1 at Standard+ level)
+        policy.ValidateHash(hashAlgorithm.Name ?? "Unknown");
+
         if (length <= 0)
         {
             throw new ArgumentException("Length must be positive", nameof(length));
@@ -43,12 +57,12 @@ internal static class HkdfCore
         }
 
         // Step 1: Extract
-        byte[] prk = Extract(ikm, salt, hashAlgorithm);
+        byte[] prk = ExtractInternal(ikm, salt, hashAlgorithm);
 
         try
         {
             // Step 2: Expand
-            return Expand(prk, info, length, hashAlgorithm);
+            return ExpandInternal(prk, info, length, hashAlgorithm);
         }
         finally
         {
@@ -64,11 +78,22 @@ internal static class HkdfCore
     /// <param name="salt">Salt value (optional)</param>
     /// <param name="hashAlgorithm">Hash algorithm to use</param>
     /// <returns>Pseudorandom key</returns>
-    public static byte[] Extract(ReadOnlySpan<byte> ikm, ReadOnlySpan<byte> salt, HashAlgorithmName hashAlgorithm)
+    public byte[] Extract(
+        ReadOnlySpan<byte> ikm,
+        ReadOnlySpan<byte> salt,
+        HashAlgorithmName hashAlgorithm)
     {
         // Validate hash algorithm against security policy (blocks SHA-1 at Standard+ level)
-        SecurityPolicy.ValidateHash(hashAlgorithm);
+        policy.ValidateHash(hashAlgorithm.Name ?? "Unknown");
 
+        return ExtractInternal(ikm, salt, hashAlgorithm);
+    }
+
+    /// <summary>
+    /// Internal Extract implementation without policy validation (called after validation at entry point)
+    /// </summary>
+    private static byte[] ExtractInternal(ReadOnlySpan<byte> ikm, ReadOnlySpan<byte> salt, HashAlgorithmName hashAlgorithm)
+    {
         if (ikm.IsEmpty)
         {
             throw new ArgumentException("Input key material cannot be empty", nameof(ikm));
@@ -102,11 +127,23 @@ internal static class HkdfCore
     /// <param name="length">Desired output length</param>
     /// <param name="hashAlgorithm">Hash algorithm to use</param>
     /// <returns>Output key material</returns>
-    public static byte[] Expand(ReadOnlySpan<byte> prk, ReadOnlySpan<byte> info, int length, HashAlgorithmName hashAlgorithm)
+    public byte[] Expand(
+        ReadOnlySpan<byte> prk,
+        ReadOnlySpan<byte> info,
+        int length,
+        HashAlgorithmName hashAlgorithm)
     {
         // Validate hash algorithm against security policy (blocks SHA-1 at Standard+ level)
-        SecurityPolicy.ValidateHash(hashAlgorithm);
+        policy.ValidateHash(hashAlgorithm.Name ?? "Unknown");
 
+        return ExpandInternal(prk, info, length, hashAlgorithm);
+    }
+
+    /// <summary>
+    /// Internal Expand implementation without policy validation (called after validation at entry point)
+    /// </summary>
+    private static byte[] ExpandInternal(ReadOnlySpan<byte> prk, ReadOnlySpan<byte> info, int length, HashAlgorithmName hashAlgorithm)
+    {
         if (prk.IsEmpty)
         {
             throw new ArgumentException("Pseudorandom key cannot be empty", nameof(prk));
@@ -214,6 +251,7 @@ internal static class HkdfCore
     /// <summary>
     /// Gets recommended parameters for common use cases
     /// </summary>
+    /// <param name="useCase">The use case to get parameters for.</param>
     /// <remarks>
     /// <para>
     /// The <see cref="HkdfUseCase.LegacyCompatibility"/> use case returns SHA-1 parameters
@@ -222,7 +260,7 @@ internal static class HkdfCore
     /// when legacy compatibility is required.
     /// </para>
     /// </remarks>
-    public static HkdfParameters GetRecommendedParameters(HkdfUseCase useCase)
+    public HkdfParameters GetRecommendedParameters(HkdfUseCase useCase)
     {
         var parameters = useCase switch
         {
@@ -253,7 +291,10 @@ internal static class HkdfCore
             _ => throw new ArgumentException($"Unknown use case: {useCase}", nameof(useCase))
         };
 
-        SecurityPolicy.ValidateHash(parameters.HashAlgorithm);
+        // Validate the hash algorithm against security policy
+        // This will throw SecurityPolicyException for SHA-1 at Standard+ level
+        policy.ValidateHash(parameters.HashAlgorithm.Name ?? "Unknown");
+
         return parameters;
     }
 }

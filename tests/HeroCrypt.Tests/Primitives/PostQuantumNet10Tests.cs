@@ -40,8 +40,8 @@ namespace HeroCrypt.Tests.Primitives;
 ///   </item>
 /// </list>
 /// <para>
-/// Tests automatically detect platform support using <c>MLKemCore.IsSupported()</c>
-/// and <c>MLDsaCore.IsSupported()</c> and skip gracefully on unsupported platforms.
+/// Tests automatically detect platform support using <c>new MLKemCore().IsSupported()</c>
+/// and <c>new MLDsaCore().IsSupported()</c> and skip gracefully on unsupported platforms.
 /// </para>
 /// <para>
 /// <b>Algorithms tested:</b>
@@ -65,7 +65,7 @@ public class PostQuantumNet10Tests
         {
             // This test documents platform support - result depends on platform
             // Just verify the call doesn't throw; actual support varies by OS/runtime
-            var isSupported = MLKemCore.IsSupported();
+            var isSupported = new MLKemCore().IsSupported();
             // Don't assert true/false - just verify it returns a valid boolean
             Assert.True(isSupported || !isSupported);
         }
@@ -73,13 +73,13 @@ public class PostQuantumNet10Tests
         [Fact]
         public void GenerateKeyPair_MLKem512_Success()
         {
-            if (!MLKemCore.IsSupported())
+            if (!new MLKemCore().IsSupported())
             {
                 // Skip test on platforms without PQC support
                 return;
             }
 
-            using var keyPair = MLKemCore.GenerateKeyPair(MLKemCore.SecurityLevel.MLKem512);
+            using var keyPair = new MLKemCore().GenerateKeyPair(MLKemCore.SecurityLevel.MLKem512);
 
             Assert.NotNull(keyPair);
             Assert.NotNull(keyPair.PublicKeyPem);
@@ -92,12 +92,12 @@ public class PostQuantumNet10Tests
         [Fact]
         public void GenerateKeyPair_MLKem768_Success()
         {
-            if (!MLKemCore.IsSupported())
+            if (!new MLKemCore().IsSupported())
             {
                 return;
             }
 
-            using var keyPair = MLKemCore.GenerateKeyPair(MLKemCore.SecurityLevel.MLKem768);
+            using var keyPair = new MLKemCore().GenerateKeyPair(MLKemCore.SecurityLevel.MLKem768);
 
             Assert.NotNull(keyPair);
             Assert.Equal(MLKemCore.SecurityLevel.MLKem768, keyPair.Level);
@@ -106,12 +106,12 @@ public class PostQuantumNet10Tests
         [Fact]
         public void GenerateKeyPair_MLKem1024_Success()
         {
-            if (!MLKemCore.IsSupported())
+            if (!new MLKemCore().IsSupported())
             {
                 return;
             }
 
-            using var keyPair = MLKemCore.GenerateKeyPair(MLKemCore.SecurityLevel.MLKem1024);
+            using var keyPair = new MLKemCore().GenerateKeyPair(MLKemCore.SecurityLevel.MLKem1024);
 
             Assert.NotNull(keyPair);
             Assert.Equal(MLKemCore.SecurityLevel.MLKem1024, keyPair.Level);
@@ -120,15 +120,15 @@ public class PostQuantumNet10Tests
         [Fact]
         public void EncapsulateDecapsulate_Success()
         {
-            if (!MLKemCore.IsSupported())
+            if (!new MLKemCore().IsSupported())
             {
                 return;
             }
 
-            using var keyPair = MLKemCore.GenerateKeyPair(MLKemCore.SecurityLevel.MLKem768);
+            using var keyPair = new MLKemCore().GenerateKeyPair(MLKemCore.SecurityLevel.MLKem768);
 
             // Encapsulate
-            using var result = MLKemCore.Encapsulate(keyPair.PublicKeyPem);
+            using var result = new MLKemCore().Encapsulate(keyPair.PublicKeyPem);
 
             Assert.NotNull(result.Ciphertext);
             Assert.NotNull(result.SharedSecret);
@@ -176,19 +176,19 @@ public class PostQuantumNet10Tests
         public void IsSupported_ReturnsExpectedValue()
         {
             // Result depends on platform - just verify the call doesn't throw
-            var isSupported = MLDsaCore.IsSupported();
+            var isSupported = new MLDsaCore().IsSupported();
             Assert.True(isSupported || !isSupported);
         }
 
         [Fact]
         public void GenerateKeyPair_MLDsa44_Success()
         {
-            if (!MLDsaCore.IsSupported())
+            if (!new MLDsaCore().IsSupported())
             {
                 return;
             }
 
-            using var keyPair = MLDsaCore.GenerateKeyPair(MLDsaCore.SecurityLevel.MLDsa44);
+            using var keyPair = new MLDsaCore().GenerateKeyPair(MLDsaCore.SecurityLevel.MLDsa44);
 
             Assert.NotNull(keyPair);
             Assert.NotNull(keyPair.PublicKeyPem);
@@ -199,12 +199,12 @@ public class PostQuantumNet10Tests
         [Fact]
         public void GenerateKeyPair_MLDsa65_Success()
         {
-            if (!MLDsaCore.IsSupported())
+            if (!new MLDsaCore().IsSupported())
             {
                 return;
             }
 
-            using var keyPair = MLDsaCore.GenerateKeyPair(MLDsaCore.SecurityLevel.MLDsa65);
+            using var keyPair = new MLDsaCore().GenerateKeyPair(MLDsaCore.SecurityLevel.MLDsa65);
 
             Assert.NotNull(keyPair);
             Assert.Equal(MLDsaCore.SecurityLevel.MLDsa65, keyPair.Level);
@@ -213,12 +213,12 @@ public class PostQuantumNet10Tests
         [Fact]
         public void GenerateKeyPair_MLDsa87_Success()
         {
-            if (!MLDsaCore.IsSupported())
+            if (!new MLDsaCore().IsSupported())
             {
                 return;
             }
 
-            using var keyPair = MLDsaCore.GenerateKeyPair(MLDsaCore.SecurityLevel.MLDsa87);
+            using var keyPair = new MLDsaCore().GenerateKeyPair(MLDsaCore.SecurityLevel.MLDsa87);
 
             Assert.NotNull(keyPair);
             Assert.Equal(MLDsaCore.SecurityLevel.MLDsa87, keyPair.Level);
@@ -227,12 +227,12 @@ public class PostQuantumNet10Tests
         [Fact]
         public void SignAndVerify_Success()
         {
-            if (!MLDsaCore.IsSupported())
+            if (!new MLDsaCore().IsSupported())
             {
                 return;
             }
 
-            using var keyPair = MLDsaCore.GenerateKeyPair(MLDsaCore.SecurityLevel.MLDsa65);
+            using var keyPair = new MLDsaCore().GenerateKeyPair(MLDsaCore.SecurityLevel.MLDsa65);
 
             var data = Encoding.UTF8.GetBytes("Hello, Post-Quantum World!");
 
@@ -243,24 +243,24 @@ public class PostQuantumNet10Tests
             Assert.True(signature.Length > 0);
 
             // Verify with correct data
-            var isValid = MLDsaCore.Verify(keyPair.PublicKeyPem, data, signature);
+            var isValid = new MLDsaCore().Verify(keyPair.PublicKeyPem, data, signature);
             Assert.True(isValid);
 
             // Verify with incorrect data
             var wrongData = Encoding.UTF8.GetBytes("Wrong data");
-            var isInvalid = MLDsaCore.Verify(keyPair.PublicKeyPem, wrongData, signature);
+            var isInvalid = new MLDsaCore().Verify(keyPair.PublicKeyPem, wrongData, signature);
             Assert.False(isInvalid);
         }
 
         [Fact]
         public void SignWithContext_Success()
         {
-            if (!MLDsaCore.IsSupported())
+            if (!new MLDsaCore().IsSupported())
             {
                 return;
             }
 
-            using var keyPair = MLDsaCore.GenerateKeyPair(MLDsaCore.SecurityLevel.MLDsa65);
+            using var keyPair = new MLDsaCore().GenerateKeyPair(MLDsaCore.SecurityLevel.MLDsa65);
 
             var data = Encoding.UTF8.GetBytes("Message with context");
             var context = Encoding.UTF8.GetBytes("test-context");
@@ -270,16 +270,16 @@ public class PostQuantumNet10Tests
             Assert.NotNull(signature);
 
             // Verify with correct context
-            var isValid = MLDsaCore.Verify(keyPair.PublicKeyPem, data, signature, context);
+            var isValid = new MLDsaCore().Verify(keyPair.PublicKeyPem, data, signature, context);
             Assert.True(isValid);
 
             // Verify without context should fail
-            var isInvalidNoContext = MLDsaCore.Verify(keyPair.PublicKeyPem, data, signature, null);
+            var isInvalidNoContext = new MLDsaCore().Verify(keyPair.PublicKeyPem, data, signature, null);
             Assert.False(isInvalidNoContext);
 
             // Verify with wrong context should fail
             var wrongContext = Encoding.UTF8.GetBytes("wrong-context");
-            var isInvalidWrongContext = MLDsaCore.Verify(keyPair.PublicKeyPem, data, signature, wrongContext);
+            var isInvalidWrongContext = new MLDsaCore().Verify(keyPair.PublicKeyPem, data, signature, wrongContext);
             Assert.False(isInvalidWrongContext);
         }
 
@@ -319,23 +319,23 @@ public class PostQuantumNet10Tests
         [Fact]
         public void IsSupported_ReturnsExpectedValue()
         {
-            if (!SlhDsaCore.IsSupported())
+            if (!new SlhDsaCore().IsSupported())
             {
                 return;
             }
 
-            Assert.True(SlhDsaCore.IsSupported());
+            Assert.True(new SlhDsaCore().IsSupported());
         }
 
         [Fact]
         public void GenerateKeyPair_128s_Success()
         {
-            if (!SlhDsaCore.IsSupported())
+            if (!new SlhDsaCore().IsSupported())
             {
                 return;
             }
 
-            using var keyPair = SlhDsaCore.GenerateKeyPair(SlhDsaCore.SecurityLevel.SlhDsa128s);
+            using var keyPair = new SlhDsaCore().GenerateKeyPair(SlhDsaCore.SecurityLevel.SlhDsa128s);
 
             Assert.NotNull(keyPair);
             Assert.NotNull(keyPair.PublicKeyPem);
@@ -346,7 +346,7 @@ public class PostQuantumNet10Tests
         [Fact]
         public void GenerateKeyPair_AllLevels_Success()
         {
-            if (!SlhDsaCore.IsSupported())
+            if (!new SlhDsaCore().IsSupported())
             {
                 return;
             }
@@ -363,7 +363,7 @@ public class PostQuantumNet10Tests
 
             foreach (var level in levels)
             {
-                using var keyPair = SlhDsaCore.GenerateKeyPair(level);
+                using var keyPair = new SlhDsaCore().GenerateKeyPair(level);
                 Assert.NotNull(keyPair);
                 Assert.Equal(level, keyPair.Level);
             }
@@ -372,12 +372,12 @@ public class PostQuantumNet10Tests
         [Fact]
         public void SignAndVerify_Success()
         {
-            if (!SlhDsaCore.IsSupported())
+            if (!new SlhDsaCore().IsSupported())
             {
                 return;
             }
 
-            using var keyPair = SlhDsaCore.GenerateKeyPair(SlhDsaCore.SecurityLevel.SlhDsa128s);
+            using var keyPair = new SlhDsaCore().GenerateKeyPair(SlhDsaCore.SecurityLevel.SlhDsa128s);
 
             var data = Encoding.UTF8.GetBytes("Hash-based signatures!");
 
@@ -388,12 +388,12 @@ public class PostQuantumNet10Tests
             Assert.True(signature.Length > 0);
 
             // Verify with correct data
-            var isValid = SlhDsaCore.Verify(keyPair.PublicKeyPem, data, signature);
+            var isValid = new SlhDsaCore().Verify(keyPair.PublicKeyPem, data, signature);
             Assert.True(isValid);
 
             // Verify with incorrect data
             var wrongData = Encoding.UTF8.GetBytes("Wrong data");
-            var isInvalid = SlhDsaCore.Verify(keyPair.PublicKeyPem, wrongData, signature);
+            var isInvalid = new SlhDsaCore().Verify(keyPair.PublicKeyPem, wrongData, signature);
             Assert.False(isInvalid);
         }
 
@@ -430,16 +430,16 @@ public class PostQuantumNet10Tests
         [Fact]
         public void HybridEncryption_MLKemWithAesGcm()
         {
-            if (!MLKemCore.IsSupported())
+            if (!new MLKemCore().IsSupported())
             {
                 return;
             }
 
             // Generate ML-KEM key pair
-            using var keyPair = MLKemCore.GenerateKeyPair(MLKemCore.SecurityLevel.MLKem768);
+            using var keyPair = new MLKemCore().GenerateKeyPair(MLKemCore.SecurityLevel.MLKem768);
 
             // Sender: Encapsulate to get shared secret
-            using var encResult = MLKemCore.Encapsulate(keyPair.PublicKeyPem);
+            using var encResult = new MLKemCore().Encapsulate(keyPair.PublicKeyPem);
 
             // Use shared secret as encryption key (demonstration)
             Assert.Equal(32, encResult.SharedSecret.Length);
@@ -455,7 +455,7 @@ public class PostQuantumNet10Tests
         [Fact]
         public void MultipleSignatureSchemes_DifferentSecurityLevels()
         {
-            if (!MLDsaCore.IsSupported() || !SlhDsaCore.IsSupported())
+            if (!new MLDsaCore().IsSupported() || !new SlhDsaCore().IsSupported())
             {
                 return;
             }
@@ -463,14 +463,14 @@ public class PostQuantumNet10Tests
             var data = Encoding.UTF8.GetBytes("Important document");
 
             // Sign with ML-DSA
-            using var mlDsaKey = MLDsaCore.GenerateKeyPair(MLDsaCore.SecurityLevel.MLDsa65);
+            using var mlDsaKey = new MLDsaCore().GenerateKeyPair(MLDsaCore.SecurityLevel.MLDsa65);
             var mlDsaSignature = mlDsaKey.Sign(data);
-            Assert.True(MLDsaCore.Verify(mlDsaKey.PublicKeyPem, data, mlDsaSignature));
+            Assert.True(new MLDsaCore().Verify(mlDsaKey.PublicKeyPem, data, mlDsaSignature));
 
             // Sign with SLH-DSA
-            using var slhDsaKey = SlhDsaCore.GenerateKeyPair(SlhDsaCore.SecurityLevel.SlhDsa128s);
+            using var slhDsaKey = new SlhDsaCore().GenerateKeyPair(SlhDsaCore.SecurityLevel.SlhDsa128s);
             var slhDsaSignature = slhDsaKey.Sign(data);
-            Assert.True(SlhDsaCore.Verify(slhDsaKey.PublicKeyPem, data, slhDsaSignature));
+            Assert.True(new SlhDsaCore().Verify(slhDsaKey.PublicKeyPem, data, slhDsaSignature));
 
             // Different algorithms produce different signatures
             Assert.NotEqual(mlDsaSignature.Length, slhDsaSignature.Length);
@@ -485,7 +485,7 @@ public class PostQuantumNet10Tests
         [Fact]
         public void MLKem_Success()
         {
-            if (!MLKemCore.IsSupported())
+            if (!new MLKemCore().IsSupported())
             {
                 return;
             }
@@ -517,7 +517,7 @@ public class PostQuantumNet10Tests
         [Fact]
         public void MLDsa_Success()
         {
-            if (!MLDsaCore.IsSupported())
+            if (!new MLDsaCore().IsSupported())
             {
                 return;
             }
@@ -550,7 +550,7 @@ public class PostQuantumNet10Tests
         [Fact]
         public void SlhDsa_Success()
         {
-            if (!SlhDsaCore.IsSupported())
+            if (!new SlhDsaCore().IsSupported())
             {
                 return;
             }
@@ -581,7 +581,7 @@ public class PostQuantumNet10Tests
         [Fact]
         public void QuickAccess_MLKem_Success()
         {
-            if (!MLKemCore.IsSupported())
+            if (!new MLKemCore().IsSupported())
             {
                 return;
             }
@@ -598,7 +598,7 @@ public class PostQuantumNet10Tests
         [Fact]
         public void QuickAccess_MLDsa_Success()
         {
-            if (!MLDsaCore.IsSupported())
+            if (!new MLDsaCore().IsSupported())
             {
                 return;
             }
@@ -609,7 +609,7 @@ public class PostQuantumNet10Tests
             var data = Encoding.UTF8.GetBytes("Quick access test");
             var signature = keyPair.Sign(data);
 
-            var isValid = MLDsaCore.Verify(
+            var isValid = new MLDsaCore().Verify(
                 keyPair.PublicKeyPem, data, signature);
             Assert.True(isValid);
         }
@@ -623,7 +623,7 @@ public class PostQuantumNet10Tests
         [Fact]
         public void MLKemBuilder_FluentAPI_Success()
         {
-            if (!MLKemCore.IsSupported())
+            if (!new MLKemCore().IsSupported())
             {
                 return;
             }
@@ -655,7 +655,7 @@ public class PostQuantumNet10Tests
         [Fact]
         public void MLKemBuilder_EncapsulateWithoutPublicKey_Throws()
         {
-            if (!MLKemCore.IsSupported())
+            if (!new MLKemCore().IsSupported())
             {
                 return;
             }
@@ -667,7 +667,7 @@ public class PostQuantumNet10Tests
         [Fact]
         public void MLDsaBuilder_FluentAPI_Success()
         {
-            if (!MLDsaCore.IsSupported())
+            if (!new MLDsaCore().IsSupported())
             {
                 return;
             }
@@ -700,7 +700,7 @@ public class PostQuantumNet10Tests
         [Fact]
         public void MLDsaBuilder_Verify_FailsWithDifferentContext()
         {
-            if (!MLDsaCore.IsSupported())
+            if (!new MLDsaCore().IsSupported())
             {
                 return;
             }
@@ -726,7 +726,7 @@ public class PostQuantumNet10Tests
         [Fact]
         public void SlhDsaBuilder_FluentAPI_SmallVariant_Success()
         {
-            if (!SlhDsaCore.IsSupported())
+            if (!new SlhDsaCore().IsSupported())
             {
                 return;
             }
@@ -758,7 +758,7 @@ public class PostQuantumNet10Tests
         [Fact]
         public void SlhDsaBuilder_VerifyFailsWhenDataTampered()
         {
-            if (!SlhDsaCore.IsSupported())
+            if (!new SlhDsaCore().IsSupported())
             {
                 return;
             }
@@ -787,7 +787,7 @@ public class PostQuantumNet10Tests
         [Fact]
         public void MLKem_ShorthandAPI_Success()
         {
-            if (!MLKemCore.IsSupported())
+            if (!new MLKemCore().IsSupported())
             {
                 return;
             }
@@ -804,7 +804,7 @@ public class PostQuantumNet10Tests
         [Fact]
         public void MLDsa_ShorthandAPI_Success()
         {
-            if (!MLDsaCore.IsSupported())
+            if (!new MLDsaCore().IsSupported())
             {
                 return;
             }
@@ -815,7 +815,7 @@ public class PostQuantumNet10Tests
             var data = Encoding.UTF8.GetBytes("Quick test");
             var signature = keyPair.Sign(data);
 
-            var isValid = MLDsaCore.Verify(keyPair.PublicKeyPem, data, signature);
+            var isValid = new MLDsaCore().Verify(keyPair.PublicKeyPem, data, signature);
             Assert.True(isValid);
         }
     }

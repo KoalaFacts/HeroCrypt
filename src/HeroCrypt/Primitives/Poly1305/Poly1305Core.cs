@@ -31,7 +31,7 @@ namespace HeroCrypt.Primitives.Poly1305;
 /// but would require careful implementation to avoid timing side channels.
 /// </para>
 /// </remarks>
-internal static class Poly1305Core
+internal sealed class Poly1305Core
 {
     /// <summary>
     /// Key size in bytes
@@ -53,13 +53,24 @@ internal static class Poly1305Core
     /// </summary>
     private static readonly BigInteger P = (BigInteger.One << 130) - 5;
 
+    private readonly SecurityPolicyOptions policy;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="Poly1305Core"/> class with the specified security policy.
+    /// </summary>
+    /// <param name="policy">The security policy to use for validation. If null, uses <see cref="SecurityPolicyOptions.Default"/>.</param>
+    public Poly1305Core(SecurityPolicyOptions? policy = null)
+    {
+        this.policy = policy ?? SecurityPolicyOptions.Default;
+    }
+
     /// <summary>
     /// Computes Poly1305 MAC for the given message
     /// </summary>
     /// <param name="tag">16-byte output tag</param>
     /// <param name="message">Message to authenticate</param>
     /// <param name="key">32-byte key</param>
-    public static void ComputeMac(Span<byte> tag, ReadOnlySpan<byte> message, ReadOnlySpan<byte> key)
+    public void ComputeMac(Span<byte> tag, ReadOnlySpan<byte> message, ReadOnlySpan<byte> key)
     {
         if (tag.Length != TAG_SIZE)
         {
@@ -146,7 +157,7 @@ internal static class Poly1305Core
     /// <param name="message">Message to verify</param>
     /// <param name="key">32-byte key</param>
     /// <returns>True if verification succeeds</returns>
-    public static bool VerifyMac(ReadOnlySpan<byte> tag, ReadOnlySpan<byte> message, ReadOnlySpan<byte> key)
+    public bool VerifyMac(ReadOnlySpan<byte> tag, ReadOnlySpan<byte> message, ReadOnlySpan<byte> key)
     {
         if (tag.Length != TAG_SIZE)
         {

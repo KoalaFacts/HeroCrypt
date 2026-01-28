@@ -30,11 +30,20 @@ public readonly struct ChaCha20Poly1305EncryptionResult
 /// ChaCha20-Poly1305 AEAD implementation according to RFC 8439
 /// Provides authenticated encryption with associated data
 /// </summary>
-internal static class ChaCha20Poly1305Core
+internal sealed class ChaCha20Poly1305Core
 {
+    private readonly SecurityPolicyOptions policy;
+    private readonly ChaCha20Core chaCha20Core;
+
     private const int KEY_SIZE = 32;
     private const int NONCE_SIZE = 12;
     private const int TAG_SIZE = 16;
+
+    public ChaCha20Poly1305Core(SecurityPolicyOptions? policy = null)
+    {
+        this.policy = policy ?? SecurityPolicyOptions.Default;
+        this.chaCha20Core = new ChaCha20Core(policy);
+    }
 
     /// <summary>
     /// Encrypts plaintext using ChaCha20-Poly1305.
@@ -45,7 +54,7 @@ internal static class ChaCha20Poly1305Core
     /// <param name="associatedData">Additional authenticated data. Default: empty.</param>
     /// <param name="deterministicMode">When true and nonce is empty, uses zero nonce (dangerous - only for testing). Default: false.</param>
     /// <returns>Encryption result containing ciphertext, nonce, and metadata.</returns>
-    public static ChaCha20Poly1305EncryptionResult Encrypt(
+    public ChaCha20Poly1305EncryptionResult Encrypt(
         ReadOnlySpan<byte> plaintext,
         ReadOnlySpan<byte> key,
         ReadOnlySpan<byte> nonce = default,
@@ -92,10 +101,10 @@ internal static class ChaCha20Poly1305Core
         // Generate Poly1305 key using ChaCha20 with counter=0
         Span<byte> poly1305Key = stackalloc byte[32];
         Span<byte> zeroBlock = stackalloc byte[32];
-        ChaCha20Core.Transform(poly1305Key, zeroBlock, key, nonceArray, 0);
+        chaCha20Core.Transform(poly1305Key, zeroBlock, key, nonceArray, 0);
 
         // Encrypt plaintext using ChaCha20 with counter=1
-        ChaCha20Core.Transform(ciphertextWithoutTag, plaintext, key, nonceArray, 1);
+        chaCha20Core.Transform(ciphertextWithoutTag, plaintext, key, nonceArray, 1);
 
         // Compute authentication tag
         ComputeTag(tag, associatedData, ciphertextWithoutTag, poly1305Key);
@@ -121,7 +130,7 @@ internal static class ChaCha20Poly1305Core
     /// <param name="associatedData">Additional authenticated data used during encryption. Default: empty.</param>
     /// <returns>The decrypted plaintext.</returns>
     /// <exception cref="CryptographicException">Thrown when authentication fails.</exception>
-    public static byte[] Decrypt(
+    public byte[] Decrypt(
         ReadOnlySpan<byte> ciphertext,
         ReadOnlySpan<byte> key,
         ReadOnlySpan<byte> nonce,
@@ -149,7 +158,7 @@ internal static class ChaCha20Poly1305Core
         // Generate Poly1305 key using ChaCha20 with counter=0
         Span<byte> poly1305Key = stackalloc byte[32];
         Span<byte> zeroBlock = stackalloc byte[32];
-        ChaCha20Core.Transform(poly1305Key, zeroBlock, key, nonce, 0);
+        chaCha20Core.Transform(poly1305Key, zeroBlock, key, nonce, 0);
 
         // Compute expected authentication tag
         Span<byte> expectedTag = stackalloc byte[TAG_SIZE];
@@ -170,7 +179,7 @@ internal static class ChaCha20Poly1305Core
         }
 
         // Decrypt ciphertext using ChaCha20 with counter=1
-        ChaCha20Core.Transform(plaintext, ciphertextWithoutTag, key, nonce, 1);
+        chaCha20Core.Transform(plaintext, ciphertextWithoutTag, key, nonce, 1);
 
         // Clear sensitive data
         SecureMemoryOperations.SecureClear(poly1305Key);
@@ -183,9 +192,10 @@ internal static class ChaCha20Poly1305Core
     /// Computes the Poly1305 authentication tag.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void ComputeTag(Span<byte> tag, ReadOnlySpan<byte> associatedData,
+    private void ComputeTag(Span<byte> tag, ReadOnlySpan<byte> associatedData,
         ReadOnlySpan<byte> ciphertext, ReadOnlySpan<byte> poly1305Key)
     {
-        Poly1305TagComputation.ComputeTag(tag, associatedData, ciphertext, poly1305Key);
+        var tagComputation = new Poly1305TagComputation(policy);
+        tagComputation.ComputeTag(tag, associatedData, ciphertext, poly1305Key);
     }
 }

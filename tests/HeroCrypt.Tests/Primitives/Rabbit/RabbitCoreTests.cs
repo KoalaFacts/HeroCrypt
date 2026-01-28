@@ -19,6 +19,8 @@ public class RabbitCoreTests
     [Trait("Category", TestCategories.FAST)]
     public class BasicFunctionality
     {
+        private readonly RabbitCore core = new();
+
         [Fact]
         public void Transform_WithValidParameters_Success()
         {
@@ -29,7 +31,7 @@ public class RabbitCoreTests
             var ciphertext = new byte[plaintext.Length];
 
             // Act
-            RabbitCore.Transform(ciphertext, plaintext, key, iv);
+            core.Transform(ciphertext, plaintext, key, iv);
 
             // Assert
             Assert.NotEqual(plaintext, ciphertext);
@@ -47,8 +49,8 @@ public class RabbitCoreTests
             var decrypted = new byte[plaintext.Length];
 
             // Act
-            RabbitCore.Transform(ciphertext, plaintext, key, iv);
-            RabbitCore.Transform(decrypted, ciphertext, key, iv);
+            core.Transform(ciphertext, plaintext, key, iv);
+            core.Transform(decrypted, ciphertext, key, iv);
 
             // Assert
             CryptoAssertions.AssertBytesEqual(plaintext, decrypted);
@@ -66,8 +68,8 @@ public class RabbitCoreTests
             var ciphertext2 = new byte[plaintext.Length];
 
             // Act
-            RabbitCore.Transform(ciphertext1, plaintext, key, iv1);
-            RabbitCore.Transform(ciphertext2, plaintext, key, iv2);
+            core.Transform(ciphertext1, plaintext, key, iv1);
+            core.Transform(ciphertext2, plaintext, key, iv2);
 
             // Assert
             Assert.NotEqual(ciphertext1, ciphertext2);
@@ -81,6 +83,8 @@ public class RabbitCoreTests
     [Trait("Category", TestCategories.FAST)]
     public class EdgeCases
     {
+        private readonly RabbitCore core = new();
+
         [Fact]
         public void Transform_EmptyInput_Succeeds()
         {
@@ -91,7 +95,7 @@ public class RabbitCoreTests
             var ciphertext = Array.Empty<byte>();
 
             // Act & Assert
-            RabbitCore.Transform(ciphertext, plaintext, key, iv);
+            core.Transform(ciphertext, plaintext, key, iv);
         }
 
         [Fact]
@@ -106,8 +110,8 @@ public class RabbitCoreTests
             var decrypted = new byte[plaintext.Length];
 
             // Act
-            RabbitCore.Transform(ciphertext, plaintext, key, iv);
-            RabbitCore.Transform(decrypted, ciphertext, key, iv);
+            core.Transform(ciphertext, plaintext, key, iv);
+            core.Transform(decrypted, ciphertext, key, iv);
 
             // Assert
             CryptoAssertions.AssertBytesEqual(plaintext, decrypted);
@@ -125,8 +129,8 @@ public class RabbitCoreTests
             var decrypted = new byte[plaintext.Length];
 
             // Act
-            RabbitCore.Transform(ciphertext, plaintext, key, iv);
-            RabbitCore.Transform(decrypted, ciphertext, key, iv);
+            core.Transform(ciphertext, plaintext, key, iv);
+            core.Transform(decrypted, ciphertext, key, iv);
 
             // Assert
             CryptoAssertions.AssertBytesEqual(plaintext, decrypted);
@@ -141,8 +145,8 @@ public class RabbitCoreTests
             var ciphertext = new byte[plaintext.Length];
             var decrypted = new byte[plaintext.Length];
 
-            RabbitCore.Transform(ciphertext, plaintext, key, iv);
-            RabbitCore.Transform(decrypted, ciphertext, key, iv);
+            core.Transform(ciphertext, plaintext, key, iv);
+            core.Transform(decrypted, ciphertext, key, iv);
 
             CryptoAssertions.AssertBytesEqual(plaintext, decrypted);
         }
@@ -155,6 +159,8 @@ public class RabbitCoreTests
     [Trait("Category", TestCategories.FAST)]
     public class Security
     {
+        private readonly RabbitCore core = new();
+
         [Fact]
         public void Transform_KeyIvReuse_ProducesSameKeystream()
         {
@@ -165,8 +171,8 @@ public class RabbitCoreTests
             var ciphertext1 = new byte[64];
             var ciphertext2 = new byte[64];
 
-            RabbitCore.Transform(ciphertext1, plaintext1, key, iv);
-            RabbitCore.Transform(ciphertext2, plaintext2, key, iv);
+            core.Transform(ciphertext1, plaintext1, key, iv);
+            core.Transform(ciphertext2, plaintext2, key, iv);
 
             // Same key/IV should produce same keystream
             // Decrypt first ciphertext with second keystream should equal second plaintext XOR first plaintext
@@ -191,8 +197,8 @@ public class RabbitCoreTests
             var ciphertext1 = new byte[64];
             var ciphertext2 = new byte[64];
 
-            RabbitCore.Transform(ciphertext1, plaintext, key1, iv);
-            RabbitCore.Transform(ciphertext2, plaintext, key2, iv);
+            core.Transform(ciphertext1, plaintext, key1, iv);
+            core.Transform(ciphertext2, plaintext, key2, iv);
 
             Assert.NotEqual(ciphertext1, ciphertext2);
         }
@@ -205,7 +211,7 @@ public class RabbitCoreTests
             var plaintext = new byte[64]; // All zeros
             var ciphertext = new byte[64];
 
-            RabbitCore.Transform(ciphertext, plaintext, key, iv);
+            core.Transform(ciphertext, plaintext, key, iv);
 
             CryptoAssertions.AssertAppearsRandom(ciphertext);
         }
@@ -222,8 +228,8 @@ public class RabbitCoreTests
             var ciphertext1 = new byte[64];
             var ciphertext2 = new byte[64];
 
-            RabbitCore.Transform(ciphertext1, plaintext, key1, iv);
-            RabbitCore.Transform(ciphertext2, plaintext, key2, iv);
+            core.Transform(ciphertext1, plaintext, key1, iv);
+            core.Transform(ciphertext2, plaintext, key2, iv);
 
             Assert.NotEqual(ciphertext1, ciphertext2);
 
@@ -245,6 +251,8 @@ public class RabbitCoreTests
     [Trait("Category", TestCategories.FAST)]
     public class ParameterValidation
     {
+        private readonly RabbitCore core = new();
+
         [Fact]
         public void Transform_InvalidKeySize_ThrowsArgumentException()
         {
@@ -254,7 +262,7 @@ public class RabbitCoreTests
             var ciphertext = new byte[10];
 
             CryptoAssertions.AssertExceptionContains<ArgumentException>(
-                () => RabbitCore.Transform(ciphertext, plaintext, invalidKey, iv),
+                () => core.Transform(ciphertext, plaintext, invalidKey, iv),
                 "16 bytes");
         }
 
@@ -267,7 +275,7 @@ public class RabbitCoreTests
             var ciphertext = new byte[10];
 
             CryptoAssertions.AssertExceptionContains<ArgumentException>(
-                () => RabbitCore.Transform(ciphertext, plaintext, key, invalidIv),
+                () => core.Transform(ciphertext, plaintext, key, invalidIv),
                 "8 bytes");
         }
     }
@@ -280,6 +288,8 @@ public class RabbitCoreTests
     [Trait("Category", TestCategories.FAST)]
     public class KnownAnswerTests
     {
+        private readonly RabbitCore core = new();
+
         [Fact]
         public void Rfc4503_TestVector1_ZeroKey_KeyOnlyMode()
         {
@@ -294,7 +304,7 @@ public class RabbitCoreTests
 
             var ciphertext = new byte[plaintext.Length];
 
-            RabbitCore.Transform(ciphertext, plaintext, key, iv);
+            core.Transform(ciphertext, plaintext, key, iv);
 
             CryptoAssertions.AssertBytesEqual(expectedCiphertext, ciphertext);
         }
@@ -313,7 +323,7 @@ public class RabbitCoreTests
 
             var ciphertext = new byte[plaintext.Length];
 
-            RabbitCore.Transform(ciphertext, plaintext, key, iv);
+            core.Transform(ciphertext, plaintext, key, iv);
 
             CryptoAssertions.AssertBytesEqual(expectedCiphertext, ciphertext);
         }

@@ -13,7 +13,7 @@ public static class PostQuantumExamples
     public static void RunAll()
     {
         Console.WriteLine("HeroCrypt Post-Quantum Examples");
-        if (!MLKemCore.IsSupported() && !MLDsaCore.IsSupported() && !SlhDsaCore.IsSupported())
+        if (!new MLKemCore().IsSupported() && !new MLDsaCore().IsSupported() && !new SlhDsaCore().IsSupported())
         {
             Console.WriteLine("PQC not supported on this platform (.NET 10+ with PQC-capable crypto is required).");
             return;

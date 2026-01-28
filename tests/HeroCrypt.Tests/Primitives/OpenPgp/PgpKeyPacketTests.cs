@@ -509,7 +509,8 @@ public class PgpKeyPacketTests
             var count = spec.GetIterationCount();
 
             Assert.True(count > 0);
-            Assert.Equal(S2KCore.DecodeIterationCount(224), count);
+            var core = new S2KCore();
+            Assert.Equal(core.DecodeIterationCount(224), count);
         }
 
         [Fact]

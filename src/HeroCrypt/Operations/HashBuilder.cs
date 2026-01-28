@@ -44,11 +44,21 @@ namespace HeroCrypt.Operations;
 public sealed class HashBuilder : IDisposable
 {
     private readonly SyncLock syncLock = new();
+    private readonly SecurityPolicyOptions securityPolicy;
     private HashingAlgorithm algorithm = HashingAlgorithm.Sha256;
     private byte[]? key;
     private int? outputLength;
     private bool allowLegacyAlgorithms;
     private bool disposed;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="HashBuilder"/> class.
+    /// </summary>
+    /// <param name="securityPolicy">Optional security policy. If null, uses <see cref="SecurityPolicyOptions.Default"/>.</param>
+    internal HashBuilder(SecurityPolicyOptions? securityPolicy = null)
+    {
+        this.securityPolicy = securityPolicy ?? SecurityPolicyOptions.Default;
+    }
 
     private void ThrowIfDisposed()
     {
@@ -478,14 +488,19 @@ public sealed class HashBuilder : IDisposable
         return ComputeHashToBase64Url(System.Text.Encoding.UTF8.GetBytes(data));
     }
 
-    private static byte[] Compute(byte[] data, HashingAlgorithm algorithm, int? outputLength)
+    private byte[] Compute(byte[] data, HashingAlgorithm algorithm, int? outputLength)
     {
+        // Use Testing policy when legacy algorithms are explicitly allowed
+        var effectivePolicy = allowLegacyAlgorithms ? SecurityPolicyOptions.Testing : securityPolicy;
+        var shaCore = new ShaCore(effectivePolicy);
+        var blake2bCore = new Blake2bCore(effectivePolicy);
+
         return algorithm switch
         {
             // SHA-2 Family
-            HashingAlgorithm.Sha256 => ShaCore.ComputeHashSha256(data),
-            HashingAlgorithm.Sha384 => ShaCore.ComputeHashSha384(data),
-            HashingAlgorithm.Sha512 => ShaCore.ComputeHashSha512(data),
+            HashingAlgorithm.Sha256 => shaCore.ComputeHashSha256(data),
+            HashingAlgorithm.Sha384 => shaCore.ComputeHashSha384(data),
+            HashingAlgorithm.Sha512 => shaCore.ComputeHashSha512(data),
 
             // SHA-3 Family (.NET 8+)
             HashingAlgorithm.Sha3_256 => ComputeSha3_256(data),
@@ -497,13 +512,13 @@ public sealed class HashBuilder : IDisposable
             HashingAlgorithm.Shake256 => ComputeShake256(data, outputLength ?? 64),
 
             // Blake Family
-            HashingAlgorithm.Blake2b256 => Blake2bCore.ComputeHash(data, outputLength: 32),
-            HashingAlgorithm.Blake2b512 => Blake2bCore.ComputeHash(data, outputLength: 64),
+            HashingAlgorithm.Blake2b256 => blake2bCore.ComputeHash(data, outputLength: 32),
+            HashingAlgorithm.Blake2b512 => blake2bCore.ComputeHash(data, outputLength: 64),
 
             // Legacy (suppress obsolete warning for internal switch - user already warned at builder method)
 #pragma warning disable CS0618
-            HashingAlgorithm.Sha1 => ShaCore.ComputeHashSha1(data),
-            HashingAlgorithm.Md5 => ShaCore.ComputeHashMd5(data),
+            HashingAlgorithm.Sha1 => shaCore.ComputeHashSha1(data),
+            HashingAlgorithm.Md5 => shaCore.ComputeHashMd5(data),
 #pragma warning restore CS0618
 
             // Not Implemented
@@ -517,14 +532,19 @@ public sealed class HashBuilder : IDisposable
         };
     }
 
-    private static byte[] ComputeKeyed(byte[] data, byte[] key, HashingAlgorithm algorithm)
+    private byte[] ComputeKeyed(byte[] data, byte[] key, HashingAlgorithm algorithm)
     {
+        // Use Testing policy when legacy algorithms are explicitly allowed
+        var effectivePolicy = allowLegacyAlgorithms ? SecurityPolicyOptions.Testing : securityPolicy;
+        var shaCore = new ShaCore(effectivePolicy);
+        var blake2bCore = new Blake2bCore(effectivePolicy);
+
         return algorithm switch
         {
             // SHA-2 Family HMAC
-            HashingAlgorithm.Sha256 => ShaCore.ComputeHashHmacSha256(data, key),
-            HashingAlgorithm.Sha384 => ShaCore.ComputeHashHmacSha384(data, key),
-            HashingAlgorithm.Sha512 => ShaCore.ComputeHashHmacSha512(data, key),
+            HashingAlgorithm.Sha256 => shaCore.ComputeHashHmacSha256(data, key),
+            HashingAlgorithm.Sha384 => shaCore.ComputeHashHmacSha384(data, key),
+            HashingAlgorithm.Sha512 => shaCore.ComputeHashHmacSha512(data, key),
 
             // SHA-3 does not have HMAC variants in .NET - use SHA-2 HMAC or Blake2b keyed
             HashingAlgorithm.Sha3_256 => throw new NotSupportedException($"Keyed hashing with {algorithm} is not supported. Use SHA-256 HMAC or Blake2b keyed mode instead."),
@@ -536,13 +556,13 @@ public sealed class HashBuilder : IDisposable
             HashingAlgorithm.Shake256 => throw new NotSupportedException($"Keyed hashing with {algorithm} is not supported."),
 
             // Blake Family (native keyed mode)
-            HashingAlgorithm.Blake2b256 => Blake2bCore.ComputeHash(data, outputLength: 32, key),
-            HashingAlgorithm.Blake2b512 => Blake2bCore.ComputeHash(data, outputLength: 64, key),
+            HashingAlgorithm.Blake2b256 => blake2bCore.ComputeHash(data, outputLength: 32, key),
+            HashingAlgorithm.Blake2b512 => blake2bCore.ComputeHash(data, outputLength: 64, key),
 
             // Legacy HMAC (suppress obsolete warning for internal switch - user already warned at builder method)
 #pragma warning disable CS0618
-            HashingAlgorithm.Sha1 => ShaCore.ComputeHashHmacSha1(data, key),
-            HashingAlgorithm.Md5 => ShaCore.ComputeHashHmacMd5(data, key),
+            HashingAlgorithm.Sha1 => shaCore.ComputeHashHmacSha1(data, key),
+            HashingAlgorithm.Md5 => shaCore.ComputeHashHmacMd5(data, key),
 #pragma warning restore CS0618
 
             // Not Implemented
@@ -560,46 +580,56 @@ public sealed class HashBuilder : IDisposable
     // Platform-Specific Implementations
     // ─────────────────────────────────────────────────────────────────────────
 
-    private static byte[] ComputeSha3_256(byte[] data)
+    private byte[] ComputeSha3_256(byte[] data)
     {
 #if NET8_0_OR_GREATER
-        return ShaCore.ComputeHashSha3_256(data);
+        var effectivePolicy = allowLegacyAlgorithms ? SecurityPolicyOptions.Testing : securityPolicy;
+        var shaCore = new ShaCore(effectivePolicy);
+        return shaCore.ComputeHashSha3_256(data);
 #else
         throw new PlatformNotSupportedException("SHA3-256 requires .NET 8 or later.");
 #endif
     }
 
-    private static byte[] ComputeSha3_384(byte[] data)
+    private byte[] ComputeSha3_384(byte[] data)
     {
 #if NET8_0_OR_GREATER
-        return ShaCore.ComputeHashSha3_384(data);
+        var effectivePolicy = allowLegacyAlgorithms ? SecurityPolicyOptions.Testing : securityPolicy;
+        var shaCore = new ShaCore(effectivePolicy);
+        return shaCore.ComputeHashSha3_384(data);
 #else
         throw new PlatformNotSupportedException("SHA3-384 requires .NET 8 or later.");
 #endif
     }
 
-    private static byte[] ComputeSha3_512(byte[] data)
+    private byte[] ComputeSha3_512(byte[] data)
     {
 #if NET8_0_OR_GREATER
-        return ShaCore.ComputeHashSha3_512(data);
+        var effectivePolicy = allowLegacyAlgorithms ? SecurityPolicyOptions.Testing : securityPolicy;
+        var shaCore = new ShaCore(effectivePolicy);
+        return shaCore.ComputeHashSha3_512(data);
 #else
         throw new PlatformNotSupportedException("SHA3-512 requires .NET 8 or later.");
 #endif
     }
 
-    private static byte[] ComputeShake128(byte[] data, int outputLength)
+    private byte[] ComputeShake128(byte[] data, int outputLength)
     {
 #if NET9_0_OR_GREATER
-        return ShaCore.ComputeHashShake128(data, outputLength);
+        var effectivePolicy = allowLegacyAlgorithms ? SecurityPolicyOptions.Testing : securityPolicy;
+        var shaCore = new ShaCore(effectivePolicy);
+        return shaCore.ComputeHashShake128(data, outputLength);
 #else
         throw new PlatformNotSupportedException("SHAKE128 requires .NET 9 or later.");
 #endif
     }
 
-    private static byte[] ComputeShake256(byte[] data, int outputLength)
+    private byte[] ComputeShake256(byte[] data, int outputLength)
     {
 #if NET9_0_OR_GREATER
-        return ShaCore.ComputeHashShake256(data, outputLength);
+        var effectivePolicy = allowLegacyAlgorithms ? SecurityPolicyOptions.Testing : securityPolicy;
+        var shaCore = new ShaCore(effectivePolicy);
+        return shaCore.ComputeHashShake256(data, outputLength);
 #else
         throw new PlatformNotSupportedException("SHAKE256 requires .NET 9 or later.");
 #endif

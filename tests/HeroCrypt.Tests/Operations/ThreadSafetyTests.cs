@@ -370,7 +370,7 @@ public class ThreadSafetyTests
         public void ConcurrentSign_Ed25519_WithSameBuilder_AllSucceed()
         {
             // Arrange
-            var (privateKey, _) = Ed25519Core.GenerateKeyPair();
+            var (privateKey, _) = new Ed25519Core().GenerateKeyPair();
             using var builder = HeroCryptBuilder.Sign()
                 .WithEd25519()
                 .WithPrivateKey(privateKey);
@@ -487,7 +487,7 @@ public class ThreadSafetyTests
         public void ConcurrentVerify_Ed25519_WithSameBuilder_AllSucceed()
         {
             // Arrange
-            var (privateKey, publicKey) = Ed25519Core.GenerateKeyPair();
+            var (privateKey, publicKey) = new Ed25519Core().GenerateKeyPair();
             var message = "Message to verify with Ed25519";
             var signature = HeroCryptBuilder.Sign()
                 .WithEd25519()

@@ -12,8 +12,20 @@ namespace HeroCrypt.Primitives.S2K;
 /// S2K specifiers are used to convert a passphrase into a symmetric key.
 /// Different types provide varying levels of security against brute-force attacks.
 /// </remarks>
-internal static class S2KCore
+internal sealed class S2KCore
 {
+    private readonly SecurityPolicyOptions policy;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="S2KCore"/> class with the specified security policy.
+    /// </summary>
+    /// <param name="policy">The security policy to use for validation. If null, uses <see cref="SecurityPolicyOptions.Default"/>.</param>
+    public S2KCore(SecurityPolicyOptions? policy = null)
+    {
+        this.policy = policy ?? SecurityPolicyOptions.Default;
+    }
+
+
     /// <summary>
     /// Default salt size in bytes (RFC 4880 S2K types 0-3).
     /// </summary>
@@ -41,8 +53,9 @@ internal static class S2KCore
     /// <param name="keySize">Desired key size in bytes.</param>
     /// <param name="hashAlgorithm">Hash algorithm to use.</param>
     /// <returns>Derived key material.</returns>
-    public static byte[] SimpleS2K(ReadOnlySpan<byte> password, int keySize, HashAlgorithmName hashAlgorithm)
+    public byte[] SimpleS2K(ReadOnlySpan<byte> password, int keySize, HashAlgorithmName hashAlgorithm)
     {
+        policy.ValidateHash(hashAlgorithm.Name ?? "Unknown");
         ValidateKeySize(keySize);
         return DeriveWithPrefix(password, keySize, hashAlgorithm);
     }
@@ -59,8 +72,9 @@ internal static class S2KCore
     /// <param name="keySize">Desired key size in bytes.</param>
     /// <param name="hashAlgorithm">Hash algorithm to use.</param>
     /// <returns>Derived key material.</returns>
-    public static byte[] SaltedS2K(ReadOnlySpan<byte> password, ReadOnlySpan<byte> salt, int keySize, HashAlgorithmName hashAlgorithm)
+    public byte[] SaltedS2K(ReadOnlySpan<byte> password, ReadOnlySpan<byte> salt, int keySize, HashAlgorithmName hashAlgorithm)
     {
+        policy.ValidateHash(hashAlgorithm.Name ?? "Unknown");
         ValidateKeySize(keySize);
         if (salt.Length != DEFAULT_SALT_SIZE)
         {
@@ -95,8 +109,9 @@ internal static class S2KCore
     /// <param name="keySize">Desired key size in bytes.</param>
     /// <param name="hashAlgorithm">Hash algorithm to use.</param>
     /// <returns>Derived key material.</returns>
-    public static byte[] IteratedS2K(ReadOnlySpan<byte> password, ReadOnlySpan<byte> salt, long count, int keySize, HashAlgorithmName hashAlgorithm)
+    public byte[] IteratedS2K(ReadOnlySpan<byte> password, ReadOnlySpan<byte> salt, long count, int keySize, HashAlgorithmName hashAlgorithm)
     {
+        policy.ValidateHash(hashAlgorithm.Name ?? "Unknown");
         ValidateKeySize(keySize);
         if (salt.Length != DEFAULT_SALT_SIZE)
         {
@@ -139,7 +154,7 @@ internal static class S2KCore
     /// <param name="memoryExponent">Memory exponent m where memory = 2^m KiB.</param>
     /// <param name="keySize">Desired key size in bytes.</param>
     /// <returns>Derived key material.</returns>
-    public static byte[] Argon2S2K(
+    public byte[] Argon2S2K(
         ReadOnlySpan<byte> password,
         ReadOnlySpan<byte> salt,
         byte timePasses,
@@ -147,6 +162,7 @@ internal static class S2KCore
         byte memoryExponent,
         int keySize)
     {
+        policy.ValidateKdf("ARGON2ID");
         ValidateKeySize(keySize);
 
         if (salt.Length != ARGON2_SALT_SIZE)
@@ -173,7 +189,8 @@ internal static class S2KCore
             throw new ArgumentException($"Memory exponent {memoryExponent} results in {memorySizeKiB} KiB which is less than minimum {8 * parallelism} KiB for parallelism {parallelism}.", nameof(memoryExponent));
         }
 
-        return Argon2Core.Hash(
+        var argon2 = new Argon2Core();
+        return argon2.Hash(
             password: password.ToArray(),
             salt: salt.ToArray(),
             iterations: timePasses,
@@ -188,7 +205,7 @@ internal static class S2KCore
     /// </summary>
     /// <param name="encodedCount">The encoded count byte (0-255).</param>
     /// <returns>The actual iteration count.</returns>
-    public static long DecodeIterationCount(byte encodedCount)
+    public long DecodeIterationCount(byte encodedCount)
     {
         // c = (16 + (c & 15)) << ((c >> 4) + 6)
         return (16L + (encodedCount & 15)) << ((encodedCount >> 4) + 6);
@@ -199,7 +216,7 @@ internal static class S2KCore
     /// </summary>
     /// <param name="count">The desired iteration count.</param>
     /// <returns>The encoded count byte.</returns>
-    public static byte EncodeIterationCount(long count)
+    public byte EncodeIterationCount(long count)
     {
         // Find the closest encoded value
         for (var c = 0; c <= 255; c++)
@@ -216,7 +233,7 @@ internal static class S2KCore
     /// Generates a random salt for S2K operations (8 bytes for types 0-3).
     /// </summary>
     /// <returns>An 8-byte random salt.</returns>
-    public static byte[] GenerateSalt()
+    public byte[] GenerateSalt()
     {
         var salt = new byte[DEFAULT_SALT_SIZE];
         using var rng = RandomNumberGenerator.Create();
@@ -228,7 +245,7 @@ internal static class S2KCore
     /// Generates a random salt for Argon2 S2K (16 bytes per RFC 9580).
     /// </summary>
     /// <returns>A 16-byte random salt.</returns>
-    public static byte[] GenerateArgon2Salt()
+    public byte[] GenerateArgon2Salt()
     {
         var salt = new byte[ARGON2_SALT_SIZE];
         using var rng = RandomNumberGenerator.Create();
@@ -241,7 +258,7 @@ internal static class S2KCore
     /// </summary>
     /// <param name="hashAlgorithm">OpenPGP hash algorithm ID.</param>
     /// <returns>The corresponding HashAlgorithmName.</returns>
-    public static HashAlgorithmName MapHashAlgorithm(HashingAlgorithm hashAlgorithm)
+    public HashAlgorithmName MapHashAlgorithm(HashingAlgorithm hashAlgorithm)
     {
 #pragma warning disable CS0618 // Suppress obsolete warning for OpenPGP compatibility
         return hashAlgorithm switch
@@ -261,7 +278,7 @@ internal static class S2KCore
     /// </summary>
     /// <param name="hashAlgorithm">The HashAlgorithmName.</param>
     /// <returns>The corresponding OpenPGP hash algorithm.</returns>
-    public static HashingAlgorithm GetHashingAlgorithm(HashAlgorithmName hashAlgorithm)
+    public HashingAlgorithm GetHashingAlgorithm(HashAlgorithmName hashAlgorithm)
     {
 #pragma warning disable CS0618 // Suppress obsolete warning for OpenPGP compatibility
         if (hashAlgorithm == HashAlgorithmName.MD5)
@@ -282,7 +299,7 @@ internal static class S2KCore
     /// <summary>
     /// Derives key using prefix expansion for keys longer than hash output.
     /// </summary>
-    private static byte[] DeriveWithPrefix(ReadOnlySpan<byte> data, int keySize, HashAlgorithmName hashAlgorithm)
+    private byte[] DeriveWithPrefix(ReadOnlySpan<byte> data, int keySize, HashAlgorithmName hashAlgorithm)
     {
         var hashSize = GetHashSize(hashAlgorithm);
         var result = new byte[keySize];
@@ -320,7 +337,7 @@ internal static class S2KCore
     /// <summary>
     /// Derives key using iterated hashing.
     /// </summary>
-    private static byte[] DeriveIteratedKey(byte[] combined, long count, int keySize, HashAlgorithmName hashAlgorithm)
+    private byte[] DeriveIteratedKey(byte[] combined, long count, int keySize, HashAlgorithmName hashAlgorithm)
     {
         var hashSize = GetHashSize(hashAlgorithm);
         var result = new byte[keySize];
@@ -360,7 +377,7 @@ internal static class S2KCore
         return result;
     }
 
-    private static byte[] HashData(byte[] data, HashAlgorithmName hashAlgorithm)
+    private byte[] HashData(byte[] data, HashAlgorithmName hashAlgorithm)
     {
         if (hashAlgorithm == HashAlgorithmName.SHA256)
         {
@@ -419,7 +436,7 @@ internal static class S2KCore
         throw new ArgumentException($"Unsupported hash algorithm: {hashAlgorithm}. Use SHA256, SHA384, SHA512, SHA1 (legacy), or MD5 (legacy).", nameof(hashAlgorithm));
     }
 
-    private static int GetHashSize(HashAlgorithmName hashAlgorithm)
+    private int GetHashSize(HashAlgorithmName hashAlgorithm)
     {
         if (hashAlgorithm == HashAlgorithmName.SHA256)
             return 32;
@@ -435,7 +452,7 @@ internal static class S2KCore
         throw new ArgumentException($"Unsupported hash algorithm: {hashAlgorithm}. Use SHA256, SHA384, SHA512, SHA1 (legacy), or MD5 (legacy).", nameof(hashAlgorithm));
     }
 
-    private static void ValidateKeySize(int keySize)
+    private void ValidateKeySize(int keySize)
     {
         if (keySize <= 0)
         {

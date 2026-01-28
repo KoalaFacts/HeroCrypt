@@ -10,7 +10,7 @@ namespace HeroCrypt.Primitives.AesCmac;
 /// RFC 4493 compliant
 /// Required component for AES-SIV (RFC 5297)
 /// </summary>
-internal static class AesCmacCore
+internal sealed class AesCmacCore
 {
     /// <summary>
     /// AES block size in bytes
@@ -22,13 +22,24 @@ internal static class AesCmacCore
     /// </summary>
     public static readonly int[] SupportedKeySizes = AesConstants.StandardKeySizes;
 
+    private readonly SecurityPolicyOptions policy;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="AesCmacCore"/> class with the specified security policy.
+    /// </summary>
+    /// <param name="policy">The security policy to use for validation. If null, uses <see cref="SecurityPolicyOptions.Default"/>.</param>
+    public AesCmacCore(SecurityPolicyOptions? policy = null)
+    {
+        this.policy = policy ?? SecurityPolicyOptions.Default;
+    }
+
     /// <summary>
     /// Computes AES-CMAC tag for given data
     /// </summary>
     /// <param name="tag">Output tag buffer (16 bytes)</param>
     /// <param name="data">Input data</param>
     /// <param name="key">AES key (16, 24, or 32 bytes)</param>
-    public static void ComputeTag(Span<byte> tag, ReadOnlySpan<byte> data, ReadOnlySpan<byte> key)
+    public void ComputeTag(Span<byte> tag, ReadOnlySpan<byte> data, ReadOnlySpan<byte> key)
     {
         if (tag.Length < BLOCK_SIZE)
         {
@@ -219,7 +230,7 @@ internal static class AesCmacCore
     /// <param name="data">Data that was authenticated</param>
     /// <param name="key">AES key</param>
     /// <returns>True if tag is valid</returns>
-    public static bool VerifyTag(ReadOnlySpan<byte> tag, ReadOnlySpan<byte> data, ReadOnlySpan<byte> key)
+    public bool VerifyTag(ReadOnlySpan<byte> tag, ReadOnlySpan<byte> data, ReadOnlySpan<byte> key)
     {
         if (tag.Length != BLOCK_SIZE)
         {

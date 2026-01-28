@@ -16,8 +16,17 @@ namespace HeroCrypt.Primitives.Ed25519;
 /// This is a pure managed implementation based on the TweetNaCl reference.
 /// </para>
 /// </remarks>
-internal static class Ed25519Core
+internal sealed class Ed25519Core
 {
+    private readonly SecurityPolicyOptions policy;
+    private readonly Ed25519Impl impl;
+
+    public Ed25519Core(SecurityPolicyOptions? policy = null)
+    {
+        this.policy = policy ?? SecurityPolicyOptions.Default;
+        this.impl = new Ed25519Impl(this.policy);
+    }
+
     /// <summary>
     /// Size of Ed25519 signatures in bytes (64 bytes as per RFC 8032)
     /// </summary>
@@ -37,7 +46,7 @@ internal static class Ed25519Core
     /// Generates a new Ed25519 key pair
     /// </summary>
     /// <returns>A tuple containing the private key (seed) and public key</returns>
-    public static (byte[] privateKey, byte[] publicKey) GenerateKeyPair()
+    public (byte[] privateKey, byte[] publicKey) GenerateKeyPair()
     {
         var privateKey = new byte[PRIVATE_KEY_SIZE];
         using var rng = RandomNumberGenerator.Create();
@@ -52,10 +61,10 @@ internal static class Ed25519Core
     /// </summary>
     /// <param name="privateKey">The private key seed (32 bytes)</param>
     /// <returns>The corresponding public key (32 bytes)</returns>
-    public static byte[] DerivePublicKey(ReadOnlySpan<byte> privateKey)
+    public byte[] DerivePublicKey(ReadOnlySpan<byte> privateKey)
     {
         ValidatePrivateKey(privateKey);
-        return Ed25519Impl.DerivePublicKey(privateKey.ToArray());
+        return impl.DerivePublicKey(privateKey.ToArray());
     }
 
     /// <summary>
@@ -64,10 +73,10 @@ internal static class Ed25519Core
     /// <param name="message">The message to sign</param>
     /// <param name="privateKey">The private key seed (32 bytes)</param>
     /// <returns>The signature (64 bytes)</returns>
-    public static byte[] Sign(ReadOnlySpan<byte> message, ReadOnlySpan<byte> privateKey)
+    public byte[] Sign(ReadOnlySpan<byte> message, ReadOnlySpan<byte> privateKey)
     {
         ValidatePrivateKey(privateKey);
-        return Ed25519Impl.Sign(message.ToArray(), privateKey.ToArray());
+        return impl.Sign(message.ToArray(), privateKey.ToArray());
     }
 
     /// <summary>
@@ -77,7 +86,7 @@ internal static class Ed25519Core
     /// <param name="signature">The signature to verify (64 bytes)</param>
     /// <param name="publicKey">The public key (32 bytes)</param>
     /// <returns>True if the signature is valid, false otherwise</returns>
-    public static bool Verify(ReadOnlySpan<byte> message, ReadOnlySpan<byte> signature, ReadOnlySpan<byte> publicKey)
+    public bool Verify(ReadOnlySpan<byte> message, ReadOnlySpan<byte> signature, ReadOnlySpan<byte> publicKey)
     {
         if (publicKey.Length != PUBLIC_KEY_SIZE)
         {
@@ -88,10 +97,10 @@ internal static class Ed25519Core
             throw new ArgumentException("Signature must be 64 bytes", nameof(signature));
         }
 
-        return Ed25519Impl.Verify(message.ToArray(), signature.ToArray(), publicKey.ToArray());
+        return impl.Verify(message.ToArray(), signature.ToArray(), publicKey.ToArray());
     }
 
-    private static void ValidatePrivateKey(ReadOnlySpan<byte> privateKey)
+    private void ValidatePrivateKey(ReadOnlySpan<byte> privateKey)
     {
         if (privateKey.Length != PRIVATE_KEY_SIZE)
         {
@@ -104,8 +113,16 @@ internal static class Ed25519Core
 /// Ed25519 implementation based on TweetNaCl reference implementation.
 /// Uses 64-bit limb representation for field elements.
 /// </summary>
-internal static class Ed25519Impl
+internal sealed class Ed25519Impl
 {
+#pragma warning disable IDE0052 // Remove unread private member - policy reserved for future security validation
+    private readonly SecurityPolicyOptions policy;
+#pragma warning restore IDE0052
+
+    public Ed25519Impl(SecurityPolicyOptions? policy = null)
+    {
+        this.policy = policy ?? SecurityPolicyOptions.Default;
+    }
     // Static readonly constants for Ed25519 curve (avoid allocation on every call)
     private static readonly long[] GfDConst =
     [
@@ -161,7 +178,7 @@ internal static class Ed25519Impl
     /// </summary>
     /// <param name="seed">The 32-byte seed to derive the public key from.</param>
     /// <returns>The 32-byte public key.</returns>
-    public static byte[] DerivePublicKey(byte[] seed)
+    public byte[] DerivePublicKey(byte[] seed)
     {
         var h = Sha512(seed);
         h[0] &= 248;
@@ -188,7 +205,7 @@ internal static class Ed25519Impl
     /// <param name="m">The message to sign.</param>
     /// <param name="sk">The 32-byte secret key (seed).</param>
     /// <returns>The 64-byte signature.</returns>
-    public static byte[] Sign(byte[] m, byte[] sk)
+    public byte[] Sign(byte[] m, byte[] sk)
     {
         var h = Sha512(sk);
         h[0] &= 248;
@@ -258,7 +275,7 @@ internal static class Ed25519Impl
     /// <param name="sm">The 64-byte signature to verify.</param>
     /// <param name="pk">The 32-byte public key.</param>
     /// <returns>True if the signature is valid; otherwise, false.</returns>
-    public static bool Verify(byte[] m, byte[] sm, byte[] pk)
+    public bool Verify(byte[] m, byte[] sm, byte[] pk)
     {
         var t = new byte[32];
         var p = new long[4][];
@@ -298,7 +315,7 @@ internal static class Ed25519Impl
         return true;
     }
 
-    private static void Set25519(long[] r, long[] a)
+    private void Set25519(long[] r, long[] a)
     {
         for (var i = 0; i < 16; i++)
         {
@@ -306,7 +323,7 @@ internal static class Ed25519Impl
         }
     }
 
-    private static void Car25519(long[] o)
+    private void Car25519(long[] o)
     {
         for (var i = 0; i < 16; i++)
         {
@@ -317,7 +334,7 @@ internal static class Ed25519Impl
         }
     }
 
-    private static void Sel25519(long[] p, long[] q, int b)
+    private void Sel25519(long[] p, long[] q, int b)
     {
         long c = ~(b - 1);
         for (var i = 0; i < 16; i++)
@@ -328,7 +345,7 @@ internal static class Ed25519Impl
         }
     }
 
-    private static void Pack25519(byte[] o, long[] n)
+    private void Pack25519(byte[] o, long[] n)
     {
         var m = new long[16];
         var t = new long[16];
@@ -363,7 +380,7 @@ internal static class Ed25519Impl
         }
     }
 
-    private static void Unpack25519(long[] o, byte[] n)
+    private void Unpack25519(long[] o, byte[] n)
     {
         for (var i = 0; i < 16; i++)
         {
@@ -372,7 +389,7 @@ internal static class Ed25519Impl
         o[15] &= 0x7FFF;
     }
 
-    private static void A(long[] o, long[] a, long[] b)
+    private void A(long[] o, long[] a, long[] b)
     {
         for (var i = 0; i < 16; i++)
         {
@@ -380,7 +397,7 @@ internal static class Ed25519Impl
         }
     }
 
-    private static void Z(long[] o, long[] a, long[] b)
+    private void Z(long[] o, long[] a, long[] b)
     {
         for (var i = 0; i < 16; i++)
         {
@@ -388,7 +405,7 @@ internal static class Ed25519Impl
         }
     }
 
-    private static void M(long[] o, long[] a, long[] b)
+    private void M(long[] o, long[] a, long[] b)
     {
         var t = new long[31];
 
@@ -419,12 +436,12 @@ internal static class Ed25519Impl
         Car25519(o);
     }
 
-    private static void S(long[] o, long[] a)
+    private void S(long[] o, long[] a)
     {
         M(o, a, a);
     }
 
-    private static void Inv25519(long[] o, long[] i)
+    private void Inv25519(long[] o, long[] i)
     {
         var c = new long[16];
         for (var a = 0; a < 16; a++)
@@ -447,7 +464,7 @@ internal static class Ed25519Impl
         }
     }
 
-    private static void Pow2523(long[] o, long[] i)
+    private void Pow2523(long[] o, long[] i)
     {
         var c = new long[16];
         for (var a = 0; a < 16; a++)
@@ -470,7 +487,7 @@ internal static class Ed25519Impl
         }
     }
 
-    private static void Pack(byte[] r, long[][] p)
+    private void Pack(byte[] r, long[][] p)
     {
         var tx = new long[16];
         var ty = new long[16];
@@ -484,14 +501,14 @@ internal static class Ed25519Impl
         r[31] ^= (byte)(Par25519(tx) << 7);
     }
 
-    private static int Par25519(long[] a)
+    private int Par25519(long[] a)
     {
         var d = new byte[32];
         Pack25519(d, a);
         return d[0] & 1;
     }
 
-    private static bool Unpackneg(long[][] r, byte[] p)
+    private bool Unpackneg(long[][] r, byte[] p)
     {
         var t = new long[16];
         var chk = new long[16];
@@ -543,7 +560,7 @@ internal static class Ed25519Impl
         return true;
     }
 
-    private static bool Neq25519(long[] a, long[] b)
+    private bool Neq25519(long[] a, long[] b)
     {
         var c = new byte[32];
         var d = new byte[32];
@@ -552,7 +569,7 @@ internal static class Ed25519Impl
         return CryptoVerify32(c, d);
     }
 
-    private static void Add(long[][] p, long[][] q)
+    private void Add(long[][] p, long[][] q)
     {
         var a = new long[16];
         var b = new long[16];
@@ -585,7 +602,7 @@ internal static class Ed25519Impl
         M(p[3], e, h);
     }
 
-    private static void Cswap(long[][] p, long[][] q, int b)
+    private void Cswap(long[][] p, long[][] q, int b)
     {
         for (var i = 0; i < 4; i++)
         {
@@ -593,7 +610,7 @@ internal static class Ed25519Impl
         }
     }
 
-    private static void Scalarbase(long[][] p, byte[] s)
+    private void Scalarbase(long[][] p, byte[] s)
     {
         var q = new long[4][];
         for (var i = 0; i < 4; i++)
@@ -609,7 +626,7 @@ internal static class Ed25519Impl
         Scalarmult(p, q, s);
     }
 
-    private static void Scalarmult(long[][] p, long[][] q, byte[] s)
+    private void Scalarmult(long[][] p, long[][] q, byte[] s)
     {
         Set25519(p[0], Gf0());
         Set25519(p[1], Gf1());
@@ -626,7 +643,7 @@ internal static class Ed25519Impl
         }
     }
 
-    private static void ModL(byte[] r, int roff, long[] x)
+    private void ModL(byte[] r, int roff, long[] x)
     {
         for (var i = 63; i >= 32; i--)
         {
@@ -661,7 +678,7 @@ internal static class Ed25519Impl
         }
     }
 
-    private static void Reduce(byte[] r)
+    private void Reduce(byte[] r)
     {
         var x = new long[64];
         for (var i = 0; i < 64; i++)
@@ -675,39 +692,39 @@ internal static class Ed25519Impl
         ModL(r, 0, x);
     }
 
-    private static long[] Gf0()
+    private long[] Gf0()
     {
         return new long[16];
     }
 
-    private static long[] Gf1()
+    private long[] Gf1()
     {
         var gf = new long[16];
         gf[0] = 1;
         return gf;
     }
 
-    private static long[] GfD()
+    private long[] GfD()
     {
         return (long[])GfDConst.Clone();
     }
 
-    private static long[] GfD2()
+    private long[] GfD2()
     {
         return (long[])GfD2Const.Clone();
     }
 
-    private static long[] GfX()
+    private long[] GfX()
     {
         return (long[])GfXConst.Clone();
     }
 
-    private static long[] GfY()
+    private long[] GfY()
     {
         return (long[])GfYConst.Clone();
     }
 
-    private static long[] GfI()
+    private long[] GfI()
     {
         return (long[])GfIConst.Clone();
     }
@@ -716,12 +733,12 @@ internal static class Ed25519Impl
     /// Performs constant-time comparison of two 32-byte arrays.
     /// Uses SecureMemoryOperations.ConstantTimeEquals for timing attack resistance.
     /// </summary>
-    private static bool CryptoVerify32(ReadOnlySpan<byte> x, ReadOnlySpan<byte> y)
+    private bool CryptoVerify32(ReadOnlySpan<byte> x, ReadOnlySpan<byte> y)
     {
         return SecureMemoryOperations.ConstantTimeEquals(x[..32], y[..32]);
     }
 
-    private static byte[] Sha512(byte[] m)
+    private byte[] Sha512(byte[] m)
     {
 #if NETSTANDARD2_0
         using var sha = SHA512.Create();
@@ -731,12 +748,12 @@ internal static class Ed25519Impl
 #endif
     }
 
-    private static void ClearArray(byte[] a)
+    private void ClearArray(byte[] a)
     {
         SecureMemoryOperations.SecureClear(a);
     }
 
-    private static void ClearLongArray(long[] a)
+    private void ClearLongArray(long[] a)
     {
         SecureMemoryOperations.SecureClear(a.AsSpan());
     }

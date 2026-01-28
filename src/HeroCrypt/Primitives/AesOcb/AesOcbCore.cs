@@ -32,14 +32,20 @@ public readonly struct AesOcbEncryptionResult
 /// NOTE: OCB is patented. While patents are royalty-free for open-source software,
 /// commercial use may require licensing. See RFC 7253 Section 1.5 for details.
 /// </remarks>
-internal static class AesOcbCore
+internal sealed class AesOcbCore
 {
+    private readonly SecurityPolicyOptions policy;
     private const int BLOCK_SIZE = AesConstants.BlockSize;
     private const int MIN_NONCE_SIZE = 1;
     private const int MAX_NONCE_SIZE = 15;
     private const int DEFAULT_NONCE_SIZE = 12;
     private const int TAG_SIZE = 16;
     private static readonly int[] SupportedKeySizes = AesConstants.StandardKeySizes;
+
+    public AesOcbCore(SecurityPolicyOptions? policy = null)
+    {
+        this.policy = policy ?? SecurityPolicyOptions.Default;
+    }
 
     /// <summary>
     /// Encrypts plaintext using AES-OCB.
@@ -50,7 +56,7 @@ internal static class AesOcbCore
     /// <param name="associatedData">Additional authenticated data. Default: empty.</param>
     /// <param name="deterministicMode">When true and nonce is empty, uses zero nonce (dangerous - only for testing). Default: false.</param>
     /// <returns>Encryption result containing ciphertext, nonce, and metadata.</returns>
-    public static AesOcbEncryptionResult Encrypt(
+    public AesOcbEncryptionResult Encrypt(
         ReadOnlySpan<byte> plaintext,
         ReadOnlySpan<byte> key,
         ReadOnlySpan<byte> nonce = default,
@@ -100,7 +106,7 @@ internal static class AesOcbCore
     /// <param name="associatedData">Additional authenticated data used during encryption. Default: empty.</param>
     /// <returns>The decrypted plaintext.</returns>
     /// <exception cref="CryptographicException">Thrown when authentication fails.</exception>
-    public static byte[] Decrypt(
+    public byte[] Decrypt(
         ReadOnlySpan<byte> ciphertext,
         ReadOnlySpan<byte> key,
         ReadOnlySpan<byte> nonce,
@@ -130,7 +136,7 @@ internal static class AesOcbCore
     /// <summary>
     /// Core encryption implementation.
     /// </summary>
-    private static int EncryptCore(
+    private int EncryptCore(
         Span<byte> ciphertext,
         ReadOnlySpan<byte> plaintext,
         ReadOnlySpan<byte> key,
@@ -256,7 +262,7 @@ internal static class AesOcbCore
     /// <summary>
     /// Core decryption implementation.
     /// </summary>
-    private static int DecryptCore(
+    private int DecryptCore(
         Span<byte> plaintext,
         ReadOnlySpan<byte> ciphertext,
         ReadOnlySpan<byte> key,
@@ -394,7 +400,7 @@ internal static class AesOcbCore
     /// Initializes the offset from nonce per RFC 7253
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void InitializeOffset(ICryptoTransform encryptor, Span<byte> offset, ReadOnlySpan<byte> nonce, ReadOnlySpan<byte> l_dollar, byte[] inputBuffer, byte[] outputBuffer)
+    private void InitializeOffset(ICryptoTransform encryptor, Span<byte> offset, ReadOnlySpan<byte> nonce, ReadOnlySpan<byte> l_dollar, byte[] inputBuffer, byte[] outputBuffer)
     {
         // Nonce = num2str(TAGLEN mod 128, 7) || zeros(120 - bitlen(N)) || 1 || N
         Span<byte> nonceBlock = stackalloc byte[BLOCK_SIZE];
@@ -449,7 +455,7 @@ internal static class AesOcbCore
     /// Computes the authentication tag per RFC 7253
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void ComputeTag(ICryptoTransform encryptor, Span<byte> tag, ReadOnlySpan<byte> offset,
+    private void ComputeTag(ICryptoTransform encryptor, Span<byte> tag, ReadOnlySpan<byte> offset,
         ReadOnlySpan<byte> checksum, ReadOnlySpan<byte> l_dollar, ReadOnlySpan<byte> associatedData, byte[] inputBuffer, byte[] outputBuffer)
     {
         // Process associated data
@@ -472,7 +478,7 @@ internal static class AesOcbCore
     /// Process associated data for authentication
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void ProcessAssociatedData(ICryptoTransform encryptor, Span<byte> auth, ReadOnlySpan<byte> associatedData, ReadOnlySpan<byte> l_dollar, byte[] inputBuffer, byte[] outputBuffer)
+    private void ProcessAssociatedData(ICryptoTransform encryptor, Span<byte> auth, ReadOnlySpan<byte> associatedData, ReadOnlySpan<byte> l_dollar, byte[] inputBuffer, byte[] outputBuffer)
     {
         if (associatedData.IsEmpty)
         {
@@ -546,7 +552,7 @@ internal static class AesOcbCore
     /// Gets L_i value per RFC 7253
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void GetL(Span<byte> l_i, ReadOnlySpan<byte> l_star, int i)
+    private void GetL(Span<byte> l_i, ReadOnlySpan<byte> l_star, int i)
     {
         // ntz(i) = number of trailing zeros in binary representation of i
         var ntz = 0;
@@ -570,7 +576,7 @@ internal static class AesOcbCore
     /// Doubles a block in GF(2^128) per RFC 7253
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void Double(Span<byte> output, ReadOnlySpan<byte> input)
+    private void Double(Span<byte> output, ReadOnlySpan<byte> input)
     {
         var carry = 0;
         for (var i = BLOCK_SIZE - 1; i >= 0; i--)
@@ -591,7 +597,7 @@ internal static class AesOcbCore
     /// XORs two blocks
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void XorBlock(Span<byte> output, ReadOnlySpan<byte> a, ReadOnlySpan<byte> b)
+    private void XorBlock(Span<byte> output, ReadOnlySpan<byte> a, ReadOnlySpan<byte> b)
     {
         for (var i = 0; i < BLOCK_SIZE; i++)
         {
@@ -603,7 +609,7 @@ internal static class AesOcbCore
     /// Encrypts a single block using AES-ECB
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void EncryptBlock(ICryptoTransform encryptor, Span<byte> output, ReadOnlySpan<byte> input, byte[] inputBuffer, byte[] outputBuffer)
+    private void EncryptBlock(ICryptoTransform encryptor, Span<byte> output, ReadOnlySpan<byte> input, byte[] inputBuffer, byte[] outputBuffer)
     {
         input.CopyTo(inputBuffer);
         encryptor.TransformBlock(inputBuffer, 0, BLOCK_SIZE, outputBuffer, 0);
@@ -614,7 +620,7 @@ internal static class AesOcbCore
     /// Decrypts a single block using AES-ECB
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void DecryptBlock(ICryptoTransform decryptor, Span<byte> output, ReadOnlySpan<byte> input, byte[] inputBuffer, byte[] outputBuffer)
+    private void DecryptBlock(ICryptoTransform decryptor, Span<byte> output, ReadOnlySpan<byte> input, byte[] inputBuffer, byte[] outputBuffer)
     {
         input.CopyTo(inputBuffer);
         decryptor.TransformBlock(inputBuffer, 0, BLOCK_SIZE, outputBuffer, 0);
@@ -624,7 +630,7 @@ internal static class AesOcbCore
     /// <summary>
     /// Validates parameters for AES-OCB.
     /// </summary>
-    private static void ValidateParameters(ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce, int ciphertextLength, int plaintextLength)
+    private void ValidateParameters(ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce, int ciphertextLength, int plaintextLength)
     {
         _ = ciphertextLength;
 
@@ -645,7 +651,7 @@ internal static class AesOcbCore
     /// <summary>
     /// Validates key and nonce parameters.
     /// </summary>
-    private static void ValidateParameters(ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce)
+    private void ValidateParameters(ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce)
     {
         if (!SupportedKeySizes.Contains(key.Length))
         {

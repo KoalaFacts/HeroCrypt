@@ -9,8 +9,19 @@ namespace HeroCrypt.Primitives.Argon2;
 /// Core implementation of the Argon2 password hashing algorithm
 /// Implements RFC 9106 specification for Argon2d, Argon2i, and Argon2id variants
 /// </summary>
-internal static class Argon2Core
+internal sealed class Argon2Core
 {
+    private readonly SecurityPolicyOptions policy;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="Argon2Core"/> class with the specified security policy.
+    /// </summary>
+    /// <param name="policy">The security policy to use for validation. If null, uses <see cref="SecurityPolicyOptions.Default"/>.</param>
+    public Argon2Core(SecurityPolicyOptions? policy = null)
+    {
+        this.policy = policy ?? SecurityPolicyOptions.Default;
+    }
+
     private const int BLOCK_SIZE = 1024;
     private const int VERSION = 0x13; // Argon2 VERSION 19
 
@@ -28,7 +39,7 @@ internal static class Argon2Core
     /// <param name="secret">Optional secret key</param>
     /// <returns>Computed hash as byte array</returns>
     /// <exception cref="ArgumentException">Thrown when parameters are invalid</exception>
-    public static byte[] Hash(
+    public byte[] Hash(
         byte[] password,
         byte[] salt,
         int iterations,
@@ -87,7 +98,7 @@ internal static class Argon2Core
         return ComputeHash(context);
     }
 
-    private static byte[] ComputeHash(Argon2Context context)
+    private byte[] ComputeHash(Argon2Context context)
     {
         // Calculate actual memory blocks - must be divisible by 4 * lanes
         var blocksPerLane = context.Memory / context.Lanes;
@@ -131,15 +142,17 @@ internal static class Argon2Core
     /// Initialize memory with first two blocks per lane
     /// RFC 9106 Section 3.2
     /// </summary>
-    private static void InitializeMemory(Argon2Context context, Block[] memory)
+    private void InitializeMemory(Argon2Context context, Block[] memory)
     {
+        var blake2bCore = new Blake2bCore(policy);
+
         // Calculate H_0 as per RFC 9106 Section 3.2
         var h0Input = BuildH0Input(context);
         byte[] h0;
 
         try
         {
-            h0 = Blake2bCore.ComputeHash(h0Input, 64);
+            h0 = blake2bCore.ComputeHash(h0Input, 64);
         }
         finally
         {
@@ -159,7 +172,7 @@ internal static class Argon2Core
             BinaryHelpers.WriteInt32LittleEndian(block0Input, h0.Length, 0);
             BinaryHelpers.WriteInt32LittleEndian(block0Input, h0.Length + 4, lane);
 
-            var block0Data = Blake2bCore.ComputeLongHash(block0Input, BLOCK_SIZE);
+            var block0Data = blake2bCore.ComputeLongHash(block0Input, BLOCK_SIZE);
             BytesToBlock(block0Data, memory[startIdx]);
             SecureMemoryOperations.SecureClear(block0Input);
             SecureMemoryOperations.SecureClear(block0Data);
@@ -170,7 +183,7 @@ internal static class Argon2Core
             BinaryHelpers.WriteInt32LittleEndian(block1Input, h0.Length, 1);
             BinaryHelpers.WriteInt32LittleEndian(block1Input, h0.Length + 4, lane);
 
-            var block1Data = Blake2bCore.ComputeLongHash(block1Input, BLOCK_SIZE);
+            var block1Data = blake2bCore.ComputeLongHash(block1Input, BLOCK_SIZE);
             BytesToBlock(block1Data, memory[startIdx + 1]);
             SecureMemoryOperations.SecureClear(block1Input);
             SecureMemoryOperations.SecureClear(block1Data);
@@ -185,7 +198,7 @@ internal static class Argon2Core
     ///               LE32(length(P)) || P || LE32(length(S)) || S ||
     ///               LE32(length(K)) || K || LE32(length(X)) || X)
     /// </summary>
-    private static byte[] BuildH0Input(Argon2Context context)
+    private byte[] BuildH0Input(Argon2Context context)
     {
         var length = 40 +
                      context.Password.Length +
@@ -250,7 +263,7 @@ internal static class Argon2Core
     /// Fill a segment of memory blocks
     /// RFC 9106 Section 3.4
     /// </summary>
-    private static void FillSegment(Argon2Context context, Block[] memory, int pass, int lane, int slice, int segmentLength)
+    private void FillSegment(Argon2Context context, Block[] memory, int pass, int lane, int slice, int segmentLength)
     {
         // Determine addressing mode
         var dataIndependentAddressing = context.Type == Argon2Type.Argon2i ||
@@ -385,7 +398,7 @@ internal static class Argon2Core
     /// IndexAlpha: Calculate block reference index
     /// RFC 9106 Section 3.4
     /// </summary>
-    private static int IndexAlpha(Argon2Context context, int pass, int lane, int slice, int index, uint pseudoRandom, bool sameLane)
+    private int IndexAlpha(Argon2Context context, int pass, int lane, int slice, int index, uint pseudoRandom, bool sameLane)
     {
         _ = lane;
 
@@ -458,7 +471,7 @@ internal static class Argon2Core
     /// FillBlock: Argon2 compression function
     /// RFC 9106 Section 3.4
     /// </summary>
-    private static void FillBlock(Block prevBlock, Block refBlock, Block nextBlock, bool withXor,
+    private void FillBlock(Block prevBlock, Block refBlock, Block nextBlock, bool withXor,
         Block blockR, Block blockZ, Block? originalNext, ulong[] permBuffer)
     {
         // Save original nextBlock content if needed for XOR
@@ -499,7 +512,7 @@ internal static class Argon2Core
     /// Apply Blake2b-based permutation P to a block
     /// RFC 9106 Section 3.4
     /// </summary>
-    private static void ApplyBlake2bPermutation(Block block, ulong[] tempBuffer)
+    private void ApplyBlake2bPermutation(Block block, ulong[] tempBuffer)
     {
         // Apply column-wise mixing (8 columns of 16 elements each)
         for (var col = 0; col < 8; col++)
@@ -542,7 +555,7 @@ internal static class Argon2Core
     /// Blake2b round function for 16 64-bit words
     /// This is the modified Blake2b round with Argon2's multiplication
     /// </summary>
-    private static void Blake2bRoundFunction(ulong[] v)
+    private void Blake2bRoundFunction(ulong[] v)
     {
         // Column step
         GB(v, 0, 4, 8, 12);
@@ -587,7 +600,7 @@ internal static class Argon2Core
     /// Generate addresses for data-independent addressing (Argon2i)
     /// RFC 9106 Section 3.4
     /// </summary>
-    private static void GenerateAddresses(Block input, Block zero, Block output,
+    private void GenerateAddresses(Block input, Block zero, Block output,
         Block blockR, Block blockZ, ulong[] permBuffer)
     {
         FillBlock(zero, input, output, false, blockR, blockZ, null, permBuffer);
@@ -595,8 +608,9 @@ internal static class Argon2Core
         input.Data[6]++; // Increment counter after generating addresses
     }
 
-    private static byte[] Finalize(Argon2Context context, Block[] memory)
+    private byte[] Finalize(Argon2Context context, Block[] memory)
     {
+        var blake2bCore = new Blake2bCore(policy);
         var blocksPerLane = context.Memory / context.Lanes;
         var finalBlock = new Block();
 
@@ -612,7 +626,7 @@ internal static class Argon2Core
         var finalBlockBytes = BlockToBytes(finalBlock);
         try
         {
-            return Blake2bCore.ComputeLongHash(finalBlockBytes, context.HashLength);
+            return blake2bCore.ComputeLongHash(finalBlockBytes, context.HashLength);
         }
         finally
         {
@@ -621,7 +635,7 @@ internal static class Argon2Core
         }
     }
 
-    private static byte[] BlockToBytes(Block block)
+    private byte[] BlockToBytes(Block block)
     {
         var bytes = new byte[1024];
         for (var i = 0; i < 128; i++)
@@ -631,7 +645,7 @@ internal static class Argon2Core
         return bytes;
     }
 
-    private static void BytesToBlock(byte[] bytes, Block block)
+    private void BytesToBlock(byte[] bytes, Block block)
     {
         for (var i = 0; i < 128; i++)
         {

@@ -24,6 +24,8 @@ public class Argon2CoreTests
     [Trait("Category", TestCategories.FAST)]
     public class BasicFunctionality
     {
+        private readonly Argon2Core core = new();
+
         [Fact]
         public void Hash_WithValidParameters_ReturnsCorrectLength()
         {
@@ -32,7 +34,7 @@ public class Argon2CoreTests
             var salt = TestHelpers.RandomBytes(16);
 
             // Act
-            var hash = Argon2Core.Hash(
+            var hash = core.Hash(
                 password,
                 salt,
                 ParamDefaults.Iterations,
@@ -54,8 +56,8 @@ public class Argon2CoreTests
             var salt = TestHelpers.RandomBytes(16);
 
             // Act
-            var hash1 = HashHelper(password, salt, ParamDefaults);
-            var hash2 = HashHelper(password, salt, ParamDefaults);
+            var hash1 = HashHelper(core, password, salt, ParamDefaults);
+            var hash2 = HashHelper(core, password, salt, ParamDefaults);
 
             // Assert
             CryptoAssertions.AssertBytesEqual(hash1, hash2);
@@ -70,8 +72,8 @@ public class Argon2CoreTests
             var salt2 = TestHelpers.RandomBytes(16);
 
             // Act
-            var hash1 = HashHelper(password, salt1, ParamDefaults);
-            var hash2 = HashHelper(password, salt2, ParamDefaults);
+            var hash1 = HashHelper(core, password, salt1, ParamDefaults);
+            var hash2 = HashHelper(core, password, salt2, ParamDefaults);
 
             // Assert
             Assert.NotEqual(hash1, hash2);
@@ -89,7 +91,7 @@ public class Argon2CoreTests
             var parameters = ParamDefaults with { Type = type };
 
             // Act
-            var hash = HashHelper(password, salt, parameters);
+            var hash = HashHelper(core, password, salt, parameters);
 
             // Assert
             Assert.Equal(parameters.HashLength, hash.Length);
@@ -103,16 +105,18 @@ public class Argon2CoreTests
     [Trait("Category", TestCategories.FAST)]
     public class Security
     {
+        private readonly Argon2Core core = new();
+
         [Fact]
         public void Verify_WithCorrectPassword_Succeeds()
         {
             // Arrange
             var password = TestHelpers.RandomBytes(TestDataSizes.Small);
             var salt = TestHelpers.RandomBytes(16);
-            var expected = HashHelper(password, salt, ParamDefaults);
+            var expected = HashHelper(core, password, salt, ParamDefaults);
 
             // Act
-            var actual = HashHelper(password, salt, ParamDefaults);
+            var actual = HashHelper(core, password, salt, ParamDefaults);
 
             // Assert
             CryptoAssertions.AssertBytesEqual(expected, actual);
@@ -125,10 +129,10 @@ public class Argon2CoreTests
             var password = TestHelpers.RandomBytes(TestDataSizes.Small);
             var wrongPassword = TestHelpers.TamperFirst(password);
             var salt = TestHelpers.RandomBytes(16);
-            var expected = HashHelper(password, salt, ParamDefaults);
+            var expected = HashHelper(core, password, salt, ParamDefaults);
 
             // Act
-            var actual = HashHelper(wrongPassword, salt, ParamDefaults);
+            var actual = HashHelper(core, wrongPassword, salt, ParamDefaults);
 
             // Assert
             Assert.NotEqual(expected, actual);
@@ -142,16 +146,18 @@ public class Argon2CoreTests
     [Trait("Category", TestCategories.FAST)]
     public class ParameterValidation
     {
+        private readonly Argon2Core core = new();
+
         [Fact]
         public void Hash_InvalidParameters_ThrowsArgumentException()
         {
             var password = Encoding.UTF8.GetBytes("password");
             var salt = TestHelpers.RandomBytes(16);
 
-            Assert.Throws<ArgumentException>(() => HashHelper(password, salt, ParamDefaults with { Iterations = 0 }));
-            Assert.Throws<ArgumentException>(() => HashHelper(password, salt, ParamDefaults with { MemorySizeKb = 0 }));
-            Assert.Throws<ArgumentException>(() => HashHelper(password, salt, ParamDefaults with { Parallelism = 0 }));
-            Assert.Throws<ArgumentException>(() => HashHelper(password, salt, ParamDefaults with { HashLength = 0 }));
+            Assert.Throws<ArgumentException>(() => HashHelper(core, password, salt, ParamDefaults with { Iterations = 0 }));
+            Assert.Throws<ArgumentException>(() => HashHelper(core, password, salt, ParamDefaults with { MemorySizeKb = 0 }));
+            Assert.Throws<ArgumentException>(() => HashHelper(core, password, salt, ParamDefaults with { Parallelism = 0 }));
+            Assert.Throws<ArgumentException>(() => HashHelper(core, password, salt, ParamDefaults with { HashLength = 0 }));
         }
     }
 
@@ -164,6 +170,8 @@ public class Argon2CoreTests
     [Trait("Category", TestCategories.FAST)]
     public class KnownAnswerTests
     {
+        private readonly Argon2Core core = new();
+
         [Fact]
         public void Rfc9106_AppendixA1_Argon2d()
         {
@@ -185,7 +193,7 @@ public class Argon2CoreTests
             };
             var expected = TestHelpers.HexToBytes("512b391b6f1162975371d30919734294f868e3be3984f3c1a13a4db9fabe4acb");
 
-            var result = Argon2Core.Hash(
+            var result = core.Hash(
                 password: password,
                 salt: salt,
                 iterations: 3,
@@ -220,7 +228,7 @@ public class Argon2CoreTests
             };
             var expected = TestHelpers.HexToBytes("c814d9d1dc7f37aa13f0d77f2494bda1c8de6b016dd388d29952a4c4672b6ce8");
 
-            var result = Argon2Core.Hash(
+            var result = core.Hash(
                 password: password,
                 salt: salt,
                 iterations: 3,
@@ -255,7 +263,7 @@ public class Argon2CoreTests
             };
             var expected = TestHelpers.HexToBytes("0d640df58d78766c08c037a34a8b53c9d01ef0452d75b65eb52520e96b01e659");
 
-            var result = Argon2Core.Hash(
+            var result = core.Hash(
                 password: password,
                 salt: salt,
                 iterations: 3,
@@ -271,8 +279,8 @@ public class Argon2CoreTests
     }
 
     // Helper for easier calling
-    private static byte[] HashHelper(byte[] password, byte[] salt, Argon2Parameters p) =>
-        Argon2Core.Hash(password, salt, p.Iterations, p.MemorySizeKb, p.Parallelism, p.HashLength, p.Type);
+    private static byte[] HashHelper(Argon2Core core, byte[] password, byte[] salt, Argon2Parameters p) =>
+        core.Hash(password, salt, p.Iterations, p.MemorySizeKb, p.Parallelism, p.HashLength, p.Type);
 
     private readonly record struct Argon2Parameters(
         int Iterations,

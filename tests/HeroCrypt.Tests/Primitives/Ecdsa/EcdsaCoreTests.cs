@@ -18,20 +18,22 @@ public class EcdsaCoreTests
     [Trait("Category", TestCategories.FAST)]
     public class KeyGenerationTests
     {
+        private readonly EcdsaCore core = new();
+
         [Theory]
         [InlineData(256)]
         [InlineData(384)]
         [InlineData(521)]
         public void GenerateKeyPair_SupportedCurves_Succeeds(int curveSizeBits)
         {
-            var parameters = EcdsaCore.GenerateKeyPair(curveSizeBits);
+            var parameters = core.GenerateKeyPair(curveSizeBits);
 
             Assert.NotNull(parameters.D);
             Assert.NotNull(parameters.Q.X);
             Assert.NotNull(parameters.Q.Y);
 
             // Verify expected sizes
-            var expectedCoordSize = EcdsaCore.GetCoordinateSize(curveSizeBits);
+            var expectedCoordSize = core.GetCoordinateSize(curveSizeBits);
             Assert.Equal(expectedCoordSize, parameters.Q.X.Length);
             Assert.Equal(expectedCoordSize, parameters.Q.Y.Length);
         }
@@ -39,14 +41,14 @@ public class EcdsaCoreTests
         [Fact]
         public void GenerateKeyPair_UnsupportedCurveSize_ThrowsArgumentException()
         {
-            Assert.Throws<ArgumentException>(() => EcdsaCore.GenerateKeyPair(128));
+            Assert.Throws<ArgumentException>(() => core.GenerateKeyPair(128));
         }
 
         [Fact]
         public void GenerateKeyPair_ProducesUniqueKeys()
         {
-            var params1 = EcdsaCore.GenerateKeyPair(256);
-            var params2 = EcdsaCore.GenerateKeyPair(256);
+            var params1 = core.GenerateKeyPair(256);
+            var params2 = core.GenerateKeyPair(256);
 
             Assert.NotEqual(params1.D, params2.D);
         }
@@ -59,22 +61,24 @@ public class EcdsaCoreTests
     [Trait("Category", TestCategories.FAST)]
     public class SignAndVerifyTests
     {
+        private readonly EcdsaCore core = new();
+
         [Theory]
         [InlineData(256)]
         [InlineData(384)]
         [InlineData(521)]
         public void SignAndVerifyData_AllCurves_RoundTrips(int curveSizeBits)
         {
-            var keyParams = EcdsaCore.GenerateKeyPair(curveSizeBits);
-            var hashAlgorithm = EcdsaCore.GetRecommendedHashAlgorithm(curveSizeBits);
+            var keyParams = core.GenerateKeyPair(curveSizeBits);
+            var hashAlgorithm = core.GetRecommendedHashAlgorithm(curveSizeBits);
 
-            var signature = EcdsaCore.SignData(TestMessage, keyParams, hashAlgorithm);
+            var signature = core.SignData(TestMessage, keyParams, hashAlgorithm);
 
             Assert.NotNull(signature);
             Assert.NotEmpty(signature);
 
-            var publicKeyParams = EcdsaCore.ExtractPublicKey(keyParams);
-            var isValid = EcdsaCore.VerifyData(TestMessage, signature, publicKeyParams, hashAlgorithm);
+            var publicKeyParams = core.ExtractPublicKey(keyParams);
+            var isValid = core.VerifyData(TestMessage, signature, publicKeyParams, hashAlgorithm);
 
             Assert.True(isValid);
         }
@@ -85,17 +89,17 @@ public class EcdsaCoreTests
         [InlineData(521)]
         public void SignAndVerifyHash_AllCurves_RoundTrips(int curveSizeBits)
         {
-            var keyParams = EcdsaCore.GenerateKeyPair(curveSizeBits);
+            var keyParams = core.GenerateKeyPair(curveSizeBits);
 
             // Compute hash
             var hash = SHA256.HashData(TestMessage);
 
-            var signature = EcdsaCore.SignHash(hash, keyParams);
+            var signature = core.SignHash(hash, keyParams);
 
             Assert.NotNull(signature);
 
-            var publicKeyParams = EcdsaCore.ExtractPublicKey(keyParams);
-            var isValid = EcdsaCore.VerifyHash(hash, signature, publicKeyParams);
+            var publicKeyParams = core.ExtractPublicKey(keyParams);
+            var isValid = core.VerifyHash(hash, signature, publicKeyParams);
 
             Assert.True(isValid);
         }
@@ -103,13 +107,13 @@ public class EcdsaCoreTests
         [Fact]
         public void Verify_TamperedData_ReturnsFalse()
         {
-            var keyParams = EcdsaCore.GenerateKeyPair(256);
-            var signature = EcdsaCore.SignData(TestMessage, keyParams, HashAlgorithmName.SHA256);
+            var keyParams = core.GenerateKeyPair(256);
+            var signature = core.SignData(TestMessage, keyParams, HashAlgorithmName.SHA256);
 
             var tamperedMessage = "Tampered message"u8.ToArray();
 
-            var publicKeyParams = EcdsaCore.ExtractPublicKey(keyParams);
-            var isValid = EcdsaCore.VerifyData(tamperedMessage, signature, publicKeyParams, HashAlgorithmName.SHA256);
+            var publicKeyParams = core.ExtractPublicKey(keyParams);
+            var isValid = core.VerifyData(tamperedMessage, signature, publicKeyParams, HashAlgorithmName.SHA256);
 
             Assert.False(isValid);
         }
@@ -117,14 +121,14 @@ public class EcdsaCoreTests
         [Fact]
         public void Verify_TamperedSignature_ReturnsFalse()
         {
-            var keyParams = EcdsaCore.GenerateKeyPair(256);
-            var signature = EcdsaCore.SignData(TestMessage, keyParams, HashAlgorithmName.SHA256);
+            var keyParams = core.GenerateKeyPair(256);
+            var signature = core.SignData(TestMessage, keyParams, HashAlgorithmName.SHA256);
 
             // Tamper with signature
             signature[0] ^= 0xFF;
 
-            var publicKeyParams = EcdsaCore.ExtractPublicKey(keyParams);
-            var isValid = EcdsaCore.VerifyData(TestMessage, signature, publicKeyParams, HashAlgorithmName.SHA256);
+            var publicKeyParams = core.ExtractPublicKey(keyParams);
+            var isValid = core.VerifyData(TestMessage, signature, publicKeyParams, HashAlgorithmName.SHA256);
 
             Assert.False(isValid);
         }
@@ -132,13 +136,13 @@ public class EcdsaCoreTests
         [Fact]
         public void Verify_WrongPublicKey_ReturnsFalse()
         {
-            var keyParams1 = EcdsaCore.GenerateKeyPair(256);
-            var keyParams2 = EcdsaCore.GenerateKeyPair(256);
+            var keyParams1 = core.GenerateKeyPair(256);
+            var keyParams2 = core.GenerateKeyPair(256);
 
-            var signature = EcdsaCore.SignData(TestMessage, keyParams1, HashAlgorithmName.SHA256);
+            var signature = core.SignData(TestMessage, keyParams1, HashAlgorithmName.SHA256);
 
-            var wrongPublicKey = EcdsaCore.ExtractPublicKey(keyParams2);
-            var isValid = EcdsaCore.VerifyData(TestMessage, signature, wrongPublicKey, HashAlgorithmName.SHA256);
+            var wrongPublicKey = core.ExtractPublicKey(keyParams2);
+            var isValid = core.VerifyData(TestMessage, signature, wrongPublicKey, HashAlgorithmName.SHA256);
 
             Assert.False(isValid);
         }
@@ -151,26 +155,28 @@ public class EcdsaCoreTests
     [Trait("Category", TestCategories.FAST)]
     public class RawSignatureTests
     {
+        private readonly EcdsaCore core = new();
+
         [Theory]
         [InlineData(256)]
         [InlineData(384)]
         [InlineData(521)]
         public void SignAndVerifyHashRaw_AllCurves_RoundTrips(int curveSizeBits)
         {
-            var keyParams = EcdsaCore.GenerateKeyPair(curveSizeBits);
+            var keyParams = core.GenerateKeyPair(curveSizeBits);
             var hash = SHA256.HashData(TestMessage);
 
-            var (r, s) = EcdsaCore.SignHashRaw(hash, keyParams);
+            var (r, s) = core.SignHashRaw(hash, keyParams);
 
             Assert.NotNull(r);
             Assert.NotNull(s);
 
-            var expectedComponentSize = EcdsaCore.GetSignatureComponentSize(curveSizeBits);
+            var expectedComponentSize = core.GetSignatureComponentSize(curveSizeBits);
             Assert.Equal(expectedComponentSize, r.Length);
             Assert.Equal(expectedComponentSize, s.Length);
 
-            var publicKeyParams = EcdsaCore.ExtractPublicKey(keyParams);
-            var isValid = EcdsaCore.VerifyHashRaw(hash, r, s, publicKeyParams);
+            var publicKeyParams = core.ExtractPublicKey(keyParams);
+            var isValid = core.VerifyHashRaw(hash, r, s, publicKeyParams);
 
             Assert.True(isValid);
         }
@@ -183,48 +189,50 @@ public class EcdsaCoreTests
     [Trait("Category", TestCategories.FAST)]
     public class KeyParameterTests
     {
+        private readonly EcdsaCore core = new();
+
         [Fact]
         public void CreateParameters_WithPrivateKey_CanSign()
         {
-            var generatedParams = EcdsaCore.GenerateKeyPair(256);
+            var generatedParams = core.GenerateKeyPair(256);
 
-            var recreatedParams = EcdsaCore.CreateParameters(
+            var recreatedParams = core.CreateParameters(
                 256,
                 generatedParams.D,
                 generatedParams.Q.X!,
                 generatedParams.Q.Y!);
 
             var hash = SHA256.HashData(TestMessage);
-            var signature = EcdsaCore.SignHash(hash, recreatedParams);
+            var signature = core.SignHash(hash, recreatedParams);
 
-            var isValid = EcdsaCore.VerifyHash(hash, signature, recreatedParams);
+            var isValid = core.VerifyHash(hash, signature, recreatedParams);
             Assert.True(isValid);
         }
 
         [Fact]
         public void CreatePublicKeyParameters_CanVerify()
         {
-            var keyParams = EcdsaCore.GenerateKeyPair(256);
+            var keyParams = core.GenerateKeyPair(256);
             var hash = SHA256.HashData(TestMessage);
-            var signature = EcdsaCore.SignHash(hash, keyParams);
+            var signature = core.SignHash(hash, keyParams);
 
-            var publicKeyParams = EcdsaCore.CreatePublicKeyParameters(
+            var publicKeyParams = core.CreatePublicKeyParameters(
                 256,
                 keyParams.Q.X!,
                 keyParams.Q.Y!);
 
-            var isValid = EcdsaCore.VerifyHash(hash, signature, publicKeyParams);
+            var isValid = core.VerifyHash(hash, signature, publicKeyParams);
             Assert.True(isValid);
         }
 
         [Fact]
         public void ExtractPublicKey_RemovesPrivateKey()
         {
-            var keyParams = EcdsaCore.GenerateKeyPair(256);
+            var keyParams = core.GenerateKeyPair(256);
 
             Assert.NotNull(keyParams.D);
 
-            var publicKeyParams = EcdsaCore.ExtractPublicKey(keyParams);
+            var publicKeyParams = core.ExtractPublicKey(keyParams);
 
             Assert.Null(publicKeyParams.D);
             Assert.NotNull(publicKeyParams.Q.X);
@@ -239,13 +247,15 @@ public class EcdsaCoreTests
     [Trait("Category", TestCategories.FAST)]
     public class UtilityFunctionTests
     {
+        private readonly EcdsaCore core = new();
+
         [Theory]
         [InlineData(256, 32)]
         [InlineData(384, 48)]
         [InlineData(521, 66)]
         public void GetCoordinateSize_ReturnsCorrectSize(int curveSizeBits, int expectedSize)
         {
-            var size = EcdsaCore.GetCoordinateSize(curveSizeBits);
+            var size = core.GetCoordinateSize(curveSizeBits);
             Assert.Equal(expectedSize, size);
         }
 
@@ -255,7 +265,7 @@ public class EcdsaCoreTests
         [InlineData(521, 132)]
         public void GetSignatureSize_ReturnsCorrectSize(int curveSizeBits, int expectedSize)
         {
-            var size = EcdsaCore.GetSignatureSize(curveSizeBits);
+            var size = core.GetSignatureSize(curveSizeBits);
             Assert.Equal(expectedSize, size);
         }
 
@@ -265,7 +275,7 @@ public class EcdsaCoreTests
         [InlineData(521, "SHA512")]
         public void GetRecommendedHashAlgorithm_ReturnsCorrectAlgorithm(int curveSizeBits, string expectedName)
         {
-            var algorithm = EcdsaCore.GetRecommendedHashAlgorithm(curveSizeBits);
+            var algorithm = core.GetRecommendedHashAlgorithm(curveSizeBits);
             Assert.Equal(expectedName, algorithm.Name);
         }
     }
@@ -302,7 +312,8 @@ public class EcdsaCoreTests
         [Fact]
         public void Builder_WithRawKey_Works()
         {
-            var keyParams = EcdsaCore.GenerateKeyPair(256);
+            var core = new EcdsaCore();
+            var keyParams = core.GenerateKeyPair(256);
             var hash = SHA256.HashData(TestMessage);
 
             using var builder = EcdsaBuilder.Create()
@@ -453,18 +464,20 @@ public class EcdsaCoreTests
     [Trait("Category", TestCategories.FAST)]
     public class EdgeCases
     {
+        private readonly EcdsaCore core = new();
+
         [Fact]
         public void Sign_EmptyData_Succeeds()
         {
-            var keyParams = EcdsaCore.GenerateKeyPair(256);
+            var keyParams = core.GenerateKeyPair(256);
             var emptyData = Array.Empty<byte>();
 
-            var signature = EcdsaCore.SignData(emptyData, keyParams, HashAlgorithmName.SHA256);
+            var signature = core.SignData(emptyData, keyParams, HashAlgorithmName.SHA256);
 
             Assert.NotNull(signature);
 
-            var publicKeyParams = EcdsaCore.ExtractPublicKey(keyParams);
-            var isValid = EcdsaCore.VerifyData(emptyData, signature, publicKeyParams, HashAlgorithmName.SHA256);
+            var publicKeyParams = core.ExtractPublicKey(keyParams);
+            var isValid = core.VerifyData(emptyData, signature, publicKeyParams, HashAlgorithmName.SHA256);
 
             Assert.True(isValid);
         }
@@ -472,16 +485,16 @@ public class EcdsaCoreTests
         [Fact]
         public void Sign_LargeData_Succeeds()
         {
-            var keyParams = EcdsaCore.GenerateKeyPair(256);
+            var keyParams = core.GenerateKeyPair(256);
             var largeData = new byte[1024 * 1024]; // 1 MB
             new Random(42).NextBytes(largeData);
 
-            var signature = EcdsaCore.SignData(largeData, keyParams, HashAlgorithmName.SHA256);
+            var signature = core.SignData(largeData, keyParams, HashAlgorithmName.SHA256);
 
             Assert.NotNull(signature);
 
-            var publicKeyParams = EcdsaCore.ExtractPublicKey(keyParams);
-            var isValid = EcdsaCore.VerifyData(largeData, signature, publicKeyParams, HashAlgorithmName.SHA256);
+            var publicKeyParams = core.ExtractPublicKey(keyParams);
+            var isValid = core.VerifyData(largeData, signature, publicKeyParams, HashAlgorithmName.SHA256);
 
             Assert.True(isValid);
         }

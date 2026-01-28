@@ -17,7 +17,7 @@ public class ThresholdSignaturesTests
     public void ThresholdSignatureFlow_Success()
     {
         // 1. Generate Keys (Distribution Phase)
-        var keyGen = ThresholdSignatures.GenerateKeys(TOTAL_PARTIES, THRESHOLD);
+        var keyGen = new ThresholdSignatures().GenerateKeys(TOTAL_PARTIES, THRESHOLD);
 
         Assert.True(keyGen.Success);
         Assert.NotNull(keyGen.PublicKey);
@@ -32,7 +32,7 @@ public class ThresholdSignaturesTests
         for (int i = 0; i < signers.Length; i++)
         {
             int partyId = signers[i];
-            partialSigs[i] = ThresholdSignatures.SignPartial(message, keyGen.KeyShares[partyId], signers);
+            partialSigs[i] = new ThresholdSignatures().SignPartial(message, keyGen.KeyShares[partyId], signers);
 
             Assert.Equal(partyId, partialSigs[i].PartyId);
             Assert.NotNull(partialSigs[i].Value);
@@ -40,7 +40,7 @@ public class ThresholdSignaturesTests
         }
 
         // 3. Combine (Aggregation Phase)
-        var signature = ThresholdSignatures.CombineSignatures(
+        var signature = new ThresholdSignatures().CombineSignatures(
             message,
             partialSigs,
             keyGen.PublicKey,
@@ -52,7 +52,7 @@ public class ThresholdSignaturesTests
         Assert.Equal(signers, signature.Signers);
 
         // 4. Verify
-        var isValid = ThresholdSignatures.VerifySignature(message, signature, keyGen.PublicKey);
+        var isValid = new ThresholdSignatures().VerifySignature(message, signature, keyGen.PublicKey);
 
         Assert.True(isValid, "Signature verification failed");
     }
@@ -61,25 +61,25 @@ public class ThresholdSignaturesTests
     [Trait("Category", TestCategories.UNIT)]
     public void GenerateKeys_InvalidParameters_Throws()
     {
-        Assert.Throws<ArgumentException>(() => ThresholdSignatures.GenerateKeys(1, 1)); // Need >= 2 parties
-        Assert.Throws<ArgumentException>(() => ThresholdSignatures.GenerateKeys(3, 3)); // Threshold < n
+        Assert.Throws<ArgumentException>(() => new ThresholdSignatures().GenerateKeys(1, 1)); // Need >= 2 parties
+        Assert.Throws<ArgumentException>(() => new ThresholdSignatures().GenerateKeys(3, 3)); // Threshold < n
     }
 
     [Fact]
     [Trait("Category", TestCategories.UNIT)]
     public void SignPartial_InvalidSignerSet_Throws()
     {
-        var keyGen = ThresholdSignatures.GenerateKeys(TOTAL_PARTIES, THRESHOLD);
+        var keyGen = new ThresholdSignatures().GenerateKeys(TOTAL_PARTIES, THRESHOLD);
         var message = Encoding.UTF8.GetBytes("Msg");
 
         // Not enough signers
         var tooFewSigners = new int[] { 0, 1, 2 }; // Need 4
         Assert.Throws<ArgumentException>(() =>
-            ThresholdSignatures.SignPartial(message, keyGen.KeyShares[0], tooFewSigners));
+            new ThresholdSignatures().SignPartial(message, keyGen.KeyShares[0], tooFewSigners));
 
         // Signer not in set
         var validCountSigners = new int[] { 1, 2, 3, 4 };
         Assert.Throws<ArgumentException>(() =>
-            ThresholdSignatures.SignPartial(message, keyGen.KeyShares[0], validCountSigners)); // Party 0 not in list
+            new ThresholdSignatures().SignPartial(message, keyGen.KeyShares[0], validCountSigners)); // Party 0 not in list
     }
 }

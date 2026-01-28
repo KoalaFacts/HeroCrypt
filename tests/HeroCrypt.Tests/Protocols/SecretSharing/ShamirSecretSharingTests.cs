@@ -24,8 +24,8 @@ public class ShamirSecretSharingTests
             var threshold = 3;
             var shareCount = 5;
 
-            var shares = ShamirSecretSharing.Split(secret, threshold, shareCount);
-            var reconstructed = ShamirSecretSharing.Reconstruct(shares.AsSpan(0, threshold));
+            var shares = new ShamirSecretSharing().Split(secret, threshold, shareCount);
+            var reconstructed = new ShamirSecretSharing().Reconstruct(shares.AsSpan(0, threshold));
 
             Assert.Equal(shareCount, shares.Length);
             Assert.Equal(secret, reconstructed);
@@ -38,7 +38,7 @@ public class ShamirSecretSharingTests
             var threshold = 2;
             var shareCount = 4;
 
-            var shares = ShamirSecretSharing.Split(secret, threshold, shareCount);
+            var shares = new ShamirSecretSharing().Split(secret, threshold, shareCount);
 
             // All shares should have different indices
             var indices = shares.Select(s => s.Index).ToList();
@@ -61,8 +61,8 @@ public class ShamirSecretSharingTests
             var threshold = 3;
             var shareCount = 5;
 
-            var shares = ShamirSecretSharing.Split(secret, threshold, shareCount);
-            var reconstructed = ShamirSecretSharing.Reconstruct(shares.AsSpan(0, threshold));
+            var shares = new ShamirSecretSharing().Split(secret, threshold, shareCount);
+            var reconstructed = new ShamirSecretSharing().Reconstruct(shares.AsSpan(0, threshold));
 
             Assert.Equal(secret, reconstructed);
         }
@@ -74,8 +74,8 @@ public class ShamirSecretSharingTests
             var threshold = 3;
             var shareCount = 5;
 
-            var shares = ShamirSecretSharing.Split(secret, threshold, shareCount);
-            var reconstructed = ShamirSecretSharing.Reconstruct(shares.AsSpan(0, 4)); // Use 4 shares
+            var shares = new ShamirSecretSharing().Split(secret, threshold, shareCount);
+            var reconstructed = new ShamirSecretSharing().Reconstruct(shares.AsSpan(0, 4)); // Use 4 shares
 
             Assert.Equal(secret, reconstructed);
         }
@@ -87,8 +87,8 @@ public class ShamirSecretSharingTests
             var threshold = 3;
             var shareCount = 5;
 
-            var shares = ShamirSecretSharing.Split(secret, threshold, shareCount);
-            var reconstructed = ShamirSecretSharing.Reconstruct(shares);
+            var shares = new ShamirSecretSharing().Split(secret, threshold, shareCount);
+            var reconstructed = new ShamirSecretSharing().Reconstruct(shares);
 
             Assert.Equal(secret, reconstructed);
         }
@@ -100,7 +100,7 @@ public class ShamirSecretSharingTests
             var threshold = 3;
             var shareCount = 5;
 
-            var shares = ShamirSecretSharing.Split(secret, threshold, shareCount);
+            var shares = new ShamirSecretSharing().Split(secret, threshold, shareCount);
 
             // Test different combinations of shares
             var combinations = new[]
@@ -114,7 +114,7 @@ public class ShamirSecretSharingTests
             // All combinations should reconstruct the same secret
             foreach (var combination in combinations)
             {
-                var reconstructed = ShamirSecretSharing.Reconstruct(combination);
+                var reconstructed = new ShamirSecretSharing().Reconstruct(combination);
                 Assert.Equal(secret, reconstructed);
             }
         }
@@ -132,8 +132,8 @@ public class ShamirSecretSharingTests
             var threshold = 3;
             var shareCount = 5;
 
-            var shares = ShamirSecretSharing.Split(secret, threshold, shareCount);
-            var reconstructed = ShamirSecretSharing.Reconstruct(shares.AsSpan(0, 2)); // Only 2 shares, need 3
+            var shares = new ShamirSecretSharing().Split(secret, threshold, shareCount);
+            var reconstructed = new ShamirSecretSharing().Reconstruct(shares.AsSpan(0, 2)); // Only 2 shares, need 3
 
             // Should NOT reconstruct correct secret
             Assert.NotEqual(secret, reconstructed);
@@ -146,8 +146,8 @@ public class ShamirSecretSharingTests
             var threshold = 2; // Minimum allowed
             var shareCount = 3;
 
-            var shares = ShamirSecretSharing.Split(secret, threshold, shareCount);
-            var reconstructed = ShamirSecretSharing.Reconstruct(shares.AsSpan(0, 2));
+            var shares = new ShamirSecretSharing().Split(secret, threshold, shareCount);
+            var reconstructed = new ShamirSecretSharing().Reconstruct(shares.AsSpan(0, 2));
 
             Assert.Equal(secret, reconstructed);
         }
@@ -165,8 +165,8 @@ public class ShamirSecretSharingTests
             var threshold = 128;
             var shareCount = 255; // Maximum allowed
 
-            var shares = ShamirSecretSharing.Split(secret, threshold, shareCount);
-            var reconstructed = ShamirSecretSharing.Reconstruct(shares.AsSpan(0, threshold));
+            var shares = new ShamirSecretSharing().Split(secret, threshold, shareCount);
+            var reconstructed = new ShamirSecretSharing().Reconstruct(shares.AsSpan(0, threshold));
 
             Assert.Equal(shareCount, shares.Length);
             Assert.Equal(secret, reconstructed);
@@ -179,8 +179,8 @@ public class ShamirSecretSharingTests
             var threshold = 2;
             var shareCount = 3;
 
-            var shares = ShamirSecretSharing.Split(secret, threshold, shareCount);
-            var reconstructed = ShamirSecretSharing.Reconstruct(shares.AsSpan(0, 2));
+            var shares = new ShamirSecretSharing().Split(secret, threshold, shareCount);
+            var reconstructed = new ShamirSecretSharing().Reconstruct(shares.AsSpan(0, 2));
 
             Assert.Equal(secret, reconstructed);
         }
@@ -194,8 +194,8 @@ public class ShamirSecretSharingTests
             var threshold = 3;
             var shareCount = 5;
 
-            var shares = ShamirSecretSharing.Split(secret, threshold, shareCount);
-            var reconstructed = ShamirSecretSharing.Reconstruct(shares.AsSpan(0, 3));
+            var shares = new ShamirSecretSharing().Split(secret, threshold, shareCount);
+            var reconstructed = new ShamirSecretSharing().Reconstruct(shares.AsSpan(0, 3));
 
             Assert.Equal(secret, reconstructed);
         }
@@ -207,8 +207,8 @@ public class ShamirSecretSharingTests
             var threshold = 2;
             var shareCount = 4;
 
-            var shares = ShamirSecretSharing.Split(secret, threshold, shareCount);
-            var reconstructed = ShamirSecretSharing.Reconstruct(shares.AsSpan(0, 2));
+            var shares = new ShamirSecretSharing().Split(secret, threshold, shareCount);
+            var reconstructed = new ShamirSecretSharing().Reconstruct(shares.AsSpan(0, 2));
 
             Assert.Equal(secret, reconstructed);
         }
@@ -228,7 +228,7 @@ public class ShamirSecretSharingTests
             var shareCount = 3;
 
             Assert.Throws<ArgumentException>(() =>
-                ShamirSecretSharing.Split(secret, threshold, shareCount));
+                new ShamirSecretSharing().Split(secret, threshold, shareCount));
         }
 
         [Fact]
@@ -239,7 +239,7 @@ public class ShamirSecretSharingTests
             var shareCount = 3;
 
             Assert.Throws<ArgumentException>(() =>
-                ShamirSecretSharing.Split(secret, threshold, shareCount));
+                new ShamirSecretSharing().Split(secret, threshold, shareCount));
         }
 
         [Fact]
@@ -250,7 +250,7 @@ public class ShamirSecretSharingTests
             var shareCount = 3; // Less than threshold
 
             Assert.Throws<ArgumentException>(() =>
-                ShamirSecretSharing.Split(secret, threshold, shareCount));
+                new ShamirSecretSharing().Split(secret, threshold, shareCount));
         }
 
         [Fact]
@@ -261,17 +261,17 @@ public class ShamirSecretSharingTests
             var shareCount = 256; // Above maximum
 
             Assert.Throws<ArgumentException>(() =>
-                ShamirSecretSharing.Split(secret, threshold, shareCount));
+                new ShamirSecretSharing().Split(secret, threshold, shareCount));
         }
 
         [Fact]
         public void Reconstruct_LessThanMinimumShares_ThrowsException()
         {
             var secret = Encoding.UTF8.GetBytes("Test");
-            var shares = ShamirSecretSharing.Split(secret, 2, 3);
+            var shares = new ShamirSecretSharing().Split(secret, 2, 3);
 
             Assert.Throws<ArgumentException>(() =>
-                ShamirSecretSharing.Reconstruct(shares.AsSpan(0, 1))); // Only 1 share
+                new ShamirSecretSharing().Reconstruct(shares.AsSpan(0, 1))); // Only 1 share
         }
 
         [Fact]
@@ -284,14 +284,14 @@ public class ShamirSecretSharingTests
             };
 
             Assert.Throws<ArgumentException>(() =>
-                ShamirSecretSharing.Reconstruct(shares));
+                new ShamirSecretSharing().Reconstruct(shares));
         }
 
         [Fact]
         public void Reconstruct_DuplicateShareIndices_ThrowsException()
         {
             var secret = Encoding.UTF8.GetBytes("Test");
-            var shares = ShamirSecretSharing.Split(secret, 2, 3);
+            var shares = new ShamirSecretSharing().Split(secret, 2, 3);
 
             var duplicateShares = new[]
             {
@@ -300,7 +300,7 @@ public class ShamirSecretSharingTests
             };
 
             Assert.Throws<ArgumentException>(() =>
-                ShamirSecretSharing.Reconstruct(duplicateShares));
+                new ShamirSecretSharing().Reconstruct(duplicateShares));
         }
     }
 
@@ -313,9 +313,9 @@ public class ShamirSecretSharingTests
         public void Verify_CorrectShares_ReturnsTrue()
         {
             var secret = Encoding.UTF8.GetBytes("Test secret");
-            var shares = ShamirSecretSharing.Split(secret, 3, 5);
+            var shares = new ShamirSecretSharing().Split(secret, 3, 5);
 
-            var result = ShamirSecretSharing.Verify(shares.AsSpan(0, 3), secret);
+            var result = new ShamirSecretSharing().Verify(shares.AsSpan(0, 3), secret);
 
             Assert.True(result);
         }
@@ -325,9 +325,9 @@ public class ShamirSecretSharingTests
         {
             var secret = Encoding.UTF8.GetBytes("Test secret");
             var wrongSecret = Encoding.UTF8.GetBytes("Wrong secret");
-            var shares = ShamirSecretSharing.Split(secret, 3, 5);
+            var shares = new ShamirSecretSharing().Split(secret, 3, 5);
 
-            var result = ShamirSecretSharing.Verify(shares.AsSpan(0, 3), wrongSecret);
+            var result = new ShamirSecretSharing().Verify(shares.AsSpan(0, 3), wrongSecret);
 
             Assert.False(result);
         }
@@ -336,9 +336,9 @@ public class ShamirSecretSharingTests
         public void Verify_InsufficientShares_ReturnsFalse()
         {
             var secret = Encoding.UTF8.GetBytes("Test secret");
-            var shares = ShamirSecretSharing.Split(secret, 3, 5);
+            var shares = new ShamirSecretSharing().Split(secret, 3, 5);
 
-            var result = ShamirSecretSharing.Verify(shares.AsSpan(0, 2), secret); // Only 2 shares, need 3
+            var result = new ShamirSecretSharing().Verify(shares.AsSpan(0, 2), secret); // Only 2 shares, need 3
 
             Assert.False(result);
         }
@@ -398,15 +398,15 @@ public class ShamirSecretSharingTests
             var shareCount = 5;
 
             // Split the same secret twice
-            var shares1 = ShamirSecretSharing.Split(secret, threshold, shareCount);
-            var shares2 = ShamirSecretSharing.Split(secret, threshold, shareCount);
+            var shares1 = new ShamirSecretSharing().Split(secret, threshold, shareCount);
+            var shares2 = new ShamirSecretSharing().Split(secret, threshold, shareCount);
 
             // Shares should be different (due to random coefficients)
             // but both should reconstruct to the same secret
             Assert.NotEqual(shares1[0].Data, shares2[0].Data);
 
-            var reconstructed1 = ShamirSecretSharing.Reconstruct(shares1.AsSpan(0, threshold));
-            var reconstructed2 = ShamirSecretSharing.Reconstruct(shares2.AsSpan(0, threshold));
+            var reconstructed1 = new ShamirSecretSharing().Reconstruct(shares1.AsSpan(0, threshold));
+            var reconstructed2 = new ShamirSecretSharing().Reconstruct(shares2.AsSpan(0, threshold));
 
             Assert.Equal(secret, reconstructed1);
             Assert.Equal(secret, reconstructed2);
@@ -421,12 +421,12 @@ public class ShamirSecretSharingTests
             var threshold = 3;
             var shareCount = 5;
 
-            var shares1 = ShamirSecretSharing.Split(secret1, threshold, shareCount);
-            var shares2 = ShamirSecretSharing.Split(secret2, threshold, shareCount);
+            var shares1 = new ShamirSecretSharing().Split(secret1, threshold, shareCount);
+            var shares2 = new ShamirSecretSharing().Split(secret2, threshold, shareCount);
 
             // Attempt reconstruction with K-1 shares
-            var partial1 = ShamirSecretSharing.Reconstruct(shares1.AsSpan(0, 2)); // Need 3, have 2
-            var partial2 = ShamirSecretSharing.Reconstruct(shares2.AsSpan(0, 2)); // Need 3, have 2
+            var partial1 = new ShamirSecretSharing().Reconstruct(shares1.AsSpan(0, 2)); // Need 3, have 2
+            var partial2 = new ShamirSecretSharing().Reconstruct(shares2.AsSpan(0, 2)); // Need 3, have 2
 
             // Neither partial reconstruction should match the actual secrets
             Assert.NotEqual(secret1, partial1);

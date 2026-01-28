@@ -45,12 +45,25 @@ namespace HeroCrypt.Primitives.AesCfb;
 /// </list>
 /// </para>
 /// </remarks>
-public static class AesCfbCore
+internal sealed class AesCfbCore
 {
     /// <summary>
     /// AES block size in bytes.
     /// </summary>
     public const int BlockSize = 16;
+
+#pragma warning disable IDE0052 // Remove unread private member - policy reserved for future security validation
+    private readonly SecurityPolicyOptions policy;
+#pragma warning restore IDE0052
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="AesCfbCore"/> class with the specified security policy.
+    /// </summary>
+    /// <param name="policy">The security policy to use for validation. If null, uses <see cref="SecurityPolicyOptions.Default"/>.</param>
+    public AesCfbCore(SecurityPolicyOptions? policy = null)
+    {
+        this.policy = policy ?? SecurityPolicyOptions.Default;
+    }
 
     /// <summary>
     /// Encrypts data using AES-CFB mode.
@@ -61,7 +74,7 @@ public static class AesCfbCore
     /// <returns>The encrypted data.</returns>
     /// <exception cref="ArgumentNullException">If any parameter is null.</exception>
     /// <exception cref="ArgumentException">If IV length is not 16 bytes.</exception>
-    public static byte[] Encrypt(byte[] plaintext, byte[] key, byte[] iv)
+    public byte[] Encrypt(byte[] plaintext, byte[] key, byte[] iv)
     {
         ArgumentHelper.ThrowIfNull(plaintext);
         ArgumentHelper.ThrowIfNull(key);
@@ -87,7 +100,7 @@ public static class AesCfbCore
     /// <param name="key">The encryption key.</param>
     /// <param name="iv">The initialization vector.</param>
     /// <returns>The encrypted data.</returns>
-    public static byte[] Encrypt(ReadOnlySpan<byte> plaintext, ReadOnlySpan<byte> key, ReadOnlySpan<byte> iv)
+    public byte[] Encrypt(ReadOnlySpan<byte> plaintext, ReadOnlySpan<byte> key, ReadOnlySpan<byte> iv)
     {
         if (iv.Length != BlockSize)
         {
@@ -111,7 +124,7 @@ public static class AesCfbCore
     /// <returns>The decrypted data.</returns>
     /// <exception cref="ArgumentNullException">If any parameter is null.</exception>
     /// <exception cref="ArgumentException">If IV length is not 16 bytes.</exception>
-    public static byte[] Decrypt(byte[] ciphertext, byte[] key, byte[] iv)
+    public byte[] Decrypt(byte[] ciphertext, byte[] key, byte[] iv)
     {
         ArgumentHelper.ThrowIfNull(ciphertext);
         ArgumentHelper.ThrowIfNull(key);
@@ -137,7 +150,7 @@ public static class AesCfbCore
     /// <param name="key">The decryption key.</param>
     /// <param name="iv">The initialization vector.</param>
     /// <returns>The decrypted data.</returns>
-    public static byte[] Decrypt(ReadOnlySpan<byte> ciphertext, ReadOnlySpan<byte> key, ReadOnlySpan<byte> iv)
+    public byte[] Decrypt(ReadOnlySpan<byte> ciphertext, ReadOnlySpan<byte> key, ReadOnlySpan<byte> iv)
     {
         if (iv.Length != BlockSize)
         {

@@ -423,6 +423,10 @@ public static class SecurityPolicy
         private readonly SecurityLevel previousLevel;
         private bool disposed;
 
+        /// <summary>
+        /// Initializes a new instance of <see cref="SecurityPolicyScope"/>.
+        /// </summary>
+        /// <param name="level">The security level to set for the scope.</param>
         public SecurityPolicyScope(SecurityLevel level)
         {
             previousLevel = Current;

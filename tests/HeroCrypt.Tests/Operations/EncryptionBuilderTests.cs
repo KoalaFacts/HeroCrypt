@@ -2,6 +2,8 @@ using System.Security.Cryptography;
 using HeroCrypt.Operations;
 using HeroCrypt.Tests.Infrastructure;
 
+#pragma warning disable CS0618 // Type or member is obsolete - Tests intentionally use deprecated WithDeterministicMode()
+
 namespace HeroCrypt.Tests.Operations;
 
 /// <summary>

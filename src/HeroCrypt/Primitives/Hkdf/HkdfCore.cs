@@ -31,6 +31,9 @@ internal static class HkdfCore
         int length,
         HashAlgorithmName hashAlgorithm)
     {
+        // Validate hash algorithm against security policy (blocks SHA-1 at Standard+ level)
+        SecurityPolicy.ValidateHash(hashAlgorithm.Name ?? "Unknown");
+
         if (length <= 0)
         {
             throw new ArgumentException("Length must be positive", nameof(length));
@@ -66,6 +69,9 @@ internal static class HkdfCore
     /// <returns>Pseudorandom key</returns>
     public static byte[] Extract(ReadOnlySpan<byte> ikm, ReadOnlySpan<byte> salt, HashAlgorithmName hashAlgorithm)
     {
+        // Validate hash algorithm against security policy (blocks SHA-1 at Standard+ level)
+        SecurityPolicy.ValidateHash(hashAlgorithm.Name ?? "Unknown");
+
         if (ikm.IsEmpty)
         {
             throw new ArgumentException("Input key material cannot be empty", nameof(ikm));
@@ -101,6 +107,9 @@ internal static class HkdfCore
     /// <returns>Output key material</returns>
     public static byte[] Expand(ReadOnlySpan<byte> prk, ReadOnlySpan<byte> info, int length, HashAlgorithmName hashAlgorithm)
     {
+        // Validate hash algorithm against security policy (blocks SHA-1 at Standard+ level)
+        SecurityPolicy.ValidateHash(hashAlgorithm.Name ?? "Unknown");
+
         if (prk.IsEmpty)
         {
             throw new ArgumentException("Pseudorandom key cannot be empty", nameof(prk));
@@ -208,9 +217,17 @@ internal static class HkdfCore
     /// <summary>
     /// Gets recommended parameters for common use cases
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The <see cref="HkdfUseCase.LegacyCompatibility"/> use case returns SHA-1 parameters
+    /// but will throw <see cref="SecurityPolicyException"/> at <see cref="SecurityLevel.Standard"/>
+    /// or higher. Use <see cref="SecurityPolicy.LegacyScope"/> to temporarily allow SHA-1
+    /// when legacy compatibility is required.
+    /// </para>
+    /// </remarks>
     public static HkdfParameters GetRecommendedParameters(HkdfUseCase useCase)
     {
-        return useCase switch
+        var parameters = useCase switch
         {
             HkdfUseCase.GeneralPurpose => new HkdfParameters
             {
@@ -238,6 +255,12 @@ internal static class HkdfCore
             },
             _ => throw new ArgumentException($"Unknown use case: {useCase}", nameof(useCase))
         };
+
+        // Validate the hash algorithm against security policy
+        // This will throw SecurityPolicyException for SHA-1 at Standard+ level
+        SecurityPolicy.ValidateHash(parameters.HashAlgorithm.Name ?? "Unknown");
+
+        return parameters;
     }
 }
 

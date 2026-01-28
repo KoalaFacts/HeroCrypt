@@ -118,7 +118,7 @@ internal static class Curve25519Core
     /// <summary>
     /// Clamps a private key according to RFC 7748
     /// </summary>
-    [MethodImpl(MethodImplOptions.NoInlining)]
+    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
     private static void ClampPrivateKey(byte[] privateKey)
     {
         privateKey[0] &= 248;   // Clear bits 0, 1, 2
@@ -129,7 +129,7 @@ internal static class Curve25519Core
     /// <summary>
     /// Scalar multiplication: result = scalar * point
     /// </summary>
-    [MethodImpl(MethodImplOptions.NoInlining)]
+    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
     private static byte[] ScalarMult(byte[] scalar, byte[] point)
     {
         byte[] clampedScalar = new byte[KEY_SIZE];
@@ -199,7 +199,7 @@ internal static class Curve25519Core
     /// <summary>
     /// Prepare for Montgomery operations: t1 = a+b, t2 = a-b
     /// </summary>
-    [MethodImpl(MethodImplOptions.NoInlining)]
+    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
     private static void MontPrep(Long10 t1, Long10 t2, Long10 ax, Long10 az)
     {
         Add(t1, ax, az);
@@ -211,7 +211,7 @@ internal static class Curve25519Core
     /// where X(A) = ax/az, X(P) = (t1+t2)/(t1-t2), X(Q) = (t3+t4)/(t3-t4), X(P-Q) = dx
     /// Clobbers t1 and t2, preserves t3 and t4
     /// </summary>
-    [MethodImpl(MethodImplOptions.NoInlining)]
+    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
     private static void MontAdd(Long10 t1, Long10 t2, Long10 t3, Long10 t4, Long10 ax, Long10 az, Long10 dx)
     {
         Multiply(ax, t2, t3);
@@ -228,7 +228,7 @@ internal static class Curve25519Core
     /// where X(B) = bx/bz, X(Q) = (t3+t4)/(t3-t4)
     /// Clobbers t1 and t2, preserves t3 and t4
     /// </summary>
-    [MethodImpl(MethodImplOptions.NoInlining)]
+    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
     private static void MontDbl(Long10 t1, Long10 t2, Long10 t3, Long10 t4, Long10 bx, Long10 bz)
     {
         Square(t1, t3);
@@ -243,7 +243,7 @@ internal static class Curve25519Core
     /// <summary>
     /// Copy a Long10
     /// </summary>
-    [MethodImpl(MethodImplOptions.NoInlining)]
+    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
     private static void Copy(Long10 output, Long10 input)
     {
         output.N0 = input.N0;
@@ -261,7 +261,7 @@ internal static class Curve25519Core
     /// <summary>
     /// Unpacks 32 bytes (little-endian) into Long10 radix-2^25.5 representation
     /// </summary>
-    [MethodImpl(MethodImplOptions.NoInlining)]
+    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
     private static void Unpack(Long10 x, byte[] m)
     {
         x.N0 = (m[0] & 0xFF) | ((m[1] & 0xFF) << 8) | ((m[2] & 0xFF) << 16) | ((m[3] & 0xFF & 3) << 24);
@@ -279,7 +279,7 @@ internal static class Curve25519Core
     /// <summary>
     /// Packs Long10 radix-2^25.5 representation into 32 bytes (little-endian)
     /// </summary>
-    [MethodImpl(MethodImplOptions.NoInlining)]
+    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
     private static void Pack(Long10 x, byte[] m)
     {
         int ld = (IsOverflow(x) ? 1 : 0) - (x.N9 < 0 ? 1 : 0);
@@ -306,7 +306,7 @@ internal static class Curve25519Core
     /// <summary>
     /// Checks if reduced form >= 2^255-19
     /// </summary>
-    [MethodImpl(MethodImplOptions.NoInlining)]
+    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
     private static bool IsOverflow(Long10 x)
     {
         return (
@@ -319,7 +319,7 @@ internal static class Curve25519Core
     /// <summary>
     /// Field addition
     /// </summary>
-    [MethodImpl(MethodImplOptions.NoInlining)]
+    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
     private static void Add(Long10 xy, Long10 x, Long10 y)
     {
         xy.N0 = x.N0 + y.N0;
@@ -337,7 +337,7 @@ internal static class Curve25519Core
     /// <summary>
     /// Field subtraction
     /// </summary>
-    [MethodImpl(MethodImplOptions.NoInlining)]
+    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
     private static void Sub(Long10 xy, Long10 x, Long10 y)
     {
         xy.N0 = x.N0 - y.N0;
@@ -355,7 +355,7 @@ internal static class Curve25519Core
     /// <summary>
     /// Field multiplication
     /// </summary>
-    [MethodImpl(MethodImplOptions.NoInlining)]
+    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
     private static void Multiply(Long10 xy, Long10 x, Long10 y)
     {
         long x0 = x.N0; long x1 = x.N1; long x2 = x.N2; long x3 = x.N3; long x4 = x.N4;
@@ -392,7 +392,7 @@ internal static class Curve25519Core
     /// <summary>
     /// Field squaring
     /// </summary>
-    [MethodImpl(MethodImplOptions.NoInlining)]
+    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
     private static void Square(Long10 xsq, Long10 x)
     {
         long x0 = x.N0; long x1 = x.N1; long x2 = x.N2; long x3 = x.N3; long x4 = x.N4;
@@ -427,7 +427,7 @@ internal static class Curve25519Core
     /// <summary>
     /// Multiply by small constant
     /// </summary>
-    [MethodImpl(MethodImplOptions.NoInlining)]
+    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
     private static void MultiplySmall(Long10 xy, Long10 x, long y)
     {
         long t;
@@ -459,7 +459,7 @@ internal static class Curve25519Core
     /// <summary>
     /// Modular inverse using Fermat's little theorem
     /// </summary>
-    [MethodImpl(MethodImplOptions.NoInlining)]
+    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
     private static void Recip(Long10 y, Long10 x)
     {
         Long10 z2 = new();

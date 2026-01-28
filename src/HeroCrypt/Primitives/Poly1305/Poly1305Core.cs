@@ -5,10 +5,32 @@ using HeroCrypt.Security;
 namespace HeroCrypt.Primitives.Poly1305;
 
 /// <summary>
-/// High-performance Poly1305 message authentication code implementation
+/// High-performance Poly1305 message authentication code implementation.
 /// Implements RFC 8439.
 /// Uses BigInteger for correctness (replacing previous buggy 64-bit limb implementation).
 /// </summary>
+/// <remarks>
+/// <para>
+/// <b>Security Note - Memory Persistence:</b>
+/// This implementation uses <see cref="BigInteger"/> for the 'r', 's', and accumulator values.
+/// Because <see cref="BigInteger"/> is immutable, these values containing key material
+/// cannot be securely cleared from memory after use. The values may persist in managed
+/// memory until garbage collection occurs.
+/// </para>
+/// <para>
+/// <b>Mitigation:</b>
+/// <list type="bullet">
+///   <item>The byte array copies of r and s on the stack are cleared via SecureMemoryOperations.SecureClear</item>
+///   <item>For sensitive applications, consider running in a process with minimal memory exposure</item>
+///   <item>The risk is limited to memory dump scenarios (cold boot attacks, hibernation files, crash dumps)</item>
+/// </list>
+/// </para>
+/// <para>
+/// <b>Future Consideration:</b>
+/// A limb-based implementation using mutable arrays could address this limitation,
+/// but would require careful implementation to avoid timing side channels.
+/// </para>
+/// </remarks>
 internal static class Poly1305Core
 {
     /// <summary>

@@ -1,5 +1,6 @@
 using System.Numerics;
 using System.Security.Cryptography;
+using HeroCrypt.Security;
 
 namespace HeroCrypt.Primitives.Rsa;
 
@@ -41,12 +42,27 @@ internal static class RsaCore
     /// <param name="padding">The padding mode to use (default: PKCS1).</param>
     /// <param name="hashAlgorithm">The hash algorithm for OAEP padding (default: SHA256).</param>
     /// <returns>The encrypted data.</returns>
+    /// <remarks>
+    /// <b>Security Note:</b> PKCS#1 v1.5 padding is vulnerable to Bleichenbacher's padding oracle attack.
+    /// Use RSA-OAEP for new applications. PKCS#1 v1.5 is only supported for OpenPGP (RFC 4880) compatibility.
+    /// </remarks>
     public static byte[] Encrypt(
         byte[] data,
         RsaPublicKey publicKey,
         RsaPaddingMode padding = RsaPaddingMode.Pkcs1,
         HashAlgorithmName? hashAlgorithm = null)
     {
+        // Emit deprecation warning for PKCS#1 v1.5
+        if (padding == RsaPaddingMode.Pkcs1)
+        {
+            CryptoAudit.AlertWeakAlgorithm(
+                "RSA-PKCS1v1.5",
+                "PKCS#1 v1.5 padding is vulnerable to Bleichenbacher's padding oracle attack (CVE-1998-ROBOT).",
+                "RSA-OAEP with SHA-256",
+                WeakAlgorithmSeverity.Warning);
+            CryptoAudit.WarnDeprecated("RSA-PKCS1v1.5", "RSA-OAEP", new DateTime(2028, 1, 1));
+        }
+
         using var rsa = RSA.Create();
         rsa.ImportParameters(ToRsaParameters(publicKey));
         return rsa.Encrypt(data, ResolveEncryptionPadding(padding, hashAlgorithm));
@@ -60,12 +76,27 @@ internal static class RsaCore
     /// <param name="padding">The padding mode to use (default: PKCS1).</param>
     /// <param name="hashAlgorithm">The hash algorithm for OAEP padding (default: SHA256).</param>
     /// <returns>The decrypted data.</returns>
+    /// <remarks>
+    /// <b>Security Note:</b> PKCS#1 v1.5 padding is vulnerable to Bleichenbacher's padding oracle attack.
+    /// Use RSA-OAEP for new applications. PKCS#1 v1.5 is only supported for OpenPGP (RFC 4880) compatibility.
+    /// </remarks>
     public static byte[] Decrypt(
         byte[] encryptedData,
         RsaPrivateKey privateKey,
         RsaPaddingMode padding = RsaPaddingMode.Pkcs1,
         HashAlgorithmName? hashAlgorithm = null)
     {
+        // Emit deprecation warning for PKCS#1 v1.5
+        if (padding == RsaPaddingMode.Pkcs1)
+        {
+            CryptoAudit.AlertWeakAlgorithm(
+                "RSA-PKCS1v1.5",
+                "PKCS#1 v1.5 padding is vulnerable to Bleichenbacher's padding oracle attack (CVE-1998-ROBOT).",
+                "RSA-OAEP with SHA-256",
+                WeakAlgorithmSeverity.Warning);
+            CryptoAudit.WarnDeprecated("RSA-PKCS1v1.5", "RSA-OAEP", new DateTime(2028, 1, 1));
+        }
+
         using var rsa = RSA.Create();
         rsa.ImportParameters(ToRsaParameters(privateKey));
         return rsa.Decrypt(encryptedData, ResolveEncryptionPadding(padding, hashAlgorithm));

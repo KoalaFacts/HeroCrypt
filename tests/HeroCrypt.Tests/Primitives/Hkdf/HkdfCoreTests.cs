@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using HeroCrypt.Primitives.Hkdf;
+using HeroCrypt.Security;
 using HeroCrypt.Tests.Infrastructure;
 
 namespace HeroCrypt.Tests.Primitives.Hkdf;
@@ -251,6 +252,57 @@ public class HkdfCoreTests
             Assert.Throws<ArgumentException>(() =>
                HkdfCore.Extract([], [], HashAlgorithmName.SHA256));
         }
+
+        [Fact]
+        public void DeriveKey_Sha1_BlockedAtStandardLevel()
+        {
+            // Verify SHA-1 is blocked at Standard security level (default)
+            var ikm = Encoding.UTF8.GetBytes("ikm");
+            var salt = Encoding.UTF8.GetBytes("salt");
+
+            var ex = Assert.Throws<SecurityPolicyException>(() =>
+                HkdfCore.DeriveKey(ikm, salt, [], 32, HashAlgorithmName.SHA1));
+
+            Assert.Equal("SHA1", ex.Algorithm);
+            Assert.Equal("SHA-256", ex.Alternative);
+        }
+
+        [Fact]
+        public void Extract_Sha1_BlockedAtStandardLevel()
+        {
+            // Verify SHA-1 is blocked at Standard security level (default)
+            var ikm = Encoding.UTF8.GetBytes("ikm");
+            var salt = Encoding.UTF8.GetBytes("salt");
+
+            var ex = Assert.Throws<SecurityPolicyException>(() =>
+                HkdfCore.Extract(ikm, salt, HashAlgorithmName.SHA1));
+
+            Assert.Equal("SHA1", ex.Algorithm);
+        }
+
+        [Fact]
+        public void GetRecommendedParameters_LegacyCompatibility_BlockedAtStandardLevel()
+        {
+            // Verify LegacyCompatibility (SHA-1) throws at Standard level
+            var ex = Assert.Throws<SecurityPolicyException>(() =>
+                HkdfCore.GetRecommendedParameters(HkdfUseCase.LegacyCompatibility));
+
+            Assert.Equal("SHA1", ex.Algorithm);
+        }
+
+        [Fact]
+        public void DeriveKey_Sha1_AllowedInLegacyScope()
+        {
+            // Verify SHA-1 is allowed when using LegacyScope
+            var ikm = Encoding.UTF8.GetBytes("ikm");
+            var salt = Encoding.UTF8.GetBytes("salt");
+
+            using (SecurityPolicy.LegacyScope())
+            {
+                var key = HkdfCore.DeriveKey(ikm, salt, [], 32, HashAlgorithmName.SHA1);
+                Assert.Equal(32, key.Length);
+            }
+        }
     }
 
     /// <summary>
@@ -335,25 +387,30 @@ public class HkdfCoreTests
         public void Rfc5869_TestCase4_Sha1_BasicTest()
         {
             // RFC 5869 Appendix A.4 - Test Case 4 (SHA-1)
+            // Note: SHA-1 is blocked at Standard security level; use LegacyScope for RFC compliance testing
             var ikm = TestHelpers.HexToBytes("0b0b0b0b0b0b0b0b0b0b0b");
             var salt = TestHelpers.HexToBytes("000102030405060708090a0b0c");
             var info = TestHelpers.HexToBytes("f0f1f2f3f4f5f6f7f8f9");
             var expectedPrk = TestHelpers.HexToBytes("9b6c18c432a7bf8f0e71c8eb88f4b30baa2ba243");
             var expectedOkm = TestHelpers.HexToBytes("085a01ea1b10f36933068b56efa5ad81a4f14b822f5b091568a9cdd4f155fda2c22e422478d305f3f896");
 
-            // Test Extract
-            var prk = HkdfCore.Extract(ikm, salt, HashAlgorithmName.SHA1);
-            CryptoAssertions.AssertBytesEqual(expectedPrk, prk);
+            using (SecurityPolicy.LegacyScope())
+            {
+                // Test Extract
+                var prk = HkdfCore.Extract(ikm, salt, HashAlgorithmName.SHA1);
+                CryptoAssertions.AssertBytesEqual(expectedPrk, prk);
 
-            // Test full DeriveKey
-            var okm = HkdfCore.DeriveKey(ikm, salt, info, 42, HashAlgorithmName.SHA1);
-            CryptoAssertions.AssertBytesEqual(expectedOkm, okm);
+                // Test full DeriveKey
+                var okm = HkdfCore.DeriveKey(ikm, salt, info, 42, HashAlgorithmName.SHA1);
+                CryptoAssertions.AssertBytesEqual(expectedOkm, okm);
+            }
         }
 
         [Fact]
         public void Rfc5869_TestCase5_Sha1_LongerInputsOutputs()
         {
             // RFC 5869 Appendix A.5 - Test Case 5 (SHA-1, longer)
+            // Note: SHA-1 is blocked at Standard security level; use LegacyScope for RFC compliance testing
             var ikm = TestHelpers.HexToBytes(
                 "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f" +
                 "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f" +
@@ -372,32 +429,39 @@ public class HkdfCoreTests
                 "8fa3f1a4e5ad79f3f334b3b202b2173c486ea37ce3d397ed034c7f9dfeb15c5e" +
                 "927336d0441f4c4300e2cff0d0900b52d3b4");
 
-            // Test Extract
-            var prk = HkdfCore.Extract(ikm, salt, HashAlgorithmName.SHA1);
-            CryptoAssertions.AssertBytesEqual(expectedPrk, prk);
+            using (SecurityPolicy.LegacyScope())
+            {
+                // Test Extract
+                var prk = HkdfCore.Extract(ikm, salt, HashAlgorithmName.SHA1);
+                CryptoAssertions.AssertBytesEqual(expectedPrk, prk);
 
-            // Test full DeriveKey
-            var okm = HkdfCore.DeriveKey(ikm, salt, info, 82, HashAlgorithmName.SHA1);
-            CryptoAssertions.AssertBytesEqual(expectedOkm, okm);
+                // Test full DeriveKey
+                var okm = HkdfCore.DeriveKey(ikm, salt, info, 82, HashAlgorithmName.SHA1);
+                CryptoAssertions.AssertBytesEqual(expectedOkm, okm);
+            }
         }
 
         [Fact]
         public void Rfc5869_TestCase6_Sha1_ZeroLengthSaltInfo()
         {
             // RFC 5869 Appendix A.6 - Test Case 6 (SHA-1, zero-length)
+            // Note: SHA-1 is blocked at Standard security level; use LegacyScope for RFC compliance testing
             var ikm = TestHelpers.HexToBytes("0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b");
             var salt = Array.Empty<byte>();
             var info = Array.Empty<byte>();
             var expectedPrk = TestHelpers.HexToBytes("da8c8a73c7fa77288ec6f5e7c297786aa0d32d01");
             var expectedOkm = TestHelpers.HexToBytes("0ac1af7002b3d761d1e55298da9d0506b9ae52057220a306e07b6b87e8df21d0ea00033de03984d34918");
 
-            // Test Extract
-            var prk = HkdfCore.Extract(ikm, salt, HashAlgorithmName.SHA1);
-            CryptoAssertions.AssertBytesEqual(expectedPrk, prk);
+            using (SecurityPolicy.LegacyScope())
+            {
+                // Test Extract
+                var prk = HkdfCore.Extract(ikm, salt, HashAlgorithmName.SHA1);
+                CryptoAssertions.AssertBytesEqual(expectedPrk, prk);
 
-            // Test full DeriveKey
-            var okm = HkdfCore.DeriveKey(ikm, salt, info, 42, HashAlgorithmName.SHA1);
-            CryptoAssertions.AssertBytesEqual(expectedOkm, okm);
+                // Test full DeriveKey
+                var okm = HkdfCore.DeriveKey(ikm, salt, info, 42, HashAlgorithmName.SHA1);
+                CryptoAssertions.AssertBytesEqual(expectedOkm, okm);
+            }
         }
 
         [Fact]
@@ -405,19 +469,23 @@ public class HkdfCoreTests
         {
             // RFC 5869 Appendix A.7 - Test Case 7 (SHA-1, zero-length IKM - edge case)
             // Note: Some implementations reject zero-length IKM, we test this for completeness
+            // Note: SHA-1 is blocked at Standard security level; use LegacyScope for RFC compliance testing
             var ikm = TestHelpers.HexToBytes("0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c");
             var salt = Array.Empty<byte>(); // "not provided" in RFC means empty
             var info = Array.Empty<byte>();
             var expectedPrk = TestHelpers.HexToBytes("2adccada18779e7c2077ad2eb19d3f3e731385dd");
             var expectedOkm = TestHelpers.HexToBytes("2c91117204d745f3500d636a62f64f0ab3bae548aa53d423b0d1f27ebba6f5e5673a081d70cce7acfc48");
 
-            // Test Extract
-            var prk = HkdfCore.Extract(ikm, salt, HashAlgorithmName.SHA1);
-            CryptoAssertions.AssertBytesEqual(expectedPrk, prk);
+            using (SecurityPolicy.LegacyScope())
+            {
+                // Test Extract
+                var prk = HkdfCore.Extract(ikm, salt, HashAlgorithmName.SHA1);
+                CryptoAssertions.AssertBytesEqual(expectedPrk, prk);
 
-            // Test full DeriveKey
-            var okm = HkdfCore.DeriveKey(ikm, salt, info, 42, HashAlgorithmName.SHA1);
-            CryptoAssertions.AssertBytesEqual(expectedOkm, okm);
+                // Test full DeriveKey
+                var okm = HkdfCore.DeriveKey(ikm, salt, info, 42, HashAlgorithmName.SHA1);
+                CryptoAssertions.AssertBytesEqual(expectedOkm, okm);
+            }
         }
     }
 }

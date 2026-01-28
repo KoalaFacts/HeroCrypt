@@ -186,7 +186,8 @@ internal static class PgpKeyEncryption
                 actualChecksum = (ushort)((actualChecksum + b) & 0xFFFF);
             }
 
-            if (expectedChecksum != actualChecksum)
+            // Use constant-time comparison to prevent timing attacks
+            if (!SecureMemoryOperations.ConstantTimeEquals(expectedChecksum, actualChecksum))
             {
                 SecureMemoryOperations.SecureClear(sessionKey);
                 throw new CryptographicException("Session key checksum mismatch.");

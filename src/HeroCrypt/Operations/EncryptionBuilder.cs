@@ -503,19 +503,36 @@ public sealed class EncryptionBuilder : IDisposable
     /// </summary>
     /// <returns>This builder for method chaining.</returns>
     /// <exception cref="ObjectDisposedException">If the builder has been disposed.</exception>
+    /// <exception cref="InvalidOperationException">If used in release builds with non-SIV algorithms.</exception>
     /// <remarks>
-    /// <para>WARNING: Deterministic encryption has security implications:</para>
+    /// <para><b>SECURITY WARNING:</b> Deterministic encryption has severe security implications:</para>
     /// <list type="bullet">
     /// <item>Same plaintext + key produces identical ciphertext (reveals duplicate messages)</item>
     /// <item>For AES-SIV: Safe, designed for nonce-misuse resistance</item>
-    /// <item>For other algorithms (AES-GCM, ChaCha20-Poly1305): Dangerous, only use for testing or specific protocols</item>
+    /// <item>For other algorithms (AES-GCM, ChaCha20-Poly1305): <b>CATASTROPHIC</b> - nonce reuse completely breaks security</item>
     /// </list>
+    /// <para>
+    /// In release builds, this method only works with AES-SIV (which is designed for deterministic encryption).
+    /// For other algorithms, it throws <see cref="InvalidOperationException"/> in release builds.
+    /// In debug builds, it is allowed for testing purposes only.
+    /// </para>
     /// </remarks>
+    [Obsolete("Deterministic mode is dangerous for non-SIV algorithms. Use only for testing or with AES-SIV.")]
     public EncryptionBuilder WithDeterministicMode()
     {
         using (syncLock.EnterScope())
         {
             ThrowIfDisposed();
+#if !DEBUG
+            // In release builds, only allow deterministic mode for AES-SIV which is designed for it
+            if (algorithm != EncryptionAlgorithm.AesSiv)
+            {
+                throw new InvalidOperationException(
+                    $"Deterministic mode is only allowed for AES-SIV in release builds. " +
+                    $"Algorithm '{algorithm}' uses zero nonces which completely breaks security. " +
+                    $"For testing, use a DEBUG build.");
+            }
+#endif
             deterministicMode = true;
             return this;
         }

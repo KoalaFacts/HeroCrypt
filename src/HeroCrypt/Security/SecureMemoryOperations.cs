@@ -8,8 +8,40 @@ using LockScope = System.Threading.Lock.Scope;
 namespace HeroCrypt.Security;
 
 /// <summary>
-/// Provides secure memory operations for cryptographic material
+/// Provides secure memory operations for cryptographic material.
 /// </summary>
+/// <remarks>
+/// <para>
+/// This class provides methods for securely clearing sensitive data from memory,
+/// preventing key material from persisting after use.
+/// </para>
+/// <para>
+/// <b>Platform-Specific Behavior:</b>
+/// <list type="bullet">
+///   <item><b>.NET 5.0+:</b> Uses CryptographicOperations.ZeroMemory which is
+///   guaranteed not to be optimized away by the JIT compiler.</item>
+///   <item><b>.NET Standard 2.0:</b> Uses a fallback implementation with Array.Clear,
+///   random data overwrite, and GC.Collect to reduce the risk of optimization, but this
+///   is <b>not guaranteed</b> to prevent all optimizations.</item>
+/// </list>
+/// </para>
+/// <para>
+/// <b>⚠️ .NET Standard 2.0 Limitation:</b>
+/// On .NET Standard 2.0 and older frameworks, the JIT compiler may theoretically optimize
+/// away the memory clearing operations if it determines the array is not used after clearing.
+/// The fallback implementation includes multiple mitigations:
+/// <list type="number">
+///   <item>Multiple clear operations with random data in between</item>
+///   <item>GC.Collect calls to encourage immediate memory reclamation</item>
+///   <item>Volatile.Write for span-based clearing</item>
+/// </list>
+/// However, for maximum security on sensitive applications, consider:
+/// <list type="bullet">
+///   <item>Targeting .NET 5.0 or later where CryptographicOperations.ZeroMemory is available</item>
+///   <item>Using secure memory allocators provided by the operating system</item>
+/// </list>
+/// </para>
+/// </remarks>
 public static class SecureMemoryOperations
 {
     /// <summary>
@@ -262,8 +294,84 @@ public static class SecureMemoryOperations
 }
 
 /// <summary>
-/// Secure wrapper for byte arrays that automatically clears memory on disposal
+/// Secure wrapper for byte arrays that automatically clears memory on disposal.
 /// </summary>
+/// <remarks>
+/// <para>
+/// <b>Thread-Safety Guarantees:</b>
+/// </para>
+/// <para>
+/// This class uses internal synchronization to ensure thread-safe access to the underlying data.
+/// All public properties and methods acquire a lock before accessing or modifying the data.
+/// However, there are important edge cases to consider:
+/// </para>
+/// <list type="number">
+///   <item>
+///     <term>Reference Leaking via WithBytes</term>
+///     <description>
+///       The <see cref="WithBytes(Action{byte[]})"/> and <see cref="WithBytes{T}(Func{byte[], T})"/>
+///       methods expose the underlying byte array to the callback. If the callback stores this
+///       reference (e.g., in a field or closure), that reference can be accessed outside the lock
+///       scope or even after disposal, leading to race conditions or use-after-clear scenarios.
+///       <b>Never store the byte array reference passed to callbacks.</b>
+///     </description>
+///   </item>
+///   <item>
+///     <term>ToArray Returns Unsecured Copy</term>
+///     <description>
+///       The <see cref="ToArray"/> method returns a regular byte array that is NOT automatically
+///       cleared on disposal. Callers are responsible for securely clearing this copy using
+///       <see cref="SecureMemoryOperations.SecureClear(byte[])"/> when finished.
+///     </description>
+///   </item>
+///   <item>
+///     <term>Indexer Access Granularity</term>
+///     <description>
+///       Each indexer access (<c>this[index]</c>) acquires and releases the lock independently.
+///       When iterating over the array, prefer using <see cref="WithBytes(Action{byte[]})"/> to
+///       hold the lock for the entire operation rather than accessing elements individually.
+///     </description>
+///   </item>
+///   <item>
+///     <term>Finalizer Behavior</term>
+///     <description>
+///       The finalizer acquires the internal lock before clearing data. While this is generally
+///       safe (finalizers run on a dedicated GC thread), it means disposal during finalization
+///       may briefly block if another thread holds the lock. Always explicitly dispose instances
+///       using <c>using</c> statements or <see cref="Dispose"/> rather than relying on finalization.
+///     </description>
+///   </item>
+/// </list>
+/// <para>
+/// <b>Cross-Framework Compatibility:</b>
+/// </para>
+/// <para>
+/// On .NET 9 and later, this class uses the new <c>System.Threading.Lock</c> type for improved
+/// performance. On earlier frameworks (.NET Standard 2.0, .NET 6/7/8), it uses <c>Monitor</c>-based
+/// locking via the internal <c>LockReleaser</c> helper class. Both mechanisms provide equivalent
+/// thread-safety guarantees.
+/// </para>
+/// </remarks>
+/// <example>
+/// <code>
+/// // Correct usage - lock held for entire operation
+/// using var secure = SecureMemoryOperations.CreateSecureCopy(sensitiveData);
+/// secure.WithBytes(bytes =>
+/// {
+///     // Work with bytes here - lock is held
+///     ProcessSensitiveData(bytes);
+/// });
+/// // Data is automatically cleared when secure is disposed
+///
+/// // INCORRECT - storing reference leads to race conditions
+/// byte[]? leakedReference = null;
+/// secure.WithBytes(bytes =>
+/// {
+///     leakedReference = bytes; // DON'T DO THIS!
+/// });
+/// // leakedReference can now be accessed without synchronization
+/// </code>
+/// </example>
 public sealed class SecureByteArray : IDisposable
 {
     private byte[] data;
@@ -327,9 +435,17 @@ public sealed class SecureByteArray : IDisposable
     }
 
     /// <summary>
-    /// Gets or sets a byte at the specified index
+    /// Gets or sets a byte at the specified index.
     /// </summary>
-    /// <param name="index">Index to access</param>
+    /// <param name="index">Index to access.</param>
+    /// <remarks>
+    /// <para>
+    /// <b>PERFORMANCE NOTE:</b> Each indexer access acquires and releases the lock independently.
+    /// For bulk operations or iterations, use <see cref="WithBytes(Action{byte[]})"/> to hold
+    /// the lock for the entire operation, which is both more efficient and provides consistent
+    /// snapshot semantics.
+    /// </para>
+    /// </remarks>
     public byte this[int index]
     {
         get
@@ -347,9 +463,16 @@ public sealed class SecureByteArray : IDisposable
     }
 
     /// <summary>
-    /// Executes an action with access to the underlying byte array
+    /// Executes an action with access to the underlying byte array.
     /// </summary>
-    /// <param name="action">Action to execute with the byte array</param>
+    /// <param name="action">Action to execute with the byte array.</param>
+    /// <remarks>
+    /// <para>
+    /// <b>SECURITY WARNING:</b> The lock is only held during the callback execution.
+    /// <b>Never store the byte array reference</b> passed to the callback, as this would
+    /// allow unsynchronized access and potential use-after-clear vulnerabilities.
+    /// </para>
+    /// </remarks>
     public void WithBytes(Action<byte[]> action)
     {
 #if !NETSTANDARD2_0
@@ -367,11 +490,22 @@ public sealed class SecureByteArray : IDisposable
     }
 
     /// <summary>
-    /// Executes a function with access to the underlying byte array and returns a result
+    /// Executes a function with access to the underlying byte array and returns a result.
     /// </summary>
-    /// <typeparam name="T">Return type</typeparam>
-    /// <param name="func">Function to execute with the byte array</param>
-    /// <returns>Result of the function</returns>
+    /// <typeparam name="T">Return type.</typeparam>
+    /// <param name="func">Function to execute with the byte array.</param>
+    /// <returns>Result of the function.</returns>
+    /// <remarks>
+    /// <para>
+    /// <b>SECURITY WARNING:</b> The lock is only held during the callback execution.
+    /// <b>Never store the byte array reference</b> passed to the callback, as this would
+    /// allow unsynchronized access and potential use-after-clear vulnerabilities.
+    /// </para>
+    /// <para>
+    /// If the return type <typeparamref name="T"/> is <c>byte[]</c>, ensure you securely clear
+    /// the returned data when finished, as it will not be automatically cleared.
+    /// </para>
+    /// </remarks>
     public T WithBytes<T>(Func<byte[], T> func)
     {
 #if !NETSTANDARD2_0
@@ -389,9 +523,29 @@ public sealed class SecureByteArray : IDisposable
     }
 
     /// <summary>
-    /// Creates a copy of the secure array data
+    /// Creates a copy of the secure array data.
     /// </summary>
-    /// <returns>Copy of the array data</returns>
+    /// <returns>Copy of the array data.</returns>
+    /// <remarks>
+    /// <para>
+    /// <b>SECURITY WARNING:</b> The returned array is a regular <c>byte[]</c> that is
+    /// <b>NOT automatically cleared</b> when this <see cref="SecureByteArray"/> is disposed.
+    /// </para>
+    /// <para>
+    /// Callers are responsible for securely clearing the returned copy when finished:
+    /// </para>
+    /// <code>
+    /// byte[] copy = secureArray.ToArray();
+    /// try
+    /// {
+    ///     // Use the copy
+    /// }
+    /// finally
+    /// {
+    ///     SecureMemoryOperations.SecureClear(copy);
+    /// }
+    /// </code>
+    /// </remarks>
     public byte[] ToArray()
     {
         using var guard = EnterLock();

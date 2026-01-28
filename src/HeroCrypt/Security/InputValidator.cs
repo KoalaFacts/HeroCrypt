@@ -1,8 +1,64 @@
 namespace HeroCrypt.Security;
 
 /// <summary>
-/// Provides comprehensive input validation for cryptographic operations
+/// Provides comprehensive input validation for cryptographic operations.
 /// </summary>
+/// <remarks>
+/// <para>
+/// <b>Security Note on Error Messages:</b>
+/// </para>
+/// <para>
+/// This validator intentionally provides detailed error messages that include specific parameter
+/// values (e.g., "Data size 150MB exceeds maximum 100MB"). This is a deliberate design decision
+/// that prioritizes developer experience and debugging capability over minimal information disclosure.
+/// </para>
+/// <para>
+/// <b>Rationale:</b>
+/// </para>
+/// <list type="bullet">
+///   <item>
+///     <description>
+///       The disclosed values are validation parameters (sizes, iteration counts), not cryptographic
+///       secrets. An attacker typically already knows these values because they provided them.
+///     </description>
+///   </item>
+///   <item>
+///     <description>
+///       Maximum limits (e.g., <see cref="MAX_ARRAY_SIZE"/>, <see cref="MAX_ITERATION_COUNT"/>)
+///       are public constants, so hiding them in error messages provides no security benefit.
+///     </description>
+///   </item>
+///   <item>
+///     <description>
+///       Generic error messages like "Invalid parameter" significantly hinder development and
+///       debugging, causing developers to waste time identifying simple configuration issues.
+///     </description>
+///   </item>
+///   <item>
+///     <description>
+///       Cryptographic oracles (e.g., padding oracles) require error differentiation during
+///       the cryptographic operation itself, not during pre-operation parameter validation.
+///     </description>
+///   </item>
+/// </list>
+/// <para>
+/// <b>For High-Security Deployments:</b>
+/// </para>
+/// <para>
+/// If your threat model requires hiding validation details from end users, catch
+/// <see cref="ArgumentException"/> at your API boundary and re-throw with generic messages:
+/// </para>
+/// <code>
+/// try
+/// {
+///     InputValidator.ValidateByteArray(data, nameof(data));
+/// }
+/// catch (ArgumentException)
+/// {
+///     throw new ArgumentException("Invalid input parameters");
+/// }
+/// </code>
+/// </remarks>
 public static class InputValidator
 {
     /// <summary>

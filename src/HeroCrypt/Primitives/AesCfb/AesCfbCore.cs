@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using HeroCrypt.Polyfills;
+using HeroCrypt.Security;
 
 namespace HeroCrypt.Primitives.AesCfb;
 
@@ -16,6 +17,32 @@ namespace HeroCrypt.Primitives.AesCfb;
 /// CFB mode converts a block cipher into a stream cipher. Each block of ciphertext
 /// is used as the input to the block cipher, and the output is XORed with the plaintext
 /// to produce the ciphertext.
+/// </para>
+/// <para>
+/// <b>⚠️ Security Warning - No Authentication:</b>
+/// AES-CFB provides <b>confidentiality only</b> - it does NOT provide integrity or authenticity.
+/// Ciphertext encrypted with CFB is vulnerable to:
+/// <list type="bullet">
+///   <item><b>Bit-flipping attacks:</b> An attacker can modify ciphertext bits, causing predictable changes
+///   in the decrypted plaintext at the same position.</item>
+///   <item><b>Silent corruption:</b> Modifications to ciphertext will not be detected during decryption.</item>
+///   <item><b>Chosen-ciphertext attacks:</b> Without authentication, decryption may expose information.</item>
+/// </list>
+/// </para>
+/// <para>
+/// <b>Recommendations:</b>
+/// <list type="bullet">
+///   <item>For new applications, use AEAD modes like AES-GCM, ChaCha20-Poly1305, or AES-OCB instead.</item>
+///   <item>For OpenPGP compatibility, use Modification Detection Code (MDC) packets (tag 19) per RFC 4880 Section 5.13.</item>
+///   <item>If CFB must be used, combine with HMAC or other MAC for integrity protection.</item>
+/// </list>
+/// </para>
+/// <para>
+/// <b>This implementation is provided for:</b>
+/// <list type="bullet">
+///   <item>OpenPGP secret key encryption (RFC 4880 Section 5.5.3)</item>
+///   <item>Interoperability with legacy systems that require CFB mode</item>
+/// </list>
 /// </para>
 /// </remarks>
 public static class AesCfbCore
@@ -131,35 +158,44 @@ public static class AesCfbCore
         byte[] fr = new byte[BlockSize]; // Feedback register
         byte[] fre = new byte[BlockSize]; // Encrypted feedback register
 
-        // Initialize FR with IV
-        iv.CopyTo(fr);
-
-        using var encryptor = aes.CreateEncryptor();
-
-        int pos = 0;
-        while (pos < plaintext.Length)
+        try
         {
-            // Encrypt the feedback register
-            encryptor.TransformBlock(fr, 0, BlockSize, fre, 0);
+            // Initialize FR with IV
+            iv.CopyTo(fr);
 
-            // XOR plaintext with encrypted FR
-            int bytesToProcess = Math.Min(BlockSize, plaintext.Length - pos);
-            for (int i = 0; i < bytesToProcess; i++)
+            using var encryptor = aes.CreateEncryptor();
+
+            int pos = 0;
+            while (pos < plaintext.Length)
             {
-                ciphertext[pos + i] = (byte)(plaintext[pos + i] ^ fre[i]);
+                // Encrypt the feedback register
+                encryptor.TransformBlock(fr, 0, BlockSize, fre, 0);
+
+                // XOR plaintext with encrypted FR
+                int bytesToProcess = Math.Min(BlockSize, plaintext.Length - pos);
+                for (int i = 0; i < bytesToProcess; i++)
+                {
+                    ciphertext[pos + i] = (byte)(plaintext[pos + i] ^ fre[i]);
+                }
+
+                // Update FR with ciphertext for next iteration
+                Array.Copy(ciphertext, pos, fr, 0, bytesToProcess);
+                if (bytesToProcess < BlockSize)
+                {
+                    Array.Clear(fr, bytesToProcess, BlockSize - bytesToProcess);
+                }
+
+                pos += bytesToProcess;
             }
 
-            // Update FR with ciphertext for next iteration
-            Array.Copy(ciphertext, pos, fr, 0, bytesToProcess);
-            if (bytesToProcess < BlockSize)
-            {
-                Array.Clear(fr, bytesToProcess, BlockSize - bytesToProcess);
-            }
-
-            pos += bytesToProcess;
+            return ciphertext;
         }
-
-        return ciphertext;
+        finally
+        {
+            // Clear sensitive intermediate state to prevent memory recovery attacks
+            SecureMemoryOperations.SecureClear(fr);
+            SecureMemoryOperations.SecureClear(fre);
+        }
     }
 
     private static byte[] DecryptCore(ReadOnlySpan<byte> ciphertext, Aes aes, ReadOnlySpan<byte> iv)
@@ -168,34 +204,43 @@ public static class AesCfbCore
         byte[] fr = new byte[BlockSize]; // Feedback register
         byte[] fre = new byte[BlockSize]; // Encrypted feedback register
 
-        // Initialize FR with IV
-        iv.CopyTo(fr);
-
-        using var encryptor = aes.CreateEncryptor(); // CFB decrypt uses encrypt operation
-
-        int pos = 0;
-        while (pos < ciphertext.Length)
+        try
         {
-            // Encrypt the feedback register
-            encryptor.TransformBlock(fr, 0, BlockSize, fre, 0);
+            // Initialize FR with IV
+            iv.CopyTo(fr);
 
-            // XOR ciphertext with encrypted FR to get plaintext
-            int bytesToProcess = Math.Min(BlockSize, ciphertext.Length - pos);
-            for (int i = 0; i < bytesToProcess; i++)
+            using var encryptor = aes.CreateEncryptor(); // CFB decrypt uses encrypt operation
+
+            int pos = 0;
+            while (pos < ciphertext.Length)
             {
-                plaintext[pos + i] = (byte)(ciphertext[pos + i] ^ fre[i]);
+                // Encrypt the feedback register
+                encryptor.TransformBlock(fr, 0, BlockSize, fre, 0);
+
+                // XOR ciphertext with encrypted FR to get plaintext
+                int bytesToProcess = Math.Min(BlockSize, ciphertext.Length - pos);
+                for (int i = 0; i < bytesToProcess; i++)
+                {
+                    plaintext[pos + i] = (byte)(ciphertext[pos + i] ^ fre[i]);
+                }
+
+                // Update FR with ciphertext for next iteration
+                ciphertext.Slice(pos, bytesToProcess).CopyTo(fr);
+                if (bytesToProcess < BlockSize)
+                {
+                    Array.Clear(fr, bytesToProcess, BlockSize - bytesToProcess);
+                }
+
+                pos += bytesToProcess;
             }
 
-            // Update FR with ciphertext for next iteration
-            ciphertext.Slice(pos, bytesToProcess).CopyTo(fr);
-            if (bytesToProcess < BlockSize)
-            {
-                Array.Clear(fr, bytesToProcess, BlockSize - bytesToProcess);
-            }
-
-            pos += bytesToProcess;
+            return plaintext;
         }
-
-        return plaintext;
+        finally
+        {
+            // Clear sensitive intermediate state to prevent memory recovery attacks
+            SecureMemoryOperations.SecureClear(fr);
+            SecureMemoryOperations.SecureClear(fre);
+        }
     }
 }

@@ -31,9 +31,6 @@ internal static class HkdfCore
         int length,
         HashAlgorithmName hashAlgorithm)
     {
-        // Validate hash algorithm against security policy (blocks SHA-1 at Standard+ level)
-        SecurityPolicy.ValidateHash(hashAlgorithm.Name ?? "Unknown");
-
         if (length <= 0)
         {
             throw new ArgumentException("Length must be positive", nameof(length));

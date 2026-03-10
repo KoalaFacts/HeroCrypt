@@ -31,9 +31,6 @@ internal static class HkdfCore
         int length,
         HashAlgorithmName hashAlgorithm)
     {
-        // Validate hash algorithm against security policy (blocks SHA-1 at Standard+ level)
-        SecurityPolicy.ValidateHash(hashAlgorithm.Name ?? "Unknown");
-
         if (length <= 0)
         {
             throw new ArgumentException("Length must be positive", nameof(length));
@@ -70,7 +67,7 @@ internal static class HkdfCore
     public static byte[] Extract(ReadOnlySpan<byte> ikm, ReadOnlySpan<byte> salt, HashAlgorithmName hashAlgorithm)
     {
         // Validate hash algorithm against security policy (blocks SHA-1 at Standard+ level)
-        SecurityPolicy.ValidateHash(hashAlgorithm.Name ?? "Unknown");
+        SecurityPolicy.ValidateHash(hashAlgorithm);
 
         if (ikm.IsEmpty)
         {
@@ -108,7 +105,7 @@ internal static class HkdfCore
     public static byte[] Expand(ReadOnlySpan<byte> prk, ReadOnlySpan<byte> info, int length, HashAlgorithmName hashAlgorithm)
     {
         // Validate hash algorithm against security policy (blocks SHA-1 at Standard+ level)
-        SecurityPolicy.ValidateHash(hashAlgorithm.Name ?? "Unknown");
+        SecurityPolicy.ValidateHash(hashAlgorithm);
 
         if (prk.IsEmpty)
         {
@@ -255,10 +252,6 @@ internal static class HkdfCore
             },
             _ => throw new ArgumentException($"Unknown use case: {useCase}", nameof(useCase))
         };
-
-        // Validate the hash algorithm against security policy
-        // This will throw SecurityPolicyException for SHA-1 at Standard+ level
-        SecurityPolicy.ValidateHash(parameters.HashAlgorithm.Name ?? "Unknown");
 
         return parameters;
     }

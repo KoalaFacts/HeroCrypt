@@ -231,7 +231,7 @@ internal static class RsaOaep
     private static HashAlgorithm CreateHashAlgorithm(HashAlgorithmName name)
     {
         // Validate hash algorithm against security policy (blocks SHA-1 at Standard+ level)
-        SecurityPolicy.ValidateHash(name.Name ?? "Unknown");
+        SecurityPolicy.ValidateHash(name);
 
         if (name == HashAlgorithmName.SHA256)
         {

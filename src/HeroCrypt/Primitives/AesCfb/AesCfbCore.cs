@@ -154,53 +154,17 @@ public static class AesCfbCore
 
     private static byte[] EncryptCore(ReadOnlySpan<byte> plaintext, Aes aes, ReadOnlySpan<byte> iv)
     {
-        byte[] ciphertext = new byte[plaintext.Length];
-        byte[] fr = new byte[BlockSize]; // Feedback register
-        byte[] fre = new byte[BlockSize]; // Encrypted feedback register
-
-        try
-        {
-            // Initialize FR with IV
-            iv.CopyTo(fr);
-
-            using var encryptor = aes.CreateEncryptor();
-
-            int pos = 0;
-            while (pos < plaintext.Length)
-            {
-                // Encrypt the feedback register
-                encryptor.TransformBlock(fr, 0, BlockSize, fre, 0);
-
-                // XOR plaintext with encrypted FR
-                int bytesToProcess = Math.Min(BlockSize, plaintext.Length - pos);
-                for (int i = 0; i < bytesToProcess; i++)
-                {
-                    ciphertext[pos + i] = (byte)(plaintext[pos + i] ^ fre[i]);
-                }
-
-                // Update FR with ciphertext for next iteration
-                Array.Copy(ciphertext, pos, fr, 0, bytesToProcess);
-                if (bytesToProcess < BlockSize)
-                {
-                    Array.Clear(fr, bytesToProcess, BlockSize - bytesToProcess);
-                }
-
-                pos += bytesToProcess;
-            }
-
-            return ciphertext;
-        }
-        finally
-        {
-            // Clear sensitive intermediate state to prevent memory recovery attacks
-            SecureMemoryOperations.SecureClear(fr);
-            SecureMemoryOperations.SecureClear(fre);
-        }
+        return ProcessCore(plaintext, aes, iv, encrypting: true);
     }
 
     private static byte[] DecryptCore(ReadOnlySpan<byte> ciphertext, Aes aes, ReadOnlySpan<byte> iv)
     {
-        byte[] plaintext = new byte[ciphertext.Length];
+        return ProcessCore(ciphertext, aes, iv, encrypting: false);
+    }
+
+    private static byte[] ProcessCore(ReadOnlySpan<byte> input, Aes aes, ReadOnlySpan<byte> iv, bool encrypting)
+    {
+        byte[] output = new byte[input.Length];
         byte[] fr = new byte[BlockSize]; // Feedback register
         byte[] fre = new byte[BlockSize]; // Encrypted feedback register
 
@@ -209,23 +173,32 @@ public static class AesCfbCore
             // Initialize FR with IV
             iv.CopyTo(fr);
 
-            using var encryptor = aes.CreateEncryptor(); // CFB decrypt uses encrypt operation
+            using var encryptor = aes.CreateEncryptor(); // CFB always uses encrypt operation
 
             int pos = 0;
-            while (pos < ciphertext.Length)
+            while (pos < input.Length)
             {
                 // Encrypt the feedback register
                 encryptor.TransformBlock(fr, 0, BlockSize, fre, 0);
 
-                // XOR ciphertext with encrypted FR to get plaintext
-                int bytesToProcess = Math.Min(BlockSize, ciphertext.Length - pos);
+                // XOR input with encrypted FR
+                int bytesToProcess = Math.Min(BlockSize, input.Length - pos);
                 for (int i = 0; i < bytesToProcess; i++)
                 {
-                    plaintext[pos + i] = (byte)(ciphertext[pos + i] ^ fre[i]);
+                    output[pos + i] = (byte)(input[pos + i] ^ fre[i]);
                 }
 
                 // Update FR with ciphertext for next iteration
-                ciphertext.Slice(pos, bytesToProcess).CopyTo(fr);
+                // When encrypting, the output IS the ciphertext; when decrypting, the input IS the ciphertext
+                if (encrypting)
+                {
+                    Array.Copy(output, pos, fr, 0, bytesToProcess);
+                }
+                else
+                {
+                    input.Slice(pos, bytesToProcess).CopyTo(fr);
+                }
+
                 if (bytesToProcess < BlockSize)
                 {
                     Array.Clear(fr, bytesToProcess, BlockSize - bytesToProcess);
@@ -234,7 +207,7 @@ public static class AesCfbCore
                 pos += bytesToProcess;
             }
 
-            return plaintext;
+            return output;
         }
         finally
         {

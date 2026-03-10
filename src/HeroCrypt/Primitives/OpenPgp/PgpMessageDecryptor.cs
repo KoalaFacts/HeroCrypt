@@ -517,65 +517,73 @@ public sealed class PgpMessageDecryptor : IDisposable
 
         using var encryptor = cipher.CreateEncryptor();
 
-        // Phase 1: Decrypt the first blockSize bytes
-        encryptor.TransformBlock(fr, 0, blockSize, fre, 0);
-        for (int i = 0; i < blockSize; i++)
+        try
         {
-            plaintext[i] = (byte)(ciphertext[i] ^ fre[i]);
-        }
+            // Phase 1: Decrypt the first blockSize bytes
+            encryptor.TransformBlock(fr, 0, blockSize, fre, 0);
+            for (int i = 0; i < blockSize; i++)
+            {
+                plaintext[i] = (byte)(ciphertext[i] ^ fre[i]);
+            }
 
-        // Update FR to first ciphertext block
-        Array.Copy(ciphertext, 0, fr, 0, blockSize);
+            // Update FR to first ciphertext block
+            Array.Copy(ciphertext, 0, fr, 0, blockSize);
 
-        // Encrypt FR for the quick check and continuation
-        encryptor.TransformBlock(fr, 0, blockSize, fre, 0);
-
-        // Decrypt quick check bytes (positions blockSize and blockSize+1)
-        plaintext[blockSize] = (byte)(ciphertext[blockSize] ^ fre[0]);
-        plaintext[blockSize + 1] = (byte)(ciphertext[blockSize + 1] ^ fre[1]);
-
-        // Phase 2: Continue with remaining FRE bytes (no resync reset)
-        // We have fre[2..blockSize-1] still unused, use them for the first blockSize-2 bytes after prefix
-        int prefixLen = blockSize + 2;
-        int freOffset = 2; // We've used fre[0] and fre[1] for quick check
-        int pos = prefixLen;
-
-        // Use remaining FRE bytes for positions prefixLen to prefixLen+(blockSize-2)-1
-        while (freOffset < blockSize && pos < ciphertext.Length)
-        {
-            plaintext[pos] = (byte)(ciphertext[pos] ^ fre[freOffset]);
-            freOffset++;
-            pos++;
-        }
-
-        // Update FR for continuation
-        // After using all of FRE, FR should be the ciphertext that aligned with FRE
-        // FRE was computed from ciphertext[0:blockSize], and was XORed with ciphertext[blockSize:2*blockSize]
-        // So FR = ciphertext[blockSize:2*blockSize]
-        Array.Copy(ciphertext, blockSize, fr, 0, blockSize);
-
-        // Phase 3: Continue with standard CFB for the rest
-        while (pos < ciphertext.Length)
-        {
+            // Encrypt FR for the quick check and continuation
             encryptor.TransformBlock(fr, 0, blockSize, fre, 0);
 
-            int bytesToProcess = Math.Min(blockSize, ciphertext.Length - pos);
-            for (int i = 0; i < bytesToProcess; i++)
+            // Decrypt quick check bytes (positions blockSize and blockSize+1)
+            plaintext[blockSize] = (byte)(ciphertext[blockSize] ^ fre[0]);
+            plaintext[blockSize + 1] = (byte)(ciphertext[blockSize + 1] ^ fre[1]);
+
+            // Phase 2: Continue with remaining FRE bytes (no resync reset)
+            // We have fre[2..blockSize-1] still unused, use them for the first blockSize-2 bytes after prefix
+            int prefixLen = blockSize + 2;
+            int freOffset = 2; // We've used fre[0] and fre[1] for quick check
+            int pos = prefixLen;
+
+            // Use remaining FRE bytes for positions prefixLen to prefixLen+(blockSize-2)-1
+            while (freOffset < blockSize && pos < ciphertext.Length)
             {
-                plaintext[pos + i] = (byte)(ciphertext[pos + i] ^ fre[i]);
+                plaintext[pos] = (byte)(ciphertext[pos] ^ fre[freOffset]);
+                freOffset++;
+                pos++;
             }
 
-            // Update FR with the ciphertext block we just processed
-            Array.Copy(ciphertext, pos, fr, 0, bytesToProcess);
-            if (bytesToProcess < blockSize)
+            // Update FR for continuation
+            // After using all of FRE, FR should be the ciphertext that aligned with FRE
+            // FRE was computed from ciphertext[0:blockSize], and was XORed with ciphertext[blockSize:2*blockSize]
+            // So FR = ciphertext[blockSize:2*blockSize]
+            Array.Copy(ciphertext, blockSize, fr, 0, blockSize);
+
+            // Phase 3: Continue with standard CFB for the rest
+            while (pos < ciphertext.Length)
             {
-                Array.Clear(fr, bytesToProcess, blockSize - bytesToProcess);
+                encryptor.TransformBlock(fr, 0, blockSize, fre, 0);
+
+                int bytesToProcess = Math.Min(blockSize, ciphertext.Length - pos);
+                for (int i = 0; i < bytesToProcess; i++)
+                {
+                    plaintext[pos + i] = (byte)(ciphertext[pos + i] ^ fre[i]);
+                }
+
+                // Update FR with the ciphertext block we just processed
+                Array.Copy(ciphertext, pos, fr, 0, bytesToProcess);
+                if (bytesToProcess < blockSize)
+                {
+                    Array.Clear(fr, bytesToProcess, blockSize - bytesToProcess);
+                }
+
+                pos += bytesToProcess;
             }
 
-            pos += bytesToProcess;
+            return plaintext;
         }
-
-        return plaintext;
+        finally
+        {
+            SecureMemoryOperations.SecureClear(fr);
+            SecureMemoryOperations.SecureClear(fre);
+        }
     }
 
     /// <summary>

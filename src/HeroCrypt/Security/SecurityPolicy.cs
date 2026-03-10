@@ -140,6 +140,11 @@ public static class SecurityPolicy
     public static void ValidateHash(string algorithm) => Validate(algorithm, AlgorithmCategory.Hash);
 
     /// <summary>
+    /// Validates a hash algorithm specified as <see cref="HashAlgorithmName"/>.
+    /// </summary>
+    public static void ValidateHash(HashAlgorithmName algorithm) => ValidateHash(algorithm.Name ?? "Unknown");
+
+    /// <summary>
     /// Validates a key derivation function.
     /// </summary>
     public static void ValidateKdf(string algorithm) => Validate(algorithm, AlgorithmCategory.KeyDerivation);

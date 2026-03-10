@@ -52,16 +52,7 @@ internal static class RsaCore
         RsaPaddingMode padding = RsaPaddingMode.Pkcs1,
         HashAlgorithmName? hashAlgorithm = null)
     {
-        // Emit deprecation warning for PKCS#1 v1.5
-        if (padding == RsaPaddingMode.Pkcs1)
-        {
-            CryptoAudit.AlertWeakAlgorithm(
-                "RSA-PKCS1v1.5",
-                "PKCS#1 v1.5 padding is vulnerable to Bleichenbacher's padding oracle attack (CVE-1998-ROBOT).",
-                "RSA-OAEP with SHA-256",
-                WeakAlgorithmSeverity.Warning);
-            CryptoAudit.WarnDeprecated("RSA-PKCS1v1.5", "RSA-OAEP", new DateTime(2028, 1, 1));
-        }
+        WarnIfPkcs1(padding);
 
         using var rsa = RSA.Create();
         rsa.ImportParameters(ToRsaParameters(publicKey));
@@ -86,16 +77,7 @@ internal static class RsaCore
         RsaPaddingMode padding = RsaPaddingMode.Pkcs1,
         HashAlgorithmName? hashAlgorithm = null)
     {
-        // Emit deprecation warning for PKCS#1 v1.5
-        if (padding == RsaPaddingMode.Pkcs1)
-        {
-            CryptoAudit.AlertWeakAlgorithm(
-                "RSA-PKCS1v1.5",
-                "PKCS#1 v1.5 padding is vulnerable to Bleichenbacher's padding oracle attack (CVE-1998-ROBOT).",
-                "RSA-OAEP with SHA-256",
-                WeakAlgorithmSeverity.Warning);
-            CryptoAudit.WarnDeprecated("RSA-PKCS1v1.5", "RSA-OAEP", new DateTime(2028, 1, 1));
-        }
+        WarnIfPkcs1(padding);
 
         using var rsa = RSA.Create();
         rsa.ImportParameters(ToRsaParameters(privateKey));
@@ -253,6 +235,21 @@ internal static class RsaCore
 
         var result = BigInteger.Remainder(value, modulus);
         return result.Sign < 0 ? result + modulus : result;
+    }
+
+    private static readonly DateTime Pkcs1DeprecationDate = new(2028, 1, 1);
+
+    private static void WarnIfPkcs1(RsaPaddingMode padding)
+    {
+        if (padding == RsaPaddingMode.Pkcs1)
+        {
+            CryptoAudit.AlertWeakAlgorithm(
+                "RSA-PKCS1v1.5",
+                "PKCS#1 v1.5 padding is vulnerable to Bleichenbacher's padding oracle attack (CVE-1998-ROBOT).",
+                "RSA-OAEP with SHA-256",
+                WeakAlgorithmSeverity.Warning);
+            CryptoAudit.WarnDeprecated("RSA-PKCS1v1.5", "RSA-OAEP", Pkcs1DeprecationDate);
+        }
     }
 
     private static RSAEncryptionPadding ResolveEncryptionPadding(RsaPaddingMode padding, HashAlgorithmName? hashAlgorithm)

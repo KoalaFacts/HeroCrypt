@@ -6,6 +6,7 @@ using HeroCrypt.Primitives.Curve25519;
 using HeroCrypt.Primitives.Ed25519;
 using HeroCrypt.Primitives.Rsa;
 using HeroCrypt.Primitives.S2K;
+using HeroCrypt.Security;
 
 namespace HeroCrypt.Primitives.OpenPgp;
 
@@ -146,7 +147,7 @@ public sealed class PgpKeyGenerator
     /// }
     /// finally
     /// {
-    ///     Array.Clear(passBytes, 0, passBytes.Length);
+    ///     SecureMemoryOperations.SecureClear(passBytes);
     /// }
     /// </code>
     /// </para>
@@ -749,7 +750,7 @@ public sealed class PgpKeyGenerator
             {
                 if (shouldClear)
                 {
-                    Array.Clear(passBytes, 0, passBytes.Length);
+                    SecureMemoryOperations.SecureClear(passBytes);
                 }
             }
         }
@@ -792,7 +793,7 @@ public sealed class PgpKeyGenerator
             {
                 if (shouldClear)
                 {
-                    Array.Clear(passBytes, 0, passBytes.Length);
+                    SecureMemoryOperations.SecureClear(passBytes);
                 }
             }
         }
@@ -919,7 +920,7 @@ public sealed class PgpKeyGenerator
         {
             if (shouldClear && passBytes != null)
             {
-                Array.Clear(passBytes, 0, passBytes.Length);
+                SecureMemoryOperations.SecureClear(passBytes);
             }
         }
     }
@@ -1070,7 +1071,7 @@ public sealed class PgpKeyGenerator
         finally
         {
             // Clear sensitive data (caller is responsible for clearing passphraseBytes)
-            Array.Clear(encryptionKey, 0, encryptionKey.Length);
+            SecureMemoryOperations.SecureClear(encryptionKey);
         }
     }
 
@@ -1150,7 +1151,7 @@ public sealed class PgpKeyGenerator
         finally
         {
             // Clear sensitive data (caller is responsible for clearing passphraseBytes)
-            Array.Clear(encryptionKey, 0, encryptionKey.Length);
+            SecureMemoryOperations.SecureClear(encryptionKey);
         }
     }
 

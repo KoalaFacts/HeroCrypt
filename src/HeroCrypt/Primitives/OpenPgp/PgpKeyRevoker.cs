@@ -2,6 +2,7 @@ using System.Buffers.Binary;
 using System.Security.Cryptography;
 using HeroCrypt.Primitives.Ed25519;
 using HeroCrypt.Primitives.Rsa;
+using HeroCrypt.Security;
 
 namespace HeroCrypt.Primitives.OpenPgp;
 
@@ -353,7 +354,7 @@ public sealed class PgpKeyRevoker : IDisposable
         finally
         {
             // Clear the private key from memory for security
-            Array.Clear(ed25519PrivateKey, 0, ed25519PrivateKey.Length);
+            SecureMemoryOperations.SecureClear(ed25519PrivateKey);
         }
     }
 

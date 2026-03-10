@@ -1023,30 +1023,38 @@ public readonly struct PgpSecretKeyPacket
 
         using var encryptor = cipher.CreateEncryptor();
 
-        int pos = 0;
-        while (pos < ciphertext.Length)
+        try
         {
-            // Encrypt the feedback register
-            encryptor.TransformBlock(fr, 0, blockSize, fre, 0);
-
-            // XOR ciphertext with encrypted FR to get plaintext
-            int bytesToProcess = Math.Min(blockSize, ciphertext.Length - pos);
-            for (int i = 0; i < bytesToProcess; i++)
+            int pos = 0;
+            while (pos < ciphertext.Length)
             {
-                plaintext[pos + i] = (byte)(ciphertext[pos + i] ^ fre[i]);
+                // Encrypt the feedback register
+                encryptor.TransformBlock(fr, 0, blockSize, fre, 0);
+
+                // XOR ciphertext with encrypted FR to get plaintext
+                int bytesToProcess = Math.Min(blockSize, ciphertext.Length - pos);
+                for (int i = 0; i < bytesToProcess; i++)
+                {
+                    plaintext[pos + i] = (byte)(ciphertext[pos + i] ^ fre[i]);
+                }
+
+                // Update FR with ciphertext for next iteration
+                Array.Copy(ciphertext, pos, fr, 0, bytesToProcess);
+                if (bytesToProcess < blockSize)
+                {
+                    Array.Clear(fr, bytesToProcess, blockSize - bytesToProcess);
+                }
+
+                pos += bytesToProcess;
             }
 
-            // Update FR with ciphertext for next iteration
-            Array.Copy(ciphertext, pos, fr, 0, bytesToProcess);
-            if (bytesToProcess < blockSize)
-            {
-                Array.Clear(fr, bytesToProcess, blockSize - bytesToProcess);
-            }
-
-            pos += bytesToProcess;
+            return plaintext;
         }
-
-        return plaintext;
+        finally
+        {
+            SecureMemoryOperations.SecureClear(fr);
+            SecureMemoryOperations.SecureClear(fre);
+        }
     }
 
     /// <summary>

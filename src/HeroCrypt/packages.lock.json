@@ -2,6 +2,12 @@
   "version": 1,
   "dependencies": {
     ".NETStandard,Version=v2.0": {
+      "Microsoft.Build.Tasks.Git": {
+        "type": "Direct",
+        "requested": "[10.0.111, )",
+        "resolved": "10.0.111",
+        "contentHash": "IRJmiczCoN50PaT8pCFVGXEN1erN1kqWJaink4zN/2QprrQ/4rFhuhawaOQRoxnXQQw0ZFc+Hd+WuxNwz9RqbQ=="
+      },
       "Microsoft.SourceLink.GitHub": {
         "type": "Direct",
         "requested": "[10.0.201, )",

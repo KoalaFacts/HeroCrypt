@@ -6,10 +6,16 @@ on:
     paths:
       - 'src/**/*.cs'
       - 'scripts/check-xml-docs.sh'
+      - '.github/workflows/documentation-check.yml'
   pull_request:
     branches: [ main, develop ]
     paths:
       - 'src/**/*.cs'
+      - 'scripts/check-xml-docs.sh'
+      - '.github/workflows/documentation-check.yml'
+
+permissions:
+  contents: read
 
 jobs:
   check-xml-documentation:

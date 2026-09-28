@@ -18,10 +18,7 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  actions: read
   contents: read
-  security-events: write
-  id-token: write  # May be used by security tools for authentication
 
 env:
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
@@ -106,6 +103,11 @@ jobs:
     name: Microsoft Security DevOps (${{ matrix.framework }})
     needs: setup
     runs-on: windows-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+      id-token: write  # May be used by security tools for authentication
     strategy:
       fail-fast: false
       matrix:

@@ -622,6 +622,27 @@ public class PgpMessageEncryptorTests
             // format or CryptographicException for decryption failures)
             Assert.ThrowsAny<Exception>(() => decryptor.Decrypt(invalidData));
         }
+
+        [Fact]
+        public void TryDecrypt_WithInvalidPacketHeader_ReturnsFalse()
+        {
+            using var decryptor = PgpMessageDecryptor.Create().WithMessagePassphrase("test-passphrase");
+            byte[] invalidData = [0x00];
+
+            Assert.False(decryptor.TryDecrypt(invalidData, out _, out var error));
+            Assert.Contains("Invalid packet", error);
+            Assert.Throws<CryptographicException>(() => decryptor.Decrypt(invalidData));
+        }
+
+        [Fact]
+        public void TryDecrypt_WithOversizedLength_ReturnsFalse()
+        {
+            using var decryptor = PgpMessageDecryptor.Create().WithMessagePassphrase("test-passphrase");
+            byte[] invalidData = [0xCB, 0xFF, 0x80, 0, 0, 0];
+
+            Assert.False(decryptor.TryDecrypt(invalidData, out _, out var error));
+            Assert.Contains("maximum supported length", error);
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
@@ -1385,6 +1406,28 @@ public class PgpMessageEncryptorTests
     [Trait("Category", TestCategories.SLOW)]
     public class PasswordCompressionTests
     {
+        [Theory]
+        [InlineData(PgpCompressionAlgorithm.Zip)]
+        [InlineData(PgpCompressionAlgorithm.Zlib)]
+        public void TryDecrypt_CompressedContentOverLimit_ReturnsFalse(PgpCompressionAlgorithm compression)
+        {
+            byte[] plaintext = new byte[4096];
+            using var encryptor = PgpMessageEncryptor.Create()
+                .WithPassphrase("compression-password")
+                .WithCompression(compression);
+            var encrypted = encryptor.Encrypt(plaintext);
+            using var decryptor = PgpMessageDecryptor.Create()
+                .WithMessagePassphrase("compression-password")
+                .WithMaxDecompressedSize(1024);
+
+            Assert.False(decryptor.TryDecrypt(encrypted.Data.Span, out _, out var error));
+            Assert.Contains("maximum allowed size", error);
+
+            decryptor.WithMaxDecompressedSize(8192);
+            Assert.True(decryptor.TryDecrypt(encrypted.Data.Span, out var message, out error), error);
+            Assert.Equal(plaintext, message.Data.ToArray());
+        }
+
         [Theory]
         [InlineData(PgpCompressionAlgorithm.Zip)]
         [InlineData(PgpCompressionAlgorithm.Zlib)]

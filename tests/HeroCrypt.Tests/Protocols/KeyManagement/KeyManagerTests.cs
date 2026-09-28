@@ -223,7 +223,7 @@ public class KeyManagerTests
         }
 
         [Fact]
-        public void CombineKeys_KeysWithNullElements_IgnoresNulls()
+        public void CombineKeys_KeysWithNullElements_ThrowsArgumentException()
         {
             var key1 = TestHelpers.RandomBytes(32);
             byte[]? nullKey = null;
@@ -231,11 +231,26 @@ public class KeyManagerTests
             var salt = TestHelpers.RandomBytes(16);
             var info = "test"u8.ToArray();
 
-            // Should skip null keys and combine the valid ones
-            var combined = KeyManager.CombineKeys([key1, nullKey!, key2], salt, info, 32);
+            Assert.Throws<ArgumentException>(() =>
+                KeyManager.CombineKeys([key1, nullKey!, key2], salt, info, 32));
+        }
 
-            Assert.NotNull(combined);
-            Assert.Equal(32, combined.Length);
+        [Fact]
+        public void CombineKeys_DifferentPartitions_ProduceDifferentKeys()
+        {
+            byte[] salt = [1, 2, 3];
+            byte[] info = [4, 5, 6];
+
+            var first = KeyManager.CombineKeys([[1], [2, 3]], salt, info);
+            var second = KeyManager.CombineKeys([[1, 2], [3]], salt, info);
+
+            Assert.NotEqual(first, second);
+        }
+
+        [Fact]
+        public void CombineKeys_EmptyElement_ThrowsArgumentException()
+        {
+            Assert.Throws<ArgumentException>(() => KeyManager.CombineKeys([[1], []], [], []));
         }
 
         [Fact]
@@ -324,6 +339,40 @@ public class KeyManagerTests
             Assert.NotNull(key);
             Assert.Equal(32, key.Length);
             Assert.True(createdAt <= DateTimeOffset.UtcNow);
+        }
+
+        [Fact]
+        public void GetCurrentKey_AfterExpiry_ReturnsNewKey_WhenOnlyOneIsRetained()
+        {
+            var now = DateTimeOffset.UtcNow;
+            using var manager = new KeyRotationManager(
+                TestHelpers.RandomBytes(32), TestHelpers.RandomBytes(16),
+                TimeSpan.FromMinutes(1), 32, 1, () => now);
+            var (oldKey, oldTime) = manager.GetCurrentKey();
+
+            now = now.AddMinutes(2);
+            var (newKey, newTime) = manager.GetCurrentKey();
+
+            Assert.Equal(now, newTime);
+            Assert.NotEqual(oldTime, newTime);
+            Assert.NotEqual(oldKey, newKey);
+            Assert.Null(manager.GetKeyByTimestamp(oldTime));
+            Assert.Equal(newKey, manager.GetKeyByTimestamp(newTime));
+        }
+
+        [Fact]
+        public void ReturnedKeys_CannotMutateManagerState()
+        {
+            using var manager = KeyManager.CreateKeyRotation(
+                TestHelpers.RandomBytes(32), TestHelpers.RandomBytes(16), TimeSpan.FromHours(1));
+            var (returnedKey, timestamp) = manager.GetCurrentKey();
+            var expected = (byte[])returnedKey.Clone();
+
+            returnedKey[0] ^= 0xFF;
+            manager.GetAllActiveKeys()[timestamp][1] ^= 0xFF;
+            manager.GetKeyByTimestamp(timestamp)![2] ^= 0xFF;
+
+            Assert.Equal(expected, manager.GetCurrentKey().Key);
         }
 
         [Fact]
@@ -535,6 +584,32 @@ public class KeyManagerTests
         }
 
         [Fact]
+        public void DeriveKey_SlashOnlyPath_ThrowsArgumentException()
+        {
+            using var tree = KeyManager.CreateDerivationTree(
+                TestHelpers.RandomBytes(32), TestHelpers.RandomBytes(16));
+
+            Assert.Throws<ArgumentException>(() => tree.DeriveKey("///"));
+        }
+
+        [Fact]
+        public void ClearKey_UsesTheSameCanonicalPathAsDeriveKey()
+        {
+            using var tree = KeyManager.CreateDerivationTree(
+                TestHelpers.RandomBytes(32), TestHelpers.RandomBytes(16));
+            var returnedKey = tree.DeriveKey("app//temp");
+            var expected = (byte[])returnedKey.Clone();
+
+            returnedKey[0] ^= 0xFF;
+            tree.GetAllKeys()["app/temp"][1] ^= 0xFF;
+            Assert.Equal(expected, tree.DeriveKey("app/temp"));
+
+            tree.ClearKey("app//temp");
+            Assert.DoesNotContain("app/temp", tree.GetAllKeys().Keys);
+            Assert.Equal(expected, tree.DeriveKey("app/temp"));
+        }
+
+        [Fact]
         public void DeriveKey_ExceedsMaxDepth_ThrowsArgumentException()
         {
             var rootKey = TestHelpers.RandomBytes(32);
@@ -703,6 +778,36 @@ public class KeyManagerTests
 
             var validation = manager.ValidateKey(key, DateTimeOffset.UtcNow);
             Assert.True(validation.IsValid, $"Validation failed with issues: {string.Join(", ", validation.Issues)}");
+        }
+
+        [Fact]
+        public void GenerateCompliantKey_DefaultPolicy_ReturnsValid32ByteKey()
+        {
+            var manager = KeyManager.CreateKeyPolicy(new KeyPolicy());
+
+            var key = manager.GenerateCompliantKey();
+
+            Assert.Equal(32, key.Length);
+            Assert.True(manager.ValidateKey(key, DateTimeOffset.UtcNow).IsValid);
+        }
+
+        [Fact]
+        public void GenerateCompliantKey_ImpossibleEntropyPolicy_Throws()
+        {
+            var manager = KeyManager.CreateKeyPolicy(new KeyPolicy { MinEntropy = 6.0 });
+
+            Assert.Throws<InvalidOperationException>(manager.GenerateCompliantKey);
+        }
+
+        [Fact]
+        public void GenerateCompliantKey_ImpossibleCustomValidator_StopsRetrying()
+        {
+            var manager = KeyManager.CreateKeyPolicy(new KeyPolicy
+            {
+                CustomValidator = _ => false
+            });
+
+            Assert.Throws<InvalidOperationException>(manager.GenerateCompliantKey);
         }
 
         [Fact]

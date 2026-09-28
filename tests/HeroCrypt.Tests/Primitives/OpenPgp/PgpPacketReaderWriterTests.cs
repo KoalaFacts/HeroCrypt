@@ -685,6 +685,33 @@ public class PgpPacketReaderWriterTests
     public class MaxPacketSizeTests
     {
         [Fact]
+        public void ReadNextPacket_NewFormatHighBitLength_RejectsBeforeAllocation()
+        {
+            using var stream = new MemoryStream([0xCB, 0xFF, 0x80, 0, 0, 0]);
+            using var reader = new PgpPacketReader(stream);
+
+            Assert.Throws<InvalidDataException>(() => reader.ReadNextPacket(out _, out _));
+        }
+
+        [Fact]
+        public void ReadNextPacket_OldFormatHighBitLength_RejectsBeforeAllocation()
+        {
+            using var stream = new MemoryStream([0xAE, 0x80, 0, 0, 0]);
+            using var reader = new PgpPacketReader(stream);
+
+            Assert.Throws<InvalidDataException>(() => reader.ReadNextPacket(out _, out _));
+        }
+
+        [Fact]
+        public void ReadNextPacket_PartialFinalHighBitLength_RejectsBeforeAllocation()
+        {
+            using var stream = new MemoryStream([0xCB, 0xE0, 0, 0xFF, 0x80, 0, 0, 0]);
+            using var reader = new PgpPacketReader(stream);
+
+            Assert.Throws<InvalidDataException>(() => reader.ReadNextPacket(out _, out _));
+        }
+
+        [Fact]
         public void DefaultMaxPacketSize_Is256MB()
         {
             Assert.Equal(256 * 1024 * 1024, PgpPacketReader.DefaultMaxPacketSize);

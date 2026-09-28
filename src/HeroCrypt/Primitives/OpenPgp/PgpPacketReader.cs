@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.Buffers.Binary;
 
 namespace HeroCrypt.Primitives.OpenPgp;
 
@@ -200,7 +201,7 @@ public sealed class PgpPacketReader : IDisposable
             // Five-octet length
             byte[] lenBytes = new byte[4];
             ReadExactlyInto(lenBytes);
-            int length = (lenBytes[0] << 24) | (lenBytes[1] << 16) | (lenBytes[2] << 8) | lenBytes[3];
+            int length = DecodeFourOctetLength(lenBytes);
             ValidatePacketSize(length);
             body = ReadExactly(length);
             return true;
@@ -267,7 +268,7 @@ public sealed class PgpPacketReader : IDisposable
                 // Final chunk with five-octet length
                 byte[] lenBytes = new byte[4];
                 ReadExactlyInto(lenBytes);
-                int length = (lenBytes[0] << 24) | (lenBytes[1] << 16) | (lenBytes[2] << 8) | lenBytes[3];
+                int length = DecodeFourOctetLength(lenBytes);
                 totalSize += length;
                 ValidatePartialBodySize(totalSize);
                 CopyExactly(length, bodyStream);
@@ -318,7 +319,7 @@ public sealed class PgpPacketReader : IDisposable
                 // Four-octet length
                 byte[] len4Bytes = new byte[4];
                 ReadExactlyInto(len4Bytes);
-                length = (len4Bytes[0] << 24) | (len4Bytes[1] << 16) | (len4Bytes[2] << 8) | len4Bytes[3];
+                length = DecodeFourOctetLength(len4Bytes);
                 break;
 
             case 3:
@@ -416,10 +417,26 @@ public sealed class PgpPacketReader : IDisposable
 
     private void ValidatePacketSize(int size)
     {
+        if (size < 0)
+        {
+            throw new InvalidDataException("Packet size cannot be negative.");
+        }
+
         if (MaxPacketSize > 0 && size > MaxPacketSize)
         {
             throw new InvalidDataException($"Packet size ({size} bytes) exceeds maximum allowed ({MaxPacketSize} bytes).");
         }
+    }
+
+    private static int DecodeFourOctetLength(ReadOnlySpan<byte> lengthBytes)
+    {
+        uint length = BinaryPrimitives.ReadUInt32BigEndian(lengthBytes);
+        if (length > int.MaxValue)
+        {
+            throw new InvalidDataException("Packet size exceeds the maximum supported length.");
+        }
+
+        return (int)length;
     }
 
     private void ThrowIfDisposed()

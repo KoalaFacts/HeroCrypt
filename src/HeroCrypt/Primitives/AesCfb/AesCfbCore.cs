@@ -74,7 +74,7 @@ public static class AesCfbCore
 
         using var aes = Aes.Create();
         aes.Key = key;
-        aes.Mode = CipherMode.ECB; // CFB encrypts feedback blocks, then XORs the keystream with data.
+        aes.Mode = CipherMode.ECB; // We implement CFB manually
         aes.Padding = PaddingMode.None;
 
         return EncryptCore(plaintext, aes, iv);
@@ -96,7 +96,7 @@ public static class AesCfbCore
 
         using var aes = Aes.Create();
         aes.Key = key.ToArray();
-        aes.Mode = CipherMode.ECB; // CFB encrypts feedback blocks, then XORs the keystream with data.
+        aes.Mode = CipherMode.ECB;
         aes.Padding = PaddingMode.None;
 
         return EncryptCore(plaintext, aes, iv);
@@ -124,7 +124,7 @@ public static class AesCfbCore
 
         using var aes = Aes.Create();
         aes.Key = key;
-        aes.Mode = CipherMode.ECB; // CFB encrypts feedback blocks, then XORs the keystream with data.
+        aes.Mode = CipherMode.ECB; // We implement CFB manually
         aes.Padding = PaddingMode.None;
 
         return DecryptCore(ciphertext, aes, iv);
@@ -146,7 +146,7 @@ public static class AesCfbCore
 
         using var aes = Aes.Create();
         aes.Key = key.ToArray();
-        aes.Mode = CipherMode.ECB; // CFB encrypts feedback blocks, then XORs the keystream with data.
+        aes.Mode = CipherMode.ECB;
         aes.Padding = PaddingMode.None;
 
         return DecryptCore(ciphertext, aes, iv);

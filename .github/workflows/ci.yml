@@ -88,33 +88,45 @@ jobs:
           TestResults/coverage.cobertura*.xml
         retention-days: 30
 
-  upload-coverage:
-    name: Upload coverage to Codecov
+  verify-coverage:
+    name: Verify coverage report
     needs: build-and-test
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     permissions:
       actions: read
-      contents: read
-      id-token: write
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v6
-
     - name: Download Linux coverage
       run: gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --name test-results-ubuntu-latest-net10.0 --dir TestResults
       env:
         GH_TOKEN: ${{ github.token }}
 
-    - name: Upload coverage
-      uses: codecov/codecov-action@v6
-      with:
-        files: 'TestResults/coverage.cobertura*.xml'
-        fail_ci_if_error: true
-        flags: unittests
-        name: codecov-ubuntu-latest
-        use_oidc: true
+    - name: Validate coverage and publish summary
+      shell: bash
+      run: |
+        python3 - <<'PY'
+        import glob
+        import os
+        import xml.etree.ElementTree as ET
+
+        reports = glob.glob('TestResults/coverage.cobertura*.xml')
+        if len(reports) != 1:
+            raise SystemExit(f'Expected one Cobertura report, found {len(reports)}')
+
+        coverage = ET.parse(reports[0]).getroot()
+        if coverage.tag != 'coverage':
+            raise SystemExit('Cobertura report has no coverage root element')
+
+        valid = int(coverage.attrib['lines-valid'])
+        covered = int(coverage.attrib['lines-covered'])
+        rate = float(coverage.attrib['line-rate'])
+        if valid <= 0 or not 0 <= covered <= valid or not 0 <= rate <= 1:
+            raise SystemExit('Cobertura report contains invalid coverage totals')
+
+        with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as summary:
+            summary.write(f'## Test coverage\n\n{covered:,} of {valid:,} lines covered ({rate:.1%}).\n')
+            summary.write('The Cobertura report is available in the Linux .NET 10 test artifact.\n')
+        PY
 
   code-quality:
     name: Code Quality

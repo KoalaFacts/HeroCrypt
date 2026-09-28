@@ -128,6 +128,35 @@ jobs:
             summary.write('The Cobertura report is available in the Linux .NET 10 test artifact.\n')
         PY
 
+  upload-coverage:
+    name: Upload coverage to Codecov
+    needs: verify-coverage
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v7
+      with:
+        fetch-depth: 0
+
+    - name: Download Linux coverage
+      uses: actions/download-artifact@v7
+      with:
+        name: test-results-ubuntu-latest-net10.0
+        path: TestResults
+
+    - name: Upload coverage
+      uses: codecov/codecov-action@v7.1.1
+      with:
+        files: TestResults/coverage.cobertura*.xml
+        disable_search: true
+        fail_ci_if_error: true
+        use_oidc: true
+
   code-quality:
     name: Code Quality
     needs: setup

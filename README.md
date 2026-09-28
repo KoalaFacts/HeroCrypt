@@ -2,7 +2,6 @@
 
 [![NuGet Version](https://img.shields.io/nuget/v/HeroCrypt.svg)](https://www.nuget.org/packages/HeroCrypt/)
 [![Build Status](https://github.com/KoalaFacts/HeroCrypt/actions/workflows/ci.yml/badge.svg)](https://github.com/KoalaFacts/HeroCrypt/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/KoalaFacts/HeroCrypt/branch/main/graph/badge.svg)](https://codecov.io/gh/KoalaFacts/HeroCrypt)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![.NET](https://img.shields.io/badge/.NET%20Standard-2.0-purple)](https://dotnet.microsoft.com/download)
 [![.NET](https://img.shields.io/badge/.NET-8.0%20|%209.0%20|%2010.0-purple)](https://dotnet.microsoft.com/download)

@@ -53,11 +53,16 @@ jobs:
 
             VERSION="${TAG#v}"
             echo "Using latest release: ${TAG}"
-          elif [ -n "${{ inputs.version }}" ]; then
-            VERSION="${{ inputs.version }}"
+          elif [ -n "$REQUESTED_VERSION" ]; then
+            VERSION="$REQUESTED_VERSION"
             TAG="v${VERSION}"
           else
             echo "Error: No version specified and not triggered by workflow_run"
+            exit 1
+          fi
+
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+)?$ ]] || [ "$TAG" != "v$VERSION" ]; then
+            echo "Error: Invalid release version or tag"
             exit 1
           fi
 
@@ -66,6 +71,7 @@ jobs:
           echo "Publishing version: $VERSION (tag: $TAG)"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REQUESTED_VERSION: ${{ inputs.version }}
 
   publish:
     runs-on: ubuntu-latest
@@ -74,6 +80,9 @@ jobs:
       contents: read
       id-token: write  # Required for OIDC authentication with NuGet.org
       attestations: write  # For package provenance
+    env:
+      RELEASE_VERSION: ${{ needs.get-version.outputs.version }}
+      RELEASE_TAG: ${{ needs.get-version.outputs.tag }}
     environment:
       name: production
       url: https://www.nuget.org/packages/HeroCrypt/${{ needs.get-version.outputs.version }}
@@ -86,12 +95,12 @@ jobs:
         run: |
           echo "## Publishing NuGet package" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- Detected version: ${{ needs.get-version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Tag: ${{ needs.get-version.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Detected version: $RELEASE_VERSION" >> $GITHUB_STEP_SUMMARY
+          echo "- Tag: $RELEASE_TAG" >> $GITHUB_STEP_SUMMARY
 
       - name: Validate version format
         run: |
-          VERSION="${{ needs.get-version.outputs.version }}"
+          VERSION="$RELEASE_VERSION"
           if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+)?$ ]]; then
             echo "Error: Invalid version format: $VERSION"
             echo "Expected format: X.Y.Z or X.Y.Z-prerelease"
@@ -101,8 +110,8 @@ jobs:
 
       - name: Download packages from GitHub Release
         run: |
-          TAG="${{ needs.get-version.outputs.tag }}"
-          VERSION="${{ needs.get-version.outputs.version }}"
+          TAG="$RELEASE_TAG"
+          VERSION="$RELEASE_VERSION"
 
           echo "Downloading packages from release $TAG..."
 
@@ -132,7 +141,7 @@ jobs:
 
       - name: Validate package contents
         run: |
-          VERSION="${{ needs.get-version.outputs.version }}"
+          VERSION="$RELEASE_VERSION"
 
           # Verify both packages exist
           if [ ! -f "./packages/HeroCrypt.${VERSION}.nupkg" ]; then
@@ -172,10 +181,12 @@ jobs:
               echo "Publishing $pkg..."
               dotnet nuget push "$pkg" \
                 --source https://api.nuget.org/v3/index.json \
-                --api-key ${{ steps.nuget-login.outputs.NUGET_API_KEY }} \
+                --api-key "$NUGET_API_KEY" \
                 --skip-duplicate
             fi
           done
+        env:
+          NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
 
       - name: Upload package artifacts
         if: always()
@@ -192,13 +203,13 @@ jobs:
         run: |
           echo "## NuGet Package Published" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Version**: ${{ needs.get-version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Package**: https://www.nuget.org/packages/HeroCrypt/${{ needs.get-version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version**: $RELEASE_VERSION" >> $GITHUB_STEP_SUMMARY
+          echo "- **Package**: https://www.nuget.org/packages/HeroCrypt/$RELEASE_VERSION" >> $GITHUB_STEP_SUMMARY
           echo "- **Published**: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Installation" >> $GITHUB_STEP_SUMMARY
           echo '```bash' >> $GITHUB_STEP_SUMMARY
-          echo "dotnet add package HeroCrypt --version ${{ needs.get-version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "dotnet add package HeroCrypt --version $RELEASE_VERSION" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Next Steps" >> $GITHUB_STEP_SUMMARY

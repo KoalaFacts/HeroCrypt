@@ -29,6 +29,7 @@ public sealed class PgpMessageDecryptor : IDisposable
     private readonly List<PgpSecretKeyPacket> secretKeys = [];
     private readonly List<byte[]> messagePassphrases = [];
     private string? passphrase;
+    private int maxDecompressedSize = PgpPacketReader.DefaultMaxPacketSize;
     private bool disposed;
 
     private PgpMessageDecryptor()
@@ -131,6 +132,27 @@ public sealed class PgpMessageDecryptor : IDisposable
     }
 
     /// <summary>
+    /// Limits the bytes produced by a compressed packet during decryption.
+    /// </summary>
+    /// <param name="maximumSize">Maximum decompressed size in bytes.</param>
+    /// <returns>This decryptor for chaining.</returns>
+    public PgpMessageDecryptor WithMaxDecompressedSize(int maximumSize)
+    {
+        ThrowIfDisposed();
+#if NET7_0_OR_GREATER
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maximumSize);
+#else
+        if (maximumSize <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(maximumSize));
+        }
+#endif
+
+        maxDecompressedSize = maximumSize;
+        return this;
+    }
+
+    /// <summary>
     /// Decrypts an encrypted message.
     /// </summary>
     /// <param name="message">The encrypted message to decrypt.</param>
@@ -175,6 +197,22 @@ public sealed class PgpMessageDecryptor : IDisposable
     /// <param name="error">Error message if decryption failed.</param>
     /// <returns>True if decryption was successful.</returns>
     public bool TryDecrypt(ReadOnlySpan<byte> data, out PgpDecryptedMessage message, out string? error)
+    {
+        ThrowIfDisposed();
+        try
+        {
+            return TryDecryptCore(data, out message, out error);
+        }
+        catch (Exception ex) when (ex is InvalidDataException or CryptographicException or ArgumentException
+                                   or NotSupportedException or FormatException)
+        {
+            message = default;
+            error = ex.Message;
+            return false;
+        }
+    }
+
+    private bool TryDecryptCore(ReadOnlySpan<byte> data, out PgpDecryptedMessage message, out string? error)
     {
         message = default;
         error = null;
@@ -336,7 +374,8 @@ public sealed class PgpMessageDecryptor : IDisposable
                 : DecryptSeipdV2(seipdPacket.Value, sessionKey);
 
             // Parse the plaintext to get the literal data packet
-            return ParseDecryptedContent(plaintext, decryptionKeyId, seipdPacket.Value.Version, out message, out error);
+            return ParseDecryptedContent(plaintext, decryptionKeyId, seipdPacket.Value.Version,
+                maxDecompressedSize, out message, out error);
         }
         finally
         {
@@ -776,6 +815,7 @@ public sealed class PgpMessageDecryptor : IDisposable
         byte[] plaintext,
         byte[] decryptionKeyId,
         int seipdVersion,
+        int maxDecompressedSize,
         out PgpDecryptedMessage message,
         out string? error)
     {
@@ -799,9 +839,10 @@ public sealed class PgpMessageDecryptor : IDisposable
                     compressionAlgorithm = compressed.Algorithm;
 
                     // Decompress and parse inner content
-                    byte[] decompressed = compressed.Decompress();
+                    byte[] decompressed = compressed.Decompress(maxDecompressedSize);
                     using var innerStream = new MemoryStream(decompressed);
-                    using var innerReader = new PgpPacketReader(innerStream);
+                    using var innerReader = new PgpPacketReader(innerStream, maxPacketSize: maxDecompressedSize,
+                        leaveOpen: false);
 
                     while (innerReader.ReadNextPacket(out var innerTag, out var innerBody))
                     {

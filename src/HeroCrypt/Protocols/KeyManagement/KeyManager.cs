@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.Security.Cryptography;
 using HeroCrypt.Primitives.Hkdf;
 using HeroCrypt.Security;
@@ -17,6 +18,7 @@ namespace HeroCrypt.Protocols.KeyManagement;
 public static class KeyManager
 {
     internal static readonly char[] PathSeparator = ['/'];
+    private static readonly byte[] CombinedKeyDomain = "HeroCrypt.CombineKeys.v2"u8.ToArray();
 
     /// <summary>
     /// Creates a new key rotation schedule
@@ -149,16 +151,13 @@ public static class KeyManager
             score += 20;
         }
 
-        // Simple entropy estimation
+        // Empirical entropy of a short sample cannot establish its generator's
+        // quality. Report it as a diagnostic without rejecting the key for it.
         var entropy = CalculateShannonEntropy(keyMaterial);
-        if (entropy < 6.0)
-        {
-            issues.Add($"Low entropy detected ({entropy:F2} bits per byte, should be > 6.0)");
-        }
-        else
-        {
-            score += (int)((entropy / 8.0) * 40); // Max 40 points for perfect entropy
-        }
+        var maximumSampleEntropy = Math.Log(Math.Min(keyMaterial.Length, 256), 2);
+        score += maximumSampleEntropy > 0
+            ? (int)Math.Min(40, (entropy / maximumSampleEntropy) * 40)
+            : 0;
 
         // Check for repeating patterns
         if (HasRepeatingPatterns(keyMaterial))
@@ -222,21 +221,46 @@ public static class KeyManager
             throw new ArgumentException("Output length must be positive", nameof(outputLength));
         }
 
-        var combinedInput = new List<byte>();
+        var keyParts = new List<byte[]>();
+        int encodedLength = CombinedKeyDomain.Length + sizeof(int);
         foreach (var key in keys)
         {
-            if (key != null)
+            if (key == null || key.Length == 0)
             {
-                combinedInput.AddRange(key);
+                throw new ArgumentException("Keys cannot contain null or empty elements", nameof(keys));
             }
+
+            keyParts.Add(key);
+            encodedLength = checked(encodedLength + sizeof(int) + key.Length);
         }
 
-        if (combinedInput.Count == 0)
+        if (keyParts.Count == 0)
         {
             throw new ArgumentException("No valid keys provided", nameof(keys));
         }
 
-        return HkdfCore.DeriveKey(combinedInput.ToArray(), salt, info, outputLength, HashAlgorithmName.SHA256);
+        var combinedInput = new byte[encodedLength];
+        try
+        {
+            var destination = combinedInput.AsSpan();
+            CombinedKeyDomain.AsSpan().CopyTo(destination);
+            int offset = CombinedKeyDomain.Length;
+            BinaryPrimitives.WriteInt32BigEndian(destination.Slice(offset), keyParts.Count);
+            offset += sizeof(int);
+            foreach (var key in keyParts)
+            {
+                BinaryPrimitives.WriteInt32BigEndian(destination.Slice(offset), key.Length);
+                offset += sizeof(int);
+                key.AsSpan().CopyTo(destination.Slice(offset));
+                offset += key.Length;
+            }
+
+            return HkdfCore.DeriveKey(combinedInput, salt, info, outputLength, HashAlgorithmName.SHA256);
+        }
+        finally
+        {
+            SecureMemoryOperations.SecureClear(combinedInput);
+        }
     }
 
     /// <summary>
@@ -300,6 +324,7 @@ public class KeyRotationManager : IDisposable
     private readonly TimeSpan rotationInterval;
     private readonly int keySize;
     private readonly int maxKeys;
+    private readonly Func<DateTimeOffset> utcNow;
     private readonly Dictionary<DateTimeOffset, byte[]> activeKeys;
 #if NET9_0_OR_GREATER
     private readonly LockType syncLock = new();
@@ -309,17 +334,19 @@ public class KeyRotationManager : IDisposable
     private LockReleaser EnterLock() => new(syncLock);
 #endif
 
-    internal KeyRotationManager(byte[] masterKey, byte[] salt, TimeSpan rotationInterval, int keySize, int maxKeys)
+    internal KeyRotationManager(byte[] masterKey, byte[] salt, TimeSpan rotationInterval, int keySize, int maxKeys,
+        Func<DateTimeOffset>? utcNow = null)
     {
         this.masterKey = masterKey;
         this.salt = salt;
         this.rotationInterval = rotationInterval;
         this.keySize = keySize;
         this.maxKeys = maxKeys;
+        this.utcNow = utcNow ?? (() => DateTimeOffset.UtcNow);
         activeKeys = [];
 
         // Generate initial key
-        RotateKey(DateTimeOffset.UtcNow);
+        RotateKey(this.utcNow());
     }
 
     /// <summary>
@@ -329,7 +356,7 @@ public class KeyRotationManager : IDisposable
     public (byte[] Key, DateTimeOffset CreatedAt) GetCurrentKey()
     {
         using var guard = EnterLock();
-        var now = DateTimeOffset.UtcNow;
+        var now = utcNow();
 
         // Check if we need to rotate
         var shouldRotate = true;
@@ -350,10 +377,11 @@ public class KeyRotationManager : IDisposable
         if (shouldRotate)
         {
             RotateKey(now);
+            latestTime = now;
         }
 
         // Return the latest key
-        return (activeKeys[latestTime], latestTime);
+        return ((byte[])activeKeys[latestTime].Clone(), latestTime);
     }
 
     /// <summary>
@@ -363,9 +391,9 @@ public class KeyRotationManager : IDisposable
     public (byte[] Key, DateTimeOffset CreatedAt) ForceRotation()
     {
         using var guard = EnterLock();
-        var now = DateTimeOffset.UtcNow;
+        var now = utcNow();
         RotateKey(now);
-        return (activeKeys[now], now);
+        return ((byte[])activeKeys[now].Clone(), now);
     }
 
     /// <summary>
@@ -376,7 +404,7 @@ public class KeyRotationManager : IDisposable
     public byte[]? GetKeyByTimestamp(DateTimeOffset timestamp)
     {
         using var guard = EnterLock();
-        return activeKeys.TryGetValue(timestamp, out var key) ? key : null;
+        return activeKeys.TryGetValue(timestamp, out var key) ? (byte[])key.Clone() : null;
     }
 
     /// <summary>
@@ -386,7 +414,12 @@ public class KeyRotationManager : IDisposable
     public Dictionary<DateTimeOffset, byte[]> GetAllActiveKeys()
     {
         using var guard = EnterLock();
-        return new Dictionary<DateTimeOffset, byte[]>(activeKeys);
+        var result = new Dictionary<DateTimeOffset, byte[]>(activeKeys.Count);
+        foreach (var (timestamp, key) in activeKeys)
+        {
+            result.Add(timestamp, (byte[])key.Clone());
+        }
+        return result;
     }
 
     private void RotateKey(DateTimeOffset timestamp)
@@ -470,24 +503,12 @@ public class KeyDerivationTree : IDisposable
     /// <returns>Derived key</returns>
     public byte[] DeriveKey(string path)
     {
-        if (string.IsNullOrEmpty(path))
-        {
-            throw new ArgumentException("Path cannot be null or empty", nameof(path));
-        }
-
-        var pathParts = path.Split(KeyManager.PathSeparator, StringSplitOptions.RemoveEmptyEntries);
-        if (pathParts.Length > maxDepth)
-        {
-            throw new ArgumentException($"Path depth exceeds maximum ({maxDepth})", nameof(path));
-        }
-
-        // Normalize path by removing empty segments (handles trailing slashes, double slashes, etc.)
-        var normalizedPath = string.Join("/", pathParts);
+        var normalizedPath = NormalizePath(path);
 
         using var guard = EnterLock();
         if (derivedKeys.TryGetValue(normalizedPath, out var existingKey))
         {
-            return existingKey;
+            return (byte[])existingKey.Clone();
         }
 
         // Derive key using normalized path as context
@@ -495,7 +516,7 @@ public class KeyDerivationTree : IDisposable
         var derivedKey = HkdfCore.DeriveKey(rootKey, salt, context, keySize, HashAlgorithmName.SHA256);
 
         derivedKeys[normalizedPath] = derivedKey;
-        return derivedKey;
+        return (byte[])derivedKey.Clone();
     }
 
     /// <summary>
@@ -529,7 +550,12 @@ public class KeyDerivationTree : IDisposable
     public Dictionary<string, byte[]> GetAllKeys()
     {
         using var guard = EnterLock();
-        return new Dictionary<string, byte[]>(derivedKeys);
+        var result = new Dictionary<string, byte[]>(derivedKeys.Count);
+        foreach (var (path, key) in derivedKeys)
+        {
+            result.Add(path, (byte[])key.Clone());
+        }
+        return result;
     }
 
     /// <summary>
@@ -538,12 +564,29 @@ public class KeyDerivationTree : IDisposable
     /// <param name="path">Path of key to clear</param>
     public void ClearKey(string path)
     {
+        var normalizedPath = NormalizePath(path);
         using var guard = EnterLock();
-        if (derivedKeys.TryGetValue(path, out var key))
+        if (derivedKeys.TryGetValue(normalizedPath, out var key))
         {
             SecureMemoryOperations.SecureClear(key);
-            derivedKeys.Remove(path);
+            derivedKeys.Remove(normalizedPath);
         }
+    }
+
+    private string NormalizePath(string path)
+    {
+        if (string.IsNullOrEmpty(path))
+        {
+            throw new ArgumentException("Path cannot be null or empty", nameof(path));
+        }
+
+        var parts = path.Split(KeyManager.PathSeparator, StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0 || parts.Length > maxDepth)
+        {
+            throw new ArgumentException($"Path must have between 1 and {maxDepth} segments", nameof(path));
+        }
+
+        return string.Join("/", parts);
     }
 
     /// <summary>
@@ -585,8 +628,8 @@ public class KeyPolicy
     /// <summary>Whether to enforce secure key generation</summary>
     public bool EnforceSecureGeneration { get; set; } = true;
 
-    /// <summary>Required minimum entropy for keys</summary>
-    public double MinEntropy { get; set; } = 6.0;
+    /// <summary>Optional minimum empirical byte entropy; zero disables this short-sample check.</summary>
+    public double MinEntropy { get; set; }
 
     /// <summary>Hash algorithm for key derivation</summary>
     public HashAlgorithmName HashAlgorithm { get; set; } = HashAlgorithmName.SHA256;
@@ -637,7 +680,7 @@ public class KeyPolicyManager
         if (policy.EnforceSecureGeneration)
         {
             var validation = KeyManager.ValidateKey(keyMaterial);
-            if (validation.Entropy < policy.MinEntropy)
+            if (policy.MinEntropy > 0 && validation.Entropy < policy.MinEntropy)
             {
                 issues.Add($"Key entropy too low ({validation.Entropy:F2}, min: {policy.MinEntropy})");
             }
@@ -667,23 +710,26 @@ public class KeyPolicyManager
     public byte[] GenerateCompliantKey()
     {
         var keySize = Math.Max(policy.MinKeySize, 32);
-        byte[] key;
-
-        do
+        var maximumSampleEntropy = Math.Log(Math.Min(keySize, 256), 2);
+        if (policy.EnforceSecureGeneration && policy.MinEntropy > maximumSampleEntropy)
         {
-            key = KeyManager.GenerateSecureKey(keySize);
-            var validation = ValidateKey(key, DateTimeOffset.UtcNow);
+            throw new InvalidOperationException("The requested minimum sample entropy is impossible for this key size.");
+        }
 
+        const int maxAttempts = 32;
+        for (var attempt = 0; attempt < maxAttempts; attempt++)
+        {
+            var key = KeyManager.GenerateSecureKey(keySize);
+            var validation = ValidateKey(key, DateTimeOffset.UtcNow);
             if (validation.IsValid)
             {
-                break;
+                return key;
             }
 
             SecureMemoryOperations.SecureClear(key);
         }
-        while (true);
 
-        return key;
+        throw new InvalidOperationException("Unable to generate a key that satisfies the policy after 32 attempts.");
     }
 }
 
@@ -701,7 +747,7 @@ public class KeyValidationResult
     /// <summary>Key strength score (0-100)</summary>
     public int Score { get; set; }
 
-    /// <summary>Calculated entropy in bits per byte</summary>
+    /// <summary>Empirical sample entropy in bits per byte, not a measure of generator quality.</summary>
     public double Entropy { get; set; }
 }
 

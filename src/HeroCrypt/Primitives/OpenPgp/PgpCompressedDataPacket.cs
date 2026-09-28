@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.IO.Compression;
 
 namespace HeroCrypt.Primitives.OpenPgp;
@@ -78,17 +79,44 @@ public readonly struct PgpCompressedDataPacket : IEquatable<PgpCompressedDataPac
     /// </summary>
     /// <returns>The decompressed data.</returns>
     /// <exception cref="NotSupportedException">If the compression algorithm is not supported.</exception>
-    /// <exception cref="InvalidDataException">If the compressed data is invalid.</exception>
-    public byte[] Decompress()
+    /// <exception cref="InvalidDataException">If the compressed data is invalid or exceeds the output limit.</exception>
+    public byte[] Decompress() => Decompress(PgpPacketReader.DefaultMaxPacketSize);
+
+    /// <summary>
+    /// Decompresses this packet with a caller-defined output limit.
+    /// </summary>
+    /// <param name="maxDecompressedSize">Maximum allowed output size in bytes.</param>
+    /// <returns>The decompressed data.</returns>
+    /// <exception cref="InvalidDataException">If the output exceeds the limit.</exception>
+    public byte[] Decompress(int maxDecompressedSize)
     {
+#if NET7_0_OR_GREATER
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxDecompressedSize);
+#else
+        if (maxDecompressedSize <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(maxDecompressedSize));
+        }
+#endif
+
         return Algorithm switch
         {
-            PgpCompressionAlgorithm.Uncompressed => CompressedData.ToArray(),
-            PgpCompressionAlgorithm.Zip => DecompressDeflate(CompressedData.Span),
-            PgpCompressionAlgorithm.Zlib => DecompressZlib(CompressedData.Span),
+            PgpCompressionAlgorithm.Uncompressed => CopyUncompressed(maxDecompressedSize),
+            PgpCompressionAlgorithm.Zip => DecompressDeflate(CompressedData.Span, maxDecompressedSize),
+            PgpCompressionAlgorithm.Zlib => DecompressZlib(CompressedData.Span, maxDecompressedSize),
             PgpCompressionAlgorithm.BZip2 => throw new NotSupportedException("BZip2 decompression is not supported."),
             _ => throw new NotSupportedException($"Unknown compression algorithm: {Algorithm}"),
         };
+    }
+
+    private byte[] CopyUncompressed(int maxDecompressedSize)
+    {
+        if (CompressedData.Length > maxDecompressedSize)
+        {
+            throw new InvalidDataException("Decompressed data exceeds the maximum allowed size.");
+        }
+
+        return CompressedData.ToArray();
     }
 
     /// <summary>
@@ -262,13 +290,11 @@ public readonly struct PgpCompressedDataPacket : IEquatable<PgpCompressedDataPac
         return output.ToArray();
     }
 
-    private static byte[] DecompressDeflate(ReadOnlySpan<byte> data)
+    private static byte[] DecompressDeflate(ReadOnlySpan<byte> data, int maxDecompressedSize)
     {
         using var input = new MemoryStream(data.ToArray());
         using var deflate = new DeflateStream(input, CompressionMode.Decompress);
-        using var output = new MemoryStream();
-        deflate.CopyTo(output);
-        return output.ToArray();
+        return ReadBounded(deflate, maxDecompressedSize);
     }
 
     private static byte[] CompressZlib(ReadOnlySpan<byte> data, CompressionLevel level)
@@ -319,7 +345,7 @@ public readonly struct PgpCompressedDataPacket : IEquatable<PgpCompressedDataPac
         return output.ToArray();
     }
 
-    private static byte[] DecompressZlib(ReadOnlySpan<byte> data)
+    private static byte[] DecompressZlib(ReadOnlySpan<byte> data, int maxDecompressedSize)
     {
         if (data.Length < 6)
         {
@@ -345,9 +371,7 @@ public readonly struct PgpCompressedDataPacket : IEquatable<PgpCompressedDataPac
 
         using var input = new MemoryStream(compressedData.ToArray());
         using var deflate = new DeflateStream(input, CompressionMode.Decompress);
-        using var output = new MemoryStream();
-        deflate.CopyTo(output);
-        var decompressed = output.ToArray();
+        var decompressed = ReadBounded(deflate, maxDecompressedSize);
 
         // Verify Adler-32 checksum
         uint expectedAdler = (uint)((data[data.Length - 4] << 24) |
@@ -362,6 +386,31 @@ public readonly struct PgpCompressedDataPacket : IEquatable<PgpCompressedDataPac
         }
 
         return decompressed;
+    }
+
+    private static byte[] ReadBounded(Stream input, int maxDecompressedSize)
+    {
+        using var output = new MemoryStream();
+        byte[] buffer = ArrayPool<byte>.Shared.Rent(81920);
+        try
+        {
+            int bytesRead;
+            while ((bytesRead = input.Read(buffer, 0, buffer.Length)) > 0)
+            {
+                if (output.Length > maxDecompressedSize - bytesRead)
+                {
+                    throw new InvalidDataException("Decompressed data exceeds the maximum allowed size.");
+                }
+
+                output.Write(buffer, 0, bytesRead);
+            }
+
+            return output.ToArray();
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer, clearArray: true);
+        }
     }
 
     private static uint ComputeAdler32(ReadOnlySpan<byte> data)

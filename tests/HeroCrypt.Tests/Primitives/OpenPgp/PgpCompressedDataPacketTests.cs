@@ -112,6 +112,34 @@ public class PgpCompressedDataPacketTests
     [Trait("Category", TestCategories.FAST)]
     public class DecompressTests
     {
+        [Theory]
+        [InlineData(PgpCompressionAlgorithm.Zip)]
+        [InlineData(PgpCompressionAlgorithm.Zlib)]
+        public void Decompress_ExpansionPastLimit_Throws(PgpCompressionAlgorithm algorithm)
+        {
+            var data = new byte[4096];
+            var packet = PgpCompressedDataPacket.Create(data, algorithm);
+
+            Assert.Throws<InvalidDataException>(() => packet.Decompress(1024));
+            Assert.Equal(data, packet.Decompress(data.Length));
+        }
+
+        [Fact]
+        public void Decompress_UncompressedDataOverLimit_Throws()
+        {
+            var packet = new PgpCompressedDataPacket(PgpCompressionAlgorithm.Uncompressed, new byte[256]);
+
+            Assert.Throws<InvalidDataException>(() => packet.Decompress(128));
+        }
+
+        [Fact]
+        public void Decompress_NonPositiveLimit_Throws()
+        {
+            var packet = PgpCompressedDataPacket.Create(TestData, PgpCompressionAlgorithm.Zip);
+
+            Assert.Throws<ArgumentOutOfRangeException>(() => packet.Decompress(0));
+        }
+
         [Fact]
         public void Decompress_Uncompressed_ReturnsOriginalData()
         {

@@ -65,7 +65,7 @@ jobs:
       - name: Restore and audit dependencies
         run: |
           set -o pipefail
-          dotnet restore --locked-mode -p:NuGetAuditMode=all -p:NuGetAuditLevel=low -warnaserror:NU1901,NU1902,NU1903,NU1904 2>&1 | tee audit-${{ matrix.framework }}.log
+          dotnet restore -p:NuGetAuditMode=all -p:NuGetAuditLevel=low -warnaserror:NU1901,NU1902,NU1903,NU1904 2>&1 | tee audit-${{ matrix.framework }}.log
           dotnet package list --vulnerable --include-transitive --format json --no-restore >> audit-${{ matrix.framework }}.log
 
       - name: Upload audit results

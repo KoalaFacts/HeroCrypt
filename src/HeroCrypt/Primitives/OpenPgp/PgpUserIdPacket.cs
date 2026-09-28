@@ -118,57 +118,57 @@ public readonly struct PgpUserIdPacket : IEquatable<PgpUserIdPacket>
     {
         var userId = UserId ?? string.Empty;
         var remaining = userId.Trim();
-        string? email = null;
-        string? comment = null;
-
-        var emailStart = remaining.IndexOf('<');
-        if (emailStart >= 0)
-        {
-            if (!remaining.EndsWith('>')
-                || remaining.IndexOf('>') != remaining.Length - 1
-                || remaining.IndexOf('<', emailStart + 1) >= 0
-                || emailStart == remaining.Length - 2)
-            {
-                return (userId.Trim(), null, null);
-            }
-
-            email = remaining.Substring(emailStart + 1, remaining.Length - emailStart - 2).Trim();
-            if (email.Length == 0)
-            {
-                email = null;
-            }
-
-            remaining = remaining.Substring(0, emailStart).TrimEnd();
-        }
-        else if (remaining.Contains('>'))
-        {
-            return (userId.Trim(), null, null);
-        }
-
         var commentStart = remaining.IndexOf('(');
-        if (commentStart >= 0)
+        var emailStart = remaining.IndexOf('<');
+        var componentStart = commentStart < 0 ? emailStart
+            : emailStart < 0 ? commentStart
+            : Math.Min(commentStart, emailStart);
+
+        if (componentStart < 0)
         {
-            if (!remaining.EndsWith(')')
-                || remaining.IndexOf(')') != remaining.Length - 1
-                || remaining.IndexOf('(', commentStart + 1) >= 0)
+            return (remaining, null, null);
+        }
+
+        var name = remaining.Substring(0, componentStart).TrimEnd();
+        string? comment = null;
+        var position = componentStart;
+
+        if (remaining[position] == '(')
+        {
+            var commentEnd = remaining.IndexOf(')', position + 1);
+            if (commentEnd < 0)
             {
-                return (userId.Trim(), null, null);
+                return (remaining, null, null);
             }
 
-            comment = remaining.Substring(commentStart + 1, remaining.Length - commentStart - 2).Trim();
+            comment = remaining.Substring(position + 1, commentEnd - position - 1).Trim();
             if (comment.Length == 0)
             {
                 comment = null;
             }
 
-            remaining = remaining.Substring(0, commentStart).TrimEnd();
-        }
-        else if (remaining.Contains(')'))
-        {
-            return (userId.Trim(), null, null);
+            position = commentEnd + 1;
+            while (position < remaining.Length && char.IsWhiteSpace(remaining[position]))
+            {
+                position++;
+            }
+
+            if (position == remaining.Length)
+            {
+                return (name, comment, null);
+            }
         }
 
-        return (remaining, comment, email);
+        if (remaining[position] != '<'
+            || !remaining.EndsWith('>')
+            || remaining.IndexOf('>', position + 1) != remaining.Length - 1
+            || position == remaining.Length - 2)
+        {
+            return (remaining, null, null);
+        }
+
+        var email = remaining.Substring(position + 1, remaining.Length - position - 2).Trim();
+        return (name, comment, email.Length == 0 ? null : email);
     }
 
     /// <summary>

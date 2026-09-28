@@ -662,6 +662,20 @@ public class PgpUserIdPacketTests
     [Trait("Category", TestCategories.FAST)]
     public class EdgeCaseTests
     {
+        [Theory]
+        [InlineData("R&D > Security")]
+        [InlineData("R&D < Security")]
+        [InlineData("R&D (Security")]
+        public void GetComponents_AllowedCommentCharacters_RoundTrip(string comment)
+        {
+            var packet = PgpUserIdPacket.Create("Alice", comment, "alice@example.com");
+
+            Assert.Equal(("Alice", comment, "alice@example.com"), packet.GetComponents());
+            Assert.Equal("Alice", packet.GetName());
+            Assert.Equal(comment, packet.GetComment());
+            Assert.Equal("alice@example.com", packet.GetEmail());
+        }
+
         [Fact]
         public void GetName_NestedParentheses_HandlesGracefully()
         {

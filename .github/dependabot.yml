@@ -22,6 +22,27 @@ updates:
           - "minor"
           - "patch"
 
+  # Video dependencies and their lockfile
+  - package-ecosystem: "npm"
+    directory: "/video"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "KoalaFacts"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    groups:
+      minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+
   # GitHub Actions dependencies
   - package-ecosystem: "github-actions"
     directory: "/"

@@ -121,7 +121,7 @@ public sealed class AesCmacBuilder : IDisposable
         ValidateState();
 
         var tag = new byte[TagSize];
-        AesCmacCore.ComputeTag(tag, data, key!);
+        AesCmacCore.ComputeTag(tag, data, key);
         return tag;
     }
 
@@ -138,7 +138,7 @@ public sealed class AesCmacBuilder : IDisposable
         ArgumentHelper.ThrowIfDisposed(disposed, this);
         ValidateState();
 
-        AesCmacCore.ComputeTag(tag, data, key!);
+        AesCmacCore.ComputeTag(tag, data, key);
     }
 
     /// <summary>
@@ -170,7 +170,7 @@ public sealed class AesCmacBuilder : IDisposable
         ArgumentHelper.ThrowIfDisposed(disposed, this);
         ValidateState();
 
-        return AesCmacCore.VerifyTag(tag, data, key!);
+        return AesCmacCore.VerifyTag(tag, data, key);
     }
 
     /// <summary>

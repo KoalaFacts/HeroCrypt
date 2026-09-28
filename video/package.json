@@ -8,18 +8,18 @@
     "render:still": "remotion still src/index.tsx HeroCryptCover out/HeroCryptCover.png"
   },
   "dependencies": {
-    "@fontsource/ibm-plex-mono": "^5.2.7",
-    "@fontsource/space-grotesk": "^5.2.10",
+    "@fontsource/ibm-plex-mono": "^5.3.0",
+    "@fontsource/space-grotesk": "^5.3.0",
     "@remotion/transitions": "^4.0.529",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
     "remotion": "^4.0.529"
   },
   "devDependencies": {
     "@remotion/cli": "^4.0.529",
-    "@types/node": "^20.11.30",
-    "@types/react": "^18.2.79",
-    "@types/react-dom": "^18.2.26",
-    "typescript": "^5.4.5"
+    "@types/node": "^26.6.3",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "typescript": "^7.0.2"
   }
 }

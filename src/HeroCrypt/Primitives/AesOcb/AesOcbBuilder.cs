@@ -167,7 +167,7 @@ public sealed class AesOcbBuilder : IDisposable
         ArgumentHelper.ThrowIfDisposed(disposed, this);
         ValidateState();
 
-        var result = AesOcbCore.Encrypt(plaintext, key!, nonce!, associatedData ?? ReadOnlySpan<byte>.Empty);
+        var result = AesOcbCore.Encrypt(plaintext, key, nonce, associatedData ?? ReadOnlySpan<byte>.Empty);
         return result.Ciphertext;
     }
 
@@ -199,7 +199,7 @@ public sealed class AesOcbBuilder : IDisposable
         ArgumentHelper.ThrowIfDisposed(disposed, this);
         ValidateState();
 
-        return AesOcbCore.Decrypt(ciphertext, key!, nonce!, associatedData ?? ReadOnlySpan<byte>.Empty);
+        return AesOcbCore.Decrypt(ciphertext, key, nonce, associatedData ?? ReadOnlySpan<byte>.Empty);
     }
 
     /// <summary>

@@ -1,5 +1,4 @@
 using System.Text;
-using System.Text.RegularExpressions;
 
 namespace HeroCrypt.Primitives.OpenPgp;
 
@@ -32,20 +31,6 @@ public readonly struct PgpUserIdPacket : IEquatable<PgpUserIdPacket>
     /// Maximum allowed User ID length in bytes (64 KB).
     /// </summary>
     public const int MaxUserIdLength = 65536;
-
-    // Pattern to parse conventional user ID format: Name (Comment) <email>
-    // The pattern matches:
-    //   - name: any characters except ( and < at the start (lazy match)
-    //   - comment: text within parentheses (optional)
-    //   - email: text within angle brackets (optional)
-    // Limitations:
-    //   - Nested parentheses in comments are not fully supported
-    //   - Multiple angle bracket pairs will not match (returns full string as name fallback)
-    // Timeout protects against ReDoS attacks with pathological input.
-    private static readonly Regex UserIdPattern = new(
-        @"^(?<name>[^(<]*?)\s*(?:\((?<comment>[^)]*)\)\s*)?(?:<(?<email>[^>]+)>)?$",
-        RegexOptions.Compiled | RegexOptions.CultureInvariant,
-        TimeSpan.FromMilliseconds(100));
 
     /// <summary>
     /// Gets the raw User ID string.
@@ -131,43 +116,59 @@ public readonly struct PgpUserIdPacket : IEquatable<PgpUserIdPacket>
     /// </remarks>
     public (string Name, string? Comment, string? Email) GetComponents()
     {
-        try
+        var userId = UserId ?? string.Empty;
+        var remaining = userId.Trim();
+        string? email = null;
+        string? comment = null;
+
+        var emailStart = remaining.IndexOf('<');
+        if (emailStart >= 0)
         {
-            var match = UserIdPattern.Match(UserId);
-            if (!match.Success)
+            if (!remaining.EndsWith('>')
+                || remaining.IndexOf('>') != remaining.Length - 1
+                || remaining.IndexOf('<', emailStart + 1) >= 0
+                || emailStart == remaining.Length - 2)
             {
-                return (UserId.Trim(), null, null);
+                return (userId.Trim(), null, null);
             }
 
-            var name = match.Groups["name"].Value.Trim();
-
-            string? comment = null;
-            if (match.Groups["comment"].Success)
+            email = remaining.Substring(emailStart + 1, remaining.Length - emailStart - 2).Trim();
+            if (email.Length == 0)
             {
-                var commentValue = match.Groups["comment"].Value.Trim();
-                if (!string.IsNullOrEmpty(commentValue))
-                {
-                    comment = commentValue;
-                }
+                email = null;
             }
 
-            string? email = null;
-            if (match.Groups["email"].Success)
-            {
-                var emailValue = match.Groups["email"].Value.Trim();
-                if (!string.IsNullOrEmpty(emailValue))
-                {
-                    email = emailValue;
-                }
-            }
-
-            return (name, comment, email);
+            remaining = remaining.Substring(0, emailStart).TrimEnd();
         }
-        catch (RegexMatchTimeoutException)
+        else if (remaining.Contains('>'))
         {
-            // Pathological input - return full string as name
-            return (UserId.Trim(), null, null);
+            return (userId.Trim(), null, null);
         }
+
+        var commentStart = remaining.IndexOf('(');
+        if (commentStart >= 0)
+        {
+            if (!remaining.EndsWith(')')
+                || remaining.IndexOf(')') != remaining.Length - 1
+                || remaining.IndexOf('(', commentStart + 1) >= 0)
+            {
+                return (userId.Trim(), null, null);
+            }
+
+            comment = remaining.Substring(commentStart + 1, remaining.Length - commentStart - 2).Trim();
+            if (comment.Length == 0)
+            {
+                comment = null;
+            }
+
+            remaining = remaining.Substring(0, commentStart).TrimEnd();
+        }
+        else if (remaining.Contains(')'))
+        {
+            return (userId.Trim(), null, null);
+        }
+
+        return (remaining, comment, email);
     }
 
     /// <summary>

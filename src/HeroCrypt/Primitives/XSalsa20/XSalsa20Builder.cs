@@ -166,7 +166,7 @@ public sealed class XSalsa20Builder : IDisposable
         ValidateState();
 
         var output = new byte[input.Length];
-        XSalsa20Core.Transform(output, input, key!, nonce!, counter);
+        XSalsa20Core.Transform(output, input, key, nonce, counter);
         return output;
     }
 
@@ -183,7 +183,7 @@ public sealed class XSalsa20Builder : IDisposable
         ArgumentHelper.ThrowIfDisposed(disposed, this);
         ValidateState();
 
-        XSalsa20Core.Transform(output, input, key!, nonce!, counter);
+        XSalsa20Core.Transform(output, input, key, nonce, counter);
     }
 
     /// <summary>

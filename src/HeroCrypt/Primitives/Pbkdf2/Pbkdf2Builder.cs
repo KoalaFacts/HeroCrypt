@@ -244,8 +244,8 @@ public sealed class Pbkdf2Builder : IDisposable
         ValidateState();
 
         return Pbkdf2Core.DeriveKey(
-            password!,
-            salt!,
+            password,
+            salt,
             iterations,
             outputLength,
             hashAlgorithm,

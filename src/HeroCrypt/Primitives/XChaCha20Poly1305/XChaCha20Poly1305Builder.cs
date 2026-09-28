@@ -158,7 +158,7 @@ public sealed class XChaCha20Poly1305Builder : IDisposable
         ArgumentHelper.ThrowIfDisposed(disposed, this);
         ValidateState();
 
-        var result = XChaCha20Poly1305Core.Encrypt(plaintext, key!, nonce!, associatedData ?? ReadOnlySpan<byte>.Empty);
+        var result = XChaCha20Poly1305Core.Encrypt(plaintext, key, nonce, associatedData ?? ReadOnlySpan<byte>.Empty);
         return result.Ciphertext;
     }
 
@@ -190,7 +190,7 @@ public sealed class XChaCha20Poly1305Builder : IDisposable
         ArgumentHelper.ThrowIfDisposed(disposed, this);
         ValidateState();
 
-        return XChaCha20Poly1305Core.Decrypt(ciphertext, key!, nonce!, associatedData ?? ReadOnlySpan<byte>.Empty);
+        return XChaCha20Poly1305Core.Decrypt(ciphertext, key, nonce, associatedData ?? ReadOnlySpan<byte>.Empty);
     }
 
     /// <summary>

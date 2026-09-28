@@ -211,7 +211,7 @@ public sealed class Ed25519Builder : IDisposable
     {
         ArgumentHelper.ThrowIfDisposed(disposed, this);
         ValidatePrivateKey();
-        return Ed25519Core.DerivePublicKey(privateKey!);
+        return Ed25519Core.DerivePublicKey(privateKey);
     }
 
     /// <summary>
@@ -225,7 +225,7 @@ public sealed class Ed25519Builder : IDisposable
         ArgumentHelper.ThrowIfDisposed(disposed, this);
         ValidatePrivateKey();
         ValidateMessage();
-        return Ed25519Core.Sign(message!, privateKey!);
+        return Ed25519Core.Sign(message, privateKey);
     }
 
     /// <summary>
@@ -240,7 +240,7 @@ public sealed class Ed25519Builder : IDisposable
         ValidatePublicKey();
         ValidateMessage();
         ValidateSignature();
-        return Ed25519Core.Verify(message!, signature!, publicKey!);
+        return Ed25519Core.Verify(message, signature, publicKey);
     }
 
     private void ValidatePrivateKey()

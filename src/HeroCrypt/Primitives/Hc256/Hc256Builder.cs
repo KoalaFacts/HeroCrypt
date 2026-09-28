@@ -154,7 +154,7 @@ public sealed class Hc256Builder : IDisposable
         ValidateState();
 
         var output = new byte[input.Length];
-        Hc256Core.Transform(output, input, key!, iv!);
+        Hc256Core.Transform(output, input, key, iv);
         return output;
     }
 
@@ -171,7 +171,7 @@ public sealed class Hc256Builder : IDisposable
         ArgumentHelper.ThrowIfDisposed(disposed, this);
         ValidateState();
 
-        Hc256Core.Transform(output, input, key!, iv!);
+        Hc256Core.Transform(output, input, key, iv);
     }
 
     /// <summary>

@@ -22,11 +22,11 @@ public class PgpSignatureSignerTests
         using var rsa = RSA.Create(keySize);
         var rsaParams = rsa.ExportParameters(true);
 
-        var n = new BigInteger(rsaParams.Modulus!, isUnsigned: true, isBigEndian: true);
-        var e = new BigInteger(rsaParams.Exponent!, isUnsigned: true, isBigEndian: true);
-        var d = new BigInteger(rsaParams.D!, isUnsigned: true, isBigEndian: true);
-        var p = new BigInteger(rsaParams.P!, isUnsigned: true, isBigEndian: true);
-        var q = new BigInteger(rsaParams.Q!, isUnsigned: true, isBigEndian: true);
+        var n = new BigInteger(rsaParams.Modulus, isUnsigned: true, isBigEndian: true);
+        var e = new BigInteger(rsaParams.Exponent, isUnsigned: true, isBigEndian: true);
+        var d = new BigInteger(rsaParams.D, isUnsigned: true, isBigEndian: true);
+        var p = new BigInteger(rsaParams.P, isUnsigned: true, isBigEndian: true);
+        var q = new BigInteger(rsaParams.Q, isUnsigned: true, isBigEndian: true);
 
         // Compute u = p^-1 mod q (required by PGP format)
         var u = BigInteger.ModPow(p, q - 2, q);

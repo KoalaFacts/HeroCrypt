@@ -149,6 +149,7 @@ internal static class AesOcbCore
 
         using var aes = Aes.Create();
         aes.Key = keyArray;
+        // OCB offsets and authenticates each AES block; ECB supplies only the block primitive.
         aes.Mode = CipherMode.ECB;
         aes.Padding = PaddingMode.None;
 
@@ -274,6 +275,7 @@ internal static class AesOcbCore
 
         using var aes = Aes.Create();
         aes.Key = keyArray;
+        // OCB offsets and authenticates each AES block; ECB supplies only the block primitive.
         aes.Mode = CipherMode.ECB;
         aes.Padding = PaddingMode.None;
 

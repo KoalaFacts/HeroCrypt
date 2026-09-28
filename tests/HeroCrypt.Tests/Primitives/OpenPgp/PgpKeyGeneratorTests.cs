@@ -1936,6 +1936,7 @@ public class PgpKeyGeneratorTests
         {
             using var aes = Aes.Create();
             aes.Key = key;
+            // Test helper implements CFB by encrypting feedback blocks into keystream.
             aes.Mode = CipherMode.ECB;
             aes.Padding = PaddingMode.None;
 

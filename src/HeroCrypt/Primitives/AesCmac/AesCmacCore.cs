@@ -47,6 +47,7 @@ internal static class AesCmacCore
         {
             using var aes = Aes.Create();
             aes.Key = keyArray;
+            // CMAC chains single AES blocks with XOR and subkeys; this is not message-level ECB.
             aes.Mode = CipherMode.ECB;
             aes.Padding = PaddingMode.None;
 

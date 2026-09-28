@@ -237,10 +237,10 @@ public sealed class EncryptionBuilder : IDisposable
     /// <exception cref="FormatException">If the string is not valid Base64.</exception>
     /// <example>
     /// <code>
-    /// // Load a key from standard Base64 (with padding)
+    /// // Load a key from a secure store as standard Base64 (with padding)
     /// using var builder = HeroCryptBuilder.Encrypt()
     ///     .WithAesGcm()
-    ///     .WithKeyFromBase64("AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyA=");
+    ///     .WithKeyFromBase64(base64KeyFromSecureStore);
     /// </code>
     /// </example>
     /// <seealso cref="WithKeyFromHex"/>
@@ -265,10 +265,10 @@ public sealed class EncryptionBuilder : IDisposable
     /// </remarks>
     /// <example>
     /// <code>
-    /// // Load a key from URL-safe Base64 (ideal for query strings and URLs)
+    /// // Load a key from a secure store as URL-safe Base64
     /// using var builder = HeroCryptBuilder.Encrypt()
     ///     .WithAesGcm()
-    ///     .WithKeyFromBase64Url("AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyA");
+    ///     .WithKeyFromBase64Url(base64UrlKeyFromSecureStore);
     /// </code>
     /// </example>
     /// <seealso cref="WithKeyFromHex"/>

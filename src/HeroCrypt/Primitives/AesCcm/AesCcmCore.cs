@@ -114,6 +114,7 @@ internal static class AesCcmCore
         {
             using var aes = Aes.Create();
             aes.Key = keyArray;
+            // CCM uses AES on individual CBC-MAC and CTR blocks, never as message-level ECB.
             aes.Mode = CipherMode.ECB;
             aes.Padding = PaddingMode.None;
 
@@ -181,6 +182,7 @@ internal static class AesCcmCore
         {
             using var aes = Aes.Create();
             aes.Key = keyArray;
+            // CCM uses AES on individual CBC-MAC and CTR blocks, never as message-level ECB.
             aes.Mode = CipherMode.ECB;
             aes.Padding = PaddingMode.None;
 

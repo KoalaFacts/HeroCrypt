@@ -830,6 +830,7 @@ internal static class PgpKeyEncryption
 
         using var aes = Aes.Create();
         aes.Key = kek;
+        // RFC 3394 key wrap encrypts one A || R[i] block per round, not a plaintext stream.
         aes.Mode = CipherMode.ECB;
         aes.Padding = PaddingMode.None;
 
@@ -913,6 +914,7 @@ internal static class PgpKeyEncryption
 
         using var aes = Aes.Create();
         aes.Key = kek;
+        // RFC 3394 key unwrap decrypts one A || R[i] block per round and checks the IV.
         aes.Mode = CipherMode.ECB;
         aes.Padding = PaddingMode.None;
 

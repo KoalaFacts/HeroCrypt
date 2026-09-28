@@ -83,17 +83,38 @@ jobs:
       uses: actions/upload-artifact@v7
       with:
         name: test-results-${{ matrix.os }}-${{ matrix.framework }}
-        path: TestResults/*.trx
+        path: |
+          TestResults/*.trx
+          TestResults/coverage.cobertura*.xml
         retention-days: 30
 
-    - name: Upload coverage to Codecov
-      if: matrix.os == 'ubuntu-latest' && matrix.framework == 'net10.0'
+  upload-coverage:
+    name: Upload coverage to Codecov
+    needs: build-and-test
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+
+    - name: Download Linux coverage
+      run: gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --name test-results-ubuntu-latest-net10.0 --dir TestResults
+      env:
+        GH_TOKEN: ${{ github.token }}
+
+    - name: Upload coverage
       uses: codecov/codecov-action@v6
       with:
         files: 'TestResults/coverage.cobertura*.xml'
-        fail_ci_if_error: false
+        fail_ci_if_error: true
         flags: unittests
-        name: codecov-${{ matrix.os }}
+        name: codecov-ubuntu-latest
+        use_oidc: true
 
   code-quality:
     name: Code Quality

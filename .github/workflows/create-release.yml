@@ -55,8 +55,8 @@ jobs:
       - name: Build Release
         run: dotnet build --configuration Release --no-restore
 
-      - name: Run tests
-        run: dotnet test --configuration Release --no-build --verbosity normal
+      - name: Run tests in Debug configuration
+        run: dotnet test --project tests/HeroCrypt.Tests/HeroCrypt.Tests.csproj --configuration Debug --no-restore
 
       - name: Update CHANGELOG.md
         run: |

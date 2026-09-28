@@ -479,8 +479,8 @@ public sealed class PgpKeyGenerator
 
             if (algorithmName != null)
             {
-                Security.CryptoAudit.CheckAlgorithm(algorithmName);
-                Security.SecurityPolicy.ValidateOpenPgpSymmetric(algId);
+                CryptoAudit.CheckAlgorithm(algorithmName);
+                SecurityPolicy.ValidateOpenPgpSymmetric(algId);
             }
         }
 
@@ -520,8 +520,8 @@ public sealed class PgpKeyGenerator
 
             if (algorithmName != null)
             {
-                Security.CryptoAudit.CheckAlgorithm(algorithmName);
-                Security.SecurityPolicy.ValidateOpenPgpHash(algId);
+                CryptoAudit.CheckAlgorithm(algorithmName);
+                SecurityPolicy.ValidateOpenPgpHash(algId);
             }
         }
 

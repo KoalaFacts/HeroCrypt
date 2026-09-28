@@ -1,5 +1,5 @@
 # Comprehensive Security Scanning
-# Combines NuGet vulnerability auditing and Microsoft Security DevOps analysis
+# Combines NuGet and npm vulnerability auditing with Microsoft Security DevOps analysis
 name: Scan Security
 
 on:
@@ -64,16 +64,9 @@ jobs:
 
       - name: Restore and audit dependencies
         run: |
-          dotnet restore
-          dotnet list package --vulnerable --include-transitive 2>&1 | tee audit-${{ matrix.framework }}.log
-
-          if grep -q "has the following vulnerable packages" audit-${{ matrix.framework }}.log; then
-            echo "::error::Vulnerable packages detected!"
-            cat audit-${{ matrix.framework }}.log
-            exit 1
-          else
-            echo "No vulnerable packages detected."
-          fi
+          set -o pipefail
+          dotnet restore -p:NuGetAuditMode=all -p:NuGetAuditLevel=low -warnaserror:NU1901,NU1902,NU1903,NU1904 2>&1 | tee audit-${{ matrix.framework }}.log
+          dotnet package list --vulnerable --include-transitive --format json --no-restore >> audit-${{ matrix.framework }}.log
 
       - name: Upload audit results
         uses: actions/upload-artifact@v7
@@ -81,6 +74,32 @@ jobs:
           name: nuget-audit-${{ matrix.framework }}
           path: audit-${{ matrix.framework }}.log
           retention-days: 30
+
+  npm-audit:
+    name: npm Audit and Typecheck
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: video
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: video/package-lock.json
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Audit all dependency severities
+        run: npm audit --audit-level=low
+
+      - name: Typecheck video
+        run: npm exec -- tsc --noEmit
 
   # Microsoft Security DevOps analysis (BinSkim, CredScan, etc.)
   microsoft-security-devops:
@@ -141,7 +160,7 @@ jobs:
     name: Security Summary
     runs-on: ubuntu-latest
     if: ${{ always() }}
-    needs: [nuget-audit, microsoft-security-devops]
+    needs: [nuget-audit, npm-audit, microsoft-security-devops]
 
     steps:
       - name: Create security summary
@@ -156,6 +175,7 @@ jobs:
           echo "| Security Check | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|----------------|--------|" >> $GITHUB_STEP_SUMMARY
           echo "| NuGet Vulnerability Audit | ${{ needs.nuget-audit.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| npm Vulnerability Audit and Typecheck | ${{ needs.npm-audit.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Microsoft Security DevOps | ${{ needs.microsoft-security-devops.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| CodeQL Analysis | Managed by GitHub default setup |" >> $GITHUB_STEP_SUMMARY
           echo "| Secret Scanning | Managed by GitHub default setup |" >> $GITHUB_STEP_SUMMARY
@@ -164,13 +184,14 @@ jobs:
           echo "### Scan Details" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **NuGet Audit**: Scans for vulnerable NuGet packages across .NET 8.0, 9.0, and 10.0" >> $GITHUB_STEP_SUMMARY
+          echo "- **npm Audit**: Scans locked video dependencies and checks TypeScript" >> $GITHUB_STEP_SUMMARY
           echo "- **Microsoft Security DevOps**: Runs BinSkim (binary analysis) and CredScan (credential scanning)" >> $GITHUB_STEP_SUMMARY
           echo "- **CodeQL**: Automated code scanning via GitHub default setup" >> $GITHUB_STEP_SUMMARY
           echo "- **Secret Scanning**: Automated credential leak detection via GitHub" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           # Overall status
-          if [ "${{ needs.nuget-audit.result }}" == "success" ] && [ "${{ needs.microsoft-security-devops.result }}" == "success" ]; then
+          if [ "${{ needs.nuget-audit.result }}" == "success" ] && [ "${{ needs.npm-audit.result }}" == "success" ] && [ "${{ needs.microsoft-security-devops.result }}" == "success" ]; then
             echo "**All security checks passed!**" >> $GITHUB_STEP_SUMMARY
           else
             echo "**Some security checks failed. Please review the results above.**" >> $GITHUB_STEP_SUMMARY

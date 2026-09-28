@@ -1,5 +1,4 @@
 using System.Text;
-using System.Text.RegularExpressions;
 
 namespace HeroCrypt.Primitives.OpenPgp;
 
@@ -32,20 +31,6 @@ public readonly struct PgpUserIdPacket : IEquatable<PgpUserIdPacket>
     /// Maximum allowed User ID length in bytes (64 KB).
     /// </summary>
     public const int MaxUserIdLength = 65536;
-
-    // Pattern to parse conventional user ID format: Name (Comment) <email>
-    // The pattern matches:
-    //   - name: any characters except ( and < at the start (lazy match)
-    //   - comment: text within parentheses (optional)
-    //   - email: text within angle brackets (optional)
-    // Limitations:
-    //   - Nested parentheses in comments are not fully supported
-    //   - Multiple angle bracket pairs will not match (returns full string as name fallback)
-    // Timeout protects against ReDoS attacks with pathological input.
-    private static readonly Regex UserIdPattern = new(
-        @"^(?<name>[^(<]*?)\s*(?:\((?<comment>[^)]*)\)\s*)?(?:<(?<email>[^>]+)>)?$",
-        RegexOptions.Compiled | RegexOptions.CultureInvariant,
-        TimeSpan.FromMilliseconds(100));
 
     /// <summary>
     /// Gets the raw User ID string.
@@ -131,43 +116,59 @@ public readonly struct PgpUserIdPacket : IEquatable<PgpUserIdPacket>
     /// </remarks>
     public (string Name, string? Comment, string? Email) GetComponents()
     {
-        try
+        var userId = UserId ?? string.Empty;
+        var remaining = userId.Trim();
+        var commentStart = remaining.IndexOf('(');
+        var emailStart = remaining.IndexOf('<');
+        var componentStart = commentStart < 0 ? emailStart
+            : emailStart < 0 ? commentStart
+            : Math.Min(commentStart, emailStart);
+
+        if (componentStart < 0)
         {
-            var match = UserIdPattern.Match(UserId);
-            if (!match.Success)
-            {
-                return (UserId.Trim(), null, null);
-            }
-
-            var name = match.Groups["name"].Value.Trim();
-
-            string? comment = null;
-            if (match.Groups["comment"].Success)
-            {
-                var commentValue = match.Groups["comment"].Value.Trim();
-                if (!string.IsNullOrEmpty(commentValue))
-                {
-                    comment = commentValue;
-                }
-            }
-
-            string? email = null;
-            if (match.Groups["email"].Success)
-            {
-                var emailValue = match.Groups["email"].Value.Trim();
-                if (!string.IsNullOrEmpty(emailValue))
-                {
-                    email = emailValue;
-                }
-            }
-
-            return (name, comment, email);
+            return (remaining, null, null);
         }
-        catch (RegexMatchTimeoutException)
+
+        var name = remaining.Substring(0, componentStart).TrimEnd();
+        string? comment = null;
+        var position = componentStart;
+
+        if (remaining[position] == '(')
         {
-            // Pathological input - return full string as name
-            return (UserId.Trim(), null, null);
+            var commentEnd = remaining.IndexOf(')', position + 1);
+            if (commentEnd < 0)
+            {
+                return (remaining, null, null);
+            }
+
+            comment = remaining.Substring(position + 1, commentEnd - position - 1).Trim();
+            if (comment.Length == 0)
+            {
+                comment = null;
+            }
+
+            position = commentEnd + 1;
+            while (position < remaining.Length && char.IsWhiteSpace(remaining[position]))
+            {
+                position++;
+            }
+
+            if (position == remaining.Length)
+            {
+                return (name, comment, null);
+            }
         }
+
+        if (remaining[position] != '<'
+            || !remaining.EndsWith('>')
+            || remaining.IndexOf('>', position + 1) != remaining.Length - 1
+            || position == remaining.Length - 2)
+        {
+            return (remaining, null, null);
+        }
+
+        var email = remaining.Substring(position + 1, remaining.Length - position - 2).Trim();
+        return (name, comment, email.Length == 0 ? null : email);
     }
 
     /// <summary>

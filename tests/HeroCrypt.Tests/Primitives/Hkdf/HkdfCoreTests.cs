@@ -291,6 +291,16 @@ public class HkdfCoreTests
         }
 
         [Fact]
+        public void GetRecommendedParameters_LegacyCompatibility_AllowedInLegacyScope()
+        {
+            using (SecurityPolicy.LegacyScope())
+            {
+                var parameters = HkdfCore.GetRecommendedParameters(HkdfUseCase.LegacyCompatibility);
+                Assert.Equal(HashAlgorithmName.SHA1, parameters.HashAlgorithm);
+            }
+        }
+
+        [Fact]
         public void DeriveKey_Sha1_AllowedInLegacyScope()
         {
             // Verify SHA-1 is allowed when using LegacyScope

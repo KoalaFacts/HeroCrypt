@@ -662,12 +662,26 @@ public class PgpUserIdPacketTests
     [Trait("Category", TestCategories.FAST)]
     public class EdgeCaseTests
     {
+        [Theory]
+        [InlineData("R&D > Security")]
+        [InlineData("R&D < Security")]
+        [InlineData("R&D (Security")]
+        public void GetComponents_AllowedCommentCharacters_RoundTrip(string comment)
+        {
+            var packet = PgpUserIdPacket.Create("Alice", comment, "alice@example.com");
+
+            Assert.Equal(("Alice", comment, "alice@example.com"), packet.GetComponents());
+            Assert.Equal("Alice", packet.GetName());
+            Assert.Equal(comment, packet.GetComment());
+            Assert.Equal("alice@example.com", packet.GetEmail());
+        }
+
         [Fact]
         public void GetName_NestedParentheses_HandlesGracefully()
         {
             var packet = new PgpUserIdPacket("Alice (Comment (nested)) <alice@example.com>");
 
-            // The regex will only capture "Comment (nested" due to the first closing paren
+            // Nested comments are outside the conventional format.
             var name = packet.GetName();
             Assert.NotNull(name);
         }
@@ -678,12 +692,30 @@ public class PgpUserIdPacketTests
             // Non-standard format with multiple angle brackets doesn't match the conventional pattern
             var packet = new PgpUserIdPacket("Alice <alice@example.com> <extra>");
 
-            // The pattern requires the email to be at the end, so this doesn't match
+            // Multiple email fields are outside the conventional format.
             var email = packet.GetEmail();
             Assert.Null(email);
 
             // But GetName still returns the full string as fallback
             Assert.Equal("Alice <alice@example.com> <extra>", packet.GetName());
+        }
+
+        [Fact]
+        public void GetComponents_LongMalformedUserId_FallsBackWithoutTimeout()
+        {
+            var userId = "Alice " + new string('(', 4096) + " <alice@example.com>";
+            var packet = new PgpUserIdPacket(userId);
+
+            Assert.Equal((userId, null, null), packet.GetComponents());
+        }
+
+        [Fact]
+        public void GetEmail_WhitespaceEmail_ReturnsNull()
+        {
+            var packet = new PgpUserIdPacket("Alice < >");
+
+            Assert.Equal("Alice", packet.GetName());
+            Assert.Null(packet.GetEmail());
         }
 
         [Fact]

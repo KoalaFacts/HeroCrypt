@@ -121,7 +121,7 @@ public sealed class Poly1305Builder : IDisposable
         ValidateState();
 
         var tag = new byte[TagSize];
-        Poly1305Core.ComputeMac(tag, message, key!);
+        Poly1305Core.ComputeMac(tag, message, key);
         return tag;
     }
 
@@ -138,7 +138,7 @@ public sealed class Poly1305Builder : IDisposable
         ArgumentHelper.ThrowIfDisposed(disposed, this);
         ValidateState();
 
-        Poly1305Core.ComputeMac(tag, message, key!);
+        Poly1305Core.ComputeMac(tag, message, key);
     }
 
     /// <summary>
@@ -170,7 +170,7 @@ public sealed class Poly1305Builder : IDisposable
         ArgumentHelper.ThrowIfDisposed(disposed, this);
         ValidateState();
 
-        return Poly1305Core.VerifyMac(tag, message, key!);
+        return Poly1305Core.VerifyMac(tag, message, key);
     }
 
     /// <summary>

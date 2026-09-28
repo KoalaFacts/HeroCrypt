@@ -368,6 +368,8 @@ dotnet_diagnostic.IDE0304.severity = suggestion
 dotnet_diagnostic.IDE0305.severity = suggestion
 
 # Nullable reference type diagnostics
+# IDE0370 can flag suppressions that the compiler still requires across target frameworks.
+dotnet_diagnostic.IDE0370.severity = suggestion
 dotnet_diagnostic.CS8600.severity = warning
 dotnet_diagnostic.CS8601.severity = warning
 dotnet_diagnostic.CS8602.severity = warning

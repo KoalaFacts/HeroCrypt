@@ -256,8 +256,8 @@ public sealed class ScryptBuilder : IDisposable
         ValidateState();
 
         return ScryptCore.DeriveKey(
-            password!,
-            salt!,
+            password,
+            salt,
             n,
             r,
             p,

@@ -90,34 +90,6 @@ namespace System.Security.Cryptography
     }
 
     /// <summary>
-    /// Polyfill for CryptographicOperations class (not available in .NET Standard 2.0)
-    /// </summary>
-    internal static class CryptographicOperations
-    {
-        /// <summary>
-        /// Constant-time equality comparison that minimizes timing side-channels.
-        /// Always performs a comparison loop regardless of length mismatch.
-        /// </summary>
-        public static bool FixedTimeEquals(ReadOnlySpan<byte> left, ReadOnlySpan<byte> right)
-        {
-            // Include length difference in the result using constant-time comparison
-            var lengthDiff = left.Length ^ right.Length;
-
-            // Compare up to the shorter length
-            var minLength = left.Length < right.Length ? left.Length : right.Length;
-
-            var result = 0;
-            for (var i = 0; i < minLength; i++)
-            {
-                result |= left[i] ^ right[i];
-            }
-
-            // Combine content comparison with length comparison
-            return (result | lengthDiff) == 0;
-        }
-    }
-
-    /// <summary>
     /// Extension methods for RandomNumberGenerator to provide .NET Core 3.0+ APIs
     /// </summary>
     internal static class RandomNumberGeneratorExtensions

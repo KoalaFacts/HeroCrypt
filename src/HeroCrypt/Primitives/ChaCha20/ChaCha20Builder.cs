@@ -165,7 +165,7 @@ public sealed class ChaCha20Builder : IDisposable
         ValidateState();
 
         var output = new byte[input.Length];
-        ChaCha20Core.Transform(output, input, key!, nonce!, counter);
+        ChaCha20Core.Transform(output, input, key, nonce, counter);
         return output;
     }
 
@@ -182,7 +182,7 @@ public sealed class ChaCha20Builder : IDisposable
         ArgumentHelper.ThrowIfDisposed(disposed, this);
         ValidateState();
 
-        ChaCha20Core.Transform(output, input, key!, nonce!, counter);
+        ChaCha20Core.Transform(output, input, key, nonce, counter);
     }
 
     /// <summary>

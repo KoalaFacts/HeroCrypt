@@ -154,7 +154,7 @@ public sealed class Hc128Builder : IDisposable
         ValidateState();
 
         var output = new byte[input.Length];
-        Hc128Core.Transform(output, input, key!, iv!);
+        Hc128Core.Transform(output, input, key, iv);
         return output;
     }
 
@@ -171,7 +171,7 @@ public sealed class Hc128Builder : IDisposable
         ArgumentHelper.ThrowIfDisposed(disposed, this);
         ValidateState();
 
-        Hc128Core.Transform(output, input, key!, iv!);
+        Hc128Core.Transform(output, input, key, iv);
     }
 
     /// <summary>

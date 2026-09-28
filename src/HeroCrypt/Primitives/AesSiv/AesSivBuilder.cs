@@ -185,7 +185,7 @@ public sealed class AesSivBuilder : IDisposable
         ArgumentHelper.ThrowIfDisposed(disposed, this);
         ValidateState();
 
-        var result = AesSivCore.Encrypt(plaintext, key!, nonce ?? ReadOnlySpan<byte>.Empty, associatedData ?? ReadOnlySpan<byte>.Empty);
+        var result = AesSivCore.Encrypt(plaintext, key, nonce ?? ReadOnlySpan<byte>.Empty, associatedData ?? ReadOnlySpan<byte>.Empty);
         return result.Ciphertext;
     }
 
@@ -217,7 +217,7 @@ public sealed class AesSivBuilder : IDisposable
         ArgumentHelper.ThrowIfDisposed(disposed, this);
         ValidateState();
 
-        return AesSivCore.Decrypt(ciphertext, key!, nonce ?? ReadOnlySpan<byte>.Empty, associatedData ?? ReadOnlySpan<byte>.Empty);
+        return AesSivCore.Decrypt(ciphertext, key, nonce ?? ReadOnlySpan<byte>.Empty, associatedData ?? ReadOnlySpan<byte>.Empty);
     }
 
     /// <summary>

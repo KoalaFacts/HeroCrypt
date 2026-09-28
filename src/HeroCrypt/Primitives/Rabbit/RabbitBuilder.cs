@@ -159,7 +159,7 @@ public sealed class RabbitBuilder : IDisposable
         ValidateState();
 
         var output = new byte[input.Length];
-        RabbitCore.Transform(output, input, key!, iv ?? ReadOnlySpan<byte>.Empty);
+        RabbitCore.Transform(output, input, key, iv ?? ReadOnlySpan<byte>.Empty);
         return output;
     }
 
@@ -176,7 +176,7 @@ public sealed class RabbitBuilder : IDisposable
         ArgumentHelper.ThrowIfDisposed(disposed, this);
         ValidateState();
 
-        RabbitCore.Transform(output, input, key!, iv ?? ReadOnlySpan<byte>.Empty);
+        RabbitCore.Transform(output, input, key, iv ?? ReadOnlySpan<byte>.Empty);
     }
 
     /// <summary>

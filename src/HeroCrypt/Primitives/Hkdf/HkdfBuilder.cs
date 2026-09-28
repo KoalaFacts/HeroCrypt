@@ -264,7 +264,7 @@ public sealed class HkdfBuilder : IDisposable
         ValidateState();
 
         return HkdfCore.DeriveKey(
-            ikm!,
+            ikm,
             salt ?? ReadOnlySpan<byte>.Empty,
             info ?? ReadOnlySpan<byte>.Empty,
             outputLength,

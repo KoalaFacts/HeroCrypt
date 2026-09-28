@@ -253,6 +253,7 @@ internal static class HkdfCore
             _ => throw new ArgumentException($"Unknown use case: {useCase}", nameof(useCase))
         };
 
+        SecurityPolicy.ValidateHash(parameters.HashAlgorithm);
         return parameters;
     }
 }

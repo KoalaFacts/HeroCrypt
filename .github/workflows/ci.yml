@@ -168,7 +168,7 @@ jobs:
         fetch-depth: 0  # Need full history for comparing commits on push events
 
     - name: Dependency Review
-      uses: actions/dependency-review-action@v4
+      uses: actions/dependency-review-action@v5
       with:
         fail-on-severity: high
         allow-licenses: MIT, Apache-2.0

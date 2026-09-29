@@ -28,7 +28,7 @@ internal sealed class Ed25519Core
     public Ed25519Core(SecurityPolicyOptions? policy = null)
     {
         this.policy = policy ?? SecurityPolicy.CurrentPolicy;
-        impl = new Ed25519Impl(this.policy);
+        impl = new Ed25519Impl();
     }
 
     /// <summary>
@@ -52,6 +52,7 @@ internal sealed class Ed25519Core
     /// <returns>A tuple containing the private key (seed) and public key</returns>
     public (byte[] privateKey, byte[] publicKey) GenerateKeyPair()
     {
+        policy.ValidateSignature("ED25519");
         var privateKey = new byte[PRIVATE_KEY_SIZE];
         using var rng = RandomNumberGenerator.Create();
         rng.GetBytes(privateKey);
@@ -67,6 +68,7 @@ internal sealed class Ed25519Core
     /// <returns>The corresponding public key (32 bytes)</returns>
     public byte[] DerivePublicKey(ReadOnlySpan<byte> privateKey)
     {
+        policy.ValidateSignature("ED25519");
         ValidatePrivateKey(privateKey);
         return impl.DerivePublicKey(privateKey.ToArray());
     }
@@ -79,6 +81,7 @@ internal sealed class Ed25519Core
     /// <returns>The signature (64 bytes)</returns>
     public byte[] Sign(ReadOnlySpan<byte> message, ReadOnlySpan<byte> privateKey)
     {
+        policy.ValidateSignature("ED25519");
         ValidatePrivateKey(privateKey);
         return impl.Sign(message.ToArray(), privateKey.ToArray());
     }
@@ -92,6 +95,7 @@ internal sealed class Ed25519Core
     /// <returns>True if the signature is valid, false otherwise</returns>
     public bool Verify(ReadOnlySpan<byte> message, ReadOnlySpan<byte> signature, ReadOnlySpan<byte> publicKey)
     {
+        policy.ValidateSignature("ED25519");
         if (publicKey.Length != PUBLIC_KEY_SIZE)
         {
             throw new ArgumentException("Public key must be 32 bytes", nameof(publicKey));
@@ -119,18 +123,6 @@ internal sealed class Ed25519Core
 /// </summary>
 internal sealed class Ed25519Impl
 {
-#pragma warning disable IDE0052 // Remove unread private member - policy reserved for future security validation
-    private readonly SecurityPolicyOptions policy;
-#pragma warning restore IDE0052
-
-    /// <summary>
-    /// Initializes a Ed25519Impl with the effective security policy.
-    /// </summary>
-    /// <param name="policy">Optional policy; uses the current policy when omitted.</param>
-    public Ed25519Impl(SecurityPolicyOptions? policy = null)
-    {
-        this.policy = policy ?? SecurityPolicy.CurrentPolicy;
-    }
     // Static readonly constants for Ed25519 curve (avoid allocation on every call)
     private static readonly long[] GfDConst =
     [

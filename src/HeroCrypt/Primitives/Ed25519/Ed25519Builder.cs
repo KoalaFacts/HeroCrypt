@@ -57,6 +57,13 @@ public sealed class Ed25519Builder : IDisposable
     public static Ed25519Builder Create() => new();
 
     /// <summary>
+    /// Creates a new Ed25519 builder with an explicit security policy.
+    /// </summary>
+    /// <param name="policy">The security policy for cryptographic validation.</param>
+    /// <returns>A new builder instance.</returns>
+    public static Ed25519Builder Create(SecurityPolicyOptions policy) => new(policy);
+
+    /// <summary>
     /// Sets the private key for signing or key derivation operations.
     /// </summary>
     /// <param name="privateKey">The 32-byte private key seed.</param>

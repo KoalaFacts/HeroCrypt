@@ -81,7 +81,7 @@ public sealed class PgpPacketReader : IDisposable
     /// Reads the next packet from the stream.
     /// </summary>
     /// <param name="tag">The packet tag.</param>
-    /// <param name="body">The packet body (caller must dispose).</param>
+    /// <param name="body">The packet body.</param>
     /// <returns>True if a packet was read, false if end of stream.</returns>
     public bool ReadNextPacket(out PgpPacketTag tag, out ReadOnlyMemory<byte> body)
     {
@@ -142,6 +142,11 @@ public sealed class PgpPacketReader : IDisposable
         int maxHeaderBytes = (headerBuffer[0] & 0x40) != 0 ? 6 : 5;
         int totalRead = 1;
 
+        if (TryReadBufferedHeader(totalRead, out header))
+        {
+            return true;
+        }
+
         while (totalRead < maxHeaderBytes)
         {
             int read = stream.Read(headerBuffer, totalRead, 1);
@@ -153,14 +158,33 @@ public sealed class PgpPacketReader : IDisposable
             totalRead++;
 
             // Check if we have enough for the header
-            if (PgpPacketHeader.TryRead(headerBuffer.AsSpan(0, totalRead), out header, out _))
+            if (TryReadBufferedHeader(totalRead, out header))
             {
                 return true;
             }
         }
 
         // Try one final parse
-        return PgpPacketHeader.TryRead(headerBuffer.AsSpan(0, totalRead), out header, out _);
+        return TryReadBufferedHeader(totalRead, out header);
+    }
+
+    private bool TryReadBufferedHeader(int bytesRead, out PgpPacketHeader header)
+    {
+        if (!PgpPacketHeader.TryRead(headerBuffer.AsSpan(0, bytesRead), out header, out _))
+        {
+            return false;
+        }
+
+        if (header.BodyLength >= 0)
+        {
+            ValidatePacketSize(header.BodyLength);
+        }
+        else if (header.PartialBodyLength > 0)
+        {
+            ValidatePacketSize(header.PartialBodyLength);
+        }
+
+        return true;
     }
 
     private bool ReadNewFormatPacket(byte firstByte, out PgpPacketTag tag, out ReadOnlyMemory<byte> body)
@@ -415,7 +439,7 @@ public sealed class PgpPacketReader : IDisposable
         return ms.ToArray();
     }
 
-    private void ValidatePacketSize(int size)
+    private void ValidatePacketSize(long size)
     {
         if (size < 0)
         {

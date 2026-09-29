@@ -124,6 +124,22 @@ public class Secp256k1CoreTests
         }
 
         [Fact]
+        public void Verify_RejectsSignatureComputedFromPublicKey()
+        {
+            var (_, publicKey) = core.GenerateKeyPair();
+            var messageHash = SHA256.HashData(Encoding.UTF8.GetBytes("public-key forgery"));
+            var salt = Encoding.ASCII.GetBytes("HeroCrypt.Secp256k1.Signature");
+            var material = new byte[publicKey.Length + salt.Length];
+            publicKey.CopyTo(material, 0);
+            salt.CopyTo(material, publicKey.Length);
+            var forgedKey = SHA512.HashData(material);
+            using var hmac = new HMACSHA512(forgedKey);
+            var forgedSignature = hmac.ComputeHash(messageHash);
+
+            Assert.False(core.Verify(messageHash, forgedSignature, publicKey));
+        }
+
+        [Fact]
         public void Compress_And_Decompress_Roundtrip()
         {
             var (_, uncompressed) = core.GenerateKeyPair();
@@ -307,6 +323,20 @@ public class Secp256k1CoreTests
         private readonly Secp256k1Core core = new();
 
         [Fact]
+        public void Secp256k1_PrivateKeyOne_DerivesGeneratorPoint()
+        {
+            var privateKey = new byte[32];
+            privateKey[31] = 1;
+            var expected = Convert.FromHexString(
+                "0479BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798" +
+                "483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8");
+
+            Assert.Equal(expected, core.DerivePublicKey(privateKey));
+            Assert.Equal(Convert.FromHexString("0279BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798"),
+                core.DerivePublicKey(privateKey, compressed: true));
+        }
+
+        [Fact]
         public void Secp256k1_PublicKeyDerivation_IsDeterministic()
         {
             var (privateKey, _) = core.GenerateKeyPair();
@@ -337,16 +367,38 @@ public class Secp256k1CoreTests
         }
 
         [Fact]
+        public void Secp256k1_Signature_UsesStandardEcdsaFormat()
+        {
+            if (OperatingSystem.IsMacOS())
+            {
+                Assert.Skip("The platform ECDsa provider does not support secp256k1 on macOS.");
+                return;
+            }
+
+            var (privateKey, publicKey) = core.GenerateKeyPair();
+            var messageHash = TestHelpers.RandomBytes(32);
+            var signature = core.Sign(messageHash, privateKey);
+            using var ecdsa = ECDsa.Create();
+            ecdsa.ImportParameters(new ECParameters
+            {
+                Curve = ECCurve.CreateFromFriendlyName("secP256k1"),
+                Q = new ECPoint
+                {
+                    X = publicKey.AsSpan(1, 32).ToArray(),
+                    Y = publicKey.AsSpan(33, 32).ToArray()
+                }
+            });
+
+            Assert.True(ecdsa.VerifyHash(messageHash, signature));
+        }
+
+        [Fact]
         public void Secp256k1_Signing_IsDeterministic()
         {
-            // Verify that signing is deterministic (RFC 6979)
             var (privateKey, _) = core.GenerateKeyPair();
             var messageHash = TestHelpers.RandomBytes(32);
 
-            var signature1 = core.Sign(messageHash, privateKey);
-            var signature2 = core.Sign(messageHash, privateKey);
-
-            CryptoAssertions.AssertBytesEqual(signature1, signature2);
+            Assert.Equal(core.Sign(messageHash, privateKey), core.Sign(messageHash, privateKey));
         }
 
         [Fact]

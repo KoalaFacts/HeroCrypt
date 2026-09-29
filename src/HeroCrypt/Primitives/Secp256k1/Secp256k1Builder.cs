@@ -12,12 +12,7 @@ namespace HeroCrypt.Primitives.Secp256k1;
 /// The secp256k1 curve is widely used in blockchain technologies, including Bitcoin and Ethereum.
 /// It provides 128-bit security and supports both compressed and uncompressed public key formats.
 /// </para>
-/// <para><b>Platform Support:</b></para>
-/// <list type="bullet">
-///   <item>Windows: Fully supported via CNG</item>
-///   <item>Linux: Fully supported via OpenSSL</item>
-///   <item>macOS: Not natively supported - requires libsecp256k1</item>
-/// </list>
+/// <para>Supported on Windows, Linux, and macOS through the bundled curve implementation.</para>
 /// </remarks>
 /// <example>
 /// <code>
@@ -73,6 +68,13 @@ public sealed class Secp256k1Builder : IDisposable
     /// </summary>
     /// <returns>A new builder instance.</returns>
     public static Secp256k1Builder Create() => new();
+
+    /// <summary>
+    /// Creates a new secp256k1 builder with an explicit security policy.
+    /// </summary>
+    /// <param name="policy">The security policy for cryptographic validation.</param>
+    /// <returns>A new builder instance.</returns>
+    public static Secp256k1Builder Create(SecurityPolicyOptions policy) => new(policy);
 
     /// <summary>
     /// Sets the private key for signing or key derivation operations.

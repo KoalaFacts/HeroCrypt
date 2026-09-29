@@ -6,9 +6,7 @@ namespace HeroCrypt.Primitives.Rsa;
 
 internal sealed class RsaCore
 {
-#pragma warning disable IDE0052 // Remove unread private members - policy field reserved for future security validation
     private readonly SecurityPolicyOptions policy;
-#pragma warning restore IDE0052
 
     /// <summary>
     /// Initializes a RsaCore with the effective security policy.
@@ -65,10 +63,11 @@ internal sealed class RsaCore
         HashAlgorithmName? hashAlgorithm = null)
     {
         WarnIfPkcs1(padding);
+        var encryptionPadding = ResolveEncryptionPadding(padding, hashAlgorithm);
 
         using var rsa = RSA.Create();
         rsa.ImportParameters(ToRsaParameters(publicKey));
-        return rsa.Encrypt(data, ResolveEncryptionPadding(padding, hashAlgorithm));
+        return rsa.Encrypt(data, encryptionPadding);
     }
 
     /// <summary>
@@ -90,10 +89,11 @@ internal sealed class RsaCore
         HashAlgorithmName? hashAlgorithm = null)
     {
         WarnIfPkcs1(padding);
+        var encryptionPadding = ResolveEncryptionPadding(padding, hashAlgorithm);
 
         using var rsa = RSA.Create();
         rsa.ImportParameters(ToRsaParameters(privateKey));
-        return rsa.Decrypt(encryptedData, ResolveEncryptionPadding(padding, hashAlgorithm));
+        return rsa.Decrypt(encryptedData, encryptionPadding);
     }
 
     /// <summary>
@@ -264,8 +264,13 @@ internal sealed class RsaCore
         }
     }
 
-    private static RSAEncryptionPadding ResolveEncryptionPadding(RsaPaddingMode padding, HashAlgorithmName? hashAlgorithm)
+    private RSAEncryptionPadding ResolveEncryptionPadding(RsaPaddingMode padding, HashAlgorithmName? hashAlgorithm)
     {
+        if (padding == RsaPaddingMode.Oaep)
+        {
+            policy.ValidateHash((hashAlgorithm ?? HashAlgorithmName.SHA256).Name ?? "Unknown");
+        }
+
         return padding switch
         {
             RsaPaddingMode.Pkcs1 => RSAEncryptionPadding.Pkcs1,

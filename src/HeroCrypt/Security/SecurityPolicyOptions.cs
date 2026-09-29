@@ -253,6 +253,11 @@ public sealed record SecurityPolicyOptions(
         // Blocked at FIPS (non-FIPS approved)
         if (Level == SecurityLevel.Compliance)
         {
+            if (algorithm == "POLY1305")
+            {
+                return (false, "HMAC-SHA256 or AES-CMAC", "POLY1305 is not FIPS-approved");
+            }
+
             var nonFipsAlgorithms = new HashSet<string>
             {
                 "ED25519", "ED448",

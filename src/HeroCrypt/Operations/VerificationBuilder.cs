@@ -42,6 +42,7 @@ public sealed class VerificationBuilder : IDisposable
 {
     private readonly SyncLock syncLock = new();
     private SignatureAlgorithm algorithm = SignatureAlgorithm.Ed25519;
+    private SecurityPolicyOptions securityPolicy = SecurityPolicy.CurrentPolicy;
     private byte[]? publicKey;
     private byte[]? signature;
     private bool disposed;
@@ -96,6 +97,19 @@ public sealed class VerificationBuilder : IDisposable
         {
             ThrowIfDisposed();
             this.algorithm = algorithm;
+            return this;
+        }
+    }
+
+    /// <summary>
+    /// Sets the security policy for signature verification.
+    /// </summary>
+    public VerificationBuilder WithSecurityPolicy(SecurityPolicyOptions policy)
+    {
+        using (syncLock.EnterScope())
+        {
+            ThrowIfDisposed();
+            securityPolicy = policy ?? throw new ArgumentNullException(nameof(policy));
             return this;
         }
     }
@@ -353,7 +367,7 @@ public sealed class VerificationBuilder : IDisposable
             InputValidator.ValidateByteArray(signature, nameof(signature));
             InputValidator.ValidateByteArray(publicKey, nameof(publicKey));
 
-            return SignatureBuilder.VerifyInternal(data, signature, publicKey, algorithm);
+            return SignatureBuilder.VerifyInternal(data, signature, publicKey, algorithm, securityPolicy);
         }
     }
 

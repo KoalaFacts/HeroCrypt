@@ -57,7 +57,6 @@ public static class BalloonHashing
     /// <param name="timeCost">Time cost (number of mixing rounds)</param>
     /// <param name="outputLength">Output hash length in bytes</param>
     /// <param name="hashAlgorithm">Hash algorithm to use</param>
-    /// <param name="policy">Optional security policy; defaults to the current policy.</param>
     /// <returns>Derived hash</returns>
     public static byte[] Hash(
         ReadOnlySpan<byte> password,
@@ -65,15 +64,35 @@ public static class BalloonHashing
         int spaceCost = DEFAULT_SPACE_COST,
         int timeCost = DEFAULT_TIME_COST,
         int outputLength = DEFAULT_OUTPUT_LENGTH,
-        HashAlgorithmName? hashAlgorithm = null,
-        SecurityPolicyOptions? policy = null)
+        HashAlgorithmName? hashAlgorithm = null) =>
+        Hash(password, salt, SecurityPolicy.CurrentPolicy, spaceCost, timeCost, outputLength, hashAlgorithm);
+
+    /// <summary>
+    /// Computes a Balloon hash under an explicit security policy.
+    /// </summary>
+    /// <param name="password">Password to hash.</param>
+    /// <param name="salt">Salt.</param>
+    /// <param name="policy">Security policy for cryptographic validation.</param>
+    /// <param name="spaceCost">Space cost in blocks.</param>
+    /// <param name="timeCost">Number of mixing rounds.</param>
+    /// <param name="outputLength">Output hash length in bytes.</param>
+    /// <param name="hashAlgorithm">Hash algorithm to use.</param>
+    /// <returns>Derived hash.</returns>
+    public static byte[] Hash(
+        ReadOnlySpan<byte> password,
+        ReadOnlySpan<byte> salt,
+        SecurityPolicyOptions policy,
+        int spaceCost = DEFAULT_SPACE_COST,
+        int timeCost = DEFAULT_TIME_COST,
+        int outputLength = DEFAULT_OUTPUT_LENGTH,
+        HashAlgorithmName? hashAlgorithm = null)
     {
-        var effectivePolicy = policy ?? SecurityPolicy.CurrentPolicy;
-        effectivePolicy.ValidateKdf("BALLOON");
+        ArgumentHelper.ThrowIfNull(policy);
+        policy.ValidateKdf("BALLOON");
         ValidateParameters(spaceCost, timeCost, outputLength);
 
         var algo = hashAlgorithm ?? HashAlgorithmName.SHA256;
-        effectivePolicy.ValidateHash(algo.Name ?? "Unknown");
+        policy.ValidateHash(algo.Name ?? "Unknown");
         var hashLength = HashAlgorithmHelper.GetHashLength(algo);
 
         // Allocate buffer (space_cost blocks of hash_length bytes)

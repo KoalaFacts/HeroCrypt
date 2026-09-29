@@ -5,6 +5,7 @@ using HeroCrypt.Primitives.ChaCha20Poly1305;
 using HeroCrypt.Primitives.Common;
 using HeroCrypt.Primitives.Curve25519;
 using HeroCrypt.Primitives.Ed25519;
+using HeroCrypt.Primitives.Poly1305;
 using HeroCrypt.Primitives.Rsa;
 using HeroCrypt.Primitives.Scrypt;
 using HeroCrypt.Primitives.Secp256k1;
@@ -18,6 +19,21 @@ namespace HeroCrypt.Tests.Security;
 /// </summary>
 public class SecurityPolicyTests
 {
+    public class PublicApiCompatibilityTests
+    {
+        [Fact]
+        public void ExistingFactoryAndBalloonOverloadsRemainAvailable()
+        {
+            Assert.NotNull(typeof(Ed25519Builder).GetMethod(nameof(Ed25519Builder.Create), Type.EmptyTypes));
+            Assert.NotNull(typeof(Secp256k1Builder).GetMethod(nameof(Secp256k1Builder.Create), Type.EmptyTypes));
+            Assert.NotNull(typeof(BalloonHashing).GetMethod(nameof(BalloonHashing.Hash),
+            [
+                typeof(ReadOnlySpan<byte>), typeof(ReadOnlySpan<byte>),
+                typeof(int), typeof(int), typeof(int), typeof(HashAlgorithmName?)
+            ]));
+        }
+    }
+
     /// <summary>
     /// Thread safety tests for SecurityPolicy.
     /// Verifies that AsyncLocal-based scoping works correctly across parallel execution contexts.
@@ -512,6 +528,31 @@ public class SecurityPolicyTests
             using var blockedDecrypt = RsaBuilder.Create(SecurityPolicyOptions.Compliance)
                 .WithPrivateKey(privateKey).WithData(ciphertext).WithHashAlgorithm(HashAlgorithmName.SHA1);
             Assert.Throws<SecurityPolicyException>(blockedDecrypt.Decrypt);
+        }
+
+        [Fact]
+        public void CompliancePolicy_BlocksPoly1305ButAllowsHmacSha256()
+        {
+            var key = new byte[32];
+            var message = new byte[] { 1 };
+            using var allowed = Poly1305Builder.Create(SecurityPolicyOptions.Testing).WithKey(key);
+            var tag = allowed.ComputeMac(message);
+
+            using var blocked = Poly1305Builder.Create(SecurityPolicyOptions.Compliance).WithKey(key);
+            Assert.Throws<SecurityPolicyException>(() => blocked.ComputeMac(message));
+            Assert.Throws<SecurityPolicyException>(() => blocked.VerifyMac(tag, message));
+
+            using var signer = HeroCryptBuilder.Sign().WithPoly1305().WithKey(key)
+                .WithSecurityPolicy(SecurityPolicyOptions.Compliance);
+            Assert.Throws<SecurityPolicyException>(() => signer.Sign(message));
+
+            using var verifier = HeroCryptBuilder.Verify().WithPoly1305().WithKey(key)
+                .WithSignature(tag).WithSecurityPolicy(SecurityPolicyOptions.Compliance);
+            Assert.Throws<SecurityPolicyException>(() => verifier.Verify(message));
+
+            using var hmac = HeroCryptBuilder.Sign().WithHmacSha256().WithKey(key)
+                .WithSecurityPolicy(SecurityPolicyOptions.Compliance);
+            Assert.Equal(32, hmac.Sign(message).Length);
         }
 
         [Fact]

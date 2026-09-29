@@ -72,6 +72,7 @@ internal sealed class Poly1305Core
     /// <param name="key">32-byte key</param>
     public void ComputeMac(Span<byte> tag, ReadOnlySpan<byte> message, ReadOnlySpan<byte> key)
     {
+        policy.ValidateSignature("POLY1305");
         if (tag.Length != TAG_SIZE)
         {
             throw new ArgumentException($"Tag must be {TAG_SIZE} bytes", nameof(tag));
@@ -159,6 +160,7 @@ internal sealed class Poly1305Core
     /// <returns>True if verification succeeds</returns>
     public bool VerifyMac(ReadOnlySpan<byte> tag, ReadOnlySpan<byte> message, ReadOnlySpan<byte> key)
     {
+        policy.ValidateSignature("POLY1305");
         if (tag.Length != TAG_SIZE)
         {
             return false;

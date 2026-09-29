@@ -71,8 +71,9 @@ public sealed class Secp256k1Builder : IDisposable
     /// <summary>
     /// Creates a new secp256k1 builder instance.
     /// </summary>
+    /// <param name="policy">Optional security policy for cryptographic validation.</param>
     /// <returns>A new builder instance.</returns>
-    public static Secp256k1Builder Create() => new();
+    public static Secp256k1Builder Create(SecurityPolicyOptions? policy = null) => new(policy);
 
     /// <summary>
     /// Sets the private key for signing or key derivation operations.

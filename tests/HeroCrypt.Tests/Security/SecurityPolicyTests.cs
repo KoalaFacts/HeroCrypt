@@ -2,7 +2,9 @@ using System.Collections.Concurrent;
 using HeroCrypt.Operations;
 using HeroCrypt.Primitives.ChaCha20Poly1305;
 using HeroCrypt.Primitives.Curve25519;
+using HeroCrypt.Primitives.Ed25519;
 using HeroCrypt.Primitives.Scrypt;
+using HeroCrypt.Primitives.Secp256k1;
 using HeroCrypt.Primitives.XChaCha20Poly1305;
 using HeroCrypt.Security;
 
@@ -405,6 +407,66 @@ public class SecurityPolicyTests
     /// </summary>
     public class GlobalPolicyIntegrationTests
     {
+        [Fact]
+        public void CompliancePolicy_BlocksEd25519AcrossBuilders()
+        {
+            using var allowed = Ed25519Builder.Create(SecurityPolicyOptions.Testing);
+            var (privateKey, publicKey) = allowed.GenerateKeyPair();
+            var message = new byte[] { 1 };
+            var signature = allowed.WithPrivateKey(privateKey).WithMessage(message).Sign();
+
+            using var blockedPrimitive = Ed25519Builder.Create(SecurityPolicyOptions.Compliance);
+            Assert.Throws<SecurityPolicyException>(() => blockedPrimitive.GenerateKeyPair());
+            Assert.Throws<SecurityPolicyException>(() => blockedPrimitive.WithPrivateKey(privateKey).WithMessage(message).Sign());
+            Assert.Throws<SecurityPolicyException>(() => blockedPrimitive.WithPublicKey(publicKey).WithSignature(signature).Verify());
+
+            using var signer = HeroCryptBuilder.Sign().WithEd25519().WithPrivateKey(privateKey)
+                .WithSecurityPolicy(SecurityPolicyOptions.Compliance);
+            Assert.Throws<SecurityPolicyException>(() => signer.Sign(message));
+
+            using var verifier = HeroCryptBuilder.Verify().WithEd25519().WithPublicKey(publicKey)
+                .WithSignature(signature).WithSecurityPolicy(SecurityPolicyOptions.Compliance);
+            Assert.Throws<SecurityPolicyException>(() => verifier.Verify(message));
+        }
+
+        [Fact]
+        public void CompliancePolicy_BlocksSecp256k1AcrossBuilders()
+        {
+            using var allowed = Secp256k1Builder.Create(SecurityPolicyOptions.Testing);
+            var (privateKey, publicKey) = allowed.GenerateKeyPair();
+            var hash = new byte[32];
+            var signature = allowed.WithPrivateKey(privateKey).WithMessageHash(hash).Sign();
+
+            using var blockedPrimitive = Secp256k1Builder.Create(SecurityPolicyOptions.Compliance);
+            Assert.Throws<SecurityPolicyException>(() => blockedPrimitive.GenerateKeyPair());
+            Assert.Throws<SecurityPolicyException>(() => blockedPrimitive.WithPrivateKey(privateKey).WithMessageHash(hash).Sign());
+            Assert.Throws<SecurityPolicyException>(() => blockedPrimitive.WithPublicKey(publicKey).WithSignature(signature).Verify());
+
+            using var signer = HeroCryptBuilder.Sign().WithSecp256k1().WithPrivateKey(privateKey)
+                .WithSecurityPolicy(SecurityPolicyOptions.Compliance);
+            Assert.Throws<SecurityPolicyException>(() => signer.Sign(hash));
+
+            using var verifier = HeroCryptBuilder.Verify().WithSecp256k1().WithPublicKey(publicKey)
+                .WithSignature(signature).WithSecurityPolicy(SecurityPolicyOptions.Compliance);
+            Assert.Throws<SecurityPolicyException>(() => verifier.Verify(hash));
+        }
+
+        [Fact]
+        public void ComplianceScope_BlocksDefaultSignatureBuilder_ButExplicitPolicyOverridesIt()
+        {
+            using var keySource = Ed25519Builder.Create(SecurityPolicyOptions.Testing);
+            var (privateKey, _) = keySource.GenerateKeyPair();
+            var message = new byte[] { 1 };
+
+            using var scope = SecurityPolicy.ComplianceScope();
+            using var blocked = HeroCryptBuilder.Sign().WithEd25519().WithPrivateKey(privateKey);
+            Assert.Throws<SecurityPolicyException>(() => blocked.Sign(message));
+
+            using var allowed = HeroCryptBuilder.Sign().WithEd25519().WithPrivateKey(privateKey)
+                .WithSecurityPolicy(SecurityPolicyOptions.Testing);
+            Assert.Equal(64, allowed.Sign(message).Length);
+        }
+
         [Fact]
         public void ComplianceScope_BlocksBlake2bInDefaultHashBuilder()
         {

@@ -56,6 +56,7 @@ public sealed class SignatureBuilder : IDisposable
 {
     private readonly SyncLock syncLock = new();
     private SignatureAlgorithm algorithm = SignatureAlgorithm.Ed25519;
+    private SecurityPolicyOptions securityPolicy = SecurityPolicy.CurrentPolicy;
     private byte[]? privateKey;
     private bool disposed;
 
@@ -101,6 +102,19 @@ public sealed class SignatureBuilder : IDisposable
         {
             ThrowIfDisposed();
             this.algorithm = algorithm;
+            return this;
+        }
+    }
+
+    /// <summary>
+    /// Sets the security policy for signature operations.
+    /// </summary>
+    public SignatureBuilder WithSecurityPolicy(SecurityPolicyOptions policy)
+    {
+        using (syncLock.EnterScope())
+        {
+            ThrowIfDisposed();
+            securityPolicy = policy ?? throw new ArgumentNullException(nameof(policy));
             return this;
         }
     }
@@ -275,7 +289,7 @@ public sealed class SignatureBuilder : IDisposable
             InputValidator.ValidateByteArray(data, nameof(data));
             InputValidator.ValidateByteArray(privateKey, nameof(privateKey));
 
-            return SignInternal(data, privateKey, algorithm);
+            return SignInternal(data, privateKey, algorithm, securityPolicy);
         }
     }
 
@@ -376,8 +390,9 @@ public sealed class SignatureBuilder : IDisposable
         return SignToBase64Url(System.Text.Encoding.UTF8.GetBytes(data));
     }
 
-    internal static byte[] SignInternal(byte[] data, byte[] key, SignatureAlgorithm algorithm)
+    internal static byte[] SignInternal(byte[] data, byte[] key, SignatureAlgorithm algorithm, SecurityPolicyOptions policy)
     {
+        policy.ValidateSignature(algorithm.ToString());
         return algorithm switch
         {
             // HMAC
@@ -403,9 +418,9 @@ public sealed class SignatureBuilder : IDisposable
             SignatureAlgorithm.EcdsaP384Sha384 => SignEcdsa(data, key, HashAlgorithmName.SHA384, 384),
             SignatureAlgorithm.EcdsaP521Sha512 => SignEcdsa(data, key, HashAlgorithmName.SHA512, 521),
             // ECDSA Blockchain
-            SignatureAlgorithm.Secp256k1 => SignSecp256k1(data, key),
+            SignatureAlgorithm.Secp256k1 => SignSecp256k1(data, key, policy),
             // EdDSA
-            SignatureAlgorithm.Ed25519 => SignEd25519(data, key),
+            SignatureAlgorithm.Ed25519 => SignEd25519(data, key, policy),
 #if NET10_0_OR_GREATER
             // ML-DSA
             SignatureAlgorithm.MLDsa44 => SignMLDsa(data, key, 44),
@@ -416,8 +431,9 @@ public sealed class SignatureBuilder : IDisposable
         };
     }
 
-    internal static bool VerifyInternal(byte[] data, byte[] signature, byte[] key, SignatureAlgorithm algorithm)
+    internal static bool VerifyInternal(byte[] data, byte[] signature, byte[] key, SignatureAlgorithm algorithm, SecurityPolicyOptions policy)
     {
+        policy.ValidateSignature(algorithm.ToString());
         return algorithm switch
         {
             // HMAC
@@ -443,9 +459,9 @@ public sealed class SignatureBuilder : IDisposable
             SignatureAlgorithm.EcdsaP384Sha384 => VerifyEcdsa(data, signature, key, HashAlgorithmName.SHA384, 384),
             SignatureAlgorithm.EcdsaP521Sha512 => VerifyEcdsa(data, signature, key, HashAlgorithmName.SHA512, 521),
             // ECDSA Blockchain
-            SignatureAlgorithm.Secp256k1 => VerifySecp256k1(data, signature, key),
+            SignatureAlgorithm.Secp256k1 => VerifySecp256k1(data, signature, key, policy),
             // EdDSA
-            SignatureAlgorithm.Ed25519 => VerifyEd25519(data, signature, key),
+            SignatureAlgorithm.Ed25519 => VerifyEd25519(data, signature, key, policy),
 #if NET10_0_OR_GREATER
             // ML-DSA
             SignatureAlgorithm.MLDsa44 => VerifyMLDsa(data, signature, key, 44),
@@ -564,24 +580,24 @@ public sealed class SignatureBuilder : IDisposable
 #endif
 
     // Ed25519
-    private static byte[] SignEd25519(byte[] data, byte[] privateKey)
+    private static byte[] SignEd25519(byte[] data, byte[] privateKey, SecurityPolicyOptions policy)
     {
-        var core = new Ed25519Core();
+        var core = new Ed25519Core(policy);
         return core.Sign(data, privateKey);
     }
 
-    private static bool VerifyEd25519(byte[] data, byte[] signature, byte[] publicKey)
+    private static bool VerifyEd25519(byte[] data, byte[] signature, byte[] publicKey, SecurityPolicyOptions policy)
     {
         try
         {
-            var core = new Ed25519Core();
+            var core = new Ed25519Core(policy);
             return core.Verify(data, signature, publicKey);
         }
         catch (CryptographicException) { return false; }
     }
 
     // Secp256k1
-    private static byte[] SignSecp256k1(byte[] data, byte[] privateKey)
+    private static byte[] SignSecp256k1(byte[] data, byte[] privateKey, SecurityPolicyOptions policy)
     {
         // Secp256k1 expects a message hash (32 bytes)
 #if NETSTANDARD2_0
@@ -590,11 +606,11 @@ public sealed class SignatureBuilder : IDisposable
 #else
         var messageHash = SHA256.HashData(data);
 #endif
-        var core = new Secp256k1Core();
+        var core = new Secp256k1Core(policy);
         return core.Sign(messageHash, privateKey);
     }
 
-    private static bool VerifySecp256k1(byte[] data, byte[] signature, byte[] publicKey)
+    private static bool VerifySecp256k1(byte[] data, byte[] signature, byte[] publicKey, SecurityPolicyOptions policy)
     {
         try
         {
@@ -604,7 +620,7 @@ public sealed class SignatureBuilder : IDisposable
 #else
             var messageHash = SHA256.HashData(data);
 #endif
-            var core = new Secp256k1Core();
+            var core = new Secp256k1Core(policy);
             return core.Verify(messageHash, signature, publicKey);
         }
         catch (CryptographicException) { return false; }

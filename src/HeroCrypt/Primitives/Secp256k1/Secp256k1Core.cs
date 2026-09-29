@@ -103,6 +103,7 @@ internal sealed class Secp256k1Core
     /// <returns>Key pair with private key and uncompressed public key</returns>
     public (byte[] privateKey, byte[] publicKey) GenerateKeyPair()
     {
+        policy.ValidateSignature("SECP256K1");
         byte[] privateKey;
 
         // Generate a valid private key (1 < k < n-1)
@@ -126,6 +127,7 @@ internal sealed class Secp256k1Core
     /// <returns>Public key (33 bytes if compressed, 65 bytes if uncompressed)</returns>
     public byte[] DerivePublicKey(byte[] privateKey, bool compressed = false)
     {
+        policy.ValidateSignature("SECP256K1");
 #if NETSTANDARD2_0
         if (privateKey == null)
         {

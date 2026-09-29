@@ -568,6 +568,43 @@ public class PgpPacketReaderWriterTests
 
             Assert.False(result);
         }
+
+        [Theory]
+        [InlineData(PgpPacketFormat.New)]
+        [InlineData(PgpPacketFormat.Old)]
+        public void ReadNextHeader_OversizedDefiniteLength_Throws(PgpPacketFormat format)
+        {
+            var bytes = new byte[6];
+            var length = format == PgpPacketFormat.New
+                ? PgpPacketHeader.WriteNewFormat(PgpPacketTag.LiteralData, 100, bytes)
+                : PgpPacketHeader.WriteOldFormat(PgpPacketTag.LiteralData, 100, bytes);
+            using var stream = new MemoryStream(bytes, 0, length);
+            using var reader = new PgpPacketReader(stream, leaveOpen: true, maxPacketSize: 64);
+
+            Assert.Throws<InvalidDataException>(() => reader.ReadNextHeader(out _));
+        }
+
+        [Fact]
+        public void ReadNextHeader_OversizedPartialChunk_Throws()
+        {
+            using var stream = new MemoryStream([0xCB, 0xE7]); // 128-byte partial chunk
+            using var reader = new PgpPacketReader(stream, leaveOpen: true, maxPacketSize: 64);
+
+            Assert.Throws<InvalidDataException>(() => reader.ReadNextHeader(out _));
+        }
+
+        [Fact]
+        public void ReadNextHeader_OldIndeterminateLength_DoesNotConsumeBody()
+        {
+            byte firstByte = 0x80 | ((byte)PgpPacketTag.LiteralData << 2) | 0x03;
+            using var stream = new MemoryStream([firstByte, 0x42]);
+            using var reader = new PgpPacketReader(stream, leaveOpen: true);
+
+            Assert.True(reader.ReadNextHeader(out var header));
+            Assert.True(header.IsPartialLength);
+            Assert.Equal(1, stream.Position);
+            Assert.Equal(0x42, stream.ReadByte());
+        }
     }
 
     /// <summary>

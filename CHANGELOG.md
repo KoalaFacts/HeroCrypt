@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.0.0] - 2026-09-29
+
+See [GitHub Release](https://github.com/KoalaFacts/HeroCrypt/releases/tag/v1.0.0) for details.
+
+
 ## [0.3.0] - 2026-01-28
 
 See [GitHub Release](https://github.com/KoalaFacts/HeroCrypt/releases/tag/v0.3.0) for details.

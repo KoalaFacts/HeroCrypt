@@ -266,10 +266,11 @@ var signature = signer.Sign(message);
 - Bitcoin/Ethereum compatibility
 - Blockchain applications
 
-Signatures use ECDSA with a 64-byte `r || s` encoding. Signatures produced by
-earlier HeroCrypt versions used a public-key-derived MAC instead of ECDSA and
-must be treated as forgeable. Re-sign any data that relied on those signatures;
-the ECDSA verifier intentionally rejects the old format.
+Signatures use ECDSA with a 64-byte `r || s` encoding. HeroCrypt v0.2.0 and
+v0.3.0 used a public-key-derived MAC instead of ECDSA, so their signatures
+must be treated as forgeable. The old and new values have the same length;
+follow the [security migration steps](migration-guide.md#security-replace-secp256k1-signatures-from-v020-and-v030)
+to identify and re-sign affected records.
 
 ### ECDSA (NIST curves)
 

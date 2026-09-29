@@ -48,7 +48,7 @@ internal sealed class XChaCha20Poly1305Core
     public XChaCha20Poly1305Core(SecurityPolicyOptions? policy = null)
     {
         this.policy = policy ?? SecurityPolicy.CurrentPolicy;
-        chaCha20Core = new ChaCha20Core(policy);
+        chaCha20Core = new ChaCha20Core(this.policy);
     }
 
     /// <summary>
@@ -67,6 +67,8 @@ internal sealed class XChaCha20Poly1305Core
         ReadOnlySpan<byte> associatedData = default,
         bool deterministicMode = false)
     {
+        policy.ValidateSymmetric("XCHACHA20-POLY1305");
+
         // Validate key
         if (key.Length != KEY_SIZE)
         {
@@ -156,6 +158,8 @@ internal sealed class XChaCha20Poly1305Core
         ReadOnlySpan<byte> nonce,
         ReadOnlySpan<byte> associatedData = default)
     {
+        policy.ValidateSymmetric("XCHACHA20-POLY1305");
+
         if (key.Length != KEY_SIZE)
         {
             throw new ArgumentException($"Key must be {KEY_SIZE} bytes, but was {key.Length} bytes", nameof(key));

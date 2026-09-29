@@ -13,16 +13,17 @@ namespace HeroCrypt.Security;
 /// </remarks>
 public static class SecurityPolicy
 {
-    private static readonly AsyncLocal<SecurityLevel?> CurrentLevel = new();
+    private static readonly AsyncLocal<SecurityPolicyOptions?> ScopedPolicy = new();
+    private static SecurityPolicyOptions globalPolicy = SecurityPolicyOptions.Default;
 
     /// <summary>
-    /// Gets or sets the current global security level.
+    /// Gets the effective security level or sets the process-wide default level.
     /// Default is <see cref="SecurityLevel.Standard"/>.
     /// </summary>
     public static SecurityLevel Current
     {
-        get => CurrentLevel.Value ?? SecurityLevel.Standard;
-        set => CurrentLevel.Value = value;
+        get => CurrentPolicy.Level;
+        set => UpdateGlobalLevel(value);
     }
 
     /// <summary>
@@ -31,27 +32,36 @@ public static class SecurityPolicy
     public static bool IsSystemFipsEnabled => CryptoConfig.AllowOnlyFipsAlgorithms;
 
     /// <summary>
-    /// Gets the current effective security policy options based on the global settings.
+    /// Gets the scoped policy, if present, or the process-wide default policy.
     /// </summary>
-    public static SecurityPolicyOptions CurrentPolicy => GetEffective(null);
+    public static SecurityPolicyOptions CurrentPolicy => ScopedPolicy.Value ?? GlobalPolicy;
+
+    internal static SecurityPolicyOptions GlobalPolicy
+    {
+        get => Volatile.Read(ref globalPolicy);
+        set => Volatile.Write(ref globalPolicy, value ?? throw new ArgumentNullException(nameof(value)));
+    }
+
+    internal static void UpdateGlobalLevel(SecurityLevel level)
+    {
+        SecurityPolicyOptions previous;
+        SecurityPolicyOptions updated;
+        do
+        {
+            previous = Volatile.Read(ref globalPolicy);
+            updated = previous with { Level = level };
+        }
+        while (Interlocked.CompareExchange(ref globalPolicy, updated, previous) != previous);
+    }
 
     /// <summary>
     /// Gets the effective security policy options, using the provided override or falling back to global settings.
     /// </summary>
-    /// <param name="options">Optional override. If <c>null</c>, returns options based on <see cref="Current"/>.</param>
+    /// <param name="options">Optional override. If <c>null</c>, returns the current policy.</param>
     /// <returns>The effective security policy options to use.</returns>
     public static SecurityPolicyOptions GetEffective(SecurityPolicyOptions? options)
     {
-        if (options != null)
-        {
-            return options;
-        }
-
-        // Create options based on current global settings
-        var level = Current;
-        return new SecurityPolicyOptions(
-            Level: level,
-            AllowDeterministicNonSiv: level == SecurityLevel.None);
+        return options ?? CurrentPolicy;
     }
 
     /// <summary>
@@ -112,7 +122,7 @@ public static class SecurityPolicy
 
     private sealed class SecurityPolicyScope : IDisposable
     {
-        private readonly SecurityLevel previousLevel;
+        private readonly SecurityPolicyOptions? previousPolicy;
         private bool disposed;
 
         /// <summary>
@@ -121,8 +131,10 @@ public static class SecurityPolicy
         /// <param name="level">The security level to use in this scope.</param>
         public SecurityPolicyScope(SecurityLevel level)
         {
-            previousLevel = Current;
-            Current = level;
+            previousPolicy = ScopedPolicy.Value;
+            ScopedPolicy.Value = new SecurityPolicyOptions(
+                Level: level,
+                AllowDeterministicNonSiv: level == SecurityLevel.None);
         }
 
         /// <summary>
@@ -132,7 +144,7 @@ public static class SecurityPolicy
         {
             if (!disposed)
             {
-                Current = previousLevel;
+                ScopedPolicy.Value = previousPolicy;
                 disposed = true;
             }
         }

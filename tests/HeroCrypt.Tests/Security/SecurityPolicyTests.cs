@@ -1,4 +1,9 @@
 using System.Collections.Concurrent;
+using HeroCrypt.Operations;
+using HeroCrypt.Primitives.ChaCha20Poly1305;
+using HeroCrypt.Primitives.Curve25519;
+using HeroCrypt.Primitives.Scrypt;
+using HeroCrypt.Primitives.XChaCha20Poly1305;
 using HeroCrypt.Security;
 
 namespace HeroCrypt.Tests.Security;
@@ -407,6 +412,112 @@ public class SecurityPolicyTests
             using var builder = HeroCryptBuilder.Hash().WithBlake2b256();
 
             Assert.Throws<SecurityPolicyException>(() => builder.ComputeHash([1, 2, 3]));
+        }
+
+        [Fact]
+        public void CompliancePolicy_BlocksChaChaAeadInBothDirections()
+        {
+            var key = new byte[32];
+            var plaintext = new byte[] { 1, 2, 3 };
+            var chacha = new ChaCha20Poly1305Core().Encrypt(plaintext, key);
+            var xchacha = new XChaCha20Poly1305Core().Encrypt(plaintext, key);
+
+            Assert.Throws<SecurityPolicyException>(() => new ChaCha20Poly1305Core(SecurityPolicyOptions.Compliance).Encrypt(plaintext, key));
+            Assert.Throws<SecurityPolicyException>(() => new ChaCha20Poly1305Core(SecurityPolicyOptions.Compliance).Decrypt(chacha.Ciphertext, key, chacha.Nonce));
+            Assert.Throws<SecurityPolicyException>(() => new XChaCha20Poly1305Core(SecurityPolicyOptions.Compliance).Encrypt(plaintext, key));
+            Assert.Throws<SecurityPolicyException>(() => new XChaCha20Poly1305Core(SecurityPolicyOptions.Compliance).Decrypt(xchacha.Ciphertext, key, xchacha.Nonce));
+        }
+
+        [Fact]
+        public void CompliancePolicy_BlocksScryptCore()
+        {
+            Assert.Throws<SecurityPolicyException>(() =>
+                new ScryptCore(SecurityPolicyOptions.Compliance).DeriveKey([1], [2], 2, 1, 1, 32));
+        }
+
+        [Theory]
+        [InlineData(EncryptionAlgorithm.X25519ChaCha20Poly1305)]
+        [InlineData(EncryptionAlgorithm.X25519XChaCha20Poly1305)]
+        [InlineData(EncryptionAlgorithm.X25519AesGcm)]
+        public void BuilderPolicy_ReachesHybridEncryptionAndDecryption(EncryptionAlgorithm algorithm)
+        {
+            var curve = new Curve25519Core(SecurityPolicyOptions.Testing);
+            var privateKey = curve.GeneratePrivateKey();
+            var publicKey = curve.DerivePublicKey(privateKey);
+            var plaintext = new byte[] { 1, 2, 3 };
+
+            using var blockedEncryption = HeroCryptBuilder.Encrypt()
+                .WithAlgorithm(algorithm).WithKey(publicKey).WithSecurityPolicy(SecurityPolicyOptions.Compliance);
+            Assert.Throws<SecurityPolicyException>(() => blockedEncryption.Encrypt(plaintext));
+
+            using var scope = SecurityPolicy.ComplianceScope();
+            using var permittedEncryption = HeroCryptBuilder.Encrypt()
+                .WithAlgorithm(algorithm).WithKey(publicKey).WithSecurityPolicy(SecurityPolicyOptions.Testing);
+            var encrypted = permittedEncryption.Encrypt(plaintext);
+
+            using var blockedDecryption = HeroCryptBuilder.Decrypt()
+                .WithAlgorithm(algorithm).WithKey(privateKey).FromEncryptionResult(encrypted)
+                .WithSecurityPolicy(SecurityPolicyOptions.Compliance);
+            Assert.Throws<SecurityPolicyException>(() => blockedDecryption.Decrypt(encrypted.Ciphertext));
+
+            using var permittedDecryption = HeroCryptBuilder.Decrypt()
+                .WithAlgorithm(algorithm).WithKey(privateKey).FromEncryptionResult(encrypted)
+                .WithSecurityPolicy(SecurityPolicyOptions.Testing);
+            Assert.Equal(plaintext, permittedDecryption.Decrypt(encrypted.Ciphertext));
+        }
+
+        [Fact]
+        public void ChangingPolicyAfterDeterministicMode_BlocksEncryption()
+        {
+#pragma warning disable CS0618 // This regression test exercises the legacy deterministic API.
+            using var builder = HeroCryptBuilder.Encrypt()
+                .WithAesGcm().WithKey(new byte[32])
+                .WithSecurityPolicy(SecurityPolicyOptions.Testing)
+                .WithDeterministicMode()
+                .WithSecurityPolicy(SecurityPolicyOptions.Compliance);
+#pragma warning restore CS0618
+
+            Assert.Throws<InvalidOperationException>(() => builder.Encrypt([1, 2, 3]));
+        }
+    }
+}
+
+[CollectionDefinition("Global security policy", DisableParallelization = true)]
+public sealed class GlobalSecurityPolicyCollection;
+
+[Collection("Global security policy")]
+public class GlobalSecurityPolicyDefaultTests
+{
+    [Fact]
+    public async Task GlobalOptions_ArePreservedAndVisibleToExistingWorkersAsync()
+    {
+        var previous = Defaults.SecurityPolicy;
+        var ready = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var worker = Task.Run(async () =>
+        {
+            ready.SetResult();
+            await release.Task;
+            return SecurityPolicy.CurrentPolicy;
+        });
+
+        try
+        {
+            await ready.Task;
+            var options = SecurityPolicyOptions.Default with { AllowDeterministicNonSiv = true };
+            Defaults.SecurityPolicy = options;
+            Assert.Same(options, Defaults.SecurityPolicy);
+            release.SetResult();
+            Assert.Same(options, await worker);
+
+            Defaults.SecurityLevel = SecurityLevel.Strict;
+            Assert.Equal(SecurityLevel.Strict, Defaults.SecurityLevel);
+            Assert.True(Defaults.SecurityPolicy.AllowDeterministicNonSiv);
+        }
+        finally
+        {
+            release.TrySetResult();
+            Defaults.SecurityPolicy = previous;
         }
     }
 }

@@ -71,6 +71,7 @@ internal sealed class ScryptCore
     public byte[] DeriveKey(ReadOnlySpan<byte> password, ReadOnlySpan<byte> salt,
         int n, int r, int p, int outputLength)
     {
+        policy.ValidateKdf("SCRYPT");
         // Validate hash algorithm (SHA256) against security policy
         policy.ValidateHash("SHA256");
 

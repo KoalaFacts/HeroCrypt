@@ -668,6 +668,10 @@ public sealed class EncryptionBuilder : IDisposable
             if (nonce != null)
                 InputValidator.ValidateByteArray(nonce, nameof(nonce), allowEmpty: true);
 
+            var effectivePolicy = SecurityPolicy.GetEffective(securityPolicy);
+            if (deterministicMode && algorithm != EncryptionAlgorithm.AesSiv && !effectivePolicy.AllowDeterministicNonSiv)
+                throw new InvalidOperationException("Deterministic mode is not permitted by the current security policy.");
+
             var aad = associatedData ?? [];
             ReadOnlySpan<byte> nonceSpan = nonce ?? default;
 
@@ -800,22 +804,22 @@ public sealed class EncryptionBuilder : IDisposable
         throw new PlatformNotSupportedException("RSA key import is not supported on .NET Standard 2.0.");
     }
 
-    private static EncryptionResult EncryptX25519ChaCha20Poly1305(byte[] plaintext, byte[] recipientPublicKey, byte[] aad)
+    private EncryptionResult EncryptX25519ChaCha20Poly1305(byte[] plaintext, byte[] recipientPublicKey, byte[] aad)
     {
         return EncryptX25519Hybrid(plaintext, recipientPublicKey, aad, HybridCipherType.ChaCha20Poly1305);
     }
 
-    private static EncryptionResult EncryptX25519XChaCha20Poly1305(byte[] plaintext, byte[] recipientPublicKey, byte[] aad)
+    private EncryptionResult EncryptX25519XChaCha20Poly1305(byte[] plaintext, byte[] recipientPublicKey, byte[] aad)
     {
         return EncryptX25519Hybrid(plaintext, recipientPublicKey, aad, HybridCipherType.XChaCha20Poly1305);
     }
 
-    private static EncryptionResult EncryptX25519AesGcm(byte[] plaintext, byte[] recipientPublicKey, byte[] aad)
+    private EncryptionResult EncryptX25519AesGcm(byte[] plaintext, byte[] recipientPublicKey, byte[] aad)
     {
         return EncryptX25519Hybrid(plaintext, recipientPublicKey, aad, HybridCipherType.AesGcm);
     }
 
-    private static EncryptionResult EncryptX25519Hybrid(byte[] plaintext, byte[] recipientPublicKey, byte[] aad, HybridCipherType cipher)
+    private EncryptionResult EncryptX25519Hybrid(byte[] plaintext, byte[] recipientPublicKey, byte[] aad, HybridCipherType cipher)
     {
         _ = plaintext;
         _ = recipientPublicKey;
@@ -838,25 +842,25 @@ public sealed class EncryptionBuilder : IDisposable
         };
     }
 
-    private static EncryptionResult EncryptX25519ChaCha20Poly1305(byte[] plaintext, byte[] recipientPublicKey, byte[] aad)
+    private EncryptionResult EncryptX25519ChaCha20Poly1305(byte[] plaintext, byte[] recipientPublicKey, byte[] aad)
     {
         return EncryptX25519Hybrid(plaintext, recipientPublicKey, aad, HybridCipherType.ChaCha20Poly1305);
     }
 
-    private static EncryptionResult EncryptX25519XChaCha20Poly1305(byte[] plaintext, byte[] recipientPublicKey, byte[] aad)
+    private EncryptionResult EncryptX25519XChaCha20Poly1305(byte[] plaintext, byte[] recipientPublicKey, byte[] aad)
     {
         return EncryptX25519Hybrid(plaintext, recipientPublicKey, aad, HybridCipherType.XChaCha20Poly1305);
     }
 
-    private static EncryptionResult EncryptX25519AesGcm(byte[] plaintext, byte[] recipientPublicKey, byte[] aad)
+    private EncryptionResult EncryptX25519AesGcm(byte[] plaintext, byte[] recipientPublicKey, byte[] aad)
     {
         return EncryptX25519Hybrid(plaintext, recipientPublicKey, aad, HybridCipherType.AesGcm);
     }
 
-    private static EncryptionResult EncryptX25519Hybrid(byte[] plaintext, byte[] recipientPublicKey, byte[] aad, HybridCipherType cipher)
+    private EncryptionResult EncryptX25519Hybrid(byte[] plaintext, byte[] recipientPublicKey, byte[] aad, HybridCipherType cipher)
     {
         // Generate ephemeral key pair
-        var curve = new Curve25519Core(SecurityPolicy.CurrentPolicy);
+        var curve = new Curve25519Core((securityPolicy ?? SecurityPolicy.CurrentPolicy));
         var ephemeralPrivateKey = curve.GeneratePrivateKey();
         var ephemeralPublicKey = curve.DerivePublicKey(ephemeralPrivateKey);
 
@@ -868,7 +872,7 @@ public sealed class EncryptionBuilder : IDisposable
             try
             {
                 // Derive symmetric key using HKDF
-                var hkdf = new HkdfCore(SecurityPolicy.CurrentPolicy);
+                var hkdf = new HkdfCore((securityPolicy ?? SecurityPolicy.CurrentPolicy));
                 var symmetricKey = hkdf.DeriveKey(
                     sharedSecret,
                     salt: [],
@@ -910,21 +914,21 @@ public sealed class EncryptionBuilder : IDisposable
         }
     }
 
-    private static (byte[] Ciphertext, byte[] Nonce) EncryptWithChaCha20Poly1305(byte[] plaintext, byte[] key, byte[] aad)
+    private (byte[] Ciphertext, byte[] Nonce) EncryptWithChaCha20Poly1305(byte[] plaintext, byte[] key, byte[] aad)
     {
-        var result = new ChaCha20Poly1305Core(SecurityPolicy.CurrentPolicy).Encrypt(plaintext, key, associatedData: aad);
+        var result = new ChaCha20Poly1305Core((securityPolicy ?? SecurityPolicy.CurrentPolicy)).Encrypt(plaintext, key, associatedData: aad);
         return (result.Ciphertext, result.Nonce);
     }
 
-    private static (byte[] Ciphertext, byte[] Nonce) EncryptWithXChaCha20Poly1305(byte[] plaintext, byte[] key, byte[] aad)
+    private (byte[] Ciphertext, byte[] Nonce) EncryptWithXChaCha20Poly1305(byte[] plaintext, byte[] key, byte[] aad)
     {
-        var result = new XChaCha20Poly1305Core(SecurityPolicy.CurrentPolicy).Encrypt(plaintext, key, associatedData: aad);
+        var result = new XChaCha20Poly1305Core((securityPolicy ?? SecurityPolicy.CurrentPolicy)).Encrypt(plaintext, key, associatedData: aad);
         return (result.Ciphertext, result.Nonce);
     }
 
-    private static (byte[] Ciphertext, byte[] Nonce) EncryptWithAesGcm(byte[] plaintext, byte[] key, byte[] aad)
+    private (byte[] Ciphertext, byte[] Nonce) EncryptWithAesGcm(byte[] plaintext, byte[] key, byte[] aad)
     {
-        var result = new AesGcmCore(SecurityPolicy.CurrentPolicy).Encrypt(plaintext, key, associatedData: aad);
+        var result = new AesGcmCore((securityPolicy ?? SecurityPolicy.CurrentPolicy)).Encrypt(plaintext, key, associatedData: aad);
         return (result.Ciphertext, result.Nonce);
     }
 #endif
@@ -980,13 +984,13 @@ public sealed class EncryptionBuilder : IDisposable
 
 #if NET10_OR_GREATER
 #pragma warning disable SYSLIB5006
-    private static EncryptionResult EncryptMLKemAesGcm(byte[] plaintext, byte[] publicKeyPemBytes, byte[] aad)
+    private EncryptionResult EncryptMLKemAesGcm(byte[] plaintext, byte[] publicKeyPemBytes, byte[] aad)
     {
         var publicKeyPem = System.Text.Encoding.UTF8.GetString(publicKeyPemBytes);
 
         using var encapsulation = MLKemCore.Encapsulate(publicKeyPem);
 
-        var result = new AesGcmCore(SecurityPolicy.CurrentPolicy).Encrypt(plaintext, encapsulation.SharedSecret, associatedData: aad);
+        var result = new AesGcmCore((securityPolicy ?? SecurityPolicy.CurrentPolicy)).Encrypt(plaintext, encapsulation.SharedSecret, associatedData: aad);
 
         return new EncryptionResult
         {
@@ -996,13 +1000,13 @@ public sealed class EncryptionBuilder : IDisposable
         };
     }
 
-    private static EncryptionResult EncryptMLKemChaCha20Poly1305(byte[] plaintext, byte[] publicKeyPemBytes, byte[] aad)
+    private EncryptionResult EncryptMLKemChaCha20Poly1305(byte[] plaintext, byte[] publicKeyPemBytes, byte[] aad)
     {
         var publicKeyPem = System.Text.Encoding.UTF8.GetString(publicKeyPemBytes);
 
         using var encapsulation = MLKemCore.Encapsulate(publicKeyPem);
 
-        var result = new ChaCha20Poly1305Core(SecurityPolicy.CurrentPolicy).Encrypt(plaintext, encapsulation.SharedSecret, associatedData: aad);
+        var result = new ChaCha20Poly1305Core((securityPolicy ?? SecurityPolicy.CurrentPolicy)).Encrypt(plaintext, encapsulation.SharedSecret, associatedData: aad);
 
         return new EncryptionResult
         {

@@ -56,8 +56,8 @@ public static class Defaults
     /// </example>
     public static SecurityLevel SecurityLevel
     {
-        get => Security.SecurityPolicy.Current;
-        set => Security.SecurityPolicy.Current = value;
+        get => Security.SecurityPolicy.GlobalPolicy.Level;
+        set => Security.SecurityPolicy.UpdateGlobalLevel(value);
     }
 
     /// <summary>
@@ -65,9 +65,8 @@ public static class Defaults
     /// </summary>
     /// <remarks>
     /// <para>
-    /// When setting, this updates the global <see cref="SecurityPolicy.Current"/> level
-    /// from the provided options. When getting, it returns the effective options based on
-    /// <see cref="SecurityPolicy.Current"/>.
+    /// Setting this stores all options as the process-wide default. Scoped overrides
+    /// remain local to their execution context.
     /// </para>
     /// <para>
     /// For per-operation overrides, use <c>WithSecurityPolicy()</c> on the builder instead.
@@ -87,7 +86,7 @@ public static class Defaults
     /// </example>
     public static SecurityPolicyOptions SecurityPolicy
     {
-        get => Security.SecurityPolicy.GetEffective(null);
-        set => Security.SecurityPolicy.Current = value.Level;
+        get => Security.SecurityPolicy.GlobalPolicy;
+        set => Security.SecurityPolicy.GlobalPolicy = value;
     }
 }

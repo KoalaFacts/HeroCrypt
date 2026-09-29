@@ -323,6 +323,20 @@ public class Secp256k1CoreTests
         private readonly Secp256k1Core core = new();
 
         [Fact]
+        public void Secp256k1_PrivateKeyOne_DerivesGeneratorPoint()
+        {
+            var privateKey = new byte[32];
+            privateKey[31] = 1;
+            var expected = Convert.FromHexString(
+                "0479BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798" +
+                "483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8");
+
+            Assert.Equal(expected, core.DerivePublicKey(privateKey));
+            Assert.Equal(Convert.FromHexString("0279BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798"),
+                core.DerivePublicKey(privateKey, compressed: true));
+        }
+
+        [Fact]
         public void Secp256k1_PublicKeyDerivation_IsDeterministic()
         {
             var (privateKey, _) = core.GenerateKeyPair();

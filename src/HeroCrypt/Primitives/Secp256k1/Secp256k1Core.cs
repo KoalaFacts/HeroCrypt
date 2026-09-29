@@ -8,7 +8,7 @@ namespace HeroCrypt.Primitives.Secp256k1;
 
 /// <summary>
 /// Core secp256k1 implementation for blockchain applications.
-/// Uses System.Numerics.BigInteger for correct elliptic curve arithmetic.
+/// Uses the platform ECDSA provider for private-key operations.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -55,22 +55,6 @@ internal sealed class Secp256k1Core
     /// Exponent for square root: (p + 1) / 4
     /// </summary>
     private static readonly BigInteger SqrtExponent = (FieldPrime + 1) / 4;
-
-    /// <summary>
-    /// Generator point G x-coordinate
-    /// </summary>
-    private static readonly BigInteger GeneratorX = BigInteger.Parse(
-        "079BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798",
-        NumberStyles.HexNumber,
-        CultureInfo.InvariantCulture);
-
-    /// <summary>
-    /// Generator point G y-coordinate
-    /// </summary>
-    private static readonly BigInteger GeneratorY = BigInteger.Parse(
-        "0483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8",
-        NumberStyles.HexNumber,
-        CultureInfo.InvariantCulture);
 
     /// <summary>
     /// Curve parameter b = 7 for secp256k1 (y² = x³ + 7)
@@ -145,13 +129,29 @@ internal sealed class Secp256k1Core
             throw new ArgumentException("Invalid private key", nameof(privateKey));
         }
 
-        // Convert private key to BigInteger
-        var k = BytesToBigInteger(privateKey);
+        using var ecdsa = ECDsa.Create();
+        ecdsa.ImportParameters(new ECParameters { Curve = Curve, D = privateKey });
+        var point = ecdsa.ExportParameters(false).Q;
+        var x = point.X ?? throw new CryptographicException("ECDSA provider did not return a public X coordinate.");
+        var y = point.Y ?? throw new CryptographicException("ECDSA provider did not return a public Y coordinate.");
+        if (x.Length != 32 || y.Length != 32)
+        {
+            throw new CryptographicException("ECDSA provider returned an invalid secp256k1 public point.");
+        }
 
-        // Compute Q = k * G using BigInteger arithmetic
-        var (qx, qy) = ScalarMultiply(GeneratorX, GeneratorY, k);
+        if (compressed)
+        {
+            var result = new byte[COMPRESSED_PUBLIC_KEY_SIZE];
+            result[0] = (byte)((y[y.Length - 1] & 1) == 0 ? 0x02 : 0x03);
+            Array.Copy(x, 0, result, 1, x.Length);
+            return result;
+        }
 
-        return EncodePublicKey(qx, qy, compressed);
+        var uncompressed = new byte[UNCOMPRESSED_PUBLIC_KEY_SIZE];
+        uncompressed[0] = 0x04;
+        Array.Copy(x, 0, uncompressed, 1, x.Length);
+        Array.Copy(y, 0, uncompressed, 33, y.Length);
+        return uncompressed;
     }
 
     /// <summary>
@@ -358,183 +358,6 @@ internal sealed class Secp256k1Core
         }
 
         return EncodePublicKey(x, y, false);
-    }
-
-    /// <summary>
-    /// Scalar multiplication using double-and-add with BigInteger arithmetic
-    /// </summary>
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private (BigInteger x, BigInteger y) ScalarMultiply(BigInteger px, BigInteger py, BigInteger scalar)
-    {
-        // Handle edge cases
-        if (scalar == BigInteger.Zero)
-        {
-            return (BigInteger.Zero, BigInteger.Zero);
-        }
-
-        BigInteger resultX = BigInteger.Zero;
-        BigInteger resultY = BigInteger.Zero;
-        var isInfinity = true;
-
-        var currentX = px;
-        var currentY = py;
-
-        // Double-and-add method
-        while (scalar > BigInteger.Zero)
-        {
-            if (!scalar.IsEven) // scalar & 1 == 1
-            {
-                if (isInfinity)
-                {
-                    resultX = currentX;
-                    resultY = currentY;
-                    isInfinity = false;
-                }
-                else
-                {
-                    (resultX, resultY) = PointAdd(resultX, resultY, currentX, currentY);
-                }
-            }
-
-            // Double the current point
-            (currentX, currentY) = PointDouble(currentX, currentY);
-
-            // Shift scalar right by 1
-            scalar >>= 1;
-        }
-
-        return (resultX, resultY);
-    }
-
-    /// <summary>
-    /// Point addition on secp256k1 using BigInteger
-    /// </summary>
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private (BigInteger x, BigInteger y) PointAdd(BigInteger x1, BigInteger y1, BigInteger x2, BigInteger y2)
-    {
-        // Handle point at infinity cases
-        if (x1 == BigInteger.Zero && y1 == BigInteger.Zero)
-        {
-            return (x2, y2);
-        }
-        if (x2 == BigInteger.Zero && y2 == BigInteger.Zero)
-        {
-            return (x1, y1);
-        }
-
-        // Check if points are the same
-        if (x1 == x2)
-        {
-            if (y1 == y2)
-            {
-                return PointDouble(x1, y1);
-            }
-            // Points are inverses, return point at infinity
-            return (BigInteger.Zero, BigInteger.Zero);
-        }
-
-        // Compute slope: s = (y2 - y1) / (x2 - x1) mod p
-        var deltaY = ModSub(y2, y1, FieldPrime);
-        var deltaX = ModSub(x2, x1, FieldPrime);
-        var deltaXInverse = ModInverse(deltaX, FieldPrime);
-        var slope = (deltaY * deltaXInverse) % FieldPrime;
-        if (slope < 0) slope += FieldPrime;
-
-        // x3 = s² - x1 - x2 mod p
-        var x3 = (slope * slope) % FieldPrime;
-        x3 = ModSub(x3, x1, FieldPrime);
-        x3 = ModSub(x3, x2, FieldPrime);
-
-        // y3 = s * (x1 - x3) - y1 mod p
-        var y3 = ModSub(x1, x3, FieldPrime);
-        y3 = (slope * y3) % FieldPrime;
-        y3 = ModSub(y3, y1, FieldPrime);
-
-        return (x3, y3);
-    }
-
-    /// <summary>
-    /// Point doubling on secp256k1 using BigInteger
-    /// </summary>
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private (BigInteger x, BigInteger y) PointDouble(BigInteger x, BigInteger y)
-    {
-        // Handle point at infinity
-        if (x == BigInteger.Zero && y == BigInteger.Zero)
-        {
-            return (BigInteger.Zero, BigInteger.Zero);
-        }
-
-        // Handle y = 0 case (tangent is vertical)
-        if (y == BigInteger.Zero)
-        {
-            return (BigInteger.Zero, BigInteger.Zero);
-        }
-
-        // Compute slope: s = (3 * x² + a) / (2 * y) mod p
-        // For secp256k1, a = 0, so s = 3 * x² / (2 * y)
-        var xSquared = (x * x) % FieldPrime;
-        var numerator = (3 * xSquared) % FieldPrime;
-        var denominator = (2 * y) % FieldPrime;
-        var denominatorInverse = ModInverse(denominator, FieldPrime);
-        var slope = (numerator * denominatorInverse) % FieldPrime;
-        if (slope < 0) slope += FieldPrime;
-
-        // x3 = s² - 2x mod p
-        var x3 = (slope * slope) % FieldPrime;
-        x3 = ModSub(x3, x, FieldPrime);
-        x3 = ModSub(x3, x, FieldPrime);
-
-        // y3 = s * (x - x3) - y mod p
-        var y3 = ModSub(x, x3, FieldPrime);
-        y3 = (slope * y3) % FieldPrime;
-        y3 = ModSub(y3, y, FieldPrime);
-
-        return (x3, y3);
-    }
-
-    /// <summary>
-    /// Modular subtraction: (a - b) mod p, ensuring positive result
-    /// </summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private BigInteger ModSub(BigInteger a, BigInteger b, BigInteger p)
-    {
-        var result = (a - b) % p;
-        if (result < 0) result += p;
-        return result;
-    }
-
-    /// <summary>
-    /// Modular multiplicative inverse using extended Euclidean algorithm
-    /// </summary>
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private BigInteger ModInverse(BigInteger a, BigInteger p)
-    {
-        // Extended Euclidean algorithm
-        BigInteger t = 0, newT = 1;
-        BigInteger r = p, newR = a % p;
-        if (newR < 0) newR += p;
-
-        while (newR != BigInteger.Zero)
-        {
-            var quotient = r / newR;
-
-            var tempT = t;
-            t = newT;
-            newT = tempT - quotient * newT;
-
-            var tempR = r;
-            r = newR;
-            newR = tempR - quotient * newR;
-        }
-
-        if (r > BigInteger.One)
-        {
-            throw new ArithmeticException("Value is not invertible");
-        }
-
-        if (t < 0) t += p;
-        return t;
     }
 
     /// <summary>

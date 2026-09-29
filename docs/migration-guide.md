@@ -14,9 +14,9 @@ This guide helps you migrate between HeroCrypt versions and from other cryptogra
 
 ## Migrating to v1.0
 
-### Security: replace secp256k1 signatures from v0.2.0 and v0.3.0
+### Security: replace secp256k1 signatures from v0.1.0 through v0.3.0
 
-HeroCrypt v0.2.0 and v0.3.0 produced a 64-byte value using a MAC key derived
+HeroCrypt v0.1.0 through v0.3.0 produced a 64-byte value using a MAC key derived
 from the public key instead of an ECDSA signature. Anyone with the public key
 could forge that value. **Do not use signatures created by those versions as
 proof of authenticity**, even if an older HeroCrypt verifier accepts them.
@@ -29,7 +29,7 @@ SHA-256 before signing or verifying it. The algorithm-specific
 To migrate stored signatures:
 
 1. Upgrade every signer and verifier to 1.0.0 before accepting new signatures.
-2. Identify records signed with v0.2.0 or v0.3.0 using trusted version or
+2. Identify records signed with v0.1.0 through v0.3.0 using trusted version or
    creation metadata. Both formats are 64 bytes, so length cannot identify the
    old values.
 3. Re-establish each original message from an authoritative source and sign it

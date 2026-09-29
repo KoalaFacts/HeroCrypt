@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using HeroCrypt.Operations;
+using HeroCrypt.Security;
 using HeroCrypt.Tests.Infrastructure;
 
 #pragma warning disable CS0618 // Type or member is obsolete - Tests intentionally use deprecated WithDeterministicMode()
@@ -579,27 +580,36 @@ public class EncryptionBuilderTests
         {
             // Arrange
             var message = "Test message";
+            var messageBytes = System.Text.Encoding.UTF8.GetBytes(message);
             var key = TestHelpers.RandomBytes(32);
-            var nonce = TestHelpers.RandomBytes(12);
 
             // Act - Encrypt as string
             var resultFromString = HeroCryptBuilder.Encrypt()
                 .WithAesGcm()
                 .WithKey(key)
-                .WithNonce(nonce)
-                .WithDeterministicMode()
                 .Encrypt(message);
 
             // Act - Encrypt as bytes
             var resultFromBytes = HeroCryptBuilder.Encrypt()
                 .WithAesGcm()
                 .WithKey(key)
-                .WithNonce(nonce)
-                .WithDeterministicMode()
-                .Encrypt(System.Text.Encoding.UTF8.GetBytes(message));
+                .Encrypt(messageBytes);
 
-            // Assert - Both should produce identical ciphertext
-            Assert.Equal(resultFromBytes.Ciphertext, resultFromString.Ciphertext);
+            // Assert - Both should decrypt to the same plaintext
+            var decryptedFromString = HeroCryptBuilder.Decrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .WithNonce(resultFromString.Nonce)
+                .Decrypt(resultFromString.Ciphertext);
+
+            var decryptedFromBytes = HeroCryptBuilder.Decrypt()
+                .WithAesGcm()
+                .WithKey(key)
+                .WithNonce(resultFromBytes.Nonce)
+                .Decrypt(resultFromBytes.Ciphertext);
+
+            Assert.Equal(messageBytes, decryptedFromString);
+            Assert.Equal(messageBytes, decryptedFromBytes);
         }
 
         [Fact]
@@ -685,7 +695,7 @@ public class EncryptionBuilderTests
         [Fact]
         public void WithAssociatedDataString_MatchesByteOverload()
         {
-            // Arrange
+            // Arrange - Using WithSecurityPolicy instead of TestingScope demonstrates per-builder override
             var plaintext = "Test message"u8.ToArray();
             var key = TestHelpers.RandomBytes(32);
             var aadString = "context-info";
@@ -697,6 +707,7 @@ public class EncryptionBuilderTests
                 .WithAesGcm()
                 .WithKey(key)
                 .WithNonce(nonce)
+                .WithSecurityPolicy(SecurityPolicyOptions.Testing)
                 .WithDeterministicMode()
                 .WithAssociatedData(aadString)
                 .Encrypt(plaintext);
@@ -706,6 +717,7 @@ public class EncryptionBuilderTests
                 .WithAesGcm()
                 .WithKey(key)
                 .WithNonce(nonce)
+                .WithSecurityPolicy(SecurityPolicyOptions.Testing)
                 .WithDeterministicMode()
                 .WithAssociatedData(aadBytes)
                 .Encrypt(plaintext);
@@ -1073,7 +1085,7 @@ public class EncryptionBuilderTests
         [Fact]
         public void WithKeyFromHex_EncryptsCorrectly()
         {
-            // Arrange
+            // Arrange - Using func-based WithSecurityPolicy to override just what we need
             var key = TestHelpers.RandomBytes(32);
             var hexKey = Convert.ToHexString(key);
             var plaintext = "Test message for encryption";
@@ -1082,12 +1094,14 @@ public class EncryptionBuilderTests
             var resultFromBytes = HeroCryptBuilder.Encrypt()
                 .WithAesGcm()
                 .WithKey(key)
+                .WithSecurityPolicy(opt => opt with { AllowDeterministicNonSiv = true })
                 .WithDeterministicMode()
                 .Encrypt(plaintext);
 
             var resultFromHex = HeroCryptBuilder.Encrypt()
                 .WithAesGcm()
                 .WithKeyFromHex(hexKey)
+                .WithSecurityPolicy(opt => opt with { AllowDeterministicNonSiv = true })
                 .WithDeterministicMode()
                 .Encrypt(plaintext);
 
@@ -1146,26 +1160,29 @@ public class EncryptionBuilderTests
         [Fact]
         public void WithKeyFromBase64_EncryptsCorrectly()
         {
-            // Arrange
-            var key = TestHelpers.RandomBytes(32);
-            var base64Key = Convert.ToBase64String(key);
-            var plaintext = "Test message for encryption";
+            using (SecurityPolicy.TestingScope())
+            {
+                // Arrange
+                var key = TestHelpers.RandomBytes(32);
+                var base64Key = Convert.ToBase64String(key);
+                var plaintext = "Test message for encryption";
 
-            // Act
-            var resultFromBytes = HeroCryptBuilder.Encrypt()
-                .WithAesGcm()
-                .WithKey(key)
-                .WithDeterministicMode()
-                .Encrypt(plaintext);
+                // Act
+                var resultFromBytes = HeroCryptBuilder.Encrypt()
+                    .WithAesGcm()
+                    .WithKey(key)
+                    .WithDeterministicMode()
+                    .Encrypt(plaintext);
 
-            var resultFromBase64 = HeroCryptBuilder.Encrypt()
-                .WithAesGcm()
-                .WithKeyFromBase64(base64Key)
-                .WithDeterministicMode()
-                .Encrypt(plaintext);
+                var resultFromBase64 = HeroCryptBuilder.Encrypt()
+                    .WithAesGcm()
+                    .WithKeyFromBase64(base64Key)
+                    .WithDeterministicMode()
+                    .Encrypt(plaintext);
 
-            // Assert
-            Assert.Equal(resultFromBytes.Ciphertext, resultFromBase64.Ciphertext);
+                // Assert
+                Assert.Equal(resultFromBytes.Ciphertext, resultFromBase64.Ciphertext);
+            }
         }
 
         [Fact]
@@ -1181,29 +1198,32 @@ public class EncryptionBuilderTests
         [Fact]
         public void WithKeyFromBase64Url_EncryptsCorrectly()
         {
-            // Arrange
-            var key = TestHelpers.RandomBytes(32);
-            var base64UrlKey = Convert.ToBase64String(key)
-                .TrimEnd('=')
-                .Replace('+', '-')
-                .Replace('/', '_');
-            var plaintext = "Test message for encryption";
+            using (SecurityPolicy.TestingScope())
+            {
+                // Arrange
+                var key = TestHelpers.RandomBytes(32);
+                var base64UrlKey = Convert.ToBase64String(key)
+                    .TrimEnd('=')
+                    .Replace('+', '-')
+                    .Replace('/', '_');
+                var plaintext = "Test message for encryption";
 
-            // Act
-            var resultFromBytes = HeroCryptBuilder.Encrypt()
-                .WithAesGcm()
-                .WithKey(key)
-                .WithDeterministicMode()
-                .Encrypt(plaintext);
+                // Act
+                var resultFromBytes = HeroCryptBuilder.Encrypt()
+                    .WithAesGcm()
+                    .WithKey(key)
+                    .WithDeterministicMode()
+                    .Encrypt(plaintext);
 
-            var resultFromBase64Url = HeroCryptBuilder.Encrypt()
-                .WithAesGcm()
-                .WithKeyFromBase64Url(base64UrlKey)
-                .WithDeterministicMode()
-                .Encrypt(plaintext);
+                var resultFromBase64Url = HeroCryptBuilder.Encrypt()
+                    .WithAesGcm()
+                    .WithKeyFromBase64Url(base64UrlKey)
+                    .WithDeterministicMode()
+                    .Encrypt(plaintext);
 
-            // Assert
-            Assert.Equal(resultFromBytes.Ciphertext, resultFromBase64Url.Ciphertext);
+                // Assert
+                Assert.Equal(resultFromBytes.Ciphertext, resultFromBase64Url.Ciphertext);
+            }
         }
 
         [Fact]

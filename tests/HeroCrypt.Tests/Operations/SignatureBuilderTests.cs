@@ -288,7 +288,7 @@ public class SignatureBuilderTests
         public void SignAndVerify_WithValidKeyPair_Succeeds()
         {
             // Arrange
-            var (privateKey, publicKey) = Ed25519Core.GenerateKeyPair();
+            var (privateKey, publicKey) = new Ed25519Core().GenerateKeyPair();
 
             // Act
             var signature = HeroCryptBuilder.Sign()
@@ -312,8 +312,8 @@ public class SignatureBuilderTests
         public void Verify_WithWrongPublicKey_ReturnsFalse()
         {
             // Arrange
-            var (privateKey1, _) = Ed25519Core.GenerateKeyPair();
-            var (_, publicKey2) = Ed25519Core.GenerateKeyPair();
+            var (privateKey1, _) = new Ed25519Core().GenerateKeyPair();
+            var (_, publicKey2) = new Ed25519Core().GenerateKeyPair();
 
             // Act
             var signature = HeroCryptBuilder.Sign()
@@ -356,14 +356,14 @@ public class SignatureBuilderTests
         [InlineData(SignatureAlgorithm.MLDsa87, MLDsaCore.SecurityLevel.MLDsa87)]
         public void SignAndVerify_WithValidKeyPair_Succeeds(SignatureAlgorithm algorithm, MLDsaCore.SecurityLevel securityLevel)
         {
-            if (!MLDsaCore.IsSupported())
+            if (!new MLDsaCore().IsSupported())
             {
                 Assert.Skip("ML-DSA not supported on this platform");
                 return;
             }
 
             // Arrange
-            using var keyPair = MLDsaCore.GenerateKeyPair(securityLevel);
+            using var keyPair = new MLDsaCore().GenerateKeyPair(securityLevel);
             var privateKey = Encoding.UTF8.GetBytes(keyPair.SecretKeyPem);
             var publicKey = Encoding.UTF8.GetBytes(keyPair.PublicKeyPem);
 
@@ -387,15 +387,15 @@ public class SignatureBuilderTests
         [Fact]
         public void MLDsa65_Verify_WithWrongPublicKey_ReturnsFalse()
         {
-            if (!MLDsaCore.IsSupported())
+            if (!new MLDsaCore().IsSupported())
             {
                 Assert.Skip("ML-DSA not supported on this platform");
                 return;
             }
 
             // Arrange
-            using var keyPair1 = MLDsaCore.GenerateKeyPair(MLDsaCore.SecurityLevel.MLDsa65);
-            using var keyPair2 = MLDsaCore.GenerateKeyPair(MLDsaCore.SecurityLevel.MLDsa65);
+            using var keyPair1 = new MLDsaCore().GenerateKeyPair(MLDsaCore.SecurityLevel.MLDsa65);
+            using var keyPair2 = new MLDsaCore().GenerateKeyPair(MLDsaCore.SecurityLevel.MLDsa65);
             var privateKey1 = Encoding.UTF8.GetBytes(keyPair1.SecretKeyPem);
             var publicKey2 = Encoding.UTF8.GetBytes(keyPair2.PublicKeyPem);
 
@@ -626,7 +626,7 @@ public class SignatureBuilderTests
         [Fact]
         public void Ed25519_SignAndVerify_SingleByte_Succeeds()
         {
-            var (privateKey, publicKey) = Ed25519Core.GenerateKeyPair();
+            var (privateKey, publicKey) = new Ed25519Core().GenerateKeyPair();
             var data = new byte[] { 0x42 };
 
             var signature = HeroCryptBuilder.Sign()
@@ -646,7 +646,7 @@ public class SignatureBuilderTests
         [Fact]
         public void Ed25519_SignAndVerify_AllZeros_Succeeds()
         {
-            var (privateKey, publicKey) = Ed25519Core.GenerateKeyPair();
+            var (privateKey, publicKey) = new Ed25519Core().GenerateKeyPair();
             var data = new byte[256];
 
             var signature = HeroCryptBuilder.Sign()
@@ -666,7 +666,7 @@ public class SignatureBuilderTests
         [Fact]
         public void Ed25519_SignAndVerify_LargeData_Succeeds()
         {
-            var (privateKey, publicKey) = Ed25519Core.GenerateKeyPair();
+            var (privateKey, publicKey) = new Ed25519Core().GenerateKeyPair();
             var data = TestHelpers.RandomBytes(64 * 1024);
 
             var signature = HeroCryptBuilder.Sign()
@@ -1248,7 +1248,7 @@ public class SignatureBuilderTests
         public void SignToHex_WithEd25519_Succeeds()
         {
             // Arrange
-            var (privateKey, _) = Ed25519Core.GenerateKeyPair();
+            var (privateKey, _) = new Ed25519Core().GenerateKeyPair();
             var data = "test message";
 
             // Act
@@ -1267,7 +1267,7 @@ public class SignatureBuilderTests
         public void SignToBase64_WithEd25519_Succeeds()
         {
             // Arrange
-            var (privateKey, _) = Ed25519Core.GenerateKeyPair();
+            var (privateKey, _) = new Ed25519Core().GenerateKeyPair();
             var data = "test message";
 
             // Act

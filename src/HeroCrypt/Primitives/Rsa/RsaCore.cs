@@ -4,14 +4,26 @@ using HeroCrypt.Security;
 
 namespace HeroCrypt.Primitives.Rsa;
 
-internal static class RsaCore
+internal sealed class RsaCore
 {
+#pragma warning disable IDE0052 // Remove unread private members - policy field reserved for future security validation
+    private readonly SecurityPolicyOptions policy;
+#pragma warning restore IDE0052
+
+    /// <summary>
+    /// Initializes a RsaCore with the effective security policy.
+    /// </summary>
+    /// <param name="policy">Optional policy; uses the current policy when omitted.</param>
+    public RsaCore(SecurityPolicyOptions? policy = null)
+    {
+        this.policy = policy ?? SecurityPolicy.CurrentPolicy;
+    }
     /// <summary>
     /// Generates an RSA key pair with the specified key size.
     /// </summary>
     /// <param name="keySize">The size of the key in bits (typically 2048 or 4096).</param>
     /// <returns>An <see cref="RsaKeyPair"/> containing the generated public and private keys.</returns>
-    public static RsaKeyPair GenerateKeyPair(int keySize)
+    public RsaKeyPair GenerateKeyPair(int keySize)
     {
         using var rsa = RSA.Create();
         rsa.KeySize = keySize;
@@ -46,7 +58,7 @@ internal static class RsaCore
     /// <b>Security Note:</b> PKCS#1 v1.5 padding is vulnerable to Bleichenbacher's padding oracle attack.
     /// Use RSA-OAEP for new applications. PKCS#1 v1.5 is only supported for OpenPGP (RFC 4880) compatibility.
     /// </remarks>
-    public static byte[] Encrypt(
+    public byte[] Encrypt(
         byte[] data,
         RsaPublicKey publicKey,
         RsaPaddingMode padding = RsaPaddingMode.Pkcs1,
@@ -71,7 +83,7 @@ internal static class RsaCore
     /// <b>Security Note:</b> PKCS#1 v1.5 padding is vulnerable to Bleichenbacher's padding oracle attack.
     /// Use RSA-OAEP for new applications. PKCS#1 v1.5 is only supported for OpenPGP (RFC 4880) compatibility.
     /// </remarks>
-    public static byte[] Decrypt(
+    public byte[] Decrypt(
         byte[] encryptedData,
         RsaPrivateKey privateKey,
         RsaPaddingMode padding = RsaPaddingMode.Pkcs1,
@@ -90,7 +102,7 @@ internal static class RsaCore
     /// <param name="data">The data to sign.</param>
     /// <param name="privateKey">The RSA private key.</param>
     /// <returns>The digital signature.</returns>
-    public static byte[] Sign(byte[] data, RsaPrivateKey privateKey)
+    public byte[] Sign(byte[] data, RsaPrivateKey privateKey)
     {
         using var rsa = RSA.Create();
         rsa.ImportParameters(ToRsaParameters(privateKey));
@@ -104,14 +116,14 @@ internal static class RsaCore
     /// <param name="signature">The signature to verify.</param>
     /// <param name="publicKey">The RSA public key.</param>
     /// <returns>true if the signature is valid; otherwise, false.</returns>
-    public static bool Verify(byte[] data, byte[] signature, RsaPublicKey publicKey)
+    public bool Verify(byte[] data, byte[] signature, RsaPublicKey publicKey)
     {
         using var rsa = RSA.Create();
         rsa.ImportParameters(ToRsaParameters(publicKey));
         return rsa.VerifyData(data, signature, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
     }
 
-    internal static RSAParameters ToRsaParameters(RsaPublicKey publicKey)
+    internal RSAParameters ToRsaParameters(RsaPublicKey publicKey)
     {
         return new RSAParameters
         {
@@ -120,7 +132,7 @@ internal static class RsaCore
         };
     }
 
-    internal static RSAParameters ToRsaParameters(RsaPrivateKey privateKey)
+    internal RSAParameters ToRsaParameters(RsaPrivateKey privateKey)
     {
         var modulusBytes = BigIntegerToBytes(privateKey.Modulus);
         var exponentBytes = BigIntegerToBytes(privateKey.E);

@@ -29,11 +29,15 @@ public sealed class RabbitBuilder : IDisposable
     private const int KeySize = RabbitCore.KEY_SIZE;
     private const int IvSize = RabbitCore.IV_SIZE;
 
+    private readonly RabbitCore core;
     private byte[]? key;
     private byte[]? iv;
     private bool disposed;
 
-    private RabbitBuilder() { }
+    private RabbitBuilder(SecurityPolicyOptions? policy = null)
+    {
+        core = new RabbitCore(policy);
+    }
 
     /// <summary>
     /// Creates a new Rabbit builder instance.
@@ -159,7 +163,7 @@ public sealed class RabbitBuilder : IDisposable
         ValidateState();
 
         var output = new byte[input.Length];
-        RabbitCore.Transform(output, input, key, iv ?? ReadOnlySpan<byte>.Empty);
+        core.Transform(output, input, key!, iv ?? ReadOnlySpan<byte>.Empty);
         return output;
     }
 
@@ -176,7 +180,7 @@ public sealed class RabbitBuilder : IDisposable
         ArgumentHelper.ThrowIfDisposed(disposed, this);
         ValidateState();
 
-        RabbitCore.Transform(output, input, key, iv ?? ReadOnlySpan<byte>.Empty);
+        core.Transform(output, input, key!, iv ?? ReadOnlySpan<byte>.Empty);
     }
 
     /// <summary>

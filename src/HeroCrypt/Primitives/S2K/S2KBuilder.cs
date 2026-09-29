@@ -39,21 +39,27 @@ namespace HeroCrypt.Primitives.S2K;
 public sealed class S2KBuilder : IDisposable
 {
     private S2KType s2kType = S2KType.IteratedAndSalted;
-    private HashAlgorithmName hashAlgorithm = S2KCore.DEFAULT_HASH;
+    private HashAlgorithmName hashAlgorithm;
     private byte[]? salt;
     private long iterationCount = 65536; // Default: 65536 bytes
     private byte argon2TimePasses = 3;
     private byte argon2Parallelism = 4;
     private byte argon2MemoryExponent = 16; // 64 MiB
     private bool disposed;
+    private readonly S2KCore core;
 
-    private S2KBuilder() { }
+    private S2KBuilder(SecurityPolicyOptions? policy = null)
+    {
+        core = new S2KCore(policy);
+        hashAlgorithm = S2KCore.DEFAULT_HASH;
+    }
 
     /// <summary>
     /// Creates a new S2K builder instance.
     /// </summary>
+    /// <param name="policy">Optional security policy. If null, uses <see cref="SecurityPolicy.CurrentPolicy"/>.</param>
     /// <returns>A new builder instance.</returns>
-    public static S2KBuilder Create() => new();
+    public static S2KBuilder Create(SecurityPolicyOptions? policy = null) => new(policy);
 
     /// <summary>
     /// Sets the S2K type.
@@ -111,8 +117,8 @@ public sealed class S2KBuilder : IDisposable
     {
         ClearSalt();
         salt = s2kType == S2KType.Argon2
-            ? S2KCore.GenerateArgon2Salt()
-            : S2KCore.GenerateSalt();
+            ? core.GenerateArgon2Salt()
+            : core.GenerateSalt();
         return this;
     }
 
@@ -139,7 +145,7 @@ public sealed class S2KBuilder : IDisposable
     /// <returns>The builder instance for method chaining.</returns>
     public S2KBuilder WithEncodedIterationCount(byte encodedCount)
     {
-        iterationCount = S2KCore.DecodeIterationCount(encodedCount);
+        iterationCount = core.DecodeIterationCount(encodedCount);
         return this;
     }
 
@@ -215,7 +221,7 @@ public sealed class S2KBuilder : IDisposable
 
         return s2kType switch
         {
-            S2KType.Simple => S2KCore.SimpleS2K(password, keySize, hashAlgorithm),
+            S2KType.Simple => core.SimpleS2K(password, keySize, hashAlgorithm),
             S2KType.Salted => DeriveWithSalt(password, keySize, false),
             S2KType.IteratedAndSalted => DeriveWithSalt(password, keySize, true),
             S2KType.Argon2 => DeriveWithArgon2(password, keySize),
@@ -258,7 +264,7 @@ public sealed class S2KBuilder : IDisposable
     /// <returns>The RFC 4880 encoded count byte.</returns>
     public byte GetEncodedIterationCount()
     {
-        return S2KCore.EncodeIterationCount(iterationCount);
+        return core.EncodeIterationCount(iterationCount);
     }
 
     private byte[] DeriveWithSalt(byte[] password, int keySize, bool iterated)
@@ -270,11 +276,11 @@ public sealed class S2KBuilder : IDisposable
 
         if (iterated)
         {
-            return S2KCore.IteratedS2K(password, salt, iterationCount, keySize, hashAlgorithm);
+            return core.IteratedS2K(password, salt, iterationCount, keySize, hashAlgorithm);
         }
         else
         {
-            return S2KCore.SaltedS2K(password, salt, keySize, hashAlgorithm);
+            return core.SaltedS2K(password, salt, keySize, hashAlgorithm);
         }
     }
 
@@ -290,7 +296,7 @@ public sealed class S2KBuilder : IDisposable
             throw new InvalidOperationException($"Argon2 requires a {S2KCore.ARGON2_SALT_SIZE}-byte salt. Current salt is {salt.Length} bytes. Use WithRandomSalt() to generate a proper salt.");
         }
 
-        return S2KCore.Argon2S2K(password, salt, argon2TimePasses, argon2Parallelism, argon2MemoryExponent, keySize);
+        return core.Argon2S2K(password, salt, argon2TimePasses, argon2Parallelism, argon2MemoryExponent, keySize);
     }
 
     private void ClearSalt()

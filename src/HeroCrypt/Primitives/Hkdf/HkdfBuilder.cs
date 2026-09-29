@@ -37,6 +37,7 @@ public sealed class HkdfBuilder : IDisposable
     private byte[]? info;
     private int outputLength = DefaultOutputLength;
     private HashAlgorithmName hashAlgorithm = HashAlgorithmName.SHA256;
+    private SecurityPolicyOptions securityPolicy = SecurityPolicy.CurrentPolicy;
     private bool disposed;
 
     private HkdfBuilder() { }
@@ -222,6 +223,30 @@ public sealed class HkdfBuilder : IDisposable
     }
 
     /// <summary>
+    /// Sets custom security policy options for this HKDF operation.
+    /// </summary>
+    /// <param name="policy">The security policy options to use.</param>
+    /// <returns>The builder instance for method chaining.</returns>
+    public HkdfBuilder WithSecurityPolicy(SecurityPolicyOptions policy)
+    {
+        securityPolicy = policy;
+        return this;
+    }
+
+    /// <summary>
+    /// Sets custom security policy options for this HKDF operation using a configuration function.
+    /// </summary>
+    /// <param name="configure">A function that receives the default SecurityPolicyOptions and returns modified options.</param>
+    /// <returns>The builder instance for method chaining.</returns>
+    /// <exception cref="ArgumentNullException">If configure is null.</exception>
+    public HkdfBuilder WithSecurityPolicy(Func<SecurityPolicyOptions, SecurityPolicyOptions> configure)
+    {
+        ArgumentHelper.ThrowIfNull(configure);
+        securityPolicy = configure(SecurityPolicy.CurrentPolicy);
+        return this;
+    }
+
+    /// <summary>
     /// Configures parameters for general-purpose key derivation with SHA-256.
     /// </summary>
     /// <returns>The builder instance for method chaining.</returns>
@@ -263,8 +288,9 @@ public sealed class HkdfBuilder : IDisposable
         ArgumentHelper.ThrowIfDisposed(disposed, this);
         ValidateState();
 
-        return HkdfCore.DeriveKey(
-            ikm,
+        var core = new HkdfCore(securityPolicy);
+        return core.DeriveKey(
+            ikm!,
             salt ?? ReadOnlySpan<byte>.Empty,
             info ?? ReadOnlySpan<byte>.Empty,
             outputLength,
@@ -286,7 +312,8 @@ public sealed class HkdfBuilder : IDisposable
             throw new InvalidOperationException("Input key material has not been set. Use WithInputKeyMaterial() first.");
         }
 
-        return HkdfCore.Extract(
+        var core = new HkdfCore(securityPolicy);
+        return core.Extract(
             ikm,
             salt ?? ReadOnlySpan<byte>.Empty,
             hashAlgorithm
@@ -310,7 +337,8 @@ public sealed class HkdfBuilder : IDisposable
             throw new ArgumentException("Pseudorandom key cannot be empty.", nameof(prk));
         }
 
-        return HkdfCore.Expand(
+        var core = new HkdfCore(securityPolicy);
+        return core.Expand(
             prk,
             info ?? ReadOnlySpan<byte>.Empty,
             outputLength,

@@ -6,12 +6,31 @@ namespace HeroCrypt.Primitives.Rsa;
 /// <summary>
 /// RSA-OAEP (Optimal Asymmetric Encryption Padding) implementation according to PKCS#1 v2.2 (RFC 8017)
 /// </summary>
-internal static class RsaOaep
+internal sealed class RsaOaep
 {
+    private readonly SecurityPolicyOptions policy;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="RsaOaep"/> class with the specified security policy.
+    /// </summary>
+    /// <param name="policy">The security policy to use for validation. If null, uses <see cref="SecurityPolicy.CurrentPolicy"/>.</param>
+    public RsaOaep(SecurityPolicyOptions? policy = null)
+    {
+        this.policy = policy ?? SecurityPolicy.CurrentPolicy;
+    }
+
     /// <summary>
     /// Apply OAEP padding to a message
     /// </summary>
-    public static byte[] Pad(byte[] message, int modulusLength, HashAlgorithmName hashAlgorithm, byte[]? label = null)
+    /// <param name="message">The message to pad.</param>
+    /// <param name="modulusLength">The RSA modulus length in bytes.</param>
+    /// <param name="hashAlgorithm">The hash algorithm to use.</param>
+    /// <param name="label">Optional label for OAEP.</param>
+    public byte[] Pad(
+        byte[] message,
+        int modulusLength,
+        HashAlgorithmName hashAlgorithm,
+        byte[]? label = null)
     {
         using HashAlgorithm hash = CreateHashAlgorithm(hashAlgorithm);
         int hLen = hash.HashSize / 8;
@@ -90,7 +109,15 @@ internal static class RsaOaep
     /// <summary>
     /// Remove OAEP padding from a message
     /// </summary>
-    public static byte[] Unpad(byte[] paddedMessage, int modulusLength, HashAlgorithmName hashAlgorithm, byte[]? label = null)
+    /// <param name="paddedMessage">The padded message to unpad.</param>
+    /// <param name="modulusLength">The RSA modulus length in bytes.</param>
+    /// <param name="hashAlgorithm">The hash algorithm to use.</param>
+    /// <param name="label">Optional label for OAEP.</param>
+    public byte[] Unpad(
+        byte[] paddedMessage,
+        int modulusLength,
+        HashAlgorithmName hashAlgorithm,
+        byte[]? label = null)
     {
         using HashAlgorithm hash = CreateHashAlgorithm(hashAlgorithm);
         int hLen = hash.HashSize / 8;
@@ -228,10 +255,10 @@ internal static class RsaOaep
         return output;
     }
 
-    private static HashAlgorithm CreateHashAlgorithm(HashAlgorithmName name)
+    private HashAlgorithm CreateHashAlgorithm(HashAlgorithmName name)
     {
         // Validate hash algorithm against security policy (blocks SHA-1 at Standard+ level)
-        SecurityPolicy.ValidateHash(name);
+        policy.ValidateHash(name.Name ?? "Unknown");
 
         if (name == HashAlgorithmName.SHA256)
         {

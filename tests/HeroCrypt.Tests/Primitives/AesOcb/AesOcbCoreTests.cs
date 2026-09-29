@@ -25,6 +25,8 @@ public class AesOcbCoreTests
     [Trait("Category", TestCategories.FAST)]
     public class BasicFunctionality
     {
+        private readonly AesOcbCore core = new();
+
         [Fact]
         public void EncryptDecrypt_RoundTrip_Success()
         {
@@ -34,8 +36,8 @@ public class AesOcbCoreTests
             var plaintext = TestHelpers.RandomBytes(TestDataSizes.Medium);
 
             // Act
-            var result = AesOcbCore.Encrypt(plaintext, key, nonce);
-            var decrypted = AesOcbCore.Decrypt(result.Ciphertext, key, result.Nonce);
+            var result = core.Encrypt(plaintext, key, nonce);
+            var decrypted = core.Decrypt(result.Ciphertext, key, result.Nonce);
 
             // Assert
             Assert.Equal(plaintext.Length + TAG_SIZE, result.Ciphertext.Length);
@@ -52,8 +54,8 @@ public class AesOcbCoreTests
             var associatedData = TestHelpers.RandomBytes(TestDataSizes.Small);
 
             // Act
-            var result = AesOcbCore.Encrypt(plaintext, key, nonce, associatedData);
-            var decrypted = AesOcbCore.Decrypt(result.Ciphertext, key, result.Nonce, associatedData);
+            var result = core.Encrypt(plaintext, key, nonce, associatedData);
+            var decrypted = core.Decrypt(result.Ciphertext, key, result.Nonce, associatedData);
 
             // Assert
             Assert.Equal(plaintext.Length + TAG_SIZE, result.Ciphertext.Length);
@@ -70,8 +72,8 @@ public class AesOcbCoreTests
                 var nonce = TestHelpers.RandomBytes(DEFAULT_NONCE_SIZE);
                 var plaintext = TestHelpers.RandomBytes(TestDataSizes.Small);
 
-                var result = AesOcbCore.Encrypt(plaintext, key, nonce);
-                var decrypted = AesOcbCore.Decrypt(result.Ciphertext, key, result.Nonce);
+                var result = core.Encrypt(plaintext, key, nonce);
+                var decrypted = core.Decrypt(result.Ciphertext, key, result.Nonce);
 
                 CryptoAssertions.AssertBytesEqual(plaintext, decrypted);
             }
@@ -85,6 +87,8 @@ public class AesOcbCoreTests
     [Trait("Category", TestCategories.FAST)]
     public class EdgeCases
     {
+        private readonly AesOcbCore core = new();
+
         [Fact]
         public void Encrypt_EmptyPlaintext_Success()
         {
@@ -94,8 +98,8 @@ public class AesOcbCoreTests
             var plaintext = Array.Empty<byte>();
 
             // Act
-            var result = AesOcbCore.Encrypt(plaintext, key, nonce);
-            var decrypted = AesOcbCore.Decrypt(result.Ciphertext, key, result.Nonce);
+            var result = core.Encrypt(plaintext, key, nonce);
+            var decrypted = core.Decrypt(result.Ciphertext, key, result.Nonce);
 
             // Assert
             Assert.Equal(TAG_SIZE, result.Ciphertext.Length);
@@ -111,8 +115,8 @@ public class AesOcbCoreTests
             var plaintext = TestHelpers.RandomBytes(17);
 
             // Act
-            var result = AesOcbCore.Encrypt(plaintext, key, nonce);
-            var decrypted = AesOcbCore.Decrypt(result.Ciphertext, key, result.Nonce);
+            var result = core.Encrypt(plaintext, key, nonce);
+            var decrypted = core.Decrypt(result.Ciphertext, key, result.Nonce);
 
             // Assert
             CryptoAssertions.AssertBytesEqual(plaintext, decrypted);
@@ -129,8 +133,8 @@ public class AesOcbCoreTests
             {
                 var nonce = TestHelpers.RandomBytes(i);
 
-                var result = AesOcbCore.Encrypt(plaintext, key, nonce);
-                var decrypted = AesOcbCore.Decrypt(result.Ciphertext, key, result.Nonce);
+                var result = core.Encrypt(plaintext, key, nonce);
+                var decrypted = core.Decrypt(result.Ciphertext, key, result.Nonce);
 
                 CryptoAssertions.AssertBytesEqual(plaintext, decrypted);
             }
@@ -144,6 +148,8 @@ public class AesOcbCoreTests
     [Trait("Category", TestCategories.FAST)]
     public class Security
     {
+        private readonly AesOcbCore core = new();
+
         [Fact]
         public void Decrypt_ModifiedCiphertext_ThrowsCryptographicException()
         {
@@ -152,7 +158,7 @@ public class AesOcbCoreTests
             var nonce = TestHelpers.RandomBytes(DEFAULT_NONCE_SIZE);
             var plaintext = TestHelpers.RandomBytes(TestDataSizes.Medium);
 
-            var result = AesOcbCore.Encrypt(plaintext, key, nonce);
+            var result = core.Encrypt(plaintext, key, nonce);
 
             // Act - Tamper with ciphertext
             var tamperedCiphertext = (byte[])result.Ciphertext.Clone();
@@ -160,7 +166,7 @@ public class AesOcbCoreTests
 
             // Assert
             Assert.Throws<CryptographicException>(() =>
-                AesOcbCore.Decrypt(tamperedCiphertext, key, result.Nonce));
+                core.Decrypt(tamperedCiphertext, key, result.Nonce));
         }
 
         [Fact]
@@ -171,7 +177,7 @@ public class AesOcbCoreTests
             var nonce = TestHelpers.RandomBytes(DEFAULT_NONCE_SIZE);
             var plaintext = TestHelpers.RandomBytes(TestDataSizes.Medium);
 
-            var result = AesOcbCore.Encrypt(plaintext, key, nonce);
+            var result = core.Encrypt(plaintext, key, nonce);
 
             // Act - Tamper with tag
             var tamperedCiphertext = (byte[])result.Ciphertext.Clone();
@@ -179,7 +185,7 @@ public class AesOcbCoreTests
 
             // Assert
             Assert.Throws<CryptographicException>(() =>
-                AesOcbCore.Decrypt(tamperedCiphertext, key, result.Nonce));
+                core.Decrypt(tamperedCiphertext, key, result.Nonce));
         }
 
         [Fact]
@@ -191,14 +197,14 @@ public class AesOcbCoreTests
             var plaintext = TestHelpers.RandomBytes(TestDataSizes.Medium);
             var associatedData = TestHelpers.RandomBytes(TestDataSizes.Small);
 
-            var result = AesOcbCore.Encrypt(plaintext, key, nonce, associatedData);
+            var result = core.Encrypt(plaintext, key, nonce, associatedData);
 
             // Act - Tamper with AD
             var tamperedAD = TestHelpers.TamperFirst(associatedData);
 
             // Assert
             Assert.Throws<CryptographicException>(() =>
-                AesOcbCore.Decrypt(result.Ciphertext, key, result.Nonce, tamperedAD));
+                core.Decrypt(result.Ciphertext, key, result.Nonce, tamperedAD));
         }
     }
 
@@ -209,6 +215,8 @@ public class AesOcbCoreTests
     [Trait("Category", TestCategories.FAST)]
     public class ParameterValidation
     {
+        private readonly AesOcbCore core = new();
+
         [Fact]
         public void Encrypt_InvalidKeySize_ThrowsArgumentException()
         {
@@ -217,7 +225,7 @@ public class AesOcbCoreTests
             var plaintext = new byte[10];
 
             CryptoAssertions.AssertExceptionContains<ArgumentException>(
-                () => AesOcbCore.Encrypt(plaintext, invalidKey, nonce),
+                () => core.Encrypt(plaintext, invalidKey, nonce),
                 "16, 24, or 32 bytes");
         }
 
@@ -229,7 +237,7 @@ public class AesOcbCoreTests
             var plaintext = new byte[10];
 
             CryptoAssertions.AssertExceptionContains<ArgumentException>(
-                () => AesOcbCore.Encrypt(plaintext, key, invalidNonce),
+                () => core.Encrypt(plaintext, key, invalidNonce),
                 "between 1 and 15");
         }
     }
@@ -243,6 +251,8 @@ public class AesOcbCoreTests
     [Trait("Category", TestCategories.FAST)]
     public class KnownAnswerTests
     {
+        private readonly AesOcbCore core = new();
+
         [Fact]
         public void AesOcb_EmptyMessage_ProducesTagOnly()
         {
@@ -251,13 +261,13 @@ public class AesOcbCoreTests
             var plaintext = Array.Empty<byte>();
             var ad = Array.Empty<byte>();
 
-            var result = AesOcbCore.Encrypt(plaintext, key, nonce, ad);
+            var result = core.Encrypt(plaintext, key, nonce, ad);
 
             // For empty plaintext, ciphertext is just the tag (16 bytes)
             Assert.Equal(TAG_SIZE, result.Ciphertext.Length);
 
             // Verify decryption
-            var decrypted = AesOcbCore.Decrypt(result.Ciphertext, key, nonce, ad);
+            var decrypted = core.Decrypt(result.Ciphertext, key, nonce, ad);
             Assert.Empty(decrypted);
         }
 
@@ -269,13 +279,13 @@ public class AesOcbCoreTests
             var plaintext = TestHelpers.HexToBytes("0001020304050607");
             var ad = Array.Empty<byte>();
 
-            var result1 = AesOcbCore.Encrypt(plaintext, key, nonce, ad);
-            var result2 = AesOcbCore.Encrypt(plaintext, key, nonce, ad);
+            var result1 = core.Encrypt(plaintext, key, nonce, ad);
+            var result2 = core.Encrypt(plaintext, key, nonce, ad);
 
             CryptoAssertions.AssertBytesEqual(result1.Ciphertext, result2.Ciphertext);
 
             // Verify decryption
-            var decrypted = AesOcbCore.Decrypt(result1.Ciphertext, key, nonce, ad);
+            var decrypted = core.Decrypt(result1.Ciphertext, key, nonce, ad);
             CryptoAssertions.AssertBytesEqual(plaintext, decrypted);
         }
 
@@ -287,12 +297,12 @@ public class AesOcbCoreTests
             var plaintext = Array.Empty<byte>();
             var ad = TestHelpers.HexToBytes("0001020304050607");
 
-            var result = AesOcbCore.Encrypt(plaintext, key, nonce, ad);
+            var result = core.Encrypt(plaintext, key, nonce, ad);
 
             Assert.Equal(TAG_SIZE, result.Ciphertext.Length);
 
             // Verify decryption
-            var decrypted = AesOcbCore.Decrypt(result.Ciphertext, key, nonce, ad);
+            var decrypted = core.Decrypt(result.Ciphertext, key, nonce, ad);
             Assert.Empty(decrypted);
         }
 
@@ -304,13 +314,13 @@ public class AesOcbCoreTests
             var plaintext = TestHelpers.HexToBytes("0001020304050607");
             var ad = TestHelpers.HexToBytes("0001020304050607");
 
-            var result = AesOcbCore.Encrypt(plaintext, key, nonce, ad);
+            var result = core.Encrypt(plaintext, key, nonce, ad);
 
             // Ciphertext should be plaintext length + tag
             Assert.Equal(plaintext.Length + TAG_SIZE, result.Ciphertext.Length);
 
             // Verify decryption
-            var decrypted = AesOcbCore.Decrypt(result.Ciphertext, key, nonce, ad);
+            var decrypted = core.Decrypt(result.Ciphertext, key, nonce, ad);
             CryptoAssertions.AssertBytesEqual(plaintext, decrypted);
         }
 
@@ -322,12 +332,12 @@ public class AesOcbCoreTests
             var plaintext = TestHelpers.HexToBytes("000102030405060708090A0B0C0D0E0F");
             var ad = TestHelpers.HexToBytes("000102030405060708090A0B0C0D0E0F");
 
-            var result = AesOcbCore.Encrypt(plaintext, key, nonce, ad);
+            var result = core.Encrypt(plaintext, key, nonce, ad);
 
             Assert.Equal(plaintext.Length + TAG_SIZE, result.Ciphertext.Length);
 
             // Verify decryption
-            var decrypted = AesOcbCore.Decrypt(result.Ciphertext, key, nonce, ad);
+            var decrypted = core.Decrypt(result.Ciphertext, key, nonce, ad);
             CryptoAssertions.AssertBytesEqual(plaintext, decrypted);
         }
     }

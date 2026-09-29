@@ -1,4 +1,5 @@
 using HeroCrypt.Polyfills;
+using HeroCrypt.Security;
 
 namespace HeroCrypt.Primitives.Armor;
 
@@ -27,14 +28,19 @@ public sealed class ArmorBuilder
 {
     private ArmorType armorType = ArmorType.Message;
     private readonly Dictionary<string, string> armorHeaders = [];
+    private readonly ArmorCore core;
 
-    private ArmorBuilder() { }
+    private ArmorBuilder(SecurityPolicyOptions? policy = null)
+    {
+        core = new ArmorCore(policy);
+    }
 
     /// <summary>
     /// Creates a new ASCII Armor builder instance.
     /// </summary>
+    /// <param name="policy">Optional security policy. If null, uses <see cref="SecurityPolicy.CurrentPolicy"/>.</param>
     /// <returns>A new builder instance.</returns>
-    public static ArmorBuilder Create() => new();
+    public static ArmorBuilder Create(SecurityPolicyOptions? policy = null) => new(policy);
 
     /// <summary>
     /// Sets the armor type for encoding.
@@ -97,7 +103,7 @@ public sealed class ArmorBuilder
     public string Encode(byte[] data)
     {
         ArgumentHelper.ThrowIfNull(data);
-        return ArmorCore.Encode(data, armorType, armorHeaders.Count > 0 ? armorHeaders : null);
+        return core.Encode(data, armorType, armorHeaders.Count > 0 ? armorHeaders : null);
     }
 
     /// <summary>
@@ -107,7 +113,7 @@ public sealed class ArmorBuilder
     /// <returns>The ASCII Armored string.</returns>
     public string Encode(ReadOnlySpan<byte> data)
     {
-        return ArmorCore.Encode(data, armorType, armorHeaders.Count > 0 ? armorHeaders : null);
+        return core.Encode(data, armorType, armorHeaders.Count > 0 ? armorHeaders : null);
     }
 
     /// <summary>
@@ -120,7 +126,7 @@ public sealed class ArmorBuilder
     public ArmorDecodeResult Decode(string armoredText)
     {
         ArgumentHelper.ThrowIfNull(armoredText);
-        return ArmorCore.Decode(armoredText);
+        return core.Decode(armoredText);
     }
 
     /// <summary>
@@ -144,7 +150,7 @@ public sealed class ArmorBuilder
     public bool VerifyChecksum(string armoredText)
     {
         ArgumentHelper.ThrowIfNull(armoredText);
-        return ArmorCore.VerifyChecksum(armoredText);
+        return core.VerifyChecksum(armoredText);
     }
 
     /// <summary>
@@ -163,7 +169,7 @@ public sealed class ArmorBuilder
 
         try
         {
-            result = ArmorCore.Decode(armoredText);
+            result = core.Decode(armoredText);
             return true;
         }
         catch (FormatException)

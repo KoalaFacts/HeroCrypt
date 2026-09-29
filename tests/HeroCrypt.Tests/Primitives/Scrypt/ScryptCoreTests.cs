@@ -22,6 +22,8 @@ public class ScryptCoreTests
     [Trait("Category", TestCategories.FAST)]
     public class BasicFunctionality
     {
+        private readonly ScryptCore core = new();
+
         [Fact]
         public void DeriveKey_WithValidParameters_ReturnsCorrectLength()
         {
@@ -30,7 +32,7 @@ public class ScryptCoreTests
             var salt = Encoding.UTF8.GetBytes("salt");
 
             // Act
-            var key = ScryptCore.DeriveKey(password, salt, N, R, P, OUTPUT_LEN);
+            var key = core.DeriveKey(password, salt, N, R, P, OUTPUT_LEN);
 
             // Assert
             Assert.Equal(OUTPUT_LEN, key.Length);
@@ -44,8 +46,8 @@ public class ScryptCoreTests
             var salt = Encoding.UTF8.GetBytes("salt");
 
             // Act
-            var key1 = ScryptCore.DeriveKey(password, salt, N, R, P, OUTPUT_LEN);
-            var key2 = ScryptCore.DeriveKey(password, salt, N, R, P, OUTPUT_LEN);
+            var key1 = core.DeriveKey(password, salt, N, R, P, OUTPUT_LEN);
+            var key2 = core.DeriveKey(password, salt, N, R, P, OUTPUT_LEN);
 
             // Assert
             CryptoAssertions.AssertBytesEqual(key1, key2);
@@ -60,8 +62,8 @@ public class ScryptCoreTests
             var salt2 = Encoding.UTF8.GetBytes("salt2");
 
             // Act
-            var key1 = ScryptCore.DeriveKey(password, salt1, N, R, P, OUTPUT_LEN);
-            var key2 = ScryptCore.DeriveKey(password, salt2, N, R, P, OUTPUT_LEN);
+            var key1 = core.DeriveKey(password, salt1, N, R, P, OUTPUT_LEN);
+            var key2 = core.DeriveKey(password, salt2, N, R, P, OUTPUT_LEN);
 
             // Assert
             Assert.NotEqual(key1, key2);
@@ -75,6 +77,8 @@ public class ScryptCoreTests
     [Trait("Category", TestCategories.FAST)]
     public class EdgeCases
     {
+        private readonly ScryptCore core = new();
+
         [Fact]
         public void DeriveKey_EmptyPassword_Success()
         {
@@ -83,7 +87,7 @@ public class ScryptCoreTests
             var salt = Encoding.UTF8.GetBytes("salt");
 
             // Act
-            var key = ScryptCore.DeriveKey(password, salt, N, R, P, OUTPUT_LEN);
+            var key = core.DeriveKey(password, salt, N, R, P, OUTPUT_LEN);
 
             // Assert
             Assert.Equal(OUTPUT_LEN, key.Length);
@@ -97,7 +101,7 @@ public class ScryptCoreTests
             var salt = Array.Empty<byte>();
 
             // Act
-            var key = ScryptCore.DeriveKey(password, salt, N, R, P, OUTPUT_LEN);
+            var key = core.DeriveKey(password, salt, N, R, P, OUTPUT_LEN);
 
             // Assert
             Assert.Equal(OUTPUT_LEN, key.Length);
@@ -111,14 +115,16 @@ public class ScryptCoreTests
     [Trait("Category", TestCategories.FAST)]
     public class Security
     {
+        private readonly ScryptCore core = new();
+
         [Fact]
         public void DeriveKey_CorrectPassword_Matches()
         {
             var password = Encoding.UTF8.GetBytes("test_password");
             var salt = TestHelpers.RandomBytes(16);
 
-            var key1 = ScryptCore.DeriveKey(password, salt, N, R, P, OUTPUT_LEN);
-            var key2 = ScryptCore.DeriveKey(password, salt, N, R, P, OUTPUT_LEN);
+            var key1 = core.DeriveKey(password, salt, N, R, P, OUTPUT_LEN);
+            var key2 = core.DeriveKey(password, salt, N, R, P, OUTPUT_LEN);
 
             CryptoAssertions.AssertBytesEqual(key1, key2);
         }
@@ -130,8 +136,8 @@ public class ScryptCoreTests
             var wrongPassword = Encoding.UTF8.GetBytes("wrong_password");
             var salt = TestHelpers.RandomBytes(16);
 
-            var key1 = ScryptCore.DeriveKey(password, salt, N, R, P, OUTPUT_LEN);
-            var key2 = ScryptCore.DeriveKey(wrongPassword, salt, N, R, P, OUTPUT_LEN);
+            var key1 = core.DeriveKey(password, salt, N, R, P, OUTPUT_LEN);
+            var key2 = core.DeriveKey(wrongPassword, salt, N, R, P, OUTPUT_LEN);
 
             Assert.NotEqual(key1, key2);
         }
@@ -142,7 +148,7 @@ public class ScryptCoreTests
             var password = Encoding.UTF8.GetBytes("test_password");
             var salt = TestHelpers.RandomBytes(16);
 
-            var key = ScryptCore.DeriveKey(password, salt, N, R, P, OUTPUT_LEN);
+            var key = core.DeriveKey(password, salt, N, R, P, OUTPUT_LEN);
 
             CryptoAssertions.AssertAppearsRandom(key);
         }
@@ -154,8 +160,8 @@ public class ScryptCoreTests
             var password2 = Encoding.UTF8.GetBytes("password2");
             var salt = TestHelpers.RandomBytes(16);
 
-            var key1 = ScryptCore.DeriveKey(password1, salt, N, R, P, OUTPUT_LEN);
-            var key2 = ScryptCore.DeriveKey(password2, salt, N, R, P, OUTPUT_LEN);
+            var key1 = core.DeriveKey(password1, salt, N, R, P, OUTPUT_LEN);
+            var key2 = core.DeriveKey(password2, salt, N, R, P, OUTPUT_LEN);
 
             Assert.NotEqual(key1, key2);
             int diffBits = 0;
@@ -175,6 +181,8 @@ public class ScryptCoreTests
     [Trait("Category", TestCategories.FAST)]
     public class ParameterValidation
     {
+        private readonly ScryptCore core = new();
+
         [Fact]
         public void DeriveKey_InvalidN_ThrowsArgumentException()
         {
@@ -183,11 +191,11 @@ public class ScryptCoreTests
 
             // N must be power of 2
             Assert.Throws<ArgumentException>(() =>
-                ScryptCore.DeriveKey(password, salt, 14, R, P, OUTPUT_LEN));
+                core.DeriveKey(password, salt, 14, R, P, OUTPUT_LEN));
 
             // N must be positive
             Assert.Throws<ArgumentException>(() =>
-               ScryptCore.DeriveKey(password, salt, 0, R, P, OUTPUT_LEN));
+               core.DeriveKey(password, salt, 0, R, P, OUTPUT_LEN));
         }
 
         [Fact]
@@ -197,7 +205,7 @@ public class ScryptCoreTests
             var salt = Encoding.UTF8.GetBytes("salt");
 
             Assert.Throws<ArgumentException>(() =>
-                ScryptCore.DeriveKey(password, salt, N, 0, P, OUTPUT_LEN));
+                core.DeriveKey(password, salt, N, 0, P, OUTPUT_LEN));
         }
 
         [Fact]
@@ -207,7 +215,7 @@ public class ScryptCoreTests
             var salt = Encoding.UTF8.GetBytes("salt");
 
             Assert.Throws<ArgumentException>(() =>
-                ScryptCore.DeriveKey(password, salt, N, R, 0, OUTPUT_LEN));
+                core.DeriveKey(password, salt, N, R, 0, OUTPUT_LEN));
         }
 
         [Fact]
@@ -217,7 +225,7 @@ public class ScryptCoreTests
             var salt = Encoding.UTF8.GetBytes("salt");
 
             Assert.Throws<ArgumentException>(() =>
-                ScryptCore.DeriveKey(password, salt, N, R, P, 0));
+                core.DeriveKey(password, salt, N, R, P, 0));
         }
     }
 
@@ -229,6 +237,8 @@ public class ScryptCoreTests
     [Trait("Category", TestCategories.FAST)]
     public class KnownAnswerTests
     {
+        private readonly ScryptCore core = new();
+
         [Fact]
         public void RFC7914_TestVector1()
         {
@@ -236,7 +246,7 @@ public class ScryptCoreTests
             var salt = Array.Empty<byte>();
 
             // Vector 1 parameters: N=16, r=1, p=1
-            var key = ScryptCore.DeriveKey(password, salt, 16, 1, 1, 64);
+            var key = core.DeriveKey(password, salt, 16, 1, 1, 64);
 
             var expected = Convert.FromHexString("77d6576238657b203b19ca42c18a0497f16b4844e3074ae8dfdffa3fede21442fcd0069ded0948f8326a753a0fc81f17e8d3e0fb2e0d3628cf35e20c38d18906");
 

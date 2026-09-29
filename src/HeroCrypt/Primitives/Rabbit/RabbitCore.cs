@@ -9,8 +9,19 @@ namespace HeroCrypt.Primitives.Rabbit;
 /// High-speed stream cipher designed for software performance
 /// Part of the eSTREAM portfolio (software profile)
 /// </summary>
-internal static class RabbitCore
+internal sealed class RabbitCore
 {
+    private readonly SecurityPolicyOptions policy;
+
+    /// <summary>
+    /// Initializes a new instance of the RabbitCore class
+    /// </summary>
+    /// <param name="policy">Security policy options</param>
+    public RabbitCore(SecurityPolicyOptions? policy = null)
+    {
+        this.policy = policy ?? SecurityPolicy.CurrentPolicy;
+    }
+
     /// <summary>
     /// Key size in bytes (128 bits)
     /// </summary>
@@ -64,7 +75,7 @@ internal static class RabbitCore
     /// <param name="input">Input buffer</param>
     /// <param name="key">16-byte key</param>
     /// <param name="iv">8-byte initialization vector (or empty for key-only mode)</param>
-    public static void Transform(Span<byte> output, ReadOnlySpan<byte> input, ReadOnlySpan<byte> key, ReadOnlySpan<byte> iv)
+    public void Transform(Span<byte> output, ReadOnlySpan<byte> input, ReadOnlySpan<byte> key, ReadOnlySpan<byte> iv)
     {
         if (key.Length != KEY_SIZE)
         {
@@ -135,7 +146,7 @@ internal static class RabbitCore
     /// Key setup - initializes the state with the key
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void KeySetup(ref RabbitState state, ReadOnlySpan<byte> key)
+    private void KeySetup(ref RabbitState state, ReadOnlySpan<byte> key)
     {
         // Convert key to 16-bit words (little-endian to match Java implementation)
         Span<ushort> k = stackalloc ushort[8];
@@ -186,7 +197,7 @@ internal static class RabbitCore
     /// IV setup - reinitializes the state with an IV
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void IvSetup(ref RabbitState state, ReadOnlySpan<byte> iv)
+    private void IvSetup(ref RabbitState state, ReadOnlySpan<byte> iv)
     {
         // Convert IV to 32-bit words (little-endian to match key format)
         // iv0 = IV[31..0], iv1 = IV[63..32]
@@ -222,7 +233,7 @@ internal static class RabbitCore
     /// Computes the next internal state
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void NextState(ref RabbitState state)
+    private void NextState(ref RabbitState state)
     {
         // Counter update constants (Fibonacci-like)
         ReadOnlySpan<uint> A =
@@ -265,7 +276,7 @@ internal static class RabbitCore
     /// G-function: non-linear state transition
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static uint GFunc(uint x, uint c)
+    private uint GFunc(uint x, uint c)
     {
         // Square the sum (mask to 32-bit to match Java implementation)
         var sum = ((ulong)x + c) & 0xFFFFFFFFul;
@@ -279,7 +290,7 @@ internal static class RabbitCore
     /// Extracts keystream from current state
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void ExtractKeystream(ref RabbitState state, Span<byte> output)
+    private void ExtractKeystream(ref RabbitState state, Span<byte> output)
     {
         // Update state
         NextState(ref state);
@@ -314,7 +325,7 @@ internal static class RabbitCore
     /// Left rotation (circular shift)
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static uint RotateLeft(uint value, int bits)
+    private uint RotateLeft(uint value, int bits)
     {
         return (value << bits) | (value >> (32 - bits));
     }
@@ -322,7 +333,7 @@ internal static class RabbitCore
     /// <summary>
     /// Validates parameters for Rabbit
     /// </summary>
-    public static void ValidateParameters(ReadOnlySpan<byte> key, ReadOnlySpan<byte> iv)
+    public void ValidateParameters(ReadOnlySpan<byte> key, ReadOnlySpan<byte> iv)
     {
         if (key.Length != KEY_SIZE)
         {
@@ -337,7 +348,7 @@ internal static class RabbitCore
     /// <summary>
     /// Gets the maximum plaintext length
     /// </summary>
-    public static long GetMaxPlaintextLength()
+    public long GetMaxPlaintextLength()
     {
         // Rabbit can encrypt up to 2^64 blocks (theoretical limit)
         // Practical limit is much smaller for security

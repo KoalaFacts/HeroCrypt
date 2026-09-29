@@ -92,7 +92,8 @@ SsrtSQmZUKpxuBROy+bZNheNgmN966vqnFBiM1vXikv5OVyprUV0EzzQ3Hnt
         public void DecryptKnownVector_X25519_LightToNight_Succeeds()
         {
             // Parse and decrypt Night's private key
-            var dearmored = ArmorCore.Decode(NightUserPrivateKey);
+            var core = new ArmorCore();
+            var dearmored = core.Decode(NightUserPrivateKey);
             var secretKeyRing = PgpSecretKeyRing.Read(dearmored.Data);
 
             // Find and decrypt the encryption subkey
@@ -103,7 +104,7 @@ SsrtSQmZUKpxuBROy+bZNheNgmN966vqnFBiM1vXikv5OVyprUV0EzzQ3Hnt
             Assert.False(decryptedSubkey.IsEncrypted);
 
             // Parse the encrypted message
-            var messageDearmored = ArmorCore.Decode(LightToNightEncryptedMessage);
+            var messageDearmored = core.Decode(LightToNightEncryptedMessage);
 
             // Decrypt the message
             using var decryptor = PgpMessageDecryptor.Create()
@@ -120,14 +121,15 @@ SsrtSQmZUKpxuBROy+bZNheNgmN966vqnFBiM1vXikv5OVyprUV0EzzQ3Hnt
         public void DecryptKnownVector_NistP256V6_Succeeds()
         {
             // Parse the private key (V6 format, no passphrase)
-            var dearmored = ArmorCore.Decode(NistP256V6PrivateKey);
+            var core = new ArmorCore();
+            var dearmored = core.Decode(NistP256V6PrivateKey);
             var secretKeyRing = PgpSecretKeyRing.Read(dearmored.Data);
 
             // Find the encryption subkey
             var encryptionSubkey = secretKeyRing.Subkeys[0];
 
             // Parse the encrypted message
-            var messageDearmored = ArmorCore.Decode(NistP256V6EncryptedMessage);
+            var messageDearmored = core.Decode(NistP256V6EncryptedMessage);
 
             // Decrypt the message
             using var decryptor = PgpMessageDecryptor.Create()

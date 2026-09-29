@@ -1,5 +1,6 @@
 using System.Text;
 using HeroCrypt.Primitives.Blake2b;
+using HeroCrypt.Security;
 using HeroCrypt.Tests.Infrastructure;
 
 namespace HeroCrypt.Tests.Primitives.Blake2b;
@@ -25,7 +26,7 @@ public class Blake2bCoreTests
             var expectedLength = 32;
 
             // Act
-            var hash = Blake2bCore.ComputeHash(data, expectedLength);
+            var hash = new Blake2bCore(SecurityPolicyOptions.Default).ComputeHash(data, expectedLength);
 
             // Assert
             Assert.Equal(expectedLength, hash.Length);
@@ -38,8 +39,8 @@ public class Blake2bCoreTests
             var data = TestHelpers.RandomBytes(TestDataSizes.Medium);
 
             // Act
-            var hash1 = Blake2bCore.ComputeHash(data, 32);
-            var hash2 = Blake2bCore.ComputeHash(data, 32);
+            var hash1 = new Blake2bCore(SecurityPolicyOptions.Default).ComputeHash(data, 32);
+            var hash2 = new Blake2bCore(SecurityPolicyOptions.Default).ComputeHash(data, 32);
 
             // Assert
             CryptoAssertions.AssertBytesEqual(hash1, hash2);
@@ -53,7 +54,7 @@ public class Blake2bCoreTests
             var outputLength = 128; // Larger than 64 bytes (512 bits)
 
             // Act
-            var hash = Blake2bCore.ComputeLongHash(data, outputLength);
+            var hash = new Blake2bCore(SecurityPolicyOptions.Default).ComputeLongHash(data, outputLength);
 
             // Assert
             Assert.Equal(outputLength, hash.Length);
@@ -67,8 +68,8 @@ public class Blake2bCoreTests
             var key = TestHelpers.RandomBytes(32);
 
             // Act
-            var hash1 = Blake2bCore.ComputeHash(data, 32);
-            var hash2 = Blake2bCore.ComputeHash(data, 32, key);
+            var hash1 = new Blake2bCore(SecurityPolicyOptions.Default).ComputeHash(data, 32);
+            var hash2 = new Blake2bCore(SecurityPolicyOptions.Default).ComputeHash(data, 32, key);
 
             // Assert
             Assert.NotEqual(hash1, hash2);
@@ -89,7 +90,7 @@ public class Blake2bCoreTests
             var data = Array.Empty<byte>();
 
             // Act
-            var hash = Blake2bCore.ComputeHash(data, 32);
+            var hash = new Blake2bCore(SecurityPolicyOptions.Default).ComputeHash(data, 32);
 
             // Assert
             Assert.Equal(32, hash.Length);
@@ -102,7 +103,7 @@ public class Blake2bCoreTests
             var data = "B"u8.ToArray();
 
             // Act (64 bytes = 512 bits)
-            var hash = Blake2bCore.ComputeHash(data, 64);
+            var hash = new Blake2bCore(SecurityPolicyOptions.Default).ComputeHash(data, 64);
 
             // Assert
             Assert.Equal(64, hash.Length);
@@ -122,7 +123,7 @@ public class Blake2bCoreTests
             var data = Encoding.UTF8.GetBytes("Test data");
 
             CryptoAssertions.AssertExceptionContains<ArgumentException>(
-                () => Blake2bCore.ComputeHash(data, 0),
+                () => new Blake2bCore(SecurityPolicyOptions.Default).ComputeHash(data, 0),
                 "Output length");
         }
 
@@ -132,7 +133,7 @@ public class Blake2bCoreTests
             var data = Encoding.UTF8.GetBytes("Test data");
 
             CryptoAssertions.AssertExceptionContains<ArgumentException>(
-                () => Blake2bCore.ComputeLongHash(data, 0),
+                () => new Blake2bCore(SecurityPolicyOptions.Default).ComputeLongHash(data, 0),
                 "Output length");
         }
 
@@ -143,7 +144,7 @@ public class Blake2bCoreTests
             var key = new byte[65]; // Max key size is usually 64
 
             CryptoAssertions.AssertExceptionContains<ArgumentException>(
-                () => Blake2bCore.ComputeHash(data, 32, key),
+                () => new Blake2bCore(SecurityPolicyOptions.Default).ComputeHash(data, 32, key),
                 "Key");
         }
     }
@@ -161,7 +162,7 @@ public class Blake2bCoreTests
         {
             // RFC 7693 test vector: empty input, output 64 bytes (512 bits)
             var emptyInput = new byte[0];
-            var hash = Blake2bCore.ComputeHash(emptyInput, 64);
+            var hash = new Blake2bCore(SecurityPolicyOptions.Default).ComputeHash(emptyInput, 64);
 
             var expectedHex = "786A02F742015903C6C6FD852552D272912F4740E15847618A86E217F71F5419" +
                               "D25E1031AFEE585313896444934EB04B903A685B1448B755D56F701AFE9BE2CE";
@@ -189,7 +190,7 @@ public class Blake2bCoreTests
             // Act
             for (int i = 0; i < 100; i++)
             {
-                Blake2bCore.ComputeHash(data, 32, key);
+                new Blake2bCore(SecurityPolicyOptions.Default).ComputeHash(data, 32, key);
             }
 
             // Assert

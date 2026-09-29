@@ -9,6 +9,7 @@ namespace HeroCrypt.Tests.Protocols.HdWallet;
 /// </summary>
 public class Bip39MnemonicTests
 {
+
     /// <summary>
     /// Basic functionality tests for mnemonic generation.
     /// </summary>
@@ -16,6 +17,7 @@ public class Bip39MnemonicTests
     [Trait("Category", TestCategories.FAST)]
     public class MnemonicGeneration
     {
+        private readonly Bip39Mnemonic bip39 = new();
         [Fact]
         public void GenerateMnemonic_12Words_Success()
         {
@@ -24,7 +26,7 @@ public class Bip39MnemonicTests
             new Random(42).NextBytes(entropy);
 
             // Act
-            var mnemonic = Bip39Mnemonic.GenerateMnemonic(entropy);
+            var mnemonic = bip39.GenerateMnemonic(entropy);
 
             // Assert
             var words = mnemonic.Split(' ');
@@ -39,7 +41,7 @@ public class Bip39MnemonicTests
             new Random(42).NextBytes(entropy);
 
             // Act
-            var mnemonic = Bip39Mnemonic.GenerateMnemonic(entropy);
+            var mnemonic = bip39.GenerateMnemonic(entropy);
 
             // Assert
             var words = mnemonic.Split(' ');
@@ -57,7 +59,7 @@ public class Bip39MnemonicTests
             var entropy = new byte[entropyBytes];
             new Random(42).NextBytes(entropy);
 
-            var mnemonic = Bip39Mnemonic.GenerateMnemonic(entropy);
+            var mnemonic = bip39.GenerateMnemonic(entropy);
 
             var words = mnemonic.Split(' ');
             Assert.Equal(expectedWords, words.Length);
@@ -66,7 +68,7 @@ public class Bip39MnemonicTests
         [Fact]
         public void GenerateRandomMnemonic_Default24Words_Success()
         {
-            var mnemonic = Bip39Mnemonic.GenerateRandomMnemonic();
+            var mnemonic = bip39.GenerateRandomMnemonic();
 
             var words = mnemonic.Split(' ');
             Assert.Equal(24, words.Length);
@@ -80,7 +82,7 @@ public class Bip39MnemonicTests
         [InlineData(24)]
         public void GenerateRandomMnemonic_SpecifiedWordCount_Success(int wordCount)
         {
-            var mnemonic = Bip39Mnemonic.GenerateRandomMnemonic(wordCount);
+            var mnemonic = bip39.GenerateRandomMnemonic(wordCount);
 
             var words = mnemonic.Split(' ');
             Assert.Equal(wordCount, words.Length);
@@ -95,8 +97,8 @@ public class Bip39MnemonicTests
                 entropy[i] = (byte)(i + 1);
             }
 
-            var mnemonic1 = Bip39Mnemonic.GenerateMnemonic(entropy);
-            var mnemonic2 = Bip39Mnemonic.GenerateMnemonic(entropy);
+            var mnemonic1 = bip39.GenerateMnemonic(entropy);
+            var mnemonic2 = bip39.GenerateMnemonic(entropy);
 
             Assert.Equal(mnemonic1, mnemonic2);
         }
@@ -109,12 +111,14 @@ public class Bip39MnemonicTests
     [Trait("Category", TestCategories.FAST)]
     public class SeedDerivation
     {
+        private readonly Bip39Mnemonic bip39 = new();
+
         [Fact]
         public void MnemonicToSeed_WithoutPassphrase_Success()
         {
-            var mnemonic = Bip39Mnemonic.GenerateRandomMnemonic(12);
+            var mnemonic = bip39.GenerateRandomMnemonic(12);
 
-            var seed = Bip39Mnemonic.MnemonicToSeed(mnemonic);
+            var seed = bip39.MnemonicToSeed(mnemonic);
 
             Assert.NotNull(seed);
             Assert.Equal(64, seed.Length);
@@ -123,10 +127,10 @@ public class Bip39MnemonicTests
         [Fact]
         public void MnemonicToSeed_WithPassphrase_Success()
         {
-            var mnemonic = Bip39Mnemonic.GenerateRandomMnemonic(12);
+            var mnemonic = bip39.GenerateRandomMnemonic(12);
             var passphrase = "my secret passphrase";
 
-            var seed = Bip39Mnemonic.MnemonicToSeed(mnemonic, passphrase);
+            var seed = bip39.MnemonicToSeed(mnemonic, passphrase);
 
             Assert.NotNull(seed);
             Assert.Equal(64, seed.Length);
@@ -135,11 +139,11 @@ public class Bip39MnemonicTests
         [Fact]
         public void MnemonicToSeed_DifferentPassphrases_ProduceDifferentSeeds()
         {
-            var mnemonic = Bip39Mnemonic.GenerateRandomMnemonic(12);
+            var mnemonic = bip39.GenerateRandomMnemonic(12);
 
-            var seed1 = Bip39Mnemonic.MnemonicToSeed(mnemonic, "");
-            var seed2 = Bip39Mnemonic.MnemonicToSeed(mnemonic, "passphrase1");
-            var seed3 = Bip39Mnemonic.MnemonicToSeed(mnemonic, "passphrase2");
+            var seed1 = bip39.MnemonicToSeed(mnemonic, "");
+            var seed2 = bip39.MnemonicToSeed(mnemonic, "passphrase1");
+            var seed3 = bip39.MnemonicToSeed(mnemonic, "passphrase2");
 
             Assert.NotEqual(seed1, seed2);
             Assert.NotEqual(seed1, seed3);
@@ -149,11 +153,11 @@ public class Bip39MnemonicTests
         [Fact]
         public void MnemonicToSeed_SameMnemonicAndPassphrase_ProducesSameSeed()
         {
-            var mnemonic = Bip39Mnemonic.GenerateRandomMnemonic(12);
+            var mnemonic = bip39.GenerateRandomMnemonic(12);
             var passphrase = "test";
 
-            var seed1 = Bip39Mnemonic.MnemonicToSeed(mnemonic, passphrase);
-            var seed2 = Bip39Mnemonic.MnemonicToSeed(mnemonic, passphrase);
+            var seed1 = bip39.MnemonicToSeed(mnemonic, passphrase);
+            var seed2 = bip39.MnemonicToSeed(mnemonic, passphrase);
 
             Assert.Equal(seed1, seed2);
         }
@@ -166,14 +170,16 @@ public class Bip39MnemonicTests
     [Trait("Category", TestCategories.FAST)]
     public class Validation
     {
+        private readonly Bip39Mnemonic bip39 = new();
+
         [Fact]
         public void ValidateMnemonic_ValidMnemonic_ReturnsTrue()
         {
             var entropy = new byte[16];
             new Random(42).NextBytes(entropy);
-            var mnemonic = Bip39Mnemonic.GenerateMnemonic(entropy);
+            var mnemonic = bip39.GenerateMnemonic(entropy);
 
-            var isValid = Bip39Mnemonic.ValidateMnemonic(mnemonic);
+            var isValid = bip39.ValidateMnemonic(mnemonic);
 
             Assert.True(isValid);
         }
@@ -183,10 +189,10 @@ public class Bip39MnemonicTests
         {
             var entropy = new byte[16];
             new Random(42).NextBytes(entropy);
-            var mnemonic = Bip39Mnemonic.GenerateMnemonic(entropy);
+            var mnemonic = bip39.GenerateMnemonic(entropy);
 
-            var lowerValid = Bip39Mnemonic.ValidateMnemonic(mnemonic.ToLowerInvariant());
-            var upperValid = Bip39Mnemonic.ValidateMnemonic(mnemonic.ToUpperInvariant());
+            var lowerValid = bip39.ValidateMnemonic(mnemonic.ToLowerInvariant());
+            var upperValid = bip39.ValidateMnemonic(mnemonic.ToUpperInvariant());
 
             Assert.True(lowerValid);
             Assert.True(upperValid);
@@ -197,10 +203,10 @@ public class Bip39MnemonicTests
         {
             var entropy = new byte[16];
             new Random(42).NextBytes(entropy);
-            var mnemonic = Bip39Mnemonic.GenerateMnemonic(entropy);
+            var mnemonic = bip39.GenerateMnemonic(entropy);
             var mnemonicWithSpaces = "  " + mnemonic.Replace(" ", "  ") + "  ";
 
-            var isValid = Bip39Mnemonic.ValidateMnemonic(mnemonicWithSpaces);
+            var isValid = bip39.ValidateMnemonic(mnemonicWithSpaces);
 
             Assert.True(isValid);
         }
@@ -208,11 +214,11 @@ public class Bip39MnemonicTests
         [Fact]
         public void GetWordCountFromEntropyBytes_AllValidSizes_Success()
         {
-            Assert.Equal(12, Bip39Mnemonic.GetWordCountFromEntropyBytes(16));
-            Assert.Equal(15, Bip39Mnemonic.GetWordCountFromEntropyBytes(20));
-            Assert.Equal(18, Bip39Mnemonic.GetWordCountFromEntropyBytes(24));
-            Assert.Equal(21, Bip39Mnemonic.GetWordCountFromEntropyBytes(28));
-            Assert.Equal(24, Bip39Mnemonic.GetWordCountFromEntropyBytes(32));
+            Assert.Equal(12, bip39.GetWordCountFromEntropyBytes(16));
+            Assert.Equal(15, bip39.GetWordCountFromEntropyBytes(20));
+            Assert.Equal(18, bip39.GetWordCountFromEntropyBytes(24));
+            Assert.Equal(21, bip39.GetWordCountFromEntropyBytes(28));
+            Assert.Equal(24, bip39.GetWordCountFromEntropyBytes(32));
         }
     }
 
@@ -223,14 +229,16 @@ public class Bip39MnemonicTests
     [Trait("Category", TestCategories.FAST)]
     public class EntropyConversion
     {
+        private readonly Bip39Mnemonic bip39 = new();
+
         [Fact]
         public void MnemonicToEntropy_RoundTrip_Success()
         {
             var originalEntropy = new byte[16];
             new Random(42).NextBytes(originalEntropy);
-            var mnemonic = Bip39Mnemonic.GenerateMnemonic(originalEntropy);
+            var mnemonic = bip39.GenerateMnemonic(originalEntropy);
 
-            var recoveredEntropy = Bip39Mnemonic.MnemonicToEntropy(mnemonic);
+            var recoveredEntropy = bip39.MnemonicToEntropy(mnemonic);
 
             Assert.Equal(originalEntropy, recoveredEntropy);
         }
@@ -243,27 +251,29 @@ public class Bip39MnemonicTests
     [Trait("Category", TestCategories.FAST)]
     public class EdgeCases
     {
+        private readonly Bip39Mnemonic bip39 = new();
+
         [Fact]
         public void GenerateMnemonic_InvalidEntropyLength_ThrowsException()
         {
             var invalidEntropy = new byte[15];
 
             Assert.Throws<ArgumentException>(() =>
-                Bip39Mnemonic.GenerateMnemonic(invalidEntropy));
+                bip39.GenerateMnemonic(invalidEntropy));
         }
 
         [Fact]
         public void GenerateRandomMnemonic_InvalidWordCount_ThrowsException()
         {
             Assert.Throws<ArgumentException>(() =>
-                Bip39Mnemonic.GenerateRandomMnemonic(13));
+                bip39.GenerateRandomMnemonic(13));
         }
 
         [Fact]
         public void MnemonicToSeed_EmptyMnemonic_ThrowsException()
         {
             Assert.Throws<ArgumentException>(() =>
-                Bip39Mnemonic.MnemonicToSeed(""));
+                bip39.MnemonicToSeed(""));
         }
 
         [Fact]
@@ -271,7 +281,7 @@ public class Bip39MnemonicTests
         {
             var mnemonic = string.Join(" ", Enumerable.Repeat("word0001", 13));
 
-            var isValid = Bip39Mnemonic.ValidateMnemonic(mnemonic);
+            var isValid = bip39.ValidateMnemonic(mnemonic);
 
             Assert.False(isValid);
         }
@@ -279,7 +289,7 @@ public class Bip39MnemonicTests
         [Fact]
         public void ValidateMnemonic_EmptyString_ReturnsFalse()
         {
-            var isValid = Bip39Mnemonic.ValidateMnemonic("");
+            var isValid = bip39.ValidateMnemonic("");
 
             Assert.False(isValid);
         }
@@ -290,14 +300,14 @@ public class Bip39MnemonicTests
             var invalidMnemonic = "invalid words that are not in wordlist";
 
             Assert.Throws<ArgumentException>(() =>
-                Bip39Mnemonic.MnemonicToEntropy(invalidMnemonic));
+                bip39.MnemonicToEntropy(invalidMnemonic));
         }
 
         [Fact]
         public void GetWordCountFromEntropyBytes_InvalidSize_ThrowsException()
         {
             Assert.Throws<ArgumentException>(() =>
-                Bip39Mnemonic.GetWordCountFromEntropyBytes(15));
+                bip39.GetWordCountFromEntropyBytes(15));
         }
     }
 }

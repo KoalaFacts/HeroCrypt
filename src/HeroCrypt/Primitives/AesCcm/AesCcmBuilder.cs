@@ -56,13 +56,17 @@ public sealed class AesCcmBuilder : IDisposable
     private const int DefaultNonceSize = 13;
     private const int DefaultTagSize = 16;
 
+    private readonly AesCcmCore core;
     private byte[]? key;
     private byte[]? nonce;
     private byte[]? associatedData;
     private int tagSize = DefaultTagSize;
     private bool disposed;
 
-    private AesCcmBuilder() { }
+    private AesCcmBuilder(SecurityPolicyOptions? policy = null)
+    {
+        core = new AesCcmCore(policy);
+    }
 
     /// <summary>
     /// Creates a new AES-CCM builder instance.
@@ -198,7 +202,7 @@ public sealed class AesCcmBuilder : IDisposable
         ArgumentHelper.ThrowIfDisposed(disposed, this);
         ValidateState();
 
-        var result = AesCcmCore.Encrypt(plaintext, key, nonce, associatedData ?? ReadOnlySpan<byte>.Empty, tagSize);
+        var result = core.Encrypt(plaintext, key, nonce, associatedData ?? ReadOnlySpan<byte>.Empty, tagSize);
         return result.Ciphertext;
     }
 
@@ -230,7 +234,7 @@ public sealed class AesCcmBuilder : IDisposable
         ArgumentHelper.ThrowIfDisposed(disposed, this);
         ValidateState();
 
-        return AesCcmCore.Decrypt(ciphertext, key, nonce, associatedData ?? ReadOnlySpan<byte>.Empty, tagSize);
+        return core.Decrypt(ciphertext, key, nonce, associatedData ?? ReadOnlySpan<byte>.Empty, tagSize);
     }
 
     /// <summary>

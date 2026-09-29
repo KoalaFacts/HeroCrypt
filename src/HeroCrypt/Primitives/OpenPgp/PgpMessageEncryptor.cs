@@ -40,6 +40,7 @@ public sealed class PgpMessageEncryptor : IDisposable
     private DateTimeOffset fileDate = DateTimeOffset.UtcNow;
     private S2KType s2kType = S2KType.IteratedAndSalted;
     private readonly HashingAlgorithm s2kHashAlgorithm = HashingAlgorithm.Sha256;
+    private SecurityPolicyOptions securityPolicy = SecurityPolicy.CurrentPolicy;
     private bool disposed;
 
     private PgpMessageEncryptor()
@@ -51,6 +52,30 @@ public sealed class PgpMessageEncryptor : IDisposable
     /// </summary>
     /// <returns>A new PgpMessageEncryptor instance.</returns>
     public static PgpMessageEncryptor Create() => new();
+
+    /// <summary>
+    /// Sets the security policy for cryptographic validation.
+    /// </summary>
+    /// <param name="policy">The security policy to use.</param>
+    /// <returns>This encryptor for chaining.</returns>
+    public PgpMessageEncryptor WithSecurityPolicy(SecurityPolicyOptions policy)
+    {
+        ThrowIfDisposed();
+        securityPolicy = policy;
+        return this;
+    }
+
+    /// <summary>
+    /// Sets the security policy for cryptographic validation.
+    /// </summary>
+    /// <param name="configure">Function to configure the security policy.</param>
+    /// <returns>This encryptor for chaining.</returns>
+    public PgpMessageEncryptor WithSecurityPolicy(Func<SecurityPolicyOptions, SecurityPolicyOptions> configure)
+    {
+        ThrowIfDisposed();
+        securityPolicy = configure(SecurityPolicy.CurrentPolicy);
+        return this;
+    }
 
     /// <summary>
     /// Adds a recipient by their public key ring.
@@ -189,7 +214,7 @@ public sealed class PgpMessageEncryptor : IDisposable
         if (algorithmName != null)
         {
             CryptoAudit.CheckAlgorithm(algorithmName);
-            SecurityPolicy.ValidateOpenPgpSymmetric((byte)algorithm);
+            securityPolicy.ValidateOpenPgpSymmetric((byte)algorithm);
         }
 
         symmetricAlgorithm = algorithm;
@@ -424,7 +449,7 @@ public sealed class PgpMessageEncryptor : IDisposable
         else
         {
             encryptedSessionKey = recipient.Algorithm == PgpPublicKeyAlgorithm.X25519
-                ? PgpKeyEncryption.EncryptSessionKeyX25519(sessionKey, recipient)
+                ? PgpKeyEncryption.EncryptSessionKeyX25519(sessionKey, recipient, securityPolicy)
                 : throw new NotSupportedException($"Public key algorithm {recipient.Algorithm} is not supported for encryption.");
         }
 
@@ -664,7 +689,8 @@ public sealed class PgpMessageEncryptor : IDisposable
         // RFC 9580: HKDF-SHA256 with info = packet tag || version || cipher || aead || chunk size
         byte[] info = [0x12, 0x02, (byte)symmetricAlgorithm, (byte)aeadAlgorithm, 12]; // tag 18, v2
 
-        return Hkdf.HkdfCore.DeriveKey(
+        var hkdf = new Hkdf.HkdfCore(securityPolicy);
+        return hkdf.DeriveKey(
             sessionKey,
             salt,
             info,

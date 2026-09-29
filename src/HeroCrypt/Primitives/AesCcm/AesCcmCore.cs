@@ -52,8 +52,9 @@ public readonly struct AesCcmEncryptionResult
 ///   </item>
 /// </list>
 /// </remarks>
-internal static class AesCcmCore
+internal sealed class AesCcmCore
 {
+    private readonly SecurityPolicyOptions policy;
     private static readonly int[] SupportedKeySizes = AesConstants.StandardKeySizes;
     private const int MIN_NONCE_SIZE = 7;
     private const int MAX_NONCE_SIZE = 13;
@@ -62,6 +63,15 @@ internal static class AesCcmCore
     private const int MAX_TAG_SIZE = 16;
     private const int DEFAULT_TAG_SIZE = 16;
     private const int BLOCK_SIZE = AesConstants.BlockSize;
+
+    /// <summary>
+    /// Initializes a AesCcmCore with the effective security policy.
+    /// </summary>
+    /// <param name="policy">Optional policy; uses the current policy when omitted.</param>
+    public AesCcmCore(SecurityPolicyOptions? policy = null)
+    {
+        this.policy = policy ?? SecurityPolicy.CurrentPolicy;
+    }
 
     /// <summary>
     /// Encrypts plaintext using AES-CCM.
@@ -73,7 +83,7 @@ internal static class AesCcmCore
     /// <param name="tagSize">Authentication tag size (4, 6, 8, 10, 12, 14, or 16 bytes). Default: 16.</param>
     /// <param name="deterministicMode">When true and nonce is empty, uses zero nonce (dangerous - only for testing). Default: false.</param>
     /// <returns>Encryption result containing ciphertext, nonce, and metadata.</returns>
-    public static AesCcmEncryptionResult Encrypt(
+    public AesCcmEncryptionResult Encrypt(
         ReadOnlySpan<byte> plaintext,
         ReadOnlySpan<byte> key,
         ReadOnlySpan<byte> nonce = default,
@@ -157,7 +167,7 @@ internal static class AesCcmCore
     /// <param name="tagSize">Authentication tag size (4, 6, 8, 10, 12, 14, or 16 bytes). Default: 16.</param>
     /// <returns>The decrypted plaintext.</returns>
     /// <exception cref="CryptographicException">Thrown when authentication fails.</exception>
-    public static byte[] Decrypt(
+    public byte[] Decrypt(
         ReadOnlySpan<byte> ciphertext,
         ReadOnlySpan<byte> key,
         ReadOnlySpan<byte> nonce,
@@ -228,7 +238,7 @@ internal static class AesCcmCore
     /// Computes the CBC-MAC authentication tag
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void ComputeTag(
+    private void ComputeTag(
         Span<byte> tag,
         ReadOnlySpan<byte> plaintext,
         ReadOnlySpan<byte> associatedData,
@@ -353,7 +363,7 @@ internal static class AesCcmCore
     /// Encrypts plaintext and tag using CTR mode
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void EncryptCtr(
+    private void EncryptCtr(
         Span<byte> ciphertext,
         Span<byte> encryptedTag,
         ReadOnlySpan<byte> plaintext,
@@ -429,7 +439,7 @@ internal static class AesCcmCore
     /// Decrypts ciphertext and tag using CTR mode
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void DecryptCtr(
+    private void DecryptCtr(
         Span<byte> plaintext,
         Span<byte> decryptedTag,
         ReadOnlySpan<byte> ciphertext,
@@ -504,7 +514,7 @@ internal static class AesCcmCore
     /// Writes a length value in big-endian format
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void WriteLength(Span<byte> buffer, long value)
+    private void WriteLength(Span<byte> buffer, long value)
     {
         for (var i = buffer.Length - 1; i >= 0; i--)
         {
@@ -517,7 +527,7 @@ internal static class AesCcmCore
     /// XORs a block into the MAC
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void XorBlock(Span<byte> mac, ReadOnlySpan<byte> block)
+    private void XorBlock(Span<byte> mac, ReadOnlySpan<byte> block)
     {
         for (var i = 0; i < BLOCK_SIZE; i++)
         {
@@ -528,7 +538,7 @@ internal static class AesCcmCore
     /// <summary>
     /// Validates AES-CCM parameters
     /// </summary>
-    private static void ValidateParameters(ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce, int tagSize, int plaintextLength)
+    private void ValidateParameters(ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce, int tagSize, int plaintextLength)
     {
         if (!SupportedKeySizes.Contains(key.Length))
         {
@@ -557,7 +567,7 @@ internal static class AesCcmCore
     /// </summary>
     /// <param name="nonceSize">Nonce size in bytes (7-13).</param>
     /// <returns>Maximum plaintext length in bytes.</returns>
-    private static long GetMaxPlaintextLength(int nonceSize)
+    private long GetMaxPlaintextLength(int nonceSize)
     {
         var L = 15 - nonceSize;
         return (1L << (L * 8)) - 1;

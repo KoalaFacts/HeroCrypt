@@ -9,6 +9,8 @@ namespace HeroCrypt.Tests.Primitives.Armor;
 /// </summary>
 public class ArmorCoreTests
 {
+    private static readonly ArmorCore Core = new();
+
     /// <summary>
     /// Basic functionality tests for encoding operations.
     /// </summary>
@@ -21,7 +23,7 @@ public class ArmorCoreTests
         {
             var data = TestHelpers.RandomBytes(TestDataSizes.Medium);
 
-            var armored = ArmorCore.Encode(data, ArmorType.Message);
+            var armored = Core.Encode(data, ArmorType.Message);
 
             Assert.Contains("-----BEGIN PGP MESSAGE-----", armored);
         }
@@ -31,7 +33,7 @@ public class ArmorCoreTests
         {
             var data = TestHelpers.RandomBytes(TestDataSizes.Medium);
 
-            var armored = ArmorCore.Encode(data, ArmorType.Message);
+            var armored = Core.Encode(data, ArmorType.Message);
 
             Assert.Contains("-----END PGP MESSAGE-----", armored);
         }
@@ -41,7 +43,7 @@ public class ArmorCoreTests
         {
             var data = TestHelpers.RandomBytes(TestDataSizes.Medium);
 
-            var armored = ArmorCore.Encode(data, ArmorType.Message);
+            var armored = Core.Encode(data, ArmorType.Message);
 
             // CRC line starts with '=' followed by 4 Base64 characters
             Assert.Matches(@"=[\w\+/]{4}", armored);
@@ -57,7 +59,7 @@ public class ArmorCoreTests
         {
             var data = TestHelpers.RandomBytes(TestDataSizes.Small);
 
-            var armored = ArmorCore.Encode(data, type);
+            var armored = Core.Encode(data, type);
 
             Assert.Contains($"-----BEGIN PGP {expectedTypeName}-----", armored);
             Assert.Contains($"-----END PGP {expectedTypeName}-----", armored);
@@ -73,7 +75,7 @@ public class ArmorCoreTests
                 { "Comment", "Test Data" }
             };
 
-            var armored = ArmorCore.Encode(data, ArmorType.Message, headers);
+            var armored = Core.Encode(data, ArmorType.Message, headers);
 
             Assert.Contains("Version: HeroCrypt 1.0", armored);
             Assert.Contains("Comment: Test Data", armored);
@@ -84,8 +86,8 @@ public class ArmorCoreTests
         {
             var data = TestHelpers.RandomBytes(TestDataSizes.Medium);
 
-            var armored1 = ArmorCore.Encode(data, ArmorType.Message);
-            var armored2 = ArmorCore.Encode(data, ArmorType.Message);
+            var armored1 = Core.Encode(data, ArmorType.Message);
+            var armored2 = Core.Encode(data, ArmorType.Message);
 
             Assert.Equal(armored1, armored2);
         }
@@ -102,9 +104,9 @@ public class ArmorCoreTests
         public void Decode_ValidArmor_ReturnsOriginalData()
         {
             var originalData = TestHelpers.RandomBytes(TestDataSizes.Medium);
-            var armored = ArmorCore.Encode(originalData, ArmorType.Message);
+            var armored = Core.Encode(originalData, ArmorType.Message);
 
-            var result = ArmorCore.Decode(armored);
+            var result = Core.Decode(armored);
 
             Assert.Equal(originalData, result.Data);
         }
@@ -113,9 +115,9 @@ public class ArmorCoreTests
         public void Decode_ValidArmor_ReturnsCorrectType()
         {
             var data = TestHelpers.RandomBytes(TestDataSizes.Small);
-            var armored = ArmorCore.Encode(data, ArmorType.PublicKey);
+            var armored = Core.Encode(data, ArmorType.PublicKey);
 
-            var result = ArmorCore.Decode(armored);
+            var result = Core.Decode(armored);
 
             Assert.Equal(ArmorType.PublicKey, result.Type);
         }
@@ -129,9 +131,9 @@ public class ArmorCoreTests
                 { "Version", "HeroCrypt 1.0" },
                 { "Comment", "Test" }
             };
-            var armored = ArmorCore.Encode(data, ArmorType.Message, headers);
+            var armored = Core.Encode(data, ArmorType.Message, headers);
 
-            var result = ArmorCore.Decode(armored);
+            var result = Core.Decode(armored);
 
             Assert.Equal("HeroCrypt 1.0", result.Headers["Version"]);
             Assert.Equal("Test", result.Headers["Comment"]);
@@ -146,9 +148,9 @@ public class ArmorCoreTests
         public void RoundTrip_AllTypes_PreservesData(ArmorType type)
         {
             var originalData = TestHelpers.RandomBytes(TestDataSizes.Medium);
-            var armored = ArmorCore.Encode(originalData, type);
+            var armored = Core.Encode(originalData, type);
 
-            var result = ArmorCore.Decode(armored);
+            var result = Core.Decode(armored);
 
             Assert.Equal(originalData, result.Data);
             Assert.Equal(type, result.Type);
@@ -167,7 +169,7 @@ public class ArmorCoreTests
         {
             var data = Array.Empty<byte>();
 
-            var armored = ArmorCore.Encode(data, ArmorType.Message);
+            var armored = Core.Encode(data, ArmorType.Message);
 
             Assert.Contains("-----BEGIN PGP MESSAGE-----", armored);
             Assert.Contains("-----END PGP MESSAGE-----", armored);
@@ -177,9 +179,9 @@ public class ArmorCoreTests
         public void RoundTrip_EmptyData_ReturnsEmptyArray()
         {
             var originalData = Array.Empty<byte>();
-            var armored = ArmorCore.Encode(originalData, ArmorType.Message);
+            var armored = Core.Encode(originalData, ArmorType.Message);
 
-            var result = ArmorCore.Decode(armored);
+            var result = Core.Decode(armored);
 
             Assert.Empty(result.Data);
         }
@@ -189,8 +191,8 @@ public class ArmorCoreTests
         {
             var data = new byte[] { 0x42 };
 
-            var armored = ArmorCore.Encode(data, ArmorType.Message);
-            var result = ArmorCore.Decode(armored);
+            var armored = Core.Encode(data, ArmorType.Message);
+            var result = Core.Decode(armored);
 
             Assert.Equal(data, result.Data);
         }
@@ -200,9 +202,9 @@ public class ArmorCoreTests
         public void RoundTrip_LargeData_PreservesData()
         {
             var originalData = TestHelpers.RandomBytes(TestDataSizes.VeryLarge);
-            var armored = ArmorCore.Encode(originalData, ArmorType.Message);
+            var armored = Core.Encode(originalData, ArmorType.Message);
 
-            var result = ArmorCore.Decode(armored);
+            var result = Core.Decode(armored);
 
             Assert.Equal(originalData, result.Data);
         }
@@ -211,9 +213,9 @@ public class ArmorCoreTests
         public void Decode_WithLeadingWhitespace_Succeeds()
         {
             var data = TestHelpers.RandomBytes(TestDataSizes.Small);
-            var armored = "\n\n  \n" + ArmorCore.Encode(data, ArmorType.Message);
+            var armored = "\n\n  \n" + Core.Encode(data, ArmorType.Message);
 
-            var result = ArmorCore.Decode(armored);
+            var result = Core.Decode(armored);
 
             Assert.Equal(data, result.Data);
         }
@@ -223,7 +225,7 @@ public class ArmorCoreTests
         {
             var data = TestHelpers.RandomBytes(TestDataSizes.Small);
 
-            var armored = ArmorCore.Encode(data, ArmorType.Message);
+            var armored = Core.Encode(data, ArmorType.Message);
             var lines = armored.Split(["\r\n", "\n"], StringSplitOptions.None);
 
             // Line 0: header, Line 1: blank, Line 2+: data
@@ -244,19 +246,19 @@ public class ArmorCoreTests
         {
             var invalidArmor = "Not a valid armor format";
 
-            Assert.Throws<FormatException>(() => ArmorCore.Decode(invalidArmor));
+            Assert.Throws<FormatException>(() => Core.Decode(invalidArmor));
         }
 
         [Fact]
         public void Decode_MissingEndMarker_ThrowsFormatException()
         {
             var data = TestHelpers.RandomBytes(TestDataSizes.Small);
-            var armored = ArmorCore.Encode(data, ArmorType.Message);
+            var armored = Core.Encode(data, ArmorType.Message);
             var truncated = armored.Split("-----END")[0];
 
             // Should still decode since we don't require the end marker strictly
             // But we should validate this behavior
-            var result = ArmorCore.Decode(truncated);
+            var result = Core.Decode(truncated);
             Assert.NotNull(result.Data);
         }
 
@@ -264,7 +266,7 @@ public class ArmorCoreTests
         public void Decode_CorruptedCrc_ThrowsFormatException()
         {
             var data = TestHelpers.RandomBytes(TestDataSizes.Medium);
-            var armored = ArmorCore.Encode(data, ArmorType.Message);
+            var armored = Core.Encode(data, ArmorType.Message);
 
             // Corrupt the CRC by changing a character
             var lines = armored.Split('\n');
@@ -278,7 +280,7 @@ public class ArmorCoreTests
             }
             var corruptedArmor = string.Join("\n", lines);
 
-            Assert.Throws<FormatException>(() => ArmorCore.Decode(corruptedArmor));
+            Assert.Throws<FormatException>(() => Core.Decode(corruptedArmor));
         }
 
         [Fact]
@@ -290,13 +292,13 @@ public class ArmorCoreTests
 =AAAA
 -----END PGP MESSAGE-----";
 
-            Assert.Throws<FormatException>(() => ArmorCore.Decode(invalidArmor));
+            Assert.Throws<FormatException>(() => Core.Decode(invalidArmor));
         }
 
         [Fact]
         public void Decode_NullInput_ThrowsArgumentNullException()
         {
-            Assert.Throws<ArgumentNullException>(() => ArmorCore.Decode(null!));
+            Assert.Throws<ArgumentNullException>(() => Core.Decode(null!));
         }
 
         [Fact]
@@ -308,7 +310,7 @@ dGVzdA==
 =t8Cs
 -----END PGP UNKNOWN TYPE-----";
 
-            Assert.Throws<FormatException>(() => ArmorCore.Decode(invalidArmor));
+            Assert.Throws<FormatException>(() => Core.Decode(invalidArmor));
         }
     }
 
@@ -323,9 +325,9 @@ dGVzdA==
         public void VerifyChecksum_ValidArmor_ReturnsTrue()
         {
             var data = TestHelpers.RandomBytes(TestDataSizes.Medium);
-            var armored = ArmorCore.Encode(data, ArmorType.Message);
+            var armored = Core.Encode(data, ArmorType.Message);
 
-            var result = ArmorCore.VerifyChecksum(armored);
+            var result = Core.VerifyChecksum(armored);
 
             Assert.True(result);
         }
@@ -334,7 +336,7 @@ dGVzdA==
         public void VerifyChecksum_CorruptedData_ReturnsFalse()
         {
             var data = TestHelpers.RandomBytes(TestDataSizes.Medium);
-            var armored = ArmorCore.Encode(data, ArmorType.Message);
+            var armored = Core.Encode(data, ArmorType.Message);
 
             // Corrupt the Base64 data (not the CRC)
             var lines = armored.Split('\n').ToList();
@@ -351,7 +353,7 @@ dGVzdA==
             }
             var corruptedArmor = string.Join("\n", lines);
 
-            var result = ArmorCore.VerifyChecksum(corruptedArmor);
+            var result = Core.VerifyChecksum(corruptedArmor);
 
             Assert.False(result);
         }
@@ -369,7 +371,7 @@ dGVzdA==
         {
             var data = TestHelpers.RandomBytes(TestDataSizes.Medium);
 
-            var coreArmored = ArmorCore.Encode(data, ArmorType.Message);
+            var coreArmored = Core.Encode(data, ArmorType.Message);
             var builderArmored = ArmorBuilder.Create().WithType(ArmorType.Message).Encode(data);
 
             Assert.Equal(coreArmored, builderArmored);
@@ -379,9 +381,9 @@ dGVzdA==
         public void Builder_Decode_MatchesCore()
         {
             var data = TestHelpers.RandomBytes(TestDataSizes.Medium);
-            var armored = ArmorCore.Encode(data, ArmorType.Message);
+            var armored = Core.Encode(data, ArmorType.Message);
 
-            var coreResult = ArmorCore.Decode(armored);
+            var coreResult = Core.Decode(armored);
             var builderResult = ArmorBuilder.Create().Decode(armored);
 
             Assert.Equal(coreResult.Data, builderResult.Data);
@@ -421,7 +423,7 @@ dGVzdA==
         public void Builder_TryDecode_ValidArmor_ReturnsTrue()
         {
             var data = TestHelpers.RandomBytes(TestDataSizes.Medium);
-            var armored = ArmorCore.Encode(data, ArmorType.Message);
+            var armored = Core.Encode(data, ArmorType.Message);
 
             var success = ArmorBuilder.Create().TryDecode(armored, out var result);
 
@@ -445,7 +447,7 @@ dGVzdA==
         public void Builder_DecodeData_ReturnsOnlyData()
         {
             var data = TestHelpers.RandomBytes(TestDataSizes.Medium);
-            var armored = ArmorCore.Encode(data, ArmorType.Message);
+            var armored = Core.Encode(data, ArmorType.Message);
 
             var decodedData = ArmorBuilder.Create().DecodeData(armored);
 
@@ -474,7 +476,7 @@ dGVzdA==
         {
             var data = TestHelpers.RandomBytes(TestDataSizes.Large);
 
-            var armored = ArmorCore.Encode(data, ArmorType.Message);
+            var armored = Core.Encode(data, ArmorType.Message);
             var lines = armored.Split(["\r\n", "\n"], StringSplitOptions.None);
 
             foreach (var line in lines)

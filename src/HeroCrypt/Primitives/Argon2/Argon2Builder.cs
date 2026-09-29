@@ -332,7 +332,8 @@ public sealed class Argon2Builder : IDisposable
         ArgumentHelper.ThrowIfDisposed(disposed, this);
         ValidateState();
 
-        return Argon2Core.Hash(
+        var core = new Argon2Core();
+        return core.Hash(
             password!,
             salt!,
             iterations,

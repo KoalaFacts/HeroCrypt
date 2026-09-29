@@ -24,11 +24,15 @@ public sealed class Hc128Builder : IDisposable
     private const int KeySize = Hc128Core.KEY_SIZE;
     private const int IvSize = Hc128Core.IV_SIZE;
 
+    private readonly Hc128Core core;
     private byte[]? key;
     private byte[]? iv;
     private bool disposed;
 
-    private Hc128Builder() { }
+    private Hc128Builder(SecurityPolicyOptions? policy = null)
+    {
+        core = new Hc128Core(policy);
+    }
 
     /// <summary>
     /// Creates a new HC-128 builder instance.
@@ -154,7 +158,7 @@ public sealed class Hc128Builder : IDisposable
         ValidateState();
 
         var output = new byte[input.Length];
-        Hc128Core.Transform(output, input, key, iv);
+        core.Transform(output, input, key!, iv!);
         return output;
     }
 
@@ -171,7 +175,7 @@ public sealed class Hc128Builder : IDisposable
         ArgumentHelper.ThrowIfDisposed(disposed, this);
         ValidateState();
 
-        Hc128Core.Transform(output, input, key, iv);
+        core.Transform(output, input, key!, iv!);
     }
 
     /// <summary>

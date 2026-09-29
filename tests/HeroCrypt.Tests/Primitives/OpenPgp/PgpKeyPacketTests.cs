@@ -509,7 +509,8 @@ public class PgpKeyPacketTests
             var count = spec.GetIterationCount();
 
             Assert.True(count > 0);
-            Assert.Equal(S2KCore.DecodeIterationCount(224), count);
+            var core = new S2KCore();
+            Assert.Equal(core.DecodeIterationCount(224), count);
         }
 
         [Fact]
@@ -1144,6 +1145,7 @@ public class PgpKeyPacketTests
         {
             var oid = PgpCurveOid.NistP256.GetOidBytes();
             var publicPoint = TestHelpers.RandomBytes(65);
+            publicPoint[0] = 0x04; // OpenPGP uncompressed EC point prefix must survive MPI encoding.
             byte hashAlgo = 8; // SHA-256
             byte cipherAlgo = 9; // AES-256
 

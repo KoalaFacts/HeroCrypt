@@ -21,6 +21,8 @@ public class AesCcmCoreTests
     [Trait("Category", TestCategories.FAST)]
     public class BasicFunctionality
     {
+        private readonly AesCcmCore core = new();
+
         [Fact]
         public void EncryptDecrypt_RoundTrip_Success()
         {
@@ -31,8 +33,8 @@ public class AesCcmCoreTests
             var associatedData = TestHelpers.RandomBytes(TestDataSizes.Small);
 
             // Act
-            var result = AesCcmCore.Encrypt(plaintext, key, nonce, associatedData, DEFAULT_TAG_SIZE);
-            var decrypted = AesCcmCore.Decrypt(result.Ciphertext, key, result.Nonce, associatedData, DEFAULT_TAG_SIZE);
+            var result = core.Encrypt(plaintext, key, nonce, associatedData, DEFAULT_TAG_SIZE);
+            var decrypted = core.Decrypt(result.Ciphertext, key, result.Nonce, associatedData, DEFAULT_TAG_SIZE);
 
             // Assert
             Assert.Equal(plaintext.Length + DEFAULT_TAG_SIZE, result.Ciphertext.Length);
@@ -48,8 +50,8 @@ public class AesCcmCoreTests
             var plaintext = TestHelpers.RandomBytes(TestDataSizes.Medium);
 
             // Act
-            var result = AesCcmCore.Encrypt(plaintext, key, nonce);
-            var decrypted = AesCcmCore.Decrypt(result.Ciphertext, key, result.Nonce);
+            var result = core.Encrypt(plaintext, key, nonce);
+            var decrypted = core.Decrypt(result.Ciphertext, key, result.Nonce);
 
             // Assert
             CryptoAssertions.AssertBytesEqual(plaintext, decrypted);
@@ -63,6 +65,8 @@ public class AesCcmCoreTests
     [Trait("Category", TestCategories.FAST)]
     public class EdgeCases
     {
+        private readonly AesCcmCore core = new();
+
         [Fact]
         public void Encrypt_EmptyPlaintext_ReturnsTagOnly()
         {
@@ -72,7 +76,7 @@ public class AesCcmCoreTests
             var plaintext = Array.Empty<byte>();
 
             // Act
-            var result = AesCcmCore.Encrypt(plaintext, key, nonce);
+            var result = core.Encrypt(plaintext, key, nonce);
 
             // Assert
             Assert.Equal(DEFAULT_TAG_SIZE, result.Ciphertext.Length);
@@ -89,8 +93,8 @@ public class AesCcmCoreTests
 
             foreach (var tagSize in tagSizes)
             {
-                var result = AesCcmCore.Encrypt(plaintext, key, nonce, default, tagSize);
-                var decrypted = AesCcmCore.Decrypt(result.Ciphertext, key, result.Nonce, default, tagSize);
+                var result = core.Encrypt(plaintext, key, nonce, default, tagSize);
+                var decrypted = core.Decrypt(result.Ciphertext, key, result.Nonce, default, tagSize);
 
                 Assert.Equal(plaintext.Length + tagSize, result.Ciphertext.Length);
                 CryptoAssertions.AssertBytesEqual(plaintext, decrypted);
@@ -105,6 +109,8 @@ public class AesCcmCoreTests
     [Trait("Category", TestCategories.FAST)]
     public class Security
     {
+        private readonly AesCcmCore core = new();
+
         [Fact]
         public void Decrypt_ModifiedCiphertext_ThrowsCryptographicException()
         {
@@ -113,14 +119,14 @@ public class AesCcmCoreTests
             var nonce = TestHelpers.RandomBytes(NONCE_SIZE);
             var plaintext = TestHelpers.RandomBytes(TestDataSizes.Medium);
 
-            var result = AesCcmCore.Encrypt(plaintext, key, nonce);
+            var result = core.Encrypt(plaintext, key, nonce);
 
             // Act - Tamper with ciphertext (part of the encrypted message)
             var tamperedCiphertext = TestHelpers.TamperFirst(result.Ciphertext);
 
             // Assert
             Assert.Throws<CryptographicException>(() =>
-                AesCcmCore.Decrypt(tamperedCiphertext, key, result.Nonce));
+                core.Decrypt(tamperedCiphertext, key, result.Nonce));
         }
 
         [Fact]
@@ -131,14 +137,14 @@ public class AesCcmCoreTests
             var nonce = TestHelpers.RandomBytes(NONCE_SIZE);
             var plaintext = TestHelpers.RandomBytes(TestDataSizes.Medium);
 
-            var result = AesCcmCore.Encrypt(plaintext, key, nonce);
+            var result = core.Encrypt(plaintext, key, nonce);
 
             // Act - Tamper with tag (at the end)
             var tamperedCiphertext = TestHelpers.TamperLast(result.Ciphertext);
 
             // Assert
             Assert.Throws<CryptographicException>(() =>
-                AesCcmCore.Decrypt(tamperedCiphertext, key, result.Nonce));
+                core.Decrypt(tamperedCiphertext, key, result.Nonce));
         }
 
         [Fact]
@@ -150,14 +156,14 @@ public class AesCcmCoreTests
             var plaintext = TestHelpers.RandomBytes(TestDataSizes.Medium);
             var associatedData = TestHelpers.RandomBytes(TestDataSizes.Small);
 
-            var result = AesCcmCore.Encrypt(plaintext, key, nonce, associatedData, DEFAULT_TAG_SIZE);
+            var result = core.Encrypt(plaintext, key, nonce, associatedData, DEFAULT_TAG_SIZE);
 
             // Act - Tamper with AD
             var tamperedAD = TestHelpers.TamperFirst(associatedData);
 
             // Assert
             Assert.Throws<CryptographicException>(() =>
-                AesCcmCore.Decrypt(result.Ciphertext, key, result.Nonce, tamperedAD, DEFAULT_TAG_SIZE));
+                core.Decrypt(result.Ciphertext, key, result.Nonce, tamperedAD, DEFAULT_TAG_SIZE));
         }
     }
 
@@ -168,6 +174,8 @@ public class AesCcmCoreTests
     [Trait("Category", TestCategories.FAST)]
     public class ParameterValidation
     {
+        private readonly AesCcmCore core = new();
+
         [Fact]
         public void Encrypt_InvalidKeySize_ThrowsArgumentException()
         {
@@ -176,7 +184,7 @@ public class AesCcmCoreTests
             var plaintext = new byte[10];
 
             CryptoAssertions.AssertExceptionContains<ArgumentException>(
-                () => AesCcmCore.Encrypt(plaintext, invalidKey, nonce),
+                () => core.Encrypt(plaintext, invalidKey, nonce),
                 "Key must be");
         }
 
@@ -188,7 +196,7 @@ public class AesCcmCoreTests
             var plaintext = new byte[10];
 
             CryptoAssertions.AssertExceptionContains<ArgumentException>(
-                () => AesCcmCore.Encrypt(plaintext, key, invalidNonce),
+                () => core.Encrypt(plaintext, key, invalidNonce),
                 "Nonce");
         }
 
@@ -201,15 +209,15 @@ public class AesCcmCoreTests
 
             // Odd sizes validation
             Assert.Throws<ArgumentException>(() =>
-                AesCcmCore.Encrypt(plaintext, key, nonce, default, tagSize: 7));
+                core.Encrypt(plaintext, key, nonce, default, tagSize: 7));
 
             // Too small validation
             Assert.Throws<ArgumentException>(() =>
-                AesCcmCore.Encrypt(plaintext, key, nonce, default, tagSize: 2));
+                core.Encrypt(plaintext, key, nonce, default, tagSize: 2));
 
             // Too large validation
             Assert.Throws<ArgumentException>(() =>
-                AesCcmCore.Encrypt(plaintext, key, nonce, default, tagSize: 18));
+                core.Encrypt(plaintext, key, nonce, default, tagSize: 18));
         }
     }
 
@@ -221,6 +229,8 @@ public class AesCcmCoreTests
     [Trait("Category", TestCategories.FAST)]
     public class KnownAnswerTests
     {
+        private readonly AesCcmCore core = new();
+
         [Fact]
         public void Rfc3610_TestVector1()
         {
@@ -230,7 +240,7 @@ public class AesCcmCoreTests
             var associatedData = TestHelpers.HexToBytes("0001020304050607");
             var expectedCiphertext = TestHelpers.HexToBytes("588C979A61C663D2F066D0C2C0F989806D5F6B61DAC38417E8D12CFDF926E0");
 
-            var result = AesCcmCore.Encrypt(plaintext, key, nonce, associatedData, tagSize: 8);
+            var result = core.Encrypt(plaintext, key, nonce, associatedData, tagSize: 8);
 
             Assert.Equal(plaintext.Length + 8, result.Ciphertext.Length);
             CryptoAssertions.AssertBytesEqual(expectedCiphertext, result.Ciphertext);

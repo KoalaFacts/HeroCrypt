@@ -298,7 +298,8 @@ public sealed class PgpKeyCertifier : IDisposable
 
         // Use RsaCore infrastructure which handles all the RSA operations
         var rsaPrivateKey = new RsaPrivateKey(n, d, p, q, e);
-        var rsaParams = RsaCore.ToRsaParameters(rsaPrivateKey);
+        var rsaCore = new RsaCore();
+        var rsaParams = rsaCore.ToRsaParameters(rsaPrivateKey);
 
         using var rsa = RSA.Create();
         rsa.ImportParameters(rsaParams);
@@ -318,7 +319,7 @@ public sealed class PgpKeyCertifier : IDisposable
         var ed25519PrivateKey = certifyingKey!.Value.ReadEcSecretKey();
 
         // Ed25519 in OpenPGP signs the hash (which includes the signature trailer)
-        var signature = Ed25519Core.Sign(hash, ed25519PrivateKey);
+        var signature = new Ed25519Core().Sign(hash, ed25519PrivateKey);
         return signature;
     }
 

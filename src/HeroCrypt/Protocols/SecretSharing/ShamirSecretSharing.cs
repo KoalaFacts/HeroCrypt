@@ -19,8 +19,20 @@ namespace HeroCrypt.Protocols.SecretSharing;
 /// - Arbitrary threshold and share count
 /// - Constant-time operations where applicable
 /// </summary>
-public static class ShamirSecretSharing
+public sealed class ShamirSecretSharing
 {
+#pragma warning disable IDE0052 // Remove unread private member - policy reserved for future security validation
+    private readonly SecurityPolicyOptions policy;
+#pragma warning restore IDE0052
+
+    /// <summary>
+    /// Initializes a new instance of the ShamirSecretSharing class.
+    /// </summary>
+    /// <param name="policy">Optional security policy. If null, uses SecurityPolicy.CurrentPolicy.</param>
+    public ShamirSecretSharing(SecurityPolicyOptions? policy = null)
+    {
+        this.policy = policy ?? SecurityPolicy.CurrentPolicy;
+    }
     private const int MaxShares = 255;
     private const int MinThreshold = 2;
 
@@ -73,7 +85,7 @@ public static class ShamirSecretSharing
     /// <param name="threshold">Minimum number of shares needed to reconstruct (K)</param>
     /// <param name="shareCount">Total number of shares to generate (N)</param>
     /// <returns>Array of shares</returns>
-    public static Share[] Split(ReadOnlySpan<byte> secret, int threshold, int shareCount)
+    public Share[] Split(ReadOnlySpan<byte> secret, int threshold, int shareCount)
     {
         ValidateSplitParameters(secret.Length, threshold, shareCount);
 
@@ -123,7 +135,7 @@ public static class ShamirSecretSharing
     /// </summary>
     /// <param name="shares">Shares to use for reconstruction (minimum threshold required)</param>
     /// <returns>Reconstructed secret</returns>
-    public static byte[] Reconstruct(ReadOnlySpan<Share> shares)
+    public byte[] Reconstruct(ReadOnlySpan<Share> shares)
     {
         if (shares.Length < MinThreshold)
         {
@@ -334,7 +346,7 @@ public static class ShamirSecretSharing
     /// <param name="shares">Shares to verify</param>
     /// <param name="expectedSecret">Expected secret (for testing)</param>
     /// <returns>True if shares correctly reconstruct the secret</returns>
-    public static bool Verify(ReadOnlySpan<Share> shares, ReadOnlySpan<byte> expectedSecret)
+    public bool Verify(ReadOnlySpan<Share> shares, ReadOnlySpan<byte> expectedSecret)
     {
         try
         {

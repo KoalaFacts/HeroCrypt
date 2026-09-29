@@ -29,14 +29,27 @@ public readonly struct AesGcmEncryptionResult
 /// <remarks>
 /// AES-GCM is not supported on .NET Standard 2.0. Use ChaCha20-Poly1305 as an alternative.
 /// </remarks>
-internal static class AesGcmCore
+internal sealed class AesGcmCore
 {
+#pragma warning disable IDE0052 // Remove unread private member - policy reserved for future security validation
+    private readonly SecurityPolicyOptions policy;
+#pragma warning restore IDE0052
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="AesGcmCore"/> class.
+    /// </summary>
+    /// <param name="policy">The security policy to use. If null, uses <see cref="SecurityPolicy.CurrentPolicy"/>.</param>
+    public AesGcmCore(SecurityPolicyOptions? policy = null)
+    {
+        this.policy = policy ?? SecurityPolicy.CurrentPolicy;
+    }
+
 #if NETSTANDARD2_0
     /// <summary>
     /// Encrypts plaintext using AES-GCM.
     /// </summary>
     /// <exception cref="PlatformNotSupportedException">AES-GCM is not supported on .NET Standard 2.0.</exception>
-    public static AesGcmEncryptionResult Encrypt(
+    public AesGcmEncryptionResult Encrypt(
         ReadOnlySpan<byte> plaintext,
         ReadOnlySpan<byte> key,
         ReadOnlySpan<byte> nonce = default,
@@ -55,7 +68,7 @@ internal static class AesGcmCore
     /// Decrypts ciphertext using AES-GCM.
     /// </summary>
     /// <exception cref="PlatformNotSupportedException">AES-GCM is not supported on .NET Standard 2.0.</exception>
-    public static byte[] Decrypt(
+    public byte[] Decrypt(
         ReadOnlySpan<byte> ciphertext,
         ReadOnlySpan<byte> key,
         ReadOnlySpan<byte> nonce,
@@ -76,7 +89,7 @@ internal static class AesGcmCore
     /// <param name="associatedData">Additional authenticated data. Default: empty.</param>
     /// <param name="deterministicMode">When true and nonce is empty, uses zero nonce (dangerous - only for testing). Default: false.</param>
     /// <returns>Encryption result containing ciphertext, nonce, and metadata.</returns>
-    public static AesGcmEncryptionResult Encrypt(
+    public AesGcmEncryptionResult Encrypt(
         ReadOnlySpan<byte> plaintext,
         ReadOnlySpan<byte> key,
         ReadOnlySpan<byte> nonce = default,
@@ -132,7 +145,7 @@ internal static class AesGcmCore
     /// <param name="associatedData">Additional authenticated data used during encryption. Default: empty.</param>
     /// <returns>The decrypted plaintext.</returns>
     /// <exception cref="CryptographicException">Thrown when authentication fails.</exception>
-    public static byte[] Decrypt(
+    public byte[] Decrypt(
         ReadOnlySpan<byte> ciphertext,
         ReadOnlySpan<byte> key,
         ReadOnlySpan<byte> nonce,

@@ -135,6 +135,7 @@ public sealed class EncryptionBuilder : IDisposable
     private byte[]? associatedData;
     private bool deterministicMode;
     private bool disposed;
+    private SecurityPolicyOptions? securityPolicy;
 
     /// <summary>
     /// Sets the encryption algorithm to use.
@@ -186,6 +187,83 @@ public sealed class EncryptionBuilder : IDisposable
     /// Use RSA-OAEP with SHA-256 for encryption.
     /// </summary>
     public EncryptionBuilder WithRsaOaep() => WithAlgorithm(EncryptionAlgorithm.RsaOaepSha256);
+
+    /// <summary>
+    /// Sets custom security policy options for this encryption operation using a configuration function.
+    /// </summary>
+    /// <param name="configure">
+    /// A function that receives the default <see cref="SecurityPolicyOptions"/> and returns modified options.
+    /// Use the <c>with</c> syntax to override only the properties you need.
+    /// </param>
+    /// <returns>This builder for method chaining.</returns>
+    /// <exception cref="ObjectDisposedException">If the builder has been disposed.</exception>
+    /// <exception cref="ArgumentNullException">If <paramref name="configure"/> is null.</exception>
+    /// <remarks>
+    /// <para>
+    /// Use this method to override the global security policy for a specific operation.
+    /// This is useful for testing or when you need to use features that are normally blocked.
+    /// </para>
+    /// </remarks>
+    /// <example>
+    /// <code>
+    /// // Override just what you need using 'with' syntax
+    /// var result = HeroCryptBuilder.Encrypt()
+    ///     .WithAesGcm()
+    ///     .WithKey(key)
+    ///     .WithSecurityPolicy(opt => opt with { AllowDeterministicNonSiv = true })
+    ///     .WithDeterministicMode()
+    ///     .Encrypt(data);
+    ///
+    /// // Or change the security level
+    /// var result = HeroCryptBuilder.Encrypt()
+    ///     .WithAesGcm()
+    ///     .WithKey(key)
+    ///     .WithSecurityPolicy(opt => opt with { Level = SecurityLevel.Compliance })
+    ///     .Encrypt(data);
+    /// </code>
+    /// </example>
+    public EncryptionBuilder WithSecurityPolicy(Func<SecurityPolicyOptions, SecurityPolicyOptions> configure)
+    {
+#if !NETSTANDARD2_0
+        ArgumentNullException.ThrowIfNull(configure);
+#else
+        if (configure == null) throw new ArgumentNullException(nameof(configure));
+#endif
+
+        using (syncLock.EnterScope())
+        {
+            ThrowIfDisposed();
+            securityPolicy = configure(SecurityPolicy.CurrentPolicy);
+            return this;
+        }
+    }
+
+    /// <summary>
+    /// Sets custom security policy options directly for this encryption operation.
+    /// </summary>
+    /// <param name="options">The security policy options to use.</param>
+    /// <returns>This builder for method chaining.</returns>
+    /// <exception cref="ObjectDisposedException">If the builder has been disposed.</exception>
+    /// <example>
+    /// <code>
+    /// // Use a preset
+    /// var result = HeroCryptBuilder.Encrypt()
+    ///     .WithAesGcm()
+    ///     .WithKey(key)
+    ///     .WithSecurityPolicy(SecurityPolicyOptions.Testing)
+    ///     .WithDeterministicMode()
+    ///     .Encrypt(data);
+    /// </code>
+    /// </example>
+    public EncryptionBuilder WithSecurityPolicy(SecurityPolicyOptions options)
+    {
+        using (syncLock.EnterScope())
+        {
+            ThrowIfDisposed();
+            securityPolicy = options;
+            return this;
+        }
+    }
 
     /// <summary>
     /// Sets the encryption key.
@@ -512,27 +590,54 @@ public sealed class EncryptionBuilder : IDisposable
     /// <item>For other algorithms (AES-GCM, ChaCha20-Poly1305): <b>CATASTROPHIC</b> - nonce reuse completely breaks security</item>
     /// </list>
     /// <para>
-    /// In release builds, this method only works with AES-SIV (which is designed for deterministic encryption).
-    /// For other algorithms, it throws <see cref="InvalidOperationException"/> in release builds.
-    /// In debug builds, it is allowed for testing purposes only.
+    /// By default, this method only works with AES-SIV (which is designed for deterministic encryption).
+    /// For other algorithms, it throws <see cref="InvalidOperationException"/> unless the security policy
+    /// allows it via <see cref="WithSecurityPolicy(SecurityPolicyOptions)"/>, <see cref="SecurityPolicy.TestingScope"/>,
+    /// or <see cref="SecurityPolicy.LegacyScope"/>.
     /// </para>
     /// </remarks>
+    /// <example>
+    /// <code>
+    /// // Option 1: Use WithSecurityPolicy for per-builder override (recommended)
+    /// var result = HeroCryptBuilder.Encrypt()
+    ///     .WithAesGcm()
+    ///     .WithKey(key)
+    ///     .WithNonce(nonce)
+    ///     .WithSecurityPolicy(SecurityPolicyOptions.Testing)
+    ///     .WithDeterministicMode()
+    ///     .Encrypt(data);
+    ///
+    /// // Option 2: Use TestingScope for scoped override
+    /// using (SecurityPolicy.TestingScope())
+    /// {
+    ///     var result = HeroCryptBuilder.Encrypt()
+    ///         .WithAesGcm()
+    ///         .WithKey(key)
+    ///         .WithNonce(nonce)
+    ///         .WithDeterministicMode()
+    ///         .Encrypt(data);
+    /// }
+    /// </code>
+    /// </example>
     [Obsolete("Deterministic mode is dangerous for non-SIV algorithms. Use only for testing or with AES-SIV.")]
     public EncryptionBuilder WithDeterministicMode()
     {
         using (syncLock.EnterScope())
         {
             ThrowIfDisposed();
-#if !DEBUG
-            // In release builds, only allow deterministic mode for AES-SIV which is designed for it
-            if (algorithm != EncryptionAlgorithm.AesSiv)
+
+            // Get the effective security policy (builder override or global)
+            var effectivePolicy = SecurityPolicy.GetEffective(securityPolicy);
+
+            // Only allow deterministic mode for AES-SIV (designed for it) or when security policy permits
+            if (algorithm != EncryptionAlgorithm.AesSiv && !effectivePolicy.AllowDeterministicNonSiv)
             {
                 throw new InvalidOperationException(
-                    $"Deterministic mode is only allowed for AES-SIV in release builds. " +
+                    $"Deterministic mode is only allowed for AES-SIV or when security policy permits. " +
                     $"Algorithm '{algorithm}' uses zero nonces which completely breaks security. " +
-                    $"For testing, use a DEBUG build.");
+                    $"For testing, use .WithSecurityPolicy(SecurityPolicyOptions.Testing) or SecurityPolicy.TestingScope().");
             }
-#endif
+
             deterministicMode = true;
             return this;
         }
@@ -562,6 +667,10 @@ public sealed class EncryptionBuilder : IDisposable
 
             if (nonce != null)
                 InputValidator.ValidateByteArray(nonce, nameof(nonce), allowEmpty: true);
+
+            var effectivePolicy = SecurityPolicy.GetEffective(securityPolicy);
+            if (deterministicMode && algorithm != EncryptionAlgorithm.AesSiv && !effectivePolicy.AllowDeterministicNonSiv)
+                throw new InvalidOperationException("Deterministic mode is not permitted by the current security policy.");
 
             var aad = associatedData ?? [];
             ReadOnlySpan<byte> nonceSpan = nonce ?? default;
@@ -614,9 +723,10 @@ public sealed class EncryptionBuilder : IDisposable
         return Encrypt(System.Text.Encoding.UTF8.GetBytes(plaintext));
     }
 
-    private static EncryptionResult EncryptAesGcm(ReadOnlySpan<byte> plaintext, ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce, ReadOnlySpan<byte> aad, bool deterministicMode)
+    private EncryptionResult EncryptAesGcm(ReadOnlySpan<byte> plaintext, ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce, ReadOnlySpan<byte> aad, bool deterministicMode)
     {
-        var result = AesGcmCore.Encrypt(plaintext, key, nonce, aad, deterministicMode);
+        var effectivePolicy = securityPolicy ?? SecurityPolicy.CurrentPolicy;
+        var result = new AesGcmCore(effectivePolicy).Encrypt(plaintext, key, nonce, aad, deterministicMode);
 
         return new EncryptionResult
         {
@@ -625,9 +735,10 @@ public sealed class EncryptionBuilder : IDisposable
         };
     }
 
-    private static EncryptionResult EncryptAesCcm(ReadOnlySpan<byte> plaintext, ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce, ReadOnlySpan<byte> aad, bool deterministicMode)
+    private EncryptionResult EncryptAesCcm(ReadOnlySpan<byte> plaintext, ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce, ReadOnlySpan<byte> aad, bool deterministicMode)
     {
-        var result = AesCcmCore.Encrypt(plaintext, key, nonce, aad, deterministicMode: deterministicMode);
+        var effectivePolicy = securityPolicy ?? SecurityPolicy.CurrentPolicy;
+        var result = new AesCcmCore(effectivePolicy).Encrypt(plaintext, key, nonce, aad, deterministicMode: deterministicMode);
 
         return new EncryptionResult
         {
@@ -636,9 +747,10 @@ public sealed class EncryptionBuilder : IDisposable
         };
     }
 
-    private static EncryptionResult EncryptAesOcb(ReadOnlySpan<byte> plaintext, ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce, ReadOnlySpan<byte> aad, bool deterministicMode)
+    private EncryptionResult EncryptAesOcb(ReadOnlySpan<byte> plaintext, ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce, ReadOnlySpan<byte> aad, bool deterministicMode)
     {
-        var result = AesOcbCore.Encrypt(plaintext, key, nonce, aad, deterministicMode);
+        var effectivePolicy = securityPolicy ?? SecurityPolicy.CurrentPolicy;
+        var result = new AesOcbCore(effectivePolicy).Encrypt(plaintext, key, nonce, aad, deterministicMode);
 
         return new EncryptionResult
         {
@@ -647,9 +759,10 @@ public sealed class EncryptionBuilder : IDisposable
         };
     }
 
-    private static EncryptionResult EncryptAesSiv(ReadOnlySpan<byte> plaintext, ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce, ReadOnlySpan<byte> aad, bool deterministicMode)
+    private EncryptionResult EncryptAesSiv(ReadOnlySpan<byte> plaintext, ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce, ReadOnlySpan<byte> aad, bool deterministicMode)
     {
-        var result = AesSivCore.Encrypt(plaintext, key, nonce, aad, deterministicMode);
+        var effectivePolicy = securityPolicy ?? SecurityPolicy.CurrentPolicy;
+        var result = new AesSivCore(effectivePolicy).Encrypt(plaintext, key, nonce, aad, deterministicMode);
 
         return new EncryptionResult
         {
@@ -658,9 +771,10 @@ public sealed class EncryptionBuilder : IDisposable
         };
     }
 
-    private static EncryptionResult EncryptChaCha20Poly1305(ReadOnlySpan<byte> plaintext, ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce, ReadOnlySpan<byte> aad, bool deterministicMode)
+    private EncryptionResult EncryptChaCha20Poly1305(ReadOnlySpan<byte> plaintext, ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce, ReadOnlySpan<byte> aad, bool deterministicMode)
     {
-        var result = ChaCha20Poly1305Core.Encrypt(plaintext, key, nonce, aad, deterministicMode);
+        var effectivePolicy = securityPolicy ?? SecurityPolicy.CurrentPolicy;
+        var result = new ChaCha20Poly1305Core(effectivePolicy).Encrypt(plaintext, key, nonce, aad, deterministicMode);
 
         return new EncryptionResult
         {
@@ -669,9 +783,10 @@ public sealed class EncryptionBuilder : IDisposable
         };
     }
 
-    private static EncryptionResult EncryptXChaCha20Poly1305(ReadOnlySpan<byte> plaintext, ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce, ReadOnlySpan<byte> aad, bool deterministicMode)
+    private EncryptionResult EncryptXChaCha20Poly1305(ReadOnlySpan<byte> plaintext, ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce, ReadOnlySpan<byte> aad, bool deterministicMode)
     {
-        var result = XChaCha20Poly1305Core.Encrypt(plaintext, key, nonce, aad, deterministicMode);
+        var effectivePolicy = securityPolicy ?? SecurityPolicy.CurrentPolicy;
+        var result = new XChaCha20Poly1305Core(effectivePolicy).Encrypt(plaintext, key, nonce, aad, deterministicMode);
 
         return new EncryptionResult
         {
@@ -689,22 +804,22 @@ public sealed class EncryptionBuilder : IDisposable
         throw new PlatformNotSupportedException("RSA key import is not supported on .NET Standard 2.0.");
     }
 
-    private static EncryptionResult EncryptX25519ChaCha20Poly1305(byte[] plaintext, byte[] recipientPublicKey, byte[] aad)
+    private EncryptionResult EncryptX25519ChaCha20Poly1305(byte[] plaintext, byte[] recipientPublicKey, byte[] aad)
     {
         return EncryptX25519Hybrid(plaintext, recipientPublicKey, aad, HybridCipherType.ChaCha20Poly1305);
     }
 
-    private static EncryptionResult EncryptX25519XChaCha20Poly1305(byte[] plaintext, byte[] recipientPublicKey, byte[] aad)
+    private EncryptionResult EncryptX25519XChaCha20Poly1305(byte[] plaintext, byte[] recipientPublicKey, byte[] aad)
     {
         return EncryptX25519Hybrid(plaintext, recipientPublicKey, aad, HybridCipherType.XChaCha20Poly1305);
     }
 
-    private static EncryptionResult EncryptX25519AesGcm(byte[] plaintext, byte[] recipientPublicKey, byte[] aad)
+    private EncryptionResult EncryptX25519AesGcm(byte[] plaintext, byte[] recipientPublicKey, byte[] aad)
     {
         return EncryptX25519Hybrid(plaintext, recipientPublicKey, aad, HybridCipherType.AesGcm);
     }
 
-    private static EncryptionResult EncryptX25519Hybrid(byte[] plaintext, byte[] recipientPublicKey, byte[] aad, HybridCipherType cipher)
+    private EncryptionResult EncryptX25519Hybrid(byte[] plaintext, byte[] recipientPublicKey, byte[] aad, HybridCipherType cipher)
     {
         _ = plaintext;
         _ = recipientPublicKey;
@@ -727,36 +842,38 @@ public sealed class EncryptionBuilder : IDisposable
         };
     }
 
-    private static EncryptionResult EncryptX25519ChaCha20Poly1305(byte[] plaintext, byte[] recipientPublicKey, byte[] aad)
+    private EncryptionResult EncryptX25519ChaCha20Poly1305(byte[] plaintext, byte[] recipientPublicKey, byte[] aad)
     {
         return EncryptX25519Hybrid(plaintext, recipientPublicKey, aad, HybridCipherType.ChaCha20Poly1305);
     }
 
-    private static EncryptionResult EncryptX25519XChaCha20Poly1305(byte[] plaintext, byte[] recipientPublicKey, byte[] aad)
+    private EncryptionResult EncryptX25519XChaCha20Poly1305(byte[] plaintext, byte[] recipientPublicKey, byte[] aad)
     {
         return EncryptX25519Hybrid(plaintext, recipientPublicKey, aad, HybridCipherType.XChaCha20Poly1305);
     }
 
-    private static EncryptionResult EncryptX25519AesGcm(byte[] plaintext, byte[] recipientPublicKey, byte[] aad)
+    private EncryptionResult EncryptX25519AesGcm(byte[] plaintext, byte[] recipientPublicKey, byte[] aad)
     {
         return EncryptX25519Hybrid(plaintext, recipientPublicKey, aad, HybridCipherType.AesGcm);
     }
 
-    private static EncryptionResult EncryptX25519Hybrid(byte[] plaintext, byte[] recipientPublicKey, byte[] aad, HybridCipherType cipher)
+    private EncryptionResult EncryptX25519Hybrid(byte[] plaintext, byte[] recipientPublicKey, byte[] aad, HybridCipherType cipher)
     {
         // Generate ephemeral key pair
-        var ephemeralPrivateKey = Curve25519Core.GeneratePrivateKey();
-        var ephemeralPublicKey = Curve25519Core.DerivePublicKey(ephemeralPrivateKey);
+        var curve = new Curve25519Core((securityPolicy ?? SecurityPolicy.CurrentPolicy));
+        var ephemeralPrivateKey = curve.GeneratePrivateKey();
+        var ephemeralPublicKey = curve.DerivePublicKey(ephemeralPrivateKey);
 
         try
         {
             // Compute shared secret via X25519 key agreement
-            var sharedSecret = Curve25519Core.ComputeSharedSecret(ephemeralPrivateKey, recipientPublicKey);
+            var sharedSecret = curve.ComputeSharedSecret(ephemeralPrivateKey, recipientPublicKey);
 
             try
             {
                 // Derive symmetric key using HKDF
-                var symmetricKey = HkdfCore.DeriveKey(
+                var hkdf = new HkdfCore((securityPolicy ?? SecurityPolicy.CurrentPolicy));
+                var symmetricKey = hkdf.DeriveKey(
                     sharedSecret,
                     salt: [],
                     info: System.Text.Encoding.UTF8.GetBytes("X25519-Hybrid-Encryption"),
@@ -797,21 +914,21 @@ public sealed class EncryptionBuilder : IDisposable
         }
     }
 
-    private static (byte[] Ciphertext, byte[] Nonce) EncryptWithChaCha20Poly1305(byte[] plaintext, byte[] key, byte[] aad)
+    private (byte[] Ciphertext, byte[] Nonce) EncryptWithChaCha20Poly1305(byte[] plaintext, byte[] key, byte[] aad)
     {
-        var result = ChaCha20Poly1305Core.Encrypt(plaintext, key, associatedData: aad);
+        var result = new ChaCha20Poly1305Core((securityPolicy ?? SecurityPolicy.CurrentPolicy)).Encrypt(plaintext, key, associatedData: aad);
         return (result.Ciphertext, result.Nonce);
     }
 
-    private static (byte[] Ciphertext, byte[] Nonce) EncryptWithXChaCha20Poly1305(byte[] plaintext, byte[] key, byte[] aad)
+    private (byte[] Ciphertext, byte[] Nonce) EncryptWithXChaCha20Poly1305(byte[] plaintext, byte[] key, byte[] aad)
     {
-        var result = XChaCha20Poly1305Core.Encrypt(plaintext, key, associatedData: aad);
+        var result = new XChaCha20Poly1305Core((securityPolicy ?? SecurityPolicy.CurrentPolicy)).Encrypt(plaintext, key, associatedData: aad);
         return (result.Ciphertext, result.Nonce);
     }
 
-    private static (byte[] Ciphertext, byte[] Nonce) EncryptWithAesGcm(byte[] plaintext, byte[] key, byte[] aad)
+    private (byte[] Ciphertext, byte[] Nonce) EncryptWithAesGcm(byte[] plaintext, byte[] key, byte[] aad)
     {
-        var result = AesGcmCore.Encrypt(plaintext, key, associatedData: aad);
+        var result = new AesGcmCore((securityPolicy ?? SecurityPolicy.CurrentPolicy)).Encrypt(plaintext, key, associatedData: aad);
         return (result.Ciphertext, result.Nonce);
     }
 #endif
@@ -867,13 +984,13 @@ public sealed class EncryptionBuilder : IDisposable
 
 #if NET10_OR_GREATER
 #pragma warning disable SYSLIB5006
-    private static EncryptionResult EncryptMLKemAesGcm(byte[] plaintext, byte[] publicKeyPemBytes, byte[] aad)
+    private EncryptionResult EncryptMLKemAesGcm(byte[] plaintext, byte[] publicKeyPemBytes, byte[] aad)
     {
         var publicKeyPem = System.Text.Encoding.UTF8.GetString(publicKeyPemBytes);
 
         using var encapsulation = MLKemCore.Encapsulate(publicKeyPem);
 
-        var result = AesGcmCore.Encrypt(plaintext, encapsulation.SharedSecret, associatedData: aad);
+        var result = new AesGcmCore((securityPolicy ?? SecurityPolicy.CurrentPolicy)).Encrypt(plaintext, encapsulation.SharedSecret, associatedData: aad);
 
         return new EncryptionResult
         {
@@ -883,13 +1000,13 @@ public sealed class EncryptionBuilder : IDisposable
         };
     }
 
-    private static EncryptionResult EncryptMLKemChaCha20Poly1305(byte[] plaintext, byte[] publicKeyPemBytes, byte[] aad)
+    private EncryptionResult EncryptMLKemChaCha20Poly1305(byte[] plaintext, byte[] publicKeyPemBytes, byte[] aad)
     {
         var publicKeyPem = System.Text.Encoding.UTF8.GetString(publicKeyPemBytes);
 
         using var encapsulation = MLKemCore.Encapsulate(publicKeyPem);
 
-        var result = ChaCha20Poly1305Core.Encrypt(plaintext, encapsulation.SharedSecret, associatedData: aad);
+        var result = new ChaCha20Poly1305Core((securityPolicy ?? SecurityPolicy.CurrentPolicy)).Encrypt(plaintext, encapsulation.SharedSecret, associatedData: aad);
 
         return new EncryptionResult
         {

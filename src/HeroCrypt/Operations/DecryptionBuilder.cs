@@ -68,6 +68,7 @@ public sealed class DecryptionBuilder : IDisposable
     private byte[]? associatedData;
     private byte[]? encapsulatedKey;
     private bool disposed;
+    private SecurityPolicyOptions? securityPolicy;
 
     private void ThrowIfDisposed()
     {
@@ -173,6 +174,48 @@ public sealed class DecryptionBuilder : IDisposable
     /// Use RSA-OAEP with SHA-256 for decryption.
     /// </summary>
     public DecryptionBuilder WithRsaOaep() => WithAlgorithm(EncryptionAlgorithm.RsaOaepSha256);
+
+    /// <summary>
+    /// Sets custom security policy options for this decryption operation using a configuration function.
+    /// </summary>
+    /// <param name="configure">
+    /// A function that receives the default <see cref="SecurityPolicyOptions"/> and returns modified options.
+    /// Use the <c>with</c> syntax to override only the properties you need.
+    /// </param>
+    /// <returns>This builder for method chaining.</returns>
+    /// <exception cref="ObjectDisposedException">If the builder has been disposed.</exception>
+    /// <exception cref="ArgumentNullException">If <paramref name="configure"/> is null.</exception>
+    public DecryptionBuilder WithSecurityPolicy(Func<SecurityPolicyOptions, SecurityPolicyOptions> configure)
+    {
+#if !NETSTANDARD2_0
+        ArgumentNullException.ThrowIfNull(configure);
+#else
+        if (configure == null) throw new ArgumentNullException(nameof(configure));
+#endif
+
+        using (syncLock.EnterScope())
+        {
+            ThrowIfDisposed();
+            securityPolicy = configure(SecurityPolicy.CurrentPolicy);
+            return this;
+        }
+    }
+
+    /// <summary>
+    /// Sets custom security policy options directly for this decryption operation.
+    /// </summary>
+    /// <param name="options">The security policy options to use.</param>
+    /// <returns>This builder for method chaining.</returns>
+    /// <exception cref="ObjectDisposedException">If the builder has been disposed.</exception>
+    public DecryptionBuilder WithSecurityPolicy(SecurityPolicyOptions options)
+    {
+        using (syncLock.EnterScope())
+        {
+            ThrowIfDisposed();
+            securityPolicy = options;
+            return this;
+        }
+    }
 
     /// <summary>
     /// Sets the decryption key.
@@ -689,34 +732,40 @@ public sealed class DecryptionBuilder : IDisposable
         return System.Text.Encoding.UTF8.GetString(plaintext);
     }
 
-    private static byte[] DecryptAesGcm(byte[] ciphertext, byte[] key, byte[] nonce, byte[] aad)
+    private byte[] DecryptAesGcm(byte[] ciphertext, byte[] key, byte[] nonce, byte[] aad)
     {
-        return AesGcmCore.Decrypt(ciphertext, key, nonce, aad);
+        var effectivePolicy = securityPolicy ?? SecurityPolicy.CurrentPolicy;
+        return new AesGcmCore(effectivePolicy).Decrypt(ciphertext, key, nonce, aad);
     }
 
-    private static byte[] DecryptAesCcm(byte[] ciphertext, byte[] key, byte[] nonce, byte[] aad)
+    private byte[] DecryptAesCcm(byte[] ciphertext, byte[] key, byte[] nonce, byte[] aad)
     {
-        return AesCcmCore.Decrypt(ciphertext, key, nonce, aad);
+        var effectivePolicy = securityPolicy ?? SecurityPolicy.CurrentPolicy;
+        return new AesCcmCore(effectivePolicy).Decrypt(ciphertext, key, nonce, aad);
     }
 
-    private static byte[] DecryptAesOcb(byte[] ciphertext, byte[] key, byte[] nonce, byte[] aad)
+    private byte[] DecryptAesOcb(byte[] ciphertext, byte[] key, byte[] nonce, byte[] aad)
     {
-        return AesOcbCore.Decrypt(ciphertext, key, nonce, aad);
+        var effectivePolicy = securityPolicy ?? SecurityPolicy.CurrentPolicy;
+        return new AesOcbCore(effectivePolicy).Decrypt(ciphertext, key, nonce, aad);
     }
 
-    private static byte[] DecryptAesSiv(byte[] ciphertext, byte[] key, byte[] nonce, byte[] aad)
+    private byte[] DecryptAesSiv(byte[] ciphertext, byte[] key, byte[] nonce, byte[] aad)
     {
-        return AesSivCore.Decrypt(ciphertext, key, nonce, aad);
+        var effectivePolicy = securityPolicy ?? SecurityPolicy.CurrentPolicy;
+        return new AesSivCore(effectivePolicy).Decrypt(ciphertext, key, nonce, aad);
     }
 
-    private static byte[] DecryptChaCha20Poly1305(byte[] ciphertext, byte[] key, byte[] nonce, byte[] aad)
+    private byte[] DecryptChaCha20Poly1305(byte[] ciphertext, byte[] key, byte[] nonce, byte[] aad)
     {
-        return ChaCha20Poly1305Core.Decrypt(ciphertext, key, nonce, aad);
+        var effectivePolicy = securityPolicy ?? SecurityPolicy.CurrentPolicy;
+        return new ChaCha20Poly1305Core(effectivePolicy).Decrypt(ciphertext, key, nonce, aad);
     }
 
-    private static byte[] DecryptXChaCha20Poly1305(byte[] ciphertext, byte[] key, byte[] nonce, byte[] aad)
+    private byte[] DecryptXChaCha20Poly1305(byte[] ciphertext, byte[] key, byte[] nonce, byte[] aad)
     {
-        return XChaCha20Poly1305Core.Decrypt(ciphertext, key, nonce, aad);
+        var effectivePolicy = securityPolicy ?? SecurityPolicy.CurrentPolicy;
+        return new XChaCha20Poly1305Core(effectivePolicy).Decrypt(ciphertext, key, nonce, aad);
     }
 
 #if NETSTANDARD2_0
@@ -728,22 +777,22 @@ public sealed class DecryptionBuilder : IDisposable
         throw new PlatformNotSupportedException("RSA key import is not supported on .NET Standard 2.0.");
     }
 
-    private static byte[] DecryptX25519ChaCha20Poly1305(byte[] ciphertext, byte[] privateKey, byte[] nonce, byte[] aad, byte[]? ephemeralPublicKey)
+    private byte[] DecryptX25519ChaCha20Poly1305(byte[] ciphertext, byte[] privateKey, byte[] nonce, byte[] aad, byte[]? ephemeralPublicKey)
     {
         return DecryptX25519Hybrid(ciphertext, privateKey, nonce, aad, ephemeralPublicKey, HybridCipherType.ChaCha20Poly1305);
     }
 
-    private static byte[] DecryptX25519XChaCha20Poly1305(byte[] ciphertext, byte[] privateKey, byte[] nonce, byte[] aad, byte[]? ephemeralPublicKey)
+    private byte[] DecryptX25519XChaCha20Poly1305(byte[] ciphertext, byte[] privateKey, byte[] nonce, byte[] aad, byte[]? ephemeralPublicKey)
     {
         return DecryptX25519Hybrid(ciphertext, privateKey, nonce, aad, ephemeralPublicKey, HybridCipherType.XChaCha20Poly1305);
     }
 
-    private static byte[] DecryptX25519AesGcm(byte[] ciphertext, byte[] privateKey, byte[] nonce, byte[] aad, byte[]? ephemeralPublicKey)
+    private byte[] DecryptX25519AesGcm(byte[] ciphertext, byte[] privateKey, byte[] nonce, byte[] aad, byte[]? ephemeralPublicKey)
     {
         return DecryptX25519Hybrid(ciphertext, privateKey, nonce, aad, ephemeralPublicKey, HybridCipherType.AesGcm);
     }
 
-    private static byte[] DecryptX25519Hybrid(byte[] ciphertext, byte[] privateKey, byte[] nonce, byte[] aad, byte[]? ephemeralPublicKey, HybridCipherType cipher)
+    private byte[] DecryptX25519Hybrid(byte[] ciphertext, byte[] privateKey, byte[] nonce, byte[] aad, byte[]? ephemeralPublicKey, HybridCipherType cipher)
     {
         _ = ciphertext;
         _ = privateKey;
@@ -762,33 +811,35 @@ public sealed class DecryptionBuilder : IDisposable
         return rsa.Decrypt(ciphertext, padding);
     }
 
-    private static byte[] DecryptX25519ChaCha20Poly1305(byte[] ciphertext, byte[] privateKey, byte[] nonce, byte[] aad, byte[]? ephemeralPublicKey)
+    private byte[] DecryptX25519ChaCha20Poly1305(byte[] ciphertext, byte[] privateKey, byte[] nonce, byte[] aad, byte[]? ephemeralPublicKey)
     {
         return DecryptX25519Hybrid(ciphertext, privateKey, nonce, aad, ephemeralPublicKey, HybridCipherType.ChaCha20Poly1305);
     }
 
-    private static byte[] DecryptX25519XChaCha20Poly1305(byte[] ciphertext, byte[] privateKey, byte[] nonce, byte[] aad, byte[]? ephemeralPublicKey)
+    private byte[] DecryptX25519XChaCha20Poly1305(byte[] ciphertext, byte[] privateKey, byte[] nonce, byte[] aad, byte[]? ephemeralPublicKey)
     {
         return DecryptX25519Hybrid(ciphertext, privateKey, nonce, aad, ephemeralPublicKey, HybridCipherType.XChaCha20Poly1305);
     }
 
-    private static byte[] DecryptX25519AesGcm(byte[] ciphertext, byte[] privateKey, byte[] nonce, byte[] aad, byte[]? ephemeralPublicKey)
+    private byte[] DecryptX25519AesGcm(byte[] ciphertext, byte[] privateKey, byte[] nonce, byte[] aad, byte[]? ephemeralPublicKey)
     {
         return DecryptX25519Hybrid(ciphertext, privateKey, nonce, aad, ephemeralPublicKey, HybridCipherType.AesGcm);
     }
 
-    private static byte[] DecryptX25519Hybrid(byte[] ciphertext, byte[] privateKey, byte[] nonce, byte[] aad, byte[]? ephemeralPublicKey, HybridCipherType cipher)
+    private byte[] DecryptX25519Hybrid(byte[] ciphertext, byte[] privateKey, byte[] nonce, byte[] aad, byte[]? ephemeralPublicKey, HybridCipherType cipher)
     {
         if (ephemeralPublicKey == null)
             throw new InvalidOperationException("Encapsulated key must be set using WithEncapsulatedKey() or FromEncryptionResult()");
 
         // Compute shared secret via X25519 key agreement
-        var sharedSecret = Curve25519Core.ComputeSharedSecret(privateKey, ephemeralPublicKey);
+        var curve = new Curve25519Core((securityPolicy ?? SecurityPolicy.CurrentPolicy));
+        var sharedSecret = curve.ComputeSharedSecret(privateKey, ephemeralPublicKey);
 
         try
         {
             // Derive symmetric key using HKDF
-            var symmetricKey = HkdfCore.DeriveKey(
+            var hkdf = new HkdfCore((securityPolicy ?? SecurityPolicy.CurrentPolicy));
+            var symmetricKey = hkdf.DeriveKey(
                 sharedSecret,
                 salt: [],
                 info: System.Text.Encoding.UTF8.GetBytes("X25519-Hybrid-Encryption"),
@@ -800,9 +851,9 @@ public sealed class DecryptionBuilder : IDisposable
                 // Decrypt with the selected AEAD cipher
                 return cipher switch
                 {
-                    HybridCipherType.ChaCha20Poly1305 => ChaCha20Poly1305Core.Decrypt(ciphertext, symmetricKey, nonce, aad),
-                    HybridCipherType.XChaCha20Poly1305 => XChaCha20Poly1305Core.Decrypt(ciphertext, symmetricKey, nonce, aad),
-                    HybridCipherType.AesGcm => AesGcmCore.Decrypt(ciphertext, symmetricKey, nonce, aad),
+                    HybridCipherType.ChaCha20Poly1305 => new ChaCha20Poly1305Core((securityPolicy ?? SecurityPolicy.CurrentPolicy)).Decrypt(ciphertext, symmetricKey, nonce, aad),
+                    HybridCipherType.XChaCha20Poly1305 => new XChaCha20Poly1305Core((securityPolicy ?? SecurityPolicy.CurrentPolicy)).Decrypt(ciphertext, symmetricKey, nonce, aad),
+                    HybridCipherType.AesGcm => new AesGcmCore((securityPolicy ?? SecurityPolicy.CurrentPolicy)).Decrypt(ciphertext, symmetricKey, nonce, aad),
                     _ => throw new NotSupportedException($"Cipher {cipher} is not supported")
                 };
             }
@@ -820,7 +871,7 @@ public sealed class DecryptionBuilder : IDisposable
 
 #if NET10_OR_GREATER
 #pragma warning disable SYSLIB5006
-    private static byte[] DecryptMLKemAesGcm(byte[] ciphertext, byte[] secretKeyPemBytes, byte[] nonce, byte[] aad, byte[]? encapsulatedKey)
+    private byte[] DecryptMLKemAesGcm(byte[] ciphertext, byte[] secretKeyPemBytes, byte[] nonce, byte[] aad, byte[]? encapsulatedKey)
     {
         if (encapsulatedKey == null)
             throw new InvalidOperationException("Encapsulated key must be set using WithEncapsulatedKey() or FromEncryptionResult()");
@@ -832,7 +883,7 @@ public sealed class DecryptionBuilder : IDisposable
 
         try
         {
-            return AesGcmCore.Decrypt(ciphertext, sharedSecret, nonce, aad);
+            return new AesGcmCore((securityPolicy ?? SecurityPolicy.CurrentPolicy)).Decrypt(ciphertext, sharedSecret, nonce, aad);
         }
         finally
         {
@@ -840,7 +891,7 @@ public sealed class DecryptionBuilder : IDisposable
         }
     }
 
-    private static byte[] DecryptMLKemChaCha20Poly1305(byte[] ciphertext, byte[] secretKeyPemBytes, byte[] nonce, byte[] aad, byte[]? encapsulatedKey)
+    private byte[] DecryptMLKemChaCha20Poly1305(byte[] ciphertext, byte[] secretKeyPemBytes, byte[] nonce, byte[] aad, byte[]? encapsulatedKey)
     {
         if (encapsulatedKey == null)
             throw new InvalidOperationException("Encapsulated key must be set using WithEncapsulatedKey() or FromEncryptionResult()");
@@ -852,7 +903,7 @@ public sealed class DecryptionBuilder : IDisposable
 
         try
         {
-            return ChaCha20Poly1305Core.Decrypt(ciphertext, sharedSecret, nonce, aad);
+            return new ChaCha20Poly1305Core((securityPolicy ?? SecurityPolicy.CurrentPolicy)).Decrypt(ciphertext, sharedSecret, nonce, aad);
         }
         finally
         {

@@ -29,12 +29,16 @@ public sealed class ChaCha20Poly1305Builder : IDisposable
 {
     private const int DefaultNonceSize = 12;
 
+    private readonly ChaCha20Poly1305Core core;
     private byte[]? key;
     private byte[]? nonce;
     private byte[]? associatedData;
     private bool disposed;
 
-    private ChaCha20Poly1305Builder() { }
+    private ChaCha20Poly1305Builder(SecurityPolicyOptions? policy = null)
+    {
+        core = new ChaCha20Poly1305Core(policy);
+    }
 
     /// <summary>
     /// Creates a new ChaCha20-Poly1305 builder instance.
@@ -156,7 +160,7 @@ public sealed class ChaCha20Poly1305Builder : IDisposable
         ArgumentHelper.ThrowIfDisposed(disposed, this);
         ValidateState();
 
-        var result = ChaCha20Poly1305Core.Encrypt(plaintext, key, nonce, associatedData ?? ReadOnlySpan<byte>.Empty);
+        var result = core.Encrypt(plaintext, key!, nonce!, associatedData ?? ReadOnlySpan<byte>.Empty);
         return result.Ciphertext;
     }
 
@@ -188,7 +192,7 @@ public sealed class ChaCha20Poly1305Builder : IDisposable
         ArgumentHelper.ThrowIfDisposed(disposed, this);
         ValidateState();
 
-        return ChaCha20Poly1305Core.Decrypt(ciphertext, key, nonce, associatedData ?? ReadOnlySpan<byte>.Empty);
+        return core.Decrypt(ciphertext, key!, nonce!, associatedData ?? ReadOnlySpan<byte>.Empty);
     }
 
     /// <summary>

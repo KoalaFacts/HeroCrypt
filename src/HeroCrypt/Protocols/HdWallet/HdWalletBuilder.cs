@@ -121,19 +121,21 @@ public sealed class HdWalletBuilder
         else
         {
             // Generate or use mnemonic
-            resultMnemonic ??= Bip39Mnemonic.GenerateRandomMnemonic(wordCount);
+            var bip39 = new Bip39Mnemonic();
+            resultMnemonic ??= bip39.GenerateRandomMnemonic(wordCount);
 
             // Convert mnemonic to seed
-            derivedSeed = Bip39Mnemonic.MnemonicToSeed(resultMnemonic, passphrase);
+            derivedSeed = bip39.MnemonicToSeed(resultMnemonic, passphrase);
         }
 
         // Generate master key
-        var masterKey = Bip32HdWallet.GenerateMasterKey(derivedSeed);
+        var bip32 = new Bip32HdWallet();
+        var masterKey = bip32.GenerateMasterKey(derivedSeed);
 
         // Derive path if specified
         var finalKey = string.IsNullOrEmpty(derivationPath)
             ? masterKey
-            : Bip32HdWallet.DerivePath(masterKey, derivationPath);
+            : bip32.DerivePath(masterKey, derivationPath);
 
         return new HdWalletResult(resultMnemonic, derivedSeed, finalKey, derivationPath);
     }

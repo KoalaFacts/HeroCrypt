@@ -9,12 +9,23 @@ namespace HeroCrypt.Primitives.ChaCha20Poly1305;
 /// Shared Poly1305 tag computation utility for AEAD constructions.
 /// Used by ChaCha20-Poly1305 and XChaCha20-Poly1305.
 /// </summary>
-internal static class Poly1305TagComputation
+internal sealed class Poly1305TagComputation
 {
     /// <summary>
     /// Stack allocation threshold for the message buffer
     /// </summary>
     private const int StackAllocThreshold = 1024;
+
+    private readonly SecurityPolicyOptions policy;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="Poly1305TagComputation"/> class with the specified security policy.
+    /// </summary>
+    /// <param name="policy">The security policy to use for validation. If null, uses <see cref="SecurityPolicy.CurrentPolicy"/>.</param>
+    public Poly1305TagComputation(SecurityPolicyOptions? policy = null)
+    {
+        this.policy = policy ?? SecurityPolicy.CurrentPolicy;
+    }
 
     /// <summary>
     /// Computes the Poly1305 authentication tag per RFC 8439.
@@ -25,7 +36,7 @@ internal static class Poly1305TagComputation
     /// <param name="ciphertext">Ciphertext to authenticate</param>
     /// <param name="poly1305Key">32-byte Poly1305 key</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void ComputeTag(Span<byte> tag, ReadOnlySpan<byte> associatedData,
+    public void ComputeTag(Span<byte> tag, ReadOnlySpan<byte> associatedData,
         ReadOnlySpan<byte> ciphertext, ReadOnlySpan<byte> poly1305Key)
     {
         // Calculate lengths
@@ -82,7 +93,8 @@ internal static class Poly1305TagComputation
             BinaryHelpers.WriteUInt64LittleEndian(lengthBytes.Slice(8, 8), (ulong)ciphertextLength);
 
             // Compute Poly1305 MAC
-            Poly1305Core.ComputeMac(tag, message, poly1305Key);
+            var poly1305Core = new Poly1305Core(policy);
+            poly1305Core.ComputeMac(tag, message, poly1305Key);
         }
         finally
         {

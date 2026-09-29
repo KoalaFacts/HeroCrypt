@@ -1,6 +1,7 @@
 #if NET10_0_OR_GREATER
 using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography;
+using HeroCrypt.Security;
 using SystemSlhDsa = System.Security.Cryptography.SlhDsa;
 
 namespace HeroCrypt.Primitives.SlhDsa;
@@ -27,8 +28,20 @@ namespace HeroCrypt.Primitives.SlhDsa;
 /// Note: This API is marked as Experimental (SYSLIB5006) in .NET 10
 /// </summary>
 [Experimental("SYSLIB5006")]
-public static class SlhDsaCore
+public sealed class SlhDsaCore
 {
+#pragma warning disable IDE0052 // Remove unread private member - policy reserved for future security validation
+    private readonly SecurityPolicyOptions policy;
+#pragma warning restore IDE0052
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="SlhDsaCore"/> class.
+    /// </summary>
+    /// <param name="policy">Optional security policy options. If null, uses <see cref="SecurityPolicy.CurrentPolicy"/>.</param>
+    public SlhDsaCore(SecurityPolicyOptions? policy = null)
+    {
+        this.policy = policy ?? SecurityPolicy.CurrentPolicy;
+    }
     /// <summary>
     /// SLH-DSA security levels and variants (FIPS 205)
     /// </summary>
@@ -171,7 +184,7 @@ public static class SlhDsaCore
     /// Checks if SLH-DSA is supported on the current platform
     /// </summary>
     /// <returns>True if SLH-DSA is available, false otherwise</returns>
-    public static bool IsSupported()
+    public bool IsSupported()
     {
         return SystemSlhDsa.IsSupported;
     }
@@ -184,7 +197,7 @@ public static class SlhDsaCore
     /// <exception cref="PlatformNotSupportedException">If SLH-DSA is not supported on this platform</exception>
     /// <exception cref="CryptographicException">If key generation fails</exception>
     [Experimental("SYSLIB5006")]
-    public static SlhDsaKeyPair GenerateKeyPair(SecurityLevel level = SecurityLevel.SlhDsa128s)
+    public SlhDsaKeyPair GenerateKeyPair(SecurityLevel level = SecurityLevel.SlhDsa128s)
     {
         if (!IsSupported())
         {
@@ -209,7 +222,7 @@ public static class SlhDsaCore
     /// <exception cref="ArgumentNullException">If any required parameter is null</exception>
     /// <exception cref="PlatformNotSupportedException">If SLH-DSA is not supported</exception>
     [Experimental("SYSLIB5006")]
-    public static bool Verify(string publicKeyPem, byte[] data, byte[] signature, byte[]? context = null)
+    public bool Verify(string publicKeyPem, byte[] data, byte[] signature, byte[]? context = null)
     {
         ValidatePemFormat(publicKeyPem, nameof(publicKeyPem));
 
@@ -259,7 +272,7 @@ public static class SlhDsaCore
     /// <param name="context">Optional context string used during signing</param>
     /// <returns>True if the signature is valid, false otherwise</returns>
     [Experimental("SYSLIB5006")]
-    public static bool Verify(string publicKeyPem, ReadOnlySpan<byte> data, ReadOnlySpan<byte> signature, ReadOnlySpan<byte> context = default)
+    public bool Verify(string publicKeyPem, ReadOnlySpan<byte> data, ReadOnlySpan<byte> signature, ReadOnlySpan<byte> context = default)
     {
         ValidatePemFormat(publicKeyPem, nameof(publicKeyPem));
 
@@ -287,7 +300,7 @@ public static class SlhDsaCore
     /// <exception cref="ArgumentNullException">If publicKeyPem is null</exception>
     /// <exception cref="PlatformNotSupportedException">If SLH-DSA is not supported</exception>
     [Experimental("SYSLIB5006")]
-    public static SystemSlhDsa ImportPublicKey(string publicKeyPem)
+    public SystemSlhDsa ImportPublicKey(string publicKeyPem)
     {
         ArgumentNullException.ThrowIfNull(publicKeyPem);
 
@@ -339,7 +352,7 @@ public static class SlhDsaCore
         };
     }
 
-    private static SlhDsaAlgorithm ToSlhDsaAlgorithm(SecurityLevel level)
+    private SlhDsaAlgorithm ToSlhDsaAlgorithm(SecurityLevel level)
     {
         // SLH-DSA enum values don't exist yet in .NET 10 - will be added in future release
         throw new NotSupportedException("SLH-DSA is not yet available in .NET 10. The enum values are not defined in the current SDK.");
@@ -352,7 +365,7 @@ public static class SlhDsaCore
     /// <param name="paramName">The parameter name for exception messages</param>
     /// <exception cref="ArgumentNullException">If pem is null</exception>
     /// <exception cref="ArgumentException">If pem is not valid PEM format</exception>
-    private static void ValidatePemFormat(string pem, string paramName)
+    private void ValidatePemFormat(string pem, string paramName)
     {
         if (pem == null)
         {

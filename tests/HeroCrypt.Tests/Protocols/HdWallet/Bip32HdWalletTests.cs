@@ -37,11 +37,13 @@ namespace HeroCrypt.Tests.Protocols.HdWallet;
 [Trait("Category", TestCategories.FAST)]
 public class Bip32HdWalletTests
 {
+
     /// <summary>
     /// Tests for master key generation from seed.
     /// </summary>
     public class MasterKeyGeneration
     {
+        private readonly Bip32HdWallet bip32 = new();
         [Fact]
         public void ValidSeed_Success()
         {
@@ -49,7 +51,7 @@ public class Bip32HdWalletTests
             var seed = new byte[64];
             new Random(42).NextBytes(seed);
 
-            var masterKey = Bip32HdWallet.GenerateMasterKey(seed);
+            var masterKey = bip32.GenerateMasterKey(seed);
 
             Assert.NotNull(masterKey);
             Assert.Equal(32, masterKey.Key.Length); // Private key is 32 bytes
@@ -65,7 +67,7 @@ public class Bip32HdWalletTests
             var seed = new byte[16];
             new Random(42).NextBytes(seed);
 
-            var masterKey = Bip32HdWallet.GenerateMasterKey(seed);
+            var masterKey = bip32.GenerateMasterKey(seed);
 
             Assert.NotNull(masterKey);
             Assert.Equal(32, masterKey.Key.Length);
@@ -77,7 +79,7 @@ public class Bip32HdWalletTests
             var seed = new byte[15]; // Below minimum
 
             Assert.Throws<ArgumentException>(() =>
-                Bip32HdWallet.GenerateMasterKey(seed));
+                bip32.GenerateMasterKey(seed));
         }
 
         [Fact]
@@ -86,7 +88,7 @@ public class Bip32HdWalletTests
             var seed = new byte[65]; // Above maximum
 
             Assert.Throws<ArgumentException>(() =>
-                Bip32HdWallet.GenerateMasterKey(seed));
+                bip32.GenerateMasterKey(seed));
         }
 
         [Fact]
@@ -96,8 +98,8 @@ public class Bip32HdWalletTests
             new Random(42).NextBytes(seed);
 
             // Generate keys twice from same seed
-            var master1 = Bip32HdWallet.GenerateMasterKey(seed);
-            var master2 = Bip32HdWallet.GenerateMasterKey(seed);
+            var master1 = bip32.GenerateMasterKey(seed);
+            var master2 = bip32.GenerateMasterKey(seed);
 
             // Should produce identical keys
             Assert.Equal(master1.Key, master2.Key);
@@ -110,6 +112,7 @@ public class Bip32HdWalletTests
     /// </summary>
     public class ChildKeyDerivation
     {
+        private readonly Bip32HdWallet bip32 = new();
         [Fact]
         public void NormalDerivation_Success()
         {
@@ -117,10 +120,10 @@ public class Bip32HdWalletTests
 
             var seed = new byte[64];
             new Random(42).NextBytes(seed);
-            var masterKey = Bip32HdWallet.GenerateMasterKey(seed);
+            var masterKey = bip32.GenerateMasterKey(seed);
 
             // Derive child at index 0 (normal derivation)
-            var childKey = Bip32HdWallet.DeriveChild(masterKey, 0);
+            var childKey = bip32.DeriveChild(masterKey, 0);
 
             Assert.NotNull(childKey);
             Assert.Equal(32, childKey.Key.Length);
@@ -136,10 +139,10 @@ public class Bip32HdWalletTests
 
             var seed = new byte[64];
             new Random(42).NextBytes(seed);
-            var masterKey = Bip32HdWallet.GenerateMasterKey(seed);
+            var masterKey = bip32.GenerateMasterKey(seed);
 
             // Derive hardened child (index >= 2^31)
-            var childKey = Bip32HdWallet.DeriveChild(masterKey, Bip32HdWallet.HardenedOffset);
+            var childKey = bip32.DeriveChild(masterKey, Bip32HdWallet.HardenedOffset);
 
             Assert.NotNull(childKey);
             Assert.Equal(32, childKey.Key.Length);
@@ -154,11 +157,11 @@ public class Bip32HdWalletTests
 
             var seed = new byte[64];
             new Random(42).NextBytes(seed);
-            var masterKey = Bip32HdWallet.GenerateMasterKey(seed);
+            var masterKey = bip32.GenerateMasterKey(seed);
 
-            var child0 = Bip32HdWallet.DeriveChild(masterKey, 0);
-            var child1 = Bip32HdWallet.DeriveChild(masterKey, 1);
-            var child2 = Bip32HdWallet.DeriveChild(masterKey, 2);
+            var child0 = bip32.DeriveChild(masterKey, 0);
+            var child1 = bip32.DeriveChild(masterKey, 1);
+            var child2 = bip32.DeriveChild(masterKey, 2);
 
             // All children should have different keys
             Assert.NotEqual(child0.Key, child1.Key);
@@ -173,9 +176,9 @@ public class Bip32HdWalletTests
 
             var seed = new byte[64];
             new Random(42).NextBytes(seed);
-            var masterKey = Bip32HdWallet.GenerateMasterKey(seed);
+            var masterKey = bip32.GenerateMasterKey(seed);
 
-            var derivedKey = Bip32HdWallet.DerivePath(masterKey, "m/0/1");
+            var derivedKey = bip32.DerivePath(masterKey, "m/0/1");
 
             Assert.NotNull(derivedKey);
             Assert.Equal(2, derivedKey.Depth);
@@ -189,10 +192,10 @@ public class Bip32HdWalletTests
             // Standard BIP44 path for Bitcoin
             var seed = new byte[64];
             new Random(42).NextBytes(seed);
-            var masterKey = Bip32HdWallet.GenerateMasterKey(seed);
+            var masterKey = bip32.GenerateMasterKey(seed);
 
             // m/44'/0'/0'/0/0 (BIP44 Bitcoin receiving address)
-            var derivedKey = Bip32HdWallet.DerivePath(masterKey, "m/44'/0'/0'/0/0");
+            var derivedKey = bip32.DerivePath(masterKey, "m/44'/0'/0'/0/0");
 
             Assert.NotNull(derivedKey);
             Assert.Equal(5, derivedKey.Depth);
@@ -204,11 +207,13 @@ public class Bip32HdWalletTests
     /// </summary>
     public class PathParsing
     {
+        private readonly Bip32HdWallet bip32 = new();
+
         [Fact]
         public void ValidPath_ReturnsIndices()
         {
             // Various valid paths
-            var indices1 = Bip32HdWallet.ParsePath("m/44'/0'/0'/0/0");
+            var indices1 = bip32.ParsePath("m/44'/0'/0'/0/0");
             Assert.Equal(5, indices1.Length);
             Assert.Equal(Bip32HdWallet.HardenedOffset + 44, indices1[0]);
             Assert.Equal(Bip32HdWallet.HardenedOffset + 0, indices1[1]);
@@ -216,7 +221,7 @@ public class Bip32HdWalletTests
             Assert.Equal(0u, indices1[3]);
             Assert.Equal(0u, indices1[4]);
 
-            var indices2 = Bip32HdWallet.ParsePath("m/0/1/2");
+            var indices2 = bip32.ParsePath("m/0/1/2");
             Assert.Equal(3, indices2.Length);
             Assert.Equal(0u, indices2[0]);
             Assert.Equal(1u, indices2[1]);
@@ -226,7 +231,7 @@ public class Bip32HdWalletTests
         [Fact]
         public void MasterOnly_ReturnsEmpty()
         {
-            var indices = Bip32HdWallet.ParsePath("m");
+            var indices = bip32.ParsePath("m");
 
             Assert.Empty(indices);
         }
@@ -234,7 +239,7 @@ public class Bip32HdWalletTests
         [Fact]
         public void WithoutPrefix_Success()
         {
-            var indices = Bip32HdWallet.ParsePath("0/1/2");
+            var indices = bip32.ParsePath("0/1/2");
 
             Assert.Equal(3, indices.Length);
             Assert.Equal(0u, indices[0]);
@@ -245,22 +250,22 @@ public class Bip32HdWalletTests
         [Fact]
         public void InvalidPath_ThrowsException()
         {
-            Assert.Throws<ArgumentException>(() => Bip32HdWallet.ParsePath(""));
-            Assert.Throws<ArgumentException>(() => Bip32HdWallet.ParsePath("m/abc"));
-            Assert.Throws<ArgumentException>(() => Bip32HdWallet.ParsePath("m/0/invalid/2"));
+            Assert.Throws<ArgumentException>(() => bip32.ParsePath(""));
+            Assert.Throws<ArgumentException>(() => bip32.ParsePath("m/abc"));
+            Assert.Throws<ArgumentException>(() => bip32.ParsePath("m/0/invalid/2"));
         }
 
         [Fact]
         public void IsValidPath_VariousPaths_ReturnsExpected()
         {
-            Assert.True(Bip32HdWallet.IsValidPath("m"));
-            Assert.True(Bip32HdWallet.IsValidPath("m/0"));
-            Assert.True(Bip32HdWallet.IsValidPath("m/44'/0'/0'"));
-            Assert.True(Bip32HdWallet.IsValidPath("0/1/2"));
+            Assert.True(bip32.IsValidPath("m"));
+            Assert.True(bip32.IsValidPath("m/0"));
+            Assert.True(bip32.IsValidPath("m/44'/0'/0'"));
+            Assert.True(bip32.IsValidPath("0/1/2"));
 
-            Assert.False(Bip32HdWallet.IsValidPath(""));
-            Assert.False(Bip32HdWallet.IsValidPath("m/abc"));
-            Assert.False(Bip32HdWallet.IsValidPath("invalid"));
+            Assert.False(bip32.IsValidPath(""));
+            Assert.False(bip32.IsValidPath("m/abc"));
+            Assert.False(bip32.IsValidPath("invalid"));
         }
     }
 
@@ -269,13 +274,15 @@ public class Bip32HdWalletTests
     /// </summary>
     public class PathFormatting
     {
+        private readonly Bip32HdWallet bip32 = new();
+
         [Fact]
         public void FormatIndex_NormalAndHardened_Success()
         {
-            Assert.Equal("0", Bip32HdWallet.FormatIndex(0));
-            Assert.Equal("1", Bip32HdWallet.FormatIndex(1));
-            Assert.Equal("44'", Bip32HdWallet.FormatIndex(Bip32HdWallet.HardenedOffset + 44));
-            Assert.Equal("0'", Bip32HdWallet.FormatIndex(Bip32HdWallet.HardenedOffset));
+            Assert.Equal("0", bip32.FormatIndex(0));
+            Assert.Equal("1", bip32.FormatIndex(1));
+            Assert.Equal("44'", bip32.FormatIndex(Bip32HdWallet.HardenedOffset + 44));
+            Assert.Equal("0'", bip32.FormatIndex(Bip32HdWallet.HardenedOffset));
         }
 
         [Fact]
@@ -285,9 +292,9 @@ public class Bip32HdWalletTests
             var indices2 = new uint[] { 0, 1, 2 };
             var indices3 = Array.Empty<uint>();
 
-            var path1 = Bip32HdWallet.FormatPath(indices1);
-            var path2 = Bip32HdWallet.FormatPath(indices2);
-            var path3 = Bip32HdWallet.FormatPath(indices3);
+            var path1 = bip32.FormatPath(indices1);
+            var path2 = bip32.FormatPath(indices2);
+            var path3 = bip32.FormatPath(indices3);
 
             Assert.Equal("m/44'/0/1", path1);
             Assert.Equal("m/0/1/2", path2);
@@ -300,6 +307,7 @@ public class Bip32HdWalletTests
     /// </summary>
     public class ExtendedKeyTests
     {
+
         [Fact]
         public void IsPrivate_ReturnsCorrectValue()
         {

@@ -12,8 +12,19 @@ namespace HeroCrypt.Primitives.ChaCha20;
 /// High-performance ChaCha20 stream cipher implementation
 /// Implements RFC 8439 with SIMD optimizations when available
 /// </summary>
-internal static class ChaCha20Core
+internal sealed class ChaCha20Core
 {
+    private readonly SecurityPolicyOptions policy;
+
+    /// <summary>
+    /// Initializes a new instance of the ChaCha20Core class
+    /// </summary>
+    /// <param name="policy">Security policy options</param>
+    public ChaCha20Core(SecurityPolicyOptions? policy = null)
+    {
+        this.policy = policy ?? SecurityPolicy.CurrentPolicy;
+    }
+
     /// <summary>
     /// ChaCha20 constants "expand 32-byte k"
     /// </summary>
@@ -37,7 +48,7 @@ internal static class ChaCha20Core
     /// <summary>
     /// Checks if hardware acceleration is available
     /// </summary>
-    public static bool IsHardwareAccelerated =>
+    public bool IsHardwareAccelerated =>
 #if NET5_0_OR_GREATER
         Avx2.IsSupported;
 #else
@@ -52,7 +63,7 @@ internal static class ChaCha20Core
     /// <param name="key">32-byte key</param>
     /// <param name="nonce">12-byte nonce</param>
     /// <param name="counter">Initial counter value</param>
-    public static void Transform(Span<byte> output, ReadOnlySpan<byte> input, ReadOnlySpan<byte> key,
+    public void Transform(Span<byte> output, ReadOnlySpan<byte> input, ReadOnlySpan<byte> key,
         ReadOnlySpan<byte> nonce, uint counter = 0)
     {
         if (key.Length != KEY_SIZE)
@@ -128,7 +139,7 @@ internal static class ChaCha20Core
     /// </summary>
     /// <param name="output">64-byte output buffer</param>
     /// <param name="state">ChaCha20 state</param>
-    public static void GenerateKeystream(Span<byte> output, Span<uint> state)
+    public void GenerateKeystream(Span<byte> output, Span<uint> state)
     {
         if (output.Length < BLOCK_SIZE)
         {
@@ -166,7 +177,7 @@ internal static class ChaCha20Core
     /// Initializes ChaCha20 state
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void InitializeState(Span<uint> state, ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce, uint counter)
+    private void InitializeState(Span<uint> state, ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce, uint counter)
     {
         // constants
         state[0] = Constants[0];
@@ -202,7 +213,7 @@ internal static class ChaCha20Core
     /// Performs ChaCha20 round function (20 rounds)
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void ChaCha20Round(Span<uint> state)
+    private void ChaCha20Round(Span<uint> state)
     {
         ChaChaUtils.DoubleRound(state);
     }
@@ -212,7 +223,7 @@ internal static class ChaCha20Core
     /// </summary>
     /// <exception cref="CryptographicException">Thrown when counter would overflow and cause keystream reuse</exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void IncrementCounter(Span<uint> state, uint increment)
+    private void IncrementCounter(Span<uint> state, uint increment)
     {
         // Check for counter overflow to prevent keystream reuse (catastrophic security failure)
         // ChaCha20 counter is 32-bit, wrapping would cause same keystream to be generated
@@ -229,7 +240,7 @@ internal static class ChaCha20Core
     /// Processes a single 64-byte block
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void ProcessSingleBlock(Span<byte> output, ReadOnlySpan<byte> input, Span<uint> state)
+    private void ProcessSingleBlock(Span<byte> output, ReadOnlySpan<byte> input, Span<uint> state)
     {
         Span<byte> keystream = stackalloc byte[BLOCK_SIZE];
         GenerateKeystream(keystream, state);
@@ -249,7 +260,7 @@ internal static class ChaCha20Core
     /// NOTE: This method increments the counter internally by 4 after processing.
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static void ProcessFourBlocksSIMD(Span<byte> output, ReadOnlySpan<byte> input, Span<uint> state)
+    private void ProcessFourBlocksSIMD(Span<byte> output, ReadOnlySpan<byte> input, Span<uint> state)
     {
         if (!IsHardwareAccelerated)
         {
@@ -282,7 +293,7 @@ internal static class ChaCha20Core
     /// </summary>
     /// <param name="state">ChaCha20 state</param>
     /// <param name="position">Position in bytes</param>
-    public static void Seek(Span<uint> state, long position)
+    public void Seek(Span<uint> state, long position)
     {
 #if NETSTANDARD2_0
         if (position < 0)
@@ -302,7 +313,7 @@ internal static class ChaCha20Core
     /// </summary>
     /// <param name="state">ChaCha20 state</param>
     /// <returns>Position in bytes</returns>
-    public static long GetPosition(ReadOnlySpan<uint> state)
+    public long GetPosition(ReadOnlySpan<uint> state)
     {
         return (long)state[12] * BLOCK_SIZE;
     }

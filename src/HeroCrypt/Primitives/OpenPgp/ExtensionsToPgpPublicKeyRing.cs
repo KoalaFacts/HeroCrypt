@@ -27,8 +27,9 @@ public static class ExtensionsToPgpPublicKeyRing
     /// </remarks>
     public static string ToArmor(this PgpPublicKeyRing keyRing)
     {
+        var core = new ArmorCore();
         var binaryData = keyRing.ToArray();
-        return ArmorCore.Encode(binaryData, ArmorType.PublicKey);
+        return core.Encode(binaryData, ArmorType.PublicKey);
     }
 
     /// <summary>
@@ -39,8 +40,9 @@ public static class ExtensionsToPgpPublicKeyRing
     /// <returns>The ASCII Armored string representation.</returns>
     public static string ToArmor(this PgpPublicKeyRing keyRing, IDictionary<string, string>? headers)
     {
+        var core = new ArmorCore();
         var binaryData = keyRing.ToArray();
-        return ArmorCore.Encode(binaryData, ArmorType.PublicKey, headers);
+        return core.Encode(binaryData, ArmorType.PublicKey, headers);
     }
 
     /// <summary>
@@ -118,7 +120,8 @@ public static class ExtensionsToPgpPublicKeyRing
     /// <exception cref="ArgumentException">If the data is not a valid public key ring.</exception>
     public static PgpPublicKeyRing FromArmor(string armoredKey)
     {
-        var decoded = ArmorCore.Decode(armoredKey);
+        var core = new ArmorCore();
+        var decoded = core.Decode(armoredKey);
 
         if (decoded.Type != ArmorType.PublicKey)
         {
@@ -141,7 +144,8 @@ public static class ExtensionsToPgpPublicKeyRing
 
         try
         {
-            var decoded = ArmorCore.Decode(armoredKey);
+            var core = new ArmorCore();
+            var decoded = core.Decode(armoredKey);
 
             if (decoded.Type != ArmorType.PublicKey)
             {
@@ -165,7 +169,8 @@ public static class ExtensionsToPgpPublicKeyRing
     /// <returns>The parsed result including key ring and armor headers.</returns>
     public static ArmoredPublicKeyRingResult FromArmorWithMetadata(string armoredKey)
     {
-        var decoded = ArmorCore.Decode(armoredKey);
+        var core = new ArmorCore();
+        var decoded = core.Decode(armoredKey);
 
         if (decoded.Type != ArmorType.PublicKey)
         {

@@ -23,7 +23,7 @@ public class PostQuantumIntegrationTests
         [Fact]
         public void MLKem_AesGcm_FullWorkflow()
         {
-            if (!MLKemCore.IsSupported())
+            if (!new MLKemCore().IsSupported())
             {
                 return;
             }
@@ -82,7 +82,7 @@ public class PostQuantumIntegrationTests
         [Fact]
         public void MultipleRecipients_Success()
         {
-            if (!MLKemCore.IsSupported())
+            if (!new MLKemCore().IsSupported())
             {
                 return;
             }
@@ -151,7 +151,7 @@ public class PostQuantumIntegrationTests
         [Fact]
         public void DocumentSigning_MLDsa_FullWorkflow()
         {
-            if (!MLDsaCore.IsSupported())
+            if (!new MLDsaCore().IsSupported())
             {
                 return;
             }
@@ -208,7 +208,7 @@ public class PostQuantumIntegrationTests
         [Fact]
         public void ChainOfTrust_MultipleSignatures()
         {
-            if (!MLDsaCore.IsSupported())
+            if (!new MLDsaCore().IsSupported())
             {
                 return;
             }
@@ -272,7 +272,7 @@ public class PostQuantumIntegrationTests
         [Fact]
         public void CodeSigning_SlhDsa_SmallSignature()
         {
-            if (!SlhDsaCore.IsSupported())
+            if (!new SlhDsaCore().IsSupported())
             {
                 return;
             }
@@ -323,7 +323,7 @@ public class PostQuantumIntegrationTests
         [Fact]
         public void KeyRotation_GracefulTransition()
         {
-            if (!MLDsaCore.IsSupported())
+            if (!new MLDsaCore().IsSupported())
             {
                 return;
             }
@@ -333,10 +333,10 @@ public class PostQuantumIntegrationTests
             var msgBytes = Encoding.UTF8.GetBytes(message);
 
             // Old key (being phased out)
-            using var oldKey = MLDsaCore.GenerateKeyPair(MLDsaCore.SecurityLevel.MLDsa65);
+            using var oldKey = new MLDsaCore().GenerateKeyPair(MLDsaCore.SecurityLevel.MLDsa65);
 
             // New key (being phased in)
-            using var newKey = MLDsaCore.GenerateKeyPair(MLDsaCore.SecurityLevel.MLDsa87);
+            using var newKey = new MLDsaCore().GenerateKeyPair(MLDsaCore.SecurityLevel.MLDsa87);
 
             // Sign with old key
             var oldSignature = oldKey.Sign(msgBytes);
@@ -359,13 +359,13 @@ public class PostQuantumIntegrationTests
         [Fact]
         public void KeyExport_Import_Roundtrip()
         {
-            if (!MLKemCore.IsSupported() || !MLDsaCore.IsSupported())
+            if (!new MLKemCore().IsSupported() || !new MLDsaCore().IsSupported())
             {
                 return;
             }
 
             // ML-KEM key export/import
-            using var originalKemKey = MLKemCore.GenerateKeyPair(MLKemCore.SecurityLevel.MLKem768);
+            using var originalKemKey = new MLKemCore().GenerateKeyPair(MLKemCore.SecurityLevel.MLKem768);
 
             var publicKeyPem = originalKemKey.PublicKeyPem;
             var secretKeyPem = originalKemKey.SecretKeyPem;
@@ -375,7 +375,7 @@ public class PostQuantumIntegrationTests
             Assert.Contains("-----BEGIN PRIVATE KEY-----", secretKeyPem);
 
             // ML-DSA key export/import
-            using var originalDsaKey = MLDsaCore.GenerateKeyPair(MLDsaCore.SecurityLevel.MLDsa65);
+            using var originalDsaKey = new MLDsaCore().GenerateKeyPair(MLDsaCore.SecurityLevel.MLDsa65);
 
             var dsaPublicPem = originalDsaKey.PublicKeyPem;
             var dsaSecretPem = originalDsaKey.SecretKeyPem;
@@ -396,7 +396,7 @@ public class PostQuantumIntegrationTests
         [Fact]
         public void HighVolume_BatchSigning_100_Signatures()
         {
-            if (!MLDsaCore.IsSupported())
+            if (!new MLDsaCore().IsSupported())
             {
                 return;
             }
@@ -404,7 +404,7 @@ public class PostQuantumIntegrationTests
             // Scenario: High-volume signature generation (e.g., timestamping service)
             const int batchSize = 100;
 
-            using var signingKey = MLDsaCore.GenerateKeyPair(MLDsaCore.SecurityLevel.MLDsa65);
+            using var signingKey = new MLDsaCore().GenerateKeyPair(MLDsaCore.SecurityLevel.MLDsa65);
 
             var signatures = new List<(byte[] data, byte[] signature)>();
 
@@ -434,7 +434,7 @@ public class PostQuantumIntegrationTests
         [Fact]
         public async Task ConcurrentOperations_ThreadSafetyAsync()
         {
-            if (!MLKemCore.IsSupported())
+            if (!new MLKemCore().IsSupported())
             {
                 return;
             }
@@ -449,7 +449,7 @@ public class PostQuantumIntegrationTests
                 {
                     try
                     {
-                        using var keyPair = MLKemCore.GenerateKeyPair();
+                        using var keyPair = new MLKemCore().GenerateKeyPair();
                         using var enc = MLKemBuilder.Create().WithPublicKey(keyPair.PublicKeyPem).Encapsulate();
                         var recovered = keyPair.Decapsulate(enc.Ciphertext);
                         return enc.SharedSecret.SequenceEqual(recovered);
@@ -480,7 +480,7 @@ public class PostQuantumIntegrationTests
         [Fact]
         public void AllParameterSets_Validate()
         {
-            if (!MLKemCore.IsSupported() || !MLDsaCore.IsSupported() || !SlhDsaCore.IsSupported())
+            if (!new MLKemCore().IsSupported() || !new MLDsaCore().IsSupported() || !new SlhDsaCore().IsSupported())
             {
                 return;
             }
@@ -495,7 +495,7 @@ public class PostQuantumIntegrationTests
 
             foreach (var level in kemLevels)
             {
-                using var key = MLKemCore.GenerateKeyPair(level);
+                using var key = new MLKemCore().GenerateKeyPair(level);
                 Assert.Equal(level, key.Level);
 
                 var info = MLKemCore.GetLevelInfo(level);
@@ -512,7 +512,7 @@ public class PostQuantumIntegrationTests
 
             foreach (var level in dsaLevels)
             {
-                using var key = MLDsaCore.GenerateKeyPair(level);
+                using var key = new MLDsaCore().GenerateKeyPair(level);
                 Assert.Equal(level, key.Level);
 
                 var info = MLDsaCore.GetLevelInfo(level);
@@ -533,7 +533,7 @@ public class PostQuantumIntegrationTests
 
             foreach (var level in slhLevels)
             {
-                using var key = SlhDsaCore.GenerateKeyPair(level);
+                using var key = new SlhDsaCore().GenerateKeyPair(level);
                 Assert.Equal(level, key.Level);
             }
         }
@@ -547,7 +547,7 @@ public class PostQuantumIntegrationTests
         [Fact]
         public void SecureMessaging_EndToEnd()
         {
-            if (!MLKemCore.IsSupported() || !MLDsaCore.IsSupported())
+            if (!new MLKemCore().IsSupported() || !new MLDsaCore().IsSupported())
             {
                 return;
             }
@@ -555,11 +555,11 @@ public class PostQuantumIntegrationTests
             // Scenario: Secure messaging app (Signal-like) using PQC
 
             // Alice's long-term signing key
-            using var aliceSignKey = MLDsaCore.GenerateKeyPair(MLDsaCore.SecurityLevel.MLDsa65);
+            using var aliceSignKey = new MLDsaCore().GenerateKeyPair(MLDsaCore.SecurityLevel.MLDsa65);
 
             // Bob's long-term signing key and ephemeral encryption key
-            using var bobSignKey = MLDsaCore.GenerateKeyPair(MLDsaCore.SecurityLevel.MLDsa65);
-            using var bobKemKey = MLKemCore.GenerateKeyPair(MLKemCore.SecurityLevel.MLKem768);
+            using var bobSignKey = new MLDsaCore().GenerateKeyPair(MLDsaCore.SecurityLevel.MLDsa65);
+            using var bobKemKey = new MLKemCore().GenerateKeyPair(MLKemCore.SecurityLevel.MLKem768);
 
             // Alice sends message to Bob
             var message = "Hi Bob! 👋";
@@ -591,7 +591,7 @@ public class PostQuantumIntegrationTests
 
             // 5. Bob verifies signature
             var receivedSigData = encrypted.Concat(nonce).Concat(tag).ToArray();
-            var isSigValid = MLDsaCore.Verify(aliceSignKey.PublicKeyPem, receivedSigData, signature);
+            var isSigValid = new MLDsaCore().Verify(aliceSignKey.PublicKeyPem, receivedSigData, signature);
             Assert.True(isSigValid, "Signature verification failed");
 
             // 6. Bob decrypts message
@@ -608,7 +608,7 @@ public class PostQuantumIntegrationTests
         [Fact]
         public void BlockchainTransaction_PQC_Signing()
         {
-            if (!MLDsaCore.IsSupported())
+            if (!new MLDsaCore().IsSupported())
             {
                 return;
             }
@@ -628,7 +628,7 @@ public class PostQuantumIntegrationTests
                 $"{transaction.From}|{transaction.To}|{transaction.Amount}|{transaction.Nonce}|{transaction.Timestamp}");
 
             // Sign with highest security
-            using var walletKey = MLDsaCore.GenerateKeyPair(MLDsaCore.SecurityLevel.MLDsa87);
+            using var walletKey = new MLDsaCore().GenerateKeyPair(MLDsaCore.SecurityLevel.MLDsa87);
 
             var signature = MLDsaBuilder.Create()
                 .WithKeyPair(walletKey)

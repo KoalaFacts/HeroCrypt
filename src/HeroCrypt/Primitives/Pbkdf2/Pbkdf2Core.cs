@@ -8,8 +8,19 @@ namespace HeroCrypt.Primitives.Pbkdf2;
 /// PBKDF2 (Password-Based Key Derivation Function 2) implementation
 /// RFC 2898 compliant implementation with configurable hash algorithms and iterations
 /// </summary>
-internal static class Pbkdf2Core
+internal sealed class Pbkdf2Core
 {
+    private readonly SecurityPolicyOptions policy;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="Pbkdf2Core"/> class with the specified security policy.
+    /// </summary>
+    /// <param name="policy">The security policy to use for validation. If null, uses <see cref="SecurityPolicy.CurrentPolicy"/>.</param>
+    public Pbkdf2Core(SecurityPolicyOptions? policy = null)
+    {
+        this.policy = policy ?? SecurityPolicy.CurrentPolicy;
+    }
+
     /// <summary>
     /// Minimum recommended iteration count for new applications
     /// </summary>
@@ -40,9 +51,12 @@ internal static class Pbkdf2Core
     /// <param name="hashAlgorithm">Hash algorithm to use</param>
     /// <param name="allowWeakParameters">Allow parameters below security recommendations for standards compliance (e.g., BIP-39). Use with caution.</param>
     /// <returns>Derived key</returns>
-    public static byte[] DeriveKey(ReadOnlySpan<byte> password, ReadOnlySpan<byte> salt,
+    public byte[] DeriveKey(ReadOnlySpan<byte> password, ReadOnlySpan<byte> salt,
         int iterations, int outputLength, HashAlgorithmName hashAlgorithm, bool allowWeakParameters = false)
     {
+        // Validate hash algorithm against security policy
+        policy.ValidateHash(hashAlgorithm.Name ?? "Unknown");
+
         ValidateParameters(password, salt, iterations, outputLength, hashAlgorithm, allowWeakParameters);
 
 #if !NETSTANDARD2_0
@@ -68,7 +82,7 @@ internal static class Pbkdf2Core
     /// <param name="outputLength">Desired output length in bytes</param>
     /// <param name="hashAlgorithm">Hash algorithm to use</param>
     /// <returns>Derived key</returns>
-    public static byte[] DeriveKeyFromString(string password, ReadOnlySpan<byte> salt,
+    public byte[] DeriveKeyFromString(string password, ReadOnlySpan<byte> salt,
         int iterations, int outputLength, HashAlgorithmName hashAlgorithm)
     {
         if (string.IsNullOrEmpty(password))
@@ -97,7 +111,7 @@ internal static class Pbkdf2Core
     /// <param name="outputLength">Output length</param>
     /// <param name="hashAlgorithm">Hash algorithm</param>
     /// <param name="allowWeakParameters">Allow parameters below security recommendations</param>
-    public static void ValidateParameters(ReadOnlySpan<byte> password, ReadOnlySpan<byte> salt,
+    public void ValidateParameters(ReadOnlySpan<byte> password, ReadOnlySpan<byte> salt,
         int iterations, int outputLength, HashAlgorithmName hashAlgorithm, bool allowWeakParameters = false)
     {
         // Allow empty passwords only for test vectors and standards compliance (e.g., RFC test vectors)
@@ -153,7 +167,7 @@ internal static class Pbkdf2Core
     /// <param name="hashAlgorithm">Hash algorithm to use</param>
     /// <param name="testLength">Test key length (default: 32 bytes)</param>
     /// <returns>Recommended iteration count</returns>
-    public static int CalculateIterations(int targetTimeMs, HashAlgorithmName hashAlgorithm, int testLength = 32)
+    public int CalculateIterations(int targetTimeMs, HashAlgorithmName hashAlgorithm, int testLength = 32)
     {
         if (targetTimeMs <= 0)
         {
@@ -184,7 +198,7 @@ internal static class Pbkdf2Core
     /// </summary>
     /// <param name="useCase">PBKDF2 use case</param>
     /// <returns>Recommended parameters</returns>
-    public static Pbkdf2Parameters GetRecommendedParameters(Pbkdf2UseCase useCase)
+    public Pbkdf2Parameters GetRecommendedParameters(Pbkdf2UseCase useCase)
     {
         return useCase switch
         {

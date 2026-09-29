@@ -36,8 +36,18 @@ namespace HeroCrypt.Protocols.SecretSharing;
 /// - Secure voting
 /// - Multi-signature wallets
 /// </summary>
-public static class SecureMpc
+public sealed class SecureMpc
 {
+    private readonly SecurityPolicyOptions policy;
+
+    /// <summary>
+    /// Initializes a new instance of the SecureMpc class.
+    /// </summary>
+    /// <param name="policy">Optional security policy. If null, uses SecurityPolicy.CurrentPolicy.</param>
+    public SecureMpc(SecurityPolicyOptions? policy = null)
+    {
+        this.policy = policy ?? SecurityPolicy.CurrentPolicy;
+    }
     /// <summary>
     /// Security model for MPC
     /// </summary>
@@ -131,7 +141,7 @@ public static class SecureMpc
     /// <param name="threshold">Number of shares needed to reconstruct (t+1)</param>
     /// <param name="model">Security model</param>
     /// <returns>Sum of all inputs</returns>
-    public static ComputationResult SecureSum(byte[][] partyInputs, int threshold,
+    public ComputationResult SecureSum(byte[][] partyInputs, int threshold,
         SecurityModel model = SecurityModel.SemiHonest)
     {
         _ = model;
@@ -156,10 +166,11 @@ public static class SecureMpc
             // 4. Parties reconstruct the sum from threshold+1 shares
 
             // Share each party's input
+            var shamir = new ShamirSecretSharing(policy);
             var allShares = new ShamirSecretSharing.Share[numParties][];
             for (int i = 0; i < numParties; i++)
             {
-                allShares[i] = ShamirSecretSharing.Split(
+                allShares[i] = shamir.Split(
                     partyInputs[i],
                     threshold,
                     numParties
@@ -192,7 +203,7 @@ public static class SecureMpc
 
             // Reconstruct the sum (need threshold+1 shares)
             var reconstructionShares = sumShares.Take(threshold + 1).ToArray();
-            var result = ShamirSecretSharing.Reconstruct(reconstructionShares);
+            var result = shamir.Reconstruct(reconstructionShares);
 
             return new ComputationResult(result, numParties, true);
         }
@@ -215,7 +226,7 @@ public static class SecureMpc
     /// <param name="beaverTriple">Preprocessed Beaver triple for each party</param>
     /// <param name="threshold">Reconstruction threshold</param>
     /// <returns>Shares of the product x * y</returns>
-    public static MpcShare[] SecureMultiply(MpcShare[] xShares, MpcShare[] yShares,
+    public MpcShare[] SecureMultiply(MpcShare[] xShares, MpcShare[] yShares,
         BeaverTriple[] beaverTriple, int threshold)
     {
         _ = threshold;
@@ -317,7 +328,7 @@ public static class SecureMpc
     /// <param name="threshold">Reconstruction threshold</param>
     /// <param name="valueLength">Length of values in bytes</param>
     /// <returns>Beaver triple for each party</returns>
-    public static BeaverTriple[] GenerateBeaverTriples(int numParties, int threshold, int valueLength)
+    public BeaverTriple[] GenerateBeaverTriples(int numParties, int threshold, int valueLength)
     {
         if (numParties < 2)
         {
@@ -343,9 +354,10 @@ public static class SecureMpc
         }
 
         // Secret share a, b, and c
-        var aShares = ShamirSecretSharing.Split(a, threshold, numParties);
-        var bShares = ShamirSecretSharing.Split(b, threshold, numParties);
-        var cShares = ShamirSecretSharing.Split(c, threshold, numParties);
+        var shamir = new ShamirSecretSharing(SecurityPolicy.CurrentPolicy);
+        var aShares = shamir.Split(a, threshold, numParties);
+        var bShares = shamir.Split(b, threshold, numParties);
+        var cShares = shamir.Split(c, threshold, numParties);
 
         // Clean up secrets
         SecureMemoryOperations.SecureClear(a);
@@ -375,7 +387,7 @@ public static class SecureMpc
     /// <param name="party2Set">Party 2's private set</param>
     /// <param name="model">Security model</param>
     /// <returns>Intersection of the two sets</returns>
-    public static byte[][] PrivateSetIntersection(byte[][] party1Set, byte[][] party2Set,
+    public byte[][] PrivateSetIntersection(byte[][] party1Set, byte[][] party2Set,
         SecurityModel model = SecurityModel.SemiHonest)
     {
         _ = model;
@@ -438,7 +450,8 @@ public static class SecureMpc
 
     private static byte[] ReconstructSecret(ShamirSecretSharing.Share[] shares)
     {
-        return ShamirSecretSharing.Reconstruct(shares);
+        var shamir = new ShamirSecretSharing(SecurityPolicy.CurrentPolicy);
+        return shamir.Reconstruct(shares);
     }
 
     private static byte GF256Multiply(byte a, byte b)

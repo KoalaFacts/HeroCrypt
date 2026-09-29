@@ -56,13 +56,17 @@ public sealed class Secp256k1Builder : IDisposable
     private const int CompressedPublicKeySize = Secp256k1Core.COMPRESSED_PUBLIC_KEY_SIZE;
     private const int SignatureSize = Secp256k1Core.SIGNATURE_SIZE;
 
+    private readonly Secp256k1Core core;
     private byte[]? privateKey;
     private byte[]? publicKey;
     private byte[]? messageHash;
     private byte[]? signature;
     private bool disposed;
 
-    private Secp256k1Builder() { }
+    private Secp256k1Builder(SecurityPolicyOptions? policy = null)
+    {
+        core = new Secp256k1Core(policy);
+    }
 
     /// <summary>
     /// Creates a new secp256k1 builder instance.
@@ -230,7 +234,7 @@ public sealed class Secp256k1Builder : IDisposable
     public (byte[] privateKey, byte[] publicKey) GenerateKeyPair()
     {
         ArgumentHelper.ThrowIfDisposed(disposed, this);
-        return Secp256k1Core.GenerateKeyPair();
+        return core.GenerateKeyPair();
     }
 
     /// <summary>
@@ -244,7 +248,7 @@ public sealed class Secp256k1Builder : IDisposable
         ArgumentHelper.ThrowIfDisposed(disposed, this);
         ValidatePrivateKey();
         ValidateMessageHash();
-        return Secp256k1Core.Sign(messageHash!, privateKey!);
+        return core.Sign(messageHash!, privateKey!);
     }
 
     /// <summary>
@@ -259,7 +263,7 @@ public sealed class Secp256k1Builder : IDisposable
         ValidatePublicKey();
         ValidateMessageHash();
         ValidateSignature();
-        return Secp256k1Core.Verify(messageHash!, signature!, publicKey!);
+        return core.Verify(messageHash!, signature!, publicKey!);
     }
 
     /// <summary>
@@ -278,7 +282,7 @@ public sealed class Secp256k1Builder : IDisposable
             throw new InvalidOperationException($"Public key must be uncompressed ({UncompressedPublicKeySize} bytes) to compress it.");
         }
 
-        return Secp256k1Core.CompressPublicKey(publicKey);
+        return core.CompressPublicKey(publicKey);
     }
 
     /// <summary>
@@ -297,7 +301,7 @@ public sealed class Secp256k1Builder : IDisposable
             throw new InvalidOperationException($"Public key must be compressed ({CompressedPublicKeySize} bytes) to decompress it.");
         }
 
-        return Secp256k1Core.DecompressPublicKey(publicKey);
+        return core.DecompressPublicKey(publicKey);
     }
 
     private void ValidatePrivateKey()

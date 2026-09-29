@@ -1,6 +1,7 @@
 #if NET10_0_OR_GREATER
 #pragma warning disable SYSLIB5006 // ML-DSA APIs are experimental in .NET 10 preview
 using System.Security.Cryptography;
+using HeroCrypt.Security;
 using SystemMLDsa = System.Security.Cryptography.MLDsa;
 
 namespace HeroCrypt.Primitives.MLDsa;
@@ -47,8 +48,20 @@ namespace HeroCrypt.Primitives.MLDsa;
 /// </para>
 /// </remarks>
 
-public static class MLDsaCore
+public sealed class MLDsaCore
 {
+#pragma warning disable IDE0052 // Remove unread private member - policy reserved for future security validation
+    private readonly SecurityPolicyOptions policy;
+#pragma warning restore IDE0052
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="MLDsaCore"/> class.
+    /// </summary>
+    /// <param name="policy">Optional security policy options. If null, uses <see cref="SecurityPolicy.CurrentPolicy"/>.</param>
+    public MLDsaCore(SecurityPolicyOptions? policy = null)
+    {
+        this.policy = policy ?? SecurityPolicy.CurrentPolicy;
+    }
     /// <summary>
     /// ML-DSA security levels (FIPS 204)
     /// </summary>
@@ -184,7 +197,7 @@ public static class MLDsaCore
     /// Checks if ML-DSA is supported on the current platform
     /// </summary>
     /// <returns>True if ML-DSA is available, false otherwise</returns>
-    public static bool IsSupported()
+    public bool IsSupported()
     {
         return SystemMLDsa.IsSupported;
     }
@@ -196,7 +209,7 @@ public static class MLDsaCore
     /// <returns>A new ML-DSA key pair</returns>
     /// <exception cref="PlatformNotSupportedException">If ML-DSA is not supported on this platform</exception>
     /// <exception cref="CryptographicException">If key generation fails</exception>
-    public static MLDsaKeyPair GenerateKeyPair(SecurityLevel level = SecurityLevel.MLDsa65)
+    public MLDsaKeyPair GenerateKeyPair(SecurityLevel level = SecurityLevel.MLDsa65)
     {
         if (!IsSupported())
         {
@@ -221,7 +234,7 @@ public static class MLDsaCore
     /// <exception cref="ArgumentNullException">If privateKeyPem or data is null</exception>
     /// <exception cref="ArgumentException">If privateKeyPem is not valid PEM format or context exceeds 255 bytes</exception>
     /// <exception cref="PlatformNotSupportedException">If ML-DSA is not supported</exception>
-    public static byte[] Sign(string privateKeyPem, byte[] data, int securityBits, byte[]? context = null)
+    public byte[] Sign(string privateKeyPem, byte[] data, int securityBits, byte[]? context = null)
     {
         ValidatePemFormat(privateKeyPem, nameof(privateKeyPem));
 
@@ -260,7 +273,7 @@ public static class MLDsaCore
     /// <exception cref="ArgumentNullException">If any required parameter is null</exception>
     /// <exception cref="ArgumentException">If publicKeyPem is not valid PEM format or context exceeds 255 bytes</exception>
     /// <exception cref="PlatformNotSupportedException">If ML-DSA is not supported</exception>
-    public static bool Verify(string publicKeyPem, byte[] data, byte[] signature, byte[]? context = null)
+    public bool Verify(string publicKeyPem, byte[] data, byte[] signature, byte[]? context = null)
     {
         ValidatePemFormat(publicKeyPem, nameof(publicKeyPem));
 
@@ -313,7 +326,7 @@ public static class MLDsaCore
     /// <exception cref="ArgumentNullException">If publicKeyPem is null</exception>
     /// <exception cref="ArgumentException">If publicKeyPem is not valid PEM format or context exceeds 255 bytes</exception>
     /// <exception cref="PlatformNotSupportedException">If ML-DSA is not supported</exception>
-    public static bool Verify(string publicKeyPem, ReadOnlySpan<byte> data, ReadOnlySpan<byte> signature, ReadOnlySpan<byte> context = default)
+    public bool Verify(string publicKeyPem, ReadOnlySpan<byte> data, ReadOnlySpan<byte> signature, ReadOnlySpan<byte> context = default)
     {
         ValidatePemFormat(publicKeyPem, nameof(publicKeyPem));
 
@@ -341,7 +354,7 @@ public static class MLDsaCore
     /// <exception cref="ArgumentNullException">If publicKeyPem is null</exception>
     /// <exception cref="ArgumentException">If publicKeyPem is not valid PEM format</exception>
     /// <exception cref="PlatformNotSupportedException">If ML-DSA is not supported</exception>
-    public static SystemMLDsa ImportPublicKey(string publicKeyPem)
+    public SystemMLDsa ImportPublicKey(string publicKeyPem)
     {
         ValidatePemFormat(publicKeyPem, nameof(publicKeyPem));
 
@@ -386,7 +399,7 @@ public static class MLDsaCore
         };
     }
 
-    private static MLDsaAlgorithm ToMLDsaAlgorithm(SecurityLevel level)
+    private MLDsaAlgorithm ToMLDsaAlgorithm(SecurityLevel level)
     {
         return level switch
         {
@@ -404,7 +417,7 @@ public static class MLDsaCore
     /// <param name="paramName">The parameter name for exception messages</param>
     /// <exception cref="ArgumentNullException">If pem is null</exception>
     /// <exception cref="ArgumentException">If pem is not valid PEM format</exception>
-    private static void ValidatePemFormat(string pem, string paramName)
+    private void ValidatePemFormat(string pem, string paramName)
     {
 #if !NETSTANDARD2_0
         ArgumentNullException.ThrowIfNull(pem);

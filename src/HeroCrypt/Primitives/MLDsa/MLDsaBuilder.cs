@@ -32,6 +32,7 @@ namespace HeroCrypt.Primitives.MLDsa;
 [Experimental("SYSLIB5006")]
 public class MLDsaBuilder : IDisposable
 {
+    private readonly MLDsaCore core;
     private MLDsaCore.SecurityLevel securityLevel = MLDsaCore.SecurityLevel.MLDsa65;
     private string? publicKeyPem;
     private MLDsaCore.MLDsaKeyPair? keyPair;
@@ -46,7 +47,8 @@ public class MLDsaBuilder : IDisposable
     /// <exception cref="PlatformNotSupportedException">If ML-DSA is not supported on this platform</exception>
     public static MLDsaBuilder Create()
     {
-        if (!MLDsaCore.IsSupported())
+        var core = new MLDsaCore();
+        if (!core.IsSupported())
         {
             throw new PlatformNotSupportedException(
                 "ML-DSA is not supported on this platform. " +
@@ -55,7 +57,10 @@ public class MLDsaBuilder : IDisposable
         return new MLDsaBuilder();
     }
 
-    private MLDsaBuilder() { }
+    private MLDsaBuilder()
+    {
+        core = new MLDsaCore();
+    }
 
     /// <summary>
     /// Sets the security level for key generation
@@ -211,7 +216,7 @@ public class MLDsaBuilder : IDisposable
     /// <exception cref="CryptographicException">If key generation fails</exception>
     public MLDsaCore.MLDsaKeyPair GenerateKeyPair()
     {
-        return MLDsaCore.GenerateKeyPair(securityLevel);
+        return core.GenerateKeyPair(securityLevel);
     }
 
     /// <summary>
@@ -256,7 +261,7 @@ public class MLDsaBuilder : IDisposable
             throw new InvalidOperationException("Data must be set before verification. Use WithData()");
         }
 
-        return MLDsaCore.Verify(publicKeyPem, data, signature, context);
+        return core.Verify(publicKeyPem, data, signature, context);
     }
 
     /// <summary>

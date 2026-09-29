@@ -30,6 +30,7 @@ namespace HeroCrypt.Primitives.MLKem;
 [Experimental("SYSLIB5006")]
 public class MLKemBuilder : IDisposable
 {
+    private readonly MLKemCore core;
     private MLKemCore.SecurityLevel securityLevel = MLKemCore.SecurityLevel.MLKem768;
     private string? publicKeyPem;
     private MLKemCore.MLKemKeyPair? keyPair;
@@ -42,7 +43,8 @@ public class MLKemBuilder : IDisposable
     /// <exception cref="PlatformNotSupportedException">If ML-KEM is not supported on this platform</exception>
     public static MLKemBuilder Create()
     {
-        if (!MLKemCore.IsSupported())
+        var core = new MLKemCore();
+        if (!core.IsSupported())
         {
             throw new PlatformNotSupportedException(
                 "ML-KEM is not supported on this platform. " +
@@ -51,7 +53,10 @@ public class MLKemBuilder : IDisposable
         return new MLKemBuilder();
     }
 
-    private MLKemBuilder() { }
+    private MLKemBuilder()
+    {
+        core = new MLKemCore();
+    }
 
     /// <summary>
     /// Sets the security level for key generation
@@ -124,7 +129,7 @@ public class MLKemBuilder : IDisposable
     /// <exception cref="CryptographicException">If key generation fails</exception>
     public MLKemCore.MLKemKeyPair GenerateKeyPair()
     {
-        return MLKemCore.GenerateKeyPair(securityLevel);
+        return core.GenerateKeyPair(securityLevel);
     }
 
     /// <summary>
@@ -140,7 +145,7 @@ public class MLKemBuilder : IDisposable
             throw new InvalidOperationException("Public key must be set before encapsulation. Use WithPublicKey()");
         }
 
-        return MLKemCore.Encapsulate(publicKeyPem);
+        return core.Encapsulate(publicKeyPem);
     }
 
     /// <summary>

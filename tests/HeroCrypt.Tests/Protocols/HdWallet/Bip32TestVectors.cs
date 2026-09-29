@@ -24,6 +24,8 @@ namespace HeroCrypt.Tests.Protocols.HdWallet;
 /// </remarks>
 public class Bip32TestVectors
 {
+    private readonly Bip32HdWallet bip32 = new();
+
     /// <summary>
     /// BIP32 Test Vector 1 - Master key generation
     /// </summary>
@@ -34,7 +36,7 @@ public class Bip32TestVectors
         var seed = Convert.FromHexString("000102030405060708090a0b0c0d0e0f");
 
         // Act
-        var masterKey = Bip32HdWallet.GenerateMasterKey(seed);
+        var masterKey = bip32.GenerateMasterKey(seed);
 
         // Assert
         Assert.NotNull(masterKey);
@@ -59,10 +61,10 @@ public class Bip32TestVectors
 
         // Arrange
         var seed = Convert.FromHexString("000102030405060708090a0b0c0d0e0f");
-        var masterKey = Bip32HdWallet.GenerateMasterKey(seed);
+        var masterKey = bip32.GenerateMasterKey(seed);
 
         // Act - Derive m/0'
-        var childKey = Bip32HdWallet.DeriveChild(masterKey, Bip32HdWallet.HardenedOffset + 0);
+        var childKey = bip32.DeriveChild(masterKey, Bip32HdWallet.HardenedOffset + 0);
 
         // Assert
         Assert.NotNull(childKey);
@@ -85,11 +87,11 @@ public class Bip32TestVectors
 
         // Arrange
         var seed = Convert.FromHexString("000102030405060708090a0b0c0d0e0f");
-        var masterKey = Bip32HdWallet.GenerateMasterKey(seed);
+        var masterKey = bip32.GenerateMasterKey(seed);
 
         // Act - Derive m/0'/1
-        var child0H = Bip32HdWallet.DeriveChild(masterKey, Bip32HdWallet.HardenedOffset + 0);
-        var child1 = Bip32HdWallet.DeriveChild(child0H, 1);
+        var child0H = bip32.DeriveChild(masterKey, Bip32HdWallet.HardenedOffset + 0);
+        var child1 = bip32.DeriveChild(child0H, 1);
 
         // Assert
         Assert.NotNull(child1);
@@ -111,10 +113,10 @@ public class Bip32TestVectors
 
         // Arrange
         var seed = Convert.FromHexString("000102030405060708090a0b0c0d0e0f");
-        var masterKey = Bip32HdWallet.GenerateMasterKey(seed);
+        var masterKey = bip32.GenerateMasterKey(seed);
 
         // Act
-        var derivedKey = Bip32HdWallet.DerivePath(masterKey, "m/0'/1/2'");
+        var derivedKey = bip32.DerivePath(masterKey, "m/0'/1/2'");
 
         // Assert
         Assert.NotNull(derivedKey);
@@ -136,7 +138,7 @@ public class Bip32TestVectors
         var seed = Convert.FromHexString("fffcf9f6f3f0edeae7e4e1dedbd8d5d2cfccc9c6c3c0bdbab7b4b1aeaba8a5a29f9c999693908d8a8784817e7b7875726f6c696663605d5a5754514e4b484542");
 
         // Act
-        var masterKey = Bip32HdWallet.GenerateMasterKey(seed);
+        var masterKey = bip32.GenerateMasterKey(seed);
 
         // Assert
         Assert.NotNull(masterKey);
@@ -158,10 +160,10 @@ public class Bip32TestVectors
 
         // Arrange
         var seed = Convert.FromHexString("fffcf9f6f3f0edeae7e4e1dedbd8d5d2cfccc9c6c3c0bdbab7b4b1aeaba8a5a29f9c999693908d8a8784817e7b7875726f6c696663605d5a5754514e4b484542");
-        var masterKey = Bip32HdWallet.GenerateMasterKey(seed);
+        var masterKey = bip32.GenerateMasterKey(seed);
 
         // Act - Normal (non-hardened) derivation
-        var childKey = Bip32HdWallet.DeriveChild(masterKey, 0);
+        var childKey = bip32.DeriveChild(masterKey, 0);
 
         // Assert
         Assert.NotNull(childKey);
@@ -184,11 +186,11 @@ public class Bip32TestVectors
         // Arrange
         var seed = new byte[64];
         new Random(42).NextBytes(seed);
-        var masterKey = Bip32HdWallet.GenerateMasterKey(seed);
+        var masterKey = bip32.GenerateMasterKey(seed);
 
         // Act
-        var child1 = Bip32HdWallet.DeriveChild(masterKey, 0);
-        var child2 = Bip32HdWallet.DeriveChild(masterKey, 0);
+        var child1 = bip32.DeriveChild(masterKey, 0);
+        var child2 = bip32.DeriveChild(masterKey, 0);
 
         // Assert
         Assert.Equal(child1.Key, child2.Key);
@@ -208,12 +210,12 @@ public class Bip32TestVectors
         // Arrange
         var seed = new byte[64];
         new Random(42).NextBytes(seed);
-        var masterKey = Bip32HdWallet.GenerateMasterKey(seed);
+        var masterKey = bip32.GenerateMasterKey(seed);
 
         // Act
-        var child0 = Bip32HdWallet.DeriveChild(masterKey, 0);
-        var child1 = Bip32HdWallet.DeriveChild(masterKey, 1);
-        var child2 = Bip32HdWallet.DeriveChild(masterKey, 2);
+        var child0 = bip32.DeriveChild(masterKey, 0);
+        var child1 = bip32.DeriveChild(masterKey, 1);
+        var child2 = bip32.DeriveChild(masterKey, 2);
 
         // Assert - All should be different
         Assert.NotEqual(child0.Key, child1.Key);
@@ -236,11 +238,11 @@ public class Bip32TestVectors
         // Arrange
         var seed = new byte[64];
         new Random(42).NextBytes(seed);
-        var masterKey = Bip32HdWallet.GenerateMasterKey(seed);
+        var masterKey = bip32.GenerateMasterKey(seed);
 
         // Act
-        var normalChild = Bip32HdWallet.DeriveChild(masterKey, 0);
-        var hardenedChild = Bip32HdWallet.DeriveChild(masterKey, Bip32HdWallet.HardenedOffset + 0);
+        var normalChild = bip32.DeriveChild(masterKey, 0);
+        var hardenedChild = bip32.DeriveChild(masterKey, Bip32HdWallet.HardenedOffset + 0);
 
         // Assert
         Assert.NotEqual(normalChild.Key, hardenedChild.Key);
@@ -258,10 +260,10 @@ public class Bip32TestVectors
         // Arrange
         var seed = new byte[64];
         new Random(42).NextBytes(seed);
-        var masterKey = Bip32HdWallet.GenerateMasterKey(seed);
+        var masterKey = bip32.GenerateMasterKey(seed);
 
         // Act - BIP44 path for first Bitcoin receiving address
-        var addressKey = Bip32HdWallet.DerivePath(masterKey, "m/44'/0'/0'/0/0");
+        var addressKey = bip32.DerivePath(masterKey, "m/44'/0'/0'/0/0");
 
         // Assert
         Assert.NotNull(addressKey);
@@ -281,17 +283,17 @@ public class Bip32TestVectors
         // Arrange
         var seed = new byte[64];
         new Random(42).NextBytes(seed);
-        var masterKey = Bip32HdWallet.GenerateMasterKey(seed);
+        var masterKey = bip32.GenerateMasterKey(seed);
 
         // Act - Manual derivation
-        var child0 = Bip32HdWallet.DeriveChild(masterKey, Bip32HdWallet.HardenedOffset + 44);
-        var child1 = Bip32HdWallet.DeriveChild(child0, Bip32HdWallet.HardenedOffset + 0);
-        var child2 = Bip32HdWallet.DeriveChild(child1, Bip32HdWallet.HardenedOffset + 0);
-        var child3 = Bip32HdWallet.DeriveChild(child2, 0);
-        var manualFinal = Bip32HdWallet.DeriveChild(child3, 0);
+        var child0 = bip32.DeriveChild(masterKey, Bip32HdWallet.HardenedOffset + 44);
+        var child1 = bip32.DeriveChild(child0, Bip32HdWallet.HardenedOffset + 0);
+        var child2 = bip32.DeriveChild(child1, Bip32HdWallet.HardenedOffset + 0);
+        var child3 = bip32.DeriveChild(child2, 0);
+        var manualFinal = bip32.DeriveChild(child3, 0);
 
         // Path-based derivation
-        var pathFinal = Bip32HdWallet.DerivePath(masterKey, "m/44'/0'/0'/0/0");
+        var pathFinal = bip32.DerivePath(masterKey, "m/44'/0'/0'/0/0");
 
         // Assert
         Assert.Equal(manualFinal.Key, pathFinal.Key);
@@ -329,10 +331,10 @@ public class Bip32TestVectors
         // Arrange
         var seed = new byte[64];
         new Random(42).NextBytes(seed);
-        var masterKey = Bip32HdWallet.GenerateMasterKey(seed);
+        var masterKey = bip32.GenerateMasterKey(seed);
 
         // Act - Derive a child key
-        var childKey = Bip32HdWallet.DeriveChild(masterKey, 0);
+        var childKey = bip32.DeriveChild(masterKey, 0);
 
         // Assert - The key should be 32 bytes (private key)
         Assert.Equal(32, childKey.Key.Length);
@@ -349,13 +351,13 @@ public class Bip32TestVectors
     public void ParsePath_VariousFormats_ParsesCorrectly()
     {
         // Act & Assert
-        var path1 = Bip32HdWallet.ParsePath("m/0'/1/2'");
+        var path1 = bip32.ParsePath("m/0'/1/2'");
         Assert.Equal(3, path1.Length);
         Assert.Equal(Bip32HdWallet.HardenedOffset + 0, path1[0]);
         Assert.Equal(1u, path1[1]);
         Assert.Equal(Bip32HdWallet.HardenedOffset + 2, path1[2]);
 
-        var path2 = Bip32HdWallet.ParsePath("m/44H/0H/0H");
+        var path2 = bip32.ParsePath("m/44H/0H/0H");
         Assert.Equal(3, path2.Length);
         Assert.All(path2, index => Assert.True(index >= Bip32HdWallet.HardenedOffset));
     }
@@ -377,8 +379,8 @@ public class Bip32TestVectors
         };
 
         // Act
-        var formatted = Bip32HdWallet.FormatPath(originalIndices);
-        var parsed = Bip32HdWallet.ParsePath(formatted);
+        var formatted = bip32.FormatPath(originalIndices);
+        var parsed = bip32.ParsePath(formatted);
 
         // Assert
         Assert.Equal(originalIndices, parsed);

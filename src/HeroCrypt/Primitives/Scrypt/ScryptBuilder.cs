@@ -255,9 +255,10 @@ public sealed class ScryptBuilder : IDisposable
         ArgumentHelper.ThrowIfDisposed(disposed, this);
         ValidateState();
 
-        return ScryptCore.DeriveKey(
-            password,
-            salt,
+        var core = new ScryptCore();
+        return core.DeriveKey(
+            password!,
+            salt!,
             n,
             r,
             p,

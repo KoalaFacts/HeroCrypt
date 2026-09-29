@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using HeroCrypt.Primitives.S2K;
+using HeroCrypt.Security;
 #pragma warning disable IDE0300 // Simplify collection initialization
 #pragma warning disable IDE0005 // Using directive is unnecessary
 
@@ -13,6 +14,8 @@ public class S2KCoreTests
 {
     private static readonly byte[] TestPassword = "password"u8.ToArray();
     private static readonly byte[] TestSalt = new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08 };
+    private static readonly S2KCore Core = new();
+    private static readonly S2KCore CoreTesting = new(SecurityPolicyOptions.Testing);
 
     /// <summary>
     /// Basic functionality tests for Simple S2K.
@@ -24,7 +27,7 @@ public class S2KCoreTests
         [Fact]
         public void SimpleS2K_ProducesKeyOfCorrectSize()
         {
-            var key = S2KCore.SimpleS2K(TestPassword, 32, HashAlgorithmName.SHA256);
+            var key = Core.SimpleS2K(TestPassword, 32, HashAlgorithmName.SHA256);
 
             Assert.Equal(32, key.Length);
         }
@@ -32,8 +35,8 @@ public class S2KCoreTests
         [Fact]
         public void SimpleS2K_IsDeterministic()
         {
-            var key1 = S2KCore.SimpleS2K(TestPassword, 32, HashAlgorithmName.SHA256);
-            var key2 = S2KCore.SimpleS2K(TestPassword, 32, HashAlgorithmName.SHA256);
+            var key1 = Core.SimpleS2K(TestPassword, 32, HashAlgorithmName.SHA256);
+            var key2 = Core.SimpleS2K(TestPassword, 32, HashAlgorithmName.SHA256);
 
             Assert.Equal(key1, key2);
         }
@@ -41,8 +44,8 @@ public class S2KCoreTests
         [Fact]
         public void SimpleS2K_DifferentPasswords_ProduceDifferentKeys()
         {
-            var key1 = S2KCore.SimpleS2K("password1"u8.ToArray(), 32, HashAlgorithmName.SHA256);
-            var key2 = S2KCore.SimpleS2K("password2"u8.ToArray(), 32, HashAlgorithmName.SHA256);
+            var key1 = Core.SimpleS2K("password1"u8.ToArray(), 32, HashAlgorithmName.SHA256);
+            var key2 = Core.SimpleS2K("password2"u8.ToArray(), 32, HashAlgorithmName.SHA256);
 
             Assert.NotEqual(key1, key2);
         }
@@ -54,7 +57,7 @@ public class S2KCoreTests
         [InlineData(64)]
         public void SimpleS2K_ProducesRequestedKeySize(int keySize)
         {
-            var key = S2KCore.SimpleS2K(TestPassword, keySize, HashAlgorithmName.SHA256);
+            var key = Core.SimpleS2K(TestPassword, keySize, HashAlgorithmName.SHA256);
 
             Assert.Equal(keySize, key.Length);
         }
@@ -70,7 +73,7 @@ public class S2KCoreTests
         [Fact]
         public void SaltedS2K_ProducesKeyOfCorrectSize()
         {
-            var key = S2KCore.SaltedS2K(TestPassword, TestSalt, 32, HashAlgorithmName.SHA256);
+            var key = Core.SaltedS2K(TestPassword, TestSalt, 32, HashAlgorithmName.SHA256);
 
             Assert.Equal(32, key.Length);
         }
@@ -78,8 +81,8 @@ public class S2KCoreTests
         [Fact]
         public void SaltedS2K_IsDeterministic()
         {
-            var key1 = S2KCore.SaltedS2K(TestPassword, TestSalt, 32, HashAlgorithmName.SHA256);
-            var key2 = S2KCore.SaltedS2K(TestPassword, TestSalt, 32, HashAlgorithmName.SHA256);
+            var key1 = Core.SaltedS2K(TestPassword, TestSalt, 32, HashAlgorithmName.SHA256);
+            var key2 = Core.SaltedS2K(TestPassword, TestSalt, 32, HashAlgorithmName.SHA256);
 
             Assert.Equal(key1, key2);
         }
@@ -90,8 +93,8 @@ public class S2KCoreTests
             var salt1 = new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08 };
             var salt2 = new byte[] { 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18 };
 
-            var key1 = S2KCore.SaltedS2K(TestPassword, salt1, 32, HashAlgorithmName.SHA256);
-            var key2 = S2KCore.SaltedS2K(TestPassword, salt2, 32, HashAlgorithmName.SHA256);
+            var key1 = Core.SaltedS2K(TestPassword, salt1, 32, HashAlgorithmName.SHA256);
+            var key2 = Core.SaltedS2K(TestPassword, salt2, 32, HashAlgorithmName.SHA256);
 
             Assert.NotEqual(key1, key2);
         }
@@ -99,8 +102,8 @@ public class S2KCoreTests
         [Fact]
         public void SaltedS2K_DifferentFromSimple()
         {
-            var simpleKey = S2KCore.SimpleS2K(TestPassword, 32, HashAlgorithmName.SHA256);
-            var saltedKey = S2KCore.SaltedS2K(TestPassword, TestSalt, 32, HashAlgorithmName.SHA256);
+            var simpleKey = Core.SimpleS2K(TestPassword, 32, HashAlgorithmName.SHA256);
+            var saltedKey = Core.SaltedS2K(TestPassword, TestSalt, 32, HashAlgorithmName.SHA256);
 
             Assert.NotEqual(simpleKey, saltedKey);
         }
@@ -116,7 +119,7 @@ public class S2KCoreTests
         [Fact]
         public void IteratedS2K_ProducesKeyOfCorrectSize()
         {
-            var key = S2KCore.IteratedS2K(TestPassword, TestSalt, 65536, 32, HashAlgorithmName.SHA256);
+            var key = Core.IteratedS2K(TestPassword, TestSalt, 65536, 32, HashAlgorithmName.SHA256);
 
             Assert.Equal(32, key.Length);
         }
@@ -124,8 +127,8 @@ public class S2KCoreTests
         [Fact]
         public void IteratedS2K_IsDeterministic()
         {
-            var key1 = S2KCore.IteratedS2K(TestPassword, TestSalt, 65536, 32, HashAlgorithmName.SHA256);
-            var key2 = S2KCore.IteratedS2K(TestPassword, TestSalt, 65536, 32, HashAlgorithmName.SHA256);
+            var key1 = Core.IteratedS2K(TestPassword, TestSalt, 65536, 32, HashAlgorithmName.SHA256);
+            var key2 = Core.IteratedS2K(TestPassword, TestSalt, 65536, 32, HashAlgorithmName.SHA256);
 
             Assert.Equal(key1, key2);
         }
@@ -133,8 +136,8 @@ public class S2KCoreTests
         [Fact]
         public void IteratedS2K_DifferentIterations_ProduceDifferentKeys()
         {
-            var key1 = S2KCore.IteratedS2K(TestPassword, TestSalt, 65536, 32, HashAlgorithmName.SHA256);
-            var key2 = S2KCore.IteratedS2K(TestPassword, TestSalt, 131072, 32, HashAlgorithmName.SHA256);
+            var key1 = Core.IteratedS2K(TestPassword, TestSalt, 65536, 32, HashAlgorithmName.SHA256);
+            var key2 = Core.IteratedS2K(TestPassword, TestSalt, 131072, 32, HashAlgorithmName.SHA256);
 
             Assert.NotEqual(key1, key2);
         }
@@ -142,8 +145,8 @@ public class S2KCoreTests
         [Fact]
         public void IteratedS2K_DifferentFromSalted()
         {
-            var saltedKey = S2KCore.SaltedS2K(TestPassword, TestSalt, 32, HashAlgorithmName.SHA256);
-            var iteratedKey = S2KCore.IteratedS2K(TestPassword, TestSalt, 65536, 32, HashAlgorithmName.SHA256);
+            var saltedKey = Core.SaltedS2K(TestPassword, TestSalt, 32, HashAlgorithmName.SHA256);
+            var iteratedKey = Core.IteratedS2K(TestPassword, TestSalt, 65536, 32, HashAlgorithmName.SHA256);
 
             Assert.NotEqual(saltedKey, iteratedKey);
         }
@@ -162,7 +165,7 @@ public class S2KCoreTests
         [InlineData(255, 65011712)] // Maximum
         public void DecodeIterationCount_KnownValues(byte encoded, long expected)
         {
-            var decoded = S2KCore.DecodeIterationCount(encoded);
+            var decoded = Core.DecodeIterationCount(encoded);
 
             Assert.Equal(expected, decoded);
         }
@@ -174,8 +177,8 @@ public class S2KCoreTests
 
             foreach (var originalCount in counts)
             {
-                var encoded = S2KCore.EncodeIterationCount(originalCount);
-                var decoded = S2KCore.DecodeIterationCount(encoded);
+                var encoded = Core.EncodeIterationCount(originalCount);
+                var decoded = Core.DecodeIterationCount(encoded);
 
                 // Decoded should be >= original (due to encoding granularity)
                 Assert.True(decoded >= originalCount,
@@ -186,8 +189,8 @@ public class S2KCoreTests
         [Fact]
         public void EncodeIterationCount_SmallValue_ReturnsMinimum()
         {
-            var encoded = S2KCore.EncodeIterationCount(100);
-            var decoded = S2KCore.DecodeIterationCount(encoded);
+            var encoded = Core.EncodeIterationCount(100);
+            var decoded = Core.DecodeIterationCount(encoded);
 
             // Should round up to minimum (1024)
             Assert.Equal(1024, decoded);
@@ -204,7 +207,7 @@ public class S2KCoreTests
         [Fact]
         public void GenerateSalt_ReturnsCorrectSize()
         {
-            var salt = S2KCore.GenerateSalt();
+            var salt = Core.GenerateSalt();
 
             Assert.Equal(S2KCore.DEFAULT_SALT_SIZE, salt.Length);
         }
@@ -212,8 +215,8 @@ public class S2KCoreTests
         [Fact]
         public void GenerateSalt_ProducesRandomValues()
         {
-            var salt1 = S2KCore.GenerateSalt();
-            var salt2 = S2KCore.GenerateSalt();
+            var salt1 = Core.GenerateSalt();
+            var salt2 = Core.GenerateSalt();
 
             Assert.NotEqual(salt1, salt2);
         }
@@ -230,14 +233,14 @@ public class S2KCoreTests
         public void SimpleS2K_ZeroKeySize_ThrowsArgumentException()
         {
             Assert.Throws<ArgumentException>(() =>
-                S2KCore.SimpleS2K(TestPassword, 0, HashAlgorithmName.SHA256));
+                Core.SimpleS2K(TestPassword, 0, HashAlgorithmName.SHA256));
         }
 
         [Fact]
         public void SimpleS2K_NegativeKeySize_ThrowsArgumentException()
         {
             Assert.Throws<ArgumentException>(() =>
-                S2KCore.SimpleS2K(TestPassword, -1, HashAlgorithmName.SHA256));
+                Core.SimpleS2K(TestPassword, -1, HashAlgorithmName.SHA256));
         }
 
         [Fact]
@@ -246,7 +249,7 @@ public class S2KCoreTests
             var wrongSalt = new byte[7]; // Should be 8
 
             Assert.Throws<ArgumentException>(() =>
-                S2KCore.SaltedS2K(TestPassword, wrongSalt, 32, HashAlgorithmName.SHA256));
+                Core.SaltedS2K(TestPassword, wrongSalt, 32, HashAlgorithmName.SHA256));
         }
 
         [Fact]
@@ -255,7 +258,7 @@ public class S2KCoreTests
             var wrongSalt = new byte[16]; // Should be 8
 
             Assert.Throws<ArgumentException>(() =>
-                S2KCore.IteratedS2K(TestPassword, wrongSalt, 65536, 32, HashAlgorithmName.SHA256));
+                Core.IteratedS2K(TestPassword, wrongSalt, 65536, 32, HashAlgorithmName.SHA256));
         }
     }
 
@@ -273,7 +276,7 @@ public class S2KCoreTests
         public void SimpleS2K_DifferentHashAlgorithms_Succeed(string algorithmName)
         {
             var algorithm = new HashAlgorithmName(algorithmName);
-            var key = S2KCore.SimpleS2K(TestPassword, 32, algorithm);
+            var key = Core.SimpleS2K(TestPassword, 32, algorithm);
 
             Assert.Equal(32, key.Length);
         }
@@ -281,8 +284,8 @@ public class S2KCoreTests
         [Fact]
         public void SimpleS2K_DifferentHashes_ProduceDifferentKeys()
         {
-            var keySha256 = S2KCore.SimpleS2K(TestPassword, 32, HashAlgorithmName.SHA256);
-            var keySha512 = S2KCore.SimpleS2K(TestPassword, 32, HashAlgorithmName.SHA512);
+            var keySha256 = Core.SimpleS2K(TestPassword, 32, HashAlgorithmName.SHA256);
+            var keySha512 = Core.SimpleS2K(TestPassword, 32, HashAlgorithmName.SHA512);
 
             Assert.NotEqual(keySha256, keySha512);
         }
@@ -302,7 +305,7 @@ public class S2KCoreTests
                 .WithType(S2KType.Simple);
 
             var builderKey = builder.DeriveKey(TestPassword, 32);
-            var coreKey = S2KCore.SimpleS2K(TestPassword, 32, S2KCore.DEFAULT_HASH);
+            var coreKey = Core.SimpleS2K(TestPassword, 32, S2KCore.DEFAULT_HASH);
 
             Assert.Equal(coreKey, builderKey);
         }
@@ -315,7 +318,7 @@ public class S2KCoreTests
                 .WithSalt(TestSalt);
 
             var builderKey = builder.DeriveKey(TestPassword, 32);
-            var coreKey = S2KCore.SaltedS2K(TestPassword, TestSalt, 32, S2KCore.DEFAULT_HASH);
+            var coreKey = Core.SaltedS2K(TestPassword, TestSalt, 32, S2KCore.DEFAULT_HASH);
 
             Assert.Equal(coreKey, builderKey);
         }
@@ -329,7 +332,7 @@ public class S2KCoreTests
                 .WithIterationCount(65536);
 
             var builderKey = builder.DeriveKey(TestPassword, 32);
-            var coreKey = S2KCore.IteratedS2K(TestPassword, TestSalt, 65536, 32, S2KCore.DEFAULT_HASH);
+            var coreKey = Core.IteratedS2K(TestPassword, TestSalt, 65536, 32, S2KCore.DEFAULT_HASH);
 
             Assert.Equal(coreKey, builderKey);
         }
@@ -405,7 +408,7 @@ public class S2KCoreTests
         [Fact]
         public void Argon2S2K_ProducesKeyOfCorrectSize()
         {
-            var key = S2KCore.Argon2S2K(TestPassword, Argon2Salt, timePasses: 1, parallelism: 1, memoryExponent: 10, keySize: 32);
+            var key = Core.Argon2S2K(TestPassword, Argon2Salt, timePasses: 1, parallelism: 1, memoryExponent: 10, keySize: 32);
 
             Assert.Equal(32, key.Length);
         }
@@ -413,8 +416,8 @@ public class S2KCoreTests
         [Fact]
         public void Argon2S2K_IsDeterministic()
         {
-            var key1 = S2KCore.Argon2S2K(TestPassword, Argon2Salt, timePasses: 1, parallelism: 1, memoryExponent: 10, keySize: 32);
-            var key2 = S2KCore.Argon2S2K(TestPassword, Argon2Salt, timePasses: 1, parallelism: 1, memoryExponent: 10, keySize: 32);
+            var key1 = Core.Argon2S2K(TestPassword, Argon2Salt, timePasses: 1, parallelism: 1, memoryExponent: 10, keySize: 32);
+            var key2 = Core.Argon2S2K(TestPassword, Argon2Salt, timePasses: 1, parallelism: 1, memoryExponent: 10, keySize: 32);
 
             Assert.Equal(key1, key2);
         }
@@ -422,8 +425,8 @@ public class S2KCoreTests
         [Fact]
         public void Argon2S2K_DifferentParameters_ProduceDifferentKeys()
         {
-            var key1 = S2KCore.Argon2S2K(TestPassword, Argon2Salt, timePasses: 1, parallelism: 1, memoryExponent: 10, keySize: 32);
-            var key2 = S2KCore.Argon2S2K(TestPassword, Argon2Salt, timePasses: 2, parallelism: 1, memoryExponent: 10, keySize: 32);
+            var key1 = Core.Argon2S2K(TestPassword, Argon2Salt, timePasses: 1, parallelism: 1, memoryExponent: 10, keySize: 32);
+            var key2 = Core.Argon2S2K(TestPassword, Argon2Salt, timePasses: 2, parallelism: 1, memoryExponent: 10, keySize: 32);
 
             Assert.NotEqual(key1, key2);
         }
@@ -434,13 +437,13 @@ public class S2KCoreTests
             var wrongSalt = new byte[8]; // Should be 16
 
             Assert.Throws<ArgumentException>(() =>
-                S2KCore.Argon2S2K(TestPassword, wrongSalt, timePasses: 1, parallelism: 1, memoryExponent: 10, keySize: 32));
+                Core.Argon2S2K(TestPassword, wrongSalt, timePasses: 1, parallelism: 1, memoryExponent: 10, keySize: 32));
         }
 
         [Fact]
         public void GenerateArgon2Salt_ReturnsCorrectSize()
         {
-            var salt = S2KCore.GenerateArgon2Salt();
+            var salt = Core.GenerateArgon2Salt();
 
             Assert.Equal(S2KCore.ARGON2_SALT_SIZE, salt.Length);
         }
@@ -448,8 +451,8 @@ public class S2KCoreTests
         [Fact]
         public void GenerateArgon2Salt_ProducesRandomValues()
         {
-            var salt1 = S2KCore.GenerateArgon2Salt();
-            var salt2 = S2KCore.GenerateArgon2Salt();
+            var salt1 = Core.GenerateArgon2Salt();
+            var salt2 = Core.GenerateArgon2Salt();
 
             Assert.NotEqual(salt1, salt2);
         }
@@ -600,7 +603,7 @@ public class S2KCoreTests
             Assert.Equal(32, key.Length);
 
             // Verify against core implementation
-            var coreKey = S2KCore.IteratedS2K(TestPassword, salt, S2KCore.DecodeIterationCount(0x60), 32, HashAlgorithmName.SHA256);
+            var coreKey = Core.IteratedS2K(TestPassword, salt, Core.DecodeIterationCount(0x60), 32, HashAlgorithmName.SHA256);
             Assert.Equal(coreKey, key);
         }
 
@@ -635,7 +638,7 @@ public class S2KCoreTests
                 .WithSalt(Argon2Salt);
 
             var builderKey = builder.DeriveKey(TestPassword, 32);
-            var coreKey = S2KCore.Argon2S2K(TestPassword, Argon2Salt, timePasses: 1, parallelism: 1, memoryExponent: 10, keySize: 32);
+            var coreKey = Core.Argon2S2K(TestPassword, Argon2Salt, timePasses: 1, parallelism: 1, memoryExponent: 10, keySize: 32);
 
             Assert.Equal(coreKey, builderKey);
         }
@@ -675,7 +678,7 @@ public class S2KCoreTests
         [Fact]
         public void SimpleS2K_SHA1_Succeeds()
         {
-            var key = S2KCore.SimpleS2K(TestPassword, 32, HashAlgorithmName.SHA1);
+            var key = CoreTesting.SimpleS2K(TestPassword, 32, HashAlgorithmName.SHA1);
 
             Assert.Equal(32, key.Length);
         }
@@ -683,7 +686,7 @@ public class S2KCoreTests
         [Fact]
         public void SaltedS2K_SHA1_Succeeds()
         {
-            var key = S2KCore.SaltedS2K(TestPassword, TestSalt, 32, HashAlgorithmName.SHA1);
+            var key = CoreTesting.SaltedS2K(TestPassword, TestSalt, 32, HashAlgorithmName.SHA1);
 
             Assert.Equal(32, key.Length);
         }
@@ -691,7 +694,7 @@ public class S2KCoreTests
         [Fact]
         public void IteratedS2K_SHA1_Succeeds()
         {
-            var key = S2KCore.IteratedS2K(TestPassword, TestSalt, 65536, 32, HashAlgorithmName.SHA1);
+            var key = CoreTesting.IteratedS2K(TestPassword, TestSalt, 65536, 32, HashAlgorithmName.SHA1);
 
             Assert.Equal(32, key.Length);
         }
@@ -700,7 +703,7 @@ public class S2KCoreTests
         public void MapHashAlgorithm_SHA1_Works()
         {
 #pragma warning disable CS0618
-            var hashAlg = S2KCore.MapHashAlgorithm(HeroCrypt.Operations.HashingAlgorithm.Sha1);
+            var hashAlg = CoreTesting.MapHashAlgorithm(HeroCrypt.Operations.HashingAlgorithm.Sha1);
 #pragma warning restore CS0618
 
             Assert.Equal(HashAlgorithmName.SHA1, hashAlg);
@@ -717,7 +720,7 @@ public class S2KCoreTests
         [Fact]
         public void SimpleS2K_EmptyPassword_Succeeds()
         {
-            var key = S2KCore.SimpleS2K([], 32, HashAlgorithmName.SHA256);
+            var key = Core.SimpleS2K([], 32, HashAlgorithmName.SHA256);
 
             Assert.Equal(32, key.Length);
         }
@@ -726,7 +729,7 @@ public class S2KCoreTests
         public void SimpleS2K_LargeKey_Succeeds()
         {
             // Key larger than hash output (32 bytes for SHA256)
-            var key = S2KCore.SimpleS2K(TestPassword, 64, HashAlgorithmName.SHA256);
+            var key = Core.SimpleS2K(TestPassword, 64, HashAlgorithmName.SHA256);
 
             Assert.Equal(64, key.Length);
         }
@@ -735,7 +738,7 @@ public class S2KCoreTests
         public void IteratedS2K_MinimumCount_Succeeds()
         {
             // Count less than combined length should be adjusted
-            var key = S2KCore.IteratedS2K(TestPassword, TestSalt, 1, 32, HashAlgorithmName.SHA256);
+            var key = Core.IteratedS2K(TestPassword, TestSalt, 1, 32, HashAlgorithmName.SHA256);
 
             Assert.Equal(32, key.Length);
         }

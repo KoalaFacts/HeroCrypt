@@ -15,7 +15,7 @@ public static class DigitalSignatureExample
     {
         Console.WriteLine("=== ML-DSA Digital Signatures ===");
 
-        if (!MLDsaCore.IsSupported())
+        if (!new MLDsaCore().IsSupported())
         {
             Console.WriteLine("ML-DSA not supported on this platform.");
             return;
@@ -55,7 +55,7 @@ public static class DigitalSignatureExample
     {
         Console.WriteLine("=== SLH-DSA Code Signing ===");
 
-        if (!SlhDsaCore.IsSupported())
+        if (!new SlhDsaCore().IsSupported())
         {
             Console.WriteLine("SLH-DSA not supported on this platform.");
             return;
@@ -93,7 +93,7 @@ public static class DigitalSignatureExample
     {
         Console.WriteLine("=== ML-DSA Multi-Party Approval ===");
 
-        if (!MLDsaCore.IsSupported())
+        if (!new MLDsaCore().IsSupported())
         {
             Console.WriteLine("ML-DSA not supported on this platform.");
             return;

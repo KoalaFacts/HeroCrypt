@@ -38,12 +38,16 @@ public sealed class AesOcbBuilder : IDisposable
 {
     private const int DefaultNonceSize = 12;
 
+    private readonly AesOcbCore core;
     private byte[]? key;
     private byte[]? nonce;
     private byte[]? associatedData;
     private bool disposed;
 
-    private AesOcbBuilder() { }
+    private AesOcbBuilder(SecurityPolicyOptions? policy = null)
+    {
+        core = new AesOcbCore(policy);
+    }
 
     /// <summary>
     /// Creates a new AES-OCB builder instance.
@@ -167,7 +171,7 @@ public sealed class AesOcbBuilder : IDisposable
         ArgumentHelper.ThrowIfDisposed(disposed, this);
         ValidateState();
 
-        var result = AesOcbCore.Encrypt(plaintext, key, nonce, associatedData ?? ReadOnlySpan<byte>.Empty);
+        var result = core.Encrypt(plaintext, key!, nonce!, associatedData ?? ReadOnlySpan<byte>.Empty);
         return result.Ciphertext;
     }
 
@@ -199,7 +203,7 @@ public sealed class AesOcbBuilder : IDisposable
         ArgumentHelper.ThrowIfDisposed(disposed, this);
         ValidateState();
 
-        return AesOcbCore.Decrypt(ciphertext, key, nonce, associatedData ?? ReadOnlySpan<byte>.Empty);
+        return core.Decrypt(ciphertext, key!, nonce!, associatedData ?? ReadOnlySpan<byte>.Empty);
     }
 
     /// <summary>

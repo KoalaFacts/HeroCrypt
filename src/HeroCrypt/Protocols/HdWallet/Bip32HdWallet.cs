@@ -52,8 +52,19 @@ namespace HeroCrypt.Protocols.HdWallet;
 /// (e.g., libsecp256k1 via P/Invoke or a managed implementation like NBitcoin).
 /// </para>
 /// </remarks>
-public static class Bip32HdWallet
+public sealed class Bip32HdWallet
 {
+    private readonly SecurityPolicyOptions policy;
+
+    /// <summary>
+    /// Initializes a new instance of the Bip32HdWallet class.
+    /// </summary>
+    /// <param name="policy">Optional security policy. If null, uses SecurityPolicy.CurrentPolicy.</param>
+    public Bip32HdWallet(SecurityPolicyOptions? policy = null)
+    {
+        this.policy = policy ?? SecurityPolicy.CurrentPolicy;
+    }
+
     /// <summary>
     /// Hardened key offset (2^31). Use this to create hardened child indices.
     /// </summary>
@@ -148,7 +159,7 @@ public static class Bip32HdWallet
     /// <param name="seed">Seed bytes (16-64 bytes, 64 recommended)</param>
     /// <param name="keyType">Key type identifier (default: "Bitcoin seed")</param>
     /// <returns>Master extended private key</returns>
-    public static ExtendedKey GenerateMasterKey(ReadOnlySpan<byte> seed, string keyType = BITCOIN_SEED)
+    public ExtendedKey GenerateMasterKey(ReadOnlySpan<byte> seed, string keyType = BITCOIN_SEED)
     {
         if (seed.Length is < MinSeedLength or > MaxSeedLength)
         {
@@ -193,7 +204,7 @@ public static class Bip32HdWallet
     /// <param name="parent">Parent extended key</param>
     /// <param name="index">Child index (use values >= HardenedOffset for hardened derivation)</param>
     /// <returns>Derived child key</returns>
-    public static ExtendedKey DeriveChild(ExtendedKey parent, uint index)
+    public ExtendedKey DeriveChild(ExtendedKey parent, uint index)
     {
 #if !NETSTANDARD2_0
         ArgumentNullException.ThrowIfNull(parent);
@@ -323,7 +334,7 @@ public static class Bip32HdWallet
     /// <param name="masterKey">Master extended key</param>
     /// <param name="path">Derivation path</param>
     /// <returns>Derived key</returns>
-    public static ExtendedKey DerivePath(ExtendedKey masterKey, string path)
+    public ExtendedKey DerivePath(ExtendedKey masterKey, string path)
     {
         if (string.IsNullOrWhiteSpace(path))
         {
@@ -354,7 +365,7 @@ public static class Bip32HdWallet
     /// </summary>
     /// <param name="path">Path string (e.g., "m/44'/0'/0'/0/0")</param>
     /// <returns>Array of child indices</returns>
-    public static uint[] ParsePath(string path)
+    public uint[] ParsePath(string path)
     {
         if (string.IsNullOrWhiteSpace(path))
         {
@@ -407,7 +418,7 @@ public static class Bip32HdWallet
     /// <summary>
     /// Formats an index as a path component
     /// </summary>
-    public static string FormatIndex(uint index)
+    public string FormatIndex(uint index)
     {
         if (index >= HardenedOffset)
         {
@@ -419,7 +430,7 @@ public static class Bip32HdWallet
     /// <summary>
     /// Formats a path from indices
     /// </summary>
-    public static string FormatPath(uint[] indices)
+    public string FormatPath(uint[] indices)
     {
         if (indices.Length == 0)
         {
@@ -560,7 +571,7 @@ public static class Bip32HdWallet
     /// <summary>
     /// Validates a derivation path
     /// </summary>
-    public static bool IsValidPath(string path)
+    public bool IsValidPath(string path)
     {
         try
         {

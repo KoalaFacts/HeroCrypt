@@ -39,7 +39,7 @@ public class SecureMpcTests
             }
         }
 
-        var result = SecureMpc.SecureSum(inputs, THRESHOLD);
+        var result = new SecureMpc().SecureSum(inputs, THRESHOLD);
 
         Assert.True(result.Success);
         Assert.Equal(NUM_PARTIES, result.ParticipantCount);
@@ -72,8 +72,8 @@ public class SecureMpcTests
         // We just check if reconstruct(result) == X * Y.
 
         // Split X and Y
-        var xSharesRaw = ShamirSecretSharing.Split(X, THRESHOLD, NUM_PARTIES);
-        var ySharesRaw = ShamirSecretSharing.Split(Y, THRESHOLD, NUM_PARTIES);
+        var xSharesRaw = new ShamirSecretSharing().Split(X, THRESHOLD, NUM_PARTIES);
+        var ySharesRaw = new ShamirSecretSharing().Split(Y, THRESHOLD, NUM_PARTIES);
 
         // Convert to MPC Share objects
         var xShares = new SecureMpc.MpcShare[NUM_PARTIES];
@@ -85,16 +85,16 @@ public class SecureMpcTests
         }
 
         // Generate Triples
-        var triples = SecureMpc.GenerateBeaverTriples(NUM_PARTIES, THRESHOLD, 1);
+        var triples = new SecureMpc().GenerateBeaverTriples(NUM_PARTIES, THRESHOLD, 1);
 
         // Perform computation
-        var productShares = SecureMpc.SecureMultiply(xShares, yShares, triples, THRESHOLD);
+        var productShares = new SecureMpc().SecureMultiply(xShares, yShares, triples, THRESHOLD);
 
         // Reconstruct
         var shamirShares = productShares.Select(s => new ShamirSecretSharing.Share(s.ShareIndex, s.Value)).ToArray();
         // Use subset for reconstruction
         var subset = shamirShares.Take(THRESHOLD + 1).ToArray();
-        var result = ShamirSecretSharing.Reconstruct(subset);
+        var result = new ShamirSecretSharing().Reconstruct(subset);
 
         // Create expected using internal helper logic (implied validity if it passes, or we calculate manually)
         // 2 * 3 = 6 in normal arithmetic, and likely in GF(2^8) too for small numbers.
@@ -117,8 +117,8 @@ public class SecureMpcTests
         var X = new byte[] { 0x01 }; // Identity
         var Y = "B"u8.ToArray(); // Any value
 
-        var xSharesRaw = ShamirSecretSharing.Split(X, THRESHOLD, NUM_PARTIES);
-        var ySharesRaw = ShamirSecretSharing.Split(Y, THRESHOLD, NUM_PARTIES);
+        var xSharesRaw = new ShamirSecretSharing().Split(X, THRESHOLD, NUM_PARTIES);
+        var ySharesRaw = new ShamirSecretSharing().Split(Y, THRESHOLD, NUM_PARTIES);
 
         var xShares = new SecureMpc.MpcShare[NUM_PARTIES];
         var yShares = new SecureMpc.MpcShare[NUM_PARTIES];
@@ -128,11 +128,11 @@ public class SecureMpcTests
             yShares[i] = new SecureMpc.MpcShare(i, ySharesRaw[i].Data, ySharesRaw[i].Index);
         }
 
-        var triples = SecureMpc.GenerateBeaverTriples(NUM_PARTIES, THRESHOLD, 1);
-        var productShares = SecureMpc.SecureMultiply(xShares, yShares, triples, THRESHOLD);
+        var triples = new SecureMpc().GenerateBeaverTriples(NUM_PARTIES, THRESHOLD, 1);
+        var productShares = new SecureMpc().SecureMultiply(xShares, yShares, triples, THRESHOLD);
 
         var shamirShares = productShares.Select(s => new ShamirSecretSharing.Share(s.ShareIndex, s.Value)).Take(THRESHOLD + 1).ToArray();
-        var result = ShamirSecretSharing.Reconstruct(shamirShares);
+        var result = new ShamirSecretSharing().Reconstruct(shamirShares);
 
         Assert.Single(result);
         Assert.Equal(0x42, result[0]);
@@ -145,7 +145,7 @@ public class SecureMpcTests
         var set1 = new byte[][] { [1], [2], [3] };
         var set2 = new byte[][] { [3], [4], [5] };
 
-        var intersection = SecureMpc.PrivateSetIntersection(set1, set2);
+        var intersection = new SecureMpc().PrivateSetIntersection(set1, set2);
 
         Assert.Single(intersection);
         Assert.Equal(3, intersection[0][0]);

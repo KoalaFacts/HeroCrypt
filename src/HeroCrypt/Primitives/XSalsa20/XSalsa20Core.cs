@@ -9,8 +9,19 @@ namespace HeroCrypt.Primitives.XSalsa20;
 /// Extended version of Salsa20 with 24-byte nonces (similar to XChaCha20)
 /// Maintains compatibility with NaCl/libsodium implementations
 /// </summary>
-internal static class XSalsa20Core
+internal sealed class XSalsa20Core
 {
+    private readonly SecurityPolicyOptions policy;
+
+    /// <summary>
+    /// Initializes a new instance of the XSalsa20Core class
+    /// </summary>
+    /// <param name="policy">Security policy options</param>
+    public XSalsa20Core(SecurityPolicyOptions? policy = null)
+    {
+        this.policy = policy ?? SecurityPolicy.CurrentPolicy;
+    }
+
     /// <summary>
     /// Salsa20 constants "expand 32-byte k"
     /// </summary>
@@ -39,7 +50,7 @@ internal static class XSalsa20Core
     /// <param name="key">32-byte key</param>
     /// <param name="nonce">24-byte nonce</param>
     /// <param name="counter">Initial counter value</param>
-    public static void Transform(Span<byte> output, ReadOnlySpan<byte> input, ReadOnlySpan<byte> key,
+    public void Transform(Span<byte> output, ReadOnlySpan<byte> input, ReadOnlySpan<byte> key,
         ReadOnlySpan<byte> nonce, uint counter = 0)
     {
         if (key.Length != KEY_SIZE)
@@ -115,7 +126,7 @@ internal static class XSalsa20Core
     /// Derives Salsa20 key and nonce from XSalsa20 parameters using HSalsa20
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void DeriveKeyAndNonce(Span<byte> derivedKey, Span<byte> derivedNonce,
+    private void DeriveKeyAndNonce(Span<byte> derivedKey, Span<byte> derivedNonce,
         ReadOnlySpan<byte> originalKey, ReadOnlySpan<byte> extendedNonce)
     {
         // HSalsa20 takes the first 16 bytes of the nonce
@@ -132,7 +143,7 @@ internal static class XSalsa20Core
     /// HSalsa20 key derivation function
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void HSalsa20(Span<byte> output, ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce)
+    private void HSalsa20(Span<byte> output, ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce)
     {
         if (output.Length != 32)
         {
@@ -218,7 +229,7 @@ internal static class XSalsa20Core
     /// Initializes Salsa20 state
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void InitializeSalsa20State(Span<uint> state, ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce, uint counter)
+    private void InitializeSalsa20State(Span<uint> state, ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce, uint counter)
     {
         // constants
         state[0] = Constants[0];
@@ -273,7 +284,7 @@ internal static class XSalsa20Core
     /// Generates a single keystream block using Salsa20 round function
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void GenerateKeystreamBlock(Span<byte> keystream, Span<uint> state)
+    private void GenerateKeystreamBlock(Span<byte> keystream, Span<uint> state)
     {
         // Create working copy
         Span<uint> workingState = stackalloc uint[16];
@@ -315,7 +326,7 @@ internal static class XSalsa20Core
     /// Salsa20 quarter round function
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void QuarterRound(Span<uint> state, int a, int b, int c, int d)
+    private void QuarterRound(Span<uint> state, int a, int b, int c, int d)
     {
         state[b] ^= RotateLeft(state[a] + state[d], 7);
         state[c] ^= RotateLeft(state[b] + state[a], 9);
@@ -327,7 +338,7 @@ internal static class XSalsa20Core
     /// Left rotation
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static uint RotateLeft(uint value, int bits)
+    private uint RotateLeft(uint value, int bits)
     {
         return (value << bits) | (value >> (32 - bits));
     }
@@ -335,7 +346,7 @@ internal static class XSalsa20Core
     /// <summary>
     /// Validates parameters for XSalsa20
     /// </summary>
-    public static void ValidateParameters(ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce)
+    public void ValidateParameters(ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce)
     {
         if (key.Length != KEY_SIZE)
         {
@@ -350,7 +361,7 @@ internal static class XSalsa20Core
     /// <summary>
     /// Gets the maximum plaintext length for a given nonce
     /// </summary>
-    public static long GetMaxPlaintextLength()
+    public long GetMaxPlaintextLength()
     {
         // XSalsa20 can encrypt up to 2^70 bytes with a single nonce
         return long.MaxValue; // Practically unlimited for most applications

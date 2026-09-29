@@ -54,6 +54,7 @@ public sealed class PgpKeyGenerator
     private byte[]? preferredCompressionAlgorithms;
     private byte[]? preferredAeadAlgorithms;
     private List<(string Name, string Value, bool IsHumanReadable, bool IsCritical)>? notations;
+    private SecurityPolicyOptions securityPolicy = SecurityPolicy.CurrentPolicy;
 
     private PgpKeyGenerator()
     {
@@ -64,6 +65,28 @@ public sealed class PgpKeyGenerator
     /// </summary>
     /// <returns>A new PgpKeyGenerator instance.</returns>
     public static PgpKeyGenerator Create() => new();
+
+    /// <summary>
+    /// Sets the security policy for cryptographic validation.
+    /// </summary>
+    /// <param name="policy">The security policy to use.</param>
+    /// <returns>This generator for chaining.</returns>
+    public PgpKeyGenerator WithSecurityPolicy(SecurityPolicyOptions policy)
+    {
+        securityPolicy = policy;
+        return this;
+    }
+
+    /// <summary>
+    /// Sets the security policy for cryptographic validation.
+    /// </summary>
+    /// <param name="configure">Function to configure the security policy.</param>
+    /// <returns>This generator for chaining.</returns>
+    public PgpKeyGenerator WithSecurityPolicy(Func<SecurityPolicyOptions, SecurityPolicyOptions> configure)
+    {
+        securityPolicy = configure(SecurityPolicy.CurrentPolicy);
+        return this;
+    }
 
     /// <summary>
     /// Sets the user ID for the key.
@@ -480,7 +503,7 @@ public sealed class PgpKeyGenerator
             if (algorithmName != null)
             {
                 CryptoAudit.CheckAlgorithm(algorithmName);
-                SecurityPolicy.ValidateOpenPgpSymmetric(algId);
+                securityPolicy.ValidateOpenPgpSymmetric(algId);
             }
         }
 
@@ -521,7 +544,7 @@ public sealed class PgpKeyGenerator
             if (algorithmName != null)
             {
                 CryptoAudit.CheckAlgorithm(algorithmName);
-                SecurityPolicy.ValidateOpenPgpHash(algId);
+                securityPolicy.ValidateOpenPgpHash(algId);
             }
         }
 
@@ -770,7 +793,7 @@ public sealed class PgpKeyGenerator
         byte version = 6;
 
         // Generate Ed25519 key pair
-        var (privateKey, publicKey) = Ed25519Core.GenerateKeyPair();
+        var (privateKey, publicKey) = new Ed25519Core().GenerateKeyPair();
 
         // Create public key packet (V6, Ed25519 native format - raw 32 bytes)
         var publicKeyPacket = PgpPublicKeyPacket.CreateEd25519(creationTime, publicKey, isSubkey: false);
@@ -847,7 +870,7 @@ public sealed class PgpKeyGenerator
         byte version = 6;
 
         // Generate Ed25519 master key
-        var (ed25519Private, ed25519Public) = Ed25519Core.GenerateKeyPair();
+        var (ed25519Private, ed25519Public) = new Ed25519Core().GenerateKeyPair();
         var masterPublicPacket = PgpPublicKeyPacket.CreateEd25519(creationTime, ed25519Public, isSubkey: false);
 
         PgpSecretKeyPacket masterSecretPacket;
@@ -880,8 +903,9 @@ public sealed class PgpKeyGenerator
                 version);
 
             // Generate X25519 encryption subkey
-            var x25519Private = Curve25519Core.GeneratePrivateKey();
-            var x25519Public = Curve25519Core.DerivePublicKey(x25519Private);
+            var curve = new Curve25519Core();
+            var x25519Private = curve.GeneratePrivateKey();
+            var x25519Public = curve.DerivePublicKey(x25519Private);
             var subkeyPublicPacket = PgpPublicKeyPacket.CreateX25519(creationTime, x25519Public, isSubkey: true);
 
             subkeySecretPacket = passBytes == null
@@ -1008,17 +1032,18 @@ public sealed class PgpKeyGenerator
     /// This overload does not clear the passphrase bytes - the caller is responsible
     /// for clearing them after use if needed.
     /// </remarks>
-    private static PgpSecretKeyPacket CreateEncryptedSecretKeyFromBytes(
+    private PgpSecretKeyPacket CreateEncryptedSecretKeyFromBytes(
         PgpPublicKeyPacket publicKey,
         byte[] secretMaterial,
         byte[] passphraseBytes)
     {
         // Generate salt for S2K
-        byte[] salt = S2KCore.GenerateSalt();
+        var core = new S2KCore();
+        byte[] salt = core.GenerateSalt();
 
         // Derive encryption key using iterated S2K
-        long iterationCount = S2KCore.DecodeIterationCount(DEFAULT_ITERATION_COUNT);
-        byte[] encryptionKey = S2KCore.IteratedS2K(
+        long iterationCount = core.DecodeIterationCount(DEFAULT_ITERATION_COUNT);
+        byte[] encryptionKey = core.IteratedS2K(
             passphraseBytes,
             salt,
             iterationCount,
@@ -1054,7 +1079,8 @@ public sealed class PgpKeyGenerator
             }
 
             // Encrypt using standard CFB mode
-            byte[] encrypted = AesCfbCore.Encrypt(plaintextWithHash, encryptionKey, iv);
+            var cfb = new AesCfbCore(securityPolicy);
+            byte[] encrypted = cfb.Encrypt(plaintextWithHash, encryptionKey, iv);
 
             // Create S2K specifier
             var s2kSpecifier = PgpS2KSpecifier.CreateIterated(SHA256_HASH, salt, DEFAULT_ITERATION_COUNT);
@@ -1085,7 +1111,7 @@ public sealed class PgpKeyGenerator
     /// <param name="parallelism">Argon2 parallelism degree.</param>
     /// <param name="memoryExponent">Argon2 memory exponent.</param>
     /// <returns>An encrypted secret key packet with Argon2 S2K.</returns>
-    private static PgpSecretKeyPacket CreateArgon2EncryptedSecretKeyFromBytes(
+    private PgpSecretKeyPacket CreateArgon2EncryptedSecretKeyFromBytes(
         PgpPublicKeyPacket publicKey,
         byte[] secretMaterial,
         byte[] passphraseBytes,
@@ -1094,10 +1120,11 @@ public sealed class PgpKeyGenerator
         byte memoryExponent)
     {
         // Generate 16-byte salt for Argon2
-        byte[] salt = S2KCore.GenerateArgon2Salt();
+        var core = new S2KCore();
+        byte[] salt = core.GenerateArgon2Salt();
 
         // Derive encryption key using Argon2
-        byte[] encryptionKey = S2KCore.Argon2S2K(
+        byte[] encryptionKey = core.Argon2S2K(
             passphraseBytes,
             salt,
             passes,
@@ -1134,7 +1161,8 @@ public sealed class PgpKeyGenerator
             }
 
             // Encrypt using standard CFB mode
-            byte[] encrypted = AesCfbCore.Encrypt(plaintextWithHash, encryptionKey, iv);
+            var cfb = new AesCfbCore(securityPolicy);
+            byte[] encrypted = cfb.Encrypt(plaintextWithHash, encryptionKey, iv);
 
             // Create Argon2 S2K specifier
             var s2kSpecifier = PgpS2KSpecifier.CreateArgon2(SHA256_HASH, salt, passes, parallelism, memoryExponent);
@@ -1333,7 +1361,7 @@ public sealed class PgpKeyGenerator
             hashedSubpackets);
     }
 
-    private static byte[] CreateRsaSignature(PgpSecretKeyPacket secretKey, byte[] hash)
+    private byte[] CreateRsaSignature(PgpSecretKeyPacket secretKey, byte[] hash)
     {
         // Extract RSA private key components
         var (d, p, q, _) = secretKey.ReadRsaSecretKey();
@@ -1342,12 +1370,13 @@ public sealed class PgpKeyGenerator
         return CreateRsaSignatureFromParams(n, e, d, p, q, hash);
     }
 
-    private static byte[] CreateRsaSignatureFromParams(
+    private byte[] CreateRsaSignatureFromParams(
         BigInteger n, BigInteger e, BigInteger d, BigInteger p, BigInteger q, byte[] hash)
     {
         // Create RSA parameters
         var rsaPrivateKey = new RsaPrivateKey(n, d, p, q, e);
-        var rsaParams = RsaCore.ToRsaParameters(rsaPrivateKey);
+        var rsaCore = new RsaCore(securityPolicy);
+        var rsaParams = rsaCore.ToRsaParameters(rsaPrivateKey);
 
         using var rsa = RSA.Create();
         rsa.ImportParameters(rsaParams);
@@ -1622,7 +1651,7 @@ public sealed class PgpKeyGenerator
         ushort hashPrefix = BinaryPrimitives.ReadUInt16BigEndian(hash);
 
         // Create Ed25519 signature
-        var signatureData = Ed25519Core.Sign(hash, ed25519PrivateKey);
+        var signatureData = new Ed25519Core().Sign(hash, ed25519PrivateKey);
 
         // Build signature packet (Ed25519 always V6)
         var salt = GenerateSalt(PgpHashAlgorithmId.Sha256);
@@ -1686,7 +1715,7 @@ public sealed class PgpKeyGenerator
         ushort hashPrefix = BinaryPrimitives.ReadUInt16BigEndian(hash);
 
         // Create Ed25519 signature
-        var signatureData = Ed25519Core.Sign(hash, ed25519PrivateKey);
+        var signatureData = new Ed25519Core().Sign(hash, ed25519PrivateKey);
 
         // Build signature packet (Ed25519 always V6)
         var salt = GenerateSalt(PgpHashAlgorithmId.Sha256);

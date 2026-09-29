@@ -18,10 +18,12 @@ public class Curve25519CoreTests
     [Trait("Category", TestCategories.FAST)]
     public class BasicFunctionality
     {
+        private readonly Curve25519Core core = new();
+
         [Fact]
         public void GeneratePrivateKey_ReturnsCorrectLength()
         {
-            var privateKey = Curve25519Core.GeneratePrivateKey();
+            var privateKey = core.GeneratePrivateKey();
             Assert.Equal(KEY_SIZE, privateKey.Length);
         }
 
@@ -29,15 +31,15 @@ public class Curve25519CoreTests
         public void Connect_AliceAndBob_Success()
         {
             // Arrange
-            var alicePrivate = Curve25519Core.GeneratePrivateKey();
-            var bobPrivate = Curve25519Core.GeneratePrivateKey();
+            var alicePrivate = core.GeneratePrivateKey();
+            var bobPrivate = core.GeneratePrivateKey();
 
-            var alicePublic = Curve25519Core.DerivePublicKey(alicePrivate);
-            var bobPublic = Curve25519Core.DerivePublicKey(bobPrivate);
+            var alicePublic = core.DerivePublicKey(alicePrivate);
+            var bobPublic = core.DerivePublicKey(bobPrivate);
 
             // Act
-            var sharedSecret1 = Curve25519Core.ComputeSharedSecret(alicePrivate, bobPublic);
-            var sharedSecret2 = Curve25519Core.ComputeSharedSecret(bobPrivate, alicePublic);
+            var sharedSecret1 = core.ComputeSharedSecret(alicePrivate, bobPublic);
+            var sharedSecret2 = core.ComputeSharedSecret(bobPrivate, alicePublic);
 
             // Assert
             Assert.Equal(KEY_SIZE, sharedSecret1.Length);
@@ -47,10 +49,10 @@ public class Curve25519CoreTests
         [Fact]
         public void DerivePublicKey_IsDeterministic()
         {
-            var privateKey = Curve25519Core.GeneratePrivateKey();
+            var privateKey = core.GeneratePrivateKey();
 
-            var pub1 = Curve25519Core.DerivePublicKey(privateKey);
-            var pub2 = Curve25519Core.DerivePublicKey(privateKey);
+            var pub1 = core.DerivePublicKey(privateKey);
+            var pub2 = core.DerivePublicKey(privateKey);
 
             CryptoAssertions.AssertBytesEqual(pub1, pub2);
         }
@@ -58,14 +60,14 @@ public class Curve25519CoreTests
         [Fact]
         public void DerivePublicKey_DifferentKeys_ProduceDifferentPublicKeys()
         {
-            var p1 = Curve25519Core.GeneratePrivateKey();
-            var p2 = Curve25519Core.GeneratePrivateKey();
+            var p1 = core.GeneratePrivateKey();
+            var p2 = core.GeneratePrivateKey();
 
             // Very small chance of collision, practically zero
-            while (p1.AsSpan().SequenceEqual(p2)) p2 = Curve25519Core.GeneratePrivateKey();
+            while (p1.AsSpan().SequenceEqual(p2)) p2 = core.GeneratePrivateKey();
 
-            var pub1 = Curve25519Core.DerivePublicKey(p1);
-            var pub2 = Curve25519Core.DerivePublicKey(p2);
+            var pub1 = core.DerivePublicKey(p1);
+            var pub2 = core.DerivePublicKey(p2);
 
             Assert.NotEqual(pub1, pub2);
         }
@@ -78,19 +80,21 @@ public class Curve25519CoreTests
     [Trait("Category", TestCategories.FAST)]
     public class EdgeCases
     {
+        private readonly Curve25519Core core = new();
+
         [Fact]
         public void ComputeSharedSecret_MultipleIterations_Success()
         {
             // Test that the implementation is stable over many iterations
-            var alice = Curve25519Core.GeneratePrivateKey();
-            var bob = Curve25519Core.GeneratePrivateKey();
-            _ = Curve25519Core.DerivePublicKey(alice); // Alice's public key (unused in this test)
-            var bobPublic = Curve25519Core.DerivePublicKey(bob);
+            var alice = core.GeneratePrivateKey();
+            var bob = core.GeneratePrivateKey();
+            _ = core.DerivePublicKey(alice); // Alice's public key (unused in this test)
+            var bobPublic = core.DerivePublicKey(bob);
 
             var secrets = new List<byte[]>();
             for (int i = 0; i < 10; i++)
             {
-                secrets.Add(Curve25519Core.ComputeSharedSecret(alice, bobPublic));
+                secrets.Add(core.ComputeSharedSecret(alice, bobPublic));
             }
 
             // All should be identical
@@ -108,18 +112,19 @@ public class Curve25519CoreTests
     [Trait("Category", TestCategories.FAST)]
     public class Security
     {
+        private readonly Curve25519Core core = new();
         [Fact]
         public void SharedSecret_DifferentKeys_ProducesDifferentSecrets()
         {
-            var alice = Curve25519Core.GeneratePrivateKey();
-            var bob1 = Curve25519Core.GeneratePrivateKey();
-            var bob2 = Curve25519Core.GeneratePrivateKey();
+            var alice = core.GeneratePrivateKey();
+            var bob1 = core.GeneratePrivateKey();
+            var bob2 = core.GeneratePrivateKey();
 
-            var bob1Public = Curve25519Core.DerivePublicKey(bob1);
-            var bob2Public = Curve25519Core.DerivePublicKey(bob2);
+            var bob1Public = core.DerivePublicKey(bob1);
+            var bob2Public = core.DerivePublicKey(bob2);
 
-            var secret1 = Curve25519Core.ComputeSharedSecret(alice, bob1Public);
-            var secret2 = Curve25519Core.ComputeSharedSecret(alice, bob2Public);
+            var secret1 = core.ComputeSharedSecret(alice, bob1Public);
+            var secret2 = core.ComputeSharedSecret(alice, bob2Public);
 
             Assert.NotEqual(secret1, secret2);
         }
@@ -128,8 +133,8 @@ public class Curve25519CoreTests
         public void PrivateKey_CannotBeDerivedFromPublic()
         {
             // Verify public key appears random (information theoretic)
-            var privateKey = Curve25519Core.GeneratePrivateKey();
-            var publicKey = Curve25519Core.DerivePublicKey(privateKey);
+            var privateKey = core.GeneratePrivateKey();
+            var publicKey = core.DerivePublicKey(privateKey);
 
             // Public key should appear random
             CryptoAssertions.AssertAppearsRandom(publicKey);
@@ -138,11 +143,11 @@ public class Curve25519CoreTests
         [Fact]
         public void SharedSecret_AppearsRandom()
         {
-            var alice = Curve25519Core.GeneratePrivateKey();
-            var bob = Curve25519Core.GeneratePrivateKey();
-            var bobPublic = Curve25519Core.DerivePublicKey(bob);
+            var alice = core.GeneratePrivateKey();
+            var bob = core.GeneratePrivateKey();
+            var bobPublic = core.DerivePublicKey(bob);
 
-            var secret = Curve25519Core.ComputeSharedSecret(alice, bobPublic);
+            var secret = core.ComputeSharedSecret(alice, bobPublic);
 
             CryptoAssertions.AssertAppearsRandom(secret);
         }
@@ -155,13 +160,15 @@ public class Curve25519CoreTests
     [Trait("Category", TestCategories.FAST)]
     public class ParameterValidation
     {
+        private readonly Curve25519Core core = new();
+
         [Fact]
         public void ComputeSharedSecret_NullKeys_ThrowsArgumentNullException()
         {
             var key = new byte[KEY_SIZE];
 
-            Assert.Throws<ArgumentNullException>(() => Curve25519Core.ComputeSharedSecret(null!, key));
-            Assert.Throws<ArgumentNullException>(() => Curve25519Core.ComputeSharedSecret(key, null!));
+            Assert.Throws<ArgumentNullException>(() => core.ComputeSharedSecret(null!, key));
+            Assert.Throws<ArgumentNullException>(() => core.ComputeSharedSecret(key, null!));
         }
 
         [Fact]
@@ -170,15 +177,15 @@ public class Curve25519CoreTests
             var valid = new byte[KEY_SIZE];
             var invalid = new byte[KEY_SIZE - 1];
 
-            Assert.Throws<ArgumentException>(() => Curve25519Core.ComputeSharedSecret(invalid, valid));
-            Assert.Throws<ArgumentException>(() => Curve25519Core.ComputeSharedSecret(valid, invalid));
+            Assert.Throws<ArgumentException>(() => core.ComputeSharedSecret(invalid, valid));
+            Assert.Throws<ArgumentException>(() => core.ComputeSharedSecret(valid, invalid));
         }
 
         [Fact]
         public void DerivePublicKey_NullOrInvalid_ThrowsException()
         {
-            Assert.Throws<ArgumentNullException>(() => Curve25519Core.DerivePublicKey(null!));
-            Assert.Throws<ArgumentException>(() => Curve25519Core.DerivePublicKey(new byte[10]));
+            Assert.Throws<ArgumentNullException>(() => core.DerivePublicKey(null!));
+            Assert.Throws<ArgumentException>(() => core.DerivePublicKey(new byte[10]));
         }
     }
 
@@ -190,6 +197,7 @@ public class Curve25519CoreTests
     [Trait("Category", TestCategories.FAST)]
     public class KnownAnswerTests
     {
+        private readonly Curve25519Core core = new();
         [Fact]
         public void RFC7748_TestVector1_Alice()
         {
@@ -198,7 +206,7 @@ public class Curve25519CoreTests
             // Alice's public key (expected)
             var alicePublicExpected = Convert.FromHexString("8520f0098930a754748b7ddcb43ef75a0dbf3a0d26381af4eba4a98eaa9b4e6a");
 
-            var alicePublic = Curve25519Core.DerivePublicKey(alicePrivate);
+            var alicePublic = core.DerivePublicKey(alicePrivate);
             Assert.Equal(alicePublicExpected, alicePublic);
         }
 
@@ -210,7 +218,7 @@ public class Curve25519CoreTests
             // Bob's public key (expected)
             var bobPublicExpected = Convert.FromHexString("de9edb7d7b7dc1b4d35b61c2ece435373f8343c85b78674dadfc7e146f882b4f");
 
-            var bobPublic = Curve25519Core.DerivePublicKey(bobPrivate);
+            var bobPublic = core.DerivePublicKey(bobPrivate);
             Assert.Equal(bobPublicExpected, bobPublic);
         }
 
@@ -220,13 +228,13 @@ public class Curve25519CoreTests
             var alicePrivate = Convert.FromHexString("77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a");
             var bobPrivate = Convert.FromHexString("5dab087e624a8a4b79e17f8b83800ee66f3bb1292618b6fd1c2f8b27ff88e0eb");
 
-            var alicePublic = Curve25519Core.DerivePublicKey(alicePrivate);
-            var bobPublic = Curve25519Core.DerivePublicKey(bobPrivate);
+            var alicePublic = core.DerivePublicKey(alicePrivate);
+            var bobPublic = core.DerivePublicKey(bobPrivate);
 
             var expectedSharedSecret = Convert.FromHexString("4a5d9d5ba4ce2de1728e3bf480350f25e07e21c947d19e3376f09b3c1e161742");
 
-            var sharedSecret1 = Curve25519Core.ComputeSharedSecret(alicePrivate, bobPublic);
-            var sharedSecret2 = Curve25519Core.ComputeSharedSecret(bobPrivate, alicePublic);
+            var sharedSecret1 = core.ComputeSharedSecret(alicePrivate, bobPublic);
+            var sharedSecret2 = core.ComputeSharedSecret(bobPrivate, alicePublic);
 
             Assert.Equal(expectedSharedSecret, sharedSecret1);
             Assert.Equal(sharedSecret1, sharedSecret2);
@@ -242,7 +250,7 @@ public class Curve25519CoreTests
 
             var expected = Convert.FromHexString("422c8e7a6227d7bca1350b3e2bb7279f7897b87bb6854b783c60e80311ae3079");
 
-            var result = Curve25519Core.ComputeSharedSecret(scalar, uCoordinate);
+            var result = core.ComputeSharedSecret(scalar, uCoordinate);
             Assert.Equal(expected, result);
         }
 
@@ -258,7 +266,7 @@ public class Curve25519CoreTests
 
             for (var i = 0; i < 1000; i++)
             {
-                var result = Curve25519Core.ComputeSharedSecret(k, u);
+                var result = core.ComputeSharedSecret(k, u);
                 Array.Copy(k, u, 32);      // u = old k
                 Array.Copy(result, k, 32); // k = new result
             }

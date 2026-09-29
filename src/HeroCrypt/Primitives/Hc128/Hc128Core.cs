@@ -10,8 +10,19 @@ namespace HeroCrypt.Primitives.Hc128;
 /// Part of the eSTREAM portfolio (Profile 1: Software)
 /// Designed by Hongjun Wu
 /// </summary>
-internal static class Hc128Core
+internal sealed class Hc128Core
 {
+    private readonly SecurityPolicyOptions policy;
+
+    /// <summary>
+    /// Initializes a new instance of the Hc128Core class
+    /// </summary>
+    /// <param name="policy">Security policy options</param>
+    public Hc128Core(SecurityPolicyOptions? policy = null)
+    {
+        this.policy = policy ?? SecurityPolicy.CurrentPolicy;
+    }
+
     /// <summary>
     /// Key size in bytes (128 bits)
     /// </summary>
@@ -50,7 +61,7 @@ internal static class Hc128Core
     /// <param name="input">Input buffer</param>
     /// <param name="key">16-byte key</param>
     /// <param name="iv">16-byte initialization vector</param>
-    public static void Transform(Span<byte> output, ReadOnlySpan<byte> input, ReadOnlySpan<byte> key, ReadOnlySpan<byte> iv)
+    public void Transform(Span<byte> output, ReadOnlySpan<byte> input, ReadOnlySpan<byte> key, ReadOnlySpan<byte> iv)
     {
         if (key.Length != KEY_SIZE)
         {
@@ -109,7 +120,7 @@ internal static class Hc128Core
     /// Initializes the HC-128 state with key and IV
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void Initialize(Hc128State state, ReadOnlySpan<byte> key, ReadOnlySpan<byte> iv)
+    private void Initialize(Hc128State state, ReadOnlySpan<byte> key, ReadOnlySpan<byte> iv)
     {
         // Initialize expanded key and IV arrays
         Span<uint> w = stackalloc uint[1280]; // 1280 = 256 + 1024 initialization words
@@ -170,7 +181,7 @@ internal static class Hc128Core
     /// Generates one keystream word (32 bits)
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static uint GenerateKeystream(Hc128State state)
+    private uint GenerateKeystream(Hc128State state)
     {
         var j = state.Counter & 0x1FF; // mod 512
         uint s;
@@ -197,7 +208,7 @@ internal static class Hc128Core
     /// G1 function: feedback for P table
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static uint G1(uint x, uint y, uint z)
+    private uint G1(uint x, uint y, uint z)
     {
         return (RotateRight(x, 10) ^ RotateRight(z, 23)) + RotateRight(y, 8);
     }
@@ -206,7 +217,7 @@ internal static class Hc128Core
     /// G2 function: feedback for Q table
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static uint G2(uint x, uint y, uint z)
+    private uint G2(uint x, uint y, uint z)
     {
         return (RotateLeft(x, 10) ^ RotateLeft(z, 23)) + RotateLeft(y, 8);
     }
@@ -215,7 +226,7 @@ internal static class Hc128Core
     /// H1 function: output filter for P table
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static uint H1(uint x, uint[] q)
+    private uint H1(uint x, uint[] q)
     {
         return q[(byte)x] + q[256 + ((byte)(x >> 16))];
     }
@@ -224,7 +235,7 @@ internal static class Hc128Core
     /// H2 function: output filter for Q table
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static uint H2(uint x, uint[] p)
+    private uint H2(uint x, uint[] p)
     {
         return p[(byte)x] + p[256 + ((byte)(x >> 16))];
     }
@@ -233,7 +244,7 @@ internal static class Hc128Core
     /// F1 function: used in key expansion
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static uint F1(uint x)
+    private uint F1(uint x)
     {
         return RotateRight(x, 7) ^ RotateRight(x, 18) ^ (x >> 3);
     }
@@ -242,7 +253,7 @@ internal static class Hc128Core
     /// F2 function: used in key expansion
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static uint F2(uint x)
+    private uint F2(uint x)
     {
         return RotateRight(x, 17) ^ RotateRight(x, 19) ^ (x >> 10);
     }
@@ -251,7 +262,7 @@ internal static class Hc128Core
     /// Right rotation
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static uint RotateRight(uint value, int bits)
+    private uint RotateRight(uint value, int bits)
     {
         return (value >> bits) | (value << (32 - bits));
     }
@@ -260,7 +271,7 @@ internal static class Hc128Core
     /// Left rotation
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static uint RotateLeft(uint value, int bits)
+    private uint RotateLeft(uint value, int bits)
     {
         return (value << bits) | (value >> (32 - bits));
     }
@@ -268,7 +279,7 @@ internal static class Hc128Core
     /// <summary>
     /// Validates parameters for HC-128
     /// </summary>
-    public static void ValidateParameters(ReadOnlySpan<byte> key, ReadOnlySpan<byte> iv)
+    public void ValidateParameters(ReadOnlySpan<byte> key, ReadOnlySpan<byte> iv)
     {
         if (key.Length != KEY_SIZE)
         {
@@ -283,7 +294,7 @@ internal static class Hc128Core
     /// <summary>
     /// Gets the maximum plaintext length
     /// </summary>
-    public static long GetMaxPlaintextLength()
+    public long GetMaxPlaintextLength()
     {
         // HC-128 can encrypt up to 2^64 bytes (theoretical limit)
         return long.MaxValue;

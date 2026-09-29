@@ -19,6 +19,8 @@ public class XSalsa20CoreTests
     [Trait("Category", TestCategories.FAST)]
     public class BasicFunctionality
     {
+        private readonly XSalsa20Core core = new();
+
         [Fact]
         public void Transform_WithValidParameters_Success()
         {
@@ -29,7 +31,7 @@ public class XSalsa20CoreTests
             var ciphertext = new byte[plaintext.Length];
 
             // Act
-            XSalsa20Core.Transform(ciphertext, plaintext, key, nonce);
+            core.Transform(ciphertext, plaintext, key, nonce);
 
             // Assert
             Assert.NotEqual(plaintext, ciphertext);
@@ -47,8 +49,8 @@ public class XSalsa20CoreTests
             var decrypted = new byte[plaintext.Length];
 
             // Act
-            XSalsa20Core.Transform(ciphertext, plaintext, key, nonce);
-            XSalsa20Core.Transform(decrypted, ciphertext, key, nonce);
+            core.Transform(ciphertext, plaintext, key, nonce);
+            core.Transform(decrypted, ciphertext, key, nonce);
 
             // Assert
             CryptoAssertions.AssertBytesEqual(plaintext, decrypted);
@@ -66,8 +68,8 @@ public class XSalsa20CoreTests
             var ciphertext2 = new byte[plaintext.Length];
 
             // Act
-            XSalsa20Core.Transform(ciphertext1, plaintext, key, nonce1);
-            XSalsa20Core.Transform(ciphertext2, plaintext, key, nonce2);
+            core.Transform(ciphertext1, plaintext, key, nonce1);
+            core.Transform(ciphertext2, plaintext, key, nonce2);
 
             // Assert
             Assert.NotEqual(ciphertext1, ciphertext2);
@@ -81,6 +83,8 @@ public class XSalsa20CoreTests
     [Trait("Category", TestCategories.FAST)]
     public class EdgeCases
     {
+        private readonly XSalsa20Core core = new();
+
         [Fact]
         public void Transform_EmptyInput_Succeeds()
         {
@@ -91,7 +95,7 @@ public class XSalsa20CoreTests
             var ciphertext = Array.Empty<byte>();
 
             // Act & Assert
-            XSalsa20Core.Transform(ciphertext, plaintext, key, nonce);
+            core.Transform(ciphertext, plaintext, key, nonce);
         }
 
         [Fact]
@@ -106,8 +110,8 @@ public class XSalsa20CoreTests
             var decrypted = new byte[plaintext.Length];
 
             // Act
-            XSalsa20Core.Transform(ciphertext, plaintext, key, nonce);
-            XSalsa20Core.Transform(decrypted, ciphertext, key, nonce);
+            core.Transform(ciphertext, plaintext, key, nonce);
+            core.Transform(decrypted, ciphertext, key, nonce);
 
             // Assert
             CryptoAssertions.AssertBytesEqual(plaintext, decrypted);
@@ -121,6 +125,7 @@ public class XSalsa20CoreTests
     [Trait("Category", TestCategories.FAST)]
     public class Security
     {
+        private readonly XSalsa20Core core = new();
         private const int KEY_SIZE = 32;
         private const int NONCE_SIZE = 24;
 
@@ -135,8 +140,8 @@ public class XSalsa20CoreTests
             var ciphertext1 = new byte[plaintext1.Length];
             var ciphertext2 = new byte[plaintext2.Length];
 
-            XSalsa20Core.Transform(ciphertext1, plaintext1, key, nonce);
-            XSalsa20Core.Transform(ciphertext2, plaintext2, key, nonce);
+            core.Transform(ciphertext1, plaintext1, key, nonce);
+            core.Transform(ciphertext2, plaintext2, key, nonce);
 
             // XOR of ciphertexts reveals XOR of plaintexts
             var xorCiphertext = new byte[plaintext1.Length];
@@ -159,8 +164,8 @@ public class XSalsa20CoreTests
             var ciphertext1 = new byte[plaintext.Length];
             var ciphertext2 = new byte[plaintext.Length];
 
-            XSalsa20Core.Transform(ciphertext1, plaintext, key1, nonce);
-            XSalsa20Core.Transform(ciphertext2, plaintext, key2, nonce);
+            core.Transform(ciphertext1, plaintext, key1, nonce);
+            core.Transform(ciphertext2, plaintext, key2, nonce);
 
             Assert.NotEqual(ciphertext1, ciphertext2);
         }
@@ -173,7 +178,7 @@ public class XSalsa20CoreTests
             var plaintext = TestHelpers.RandomBytes(TestDataSizes.Medium);
             var ciphertext = new byte[plaintext.Length];
 
-            XSalsa20Core.Transform(ciphertext, plaintext, key, nonce);
+            core.Transform(ciphertext, plaintext, key, nonce);
 
             CryptoAssertions.AssertAppearsRandom(ciphertext);
         }
@@ -189,8 +194,8 @@ public class XSalsa20CoreTests
             var ciphertext1 = new byte[plaintext.Length];
             var ciphertext2 = new byte[plaintext.Length];
 
-            XSalsa20Core.Transform(ciphertext1, plaintext, key1, nonce);
-            XSalsa20Core.Transform(ciphertext2, plaintext, key2, nonce);
+            core.Transform(ciphertext1, plaintext, key1, nonce);
+            core.Transform(ciphertext2, plaintext, key2, nonce);
 
             Assert.NotEqual(ciphertext1, ciphertext2);
             int diffBits = 0;
@@ -215,7 +220,7 @@ public class XSalsa20CoreTests
             {
                 var nonce = TestHelpers.RandomBytes(NONCE_SIZE);
                 var ciphertext = new byte[plaintext.Length];
-                XSalsa20Core.Transform(ciphertext, plaintext, key, nonce);
+                core.Transform(ciphertext, plaintext, key, nonce);
                 outputs.Add(Convert.ToHexString(ciphertext));
             }
 
@@ -230,6 +235,7 @@ public class XSalsa20CoreTests
     [Trait("Category", TestCategories.FAST)]
     public class ParameterValidation
     {
+        private readonly XSalsa20Core core = new();
         private const int KEY_SIZE = 32;
         private const int NONCE_SIZE = 24;
 
@@ -242,7 +248,7 @@ public class XSalsa20CoreTests
             var ciphertext = new byte[10];
 
             CryptoAssertions.AssertExceptionContains<ArgumentException>(
-                () => XSalsa20Core.Transform(ciphertext, plaintext, invalidKey, nonce),
+                () => core.Transform(ciphertext, plaintext, invalidKey, nonce),
                 "32 bytes");
         }
 
@@ -255,7 +261,7 @@ public class XSalsa20CoreTests
             var ciphertext = new byte[10];
 
             CryptoAssertions.AssertExceptionContains<ArgumentException>(
-                () => XSalsa20Core.Transform(ciphertext, plaintext, key, invalidNonce),
+                () => core.Transform(ciphertext, plaintext, key, invalidNonce),
                 "24 bytes");
         }
     }
@@ -269,6 +275,8 @@ public class XSalsa20CoreTests
     [Trait("Category", TestCategories.FAST)]
     public class KnownAnswerTests
     {
+        private readonly XSalsa20Core core = new();
+
         [Fact]
         public void NaCl_TestVector1_AllZeroKeyAndNonce()
         {
@@ -279,7 +287,7 @@ public class XSalsa20CoreTests
             var plaintext = new byte[64]; // All zeros to get keystream
 
             var ciphertext = new byte[64];
-            XSalsa20Core.Transform(ciphertext, plaintext, key, nonce);
+            core.Transform(ciphertext, plaintext, key, nonce);
 
             // XSalsa20 keystream for all-zero key/nonce
             // Verify output is non-zero (produces keystream)
@@ -311,11 +319,11 @@ public class XSalsa20CoreTests
                 "5e0705");
 
             var ciphertext = new byte[plaintext.Length];
-            XSalsa20Core.Transform(ciphertext, plaintext, key, nonce);
+            core.Transform(ciphertext, plaintext, key, nonce);
 
             // Verify round-trip
             var decrypted = new byte[plaintext.Length];
-            XSalsa20Core.Transform(decrypted, ciphertext, key, nonce);
+            core.Transform(decrypted, ciphertext, key, nonce);
             CryptoAssertions.AssertBytesEqual(plaintext, decrypted);
         }
 
@@ -334,11 +342,11 @@ public class XSalsa20CoreTests
             var plaintext = new byte[64];
             var ciphertext = new byte[64];
 
-            XSalsa20Core.Transform(ciphertext, plaintext, key, nonce);
+            core.Transform(ciphertext, plaintext, key, nonce);
 
             // Verify output is keystream (deterministic)
             var ciphertext2 = new byte[64];
-            XSalsa20Core.Transform(ciphertext2, plaintext, key, nonce);
+            core.Transform(ciphertext2, plaintext, key, nonce);
             CryptoAssertions.AssertBytesEqual(ciphertext, ciphertext2);
         }
     }

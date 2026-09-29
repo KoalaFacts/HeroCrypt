@@ -376,7 +376,8 @@ public readonly struct PgpS2KSpecifier
             return 0;
         }
 
-        return S2KCore.DecodeIterationCount(EncodedCount);
+        var core = new S2KCore();
+        return core.DecodeIterationCount(EncodedCount);
     }
 
     /// <summary>

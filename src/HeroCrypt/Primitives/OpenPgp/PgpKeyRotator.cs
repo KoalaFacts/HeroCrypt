@@ -326,7 +326,8 @@ public sealed class PgpKeyRotator : IDisposable
 
         // Use RsaCore infrastructure
         var rsaPrivateKey = new RsaPrivateKey(n, d, p, q, e);
-        var rsaParams = RsaCore.ToRsaParameters(rsaPrivateKey);
+        var rsaCore = new RsaCore();
+        var rsaParams = rsaCore.ToRsaParameters(rsaPrivateKey);
 
         using var rsa = RSA.Create();
         rsa.ImportParameters(rsaParams);
@@ -349,7 +350,7 @@ public sealed class PgpKeyRotator : IDisposable
         try
         {
             // Ed25519 in OpenPGP signs the hash
-            var signature = Ed25519Core.Sign(hash, ed25519PrivateKey);
+            var signature = new Ed25519Core().Sign(hash, ed25519PrivateKey);
 
             // Return raw 64-byte signature (no MPI encoding for native format keys)
             return signature;

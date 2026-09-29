@@ -17,8 +17,18 @@ namespace HeroCrypt.Protocols.HdWallet;
 /// - Checksum validation
 /// - Optional passphrase support
 /// </summary>
-public static class Bip39Mnemonic
+public sealed class Bip39Mnemonic
 {
+    private readonly SecurityPolicyOptions policy;
+
+    /// <summary>
+    /// Initializes a new instance of the Bip39Mnemonic class.
+    /// </summary>
+    /// <param name="policy">Optional security policy. If null, uses SecurityPolicy.CurrentPolicy.</param>
+    public Bip39Mnemonic(SecurityPolicyOptions? policy = null)
+    {
+        this.policy = policy ?? SecurityPolicy.CurrentPolicy;
+    }
     private static readonly int[] SupportedEntropyBits = [128, 160, 192, 224, 256];
     private static readonly int[] WordCounts = [12, 15, 18, 21, 24];
     private const int Pbkdf2Iterations = 2048;
@@ -35,7 +45,7 @@ public static class Bip39Mnemonic
     /// </summary>
     /// <param name="entropy">Entropy bytes (16/20/24/28/32 bytes for 12/15/18/21/24 words)</param>
     /// <returns>Mnemonic phrase</returns>
-    public static string GenerateMnemonic(ReadOnlySpan<byte> entropy)
+    public string GenerateMnemonic(ReadOnlySpan<byte> entropy)
     {
         var entropyBits = entropy.Length * 8;
         if (!SupportedEntropyBits.Contains(entropyBits))
@@ -94,7 +104,7 @@ public static class Bip39Mnemonic
     /// </summary>
     /// <param name="wordCount">Number of words (12, 15, 18, 21, or 24)</param>
     /// <returns>Random mnemonic phrase</returns>
-    public static string GenerateRandomMnemonic(int wordCount = 24)
+    public string GenerateRandomMnemonic(int wordCount = 24)
     {
         var entropyBytes = GetEntropyBytesFromWordCount(wordCount);
         var entropy = new byte[entropyBytes];
@@ -120,7 +130,7 @@ public static class Bip39Mnemonic
     /// <param name="mnemonic">Mnemonic phrase</param>
     /// <param name="passphrase">Optional passphrase (empty string if none)</param>
     /// <returns>512-bit seed for BIP32</returns>
-    public static byte[] MnemonicToSeed(string mnemonic, string passphrase = "")
+    public byte[] MnemonicToSeed(string mnemonic, string passphrase = "")
     {
         if (string.IsNullOrWhiteSpace(mnemonic))
         {
@@ -142,7 +152,8 @@ public static class Bip39Mnemonic
             // NOTE: BIP-39 standard specifies 2048 iterations and "mnemonic" + passphrase as salt.
             // These parameters are below our normal security recommendations but are required for
             // standards compliance. This is intentional per BIP-39 specification.
-            return Pbkdf2Core.DeriveKey(
+            var pbkdf2 = new Pbkdf2Core();
+            return pbkdf2.DeriveKey(
                 mnemonicBytes,
                 salt,
                 Pbkdf2Iterations,
@@ -163,7 +174,7 @@ public static class Bip39Mnemonic
     /// </summary>
     /// <param name="mnemonic">Mnemonic phrase to validate</param>
     /// <returns>True if valid, false otherwise</returns>
-    public static bool ValidateMnemonic(string mnemonic)
+    public bool ValidateMnemonic(string mnemonic)
     {
         if (string.IsNullOrWhiteSpace(mnemonic))
         {
@@ -234,7 +245,7 @@ public static class Bip39Mnemonic
     /// </summary>
     /// <param name="mnemonic">Mnemonic phrase</param>
     /// <returns>Entropy bytes</returns>
-    public static byte[] MnemonicToEntropy(string mnemonic)
+    public byte[] MnemonicToEntropy(string mnemonic)
     {
         mnemonic = NormalizeMnemonic(mnemonic);
         var words = mnemonic.Split(' ', StringSplitOptions.RemoveEmptyEntries);
@@ -328,7 +339,7 @@ public static class Bip39Mnemonic
     /// <summary>
     /// Gets word count from entropy bytes
     /// </summary>
-    public static int GetWordCountFromEntropyBytes(int entropyBytes)
+    public int GetWordCountFromEntropyBytes(int entropyBytes)
     {
         var entropyBits = entropyBytes * 8;
         var index = Array.IndexOf(SupportedEntropyBits, entropyBits);

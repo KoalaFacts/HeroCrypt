@@ -77,7 +77,8 @@ public sealed class MpcBuilder
         if (partyInputs == null)
             throw new InvalidOperationException("Party inputs not set. Use WithPartyInputs() first.");
 
-        return SecureMpc.SecureSum(partyInputs, threshold, model);
+        var mpc = new SecureMpc();
+        return mpc.SecureSum(partyInputs, threshold, model);
     }
 
     /// <summary>
@@ -87,7 +88,8 @@ public sealed class MpcBuilder
     /// <returns>The computation result containing the sum.</returns>
     public SecureMpc.ComputationResult ComputeSum(byte[][] inputs)
     {
-        return SecureMpc.SecureSum(inputs, threshold, model);
+        var mpc = new SecureMpc();
+        return mpc.SecureSum(inputs, threshold, model);
     }
 
     /// <summary>
@@ -101,7 +103,8 @@ public sealed class MpcBuilder
         if (party2Set == null)
             throw new InvalidOperationException("Party 2 set not provided. Use WithParty2Set() first.");
 
-        return SecureMpc.PrivateSetIntersection(party1Set, party2Set, model);
+        var mpc = new SecureMpc();
+        return mpc.PrivateSetIntersection(party1Set, party2Set, model);
     }
 
     /// <summary>
@@ -112,7 +115,8 @@ public sealed class MpcBuilder
     /// <returns>Elements that appear in both sets.</returns>
     public byte[][] ComputeIntersection(byte[][] set1, byte[][] set2)
     {
-        return SecureMpc.PrivateSetIntersection(set1, set2, model);
+        var mpc = new SecureMpc();
+        return mpc.PrivateSetIntersection(set1, set2, model);
     }
 
     /// <summary>
@@ -123,7 +127,8 @@ public sealed class MpcBuilder
     /// <returns>Beaver triples for each party.</returns>
     public SecureMpc.BeaverTriple[] GenerateBeaverTriples(int numParties, int valueLength)
     {
-        return SecureMpc.GenerateBeaverTriples(numParties, threshold, valueLength);
+        var mpc = new SecureMpc();
+        return mpc.GenerateBeaverTriples(numParties, threshold, valueLength);
     }
 }
 

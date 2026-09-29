@@ -1,5 +1,7 @@
 #if NET5_0_OR_GREATER
 
+using HeroCrypt.Security;
+
 namespace HeroCrypt.Primitives.Blake2b;
 
 /// <summary>
@@ -22,10 +24,12 @@ internal static class Blake2bAvx2
     /// <param name="hashSize">Hash size in bytes</param>
     public static void HashStream(ReadOnlySpan<byte> input, Span<byte> output, int hashSize = 64)
     {
+        var blake2bCore = new Blake2bCore(SecurityPolicy.CurrentPolicy);
+
         if (!IsSupported)
         {
             // Fall back to scalar implementation
-            var result = Blake2bCore.ComputeHash(input.ToArray(), hashSize);
+            var result = blake2bCore.ComputeHash(input.ToArray(), hashSize);
             result.CopyTo(output);
             return;
         }
@@ -37,7 +41,7 @@ internal static class Blake2bAvx2
         // 4. Use parallel compression when possible
 
         // For now, delegate to scalar implementation
-        var fallbackResult = Blake2bCore.ComputeHash(input.ToArray(), hashSize);
+        var fallbackResult = blake2bCore.ComputeHash(input.ToArray(), hashSize);
         fallbackResult.CopyTo(output);
     }
 
@@ -68,7 +72,8 @@ internal static class Blake2bAvx2
         {
             // For now, fall back to scalar implementation per input
             // Full implementation would interleave the 4 computations
-            var result = Blake2bCore.ComputeHash(inputs[i], hashSize);
+            var blake2bCore = new Blake2bCore(SecurityPolicy.CurrentPolicy);
+            var result = blake2bCore.ComputeHash(inputs[i], hashSize);
             result.CopyTo(outputs[i], 0);
         }
     }

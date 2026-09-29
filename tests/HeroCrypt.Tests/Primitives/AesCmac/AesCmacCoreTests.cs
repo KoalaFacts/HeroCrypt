@@ -19,6 +19,8 @@ public class AesCmacCoreTests
     [Trait("Category", TestCategories.FAST)]
     public class BasicFunctionality
     {
+        private readonly AesCmacCore core = new();
+
         [Fact]
         public void ComputeTag_ValidInput_Success()
         {
@@ -26,7 +28,7 @@ public class AesCmacCoreTests
             var data = TestHelpers.RandomBytes(32);
             var tag = new byte[BLOCK_SIZE];
 
-            AesCmacCore.ComputeTag(tag, data, key);
+            core.ComputeTag(tag, data, key);
 
             Assert.NotEqual(new byte[BLOCK_SIZE], tag); // Should not be all zeros
         }
@@ -38,8 +40,8 @@ public class AesCmacCoreTests
             var data = TestHelpers.RandomBytes(32);
             var tag = new byte[BLOCK_SIZE];
 
-            AesCmacCore.ComputeTag(tag, data, key);
-            var isValid = AesCmacCore.VerifyTag(tag, data, key);
+            core.ComputeTag(tag, data, key);
+            var isValid = core.VerifyTag(tag, data, key);
 
             Assert.True(isValid);
         }
@@ -51,10 +53,10 @@ public class AesCmacCoreTests
             var data = TestHelpers.RandomBytes(32);
             var tag = new byte[BLOCK_SIZE];
 
-            AesCmacCore.ComputeTag(tag, data, key);
+            core.ComputeTag(tag, data, key);
             tag[0] ^= 0xFF; // Corrupt tag
 
-            var isValid = AesCmacCore.VerifyTag(tag, data, key);
+            var isValid = core.VerifyTag(tag, data, key);
 
             Assert.False(isValid);
         }
@@ -67,6 +69,8 @@ public class AesCmacCoreTests
     [Trait("Category", TestCategories.FAST)]
     public class EdgeCases
     {
+        private readonly AesCmacCore core = new();
+
         [Fact]
         public void ComputeTag_EmptyData_Success()
         {
@@ -74,7 +78,7 @@ public class AesCmacCoreTests
             var data = Array.Empty<byte>();
             var tag = new byte[BLOCK_SIZE];
 
-            AesCmacCore.ComputeTag(tag, data, key);
+            core.ComputeTag(tag, data, key);
 
             Assert.NotEqual(new byte[BLOCK_SIZE], tag);
         }
@@ -86,7 +90,7 @@ public class AesCmacCoreTests
             var data = new byte[] { 0x42 };
             var tag = new byte[BLOCK_SIZE];
 
-            AesCmacCore.ComputeTag(tag, data, key);
+            core.ComputeTag(tag, data, key);
 
             Assert.NotEqual(new byte[BLOCK_SIZE], tag);
         }
@@ -98,9 +102,9 @@ public class AesCmacCoreTests
             var data = TestHelpers.RandomBytes(BLOCK_SIZE);
             var tag = new byte[BLOCK_SIZE];
 
-            AesCmacCore.ComputeTag(tag, data, key);
+            core.ComputeTag(tag, data, key);
 
-            var isValid = AesCmacCore.VerifyTag(tag, data, key);
+            var isValid = core.VerifyTag(tag, data, key);
             Assert.True(isValid);
         }
 
@@ -111,9 +115,9 @@ public class AesCmacCoreTests
             var data = TestHelpers.RandomBytes(BLOCK_SIZE * 5);
             var tag = new byte[BLOCK_SIZE];
 
-            AesCmacCore.ComputeTag(tag, data, key);
+            core.ComputeTag(tag, data, key);
 
-            var isValid = AesCmacCore.VerifyTag(tag, data, key);
+            var isValid = core.VerifyTag(tag, data, key);
             Assert.True(isValid);
         }
 
@@ -124,9 +128,9 @@ public class AesCmacCoreTests
             var data = TestHelpers.RandomBytes(BLOCK_SIZE * 2 + 7); // Not block-aligned
             var tag = new byte[BLOCK_SIZE];
 
-            AesCmacCore.ComputeTag(tag, data, key);
+            core.ComputeTag(tag, data, key);
 
-            var isValid = AesCmacCore.VerifyTag(tag, data, key);
+            var isValid = core.VerifyTag(tag, data, key);
             Assert.True(isValid);
         }
     }
@@ -138,6 +142,8 @@ public class AesCmacCoreTests
     [Trait("Category", TestCategories.FAST)]
     public class Security
     {
+        private readonly AesCmacCore core = new();
+
         [Fact]
         public void ComputeTag_IsDeterministic()
         {
@@ -146,8 +152,8 @@ public class AesCmacCoreTests
             var tag1 = new byte[BLOCK_SIZE];
             var tag2 = new byte[BLOCK_SIZE];
 
-            AesCmacCore.ComputeTag(tag1, data, key);
-            AesCmacCore.ComputeTag(tag2, data, key);
+            core.ComputeTag(tag1, data, key);
+            core.ComputeTag(tag2, data, key);
 
             CryptoAssertions.AssertBytesEqual(tag1, tag2);
         }
@@ -161,8 +167,8 @@ public class AesCmacCoreTests
             var tag1 = new byte[BLOCK_SIZE];
             var tag2 = new byte[BLOCK_SIZE];
 
-            AesCmacCore.ComputeTag(tag1, data, key1);
-            AesCmacCore.ComputeTag(tag2, data, key2);
+            core.ComputeTag(tag1, data, key1);
+            core.ComputeTag(tag2, data, key2);
 
             Assert.NotEqual(tag1, tag2);
         }
@@ -176,8 +182,8 @@ public class AesCmacCoreTests
             var tag1 = new byte[BLOCK_SIZE];
             var tag2 = new byte[BLOCK_SIZE];
 
-            AesCmacCore.ComputeTag(tag1, data1, key);
-            AesCmacCore.ComputeTag(tag2, data2, key);
+            core.ComputeTag(tag1, data1, key);
+            core.ComputeTag(tag2, data2, key);
 
             Assert.NotEqual(tag1, tag2);
         }
@@ -189,7 +195,7 @@ public class AesCmacCoreTests
             var data = TestHelpers.RandomBytes(32);
             var tag = new byte[BLOCK_SIZE];
 
-            AesCmacCore.ComputeTag(tag, data, key);
+            core.ComputeTag(tag, data, key);
 
             CryptoAssertions.AssertAppearsRandom(tag);
         }
@@ -202,9 +208,9 @@ public class AesCmacCoreTests
             var data = TestHelpers.RandomBytes(32);
             var tag = new byte[BLOCK_SIZE];
 
-            AesCmacCore.ComputeTag(tag, data, key1);
+            core.ComputeTag(tag, data, key1);
 
-            Assert.False(AesCmacCore.VerifyTag(tag, data, key2));
+            Assert.False(core.VerifyTag(tag, data, key2));
         }
     }
 
@@ -215,6 +221,8 @@ public class AesCmacCoreTests
     [Trait("Category", TestCategories.FAST)]
     public class ParameterValidation
     {
+        private readonly AesCmacCore core = new();
+
         [Fact]
         public void ComputeTag_InvalidKeySize_ThrowsArgumentException()
         {
@@ -222,7 +230,7 @@ public class AesCmacCoreTests
             var data = new byte[16];
             var tag = new byte[BLOCK_SIZE];
 
-            Assert.Throws<ArgumentException>(() => AesCmacCore.ComputeTag(tag, data, key));
+            Assert.Throws<ArgumentException>(() => core.ComputeTag(tag, data, key));
         }
 
         [Fact]
@@ -232,7 +240,7 @@ public class AesCmacCoreTests
             var data = new byte[16];
             var tag = new byte[BLOCK_SIZE - 1]; // Too small
 
-            Assert.Throws<ArgumentException>(() => AesCmacCore.ComputeTag(tag, data, key));
+            Assert.Throws<ArgumentException>(() => core.ComputeTag(tag, data, key));
         }
     }
 
@@ -244,6 +252,7 @@ public class AesCmacCoreTests
     [Trait("Category", TestCategories.FAST)]
     public class KnownAnswerTests
     {
+        private readonly AesCmacCore core = new();
         private static readonly byte[] Key = TestHelpers.HexToBytes("2b7e151628aed2a6abf7158809cf4f3c");
 
         [Fact]
@@ -253,7 +262,7 @@ public class AesCmacCoreTests
             var expectedTag = TestHelpers.HexToBytes("bb1d6929e95937287fa37d129b756746");
             var tag = new byte[BLOCK_SIZE];
 
-            AesCmacCore.ComputeTag(tag, data, Key);
+            core.ComputeTag(tag, data, Key);
 
             CryptoAssertions.AssertBytesEqual(expectedTag, tag);
         }
@@ -265,7 +274,7 @@ public class AesCmacCoreTests
             var expectedTag = TestHelpers.HexToBytes("070a16b46b4d4144f79bdd9dd04a287c");
             var tag = new byte[BLOCK_SIZE];
 
-            AesCmacCore.ComputeTag(tag, data, Key);
+            core.ComputeTag(tag, data, Key);
 
             CryptoAssertions.AssertBytesEqual(expectedTag, tag);
         }
@@ -277,7 +286,7 @@ public class AesCmacCoreTests
             var expectedTag = TestHelpers.HexToBytes("dfa66747de9ae63030ca32611497c827");
             var tag = new byte[BLOCK_SIZE];
 
-            AesCmacCore.ComputeTag(tag, data, Key);
+            core.ComputeTag(tag, data, Key);
 
             CryptoAssertions.AssertBytesEqual(expectedTag, tag);
         }
@@ -289,7 +298,7 @@ public class AesCmacCoreTests
             var expectedTag = TestHelpers.HexToBytes("51f0bebf7e3b9d92fc49741779363cfe");
             var tag = new byte[BLOCK_SIZE];
 
-            AesCmacCore.ComputeTag(tag, data, Key);
+            core.ComputeTag(tag, data, Key);
 
             CryptoAssertions.AssertBytesEqual(expectedTag, tag);
         }

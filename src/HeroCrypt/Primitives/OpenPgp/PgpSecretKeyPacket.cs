@@ -868,19 +868,21 @@ public readonly struct PgpSecretKeyPacket
     /// </summary>
     private static byte[] DeriveS2KKey(PgpS2KSpecifier specifier, byte[] passphrase, int keySize)
     {
+        // Use Testing policy to allow legacy hash algorithms (e.g., SHA-1) commonly used in OpenPGP
+        var core = new S2KCore(SecurityPolicyOptions.Testing);
         var hashAlgorithm = GetHashAlgorithmName(specifier.HashAlgorithm);
 
         return specifier.Type switch
         {
-            S2KType.Simple => S2KCore.SimpleS2K(passphrase, keySize, hashAlgorithm),
-            S2KType.Salted => S2KCore.SaltedS2K(passphrase, specifier.Salt.Span, keySize, hashAlgorithm),
-            S2KType.IteratedAndSalted => S2KCore.IteratedS2K(
+            S2KType.Simple => core.SimpleS2K(passphrase, keySize, hashAlgorithm),
+            S2KType.Salted => core.SaltedS2K(passphrase, specifier.Salt.Span, keySize, hashAlgorithm),
+            S2KType.IteratedAndSalted => core.IteratedS2K(
                 passphrase,
                 specifier.Salt.Span,
-                S2KCore.DecodeIterationCount(specifier.EncodedCount),
+                core.DecodeIterationCount(specifier.EncodedCount),
                 keySize,
                 hashAlgorithm),
-            S2KType.Argon2 => S2KCore.Argon2S2K(
+            S2KType.Argon2 => core.Argon2S2K(
                 passphrase,
                 specifier.Salt.Span,
                 specifier.Argon2Params!.Value.Passes,

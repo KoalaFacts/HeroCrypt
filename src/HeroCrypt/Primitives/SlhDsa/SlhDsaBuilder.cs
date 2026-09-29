@@ -31,6 +31,7 @@ namespace HeroCrypt.Primitives.SlhDsa;
 
 public class SlhDsaBuilder : IDisposable
 {
+    private readonly SlhDsaCore core;
     private SlhDsaCore.SecurityLevel securityLevel = SlhDsaCore.SecurityLevel.SlhDsa128s;
     private string? publicKeyPem;
     private SlhDsaCore.SlhDsaKeyPair? keyPair;
@@ -46,7 +47,8 @@ public class SlhDsaBuilder : IDisposable
 
     public static SlhDsaBuilder Create()
     {
-        if (!SlhDsaCore.IsSupported())
+        var core = new SlhDsaCore();
+        if (!core.IsSupported())
         {
             throw new PlatformNotSupportedException(
                 "SLH-DSA is not supported on this platform. " +
@@ -55,7 +57,10 @@ public class SlhDsaBuilder : IDisposable
         return new SlhDsaBuilder();
     }
 
-    private SlhDsaBuilder() { }
+    private SlhDsaBuilder()
+    {
+        core = new SlhDsaCore();
+    }
 
     /// <summary>
     /// Sets the security level for key generation
@@ -226,7 +231,7 @@ public class SlhDsaBuilder : IDisposable
 
     public SlhDsaCore.SlhDsaKeyPair GenerateKeyPair()
     {
-        return SlhDsaCore.GenerateKeyPair(securityLevel);
+        return core.GenerateKeyPair(securityLevel);
     }
 
     /// <summary>
@@ -272,7 +277,7 @@ public class SlhDsaBuilder : IDisposable
             throw new InvalidOperationException("Data must be set before verification. Use WithData()");
         }
 
-        return SlhDsaCore.Verify(publicKeyPem, data, signature, context);
+        return core.Verify(publicKeyPem, data, signature, context);
     }
 
     /// <summary>

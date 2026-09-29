@@ -307,7 +307,8 @@ public sealed class PgpKeyExpirationUpdater : IDisposable
         var (n, e) = secretKey.PublicKey.ReadRsaKey();
 
         var rsaPrivateKey = new RsaPrivateKey(n, d, p, q, e);
-        var rsaParams = RsaCore.ToRsaParameters(rsaPrivateKey);
+        var rsaCore = new RsaCore();
+        var rsaParams = rsaCore.ToRsaParameters(rsaPrivateKey);
 
         using var rsa = RSA.Create();
         rsa.ImportParameters(rsaParams);
@@ -323,7 +324,7 @@ public sealed class PgpKeyExpirationUpdater : IDisposable
     private static byte[] CreateEd25519Signature(PgpSecretKeyPacket secretKey, byte[] hash)
     {
         var ed25519PrivateKey = secretKey.ReadEcSecretKey();
-        return Ed25519Core.Sign(hash, ed25519PrivateKey);
+        return new Ed25519Core().Sign(hash, ed25519PrivateKey);
     }
 
     private static byte[] GenerateSalt()

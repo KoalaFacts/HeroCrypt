@@ -243,9 +243,10 @@ public sealed class Pbkdf2Builder : IDisposable
         ArgumentHelper.ThrowIfDisposed(disposed, this);
         ValidateState();
 
-        return Pbkdf2Core.DeriveKey(
-            password,
-            salt,
+        var core = new Pbkdf2Core();
+        return core.DeriveKey(
+            password!,
+            salt!,
             iterations,
             outputLength,
             hashAlgorithm,
@@ -265,7 +266,8 @@ public sealed class Pbkdf2Builder : IDisposable
             throw new InvalidOperationException("Salt must be set before calculating iterations. Use WithSalt() or WithRandomSalt() first.");
         }
 
-        return Pbkdf2Core.CalculateIterations(targetTimeMs, hashAlgorithm, outputLength);
+        var core = new Pbkdf2Core();
+        return core.CalculateIterations(targetTimeMs, hashAlgorithm, outputLength);
     }
 
     /// <summary>

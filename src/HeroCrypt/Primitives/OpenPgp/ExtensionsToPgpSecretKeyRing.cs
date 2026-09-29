@@ -33,7 +33,8 @@ public static class ExtensionsToPgpSecretKeyRing
     public static string ToArmor(this PgpSecretKeyRing keyRing)
     {
         var binaryData = keyRing.ToArray();
-        return ArmorCore.Encode(binaryData, ArmorType.PrivateKey);
+        var core = new ArmorCore();
+        return core.Encode(binaryData, ArmorType.PrivateKey);
     }
 
     /// <summary>
@@ -45,7 +46,8 @@ public static class ExtensionsToPgpSecretKeyRing
     public static string ToArmor(this PgpSecretKeyRing keyRing, IDictionary<string, string>? headers)
     {
         var binaryData = keyRing.ToArray();
-        return ArmorCore.Encode(binaryData, ArmorType.PrivateKey, headers);
+        var core = new ArmorCore();
+        return core.Encode(binaryData, ArmorType.PrivateKey, headers);
     }
 
     /// <summary>
@@ -129,7 +131,8 @@ public static class ExtensionsToPgpSecretKeyRing
     /// <exception cref="ArgumentException">If the data is not a valid secret key ring.</exception>
     public static PgpSecretKeyRing FromArmor(string armoredKey)
     {
-        var decoded = ArmorCore.Decode(armoredKey);
+        var core = new ArmorCore();
+        var decoded = core.Decode(armoredKey);
 
         if (decoded.Type != ArmorType.PrivateKey)
         {
@@ -152,7 +155,8 @@ public static class ExtensionsToPgpSecretKeyRing
 
         try
         {
-            var decoded = ArmorCore.Decode(armoredKey);
+            var core = new ArmorCore();
+            var decoded = core.Decode(armoredKey);
 
             if (decoded.Type != ArmorType.PrivateKey)
             {
@@ -176,7 +180,8 @@ public static class ExtensionsToPgpSecretKeyRing
     /// <returns>The parsed result including key ring and armor headers.</returns>
     public static ArmoredSecretKeyRingResult FromArmorWithMetadata(string armoredKey)
     {
-        var decoded = ArmorCore.Decode(armoredKey);
+        var core = new ArmorCore();
+        var decoded = core.Decode(armoredKey);
 
         if (decoded.Type != ArmorType.PrivateKey)
         {

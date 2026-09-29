@@ -34,14 +34,19 @@ public sealed class Poly1305Builder : IDisposable
 
     private byte[]? key;
     private bool disposed;
+    private readonly SecurityPolicyOptions policy;
 
-    private Poly1305Builder() { }
+    private Poly1305Builder(SecurityPolicyOptions? policy = null)
+    {
+        this.policy = policy ?? SecurityPolicy.CurrentPolicy;
+    }
 
     /// <summary>
     /// Creates a new Poly1305 builder instance.
     /// </summary>
+    /// <param name="policy">Optional security policy to use. If null, uses <see cref="SecurityPolicy.CurrentPolicy"/>.</param>
     /// <returns>A new builder instance.</returns>
-    public static Poly1305Builder Create() => new();
+    public static Poly1305Builder Create(SecurityPolicyOptions? policy = null) => new(policy);
 
     /// <summary>
     /// Sets the authentication key.
@@ -121,7 +126,8 @@ public sealed class Poly1305Builder : IDisposable
         ValidateState();
 
         var tag = new byte[TagSize];
-        Poly1305Core.ComputeMac(tag, message, key);
+        var core = new Poly1305Core(policy);
+        core.ComputeMac(tag, message, key!);
         return tag;
     }
 
@@ -138,7 +144,8 @@ public sealed class Poly1305Builder : IDisposable
         ArgumentHelper.ThrowIfDisposed(disposed, this);
         ValidateState();
 
-        Poly1305Core.ComputeMac(tag, message, key);
+        var core = new Poly1305Core(policy);
+        core.ComputeMac(tag, message, key!);
     }
 
     /// <summary>
@@ -170,7 +177,8 @@ public sealed class Poly1305Builder : IDisposable
         ArgumentHelper.ThrowIfDisposed(disposed, this);
         ValidateState();
 
-        return Poly1305Core.VerifyMac(tag, message, key);
+        var core = new Poly1305Core(policy);
+        return core.VerifyMac(tag, message, key!);
     }
 
     /// <summary>

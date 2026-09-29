@@ -14,7 +14,7 @@ public static class HybridEncryptionExample
     {
         Console.WriteLine("=== Hybrid Encryption: ML-KEM + AES-GCM ===");
 
-        if (!MLKemCore.IsSupported())
+        if (!new MLKemCore().IsSupported())
         {
             Console.WriteLine("ML-KEM not supported on this platform.");
             return;
@@ -64,7 +64,7 @@ public static class HybridEncryptionExample
     {
         Console.WriteLine("=== Hybrid Encryption: Multiple messages ===");
 
-        if (!MLKemCore.IsSupported())
+        if (!new MLKemCore().IsSupported())
         {
             Console.WriteLine("ML-KEM not supported on this platform.");
             return;

@@ -1,6 +1,7 @@
 using System.Text;
 using HeroCrypt.Polyfills;
 using HeroCrypt.Primitives.Crc24;
+using HeroCrypt.Security;
 
 namespace HeroCrypt.Primitives.Armor;
 
@@ -11,8 +12,20 @@ namespace HeroCrypt.Primitives.Armor;
 /// ASCII Armor is used to convert binary OpenPGP data into a printable ASCII format
 /// suitable for transmission via email or other text-based channels.
 /// </remarks>
-internal static class ArmorCore
+internal sealed class ArmorCore
 {
+    private readonly SecurityPolicyOptions policy;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ArmorCore"/> class with the specified security policy.
+    /// </summary>
+    /// <param name="policy">The security policy to use for validation. If null, uses <see cref="SecurityPolicy.CurrentPolicy"/>.</param>
+    public ArmorCore(SecurityPolicyOptions? policy = null)
+    {
+        this.policy = policy ?? SecurityPolicy.CurrentPolicy;
+    }
+
+
     /// <summary>
     /// Maximum line length for Base64 data (RFC 4880 recommends 76 characters).
     /// </summary>
@@ -31,7 +44,7 @@ internal static class ArmorCore
     /// <param name="armorType">The type of armor (e.g., MESSAGE, PUBLIC KEY BLOCK).</param>
     /// <param name="headers">Optional armor headers (key-value pairs).</param>
     /// <returns>The ASCII Armored string.</returns>
-    public static string Encode(ReadOnlySpan<byte> data, ArmorType armorType, IDictionary<string, string>? headers = null)
+    public string Encode(ReadOnlySpan<byte> data, ArmorType armorType, IDictionary<string, string>? headers = null)
     {
         var sb = new StringBuilder();
         var typeName = GetArmorTypeName(armorType);
@@ -60,7 +73,8 @@ internal static class ArmorCore
         }
 
         // CRC24 checksum
-        var crc = Crc24Core.Compute(data);
+        var crc24Core = new Crc24Core(policy);
+        var crc = crc24Core.Compute(data);
         var crcBytes = new byte[3];
         crcBytes[0] = (byte)((crc >> 16) & 0xFF);
         crcBytes[1] = (byte)((crc >> 8) & 0xFF);
@@ -79,7 +93,7 @@ internal static class ArmorCore
     /// <param name="armoredText">The ASCII Armored text.</param>
     /// <returns>The decoded result including data, type, and headers.</returns>
     /// <exception cref="FormatException">If the armor format is invalid.</exception>
-    public static ArmorDecodeResult Decode(string armoredText)
+    public ArmorDecodeResult Decode(string armoredText)
     {
         ArgumentHelper.ThrowIfNull(armoredText);
 
@@ -180,7 +194,8 @@ internal static class ArmorCore
         // Verify CRC if present
         if (crcBytes != null)
         {
-            if (!Crc24Core.Verify(crcBytes, data))
+            var crc24Core = new Crc24Core(policy);
+            if (!crc24Core.Verify(crcBytes, data))
             {
                 throw new FormatException("CRC24 checksum verification failed.");
             }
@@ -199,7 +214,7 @@ internal static class ArmorCore
     /// </summary>
     /// <param name="armoredText">The ASCII Armored text.</param>
     /// <returns>True if the checksum is valid or not present, false if invalid.</returns>
-    public static bool VerifyChecksum(string armoredText)
+    public bool VerifyChecksum(string armoredText)
     {
         try
         {
@@ -215,7 +230,7 @@ internal static class ArmorCore
     /// <summary>
     /// Gets the armor type name string for encoding.
     /// </summary>
-    private static string GetArmorTypeName(ArmorType type) => type switch
+    private string GetArmorTypeName(ArmorType type) => type switch
     {
         ArmorType.Message => "MESSAGE",
         ArmorType.PublicKey => "PUBLIC KEY BLOCK",
@@ -228,7 +243,7 @@ internal static class ArmorCore
     /// <summary>
     /// Parses the armor type name string.
     /// </summary>
-    private static ArmorType ParseArmorType(string typeName) => typeName.ToUpperInvariant() switch
+    private ArmorType ParseArmorType(string typeName) => typeName.ToUpperInvariant() switch
     {
         "MESSAGE" => ArmorType.Message,
         "PUBLIC KEY BLOCK" => ArmorType.PublicKey,

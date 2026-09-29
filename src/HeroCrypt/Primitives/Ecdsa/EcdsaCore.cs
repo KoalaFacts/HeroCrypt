@@ -14,8 +14,20 @@ namespace HeroCrypt.Primitives.Ecdsa;
 /// - P-384: ~192-bit security (high security)
 /// - P-521: ~256-bit security (highest security)
 /// </remarks>
-internal static class EcdsaCore
+internal sealed class EcdsaCore
 {
+#pragma warning disable IDE0052 // Remove unread private member - policy reserved for future security validation
+    private readonly SecurityPolicyOptions policy;
+#pragma warning restore IDE0052
+
+    /// <summary>
+    /// Initializes a EcdsaCore with the effective security policy.
+    /// </summary>
+    /// <param name="policy">Optional policy; uses the current policy when omitted.</param>
+    public EcdsaCore(SecurityPolicyOptions? policy = null)
+    {
+        this.policy = policy ?? SecurityPolicy.CurrentPolicy;
+    }
     /// <summary>
     /// Supported curve sizes in bits.
     /// </summary>
@@ -27,7 +39,7 @@ internal static class EcdsaCore
     /// <param name="curveSizeBits">The curve size in bits (256, 384, or 521).</param>
     /// <returns>The EC parameters containing the key pair.</returns>
     /// <exception cref="ArgumentException">If the curve size is not supported.</exception>
-    public static ECParameters GenerateKeyPair(int curveSizeBits)
+    public ECParameters GenerateKeyPair(int curveSizeBits)
     {
         ValidateCurveSize(curveSizeBits);
 
@@ -43,7 +55,7 @@ internal static class EcdsaCore
     /// <param name="hash">The hash of the message to sign.</param>
     /// <param name="parameters">The EC parameters containing the private key.</param>
     /// <returns>The signature as raw (r || s) concatenated bytes (IEEE P1363 format).</returns>
-    public static byte[] SignHash(ReadOnlySpan<byte> hash, ECParameters parameters)
+    public byte[] SignHash(ReadOnlySpan<byte> hash, ECParameters parameters)
     {
         using var ecdsa = ECDsa.Create(parameters);
 #if NETSTANDARD2_0
@@ -60,7 +72,7 @@ internal static class EcdsaCore
     /// <param name="parameters">The EC parameters containing the private key.</param>
     /// <param name="hashAlgorithm">The hash algorithm to use.</param>
     /// <returns>The signature as raw (r || s) concatenated bytes (IEEE P1363 format).</returns>
-    public static byte[] SignData(ReadOnlySpan<byte> data, ECParameters parameters, HashAlgorithmName hashAlgorithm)
+    public byte[] SignData(ReadOnlySpan<byte> data, ECParameters parameters, HashAlgorithmName hashAlgorithm)
     {
         using var ecdsa = ECDsa.Create(parameters);
 #if NETSTANDARD2_0
@@ -77,7 +89,7 @@ internal static class EcdsaCore
     /// <param name="signature">The signature as raw (r || s) bytes.</param>
     /// <param name="parameters">The EC parameters containing the public key.</param>
     /// <returns>True if the signature is valid, false otherwise.</returns>
-    public static bool VerifyHash(ReadOnlySpan<byte> hash, ReadOnlySpan<byte> signature, ECParameters parameters)
+    public bool VerifyHash(ReadOnlySpan<byte> hash, ReadOnlySpan<byte> signature, ECParameters parameters)
     {
         try
         {
@@ -102,7 +114,7 @@ internal static class EcdsaCore
     /// <param name="parameters">The EC parameters containing the public key.</param>
     /// <param name="hashAlgorithm">The hash algorithm used for signing.</param>
     /// <returns>True if the signature is valid, false otherwise.</returns>
-    public static bool VerifyData(ReadOnlySpan<byte> data, ReadOnlySpan<byte> signature, ECParameters parameters, HashAlgorithmName hashAlgorithm)
+    public bool VerifyData(ReadOnlySpan<byte> data, ReadOnlySpan<byte> signature, ECParameters parameters, HashAlgorithmName hashAlgorithm)
     {
         try
         {
@@ -124,7 +136,7 @@ internal static class EcdsaCore
     /// </summary>
     /// <param name="parameters">The full EC parameters (may include private key).</param>
     /// <returns>EC parameters containing only the public key.</returns>
-    public static ECParameters ExtractPublicKey(ECParameters parameters)
+    public ECParameters ExtractPublicKey(ECParameters parameters)
     {
         return new ECParameters
         {
@@ -141,7 +153,7 @@ internal static class EcdsaCore
     /// <param name="x">The public key X coordinate.</param>
     /// <param name="y">The public key Y coordinate.</param>
     /// <returns>The EC parameters.</returns>
-    public static ECParameters CreateParameters(int curveSizeBits, byte[]? d, byte[] x, byte[] y)
+    public ECParameters CreateParameters(int curveSizeBits, byte[]? d, byte[] x, byte[] y)
     {
         ValidateCurveSize(curveSizeBits);
 
@@ -161,7 +173,7 @@ internal static class EcdsaCore
     /// <param name="x">The public key X coordinate.</param>
     /// <param name="y">The public key Y coordinate.</param>
     /// <returns>The EC parameters with public key only.</returns>
-    public static ECParameters CreatePublicKeyParameters(int curveSizeBits, byte[] x, byte[] y)
+    public ECParameters CreatePublicKeyParameters(int curveSizeBits, byte[] x, byte[] y)
     {
         return CreateParameters(curveSizeBits, null, x, y);
     }
@@ -172,7 +184,7 @@ internal static class EcdsaCore
     /// <param name="hash">The hash to sign.</param>
     /// <param name="parameters">The EC parameters containing the private key.</param>
     /// <returns>The signature as (r, s) components.</returns>
-    public static (byte[] r, byte[] s) SignHashRaw(ReadOnlySpan<byte> hash, ECParameters parameters)
+    public (byte[] r, byte[] s) SignHashRaw(ReadOnlySpan<byte> hash, ECParameters parameters)
     {
         var signature = SignHash(hash, parameters);
         var halfLen = signature.Length / 2;
@@ -195,7 +207,7 @@ internal static class EcdsaCore
     /// <param name="s">The s component of the signature.</param>
     /// <param name="parameters">The EC parameters containing the public key.</param>
     /// <returns>True if valid, false otherwise.</returns>
-    public static bool VerifyHashRaw(ReadOnlySpan<byte> hash, ReadOnlySpan<byte> r, ReadOnlySpan<byte> s, ECParameters parameters)
+    public bool VerifyHashRaw(ReadOnlySpan<byte> hash, ReadOnlySpan<byte> r, ReadOnlySpan<byte> s, ECParameters parameters)
     {
         // Combine r and s into IEEE P1363 format
         var signature = new byte[r.Length + s.Length];
@@ -210,7 +222,7 @@ internal static class EcdsaCore
     /// </summary>
     /// <param name="curveSizeBits">The curve size in bits.</param>
     /// <returns>The recommended hash algorithm name.</returns>
-    public static HashAlgorithmName GetRecommendedHashAlgorithm(int curveSizeBits)
+    public HashAlgorithmName GetRecommendedHashAlgorithm(int curveSizeBits)
     {
         return curveSizeBits switch
         {
@@ -226,7 +238,7 @@ internal static class EcdsaCore
     /// </summary>
     /// <param name="curveSizeBits">The curve size in bits.</param>
     /// <returns>The size of each coordinate in bytes.</returns>
-    public static int GetCoordinateSize(int curveSizeBits)
+    public int GetCoordinateSize(int curveSizeBits)
     {
         return (curveSizeBits + 7) / 8;
     }
@@ -236,7 +248,7 @@ internal static class EcdsaCore
     /// </summary>
     /// <param name="curveSizeBits">The curve size in bits.</param>
     /// <returns>The size of each signature component in bytes.</returns>
-    public static int GetSignatureComponentSize(int curveSizeBits)
+    public int GetSignatureComponentSize(int curveSizeBits)
     {
         return GetCoordinateSize(curveSizeBits);
     }
@@ -246,7 +258,7 @@ internal static class EcdsaCore
     /// </summary>
     /// <param name="curveSizeBits">The curve size in bits.</param>
     /// <returns>The total signature size in bytes.</returns>
-    public static int GetSignatureSize(int curveSizeBits)
+    public int GetSignatureSize(int curveSizeBits)
     {
         return GetCoordinateSize(curveSizeBits) * 2;
     }
@@ -256,14 +268,14 @@ internal static class EcdsaCore
     /// </summary>
     /// <param name="parameters">The EC parameters to validate.</param>
     /// <exception cref="CryptographicException">If the parameters are invalid.</exception>
-    public static void ValidateParameters(ECParameters parameters)
+    public void ValidateParameters(ECParameters parameters)
     {
         // Try to create an ECDsa instance to validate
         using var ecdsa = ECDsa.Create(parameters);
         // If we get here, parameters are valid
     }
 
-    private static void ValidateCurveSize(int curveSizeBits)
+    private void ValidateCurveSize(int curveSizeBits)
     {
         if (!EccCurveSelector.IsSupportedCurveSize(curveSizeBits))
         {

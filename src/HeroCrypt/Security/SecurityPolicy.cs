@@ -3,89 +3,27 @@ using System.Security.Cryptography;
 namespace HeroCrypt.Security;
 
 /// <summary>
-/// Defines the security enforcement level for cryptographic operations.
-/// </summary>
-public enum SecurityLevel
-{
-    /// <summary>
-    /// No restrictions. All algorithms are permitted including deprecated ones.
-    /// Use only for legacy compatibility scenarios.
-    /// </summary>
-    None = 0,
-
-    /// <summary>
-    /// Default level. Blocks broken algorithms (MD5, SHA-1, DES, RC4).
-    /// Allows non-FIPS algorithms like ChaCha20, Blake2b, Argon2, Ed25519.
-    /// </summary>
-    Standard = 1,
-
-    /// <summary>
-    /// Strict level. Blocks deprecated and weak algorithms.
-    /// Same as Standard but with additional warnings for algorithms approaching deprecation.
-    /// </summary>
-    Strict = 2,
-
-    /// <summary>
-    /// Compliance mode. Only algorithms from the configured compliance list are permitted.
-    /// Default compliance list is FIPS 140-2/140-3.
-    /// Blocks: ChaCha20, Blake2b, Argon2, Ed25519, X25519, Secp256k1.
-    /// Allows: AES, SHA-2/3, RSA, ECDSA (NIST curves), PBKDF2, HKDF.
-    /// </summary>
-    Compliance = 3
-}
-
-/// <summary>
-/// Provides unified security policy enforcement for cryptographic operations.
+/// Provides global security policy defaults and scoped overrides.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <see cref="SecurityPolicy"/> consolidates security enforcement into a single configurable policy.
-/// It provides unified security enforcement with FIPS compliance checking.
-/// </para>
-/// <para>
-/// <b>Security Levels:</b>
-/// <list type="bullet">
-///   <item><see cref="SecurityLevel.None"/>: No restrictions (legacy compatibility only)</item>
-///   <item><see cref="SecurityLevel.Standard"/>: Blocks broken algorithms (default)</item>
-///   <item><see cref="SecurityLevel.Strict"/>: Blocks deprecated + additional warnings</item>
-///   <item><see cref="SecurityLevel.Compliance"/>: Compliance-approved algorithms only (FIPS by default)</item>
-/// </list>
+/// Use <see cref="GetEffective"/> to resolve the effective policy for an operation.
+/// Prefer passing <see cref="SecurityPolicyOptions"/> explicitly to builders and primitives.
 /// </para>
 /// </remarks>
-/// <example>
-/// <code>
-/// // Set global security policy
-/// SecurityPolicy.Current = SecurityLevel.Compliance;
-///
-/// // This will throw SecurityPolicyException
-/// var hash = HeroCryptBuilder.Hash()
-///     .WithBlake2b()  // Not FIPS-approved
-///     .ComputeHash(data);
-///
-/// // This will succeed
-/// var hash = HeroCryptBuilder.Hash()
-///     .WithSha256()   // FIPS-approved
-///     .ComputeHash(data);
-///
-/// // Temporary override for legacy compatibility
-/// using (SecurityPolicy.Override(SecurityLevel.None))
-/// {
-///     // Legacy algorithms permitted within this scope
-/// }
-/// </code>
-/// </example>
 public static class SecurityPolicy
 {
-    private static readonly AsyncLocal<SecurityLevel?> CurrentLevel = new();
+    private static readonly AsyncLocal<SecurityPolicyOptions?> ScopedPolicy = new();
+    private static SecurityPolicyOptions globalPolicy = SecurityPolicyOptions.Default;
 
     /// <summary>
-    /// Gets or sets the current security level.
+    /// Gets the effective security level or sets the process-wide default level.
     /// Default is <see cref="SecurityLevel.Standard"/>.
     /// </summary>
     public static SecurityLevel Current
     {
-        get => CurrentLevel.Value ?? SecurityLevel.Standard;
-        set => CurrentLevel.Value = value;
+        get => CurrentPolicy.Level;
+        set => UpdateGlobalLevel(value);
     }
 
     /// <summary>
@@ -94,87 +32,36 @@ public static class SecurityPolicy
     public static bool IsSystemFipsEnabled => CryptoConfig.AllowOnlyFipsAlgorithms;
 
     /// <summary>
-    /// Gets whether the current policy is compliance mode (FIPS by default).
+    /// Gets the scoped policy, if present, or the process-wide default policy.
     /// </summary>
-    public static bool IsComplianceMode => Current == SecurityLevel.Compliance;
+    public static SecurityPolicyOptions CurrentPolicy => ScopedPolicy.Value ?? GlobalPolicy;
 
-    /// <summary>
-    /// Gets whether the current policy allows legacy/deprecated algorithms.
-    /// </summary>
-    public static bool AllowsLegacy => Current == SecurityLevel.None;
-
-    /// <summary>
-    /// Validates an algorithm against the current security policy.
-    /// </summary>
-    /// <param name="algorithm">The algorithm name.</param>
-    /// <param name="category">The algorithm category.</param>
-    /// <exception cref="SecurityPolicyException">If the algorithm violates the current policy.</exception>
-    public static void Validate(string algorithm, AlgorithmCategory category)
+    internal static SecurityPolicyOptions GlobalPolicy
     {
-        var level = Current;
-        if (level == SecurityLevel.None)
+        get => Volatile.Read(ref globalPolicy);
+        set => Volatile.Write(ref globalPolicy, value ?? throw new ArgumentNullException(nameof(value)));
+    }
+
+    internal static void UpdateGlobalLevel(SecurityLevel level)
+    {
+        SecurityPolicyOptions previous;
+        SecurityPolicyOptions updated;
+        do
         {
-            return; // No restrictions
+            previous = Volatile.Read(ref globalPolicy);
+            updated = previous with { Level = level };
         }
-
-        var normalizedAlgorithm = algorithm.ToUpperInvariant();
-        var (isAllowed, alternative, reason) = CheckAlgorithm(normalizedAlgorithm, category, level);
-
-        if (!isAllowed)
-        {
-            throw new SecurityPolicyException(algorithm, alternative, reason, level);
-        }
-
-        // Emit audit warnings for deprecated algorithms even when allowed
-        CryptoAudit.CheckAlgorithm(normalizedAlgorithm);
+        while (Interlocked.CompareExchange(ref globalPolicy, updated, previous) != previous);
     }
 
     /// <summary>
-    /// Validates a symmetric cipher algorithm.
+    /// Gets the effective security policy options, using the provided override or falling back to global settings.
     /// </summary>
-    public static void ValidateSymmetric(string algorithm) => Validate(algorithm, AlgorithmCategory.Symmetric);
-
-    /// <summary>
-    /// Validates a hash algorithm.
-    /// </summary>
-    public static void ValidateHash(string algorithm) => Validate(algorithm, AlgorithmCategory.Hash);
-
-    /// <summary>
-    /// Validates a hash algorithm specified as <see cref="HashAlgorithmName"/>.
-    /// </summary>
-    public static void ValidateHash(HashAlgorithmName algorithm) => ValidateHash(algorithm.Name ?? "Unknown");
-
-    /// <summary>
-    /// Validates a key derivation function.
-    /// </summary>
-    public static void ValidateKdf(string algorithm) => Validate(algorithm, AlgorithmCategory.KeyDerivation);
-
-    /// <summary>
-    /// Validates a signature algorithm.
-    /// </summary>
-    public static void ValidateSignature(string algorithm) => Validate(algorithm, AlgorithmCategory.Signature);
-
-    /// <summary>
-    /// Validates a key agreement algorithm.
-    /// </summary>
-    public static void ValidateKeyAgreement(string algorithm) => Validate(algorithm, AlgorithmCategory.KeyAgreement);
-
-    /// <summary>
-    /// Validates an OpenPGP symmetric algorithm by ID.
-    /// </summary>
-    public static void ValidateOpenPgpSymmetric(byte algorithmId)
+    /// <param name="options">Optional override. If <c>null</c>, returns the current policy.</param>
+    /// <returns>The effective security policy options to use.</returns>
+    public static SecurityPolicyOptions GetEffective(SecurityPolicyOptions? options)
     {
-        var (name, _) = GetOpenPgpSymmetricInfo(algorithmId);
-        ValidateSymmetric(name);
-    }
-
-    /// <summary>
-    /// Validates an OpenPGP hash algorithm by ID.
-    /// </summary>
-    public static void ValidateOpenPgpHash(byte algorithmId)
-    {
-        var name = GetOpenPgpHashName(algorithmId);
-        ValidateHash(name);
+        return options ?? CurrentPolicy;
     }
 
     /// <summary>
@@ -197,6 +84,11 @@ public static class SecurityPolicy
     /// Use with caution for legacy compatibility only.
     /// </summary>
     public static IDisposable LegacyScope() => Override(SecurityLevel.None);
+
+    /// <summary>
+    /// Creates a disposable scope that temporarily disables all security restrictions for testing.
+    /// </summary>
+    public static IDisposable TestingScope() => Override(SecurityLevel.None);
 
     /// <summary>
     /// Executes an action with a temporary security level override.
@@ -228,277 +120,33 @@ public static class SecurityPolicy
         return func();
     }
 
-    private static (bool IsAllowed, string Alternative, string Reason) CheckAlgorithm(
-        string algorithm, AlgorithmCategory category, SecurityLevel level)
-    {
-        return category switch
-        {
-            AlgorithmCategory.Symmetric => CheckSymmetricAlgorithm(algorithm, level),
-            AlgorithmCategory.Hash => CheckHashAlgorithm(algorithm, level),
-            AlgorithmCategory.KeyDerivation => CheckKdfAlgorithm(algorithm, level),
-            AlgorithmCategory.Signature => CheckSignatureAlgorithm(algorithm, level),
-            AlgorithmCategory.KeyAgreement => CheckKeyAgreementAlgorithm(algorithm, level),
-            _ => (true, string.Empty, string.Empty)
-        };
-    }
-
-    private static (bool IsAllowed, string Alternative, string Reason) CheckSymmetricAlgorithm(
-        string algorithm, SecurityLevel level)
-    {
-        // Always blocked (broken)
-        var brokenAlgorithms = new HashSet<string> { "DES", "RC4" };
-        if (brokenAlgorithms.Contains(algorithm))
-        {
-            return (false, "AES-256", $"{algorithm} is cryptographically broken");
-        }
-
-        // Blocked at Standard+ (deprecated 64-bit block ciphers)
-        if (level >= SecurityLevel.Standard)
-        {
-            var deprecatedAlgorithms = new HashSet<string> { "3DES", "TRIPLEDES", "DES-EDE", "BLOWFISH", "CAST5", "IDEA" };
-            if (deprecatedAlgorithms.Contains(algorithm))
-            {
-                return (false, "AES-256", $"{algorithm} has 64-bit block size (vulnerable to birthday attacks)");
-            }
-        }
-
-        // Blocked at FIPS (non-FIPS approved)
-        if (level == SecurityLevel.Compliance)
-        {
-            var nonFipsAlgorithms = new HashSet<string>
-            {
-                "CHACHA20", "CHACHA20-POLY1305", "XCHACHA20-POLY1305",
-                "AES-OCB", "AES-SIV", "AES-GCM-SIV",
-                "TWOFISH", "CAMELLIA", "CAMELLIA-128", "CAMELLIA-192", "CAMELLIA-256"
-            };
-
-            if (nonFipsAlgorithms.Contains(algorithm))
-            {
-                return (false, "AES-GCM", $"{algorithm} is not FIPS-approved");
-            }
-        }
-
-        return (true, string.Empty, string.Empty);
-    }
-
-    private static (bool IsAllowed, string Alternative, string Reason) CheckHashAlgorithm(
-        string algorithm, SecurityLevel level)
-    {
-        // Always blocked (broken)
-        if (algorithm == "MD5")
-        {
-            return (false, "SHA-256", "MD5 has trivial collision attacks");
-        }
-
-        // Blocked at Standard+ (deprecated)
-        if (level >= SecurityLevel.Standard)
-        {
-            if (algorithm is "SHA1" or "SHA-1")
-            {
-                return (false, "SHA-256", "SHA-1 has practical collision attacks (SHAttered)");
-            }
-        }
-
-        // Blocked at FIPS (non-FIPS approved)
-        if (level == SecurityLevel.Compliance)
-        {
-            var nonFipsAlgorithms = new HashSet<string>
-            {
-                "BLAKE2B", "BLAKE2S", "BLAKE3",
-                "RIPEMD-160", "RIPEMD160"
-            };
-
-            if (nonFipsAlgorithms.Contains(algorithm))
-            {
-                return (false, "SHA-256", $"{algorithm} is not FIPS-approved");
-            }
-        }
-
-        return (true, string.Empty, string.Empty);
-    }
-
-    private static (bool IsAllowed, string Alternative, string Reason) CheckKdfAlgorithm(
-        string algorithm, SecurityLevel level)
-    {
-        // Blocked at Standard+ (uses SHA-1)
-        if (level >= SecurityLevel.Standard && algorithm == "PBKDF2-SHA1")
-        {
-            return (false, "PBKDF2-SHA256", "PBKDF2-SHA1 uses deprecated SHA-1");
-        }
-
-        // Blocked at FIPS (non-FIPS approved)
-        if (level == SecurityLevel.Compliance)
-        {
-            var nonFipsAlgorithms = new HashSet<string>
-            {
-                "ARGON2", "ARGON2ID", "ARGON2I", "ARGON2D",
-                "SCRYPT", "BCRYPT",
-                "BALLOON", "BALLOON-SHA256", "BALLOON-SHA512"
-            };
-
-            if (nonFipsAlgorithms.Contains(algorithm))
-            {
-                return (false, "PBKDF2-SHA256 (600,000+ iterations)", $"{algorithm} is not FIPS-approved");
-            }
-        }
-
-        return (true, string.Empty, string.Empty);
-    }
-
-    private static (bool IsAllowed, string Alternative, string Reason) CheckSignatureAlgorithm(
-        string algorithm, SecurityLevel level)
-    {
-        // Blocked at FIPS (non-FIPS approved)
-        if (level == SecurityLevel.Compliance)
-        {
-            var nonFipsAlgorithms = new HashSet<string>
-            {
-                "ED25519", "ED448",
-                "SECP256K1"
-            };
-
-            if (nonFipsAlgorithms.Contains(algorithm))
-            {
-                return (false, "ECDSA-P256 or RSA-PSS", $"{algorithm} is not FIPS-approved");
-            }
-        }
-
-        return (true, string.Empty, string.Empty);
-    }
-
-    private static (bool IsAllowed, string Alternative, string Reason) CheckKeyAgreementAlgorithm(
-        string algorithm, SecurityLevel level)
-    {
-        // Blocked at FIPS (non-FIPS approved)
-        if (level == SecurityLevel.Compliance)
-        {
-            var nonFipsAlgorithms = new HashSet<string>
-            {
-                "X25519", "X448", "CURVE25519"
-            };
-
-            if (nonFipsAlgorithms.Contains(algorithm))
-            {
-                return (false, "ECDH-P256 or ECDH-P384", $"{algorithm} is not FIPS-approved");
-            }
-        }
-
-        return (true, string.Empty, string.Empty);
-    }
-
-    private static (string Name, bool IsFipsApproved) GetOpenPgpSymmetricInfo(byte algorithmId)
-    {
-        return algorithmId switch
-        {
-            0 => ("Plaintext", false),
-            1 => ("IDEA", false),
-            2 => ("3DES", false),
-            3 => ("CAST5", false),
-            4 => ("Blowfish", false),
-            7 => ("AES-128", true),
-            8 => ("AES-192", true),
-            9 => ("AES-256", true),
-            10 => ("Twofish", false),
-            11 => ("Camellia-128", false),
-            12 => ("Camellia-192", false),
-            13 => ("Camellia-256", false),
-            _ => ($"Unknown-{algorithmId}", false)
-        };
-    }
-
-    private static string GetOpenPgpHashName(byte algorithmId)
-    {
-        return algorithmId switch
-        {
-            1 => "MD5",
-            2 => "SHA-1",
-            3 => "RIPEMD-160",
-            8 => "SHA-256",
-            9 => "SHA-384",
-            10 => "SHA-512",
-            11 => "SHA-224",
-            12 => "SHA3-256",
-            14 => "SHA3-512",
-            _ => $"Unknown-{algorithmId}"
-        };
-    }
-
     private sealed class SecurityPolicyScope : IDisposable
     {
-        private readonly SecurityLevel previousLevel;
+        private readonly SecurityPolicyOptions? previousPolicy;
         private bool disposed;
 
         /// <summary>
-        /// Initializes a new instance of <see cref="SecurityPolicyScope"/>.
+        /// Creates a scope that applies the specified security level.
         /// </summary>
-        /// <param name="level">The security level to set for the scope.</param>
+        /// <param name="level">The security level to use in this scope.</param>
         public SecurityPolicyScope(SecurityLevel level)
         {
-            previousLevel = Current;
-            Current = level;
+            previousPolicy = ScopedPolicy.Value;
+            ScopedPolicy.Value = new SecurityPolicyOptions(
+                Level: level,
+                AllowDeterministicNonSiv: level == SecurityLevel.None);
         }
 
         /// <summary>
-        /// Restores the previous security level.
+        /// Restores the security level that was active before this scope.
         /// </summary>
         public void Dispose()
         {
             if (!disposed)
             {
-                Current = previousLevel;
+                ScopedPolicy.Value = previousPolicy;
                 disposed = true;
             }
         }
-    }
-}
-
-/// <summary>
-/// Categories of cryptographic algorithms for security policy validation.
-/// </summary>
-public enum AlgorithmCategory
-{
-    /// <summary>Symmetric encryption algorithms (AES, ChaCha20, etc.)</summary>
-    Symmetric,
-
-    /// <summary>Hash functions (SHA-256, Blake2b, etc.)</summary>
-    Hash,
-
-    /// <summary>Key derivation functions (Argon2, PBKDF2, HKDF, etc.)</summary>
-    KeyDerivation,
-
-    /// <summary>Digital signature algorithms (RSA, ECDSA, Ed25519, etc.)</summary>
-    Signature,
-
-    /// <summary>Key agreement algorithms (ECDH, X25519, etc.)</summary>
-    KeyAgreement
-}
-
-/// <summary>
-/// Exception thrown when an algorithm violates the current security policy.
-/// </summary>
-public class SecurityPolicyException : InvalidOperationException
-{
-    /// <summary>Gets the blocked algorithm.</summary>
-    public string Algorithm { get; }
-
-    /// <summary>Gets the recommended alternative.</summary>
-    public string Alternative { get; }
-
-    /// <summary>Gets the reason the algorithm was blocked.</summary>
-    public string Reason { get; }
-
-    /// <summary>Gets the security level that blocked the algorithm.</summary>
-    public SecurityLevel Level { get; }
-
-    /// <summary>
-    /// Initializes a new instance of <see cref="SecurityPolicyException"/>.
-    /// </summary>
-    public SecurityPolicyException(string algorithm, string alternative, string reason, SecurityLevel level)
-        : base($"Security policy ({level}) violation: '{algorithm}' is not permitted. {reason}. Use '{alternative}' instead.")
-    {
-        Algorithm = algorithm;
-        Alternative = alternative;
-        Reason = reason;
-        Level = level;
     }
 }

@@ -39,6 +39,10 @@ internal sealed class ChaCha20Poly1305Core
     private const int NONCE_SIZE = 12;
     private const int TAG_SIZE = 16;
 
+    /// <summary>
+    /// Initializes a ChaCha20Poly1305Core with the effective security policy.
+    /// </summary>
+    /// <param name="policy">Optional policy; uses the current policy when omitted.</param>
     public ChaCha20Poly1305Core(SecurityPolicyOptions? policy = null)
     {
         this.policy = policy ?? SecurityPolicy.CurrentPolicy;

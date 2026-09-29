@@ -38,6 +38,10 @@ internal sealed class AesSivCore
     private const int DEFAULT_NONCE_SIZE = 16;
     private static readonly int[] SupportedKeySizes = AesConstants.SivKeySizes;
 
+    /// <summary>
+    /// Initializes a AesSivCore with the effective security policy.
+    /// </summary>
+    /// <param name="policy">Optional policy; uses the current policy when omitted.</param>
     public AesSivCore(SecurityPolicyOptions? policy = null)
     {
         this.policy = policy ?? SecurityPolicy.CurrentPolicy;

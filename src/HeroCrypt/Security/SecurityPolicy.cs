@@ -115,12 +115,19 @@ public static class SecurityPolicy
         private readonly SecurityLevel previousLevel;
         private bool disposed;
 
+        /// <summary>
+        /// Creates a scope that applies the specified security level.
+        /// </summary>
+        /// <param name="level">The security level to use in this scope.</param>
         public SecurityPolicyScope(SecurityLevel level)
         {
             previousLevel = Current;
             Current = level;
         }
 
+        /// <summary>
+        /// Restores the security level that was active before this scope.
+        /// </summary>
         public void Dispose()
         {
             if (!disposed)

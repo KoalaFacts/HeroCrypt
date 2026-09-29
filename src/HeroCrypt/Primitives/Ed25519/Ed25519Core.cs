@@ -21,6 +21,10 @@ internal sealed class Ed25519Core
     private readonly SecurityPolicyOptions policy;
     private readonly Ed25519Impl impl;
 
+    /// <summary>
+    /// Initializes a Ed25519Core with the effective security policy.
+    /// </summary>
+    /// <param name="policy">Optional policy; uses the current policy when omitted.</param>
     public Ed25519Core(SecurityPolicyOptions? policy = null)
     {
         this.policy = policy ?? SecurityPolicy.CurrentPolicy;
@@ -119,6 +123,10 @@ internal sealed class Ed25519Impl
     private readonly SecurityPolicyOptions policy;
 #pragma warning restore IDE0052
 
+    /// <summary>
+    /// Initializes a Ed25519Impl with the effective security policy.
+    /// </summary>
+    /// <param name="policy">Optional policy; uses the current policy when omitted.</param>
     public Ed25519Impl(SecurityPolicyOptions? policy = null)
     {
         this.policy = policy ?? SecurityPolicy.CurrentPolicy;

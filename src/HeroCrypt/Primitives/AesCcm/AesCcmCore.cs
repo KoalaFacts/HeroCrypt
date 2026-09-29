@@ -64,6 +64,10 @@ internal sealed class AesCcmCore
     private const int DEFAULT_TAG_SIZE = 16;
     private const int BLOCK_SIZE = AesConstants.BlockSize;
 
+    /// <summary>
+    /// Initializes a AesCcmCore with the effective security policy.
+    /// </summary>
+    /// <param name="policy">Optional policy; uses the current policy when omitted.</param>
     public AesCcmCore(SecurityPolicyOptions? policy = null)
     {
         this.policy = policy ?? SecurityPolicy.CurrentPolicy;

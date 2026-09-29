@@ -42,6 +42,10 @@ internal sealed class AesOcbCore
     private const int TAG_SIZE = 16;
     private static readonly int[] SupportedKeySizes = AesConstants.StandardKeySizes;
 
+    /// <summary>
+    /// Initializes a AesOcbCore with the effective security policy.
+    /// </summary>
+    /// <param name="policy">Optional policy; uses the current policy when omitted.</param>
     public AesOcbCore(SecurityPolicyOptions? policy = null)
     {
         this.policy = policy ?? SecurityPolicy.CurrentPolicy;

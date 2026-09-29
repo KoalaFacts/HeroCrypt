@@ -41,6 +41,10 @@ internal sealed class XChaCha20Poly1305Core
 
     private static readonly uint[] HChaCha20Constants = [0x61707865, 0x3320646e, 0x79622d32, 0x6b206574];
 
+    /// <summary>
+    /// Initializes a XChaCha20Poly1305Core with the effective security policy.
+    /// </summary>
+    /// <param name="policy">Optional policy; uses the current policy when omitted.</param>
     public XChaCha20Poly1305Core(SecurityPolicyOptions? policy = null)
     {
         this.policy = policy ?? SecurityPolicy.CurrentPolicy;

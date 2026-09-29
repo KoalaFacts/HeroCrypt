@@ -20,6 +20,10 @@ internal sealed class EcdsaCore
     private readonly SecurityPolicyOptions policy;
 #pragma warning restore IDE0052
 
+    /// <summary>
+    /// Initializes a EcdsaCore with the effective security policy.
+    /// </summary>
+    /// <param name="policy">Optional policy; uses the current policy when omitted.</param>
     public EcdsaCore(SecurityPolicyOptions? policy = null)
     {
         this.policy = policy ?? SecurityPolicy.CurrentPolicy;

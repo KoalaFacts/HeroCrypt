@@ -29,6 +29,10 @@ internal sealed class Secp256k1Core
     private readonly SecurityPolicyOptions policy;
 #pragma warning restore IDE0052
 
+    /// <summary>
+    /// Initializes a Secp256k1Core with the effective security policy.
+    /// </summary>
+    /// <param name="policy">Optional policy; uses the current policy when omitted.</param>
     public Secp256k1Core(SecurityPolicyOptions? policy = null)
     {
         this.policy = policy ?? SecurityPolicy.CurrentPolicy;

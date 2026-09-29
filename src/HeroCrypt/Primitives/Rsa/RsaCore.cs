@@ -10,6 +10,10 @@ internal sealed class RsaCore
     private readonly SecurityPolicyOptions policy;
 #pragma warning restore IDE0052
 
+    /// <summary>
+    /// Initializes a RsaCore with the effective security policy.
+    /// </summary>
+    /// <param name="policy">Optional policy; uses the current policy when omitted.</param>
     public RsaCore(SecurityPolicyOptions? policy = null)
     {
         this.policy = policy ?? SecurityPolicy.CurrentPolicy;

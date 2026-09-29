@@ -1,9 +1,11 @@
 using System.Collections.Concurrent;
+using System.Security.Cryptography;
 using HeroCrypt.Operations;
 using HeroCrypt.Primitives.ChaCha20Poly1305;
 using HeroCrypt.Primitives.Common;
 using HeroCrypt.Primitives.Curve25519;
 using HeroCrypt.Primitives.Ed25519;
+using HeroCrypt.Primitives.Rsa;
 using HeroCrypt.Primitives.Scrypt;
 using HeroCrypt.Primitives.Secp256k1;
 using HeroCrypt.Primitives.XChaCha20Poly1305;
@@ -490,6 +492,26 @@ public class SecurityPolicyTests
 
             using var scope = SecurityPolicy.ComplianceScope();
             Assert.Throws<SecurityPolicyException>(() => BalloonHashing.Hash([1], [2]));
+        }
+
+        [Fact]
+        public void StandardPolicy_BlocksRsaOaepSha1ForEncryptionAndDecryption()
+        {
+            using var keySource = RsaBuilder.Create(SecurityPolicyOptions.Testing);
+            var (privateKey, publicKey) = keySource.GenerateKeyPair();
+            var plaintext = new byte[] { 1 };
+
+            using var allowed = RsaBuilder.Create(SecurityPolicyOptions.Testing)
+                .WithPublicKey(publicKey).WithData(plaintext).WithHashAlgorithm(HashAlgorithmName.SHA1);
+            var ciphertext = allowed.Encrypt();
+
+            using var blockedEncrypt = RsaBuilder.Create(SecurityPolicyOptions.Default)
+                .WithPublicKey(publicKey).WithData(plaintext).WithHashAlgorithm(HashAlgorithmName.SHA1);
+            Assert.Throws<SecurityPolicyException>(() => blockedEncrypt.Encrypt());
+
+            using var blockedDecrypt = RsaBuilder.Create(SecurityPolicyOptions.Compliance)
+                .WithPrivateKey(privateKey).WithData(ciphertext).WithHashAlgorithm(HashAlgorithmName.SHA1);
+            Assert.Throws<SecurityPolicyException>(() => blockedDecrypt.Decrypt());
         }
 
         [Fact]

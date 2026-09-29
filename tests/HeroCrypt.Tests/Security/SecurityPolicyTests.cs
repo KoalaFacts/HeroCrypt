@@ -481,7 +481,7 @@ public class SecurityPolicyTests
                 .WithSalt(new byte[16])
                 .WithSecurityPolicy(SecurityPolicyOptions.Compliance);
 
-            Assert.Throws<SecurityPolicyException>(() => builder.DeriveKey());
+            Assert.Throws<SecurityPolicyException>(builder.DeriveKey);
         }
 
         [Fact]
@@ -507,11 +507,11 @@ public class SecurityPolicyTests
 
             using var blockedEncrypt = RsaBuilder.Create(SecurityPolicyOptions.Default)
                 .WithPublicKey(publicKey).WithData(plaintext).WithHashAlgorithm(HashAlgorithmName.SHA1);
-            Assert.Throws<SecurityPolicyException>(() => blockedEncrypt.Encrypt());
+            Assert.Throws<SecurityPolicyException>(blockedEncrypt.Encrypt);
 
             using var blockedDecrypt = RsaBuilder.Create(SecurityPolicyOptions.Compliance)
                 .WithPrivateKey(privateKey).WithData(ciphertext).WithHashAlgorithm(HashAlgorithmName.SHA1);
-            Assert.Throws<SecurityPolicyException>(() => blockedDecrypt.Decrypt());
+            Assert.Throws<SecurityPolicyException>(blockedDecrypt.Decrypt);
         }
 
         [Fact]

@@ -14,6 +14,49 @@ This guide helps you migrate between HeroCrypt versions and from other cryptogra
 
 ## Migrating to v1.0
 
+### Security: replace secp256k1 signatures from v0.1.0 through v0.3.0
+
+HeroCrypt v0.1.0 through v0.3.0 produced a 64-byte value using a MAC key derived
+from the public key instead of an ECDSA signature. Anyone with the public key
+could forge that value. **Do not use signatures created by those versions as
+proof of authenticity**, even if an older HeroCrypt verifier accepts them.
+
+Version 1.0.0 signs with secp256k1 ECDSA and emits a 64-byte `r || s` signature
+with a normalized low-S value. The unified builder hashes input data with
+SHA-256 before signing or verifying it. The algorithm-specific
+`Secp256k1Builder` accepts an already computed 32-byte message hash.
+
+To migrate stored signatures:
+
+1. Upgrade every signer and verifier to 1.0.0 before accepting new signatures.
+2. Identify records signed with v0.1.0 through v0.3.0 using trusted version or
+   creation metadata. Both formats are 64 bytes, so length cannot identify the
+   old values.
+3. Re-establish each original message from an authoritative source and sign it
+   again with the private key. Do not automatically re-sign a message merely
+   because its old signature verifies.
+4. Replace the stored signature and record the new signature format or version.
+   If the message cannot be authenticated independently, invalidate the old
+   signature and request a new signed record.
+5. Review any authorization decisions that relied solely on old signatures.
+
+There is no safe conversion from an old signature to ECDSA. This flaw did not
+expose the private key, so a key change alone cannot repair previously trusted
+records.
+
+```csharp
+using var signer = HeroCryptBuilder.Sign()
+    .WithSecp256k1()
+    .WithPrivateKey(privateKey);
+byte[] signature = signer.Sign(authenticatedMessage);
+
+using var verifier = HeroCryptBuilder.Verify()
+    .WithSecp256k1()
+    .WithPublicKey(publicKey)
+    .WithSignature(signature);
+bool isValid = verifier.Verify(authenticatedMessage);
+```
+
 ### Breaking Changes
 
 - **Dropped .NET 6.0 and .NET 7.0 support** - Now requires .NET 8.0+ or .NET Standard 2.0

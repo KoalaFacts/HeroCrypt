@@ -124,6 +124,22 @@ public class Secp256k1CoreTests
         }
 
         [Fact]
+        public void Verify_RejectsSignatureComputedFromPublicKey()
+        {
+            var (_, publicKey) = core.GenerateKeyPair();
+            var messageHash = SHA256.HashData(Encoding.UTF8.GetBytes("public-key forgery"));
+            var salt = Encoding.ASCII.GetBytes("HeroCrypt.Secp256k1.Signature");
+            var material = new byte[publicKey.Length + salt.Length];
+            publicKey.CopyTo(material, 0);
+            salt.CopyTo(material, publicKey.Length);
+            var forgedKey = SHA512.HashData(material);
+            using var hmac = new HMACSHA512(forgedKey);
+            var forgedSignature = hmac.ComputeHash(messageHash);
+
+            Assert.False(core.Verify(messageHash, forgedSignature, publicKey));
+        }
+
+        [Fact]
         public void Compress_And_Decompress_Roundtrip()
         {
             var (_, uncompressed) = core.GenerateKeyPair();
@@ -337,16 +353,23 @@ public class Secp256k1CoreTests
         }
 
         [Fact]
-        public void Secp256k1_Signing_IsDeterministic()
+        public void Secp256k1_Signature_UsesStandardEcdsaFormat()
         {
-            // Verify that signing is deterministic (RFC 6979)
-            var (privateKey, _) = core.GenerateKeyPair();
+            var (privateKey, publicKey) = core.GenerateKeyPair();
             var messageHash = TestHelpers.RandomBytes(32);
+            var signature = core.Sign(messageHash, privateKey);
+            using var ecdsa = ECDsa.Create();
+            ecdsa.ImportParameters(new ECParameters
+            {
+                Curve = ECCurve.CreateFromFriendlyName("secP256k1"),
+                Q = new ECPoint
+                {
+                    X = publicKey.AsSpan(1, 32).ToArray(),
+                    Y = publicKey.AsSpan(33, 32).ToArray()
+                }
+            });
 
-            var signature1 = core.Sign(messageHash, privateKey);
-            var signature2 = core.Sign(messageHash, privateKey);
-
-            CryptoAssertions.AssertBytesEqual(signature1, signature2);
+            Assert.True(ecdsa.VerifyHash(messageHash, signature));
         }
 
         [Fact]

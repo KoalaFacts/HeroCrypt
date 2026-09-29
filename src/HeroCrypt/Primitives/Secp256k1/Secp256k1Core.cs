@@ -2,7 +2,6 @@ using System.Globalization;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
-using System.Text;
 using HeroCrypt.Security;
 
 namespace HeroCrypt.Primitives.Secp256k1;
@@ -25,9 +24,8 @@ namespace HeroCrypt.Primitives.Secp256k1;
 /// </remarks>
 internal sealed class Secp256k1Core
 {
-#pragma warning disable IDE0052 // Remove unread private member - policy reserved for future security validation
     private readonly SecurityPolicyOptions policy;
-#pragma warning restore IDE0052
+    private static readonly ECCurve Curve = ECCurve.CreateFromFriendlyName("secP256k1");
 
     /// <summary>
     /// Initializes a Secp256k1Core with the effective security policy.
@@ -99,8 +97,6 @@ internal sealed class Secp256k1Core
     /// </summary>
     public const int SIGNATURE_SIZE = 64;
 
-    private static readonly byte[] SignatureKeySalt = Encoding.ASCII.GetBytes("HeroCrypt.Secp256k1.Signature");
-
     /// <summary>
     /// Generates a new secp256k1 key pair
     /// </summary>
@@ -164,6 +160,7 @@ internal sealed class Secp256k1Core
     /// <returns>64-byte signature (r || s)</returns>
     public byte[] Sign(byte[] messageHash, byte[] privateKey)
     {
+        policy.ValidateSignature("SECP256K1");
 #if NETSTANDARD2_0
         if (messageHash == null)
         {
@@ -186,23 +183,14 @@ internal sealed class Secp256k1Core
             throw new ArgumentException("Private key must be 32 bytes", nameof(privateKey));
         }
 
-        var publicKey = DerivePublicKey(privateKey, false);
-        var signatureKey = DeriveSignatureKey(publicKey);
+        if (!IsValidPrivateKey(privateKey))
+        {
+            throw new ArgumentException("Invalid private key", nameof(privateKey));
+        }
 
-        try
-        {
-            using var hmac = new HMACSHA512(signatureKey);
-            var signature = hmac.ComputeHash(messageHash);
-            var result = new byte[64];
-            Array.Copy(signature, result, 64);
-            SecureMemoryOperations.SecureClear(signature);
-            return result;
-        }
-        finally
-        {
-            SecureMemoryOperations.SecureClear(publicKey);
-            SecureMemoryOperations.SecureClear(signatureKey);
-        }
+        using var ecdsa = ECDsa.Create();
+        ecdsa.ImportParameters(new ECParameters { Curve = Curve, D = privateKey });
+        return ecdsa.SignHash(messageHash);
     }
 
     /// <summary>
@@ -214,6 +202,7 @@ internal sealed class Secp256k1Core
     /// <returns>True if signature is valid</returns>
     public bool Verify(byte[] messageHash, byte[] signature, byte[] publicKey)
     {
+        policy.ValidateSignature("SECP256K1");
 #if NETSTANDARD2_0
         if (messageHash == null)
         {
@@ -246,15 +235,20 @@ internal sealed class Secp256k1Core
         }
 
         var normalizedKey = NormalizePublicKey(publicKey);
-        var signatureKey = DeriveSignatureKey(normalizedKey);
 
         try
         {
-            using var hmac = new HMACSHA512(signatureKey);
-            var expectedSignature = hmac.ComputeHash(messageHash);
-            var matches = FixedTimeEquals(expectedSignature, signature);
-            SecureMemoryOperations.SecureClear(expectedSignature);
-            return matches;
+            using var ecdsa = ECDsa.Create();
+            ecdsa.ImportParameters(new ECParameters
+            {
+                Curve = Curve,
+                Q = new ECPoint
+                {
+                    X = normalizedKey.AsSpan(1, 32).ToArray(),
+                    Y = normalizedKey.AsSpan(33, 32).ToArray()
+                }
+            });
+            return ecdsa.VerifyHash(messageHash, signature);
         }
         finally
         {
@@ -262,7 +256,6 @@ internal sealed class Secp256k1Core
             {
                 SecureMemoryOperations.SecureClear(normalizedKey);
             }
-            SecureMemoryOperations.SecureClear(signatureKey);
         }
     }
 
@@ -636,41 +629,4 @@ internal sealed class Secp256k1Core
         return DecompressPublicKey(publicKey);
     }
 
-    private byte[] DeriveSignatureKey(byte[] uncompressedKey)
-    {
-        var buffer = new byte[uncompressedKey.Length + SignatureKeySalt.Length];
-        Array.Copy(uncompressedKey, buffer, uncompressedKey.Length);
-        Array.Copy(SignatureKeySalt, 0, buffer, uncompressedKey.Length, SignatureKeySalt.Length);
-
-        var key = ComputeSha512(buffer);
-
-        SecureMemoryOperations.SecureClear(buffer);
-        return key;
-    }
-
-    private byte[] ComputeSha512(ReadOnlySpan<byte> data)
-    {
-#if NETSTANDARD2_0
-        using var sha = SHA512.Create();
-        return sha.ComputeHash(data.ToArray());
-#else
-        return SHA512.HashData(data);
-#endif
-    }
-
-    private bool FixedTimeEquals(ReadOnlySpan<byte> left, ReadOnlySpan<byte> right)
-    {
-        if (left.Length != right.Length)
-        {
-            return false;
-        }
-
-        var diff = 0;
-        for (var i = 0; i < left.Length; i++)
-        {
-            diff |= left[i] ^ right[i];
-        }
-
-        return diff == 0;
-    }
 }

@@ -321,6 +321,7 @@ internal static class AesSivCore
 
         using var aes = Aes.Create();
         aes.Key = keyArray;
+        // SIV uses single AES blocks to generate CTR keystream from the synthetic IV.
         aes.Mode = CipherMode.ECB;
         aes.Padding = PaddingMode.None;
 

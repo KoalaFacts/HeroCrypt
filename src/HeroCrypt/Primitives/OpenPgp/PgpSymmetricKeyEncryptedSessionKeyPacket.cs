@@ -592,6 +592,7 @@ public readonly struct PgpSymmetricKeyEncryptedSessionKeyPacket : IEquatable<Pgp
 
         using var aes = Aes.Create();
         aes.Key = key;
+        // OpenPGP CFB encrypts feedback blocks into keystream; data is XORed separately.
         aes.Mode = CipherMode.ECB;
         aes.Padding = PaddingMode.None;
 
@@ -729,6 +730,7 @@ public readonly struct PgpSymmetricKeyEncryptedSessionKeyPacket : IEquatable<Pgp
 
         using var aes = Aes.Create();
         aes.Key = key;
+        // OpenPGP CFB encrypts feedback blocks into keystream; data is XORed separately.
         aes.Mode = CipherMode.ECB;
         aes.Padding = PaddingMode.None;
 

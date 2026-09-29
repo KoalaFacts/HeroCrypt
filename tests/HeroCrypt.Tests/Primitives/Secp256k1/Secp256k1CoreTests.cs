@@ -369,6 +369,12 @@ public class Secp256k1CoreTests
         [Fact]
         public void Secp256k1_Signature_UsesStandardEcdsaFormat()
         {
+            if (OperatingSystem.IsMacOS())
+            {
+                Assert.Skip("The platform ECDsa provider does not support secp256k1 on macOS.");
+                return;
+            }
+
             var (privateKey, publicKey) = core.GenerateKeyPair();
             var messageHash = TestHelpers.RandomBytes(32);
             var signature = core.Sign(messageHash, privateKey);
@@ -384,6 +390,15 @@ public class Secp256k1CoreTests
             });
 
             Assert.True(ecdsa.VerifyHash(messageHash, signature));
+        }
+
+        [Fact]
+        public void Secp256k1_Signing_IsDeterministic()
+        {
+            var (privateKey, _) = core.GenerateKeyPair();
+            var messageHash = TestHelpers.RandomBytes(32);
+
+            Assert.Equal(core.Sign(messageHash, privateKey), core.Sign(messageHash, privateKey));
         }
 
         [Fact]

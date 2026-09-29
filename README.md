@@ -420,7 +420,7 @@ HeroCrypt is built with a small, layered architecture:
 ## 🔒 Security
 
 - Core algorithms (Argon2, Blake2b, ChaCha20, Rabbit) implemented from scratch following RFC specifications
-- Elliptic curve operations (secp256k1, Curve25519) leverage .NET's ECDsa and proven field arithmetic
+- secp256k1 key operations and ECDSA signatures use Bouncy Castle's cross-platform curve implementation
 - Post-quantum cryptography uses .NET 10+ native BCL implementations (FIPS 203/204/205)
 - Constant-time comparisons for sensitive operations
 - Secure memory management with automatic zeroing

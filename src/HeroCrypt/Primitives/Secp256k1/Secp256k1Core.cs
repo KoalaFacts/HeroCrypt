@@ -14,19 +14,27 @@ namespace HeroCrypt.Primitives.Secp256k1;
 /// </summary>
 internal sealed class Secp256k1Core
 {
+    /// <summary>The size of a secp256k1 private key in bytes.</summary>
     public const int PRIVATE_KEY_SIZE = 32;
+    /// <summary>The size of an uncompressed secp256k1 public key in bytes.</summary>
     public const int UNCOMPRESSED_PUBLIC_KEY_SIZE = 65;
+    /// <summary>The size of a compressed secp256k1 public key in bytes.</summary>
     public const int COMPRESSED_PUBLIC_KEY_SIZE = 33;
+    /// <summary>The size of a compact ECDSA signature in bytes.</summary>
     public const int SIGNATURE_SIZE = 64;
 
     private static readonly ECDomainParameters Domain = CreateDomain();
     private readonly SecurityPolicyOptions policy;
 
+    /// <summary>Creates secp256k1 operations under the specified security policy.</summary>
+    /// <param name="policy">The policy to enforce, or the current policy when omitted.</param>
     public Secp256k1Core(SecurityPolicyOptions? policy = null)
     {
         this.policy = policy ?? SecurityPolicy.CurrentPolicy;
     }
 
+    /// <summary>Generates a private key and its uncompressed public key.</summary>
+    /// <returns>A secp256k1 key pair.</returns>
     public (byte[] privateKey, byte[] publicKey) GenerateKeyPair()
     {
         policy.ValidateSignature("SECP256K1");
@@ -40,6 +48,10 @@ internal sealed class Secp256k1Core
         return (privateKey, DerivePublicKey(privateKey));
     }
 
+    /// <summary>Derives a public key from a valid private key.</summary>
+    /// <param name="privateKey">The 32-byte private key.</param>
+    /// <param name="compressed">Whether to return the compressed encoding.</param>
+    /// <returns>The encoded public key.</returns>
     public byte[] DerivePublicKey(byte[] privateKey, bool compressed = false)
     {
         policy.ValidateSignature("SECP256K1");
@@ -49,6 +61,10 @@ internal sealed class Secp256k1Core
         return Domain.G.Multiply(scalar).Normalize().GetEncoded(compressed);
     }
 
+    /// <summary>Signs a 32-byte message hash with deterministic ECDSA and low-S normalization.</summary>
+    /// <param name="messageHash">The hash to sign.</param>
+    /// <param name="privateKey">The signing private key.</param>
+    /// <returns>The 64-byte r-and-s signature.</returns>
     public byte[] Sign(byte[] messageHash, byte[] privateKey)
     {
         policy.ValidateSignature("SECP256K1");
@@ -74,6 +90,11 @@ internal sealed class Secp256k1Core
         return signature;
     }
 
+    /// <summary>Verifies a compact ECDSA signature against a public key.</summary>
+    /// <param name="messageHash">The 32-byte signed hash.</param>
+    /// <param name="signature">The 64-byte r-and-s signature.</param>
+    /// <param name="publicKey">The compressed or uncompressed public key.</param>
+    /// <returns>True when the signature is valid.</returns>
     public bool Verify(byte[] messageHash, byte[] signature, byte[] publicKey)
     {
         policy.ValidateSignature("SECP256K1");
@@ -93,6 +114,9 @@ internal sealed class Secp256k1Core
         return verifier.VerifySignature(messageHash, r, s);
     }
 
+    /// <summary>Converts an uncompressed public key to compressed form.</summary>
+    /// <param name="uncompressedKey">The uncompressed public key.</param>
+    /// <returns>The compressed public key.</returns>
     public byte[] CompressPublicKey(byte[] uncompressedKey)
     {
         ArgumentHelper.ThrowIfNull(uncompressedKey);
@@ -104,6 +128,9 @@ internal sealed class Secp256k1Core
         return Domain.Curve.DecodePoint(uncompressedKey).GetEncoded(true);
     }
 
+    /// <summary>Converts a compressed public key to uncompressed form.</summary>
+    /// <param name="compressedKey">The compressed public key.</param>
+    /// <returns>The uncompressed public key.</returns>
     public byte[] DecompressPublicKey(byte[] compressedKey)
     {
         ArgumentHelper.ThrowIfNull(compressedKey);

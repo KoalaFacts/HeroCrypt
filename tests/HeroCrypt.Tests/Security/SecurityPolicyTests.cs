@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using HeroCrypt.Operations;
 using HeroCrypt.Primitives.ChaCha20Poly1305;
+using HeroCrypt.Primitives.Common;
 using HeroCrypt.Primitives.Curve25519;
 using HeroCrypt.Primitives.Ed25519;
 using HeroCrypt.Primitives.Scrypt;
@@ -465,6 +466,30 @@ public class SecurityPolicyTests
             using var allowed = HeroCryptBuilder.Sign().WithEd25519().WithPrivateKey(privateKey)
                 .WithSecurityPolicy(SecurityPolicyOptions.Testing);
             Assert.Equal(64, allowed.Sign(message).Length);
+        }
+
+        [Theory]
+        [InlineData(KeyDerivationAlgorithm.BalloonSha256)]
+        [InlineData(KeyDerivationAlgorithm.BalloonSha512)]
+        public void CompliancePolicy_BlocksBalloonThroughKeyDerivationBuilder(KeyDerivationAlgorithm algorithm)
+        {
+            using var builder = HeroCryptBuilder.DeriveKey()
+                .WithAlgorithm(algorithm)
+                .WithPassword("audit password")
+                .WithSalt(new byte[16])
+                .WithSecurityPolicy(SecurityPolicyOptions.Compliance);
+
+            Assert.Throws<SecurityPolicyException>(() => builder.DeriveKey());
+        }
+
+        [Fact]
+        public void CompliancePolicy_BlocksDirectBalloonHash()
+        {
+            Assert.Throws<SecurityPolicyException>(() => BalloonHashing.Hash(
+                [1], [2], policy: SecurityPolicyOptions.Compliance));
+
+            using var scope = SecurityPolicy.ComplianceScope();
+            Assert.Throws<SecurityPolicyException>(() => BalloonHashing.Hash([1], [2]));
         }
 
         [Fact]

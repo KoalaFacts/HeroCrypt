@@ -613,9 +613,9 @@ public sealed class KeyDerivationBuilder : IDisposable
                     password, salt, DefaultScryptN, DefaultScryptR, DefaultScryptP, outputLength),
 #if !NETSTANDARD2_0
                 KeyDerivationAlgorithm.BalloonSha256 => BalloonHashing.Hash(
-                    password, salt, DefaultBalloonSpaceCost, DefaultBalloonTimeCost, outputLength, HashAlgorithmName.SHA256),
+                    password, salt, DefaultBalloonSpaceCost, DefaultBalloonTimeCost, outputLength, HashAlgorithmName.SHA256, securityPolicy),
                 KeyDerivationAlgorithm.BalloonSha512 => BalloonHashing.Hash(
-                    password, salt, DefaultBalloonSpaceCost, DefaultBalloonTimeCost, outputLength, HashAlgorithmName.SHA512),
+                    password, salt, DefaultBalloonSpaceCost, DefaultBalloonTimeCost, outputLength, HashAlgorithmName.SHA512, securityPolicy),
 #endif
                 KeyDerivationAlgorithm.Bcrypt => throw new NotImplementedException(
                     "Bcrypt is not yet implemented. Use Argon2id or Scrypt as recommended alternatives."),

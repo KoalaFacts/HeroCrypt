@@ -57,6 +57,7 @@ public static class BalloonHashing
     /// <param name="timeCost">Time cost (number of mixing rounds)</param>
     /// <param name="outputLength">Output hash length in bytes</param>
     /// <param name="hashAlgorithm">Hash algorithm to use</param>
+    /// <param name="policy">Optional security policy; defaults to the current policy.</param>
     /// <returns>Derived hash</returns>
     public static byte[] Hash(
         ReadOnlySpan<byte> password,
@@ -64,11 +65,15 @@ public static class BalloonHashing
         int spaceCost = DEFAULT_SPACE_COST,
         int timeCost = DEFAULT_TIME_COST,
         int outputLength = DEFAULT_OUTPUT_LENGTH,
-        HashAlgorithmName? hashAlgorithm = null)
+        HashAlgorithmName? hashAlgorithm = null,
+        SecurityPolicyOptions? policy = null)
     {
+        var effectivePolicy = policy ?? SecurityPolicy.CurrentPolicy;
+        effectivePolicy.ValidateKdf("BALLOON");
         ValidateParameters(spaceCost, timeCost, outputLength);
 
         var algo = hashAlgorithm ?? HashAlgorithmName.SHA256;
+        effectivePolicy.ValidateHash(algo.Name ?? "Unknown");
         var hashLength = HashAlgorithmHelper.GetHashLength(algo);
 
         // Allocate buffer (space_cost blocks of hash_length bytes)

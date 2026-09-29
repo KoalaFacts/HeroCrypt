@@ -54,7 +54,7 @@ public sealed class PgpKeyGenerator
     private byte[]? preferredCompressionAlgorithms;
     private byte[]? preferredAeadAlgorithms;
     private List<(string Name, string Value, bool IsHumanReadable, bool IsCritical)>? notations;
-    private Security.SecurityPolicyOptions securityPolicy = Security.SecurityPolicy.CurrentPolicy;
+    private SecurityPolicyOptions securityPolicy = SecurityPolicy.CurrentPolicy;
 
     private PgpKeyGenerator()
     {
@@ -71,7 +71,7 @@ public sealed class PgpKeyGenerator
     /// </summary>
     /// <param name="policy">The security policy to use.</param>
     /// <returns>This generator for chaining.</returns>
-    public PgpKeyGenerator WithSecurityPolicy(Security.SecurityPolicyOptions policy)
+    public PgpKeyGenerator WithSecurityPolicy(SecurityPolicyOptions policy)
     {
         securityPolicy = policy;
         return this;
@@ -82,9 +82,9 @@ public sealed class PgpKeyGenerator
     /// </summary>
     /// <param name="configure">Function to configure the security policy.</param>
     /// <returns>This generator for chaining.</returns>
-    public PgpKeyGenerator WithSecurityPolicy(Func<Security.SecurityPolicyOptions, Security.SecurityPolicyOptions> configure)
+    public PgpKeyGenerator WithSecurityPolicy(Func<SecurityPolicyOptions, SecurityPolicyOptions> configure)
     {
-        securityPolicy = configure(Security.SecurityPolicy.CurrentPolicy);
+        securityPolicy = configure(SecurityPolicy.CurrentPolicy);
         return this;
     }
 
@@ -502,7 +502,7 @@ public sealed class PgpKeyGenerator
 
             if (algorithmName != null)
             {
-                Security.CryptoAudit.CheckAlgorithm(algorithmName);
+                CryptoAudit.CheckAlgorithm(algorithmName);
                 securityPolicy.ValidateOpenPgpSymmetric(algId);
             }
         }
@@ -543,7 +543,7 @@ public sealed class PgpKeyGenerator
 
             if (algorithmName != null)
             {
-                Security.CryptoAudit.CheckAlgorithm(algorithmName);
+                CryptoAudit.CheckAlgorithm(algorithmName);
                 securityPolicy.ValidateOpenPgpHash(algId);
             }
         }
@@ -1079,7 +1079,7 @@ public sealed class PgpKeyGenerator
             }
 
             // Encrypt using standard CFB mode
-            var cfb = new AesCfbCore(this.securityPolicy);
+            var cfb = new AesCfbCore(securityPolicy);
             byte[] encrypted = cfb.Encrypt(plaintextWithHash, encryptionKey, iv);
 
             // Create S2K specifier
@@ -1161,7 +1161,7 @@ public sealed class PgpKeyGenerator
             }
 
             // Encrypt using standard CFB mode
-            var cfb = new AesCfbCore(this.securityPolicy);
+            var cfb = new AesCfbCore(securityPolicy);
             byte[] encrypted = cfb.Encrypt(plaintextWithHash, encryptionKey, iv);
 
             // Create Argon2 S2K specifier

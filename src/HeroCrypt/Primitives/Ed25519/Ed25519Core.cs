@@ -28,7 +28,7 @@ internal sealed class Ed25519Core
     public Ed25519Core(SecurityPolicyOptions? policy = null)
     {
         this.policy = policy ?? SecurityPolicy.CurrentPolicy;
-        this.impl = new Ed25519Impl(this.policy);
+        impl = new Ed25519Impl(this.policy);
     }
 
     /// <summary>

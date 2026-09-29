@@ -37,11 +37,11 @@ public static class Defaults
 {
     /// <summary>
     /// Gets or sets the global security level.
-    /// Default is <see cref="Security.SecurityLevel.Standard"/>.
+    /// Default is <see cref="SecurityLevel.Standard"/>.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// This is a convenience property that sets/gets the <see cref="Security.SecurityPolicy.Current"/> level.
+    /// This is a convenience property that sets/gets the <see cref="SecurityPolicy.Current"/> level.
     /// For more granular control, use <see cref="SecurityPolicy"/> instead.
     /// </para>
     /// </remarks>
@@ -65,9 +65,9 @@ public static class Defaults
     /// </summary>
     /// <remarks>
     /// <para>
-    /// When setting, this updates the global <see cref="Security.SecurityPolicy.Current"/> level
+    /// When setting, this updates the global <see cref="SecurityPolicy.Current"/> level
     /// from the provided options. When getting, it returns the effective options based on
-    /// <see cref="Security.SecurityPolicy.Current"/>.
+    /// <see cref="SecurityPolicy.Current"/>.
     /// </para>
     /// <para>
     /// For per-operation overrides, use <c>WithSecurityPolicy()</c> on the builder instead.

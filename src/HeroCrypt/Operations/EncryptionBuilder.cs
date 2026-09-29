@@ -592,8 +592,8 @@ public sealed class EncryptionBuilder : IDisposable
     /// <para>
     /// By default, this method only works with AES-SIV (which is designed for deterministic encryption).
     /// For other algorithms, it throws <see cref="InvalidOperationException"/> unless the security policy
-    /// allows it via <see cref="WithSecurityPolicy(SecurityPolicyOptions)"/>, <see cref="Security.SecurityPolicy.TestingScope"/>,
-    /// or <see cref="Security.SecurityPolicy.LegacyScope"/>.
+    /// allows it via <see cref="WithSecurityPolicy(SecurityPolicyOptions)"/>, <see cref="SecurityPolicy.TestingScope"/>,
+    /// or <see cref="SecurityPolicy.LegacyScope"/>.
     /// </para>
     /// </remarks>
     /// <example>

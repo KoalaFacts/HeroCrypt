@@ -217,7 +217,7 @@ public readonly struct S2KParameters
     /// </summary>
     /// <param name="passphrase">The passphrase bytes.</param>
     /// <param name="keyLength">Desired key length in bytes.</param>
-    /// <param name="policy">Optional security policy. If null, uses <see cref="SecurityPolicyOptions.Default"/>.</param>
+    /// <param name="policy">Optional security policy. If null, uses <see cref="SecurityPolicy.CurrentPolicy"/>.</param>
     /// <returns>The derived key.</returns>
     public byte[] DeriveKey(ReadOnlySpan<byte> passphrase, int keyLength, SecurityPolicyOptions? policy = null)
     {

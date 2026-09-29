@@ -22,7 +22,7 @@ internal sealed class ChaCha20Core
     /// <param name="policy">Security policy options</param>
     public ChaCha20Core(SecurityPolicyOptions? policy = null)
     {
-        this.policy = policy ?? SecurityPolicyOptions.Default;
+        this.policy = policy ?? SecurityPolicy.CurrentPolicy;
     }
 
     /// <summary>

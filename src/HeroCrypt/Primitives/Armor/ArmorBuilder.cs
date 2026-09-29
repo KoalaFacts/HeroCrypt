@@ -38,7 +38,7 @@ public sealed class ArmorBuilder
     /// <summary>
     /// Creates a new ASCII Armor builder instance.
     /// </summary>
-    /// <param name="policy">Optional security policy. If null, uses <see cref="SecurityPolicyOptions.Default"/>.</param>
+    /// <param name="policy">Optional security policy. If null, uses <see cref="SecurityPolicy.CurrentPolicy"/>.</param>
     /// <returns>A new builder instance.</returns>
     public static ArmorBuilder Create(SecurityPolicyOptions? policy = null) => new(policy);
 

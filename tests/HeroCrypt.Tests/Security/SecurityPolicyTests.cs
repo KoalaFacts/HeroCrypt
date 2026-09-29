@@ -141,7 +141,7 @@ public class SecurityPolicyTests
             {
                 beforeAsync = SecurityPolicy.Current;
 
-                await Task.Delay(10); // Cross async boundary
+                await Task.Delay(10, TestContext.Current.CancellationToken); // Cross async boundary
 
                 duringAsync = SecurityPolicy.Current;
             }
@@ -393,6 +393,20 @@ public class SecurityPolicyTests
                 var effective = SecurityPolicy.GetEffective(null);
                 Assert.Equal(SecurityLevel.Strict, effective.Level);
             }
+        }
+    }
+    /// <summary>
+    /// Verifies that scoped defaults reach public cryptographic operations.
+    /// </summary>
+    public class GlobalPolicyIntegrationTests
+    {
+        [Fact]
+        public void ComplianceScope_BlocksBlake2bInDefaultHashBuilder()
+        {
+            using var scope = SecurityPolicy.ComplianceScope();
+            using var builder = HeroCryptBuilder.Hash().WithBlake2b256();
+
+            Assert.Throws<SecurityPolicyException>(() => builder.ComputeHash([1, 2, 3]));
         }
     }
 }

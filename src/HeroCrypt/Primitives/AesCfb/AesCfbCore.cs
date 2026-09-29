@@ -59,10 +59,10 @@ internal sealed class AesCfbCore
     /// <summary>
     /// Initializes a new instance of the <see cref="AesCfbCore"/> class with the specified security policy.
     /// </summary>
-    /// <param name="policy">The security policy to use for validation. If null, uses <see cref="SecurityPolicyOptions.Default"/>.</param>
+    /// <param name="policy">The security policy to use for validation. If null, uses <see cref="SecurityPolicy.CurrentPolicy"/>.</param>
     public AesCfbCore(SecurityPolicyOptions? policy = null)
     {
-        this.policy = policy ?? SecurityPolicyOptions.Default;
+        this.policy = policy ?? SecurityPolicy.CurrentPolicy;
     }
 
     /// <summary>

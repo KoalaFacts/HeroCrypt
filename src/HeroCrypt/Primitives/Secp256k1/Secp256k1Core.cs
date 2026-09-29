@@ -31,7 +31,7 @@ internal sealed class Secp256k1Core
 
     public Secp256k1Core(SecurityPolicyOptions? policy = null)
     {
-        this.policy = policy ?? SecurityPolicyOptions.Default;
+        this.policy = policy ?? SecurityPolicy.CurrentPolicy;
     }
     /// <summary>
     /// Field prime: p = 2^256 - 2^32 - 977

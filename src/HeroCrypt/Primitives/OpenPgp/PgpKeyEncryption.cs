@@ -239,7 +239,7 @@ internal static class PgpKeyEncryption
             throw new ArgumentException($"Expected X25519 key, got {publicKey.Algorithm}.", nameof(publicKey));
         }
 
-        var policy = securityPolicy ?? SecurityPolicyOptions.Default;
+        var policy = securityPolicy ?? SecurityPolicy.CurrentPolicy;
 
         // Get recipient's public key
         byte[] recipientPublic = publicKey.ReadNativePublicKey();
@@ -318,7 +318,7 @@ internal static class PgpKeyEncryption
             throw new ArgumentException("Encrypted data too short.", nameof(encryptedData));
         }
 
-        var policy = securityPolicy ?? SecurityPolicyOptions.Default;
+        var policy = securityPolicy ?? SecurityPolicy.CurrentPolicy;
 
         // Parse input
         byte[] ephemeralPublic = encryptedData.Slice(0, 32).ToArray();

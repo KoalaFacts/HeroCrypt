@@ -57,10 +57,10 @@ public sealed class MLDsaCore
     /// <summary>
     /// Initializes a new instance of the <see cref="MLDsaCore"/> class.
     /// </summary>
-    /// <param name="policy">Optional security policy options. If null, uses <see cref="SecurityPolicyOptions.Default"/>.</param>
+    /// <param name="policy">Optional security policy options. If null, uses <see cref="SecurityPolicy.CurrentPolicy"/>.</param>
     public MLDsaCore(SecurityPolicyOptions? policy = null)
     {
-        this.policy = policy ?? SecurityPolicyOptions.Default;
+        this.policy = policy ?? SecurityPolicy.CurrentPolicy;
     }
     /// <summary>
     /// ML-DSA security levels (FIPS 204)

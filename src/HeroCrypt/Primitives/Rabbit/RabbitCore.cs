@@ -19,7 +19,7 @@ internal sealed class RabbitCore
     /// <param name="policy">Security policy options</param>
     public RabbitCore(SecurityPolicyOptions? policy = null)
     {
-        this.policy = policy ?? SecurityPolicyOptions.Default;
+        this.policy = policy ?? SecurityPolicy.CurrentPolicy;
     }
 
     /// <summary>

@@ -31,7 +31,7 @@ public sealed class PgpMessageDecryptor : IDisposable
     private string? passphrase;
     private int maxDecompressedSize = PgpPacketReader.DefaultMaxPacketSize;
     private bool disposed;
-    private SecurityPolicyOptions securityPolicy = SecurityPolicyOptions.Default;
+    private SecurityPolicyOptions securityPolicy = SecurityPolicy.CurrentPolicy;
 
     private PgpMessageDecryptor()
     {
@@ -63,7 +63,7 @@ public sealed class PgpMessageDecryptor : IDisposable
     public PgpMessageDecryptor WithSecurityPolicy(Func<SecurityPolicyOptions, SecurityPolicyOptions> configure)
     {
         ThrowIfDisposed();
-        securityPolicy = configure(SecurityPolicyOptions.Default);
+        securityPolicy = configure(SecurityPolicy.CurrentPolicy);
         return this;
     }
 

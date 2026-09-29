@@ -37,10 +37,10 @@ public sealed class SlhDsaCore
     /// <summary>
     /// Initializes a new instance of the <see cref="SlhDsaCore"/> class.
     /// </summary>
-    /// <param name="policy">Optional security policy options. If null, uses <see cref="SecurityPolicyOptions.Default"/>.</param>
+    /// <param name="policy">Optional security policy options. If null, uses <see cref="SecurityPolicy.CurrentPolicy"/>.</param>
     public SlhDsaCore(SecurityPolicyOptions? policy = null)
     {
-        this.policy = policy ?? SecurityPolicyOptions.Default;
+        this.policy = policy ?? SecurityPolicy.CurrentPolicy;
     }
     /// <summary>
     /// SLH-DSA security levels and variants (FIPS 205)

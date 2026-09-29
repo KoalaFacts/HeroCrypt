@@ -22,7 +22,7 @@ internal sealed class EcdsaCore
 
     public EcdsaCore(SecurityPolicyOptions? policy = null)
     {
-        this.policy = policy ?? SecurityPolicyOptions.Default;
+        this.policy = policy ?? SecurityPolicy.CurrentPolicy;
     }
     /// <summary>
     /// Supported curve sizes in bits.

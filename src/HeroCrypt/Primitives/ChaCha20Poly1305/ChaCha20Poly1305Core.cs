@@ -41,7 +41,7 @@ internal sealed class ChaCha20Poly1305Core
 
     public ChaCha20Poly1305Core(SecurityPolicyOptions? policy = null)
     {
-        this.policy = policy ?? SecurityPolicyOptions.Default;
+        this.policy = policy ?? SecurityPolicy.CurrentPolicy;
         this.chaCha20Core = new ChaCha20Core(policy);
     }
 

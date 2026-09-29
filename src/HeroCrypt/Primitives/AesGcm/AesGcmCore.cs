@@ -38,10 +38,10 @@ internal sealed class AesGcmCore
     /// <summary>
     /// Initializes a new instance of the <see cref="AesGcmCore"/> class.
     /// </summary>
-    /// <param name="policy">The security policy to use. If null, uses <see cref="SecurityPolicyOptions.Default"/>.</param>
+    /// <param name="policy">The security policy to use. If null, uses <see cref="SecurityPolicy.CurrentPolicy"/>.</param>
     public AesGcmCore(SecurityPolicyOptions? policy = null)
     {
-        this.policy = policy ?? SecurityPolicyOptions.Default;
+        this.policy = policy ?? SecurityPolicy.CurrentPolicy;
     }
 
 #if NETSTANDARD2_0

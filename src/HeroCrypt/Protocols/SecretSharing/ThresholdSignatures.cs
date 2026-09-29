@@ -48,10 +48,10 @@ public sealed class ThresholdSignatures
     /// <summary>
     /// Initializes a new instance of the ThresholdSignatures class.
     /// </summary>
-    /// <param name="policy">Optional security policy. If null, uses SecurityPolicyOptions.Default.</param>
+    /// <param name="policy">Optional security policy. If null, uses SecurityPolicy.CurrentPolicy.</param>
     public ThresholdSignatures(SecurityPolicyOptions? policy = null)
     {
-        this.policy = policy ?? SecurityPolicyOptions.Default;
+        this.policy = policy ?? SecurityPolicy.CurrentPolicy;
     }
     /// <summary>
     /// Signature scheme for threshold signatures

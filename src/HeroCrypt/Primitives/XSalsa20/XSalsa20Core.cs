@@ -19,7 +19,7 @@ internal sealed class XSalsa20Core
     /// <param name="policy">Security policy options</param>
     public XSalsa20Core(SecurityPolicyOptions? policy = null)
     {
-        this.policy = policy ?? SecurityPolicyOptions.Default;
+        this.policy = policy ?? SecurityPolicy.CurrentPolicy;
     }
 
     /// <summary>

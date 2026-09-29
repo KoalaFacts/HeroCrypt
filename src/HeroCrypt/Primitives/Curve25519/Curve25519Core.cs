@@ -24,7 +24,7 @@ internal sealed class Curve25519Core
     /// <param name="policy">Security policy options. If null, default policy will be used.</param>
     public Curve25519Core(SecurityPolicyOptions? policy = null)
     {
-        this.policy = policy ?? SecurityPolicyOptions.Default;
+        this.policy = policy ?? SecurityPolicy.CurrentPolicy;
     }
 
     /// <summary>

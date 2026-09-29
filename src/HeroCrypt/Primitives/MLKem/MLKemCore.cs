@@ -57,10 +57,10 @@ public sealed class MLKemCore
     /// <summary>
     /// Initializes a new instance of the <see cref="MLKemCore"/> class.
     /// </summary>
-    /// <param name="policy">Optional security policy options. If null, uses <see cref="SecurityPolicyOptions.Default"/>.</param>
+    /// <param name="policy">Optional security policy options. If null, uses <see cref="SecurityPolicy.CurrentPolicy"/>.</param>
     public MLKemCore(SecurityPolicyOptions? policy = null)
     {
-        this.policy = policy ?? SecurityPolicyOptions.Default;
+        this.policy = policy ?? SecurityPolicy.CurrentPolicy;
     }
     /// <summary>
     /// ML-KEM security levels (FIPS 203)

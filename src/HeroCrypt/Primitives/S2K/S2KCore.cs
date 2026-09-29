@@ -19,10 +19,10 @@ internal sealed class S2KCore
     /// <summary>
     /// Initializes a new instance of the <see cref="S2KCore"/> class with the specified security policy.
     /// </summary>
-    /// <param name="policy">The security policy to use for validation. If null, uses <see cref="SecurityPolicyOptions.Default"/>.</param>
+    /// <param name="policy">The security policy to use for validation. If null, uses <see cref="SecurityPolicy.CurrentPolicy"/>.</param>
     public S2KCore(SecurityPolicyOptions? policy = null)
     {
-        this.policy = policy ?? SecurityPolicyOptions.Default;
+        this.policy = policy ?? SecurityPolicy.CurrentPolicy;
     }
 
 

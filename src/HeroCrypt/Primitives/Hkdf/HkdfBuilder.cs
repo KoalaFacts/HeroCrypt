@@ -37,7 +37,7 @@ public sealed class HkdfBuilder : IDisposable
     private byte[]? info;
     private int outputLength = DefaultOutputLength;
     private HashAlgorithmName hashAlgorithm = HashAlgorithmName.SHA256;
-    private SecurityPolicyOptions securityPolicy = SecurityPolicyOptions.Default;
+    private SecurityPolicyOptions securityPolicy = SecurityPolicy.CurrentPolicy;
     private bool disposed;
 
     private HkdfBuilder() { }
@@ -242,7 +242,7 @@ public sealed class HkdfBuilder : IDisposable
     public HkdfBuilder WithSecurityPolicy(Func<SecurityPolicyOptions, SecurityPolicyOptions> configure)
     {
         ArgumentHelper.ThrowIfNull(configure);
-        securityPolicy = configure(SecurityPolicyOptions.Default);
+        securityPolicy = configure(SecurityPolicy.CurrentPolicy);
         return this;
     }
 

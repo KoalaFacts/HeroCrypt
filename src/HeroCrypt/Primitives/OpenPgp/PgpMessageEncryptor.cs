@@ -40,7 +40,7 @@ public sealed class PgpMessageEncryptor : IDisposable
     private DateTimeOffset fileDate = DateTimeOffset.UtcNow;
     private S2KType s2kType = S2KType.IteratedAndSalted;
     private readonly HashingAlgorithm s2kHashAlgorithm = HashingAlgorithm.Sha256;
-    private SecurityPolicyOptions securityPolicy = SecurityPolicyOptions.Default;
+    private SecurityPolicyOptions securityPolicy = SecurityPolicy.CurrentPolicy;
     private bool disposed;
 
     private PgpMessageEncryptor()
@@ -73,7 +73,7 @@ public sealed class PgpMessageEncryptor : IDisposable
     public PgpMessageEncryptor WithSecurityPolicy(Func<SecurityPolicyOptions, SecurityPolicyOptions> configure)
     {
         ThrowIfDisposed();
-        securityPolicy = configure(SecurityPolicyOptions.Default);
+        securityPolicy = configure(SecurityPolicy.CurrentPolicy);
         return this;
     }
 

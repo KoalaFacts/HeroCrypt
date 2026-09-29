@@ -16,10 +16,10 @@ internal sealed class Argon2Core
     /// <summary>
     /// Initializes a new instance of the <see cref="Argon2Core"/> class with the specified security policy.
     /// </summary>
-    /// <param name="policy">The security policy to use for validation. If null, uses <see cref="SecurityPolicyOptions.Default"/>.</param>
+    /// <param name="policy">The security policy to use for validation. If null, uses <see cref="SecurityPolicy.CurrentPolicy"/>.</param>
     public Argon2Core(SecurityPolicyOptions? policy = null)
     {
-        this.policy = policy ?? SecurityPolicyOptions.Default;
+        this.policy = policy ?? SecurityPolicy.CurrentPolicy;
     }
 
     private const int BLOCK_SIZE = 1024;

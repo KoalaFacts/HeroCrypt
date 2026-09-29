@@ -23,7 +23,7 @@ internal sealed class Ed25519Core
 
     public Ed25519Core(SecurityPolicyOptions? policy = null)
     {
-        this.policy = policy ?? SecurityPolicyOptions.Default;
+        this.policy = policy ?? SecurityPolicy.CurrentPolicy;
         this.impl = new Ed25519Impl(this.policy);
     }
 
@@ -121,7 +121,7 @@ internal sealed class Ed25519Impl
 
     public Ed25519Impl(SecurityPolicyOptions? policy = null)
     {
-        this.policy = policy ?? SecurityPolicyOptions.Default;
+        this.policy = policy ?? SecurityPolicy.CurrentPolicy;
     }
     // Static readonly constants for Ed25519 curve (avoid allocation on every call)
     private static readonly long[] GfDConst =

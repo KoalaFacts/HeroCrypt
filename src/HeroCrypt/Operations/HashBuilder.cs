@@ -54,10 +54,10 @@ public sealed class HashBuilder : IDisposable
     /// <summary>
     /// Initializes a new instance of the <see cref="HashBuilder"/> class.
     /// </summary>
-    /// <param name="securityPolicy">Optional security policy. If null, uses <see cref="SecurityPolicyOptions.Default"/>.</param>
+    /// <param name="securityPolicy">Optional security policy. If null, uses <see cref="SecurityPolicy.CurrentPolicy"/>.</param>
     internal HashBuilder(SecurityPolicyOptions? securityPolicy = null)
     {
-        this.securityPolicy = securityPolicy ?? SecurityPolicyOptions.Default;
+        this.securityPolicy = securityPolicy ?? SecurityPolicy.CurrentPolicy;
     }
 
     private void ThrowIfDisposed()

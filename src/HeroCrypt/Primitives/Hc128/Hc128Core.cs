@@ -20,7 +20,7 @@ internal sealed class Hc128Core
     /// <param name="policy">Security policy options</param>
     public Hc128Core(SecurityPolicyOptions? policy = null)
     {
-        this.policy = policy ?? SecurityPolicyOptions.Default;
+        this.policy = policy ?? SecurityPolicy.CurrentPolicy;
     }
 
     /// <summary>

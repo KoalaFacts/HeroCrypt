@@ -64,7 +64,7 @@ public sealed class KeyDerivationBuilder : IDisposable
     private byte[]? salt;
     private byte[]? info;
     private int outputLength = 32;
-    private SecurityPolicyOptions securityPolicy = SecurityPolicyOptions.Default;
+    private SecurityPolicyOptions securityPolicy = SecurityPolicy.CurrentPolicy;
     private bool disposed;
 
     private void ThrowIfDisposed()
@@ -167,7 +167,7 @@ public sealed class KeyDerivationBuilder : IDisposable
         using (syncLock.EnterScope())
         {
             ThrowIfDisposed();
-            securityPolicy = configure(SecurityPolicyOptions.Default);
+            securityPolicy = configure(SecurityPolicy.CurrentPolicy);
             return this;
         }
     }

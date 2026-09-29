@@ -196,7 +196,7 @@ public sealed class DecryptionBuilder : IDisposable
         using (syncLock.EnterScope())
         {
             ThrowIfDisposed();
-            securityPolicy = configure(SecurityPolicyOptions.Default);
+            securityPolicy = configure(SecurityPolicy.CurrentPolicy);
             return this;
         }
     }
@@ -734,37 +734,37 @@ public sealed class DecryptionBuilder : IDisposable
 
     private byte[] DecryptAesGcm(byte[] ciphertext, byte[] key, byte[] nonce, byte[] aad)
     {
-        var effectivePolicy = securityPolicy ?? SecurityPolicyOptions.Default;
+        var effectivePolicy = securityPolicy ?? SecurityPolicy.CurrentPolicy;
         return new AesGcmCore(effectivePolicy).Decrypt(ciphertext, key, nonce, aad);
     }
 
     private byte[] DecryptAesCcm(byte[] ciphertext, byte[] key, byte[] nonce, byte[] aad)
     {
-        var effectivePolicy = securityPolicy ?? SecurityPolicyOptions.Default;
+        var effectivePolicy = securityPolicy ?? SecurityPolicy.CurrentPolicy;
         return new AesCcmCore(effectivePolicy).Decrypt(ciphertext, key, nonce, aad);
     }
 
     private byte[] DecryptAesOcb(byte[] ciphertext, byte[] key, byte[] nonce, byte[] aad)
     {
-        var effectivePolicy = securityPolicy ?? SecurityPolicyOptions.Default;
+        var effectivePolicy = securityPolicy ?? SecurityPolicy.CurrentPolicy;
         return new AesOcbCore(effectivePolicy).Decrypt(ciphertext, key, nonce, aad);
     }
 
     private byte[] DecryptAesSiv(byte[] ciphertext, byte[] key, byte[] nonce, byte[] aad)
     {
-        var effectivePolicy = securityPolicy ?? SecurityPolicyOptions.Default;
+        var effectivePolicy = securityPolicy ?? SecurityPolicy.CurrentPolicy;
         return new AesSivCore(effectivePolicy).Decrypt(ciphertext, key, nonce, aad);
     }
 
     private byte[] DecryptChaCha20Poly1305(byte[] ciphertext, byte[] key, byte[] nonce, byte[] aad)
     {
-        var effectivePolicy = securityPolicy ?? SecurityPolicyOptions.Default;
+        var effectivePolicy = securityPolicy ?? SecurityPolicy.CurrentPolicy;
         return new ChaCha20Poly1305Core(effectivePolicy).Decrypt(ciphertext, key, nonce, aad);
     }
 
     private byte[] DecryptXChaCha20Poly1305(byte[] ciphertext, byte[] key, byte[] nonce, byte[] aad)
     {
-        var effectivePolicy = securityPolicy ?? SecurityPolicyOptions.Default;
+        var effectivePolicy = securityPolicy ?? SecurityPolicy.CurrentPolicy;
         return new XChaCha20Poly1305Core(effectivePolicy).Decrypt(ciphertext, key, nonce, aad);
     }
 
@@ -832,13 +832,13 @@ public sealed class DecryptionBuilder : IDisposable
             throw new InvalidOperationException("Encapsulated key must be set using WithEncapsulatedKey() or FromEncryptionResult()");
 
         // Compute shared secret via X25519 key agreement
-        var curve = new Curve25519Core(SecurityPolicyOptions.Default);
+        var curve = new Curve25519Core(SecurityPolicy.CurrentPolicy);
         var sharedSecret = curve.ComputeSharedSecret(privateKey, ephemeralPublicKey);
 
         try
         {
             // Derive symmetric key using HKDF
-            var hkdf = new HkdfCore(SecurityPolicyOptions.Default);
+            var hkdf = new HkdfCore(SecurityPolicy.CurrentPolicy);
             var symmetricKey = hkdf.DeriveKey(
                 sharedSecret,
                 salt: [],
@@ -851,9 +851,9 @@ public sealed class DecryptionBuilder : IDisposable
                 // Decrypt with the selected AEAD cipher
                 return cipher switch
                 {
-                    HybridCipherType.ChaCha20Poly1305 => new ChaCha20Poly1305Core(SecurityPolicyOptions.Default).Decrypt(ciphertext, symmetricKey, nonce, aad),
-                    HybridCipherType.XChaCha20Poly1305 => new XChaCha20Poly1305Core(SecurityPolicyOptions.Default).Decrypt(ciphertext, symmetricKey, nonce, aad),
-                    HybridCipherType.AesGcm => new AesGcmCore(SecurityPolicyOptions.Default).Decrypt(ciphertext, symmetricKey, nonce, aad),
+                    HybridCipherType.ChaCha20Poly1305 => new ChaCha20Poly1305Core(SecurityPolicy.CurrentPolicy).Decrypt(ciphertext, symmetricKey, nonce, aad),
+                    HybridCipherType.XChaCha20Poly1305 => new XChaCha20Poly1305Core(SecurityPolicy.CurrentPolicy).Decrypt(ciphertext, symmetricKey, nonce, aad),
+                    HybridCipherType.AesGcm => new AesGcmCore(SecurityPolicy.CurrentPolicy).Decrypt(ciphertext, symmetricKey, nonce, aad),
                     _ => throw new NotSupportedException($"Cipher {cipher} is not supported")
                 };
             }
@@ -883,7 +883,7 @@ public sealed class DecryptionBuilder : IDisposable
 
         try
         {
-            return new AesGcmCore(SecurityPolicyOptions.Default).Decrypt(ciphertext, sharedSecret, nonce, aad);
+            return new AesGcmCore(SecurityPolicy.CurrentPolicy).Decrypt(ciphertext, sharedSecret, nonce, aad);
         }
         finally
         {
@@ -903,7 +903,7 @@ public sealed class DecryptionBuilder : IDisposable
 
         try
         {
-            return new ChaCha20Poly1305Core(SecurityPolicyOptions.Default).Decrypt(ciphertext, sharedSecret, nonce, aad);
+            return new ChaCha20Poly1305Core(SecurityPolicy.CurrentPolicy).Decrypt(ciphertext, sharedSecret, nonce, aad);
         }
         finally
         {

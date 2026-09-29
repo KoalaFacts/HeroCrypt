@@ -50,7 +50,7 @@ public sealed class Blake2bBuilder : IDisposable
 
     private Blake2bBuilder(SecurityPolicyOptions? securityPolicy = null)
     {
-        this.securityPolicy = securityPolicy ?? SecurityPolicyOptions.Default;
+        this.securityPolicy = securityPolicy ?? SecurityPolicy.CurrentPolicy;
     }
 
     /// <summary>

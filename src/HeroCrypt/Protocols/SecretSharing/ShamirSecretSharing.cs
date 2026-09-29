@@ -28,10 +28,10 @@ public sealed class ShamirSecretSharing
     /// <summary>
     /// Initializes a new instance of the ShamirSecretSharing class.
     /// </summary>
-    /// <param name="policy">Optional security policy. If null, uses SecurityPolicyOptions.Default.</param>
+    /// <param name="policy">Optional security policy. If null, uses SecurityPolicy.CurrentPolicy.</param>
     public ShamirSecretSharing(SecurityPolicyOptions? policy = null)
     {
-        this.policy = policy ?? SecurityPolicyOptions.Default;
+        this.policy = policy ?? SecurityPolicy.CurrentPolicy;
     }
     private const int MaxShares = 255;
     private const int MinThreshold = 2;

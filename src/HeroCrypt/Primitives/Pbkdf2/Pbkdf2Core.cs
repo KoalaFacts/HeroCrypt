@@ -15,10 +15,10 @@ internal sealed class Pbkdf2Core
     /// <summary>
     /// Initializes a new instance of the <see cref="Pbkdf2Core"/> class with the specified security policy.
     /// </summary>
-    /// <param name="policy">The security policy to use for validation. If null, uses <see cref="SecurityPolicyOptions.Default"/>.</param>
+    /// <param name="policy">The security policy to use for validation. If null, uses <see cref="SecurityPolicy.CurrentPolicy"/>.</param>
     public Pbkdf2Core(SecurityPolicyOptions? policy = null)
     {
-        this.policy = policy ?? SecurityPolicyOptions.Default;
+        this.policy = policy ?? SecurityPolicy.CurrentPolicy;
     }
 
     /// <summary>

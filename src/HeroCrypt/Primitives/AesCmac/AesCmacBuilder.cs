@@ -40,13 +40,13 @@ public sealed class AesCmacBuilder : IDisposable
 
     private AesCmacBuilder(SecurityPolicyOptions? policy = null)
     {
-        this.policy = policy ?? SecurityPolicyOptions.Default;
+        this.policy = policy ?? SecurityPolicy.CurrentPolicy;
     }
 
     /// <summary>
     /// Creates a new AES-CMAC builder instance.
     /// </summary>
-    /// <param name="policy">Optional security policy to use. If null, uses <see cref="SecurityPolicyOptions.Default"/>.</param>
+    /// <param name="policy">Optional security policy to use. If null, uses <see cref="SecurityPolicy.CurrentPolicy"/>.</param>
     /// <returns>A new builder instance.</returns>
     public static AesCmacBuilder Create(SecurityPolicyOptions? policy = null) => new(policy);
 

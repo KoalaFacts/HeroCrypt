@@ -58,10 +58,10 @@ internal sealed class Poly1305Core
     /// <summary>
     /// Initializes a new instance of the <see cref="Poly1305Core"/> class with the specified security policy.
     /// </summary>
-    /// <param name="policy">The security policy to use for validation. If null, uses <see cref="SecurityPolicyOptions.Default"/>.</param>
+    /// <param name="policy">The security policy to use for validation. If null, uses <see cref="SecurityPolicy.CurrentPolicy"/>.</param>
     public Poly1305Core(SecurityPolicyOptions? policy = null)
     {
-        this.policy = policy ?? SecurityPolicyOptions.Default;
+        this.policy = policy ?? SecurityPolicy.CurrentPolicy;
     }
 
     /// <summary>

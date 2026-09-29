@@ -43,10 +43,10 @@ public sealed class SecureMpc
     /// <summary>
     /// Initializes a new instance of the SecureMpc class.
     /// </summary>
-    /// <param name="policy">Optional security policy. If null, uses SecurityPolicyOptions.Default.</param>
+    /// <param name="policy">Optional security policy. If null, uses SecurityPolicy.CurrentPolicy.</param>
     public SecureMpc(SecurityPolicyOptions? policy = null)
     {
-        this.policy = policy ?? SecurityPolicyOptions.Default;
+        this.policy = policy ?? SecurityPolicy.CurrentPolicy;
     }
     /// <summary>
     /// Security model for MPC
@@ -354,7 +354,7 @@ public sealed class SecureMpc
         }
 
         // Secret share a, b, and c
-        var shamir = new ShamirSecretSharing(SecurityPolicyOptions.Default);
+        var shamir = new ShamirSecretSharing(SecurityPolicy.CurrentPolicy);
         var aShares = shamir.Split(a, threshold, numParties);
         var bShares = shamir.Split(b, threshold, numParties);
         var cShares = shamir.Split(c, threshold, numParties);
@@ -450,7 +450,7 @@ public sealed class SecureMpc
 
     private static byte[] ReconstructSecret(ShamirSecretSharing.Share[] shares)
     {
-        var shamir = new ShamirSecretSharing(SecurityPolicyOptions.Default);
+        var shamir = new ShamirSecretSharing(SecurityPolicy.CurrentPolicy);
         return shamir.Reconstruct(shares);
     }
 

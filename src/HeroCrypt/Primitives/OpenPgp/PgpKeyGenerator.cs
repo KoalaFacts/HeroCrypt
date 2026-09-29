@@ -54,7 +54,7 @@ public sealed class PgpKeyGenerator
     private byte[]? preferredCompressionAlgorithms;
     private byte[]? preferredAeadAlgorithms;
     private List<(string Name, string Value, bool IsHumanReadable, bool IsCritical)>? notations;
-    private Security.SecurityPolicyOptions securityPolicy = Security.SecurityPolicyOptions.Default;
+    private Security.SecurityPolicyOptions securityPolicy = Security.SecurityPolicy.CurrentPolicy;
 
     private PgpKeyGenerator()
     {
@@ -84,7 +84,7 @@ public sealed class PgpKeyGenerator
     /// <returns>This generator for chaining.</returns>
     public PgpKeyGenerator WithSecurityPolicy(Func<Security.SecurityPolicyOptions, Security.SecurityPolicyOptions> configure)
     {
-        securityPolicy = configure(Security.SecurityPolicyOptions.Default);
+        securityPolicy = configure(Security.SecurityPolicy.CurrentPolicy);
         return this;
     }
 

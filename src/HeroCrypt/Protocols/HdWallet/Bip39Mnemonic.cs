@@ -24,10 +24,10 @@ public sealed class Bip39Mnemonic
     /// <summary>
     /// Initializes a new instance of the Bip39Mnemonic class.
     /// </summary>
-    /// <param name="policy">Optional security policy. If null, uses SecurityPolicyOptions.Default.</param>
+    /// <param name="policy">Optional security policy. If null, uses SecurityPolicy.CurrentPolicy.</param>
     public Bip39Mnemonic(SecurityPolicyOptions? policy = null)
     {
-        this.policy = policy ?? SecurityPolicyOptions.Default;
+        this.policy = policy ?? SecurityPolicy.CurrentPolicy;
     }
     private static readonly int[] SupportedEntropyBits = [128, 160, 192, 224, 256];
     private static readonly int[] WordCounts = [12, 15, 18, 21, 24];

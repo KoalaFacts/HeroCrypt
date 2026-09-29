@@ -59,10 +59,10 @@ public sealed class Bip32HdWallet
     /// <summary>
     /// Initializes a new instance of the Bip32HdWallet class.
     /// </summary>
-    /// <param name="policy">Optional security policy. If null, uses SecurityPolicyOptions.Default.</param>
+    /// <param name="policy">Optional security policy. If null, uses SecurityPolicy.CurrentPolicy.</param>
     public Bip32HdWallet(SecurityPolicyOptions? policy = null)
     {
-        this.policy = policy ?? SecurityPolicyOptions.Default;
+        this.policy = policy ?? SecurityPolicy.CurrentPolicy;
     }
 
     /// <summary>

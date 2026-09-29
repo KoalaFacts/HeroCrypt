@@ -15,10 +15,10 @@ internal sealed class Blake2bCore
     /// <summary>
     /// Initializes a new instance of the <see cref="Blake2bCore"/> class with the specified security policy.
     /// </summary>
-    /// <param name="policy">The security policy to use for validation. If null, uses <see cref="SecurityPolicyOptions.Default"/>.</param>
+    /// <param name="policy">The security policy to use for validation. If null, uses <see cref="SecurityPolicy.CurrentPolicy"/>.</param>
     public Blake2bCore(SecurityPolicyOptions? policy = null)
     {
-        this.policy = policy ?? SecurityPolicyOptions.Default;
+        this.policy = policy ?? SecurityPolicy.CurrentPolicy;
     }
     /// <summary>
     /// Blake2b initialization vectors (first 64 bits of the fractional parts of the square roots of the first 8 primes).

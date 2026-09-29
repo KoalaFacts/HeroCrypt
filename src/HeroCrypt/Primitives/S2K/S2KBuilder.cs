@@ -57,7 +57,7 @@ public sealed class S2KBuilder : IDisposable
     /// <summary>
     /// Creates a new S2K builder instance.
     /// </summary>
-    /// <param name="policy">Optional security policy. If null, uses <see cref="SecurityPolicyOptions.Default"/>.</param>
+    /// <param name="policy">Optional security policy. If null, uses <see cref="SecurityPolicy.CurrentPolicy"/>.</param>
     /// <returns>A new builder instance.</returns>
     public static S2KBuilder Create(SecurityPolicyOptions? policy = null) => new(policy);
 

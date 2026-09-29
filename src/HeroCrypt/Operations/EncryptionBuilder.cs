@@ -233,7 +233,7 @@ public sealed class EncryptionBuilder : IDisposable
         using (syncLock.EnterScope())
         {
             ThrowIfDisposed();
-            securityPolicy = configure(SecurityPolicyOptions.Default);
+            securityPolicy = configure(SecurityPolicy.CurrentPolicy);
             return this;
         }
     }
@@ -721,7 +721,7 @@ public sealed class EncryptionBuilder : IDisposable
 
     private EncryptionResult EncryptAesGcm(ReadOnlySpan<byte> plaintext, ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce, ReadOnlySpan<byte> aad, bool deterministicMode)
     {
-        var effectivePolicy = securityPolicy ?? SecurityPolicyOptions.Default;
+        var effectivePolicy = securityPolicy ?? SecurityPolicy.CurrentPolicy;
         var result = new AesGcmCore(effectivePolicy).Encrypt(plaintext, key, nonce, aad, deterministicMode);
 
         return new EncryptionResult
@@ -733,7 +733,7 @@ public sealed class EncryptionBuilder : IDisposable
 
     private EncryptionResult EncryptAesCcm(ReadOnlySpan<byte> plaintext, ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce, ReadOnlySpan<byte> aad, bool deterministicMode)
     {
-        var effectivePolicy = securityPolicy ?? SecurityPolicyOptions.Default;
+        var effectivePolicy = securityPolicy ?? SecurityPolicy.CurrentPolicy;
         var result = new AesCcmCore(effectivePolicy).Encrypt(plaintext, key, nonce, aad, deterministicMode: deterministicMode);
 
         return new EncryptionResult
@@ -745,7 +745,7 @@ public sealed class EncryptionBuilder : IDisposable
 
     private EncryptionResult EncryptAesOcb(ReadOnlySpan<byte> plaintext, ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce, ReadOnlySpan<byte> aad, bool deterministicMode)
     {
-        var effectivePolicy = securityPolicy ?? SecurityPolicyOptions.Default;
+        var effectivePolicy = securityPolicy ?? SecurityPolicy.CurrentPolicy;
         var result = new AesOcbCore(effectivePolicy).Encrypt(plaintext, key, nonce, aad, deterministicMode);
 
         return new EncryptionResult
@@ -757,7 +757,7 @@ public sealed class EncryptionBuilder : IDisposable
 
     private EncryptionResult EncryptAesSiv(ReadOnlySpan<byte> plaintext, ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce, ReadOnlySpan<byte> aad, bool deterministicMode)
     {
-        var effectivePolicy = securityPolicy ?? SecurityPolicyOptions.Default;
+        var effectivePolicy = securityPolicy ?? SecurityPolicy.CurrentPolicy;
         var result = new AesSivCore(effectivePolicy).Encrypt(plaintext, key, nonce, aad, deterministicMode);
 
         return new EncryptionResult
@@ -769,7 +769,7 @@ public sealed class EncryptionBuilder : IDisposable
 
     private EncryptionResult EncryptChaCha20Poly1305(ReadOnlySpan<byte> plaintext, ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce, ReadOnlySpan<byte> aad, bool deterministicMode)
     {
-        var effectivePolicy = securityPolicy ?? SecurityPolicyOptions.Default;
+        var effectivePolicy = securityPolicy ?? SecurityPolicy.CurrentPolicy;
         var result = new ChaCha20Poly1305Core(effectivePolicy).Encrypt(plaintext, key, nonce, aad, deterministicMode);
 
         return new EncryptionResult
@@ -781,7 +781,7 @@ public sealed class EncryptionBuilder : IDisposable
 
     private EncryptionResult EncryptXChaCha20Poly1305(ReadOnlySpan<byte> plaintext, ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce, ReadOnlySpan<byte> aad, bool deterministicMode)
     {
-        var effectivePolicy = securityPolicy ?? SecurityPolicyOptions.Default;
+        var effectivePolicy = securityPolicy ?? SecurityPolicy.CurrentPolicy;
         var result = new XChaCha20Poly1305Core(effectivePolicy).Encrypt(plaintext, key, nonce, aad, deterministicMode);
 
         return new EncryptionResult
@@ -856,7 +856,7 @@ public sealed class EncryptionBuilder : IDisposable
     private static EncryptionResult EncryptX25519Hybrid(byte[] plaintext, byte[] recipientPublicKey, byte[] aad, HybridCipherType cipher)
     {
         // Generate ephemeral key pair
-        var curve = new Curve25519Core(SecurityPolicyOptions.Default);
+        var curve = new Curve25519Core(SecurityPolicy.CurrentPolicy);
         var ephemeralPrivateKey = curve.GeneratePrivateKey();
         var ephemeralPublicKey = curve.DerivePublicKey(ephemeralPrivateKey);
 
@@ -868,7 +868,7 @@ public sealed class EncryptionBuilder : IDisposable
             try
             {
                 // Derive symmetric key using HKDF
-                var hkdf = new HkdfCore(SecurityPolicyOptions.Default);
+                var hkdf = new HkdfCore(SecurityPolicy.CurrentPolicy);
                 var symmetricKey = hkdf.DeriveKey(
                     sharedSecret,
                     salt: [],
@@ -912,19 +912,19 @@ public sealed class EncryptionBuilder : IDisposable
 
     private static (byte[] Ciphertext, byte[] Nonce) EncryptWithChaCha20Poly1305(byte[] plaintext, byte[] key, byte[] aad)
     {
-        var result = new ChaCha20Poly1305Core(SecurityPolicyOptions.Default).Encrypt(plaintext, key, associatedData: aad);
+        var result = new ChaCha20Poly1305Core(SecurityPolicy.CurrentPolicy).Encrypt(plaintext, key, associatedData: aad);
         return (result.Ciphertext, result.Nonce);
     }
 
     private static (byte[] Ciphertext, byte[] Nonce) EncryptWithXChaCha20Poly1305(byte[] plaintext, byte[] key, byte[] aad)
     {
-        var result = new XChaCha20Poly1305Core(SecurityPolicyOptions.Default).Encrypt(plaintext, key, associatedData: aad);
+        var result = new XChaCha20Poly1305Core(SecurityPolicy.CurrentPolicy).Encrypt(plaintext, key, associatedData: aad);
         return (result.Ciphertext, result.Nonce);
     }
 
     private static (byte[] Ciphertext, byte[] Nonce) EncryptWithAesGcm(byte[] plaintext, byte[] key, byte[] aad)
     {
-        var result = new AesGcmCore(SecurityPolicyOptions.Default).Encrypt(plaintext, key, associatedData: aad);
+        var result = new AesGcmCore(SecurityPolicy.CurrentPolicy).Encrypt(plaintext, key, associatedData: aad);
         return (result.Ciphertext, result.Nonce);
     }
 #endif
@@ -986,7 +986,7 @@ public sealed class EncryptionBuilder : IDisposable
 
         using var encapsulation = MLKemCore.Encapsulate(publicKeyPem);
 
-        var result = new AesGcmCore(SecurityPolicyOptions.Default).Encrypt(plaintext, encapsulation.SharedSecret, associatedData: aad);
+        var result = new AesGcmCore(SecurityPolicy.CurrentPolicy).Encrypt(plaintext, encapsulation.SharedSecret, associatedData: aad);
 
         return new EncryptionResult
         {
@@ -1002,7 +1002,7 @@ public sealed class EncryptionBuilder : IDisposable
 
         using var encapsulation = MLKemCore.Encapsulate(publicKeyPem);
 
-        var result = new ChaCha20Poly1305Core(SecurityPolicyOptions.Default).Encrypt(plaintext, encapsulation.SharedSecret, associatedData: aad);
+        var result = new ChaCha20Poly1305Core(SecurityPolicy.CurrentPolicy).Encrypt(plaintext, encapsulation.SharedSecret, associatedData: aad);
 
         return new EncryptionResult
         {

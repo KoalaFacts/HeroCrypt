@@ -12,7 +12,7 @@ internal sealed class RsaCore
 
     public RsaCore(SecurityPolicyOptions? policy = null)
     {
-        this.policy = policy ?? SecurityPolicyOptions.Default;
+        this.policy = policy ?? SecurityPolicy.CurrentPolicy;
     }
     /// <summary>
     /// Generates an RSA key pair with the specified key size.

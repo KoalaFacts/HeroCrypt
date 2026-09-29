@@ -32,13 +32,13 @@ public sealed class Crc24Builder
 
     private Crc24Builder(SecurityPolicyOptions? policy = null)
     {
-        this.policy = policy ?? SecurityPolicyOptions.Default;
+        this.policy = policy ?? SecurityPolicy.CurrentPolicy;
     }
 
     /// <summary>
     /// Creates a new CRC24 builder instance.
     /// </summary>
-    /// <param name="policy">Optional security policy to use. If null, uses <see cref="SecurityPolicyOptions.Default"/>.</param>
+    /// <param name="policy">Optional security policy to use. If null, uses <see cref="SecurityPolicy.CurrentPolicy"/>.</param>
     /// <returns>A new builder instance.</returns>
     public static Crc24Builder Create(SecurityPolicyOptions? policy = null) => new(policy);
 

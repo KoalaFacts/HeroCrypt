@@ -1145,6 +1145,7 @@ public class PgpKeyPacketTests
         {
             var oid = PgpCurveOid.NistP256.GetOidBytes();
             var publicPoint = TestHelpers.RandomBytes(65);
+            publicPoint[0] = 0x04; // OpenPGP uncompressed EC point prefix must survive MPI encoding.
             byte hashAlgo = 8; // SHA-256
             byte cipherAlgo = 9; // AES-256
 

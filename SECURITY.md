@@ -96,11 +96,13 @@ The inline message API supports one signature and one literal-data packet, with 
 optional matching one-pass packet. Ambiguous/multiple-signature streams and unexpected
 critical packets are rejected rather than reduced to a selected signature.
 
-**OpenPGP interoperability is not established.** Independent auditing reproduced
-incorrect signature hash framing, tracked in [Issue #140](https://github.com/KoalaFacts/HeroCrypt/issues/140).
-V4/V6 self-roundtrips do not prove RFC 4880/9580 compatibility. Do not use these
-high-level OpenPGP signing/key-certification APIs for interoperable production
-messages or key rings until independent vectors and migration guidance are complete.
+Signature hashing uses RFC 9580 section 5.2.4: complete V4/V6 headers, six-byte
+trailers, signature-version-specific key prefixes, and V6 salt before all signed
+material. Independent RFC byte construction and Bouncy Castle V4 RSA cross-verification
+cover the tested signature paths. This does not establish complete OpenPGP conformance
+or key-ring trust. Historical HeroCrypt signatures used nonstandard framing and
+require trusted re-signing/certification; no legacy verification fallback is provided.
+See [migration guidance](docs/migration-guide.md#openpgp-signature-hash-correction-after-v104).
 
 ### 1. **Use Recommended Algorithms**
 - **Password Hashing**: Use Argon2id (default) for password hashing

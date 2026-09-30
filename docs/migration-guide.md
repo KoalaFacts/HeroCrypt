@@ -20,10 +20,29 @@ This guide helps you migrate between HeroCrypt versions and from other cryptogra
 - V6 salts now use RFC 9580 Table 23 lengths (16/24/32 bytes for SHA-256/384/512).
   Unknown or unsupported V6 hash IDs have no default salt size. Historical
   signatures using digest-sized salts are rejected by the verifier.
-- This boundary hardening does not establish OpenPGP interoperability or key trust,
-  revocation, expiration or recipient-context policy. Hash framing corrections are
-  tracked separately in [Issue #140](https://github.com/KoalaFacts/HeroCrypt/issues/140).
-  See [verification scope](../SECURITY.md#openpgp-signature-verification-scope).
+- These checks do not establish key trust, revocation, expiration or recipient-context
+  policy. See [verification scope](../SECURITY.md#openpgp-signature-verification-scope).
+
+## OpenPGP signature hash correction after v1.0.4
+
+- V4 and V6 signatures now hash the complete signature header through hashed
+  subpackets, followed by a six-byte trailer containing a four-byte header length.
+  V6 key/certification signatures hash their salt first and use the V6 key-material
+  prefix. This applies to document signing, certification, key generation, subkey
+  binding, expiration updates, revocation and rotation.
+- **Historical HeroCrypt signatures and key-ring certifications require migration.**
+  Their nonstandard hashes are rejected. There is no automatic legacy retry.
+  Preserve independently trusted keys and original data, then re-sign known trusted
+  content and regenerate certifications/bindings using corrected APIs. For already
+  revoked keys, preserve the revocation decision and reissue revocation evidence
+  under the same trusted signing key. Do not treat historical signature acceptance
+  as standards-based proof of authenticity or remove a revocation during migration.
+- Canonical document signatures normalize CR, LF and CRLF to CRLF in both signing
+  and verification. Trailing spaces/tabs are preserved and authenticated. Historical
+  text signatures that trimmed whitespace must be reissued from trusted originals.
+- Independent RFC constructions cover V4 RSA and V6 RSA/Ed25519 hashing; V4 RSA
+  document signatures also cross-verify with Bouncy Castle. These checks cover the
+  tested signature paths, not full OpenPGP interoperability or key-ring trust.
 
 ## Hybrid encryption hardening in v1.0.4
 

@@ -236,6 +236,7 @@ public sealed class PgpKeyRotator : IDisposable
 
         // Serialize hashed subpackets
         var hashedSubpacketData = PgpSignatureSubpacket.WriteAll(hashedSubpackets);
+        byte[] salt = version == 6 ? GenerateSalt() : [];
 
         // Compute the hash (direct key signature over new key)
         byte[] hash = ComputeDirectKeySignatureHash(
@@ -244,7 +245,7 @@ public sealed class PgpKeyRotator : IDisposable
             (byte)PgpSignatureType.DirectKey,
             pubAlgo,
             hashAlgo,
-            hashedSubpacketData);
+            hashedSubpacketData, salt);
 
         // Get hash prefix
         ushort hashPrefix = BinaryPrimitives.ReadUInt16BigEndian(hash);
@@ -255,7 +256,6 @@ public sealed class PgpKeyRotator : IDisposable
         // Build signature packet
         if (version == 6)
         {
-            var salt = GenerateSalt();
             return PgpSignaturePacket.CreateV6(
                 PgpSignatureType.DirectKey,
                 pubAlgo,
@@ -285,7 +285,7 @@ public sealed class PgpKeyRotator : IDisposable
         byte sigType,
         byte pubAlgo,
         byte hashAlgo,
-        byte[] hashedSubpackets)
+        byte[] hashedSubpackets, byte[] salt)
     {
         return PgpSignatureHashHelper.ComputeKeySignatureHash(
             targetKey,
@@ -294,7 +294,7 @@ public sealed class PgpKeyRotator : IDisposable
             sigType,
             pubAlgo,
             hashAlgo,
-            hashedSubpackets);
+            hashedSubpackets, salt);
     }
 
     private static byte[] CreateSignatureData(PgpSecretKeyPacket secretKey, byte[] hash)

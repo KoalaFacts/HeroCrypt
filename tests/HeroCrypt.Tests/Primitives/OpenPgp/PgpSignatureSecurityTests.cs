@@ -308,8 +308,7 @@ public class PgpSignatureSecurityTests
             new BigInteger(p.Modulus!, true, true), new BigInteger(p.Exponent!, true, true));
     }
 
-    // These boundary probes deliberately use the current historical framing.
-    // RFC interoperability is tracked separately in Issue #140.
+    // Construct standard V4 framing independently to exercise validation boundaries.
     private static PgpSignaturePacket Sign(RSA rsa, PgpPublicKeyPacket key,
         IReadOnlyList<PgpSignatureSubpacket> hashed, IReadOnlyList<PgpSignatureSubpacket>? unhashed = null,
         PgpSignatureType type = PgpSignatureType.BinaryDocument, byte algorithm = 1, byte hashAlgorithm = 8)
@@ -323,7 +322,7 @@ public class PgpSignatureSecurityTests
         BinaryPrimitives.WriteUInt16BigEndian(header.AsSpan(4), checked((ushort)subpackets.Length));
         subpackets.CopyTo(header, 6);
         var trailer = new byte[] { 4, 255, 0, 0, 0, 0 };
-        BinaryPrimitives.WriteUInt32BigEndian(trailer.AsSpan(2), (uint)(4 + subpackets.Length));
+        BinaryPrimitives.WriteUInt32BigEndian(trailer.AsSpan(2), (uint)header.Length);
         var signed = Data.Concat(header).Concat(trailer).ToArray();
         var hash = hashAlgorithm switch { 1 => MD5.HashData(signed), 2 => SHA1.HashData(signed), _ => SHA256.HashData(signed) };
         var hashName = hashAlgorithm switch { 1 => HashAlgorithmName.MD5, 2 => HashAlgorithmName.SHA1, _ => HashAlgorithmName.SHA256 };

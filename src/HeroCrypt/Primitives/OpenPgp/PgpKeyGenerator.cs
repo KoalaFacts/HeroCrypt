@@ -1298,6 +1298,7 @@ public sealed class PgpKeyGenerator
 
         // Serialize hashed subpackets
         var hashedSubpacketData = PgpSignatureSubpacket.WriteAll(hashedSubpackets);
+        byte[] salt = version == 6 ? GenerateSalt(PgpHashAlgorithmId.Sha256) : [];
 
         // Compute the certification hash
         var hash = ComputeCertificationHash(
@@ -1307,7 +1308,7 @@ public sealed class PgpKeyGenerator
             (byte)sigType,
             pubAlgo,
             hashAlgo,
-            hashedSubpacketData);
+            hashedSubpacketData, salt);
 
         // Get hash prefix
         ushort hashPrefix = BinaryPrimitives.ReadUInt16BigEndian(hash);
@@ -1318,7 +1319,6 @@ public sealed class PgpKeyGenerator
         // Build signature packet
         if (version == 6)
         {
-            var salt = GenerateSalt(PgpHashAlgorithmId.Sha256);
             return PgpSignaturePacket.CreateV6(
                 sigType,
                 pubAlgo,
@@ -1349,7 +1349,7 @@ public sealed class PgpKeyGenerator
         byte sigType,
         byte pubAlgo,
         byte hashAlgo,
-        byte[] hashedSubpackets)
+        byte[] hashedSubpackets, byte[] salt)
     {
         return PgpSignatureHashHelper.ComputeCertificationHash(
             publicKey,
@@ -1358,7 +1358,7 @@ public sealed class PgpKeyGenerator
             sigType,
             pubAlgo,
             hashAlgo,
-            hashedSubpackets);
+            hashedSubpackets, salt);
     }
 
     private byte[] CreateRsaSignature(PgpSecretKeyPacket secretKey, byte[] hash)
@@ -1425,6 +1425,7 @@ public sealed class PgpKeyGenerator
 
         // Serialize hashed subpackets
         var hashedSubpacketData = PgpSignatureSubpacket.WriteAll(hashedSubpackets);
+        byte[] salt = version == 6 ? GenerateSalt(PgpHashAlgorithmId.Sha256) : [];
 
         // Compute the binding hash
         var hash = ComputeSubkeyBindingHash(
@@ -1434,7 +1435,7 @@ public sealed class PgpKeyGenerator
             (byte)sigType,
             pubAlgo,
             hashAlgo,
-            hashedSubpacketData);
+            hashedSubpacketData, salt);
 
         // Get hash prefix
         ushort hashPrefix = BinaryPrimitives.ReadUInt16BigEndian(hash);
@@ -1445,7 +1446,6 @@ public sealed class PgpKeyGenerator
         // Build signature packet
         if (version == 6)
         {
-            var salt = GenerateSalt(PgpHashAlgorithmId.Sha256);
             return PgpSignaturePacket.CreateV6(
                 sigType,
                 pubAlgo,
@@ -1476,7 +1476,7 @@ public sealed class PgpKeyGenerator
         byte sigType,
         byte pubAlgo,
         byte hashAlgo,
-        byte[] hashedSubpackets)
+        byte[] hashedSubpackets, byte[] salt)
     {
         return PgpSignatureHashHelper.ComputeKeySignatureHash(
             masterKey,
@@ -1485,7 +1485,7 @@ public sealed class PgpKeyGenerator
             sigType,
             pubAlgo,
             hashAlgo,
-            hashedSubpackets);
+            hashedSubpackets, salt);
     }
 
     private (PgpPublicKeyRing, PgpSecretKeyRing) AddRsaEncryptionSubkey(
@@ -1636,6 +1636,7 @@ public sealed class PgpKeyGenerator
 
         // Serialize hashed subpackets
         var hashedSubpacketData = PgpSignatureSubpacket.WriteAll(hashedSubpackets);
+        byte[] salt = version == 6 ? GenerateSalt(PgpHashAlgorithmId.Sha256) : [];
 
         // Compute the certification hash
         var hash = ComputeCertificationHash(
@@ -1645,7 +1646,7 @@ public sealed class PgpKeyGenerator
             (byte)sigType,
             pubAlgo,
             hashAlgo,
-            hashedSubpacketData);
+            hashedSubpacketData, salt);
 
         // Get hash prefix
         ushort hashPrefix = BinaryPrimitives.ReadUInt16BigEndian(hash);
@@ -1654,7 +1655,6 @@ public sealed class PgpKeyGenerator
         var signatureData = new Ed25519Core().Sign(hash, ed25519PrivateKey);
 
         // Build signature packet (Ed25519 always V6)
-        var salt = GenerateSalt(PgpHashAlgorithmId.Sha256);
         return PgpSignaturePacket.CreateV6(
             sigType,
             pubAlgo,
@@ -1700,6 +1700,7 @@ public sealed class PgpKeyGenerator
 
         // Serialize hashed subpackets
         var hashedSubpacketData = PgpSignatureSubpacket.WriteAll(hashedSubpackets);
+        byte[] salt = version == 6 ? GenerateSalt(PgpHashAlgorithmId.Sha256) : [];
 
         // Compute the binding hash
         var hash = ComputeSubkeyBindingHash(
@@ -1709,7 +1710,7 @@ public sealed class PgpKeyGenerator
             (byte)sigType,
             pubAlgo,
             hashAlgo,
-            hashedSubpacketData);
+            hashedSubpacketData, salt);
 
         // Get hash prefix
         ushort hashPrefix = BinaryPrimitives.ReadUInt16BigEndian(hash);
@@ -1718,7 +1719,6 @@ public sealed class PgpKeyGenerator
         var signatureData = new Ed25519Core().Sign(hash, ed25519PrivateKey);
 
         // Build signature packet (Ed25519 always V6)
-        var salt = GenerateSalt(PgpHashAlgorithmId.Sha256);
         return PgpSignaturePacket.CreateV6(
             sigType,
             pubAlgo,

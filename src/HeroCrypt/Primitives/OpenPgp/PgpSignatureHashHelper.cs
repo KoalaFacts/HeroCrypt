@@ -9,6 +9,17 @@ namespace HeroCrypt.Primitives.OpenPgp;
 /// </summary>
 internal static class PgpSignatureHashHelper
 {
+    /// <summary>
+    /// Hashes document data, normalizing canonical text line endings, followed by the signature header and trailer.
+    /// </summary>
+    /// <param name="data">The signed document bytes.</param>
+    /// <param name="version">Signature version, 4 or 6.</param>
+    /// <param name="sigType">Binary or canonical text signature type.</param>
+    /// <param name="pubAlgo">The signing algorithm identifier.</param>
+    /// <param name="hashAlgo">The hash algorithm identifier.</param>
+    /// <param name="hashedSubpackets">Serialized authenticated subpackets.</param>
+    /// <param name="salt">The V6 salt, or an empty array for V4.</param>
+    /// <returns>The complete signature digest.</returns>
     public static byte[] ComputeDocumentHash(ReadOnlySpan<byte> data, byte version, byte sigType,
         byte pubAlgo, byte hashAlgo, byte[] hashedSubpackets, byte[] salt)
     {
@@ -37,6 +48,18 @@ internal static class PgpSignatureHashHelper
         return hash.GetHashAndReset();
     }
 
+    /// <summary>
+    /// Hashes one or two public key bodies for direct-key, binding or revocation signatures.
+    /// </summary>
+    /// <param name="primaryKey">The first signed public key.</param>
+    /// <param name="secondaryKey">The optional second signed public key.</param>
+    /// <param name="version">Signature version, which determines both key prefixes.</param>
+    /// <param name="sigType">The key signature type.</param>
+    /// <param name="pubAlgo">The signing algorithm identifier.</param>
+    /// <param name="hashAlgo">The hash algorithm identifier.</param>
+    /// <param name="hashedSubpackets">Serialized authenticated subpackets.</param>
+    /// <param name="salt">The V6 salt, or an empty array for V4.</param>
+    /// <returns>The complete signature digest.</returns>
     public static byte[] ComputeKeySignatureHash(PgpPublicKeyPacket primaryKey,
         PgpPublicKeyPacket? secondaryKey, byte version, byte sigType, byte pubAlgo,
         byte hashAlgo, byte[] hashedSubpackets, byte[] salt)
@@ -49,6 +72,18 @@ internal static class PgpSignatureHashHelper
         return hash.GetHashAndReset();
     }
 
+    /// <summary>
+    /// Hashes a public key and User ID for a certification signature, including the V6 salt when present.
+    /// </summary>
+    /// <param name="certifiedKey">The public key being certified.</param>
+    /// <param name="userId">The User ID being certified.</param>
+    /// <param name="version">Signature version, which determines the key prefix.</param>
+    /// <param name="sigType">The certification signature type.</param>
+    /// <param name="pubAlgo">The signing algorithm identifier.</param>
+    /// <param name="hashAlgo">The hash algorithm identifier.</param>
+    /// <param name="hashedSubpackets">Serialized authenticated subpackets.</param>
+    /// <param name="salt">The V6 salt, or an empty array for V4.</param>
+    /// <returns>The complete signature digest.</returns>
     public static byte[] ComputeCertificationHash(PgpPublicKeyPacket certifiedKey,
         PgpUserIdPacket userId, byte version, byte sigType, byte pubAlgo,
         byte hashAlgo, byte[] hashedSubpackets, byte[] salt)

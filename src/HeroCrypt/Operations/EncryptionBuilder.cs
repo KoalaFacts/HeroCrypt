@@ -859,6 +859,7 @@ public sealed class EncryptionBuilder : IDisposable
 
     private EncryptionResult EncryptX25519Hybrid(byte[] plaintext, byte[] recipientPublicKey, byte[] aad, HybridCipherType cipher)
     {
+        ValidateHybridOptions();
         // Generate ephemeral key pair
         var curve = new Curve25519Core((securityPolicy ?? SecurityPolicy.CurrentPolicy));
         var ephemeralPrivateKey = curve.GeneratePrivateKey();
@@ -916,20 +917,26 @@ public sealed class EncryptionBuilder : IDisposable
 
     private (byte[] Ciphertext, byte[] Nonce) EncryptWithChaCha20Poly1305(byte[] plaintext, byte[] key, byte[] aad)
     {
-        var result = new ChaCha20Poly1305Core((securityPolicy ?? SecurityPolicy.CurrentPolicy)).Encrypt(plaintext, key, associatedData: aad);
+        var result = new ChaCha20Poly1305Core((securityPolicy ?? SecurityPolicy.CurrentPolicy)).Encrypt(plaintext, key, nonce ?? [], associatedData: aad);
         return (result.Ciphertext, result.Nonce);
     }
 
     private (byte[] Ciphertext, byte[] Nonce) EncryptWithXChaCha20Poly1305(byte[] plaintext, byte[] key, byte[] aad)
     {
-        var result = new XChaCha20Poly1305Core((securityPolicy ?? SecurityPolicy.CurrentPolicy)).Encrypt(plaintext, key, associatedData: aad);
+        var result = new XChaCha20Poly1305Core((securityPolicy ?? SecurityPolicy.CurrentPolicy)).Encrypt(plaintext, key, nonce ?? [], associatedData: aad);
         return (result.Ciphertext, result.Nonce);
     }
 
     private (byte[] Ciphertext, byte[] Nonce) EncryptWithAesGcm(byte[] plaintext, byte[] key, byte[] aad)
     {
-        var result = new AesGcmCore((securityPolicy ?? SecurityPolicy.CurrentPolicy)).Encrypt(plaintext, key, associatedData: aad);
+        var result = new AesGcmCore((securityPolicy ?? SecurityPolicy.CurrentPolicy)).Encrypt(plaintext, key, nonce ?? [], associatedData: aad);
         return (result.Ciphertext, result.Nonce);
+    }
+
+    private void ValidateHybridOptions()
+    {
+        if (deterministicMode)
+            throw new InvalidOperationException("Hybrid encryption requires randomized ephemeral keys or encapsulation; deterministic mode is unsupported.");
     }
 #endif
 
@@ -986,11 +993,12 @@ public sealed class EncryptionBuilder : IDisposable
 #pragma warning disable SYSLIB5006
     private EncryptionResult EncryptMLKemAesGcm(byte[] plaintext, byte[] publicKeyPemBytes, byte[] aad, MLKemCore.SecurityLevel level)
     {
+        ValidateHybridOptions();
         var publicKeyPem = System.Text.Encoding.UTF8.GetString(publicKeyPemBytes);
 
         using var encapsulation = new MLKemCore(securityPolicy ?? SecurityPolicy.CurrentPolicy).Encapsulate(publicKeyPem, level);
 
-        var result = new AesGcmCore((securityPolicy ?? SecurityPolicy.CurrentPolicy)).Encrypt(plaintext, encapsulation.SharedSecret, associatedData: aad);
+        var result = new AesGcmCore((securityPolicy ?? SecurityPolicy.CurrentPolicy)).Encrypt(plaintext, encapsulation.SharedSecret, nonce ?? [], associatedData: aad);
 
         return new EncryptionResult
         {
@@ -1002,11 +1010,12 @@ public sealed class EncryptionBuilder : IDisposable
 
     private EncryptionResult EncryptMLKemChaCha20Poly1305(byte[] plaintext, byte[] publicKeyPemBytes, byte[] aad, MLKemCore.SecurityLevel level)
     {
+        ValidateHybridOptions();
         var publicKeyPem = System.Text.Encoding.UTF8.GetString(publicKeyPemBytes);
 
         using var encapsulation = new MLKemCore(securityPolicy ?? SecurityPolicy.CurrentPolicy).Encapsulate(publicKeyPem, level);
 
-        var result = new ChaCha20Poly1305Core((securityPolicy ?? SecurityPolicy.CurrentPolicy)).Encrypt(plaintext, encapsulation.SharedSecret, associatedData: aad);
+        var result = new ChaCha20Poly1305Core((securityPolicy ?? SecurityPolicy.CurrentPolicy)).Encrypt(plaintext, encapsulation.SharedSecret, nonce ?? [], associatedData: aad);
 
         return new EncryptionResult
         {

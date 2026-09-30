@@ -24,6 +24,10 @@ This guide helps you migrate between HeroCrypt versions and from other cryptogra
 - None of these custom encryption compositions supplies sender authentication,
   replay protection or application context validation. `IsText` is untrusted metadata.
   See the [security model](../SECURITY.md#hybrid-encryption-security-model).
+- X25519/ML-KEM operation suites now honor explicit `WithNonce` values and reject
+  invalid nonce lengths. Remove testing-only deterministic mode from hybrid calls:
+  it is now rejected, because randomized key contributions cannot provide the
+  deterministic encryption behavior this option advertises.
 
 ## BIP39 wallet entry changes in v1.0.3
 

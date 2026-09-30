@@ -62,6 +62,9 @@ We provide security updates for the following versions:
   Recipients must compare authenticated associated data with an independently
   expected context and implement any required replay/sender checks separately.
   The RSA envelope's `IsText` flag is not authenticated.
+- X25519/ML-KEM operation suites honor `WithNonce`; without an explicit nonce they
+  generate one randomly. Deterministic mode is rejected even under testing policy,
+  because ephemeral key generation and KEM encapsulation remain randomized.
 - Owned temporary payload keys, private DER and plaintext byte buffers are cleared,
   and internal symmetric builders are disposed. Caller-owned arrays are preserved.
   Immutable private-key/plaintext strings and managed-runtime copies cannot be

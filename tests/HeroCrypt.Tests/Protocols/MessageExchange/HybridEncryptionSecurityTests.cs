@@ -206,6 +206,42 @@ public class HybridEncryptionSecurityTests(HybridEncryptionKeyFixture fixture) :
         Assert.Throws<CryptographicException>(() => encrypt.Encrypt("payload"u8.ToArray()));
     }
 
+    [Theory]
+    [InlineData(EncryptionAlgorithm.X25519AesGcm, 12)]
+    [InlineData(EncryptionAlgorithm.X25519ChaCha20Poly1305, 12)]
+    [InlineData(EncryptionAlgorithm.X25519XChaCha20Poly1305, 24)]
+    public void X25519Hybrid_HonorsExplicitNonceAndRejectsDeterministicMode(EncryptionAlgorithm algorithm, int nonceSize)
+    {
+        var nonce = Enumerable.Repeat((byte)0x42, nonceSize).ToArray();
+        var publicKey = new Curve25519Core().DerivePublicKey(PrivateKey);
+        using var encrypt = HeroCryptBuilder.Encrypt().WithAlgorithm(algorithm).WithKey(publicKey).WithNonce(nonce);
+        var result = encrypt.Encrypt("payload"u8.ToArray());
+        Assert.Equal(nonce, result.Nonce);
+        using var decrypt = HeroCryptBuilder.Decrypt().WithAlgorithm(algorithm).WithKey(PrivateKey).FromEncryptionResult(result);
+        Assert.Equal("payload"u8.ToArray(), decrypt.Decrypt(result.Ciphertext));
+        encrypt.WithNonce(new byte[1]);
+        Assert.Throws<ArgumentException>(() => encrypt.Encrypt("payload"u8.ToArray()));
+        encrypt.WithSecurityPolicy(SecurityPolicyOptions.Testing);
+#pragma warning disable CS0618
+        encrypt.WithDeterministicMode();
+#pragma warning restore CS0618
+        Assert.Throws<InvalidOperationException>(() => encrypt.Encrypt("payload"u8.ToArray()));
+    }
+
+    [Theory]
+    [InlineData(EncryptionAlgorithm.X25519AesGcm)]
+    [InlineData(EncryptionAlgorithm.X25519ChaCha20Poly1305)]
+    [InlineData(EncryptionAlgorithm.X25519XChaCha20Poly1305)]
+    public void X25519Hybrid_RejectsDeterministicModeEvenWithTestingPolicy(EncryptionAlgorithm algorithm)
+    {
+        using var encrypt = HeroCryptBuilder.Encrypt().WithAlgorithm(algorithm)
+            .WithKey(new Curve25519Core().DerivePublicKey(PrivateKey)).WithSecurityPolicy(SecurityPolicyOptions.Testing);
+#pragma warning disable CS0618
+        encrypt.WithDeterministicMode();
+#pragma warning restore CS0618
+        Assert.Throws<InvalidOperationException>(() => encrypt.Encrypt("payload"u8.ToArray()));
+    }
+
     [Fact]
     public void X25519KeyAgreement_Rfc7748VectorStillMatches()
     {
@@ -275,8 +311,10 @@ public class HybridEncryptionSecurityTests(HybridEncryptionKeyFixture fixture) :
         var publicKey = System.Text.Encoding.UTF8.GetBytes(matching.PublicKeyPem);
         var privateKey = System.Text.Encoding.UTF8.GetBytes(matching.SecretKeyPem);
         var aad = "expected context"u8.ToArray();
-        using var encrypt = HeroCryptBuilder.Encrypt().WithAlgorithm(algorithm).WithKey(publicKey).WithAssociatedData(aad);
+        var nonce = Enumerable.Repeat((byte)0x42, 12).ToArray();
+        using var encrypt = HeroCryptBuilder.Encrypt().WithAlgorithm(algorithm).WithKey(publicKey).WithAssociatedData(aad).WithNonce(nonce);
         var result = encrypt.Encrypt("payload"u8.ToArray());
+        Assert.Equal(nonce, result.Nonce);
         using var decrypt = HeroCryptBuilder.Decrypt().WithAlgorithm(algorithm).WithKey(privateKey).FromEncryptionResult(result).WithAssociatedData(aad);
         Assert.Equal("payload"u8.ToArray(), decrypt.Decrypt(result.Ciphertext));
         using (var wrongRecipient = core.GenerateKeyPair(expected))
@@ -312,6 +350,13 @@ public class HybridEncryptionSecurityTests(HybridEncryptionKeyFixture fixture) :
             decrypt.WithKey(System.Text.Encoding.UTF8.GetBytes(mismatched.SecretKeyPem)).WithNonce(payload.Nonce).WithEncapsulatedKey(encapsulated.Ciphertext);
             Assert.Throws<CryptographicException>(() => decrypt.Decrypt(payload.Ciphertext));
         }
+        encrypt.WithKey(publicKey).WithNonce(new byte[1]);
+        Assert.Throws<ArgumentException>(() => encrypt.Encrypt("payload"u8.ToArray()));
+        encrypt.WithSecurityPolicy(SecurityPolicyOptions.Testing);
+#pragma warning disable CS0618
+        encrypt.WithDeterministicMode();
+#pragma warning restore CS0618
+        Assert.Throws<InvalidOperationException>(() => encrypt.Encrypt("payload"u8.ToArray()));
         CryptographicOperations.ZeroMemory(privateKey);
     }
 #endif

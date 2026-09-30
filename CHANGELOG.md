@@ -11,6 +11,8 @@
   Correct RFC 7748 high-bit input decoding and cover known-key hybrid ciphertexts.
 - Restore accidentally excluded .NET 10 ML-KEM encryption suites and enforce
   selected key parameter sets on encapsulation, decapsulation and public-key import.
+- Honor explicit AEAD nonces in X25519/ML-KEM hybrid operations, validate nonce
+  lengths and reject deterministic mode instead of silently ignoring these options.
 - Clarify custom hybrid encryption's sender, replay, context and metadata limits.
   See [migration notes](docs/migration-guide.md#hybrid-encryption-hardening-after-v103).
 

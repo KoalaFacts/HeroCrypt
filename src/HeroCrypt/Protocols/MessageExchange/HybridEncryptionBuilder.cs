@@ -109,8 +109,8 @@ public class HybridEncryptionBuilder
         try
         {
             var encryptedKey = EncryptKeyWithRsa(symmetricKey, publicKeyPem);
-            using var cipher = HeroCryptBuilder.Encrypt()
-                .WithSecurityPolicy(policy)
+            using var cipher = HeroCryptBuilder.Encrypt();
+            cipher.WithSecurityPolicy(policy)
                 .WithAlgorithm(selectedAlgorithm)
                 .WithKey(symmetricKey)
                 .WithAssociatedData(associatedData ?? []);
@@ -170,8 +170,8 @@ public class HybridEncryptionBuilder
             var ciphertext = Convert.FromBase64String(envelope.Ciphertext);
             var nonce = Convert.FromBase64String(envelope.Nonce);
             var aad = envelope.AssociatedData is null ? [] : Convert.FromBase64String(envelope.AssociatedData);
-            using var cipher = HeroCryptBuilder.Decrypt()
-                .WithSecurityPolicy(policy)
+            using var cipher = HeroCryptBuilder.Decrypt();
+            cipher.WithSecurityPolicy(policy)
                 .WithAlgorithm(alg)
                 .WithKey(symmetricKey)
                 .WithNonce(nonce)

@@ -122,6 +122,30 @@ Production use of these features requires:
 
 ## 🔍 Security Audits
 
+### BIP39 wallet entry audit - 2026-09-30
+
+Before product changes, 68 audit regressions produced 42 failures and 26 passes.
+A separate run confirmed all 24 official English seed vectors already matched:
+PBKDF2-HMAC-SHA512/2048 and 64-byte output were correct. Findings included the
+demonstration placeholder wordlist, missing NFKD, unwanted raw text canonicalization,
+unchecked entropy-decoder checksums, invalid wallet inputs and signed size overflow.
+
+The corrected implementation embeds the official English list, uses NFKD-only raw
+seed conversion, checks checksum in the shared entropy decoder and validates and
+canonicalizes English wallet-builder input. Temporary entropy, bit, hash and UTF-8
+buffers clear on normal/exceptional paths. Instance policy is passed to PBKDF2 and
+checksum validation. Source review establishes those cleanup paths, without a
+runtime-wide erasure or constant-time guarantee; strings remain managed secrets.
+
+Old placeholder phrases are nonstandard. Replacing their words or correcting
+historical Unicode/text processing can change the wallet. Preserve trusted existing
+seed/private material and verify the original wallet identity before migration.
+Raw text conversion does not validate recovery words or detect a wrong passphrase.
+English checksum support does not imply other language wordlists, authentication
+or compliance/module certification. See [Issue #131](https://github.com/KoalaFacts/HeroCrypt/issues/131),
+the [BIP39 standard](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki)
+and [migration guidance](docs/migration-guide.md#bip39-wallet-entry-changes-unreleased).
+
 ### BIP32 wallet boundary audit - 2026-09-30
 
 Before product changes, 43 audit cases produced 38 failures and five passes. The

@@ -74,7 +74,7 @@ These features are fully tested, RFC-compliant, and recommended for production u
 
 | Feature | Status | Standard | Notes |
 |---------|--------|----------|-------|
-| BIP39 Mnemonics | Production-Ready | BIP-0039 | 12-24 word phrases |
+| BIP39 Mnemonics | Scoped wallet seed primitive | BIP-0039 | Official English words, checksum-validated wallet entry; raw NFKD seed conversion is independent of validation |
 | BIP32 HD Wallets | Scoped primitive | BIP-0032 | Master/private-parent derivation; no public-parent derivation or xprv/xpub import/export |
 | Shamir's Secret Sharing | Scoped primitive | - | Trusted-dealer confidentiality; caller supplies threshold and authenticates shares separately |
 

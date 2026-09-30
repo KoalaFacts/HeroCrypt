@@ -10,7 +10,7 @@ namespace HeroCrypt.Protocols.HdWallet;
 public sealed class HdWalletResult
 {
     /// <summary>
-    /// The mnemonic phrase (if generated).
+    /// The canonical English mnemonic phrase used, or null when a seed was supplied.
     /// </summary>
     public string? Mnemonic { get; }
 
@@ -64,7 +64,8 @@ public sealed class HdWalletBuilder
     }
 
     /// <summary>
-    /// Uses an existing mnemonic phrase.
+    /// Uses an existing English mnemonic phrase. Derive checks its checksum and
+    /// canonicalizes supported case and spacing before seed conversion.
     /// </summary>
     /// <param name="mnemonic">The mnemonic phrase.</param>
     /// <returns>This builder for chaining.</returns>
@@ -136,6 +137,15 @@ public sealed class HdWalletBuilder
             {
                 var bip39 = new Bip39Mnemonic();
                 resultMnemonic ??= bip39.GenerateRandomMnemonic(wordCount);
+                var entropy = bip39.MnemonicToEntropy(resultMnemonic);
+                try
+                {
+                    resultMnemonic = bip39.GenerateMnemonic(entropy);
+                }
+                finally
+                {
+                    SecureMemoryOperations.SecureClear(entropy);
+                }
                 derivedSeed = bip39.MnemonicToSeed(resultMnemonic, passphrase);
             }
 

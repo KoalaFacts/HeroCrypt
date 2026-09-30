@@ -17,6 +17,11 @@ namespace HeroCrypt.Protocols.HdWallet;
 /// - Checksum validation
 /// - Optional passphrase support
 /// </summary>
+/// <remarks>Generation and checksum validation use the official English wordlist.
+/// Raw seed conversion applies NFKD to mnemonic and passphrase without wordlist
+/// validation or case/whitespace changes. Validate wallet inputs separately or use
+/// HdWalletBuilder. Callers must clear returned seed/entropy buffers; mnemonic and
+/// passphrase strings cannot be reliably erased by managed code.</remarks>
 public sealed class Bip39Mnemonic
 {
     private readonly SecurityPolicyOptions policy;
@@ -35,10 +40,9 @@ public sealed class Bip39Mnemonic
     private const int SeedLength = 64; // 512 bits
 
     /// <summary>
-    /// BIP39 Wordlist (simplified for demonstration - production should use full 2048-word list)
-    /// This is a minimal Wordlist for testing. A full implementation should load the complete BIP39 Wordlist.
+    /// Official, ordered 2048-word BIP39 English wordlist, embedded with attribution.
     /// </summary>
-    private static readonly string[] Wordlist = GenerateMinimalWordlist();
+    private static readonly string[] Wordlist = LoadEnglishWordlist();
 
     /// <summary>
     /// Generates a mnemonic from entropy
@@ -47,13 +51,13 @@ public sealed class Bip39Mnemonic
     /// <returns>Mnemonic phrase</returns>
     public string GenerateMnemonic(ReadOnlySpan<byte> entropy)
     {
-        var entropyBits = entropy.Length * 8;
-        if (!SupportedEntropyBits.Contains(entropyBits))
+        if (entropy.Length is not (16 or 20 or 24 or 28 or 32))
         {
             throw new ArgumentException(
                 $"Entropy must be {string.Join(", ", SupportedEntropyBits.Select(b => b / 8))} bytes",
                 nameof(entropy));
         }
+        var entropyBits = entropy.Length * 8;
 
         // Calculate checksum
         var checksumBits = entropyBits / 32;
@@ -62,41 +66,47 @@ public sealed class Bip39Mnemonic
         // Combine entropy and checksum into bits
         var totalBits = entropyBits + checksumBits;
         var bits = new bool[totalBits];
-
-        // Convert entropy to bits
-        for (var i = 0; i < entropy.Length; i++)
+        try
         {
-            for (var j = 0; j < 8; j++)
+            // Convert entropy to bits
+            for (var i = 0; i < entropy.Length; i++)
             {
-                bits[i * 8 + j] = ((entropy[i] >> (7 - j)) & 1) == 1;
-            }
-        }
-
-        // Append checksum bits
-        for (var i = 0; i < checksumBits; i++)
-        {
-            bits[entropyBits + i] = ((checksum >> (7 - i)) & 1) == 1;
-        }
-
-        // Convert bits to word indices (11 bits per word)
-        var wordCount = totalBits / 11;
-        var words = new string[wordCount];
-
-        for (var i = 0; i < wordCount; i++)
-        {
-            var index = 0;
-            for (var j = 0; j < 11; j++)
-            {
-                if (bits[i * 11 + j])
+                for (var j = 0; j < 8; j++)
                 {
-                    index |= 1 << (10 - j);
+                    bits[i * 8 + j] = ((entropy[i] >> (7 - j)) & 1) == 1;
                 }
             }
 
-            words[i] = Wordlist[index];
-        }
+            // Append checksum bits
+            for (var i = 0; i < checksumBits; i++)
+            {
+                bits[entropyBits + i] = ((checksum >> (7 - i)) & 1) == 1;
+            }
 
-        return string.Join(" ", words);
+            // Convert bits to word indices (11 bits per word)
+            var wordCount = totalBits / 11;
+            var words = new string[wordCount];
+
+            for (var i = 0; i < wordCount; i++)
+            {
+                var index = 0;
+                for (var j = 0; j < 11; j++)
+                {
+                    if (bits[i * 11 + j])
+                    {
+                        index |= 1 << (10 - j);
+                    }
+                }
+
+                words[i] = Wordlist[index];
+            }
+
+            return string.Join(" ", words);
+        }
+        finally
+        {
+            Array.Clear(bits);
+        }
     }
 
     /// <summary>
@@ -109,13 +119,9 @@ public sealed class Bip39Mnemonic
         var entropyBytes = GetEntropyBytesFromWordCount(wordCount);
         var entropy = new byte[entropyBytes];
 
-        using (var rng = RandomNumberGenerator.Create())
-        {
-            rng.GetBytes(entropy);
-        }
-
         try
         {
+            RandomNumberGenerator.Fill(entropy);
             return GenerateMnemonic(entropy);
         }
         finally
@@ -125,7 +131,8 @@ public sealed class Bip39Mnemonic
     }
 
     /// <summary>
-    /// Converts a mnemonic to a seed
+    /// Converts raw mnemonic text to a seed using BIP39 NFKD and PBKDF2-HMAC-SHA512.
+    /// Does not validate an English wordlist/checksum or canonicalize case/spacing.
     /// </summary>
     /// <param name="mnemonic">Mnemonic phrase</param>
     /// <param name="passphrase">Optional passphrase (empty string if none)</param>
@@ -137,22 +144,19 @@ public sealed class Bip39Mnemonic
             throw new ArgumentException("Mnemonic cannot be empty", nameof(mnemonic));
         }
 
-        // Normalize mnemonic
-        mnemonic = NormalizeMnemonic(mnemonic);
-
-        // Create salt: "mnemonic" + passphrase
-        var salt = Encoding.UTF8.GetBytes("mnemonic" + (passphrase ?? ""));
-
-        // Convert mnemonic to bytes
-        var mnemonicBytes = Encoding.UTF8.GetBytes(mnemonic);
-
+        byte[]? salt = null;
+        byte[]? mnemonicBytes = null;
         try
         {
+            // BIP39 applies NFKD only; raw text case and spaces affect the seed.
+            mnemonicBytes = Encoding.UTF8.GetBytes(mnemonic.Normalize(NormalizationForm.FormKD));
+            salt = Encoding.UTF8.GetBytes(("mnemonic" + (passphrase ?? "")).Normalize(NormalizationForm.FormKD));
+            policy.ValidateKdf("PBKDF2-SHA512");
             // Generate seed using PBKDF2-HMAC-SHA512
             // NOTE: BIP-39 standard specifies 2048 iterations and "mnemonic" + passphrase as salt.
             // These parameters are below our normal security recommendations but are required for
             // standards compliance. This is intentional per BIP-39 specification.
-            var pbkdf2 = new Pbkdf2Core();
+            var pbkdf2 = new Pbkdf2Core(policy);
             return pbkdf2.DeriveKey(
                 mnemonicBytes,
                 salt,
@@ -164,8 +168,8 @@ public sealed class Bip39Mnemonic
         }
         finally
         {
-            SecureMemoryOperations.SecureClear(mnemonicBytes);
-            SecureMemoryOperations.SecureClear(salt);
+            if (mnemonicBytes != null) SecureMemoryOperations.SecureClear(mnemonicBytes);
+            if (salt != null) SecureMemoryOperations.SecureClear(salt);
         }
     }
 
@@ -181,72 +185,30 @@ public sealed class Bip39Mnemonic
             return false;
         }
 
-        mnemonic = NormalizeMnemonic(mnemonic);
-        var words = mnemonic.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-
-        // Check word count
-        if (!WordCounts.Contains(words.Length))
-        {
-            return false;
-        }
-
-        // Check all words are in Wordlist
-        foreach (var word in words)
-        {
-            if (Array.IndexOf(Wordlist, word) == -1)
-            {
-                return false;
-            }
-        }
-
-        // Convert words back to entropy and validate checksum
+        byte[]? entropy = null;
         try
         {
-            var entropy = MnemonicToEntropy(mnemonic);
-            var expectedChecksum = CalculateChecksum(entropy);
-
-            // Extract checksum from mnemonic
-            var totalBits = words.Length * 11;
-            var entropyBits = (totalBits * 32) / 33;
-            var checksumBits = totalBits - entropyBits;
-
-            // Convert words to bits
-            var bits = new bool[totalBits];
-            for (var i = 0; i < words.Length; i++)
-            {
-                var index = Array.IndexOf(Wordlist, words[i]);
-                for (var j = 0; j < 11; j++)
-                {
-                    bits[i * 11 + j] = ((index >> (10 - j)) & 1) == 1;
-                }
-            }
-
-            // Extract checksum from bits
-            byte actualChecksum = 0;
-            for (var i = 0; i < checksumBits; i++)
-            {
-                if (bits[entropyBits + i])
-                {
-                    actualChecksum |= (byte)(1 << (7 - i));
-                }
-            }
-
-            // Validate checksum
-            return (actualChecksum >> (8 - checksumBits)) == (expectedChecksum >> (8 - checksumBits));
+            entropy = MnemonicToEntropy(mnemonic);
+            return true;
         }
         catch (ArgumentException)
         {
             return false;
         }
+        finally
+        {
+            if (entropy != null) SecureMemoryOperations.SecureClear(entropy);
+        }
     }
 
     /// <summary>
-    /// Converts a mnemonic back to entropy
+    /// Converts a valid English mnemonic back to entropy, checking its checksum.
     /// </summary>
     /// <param name="mnemonic">Mnemonic phrase</param>
     /// <returns>Entropy bytes</returns>
     public byte[] MnemonicToEntropy(string mnemonic)
     {
+        ArgumentNullException.ThrowIfNull(mnemonic);
         mnemonic = NormalizeMnemonic(mnemonic);
         var words = mnemonic.Split(' ', StringSplitOptions.RemoveEmptyEntries);
 
@@ -260,63 +222,86 @@ public sealed class Bip39Mnemonic
         var entropyBytes = entropyBits / 8;
 
         var bits = new bool[totalBits];
-
-        // Convert words to bits
-        for (var i = 0; i < words.Length; i++)
+        byte[]? entropy = null;
+        var succeeded = false;
+        try
         {
-            var index = Array.IndexOf(Wordlist, words[i]);
-            if (index == -1)
+            // Convert words to bits
+            for (var i = 0; i < words.Length; i++)
             {
-                throw new ArgumentException($"Invalid word in mnemonic: {words[i]}", nameof(mnemonic));
-            }
-
-            for (var j = 0; j < 11; j++)
-            {
-                bits[i * 11 + j] = ((index >> (10 - j)) & 1) == 1;
-            }
-        }
-
-        // Convert bits to bytes (excluding checksum)
-        var entropy = new byte[entropyBytes];
-        for (var i = 0; i < entropyBytes; i++)
-        {
-            byte value = 0;
-            for (var j = 0; j < 8; j++)
-            {
-                if (bits[i * 8 + j])
+                var index = Array.IndexOf(Wordlist, words[i]);
+                if (index == -1)
                 {
-                    value |= (byte)(1 << (7 - j));
+                    throw new ArgumentException("Mnemonic contains a word outside the English BIP39 wordlist.", nameof(mnemonic));
+                }
+
+                for (var j = 0; j < 11; j++)
+                {
+                    bits[i * 11 + j] = ((index >> (10 - j)) & 1) == 1;
                 }
             }
-            entropy[i] = value;
-        }
 
-        return entropy;
+            // Convert bits to bytes (excluding checksum)
+            entropy = new byte[entropyBytes];
+            for (var i = 0; i < entropyBytes; i++)
+            {
+                byte value = 0;
+                for (var j = 0; j < 8; j++)
+                {
+                    if (bits[i * 8 + j])
+                    {
+                        value |= (byte)(1 << (7 - j));
+                    }
+                }
+                entropy[i] = value;
+            }
+
+            var checksumBits = totalBits - entropyBits;
+            var actualChecksum = 0;
+            for (var i = 0; i < checksumBits; i++)
+            {
+                actualChecksum = (actualChecksum << 1) | (bits[entropyBits + i] ? 1 : 0);
+            }
+            if (actualChecksum != CalculateChecksum(entropy) >> (8 - checksumBits))
+            {
+                throw new ArgumentException("Invalid mnemonic checksum.", nameof(mnemonic));
+            }
+            succeeded = true;
+            return entropy;
+        }
+        finally
+        {
+            Array.Clear(bits);
+            if (!succeeded && entropy != null) SecureMemoryOperations.SecureClear(entropy);
+        }
     }
 
     /// <summary>
     /// Calculates SHA256 checksum for entropy
     /// </summary>
-    private static byte CalculateChecksum(ReadOnlySpan<byte> entropy)
+    private byte CalculateChecksum(ReadOnlySpan<byte> entropy)
     {
+        policy.ValidateHash("SHA256");
         Span<byte> hash = stackalloc byte[32];
-#if NETSTANDARD2_0
-        using var sha = SHA256.Create();
-        sha.TryComputeHash(entropy, hash, out _);
-#else
-        SHA256.HashData(entropy, hash);
-#endif
-        return hash[0];
+        try
+        {
+            SHA256.HashData(entropy, hash);
+            return hash[0];
+        }
+        finally
+        {
+            SecureMemoryOperations.SecureClear(hash);
+        }
     }
 
     /// <summary>
-    /// Normalizes mnemonic (lowercase, single spaces)
+    /// Canonicalizes English wordlist input; raw seed conversion does not use this.
     /// </summary>
     private static string NormalizeMnemonic(string mnemonic)
     {
         return string.Join(" ",
-            mnemonic.ToLowerInvariant()
-                .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            mnemonic.Normalize(NormalizationForm.FormKD).ToLowerInvariant()
+                .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)
         );
     }
 
@@ -341,41 +326,27 @@ public sealed class Bip39Mnemonic
     /// </summary>
     public int GetWordCountFromEntropyBytes(int entropyBytes)
     {
-        var entropyBits = entropyBytes * 8;
-        var index = Array.IndexOf(SupportedEntropyBits, entropyBits);
-        if (index == -1)
+        if (entropyBytes is not (16 or 20 or 24 or 28 or 32))
         {
             throw new ArgumentException("Invalid entropy byte count", nameof(entropyBytes));
         }
-
+        var index = Array.IndexOf(SupportedEntropyBits, entropyBytes * 8);
         return WordCounts[index];
     }
 
     /// <summary>
-    /// Generates a minimal Wordlist for demonstration
-    /// NOTE: Production implementation should use the full BIP39 Wordlist (2048 words)
+    /// Loads the official BIP39 English wordlist from its assembly resource.
     /// </summary>
-    private static string[] GenerateMinimalWordlist()
+    private static string[] LoadEnglishWordlist()
     {
-        // Generate 2048 unique words for demonstration
-        // In production, use the official BIP39 Wordlist from:
-        // https://github.com/bitcoin/bips/blob/master/bip-0039/english.txt
-
-        var words = new string[2048];
-        for (var i = 0; i < 2048; i++)
+        using var stream = typeof(Bip39Mnemonic).Assembly.GetManifestResourceStream(
+            "HeroCrypt.Protocols.HdWallet.Bip39English.txt")
+            ?? throw new InvalidOperationException("The BIP39 English wordlist resource is missing.");
+        using var reader = new StreamReader(stream, Encoding.UTF8);
+        var words = reader.ReadToEnd().Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
+        if (words.Length != 2048)
         {
-            words[i] = $"word{i:D4}"; // word0000, word0001, etc.
-        }
-
-        // Add some common BIP39 words for testing
-        if (words.Length >= 100)
-        {
-            words[0] = "abandon";
-            words[1] = "ability";
-            words[2] = "able";
-            words[3] = "about";
-            words[4] = "above";
-            words[2047] = "zoo";
+            throw new InvalidOperationException("The BIP39 English wordlist must contain 2048 words.");
         }
 
         return words;

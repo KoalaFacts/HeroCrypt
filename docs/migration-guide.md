@@ -2,6 +2,43 @@
 
 This guide helps you migrate between HeroCrypt versions and from other cryptographic libraries.
 
+## BIP39 wallet entry changes (unreleased)
+
+Earlier releases generated demonstration words such as `word0005` rather than the
+official BIP39 English wordlist. Those phrases are not standard recovery phrases.
+The corrected generator uses the official ordered 2048 words. **Generating a phrase
+again from the same entropy can produce a different phrase and wallet.** Do not
+translate placeholder words into their standard index equivalents and assume the
+old wallet is preserved.
+
+Preserve trusted existing seeds/private keys and verify the original wallet identity
+before changing stored recovery material. `HdWalletBuilder.FromSeed` can use an
+already recovered seed. For canonical ASCII placeholder phrases and ASCII
+passphrases, raw `MnemonicToSeed` retains the same PBKDF2 input; it intentionally
+does not validate a wordlist. It must not be treated as proof that such a phrase is
+standard or valid. Historical Unicode passphrases or noncanonical text require
+recovery using the original derivation rules or a trusted saved seed first.
+
+`MnemonicToSeed` now follows the standard: NFKD normalization of mnemonic and
+`"mnemonic" + passphrase`, PBKDF2-HMAC-SHA512 with 2048 iterations, 64-byte output.
+It no longer lowercases or collapses raw mnemonic spaces. NFKD is not trimming,
+case folding or password validation; a different passphrase still produces a valid
+but different wallet. **Unicode or text normalization corrections can change the
+seed for previously accepted inputs.**
+
+`MnemonicToEntropy` now rejects invalid checksums, unknown English words and invalid
+counts. `ValidateMnemonic` returns false for those inputs. The wallet builder checks
+the same boundary and returns a canonical English phrase; accepted case, spacing
+and NFKD-compatible English formatting are canonicalized before seed derivation.
+Unknown words and legacy placeholder phrases reject instead of silently making a
+wallet. Invalid-word errors no longer include the supplied recovery word.
+
+English generation and validation are supported. Raw seed conversion can process
+other Unicode mnemonic text, but this does not provide other language wordlists or
+checksum validation. The standard's fixed 2048 iterations are an interoperability
+requirement, not a recommendation for general password storage. Clear returned
+seed/entropy arrays; managed mnemonic/passphrase strings cannot be reliably erased.
+
 ## BIP32 wallet boundary changes (unreleased)
 
 The corrected `Bip32HdWallet` parent fingerprint is the first four bytes of

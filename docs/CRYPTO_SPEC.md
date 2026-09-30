@@ -418,7 +418,7 @@ Managed strings and dependency/runtime copies cannot be guaranteed erased; no
 constant-time or runtime-wide zeroization claim is made.
 
 Earlier placeholder wordlists and text derivation can yield different wallets.
-Review the [migration guidance](migration-guide.md#bip39-wallet-entry-changes-unreleased)
+Review the [migration guidance](migration-guide.md#bip39-wallet-entry-changes-in-v103)
 before changing stored recovery material. Wordlist provenance and the MIT notice
 are in [third-party notices](../THIRD-PARTY-NOTICES.md).
 

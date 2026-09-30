@@ -163,13 +163,9 @@ jobs:
             echo "### Package Details"
             echo "- **NuGet**: [HeroCrypt v${VERSION}](https://www.nuget.org/packages/HeroCrypt/${VERSION})"
             echo "- **Frameworks**: netstandard2.0, net8.0, net9.0, net10.0"
-            echo "- **Dependencies**: Microsoft.Bcl.Memory (netstandard2.0, net8.0)"
             echo ""
-            echo "### Security & Compliance"
-            echo "- RFC 9106 (Argon2): Fully compliant"
-            echo "- RFC 7693 (Blake2b): Fully compliant"
-            echo "- RFC 8439 (ChaCha20-Poly1305): Fully compliant"
-            echo "- RFC 7748 (Curve25519): Fully compliant"
+            echo "### Security Scope"
+            echo "Review [security scope](https://github.com/${REPO}/blob/v${VERSION}/SECURITY.md) and [migration guidance](https://github.com/${REPO}/blob/v${VERSION}/docs/migration-guide.md) before upgrading."
             echo ""
             echo "### SBOMs (Software Bill of Materials)"
             echo "Per-framework SBOMs included in this release:"
@@ -194,8 +190,31 @@ jobs:
             -f target_commitish="${GITHUB_SHA}" \
             --jq .body > auto-notes.md
 
-          # Combine auto-notes with footer
-          cat auto-notes.md release-footer.md > release-notes.md
+          # Put prepared security and migration guidance before generated PR notes.
+          # Resolve repository-relative Markdown links against the immutable tag.
+          python3 - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          version = os.environ["RELEASE_VERSION"]
+          repository = os.environ["GITHUB_REPOSITORY"]
+          changelog = Path("CHANGELOG.md").read_text()
+          heading = re.search(rf"^## \[{re.escape(version)}\] - .+$", changelog, re.MULTILINE)
+          if heading is None:
+              raise SystemExit("Prepared release notes are missing")
+          remainder = changelog[heading.end():]
+          section = re.split(r"^## ", remainder, maxsplit=1, flags=re.MULTILINE)[0].strip()
+          if not section:
+              raise SystemExit("Prepared release notes are empty")
+          section = re.sub(
+              r"\]\((docs/[^)]+)\)",
+              lambda match: f"](https://github.com/{repository}/blob/v{version}/{match[1]})",
+              section,
+          )
+          notes = section + "\n\n" + Path("auto-notes.md").read_text() + Path("release-footer.md").read_text()
+          Path("release-notes.md").write_text(notes)
+          PY
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -205,6 +224,7 @@ jobs:
 
           gh release create "v${RELEASE_VERSION}" \
             --title "Release v${RELEASE_VERSION}" \
+            --target "$GITHUB_SHA" \
             --notes-file release-notes.md \
             "src/HeroCrypt/bin/Release/HeroCrypt.${RELEASE_VERSION}.nupkg" \
             "src/HeroCrypt/bin/Release/HeroCrypt.${RELEASE_VERSION}.snupkg" \

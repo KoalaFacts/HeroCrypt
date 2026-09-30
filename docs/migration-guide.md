@@ -2,7 +2,7 @@
 
 This guide helps you migrate between HeroCrypt versions and from other cryptographic libraries.
 
-## BIP39 wallet entry changes (unreleased)
+## BIP39 wallet entry changes in v1.0.3
 
 Earlier releases generated demonstration words such as `word0005` rather than the
 official BIP39 English wordlist. Those phrases are not standard recovery phrases.
@@ -39,7 +39,7 @@ checksum validation. The standard's fixed 2048 iterations are an interoperabilit
 requirement, not a recommendation for general password storage. Clear returned
 seed/entropy arrays; managed mnemonic/passphrase strings cannot be reliably erased.
 
-## BIP32 wallet boundary changes (unreleased)
+## BIP32 wallet boundary changes in v1.0.3
 
 The corrected `Bip32HdWallet` parent fingerprint is the first four bytes of
 RIPEMD160(SHA256(compressed public key)). Earlier fingerprints used double SHA-256
@@ -73,6 +73,19 @@ secp256k1 wallet construction; earlier successful calls did not prove compliance
 Protect extended public material: combined with a non-hardened child private key it
 can reveal the parent private key, as specified by BIP32. This audit provides no
 managed-runtime constant-time, complete zeroization or module-certification guarantee.
+
+## Shamir reconstruction changes in v1.0.3
+
+Use `Reconstruct(shares, originalThreshold)` and
+`Verify(shares, expectedSecret, originalThreshold)` with the threshold from trusted
+split metadata. The legacy overloads only require two shares and cannot infer the
+original threshold. Configure `SecretSharingBuilder.WithThreshold` explicitly when
+recovering shares created with a threshold other than the default two.
+
+Malformed, empty, duplicate-index, zero-index and mismatched-length shares now
+reject before interpolation. A sufficient count does not establish authenticity
+or that all shares belong to one session. Preserve trusted sharing-session metadata
+and authenticate shares separately; this is not verifiable secret sharing.
 
 ## MPC security change in v1.0.2
 

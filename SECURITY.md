@@ -144,7 +144,7 @@ Raw text conversion does not validate recovery words or detect a wrong passphras
 English checksum support does not imply other language wordlists, authentication
 or compliance/module certification. See [Issue #131](https://github.com/KoalaFacts/HeroCrypt/issues/131),
 the [BIP39 standard](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki)
-and [migration guidance](docs/migration-guide.md#bip39-wallet-entry-changes-unreleased).
+and [migration guidance](docs/migration-guide.md#bip39-wallet-entry-changes-in-v103).
 
 ### BIP32 wallet boundary audit - 2026-09-30
 
@@ -174,7 +174,7 @@ parent extended public material plus a non-hardened child private key can recove
 the parent private key. Fingerprints identify keys but do not authenticate ancestry.
 See [Issue #129](https://github.com/KoalaFacts/HeroCrypt/issues/129), the
 [BIP32 specification](docs/CRYPTO_SPEC.md#81-bip32-hd-wallets), and the
-[migration guidance](docs/migration-guide.md#bip32-wallet-boundary-changes-unreleased).
+[migration guidance](docs/migration-guide.md#bip32-wallet-boundary-changes-in-v103).
 
 ### Shamir share boundary audit - 2026-09-30
 

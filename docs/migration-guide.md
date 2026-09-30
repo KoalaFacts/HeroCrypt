@@ -16,6 +16,11 @@ inputs, so `Clear` does not erase those input buffers; clear caller-owned origin
 separately. Builder result seeds also own independent storage. Arrays remain mutable
 and must not be changed concurrently with operations.
 
+Builder source selection now follows the last call to `FromSeed`, `FromMnemonic`
+or `GenerateMnemonic`. Null seed/mnemonic inputs and null, empty or whitespace paths
+reject immediately instead of silently generating another wallet or returning the
+master key. Use `WithPath("m")` to request the root explicitly.
+
 Depth 255 cannot derive another child. Text paths require numeric components in
 `0..2147483647`, with an apostrophe, `h` or `H` for hardening; whitespace, signs and
 unmarked indices above this range reject. Replace raw high indices in paths with

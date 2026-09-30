@@ -132,6 +132,11 @@ used double SHA-256. An independent integer reference confirmed scalar addition 
 carry and reduction boundaries. Other failures covered invalid keys/metadata, depth
 wrapping, ambiguous paths, ignored Compliance policy and caller-buffer aliasing.
 
+A second builder audit added eight cases, seven of which failed before its fix:
+null sources silently selected random generation, null/blank paths selected the
+master key, and seed configuration took precedence over later mnemonic selection.
+Source selection now follows the last setter, and invalid configuration rejects.
+
 The corrected implementation computes HASH160 fingerprints, uses the portable
 secp256k1 core, enforces instance policy, validates imported and mutable key material,
 and rejects depth overflow and ambiguous path components. Owned temporary key/seed

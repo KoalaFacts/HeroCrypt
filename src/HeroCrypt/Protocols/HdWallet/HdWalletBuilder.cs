@@ -40,6 +40,7 @@ public sealed class HdWalletResult
 
 /// <summary>
 /// Fluent builder for BIP32/BIP39 HD wallet operations.
+/// The last seed or mnemonic source selected replaces the previous source.
 /// </summary>
 public sealed class HdWalletBuilder
 {
@@ -58,6 +59,7 @@ public sealed class HdWalletBuilder
     {
         this.wordCount = wordCount;
         mnemonic = null; // Will be generated during terminal operation
+        seed = null;
         return this;
     }
 
@@ -68,7 +70,9 @@ public sealed class HdWalletBuilder
     /// <returns>This builder for chaining.</returns>
     public HdWalletBuilder FromMnemonic(string mnemonic)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(mnemonic);
         this.mnemonic = mnemonic;
+        seed = null;
         return this;
     }
 
@@ -79,7 +83,9 @@ public sealed class HdWalletBuilder
     /// <returns>This builder for chaining.</returns>
     public HdWalletBuilder FromSeed(byte[] seed)
     {
+        ArgumentNullException.ThrowIfNull(seed);
         this.seed = seed;
+        mnemonic = null;
         return this;
     }
 
@@ -101,6 +107,7 @@ public sealed class HdWalletBuilder
     /// <returns>This builder for chaining.</returns>
     public HdWalletBuilder WithPath(string path)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
         derivationPath = path;
         return this;
     }

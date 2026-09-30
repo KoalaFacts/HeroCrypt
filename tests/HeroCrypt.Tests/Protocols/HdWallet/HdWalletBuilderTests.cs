@@ -10,6 +10,86 @@ namespace HeroCrypt.Tests.Protocols.HdWallet;
 /// </summary>
 public class HdWalletBuilderTests
 {
+    public class AuditRegressions
+    {
+        private const string Mnemonic = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
+
+        [Fact]
+        public void FromSeed_Null_CannotFallBackToRandomWallet()
+        {
+            Assert.Throws<ArgumentNullException>(() => new HdWalletBuilder().FromSeed(null!));
+        }
+
+        [Fact]
+        public void FromMnemonic_Null_CannotFallBackToRandomWallet()
+        {
+            Assert.Throws<ArgumentNullException>(() => new HdWalletBuilder().FromMnemonic(null!));
+        }
+
+        [Fact]
+        public void WithPath_Null_CannotFallBackToMasterKey()
+        {
+            Assert.Throws<ArgumentNullException>(() => new HdWalletBuilder().WithPath(null!));
+        }
+
+        [Theory]
+        [InlineData("")]
+        [InlineData(" ")]
+        public void WithPath_EmptyOrWhitespace_IsRejected(string path)
+        {
+            Assert.Throws<ArgumentException>(() => new HdWalletBuilder().WithPath(path));
+        }
+
+        [Fact]
+        public void FromMnemonic_AfterSeed_UsesTheLastSelectedSource()
+        {
+            var result = new HdWalletBuilder().FromSeed(new byte[16]).FromMnemonic(Mnemonic).Derive();
+            try
+            {
+                Assert.Equal(Mnemonic, result.Mnemonic);
+                Assert.Equal(64, result.Seed.Length);
+            }
+            finally
+            {
+                HeroCrypt.Security.SecureMemoryOperations.SecureClear(result.Seed);
+                result.Key.Clear();
+            }
+        }
+
+        [Fact]
+        public void GenerateMnemonic_AfterSeed_UsesTheLastSelectedSource()
+        {
+            var result = new HdWalletBuilder().FromSeed(new byte[16]).GenerateMnemonic(12).Derive();
+            try
+            {
+                Assert.NotNull(result.Mnemonic);
+                Assert.Equal(12, result.Mnemonic.Split(' ').Length);
+                Assert.Equal(64, result.Seed.Length);
+            }
+            finally
+            {
+                HeroCrypt.Security.SecureMemoryOperations.SecureClear(result.Seed);
+                result.Key.Clear();
+            }
+        }
+
+        [Fact]
+        public void FromSeed_AfterMnemonic_UsesTheLastSelectedSource()
+        {
+            var result = new HdWalletBuilder().FromMnemonic(Mnemonic).FromSeed(new byte[16]).Derive();
+            try
+            {
+                Assert.Null(result.Mnemonic);
+                Assert.Equal(new byte[16], result.Seed);
+            }
+            finally
+            {
+                HeroCrypt.Security.SecureMemoryOperations.SecureClear(result.Seed);
+                result.Key.Clear();
+            }
+        }
+    }
+
     /// <summary>
     /// Tests for mnemonic generation.
     /// </summary>

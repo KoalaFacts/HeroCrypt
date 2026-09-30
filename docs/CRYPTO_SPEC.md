@@ -375,9 +375,11 @@ Constructor inputs are copied. Result arrays remain mutable: protect them, avoid
 concurrent mutation, and clear `ExtendedKey` and builder result seeds when finished.
 `DerivePath(key, "m")` returns the same key object. Path derivation preserves the
 caller-owned root and clears owned intermediates on success or failure. The builder
-clears its unreturned master key and owned temporary seed on failure. This is buffer
-ownership hygiene, not a guarantee that managed runtimes or crypto dependencies erase
-every secret copy or execute in constant time. Compliance policy rejects BIP32's
+clears its unreturned master key and owned temporary seed on failure.
+The last builder source selection replaces the previous source;
+null seed/mnemonic inputs and blank configured paths reject instead of falling back.
+Buffer cleanup is ownership hygiene, not a guarantee that managed runtimes or crypto
+dependencies erase every secret copy or execute in constant time. Compliance policy rejects BIP32's
 secp256k1 construction; algorithm policy does not provide module certification.
 
 Fingerprints can collide and do not authenticate ancestry. A parent's extended public

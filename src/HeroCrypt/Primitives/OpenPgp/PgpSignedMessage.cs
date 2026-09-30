@@ -183,11 +183,25 @@ public readonly struct PgpSignedMessage
     /// <returns>True if the message was parsed successfully.</returns>
     public static bool TryRead(ReadOnlySpan<byte> data, out PgpSignedMessage message, out string error)
     {
+        try
+        {
+            return TryReadCore(data, out message, out error);
+        }
+        catch (InvalidDataException ex)
+        {
+            message = default;
+            error = ex.Message;
+            return false;
+        }
+    }
+
+    private static bool TryReadCore(ReadOnlySpan<byte> data, out PgpSignedMessage message, out string error)
+    {
         message = default;
         error = string.Empty;
 
         using var ms = new MemoryStream(data.ToArray());
-        var reader = new PgpPacketReader(ms);
+        using var reader = new PgpPacketReader(ms);
 
         PgpOnePassSignaturePacket? onePassSig = null;
         PgpLiteralDataPacket? literalData = null;
@@ -200,6 +214,11 @@ public readonly struct PgpSignedMessage
 #pragma warning restore IDE0010
             {
                 case PgpPacketTag.OnePassSignature:
+                    if (onePassSig.HasValue || literalData.HasValue || signature.HasValue)
+                    {
+                        error = "Unexpected or duplicate One-Pass Signature packet.";
+                        return false;
+                    }
                     if (!PgpOnePassSignaturePacket.TryRead(body.Span, out var ops, out var opsError))
                     {
                         error = $"Failed to parse One-Pass Signature: {opsError}";
@@ -209,6 +228,11 @@ public readonly struct PgpSignedMessage
                     break;
 
                 case PgpPacketTag.LiteralData:
+                    if (literalData.HasValue || signature.HasValue)
+                    {
+                        error = "Unexpected or duplicate Literal Data packet.";
+                        return false;
+                    }
                     if (!PgpLiteralDataPacket.TryRead(body.Span, out var lit, out var litError))
                     {
                         error = $"Failed to parse Literal Data: {litError}";
@@ -218,6 +242,11 @@ public readonly struct PgpSignedMessage
                     break;
 
                 case PgpPacketTag.Signature:
+                    if (!literalData.HasValue || signature.HasValue)
+                    {
+                        error = "Unexpected or duplicate Signature packet.";
+                        return false;
+                    }
                     if (!PgpSignaturePacket.TryRead(body.Span, out var sig, out var sigError))
                     {
                         error = $"Failed to parse Signature: {sigError}";
@@ -227,7 +256,20 @@ public readonly struct PgpSignedMessage
                     break;
 
                 default:
-                    // Ignore unknown packets
+                    // Unknown non-critical packets may appear anywhere. A known
+                    // or unknown critical packet outside this grammar is an error.
+                    if (tag == PgpPacketTag.Marker)
+                    {
+                        if (!PgpMarkerPacket.TryRead(body.Span, out _, out error))
+                        {
+                            return false;
+                        }
+                    }
+                    else if ((byte)tag < 40)
+                    {
+                        error = "Unexpected critical packet in a signed message.";
+                        return false;
+                    }
                     break;
             }
         }

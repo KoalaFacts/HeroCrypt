@@ -1107,27 +1107,27 @@ public class PgpSignaturePacketTests
         }
 
         [Fact]
-        public void GetExpectedSaltLength_SHA256_Returns32()
+        public void GetExpectedSaltLength_SHA256_Returns16()
         {
-            Assert.Equal(32, PgpSignaturePacket.GetExpectedSaltLength(8));
+            Assert.Equal(16, PgpSignaturePacket.GetExpectedSaltLength(8));
         }
 
         [Fact]
-        public void GetExpectedSaltLength_SHA512_Returns64()
+        public void GetExpectedSaltLength_SHA512_Returns32()
         {
-            Assert.Equal(64, PgpSignaturePacket.GetExpectedSaltLength(10));
+            Assert.Equal(32, PgpSignaturePacket.GetExpectedSaltLength(10));
         }
 
         [Fact]
-        public void GetExpectedSaltLength_SHA384_Returns48()
+        public void GetExpectedSaltLength_SHA384_Returns24()
         {
-            Assert.Equal(48, PgpSignaturePacket.GetExpectedSaltLength(9));
+            Assert.Equal(24, PgpSignaturePacket.GetExpectedSaltLength(9));
         }
 
         [Fact]
-        public void GetExpectedSaltLength_Unknown_Returns32()
+        public void GetExpectedSaltLength_Unknown_Throws()
         {
-            Assert.Equal(32, PgpSignaturePacket.GetExpectedSaltLength(255));
+            Assert.Throws<ArgumentException>(() => PgpSignaturePacket.GetExpectedSaltLength(255));
         }
 
         [Fact]

@@ -77,6 +77,31 @@ See [RFC 7748](https://www.rfc-editor.org/rfc/rfc7748),
 
 When using HeroCrypt, please follow these security best practices:
 
+### OpenPGP signature verification scope
+
+The verifier checks cryptographic signatures under explicitly supplied keys. A valid
+result reports the actual verification key's raw fingerprint and key ID; packet
+issuer hints are not trusted identity evidence. Applications must establish trust
+in that key independently. `WithPublicKeyRing` includes subkeys without establishing
+their binding, revocation status, permitted usage or current validity.
+
+Document verification accepts only binary/text document signature types. Key and
+certification signatures use their dedicated methods. Unsupported critical semantics,
+including critical notation and recipient-context constraints, are rejected. Only
+critical creation-time and issuer fields are understood here. Non-critical expiry,
+trust and application-context fields do not establish policy acceptance; callers must
+evaluate them separately. Literal filenames, dates and formats are unsigned metadata.
+
+The inline message API supports one signature and one literal-data packet, with an
+optional matching one-pass packet. Ambiguous/multiple-signature streams and unexpected
+critical packets are rejected rather than reduced to a selected signature.
+
+**OpenPGP interoperability is not established.** Independent auditing reproduced
+incorrect signature hash framing, tracked in [Issue #140](https://github.com/KoalaFacts/HeroCrypt/issues/140).
+V4/V6 self-roundtrips do not prove RFC 4880/9580 compatibility. Do not use these
+high-level OpenPGP signing/key-certification APIs for interoperable production
+messages or key rings until independent vectors and migration guidance are complete.
+
 ### 1. **Use Recommended Algorithms**
 - **Password Hashing**: Use Argon2id (default) for password hashing
 - **Encryption**: Use ChaCha20-Poly1305 or AES-GCM for AEAD

@@ -8,6 +8,8 @@ public readonly struct PgpSignatureResult
     /// <summary>
     /// Gets whether the signature is valid.
     /// </summary>
+    /// <remarks>Verifier success establishes cryptographic validity under a supplied key,
+    /// not identity trust, expiration, revocation or application policy acceptance.</remarks>
     public bool IsValid { get; }
 
     /// <summary>
@@ -21,12 +23,13 @@ public readonly struct PgpSignatureResult
     public DateTimeOffset? SignatureTime { get; }
 
     /// <summary>
-    /// Gets the signer's key ID (8 bytes).
+    /// Gets the actual verification key's ID (8 bytes) for verifier-produced results.
     /// </summary>
     public byte[]? SignerKeyId { get; }
 
     /// <summary>
-    /// Gets the signer's fingerprint (if available).
+    /// Gets the actual verification key's raw fingerprint, without a version prefix,
+    /// for verifier-produced results.
     /// </summary>
     public byte[]? SignerFingerprint { get; }
 

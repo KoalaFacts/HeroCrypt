@@ -23,7 +23,7 @@ namespace HeroCrypt.Primitives.OpenPgp;
 /// <b>Default behavior:</b>
 /// <list type="bullet">
 ///   <item>Hash algorithm: SHA-256</item>
-///   <item>Signature version: V4</item>
+///   <item>Signature version: follows the signing key (V4 or V6)</item>
 ///   <item>Signature type: BinaryDocument (0x00)</item>
 /// </list>
 /// </para>
@@ -77,7 +77,13 @@ public sealed class PgpSignatureSigner : IDisposable
             throw new ArgumentException($"Key algorithm {algo} does not support signing.", nameof(key));
         }
 
+        if (useVersion6 && key.PublicKey.Version != 6)
+        {
+            throw new ArgumentException("Version 6 signatures require a version 6 signing key.", nameof(key));
+        }
+
         secretKey = key;
+        useVersion6 = key.PublicKey.Version == 6;
         return this;
     }
 
@@ -118,6 +124,12 @@ public sealed class PgpSignatureSigner : IDisposable
     public PgpSignatureSigner WithHashAlgorithm(PgpHashAlgorithmId algorithm)
     {
         ThrowIfDisposed();
+        if (algorithm != PgpHashAlgorithmId.Sha256 && algorithm != PgpHashAlgorithmId.Sha384 &&
+            algorithm != PgpHashAlgorithmId.Sha512 && algorithm != PgpHashAlgorithmId.Sha3_256 &&
+            algorithm != PgpHashAlgorithmId.Sha3_512)
+        {
+            throw new ArgumentException("Signature hash algorithm is unsupported or weak.", nameof(algorithm));
+        }
         hashAlgorithm = algorithm;
         return this;
     }
@@ -150,6 +162,10 @@ public sealed class PgpSignatureSigner : IDisposable
     public PgpSignatureSigner WithSignatureType(PgpSignatureType type)
     {
         ThrowIfDisposed();
+        if (type != PgpSignatureType.BinaryDocument && type != PgpSignatureType.CanonicalTextDocument)
+        {
+            throw new ArgumentException("Document signing requires a document signature type.", nameof(type));
+        }
         signatureType = type;
         return this;
     }
@@ -161,6 +177,10 @@ public sealed class PgpSignatureSigner : IDisposable
     public PgpSignatureSigner WithVersion6()
     {
         ThrowIfDisposed();
+        if (secretKey.HasValue && secretKey.Value.PublicKey.Version != 6)
+        {
+            throw new InvalidOperationException("Version 6 signatures require a version 6 signing key.");
+        }
         useVersion6 = true;
         return this;
     }
@@ -189,7 +209,7 @@ public sealed class PgpSignatureSigner : IDisposable
                 signatureType,
                 (byte)hashAlgorithm,
                 (byte)secretKey.Value.Algorithm,
-                GenerateSalt(hashAlgorithm),
+                signature.Salt,
                 secretKey.Value.ComputeFingerprint(),
                 isNested: true)
             : PgpOnePassSignaturePacket.CreateV3(

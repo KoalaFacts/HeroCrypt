@@ -181,6 +181,78 @@ public class SecurityHardeningTests
         }
 
         [Theory]
+        [InlineData(0u, 0u, 1u)]
+        [InlineData(uint.MaxValue, uint.MaxValue, 1u)]
+        [InlineData(0u, 0x80000001u, 0u)]
+        [InlineData(0x80000001u, 0u, 0u)]
+        [InlineData(0u, uint.MaxValue, 0u)]
+        [InlineData(0u, 0x80000000u, 0u)]
+        [InlineData(0x7fffffffu, 0x80000000u, 0u)]
+        public void ConstantTimeEquals_UInt_ReturnsCorrectResult(uint a, uint b, uint expected)
+        {
+            Assert.Equal(expected, ConstantTimeOperations.ConstantTimeEquals(a, b));
+        }
+
+        [Theory]
+        [InlineData(100u, 1u, 0u)]
+        [InlineData(uint.MaxValue, 1u, 0u)]
+        [InlineData(uint.MaxValue, 2u, 1u)]
+        [InlineData(uint.MaxValue, 3u, 0u)]
+        [InlineData(uint.MaxValue, uint.MaxValue, 0u)]
+        [InlineData(uint.MaxValue, 0x80000000u, 0x7fffffffu)]
+        [InlineData(0u, uint.MaxValue, 0u)]
+        [InlineData(0x80000000u, uint.MaxValue, 0x80000000u)]
+        public void ConstantTimeModulo_UInt_ReturnsCorrectResult(uint value, uint modulus, uint expected)
+        {
+            Assert.Equal(expected, ConstantTimeOperations.ConstantTimeModulo(value, modulus));
+        }
+
+        [Fact]
+        public void ConstantTimeModulo_ZeroModulus_Throws()
+        {
+            Assert.Throws<ArgumentException>(() => ConstantTimeOperations.ConstantTimeModulo(100, 0));
+        }
+
+        [Fact]
+        public void UIntArithmetic_BoundariesAndDeterministicInputs_MatchReferenceOperations()
+        {
+            uint[] boundaries = [0, 1, 2, 3, 31, 32, 33, 0x7ffffffe, 0x7fffffff,
+                0x80000000, 0x80000001, 0xfffffffe, uint.MaxValue];
+            foreach (var a in boundaries)
+            {
+                foreach (var b in boundaries)
+                {
+                    VerifyPair(a, b);
+                }
+            }
+
+            for (var bit = 0; bit < 32; bit++)
+            {
+                VerifyPair(0, 1u << bit);
+                VerifyPair(uint.MaxValue, ~(1u << bit));
+            }
+
+            var random = new Random(12345);
+            for (var i = 0; i < 2048; i++)
+            {
+                var a = (uint)random.NextInt64(1L << 32);
+                var b = (uint)random.NextInt64(1L << 32);
+                VerifyPair(a, b);
+                VerifyPair(a, a);
+            }
+
+            static void VerifyPair(uint a, uint b)
+            {
+                Assert.Equal(a == b ? 1u : 0u, ConstantTimeOperations.ConstantTimeEquals(a, b));
+                Assert.Equal(a < b ? 1u : 0u, ConstantTimeOperations.ConstantTimeLessThan(a, b));
+                if (b != 0)
+                {
+                    Assert.Equal(a % b, ConstantTimeOperations.ConstantTimeModulo(a, b));
+                }
+            }
+        }
+
+        [Theory]
         [InlineData(100u, 200u, 1u)]
         [InlineData(200u, 100u, 0u)]
         [InlineData(100u, 100u, 0u)]

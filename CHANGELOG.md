@@ -47,6 +47,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Documentation
+- Correct ring signature and zk-SNARK availability claims: their insecure prototypes
+  were removed before the first release. Record the historical forgery reproductions
+  and inspection of all 24 library assemblies in the six public NuGet versions.
+- Mark threshold signature operations as disabled in readiness and onboarding guides.
+
 ### Added
 - Text encoding convenience methods on operation builders (EncryptionBuilder, DecryptionBuilder, HashBuilder, SignatureBuilder, VerificationBuilder, KeyDerivationBuilder)
   - Hex encoding: `*AsHex`, `*ToHex()`, `Get*AsHex()`, `With*FromHex()`
@@ -61,12 +67,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Comprehensive test suite with 45+ tests including integration and real-world examples
   - Security hardening: PEM validation, secure memory operations, disposal safety
   - Platform support: Windows CNG with PQC or OpenSSL 3.5+
-- Zero-Knowledge & Advanced Protocols (Phase 3F) - Reference implementations
-  - zk-SNARKs (Groth16-style) with trusted setup, proof generation, and verification
-  - Ring Signatures with basic, linkable, and traceable variants
-  - Threshold Signatures supporting Schnorr, ECDSA, EdDSA, and BLS schemes
+- Advanced Protocols (Phase 3F) - Reference implementations
   - Multi-Party Computation with secure sum, multiplication, and private set intersection
-  - Comprehensive test suite with 35+ test cases for advanced protocols
 - Post-Quantum Cryptography (Phase 3E) - Reference implementations
   - CRYSTALS-Kyber (ML-KEM, FIPS 203) key encapsulation mechanism
   - CRYSTALS-Dilithium (ML-DSA, FIPS 204) digital signatures

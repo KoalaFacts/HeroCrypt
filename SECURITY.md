@@ -101,8 +101,9 @@ The following components are **simplified reference implementations** for educat
   - ⚠️ **DO NOT use in production** without complete implementation
 
 - **Zero-Knowledge & Advanced Protocols** (Phase 3F)
-  - zk-SNARKs, Ring Signatures, Threshold Signatures, MPC
-  - ⚠️ **Educational purposes only** - requires full cryptographic implementation
+  - Ring signatures and zk-SNARKs are **not implemented**. Their insecure prototypes were removed before the first release; do not restore them as working cryptography.
+  - Threshold signature operations are **disabled** in 1.0.1 and throw `NotSupportedException`; see [GHSA-7498-jx43-v926](https://github.com/KoalaFacts/HeroCrypt/security/advisories/GHSA-7498-jx43-v926).
+  - MPC remains an educational implementation requiring a separate security review.
 
 Production use of these features requires:
 - Complete mathematical implementations
@@ -119,6 +120,32 @@ Production use of these features requires:
 - **BIP39 Mnemonics**: Using simplified wordlist (production needs full BIP39 wordlist)
 
 ## 🔍 Security Audits
+
+### Ring signature and zk-SNARK verification audit - 2026-09-30
+
+**Current scope:** Ring signatures and Groth16 zk-SNARKs have no implementation,
+builder entry point, or verification path in the current source. They were removed
+by commit [f029b3c](https://github.com/KoalaFacts/HeroCrypt/commit/f029b3cc3813e55ca9c31961b20b9371db87a3f3)
+on 2025-10-28, before the first release tag.
+
+The original source immediately before removal was compiled and exercised:
+
+| Historical path | Reproduced failure | Cause |
+|-----------------|--------------------|-------|
+| `RingSignature.Verify` (basic, linkable, traceable) | Accepted a signature constructed from public data with one-byte zero responses and no private key | Challenge was a public SHA-256 digest; the ring equation only checked nonempty components, and the key image only checked length |
+| `Groth16ZkSnark.VerifyProof` (BN254, BLS12-381, BLS12-377) | Accepted all-zero proof components; changing public inputs or using the wrong input count still succeeded | The mock pairing check only checked nonempty arrays; the input contribution ignored public inputs |
+
+**Published-package check:** All 24 library assemblies in the six versions
+currently available from the public NuGet index (0.1.0, 0.1.2, 0.2.0, 0.3.0,
+1.0.0, and 1.0.1) were downloaded and their type-definition metadata inspected.
+None contained `RingSignature`, `Groth16ZkSnark`, or a `ZeroKnowledge` namespace.
+The source trees of all release tags, including v0.1.1, also exclude these implementations.
+
+**Action:** Correct the stale feature and readiness claims. These historical
+failures are not an exposed verification path in the inspected NuGet versions.
+Any future implementation needs real cryptographic verification and tests that
+reject forged signatures, invalid proofs, and altered public statements.
+This review does not establish the security of other protocols or primitives.
 
 ### Completed Audits
 

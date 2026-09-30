@@ -62,8 +62,9 @@ HeroCrypt v1.0.0 provides a comprehensive cryptographic library with:
 - [ ] Messaging protocols
   - [ ] Matrix protocol support
   - [ ] MLS (Messaging Layer Security)
-- [ ] Zero-knowledge improvements
+- [ ] Zero-knowledge implementations (historical prototypes were removed)
   - [ ] Production-grade zk-SNARKs
+  - [ ] Reviewed ring signature implementation
   - [ ] Bulletproofs
   - [ ] zk-STARKs exploration
 - [ ] Secure computation

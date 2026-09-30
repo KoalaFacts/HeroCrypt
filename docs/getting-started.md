@@ -142,8 +142,12 @@ Not all features in HeroCrypt are production-ready. Always refer to [PRODUCTION_
 
 **Educational/Reference Only:**
 - 📚 Post-quantum cryptography
-- 📚 Zero-knowledge proofs
 - 📚 Advanced protocols
+
+**Unavailable:** Ring signatures and zk-SNARKs are not implemented. Their insecure
+prototypes were removed before the first release. Threshold signature operations
+throw `NotSupportedException` in 1.0.1. See the
+[verification audit](../SECURITY.md#ring-signature-and-zk-snark-verification-audit---2026-09-30).
 
 ### Memory Management
 

@@ -10,6 +10,8 @@ This document provides a clear overview of which HeroCrypt features are producti
 | **Beta** | Functional and tested, but API may change |
 | **Educational** | Reference implementations for learning, not for production |
 | **Abstraction** | Requires external dependencies (hardware/cloud) |
+| **Not implemented** | No implementation or public API is shipped |
+| **Disabled** | API remains, but operations throw `NotSupportedException` |
 
 ## Production-Ready Features
 
@@ -95,24 +97,31 @@ These features are functional but may have API changes in future versions.
 
 **Note:** These use native .NET BCL implementations and are production-quality, but are marked Beta due to the relatively new FIPS standards.
 
-## Educational / Reference Implementations
+## Unavailable and Reference Protocols
 
-These implementations demonstrate cryptographic concepts and API design patterns. They are **NOT suitable for production use** without extensive review and hardening.
+Features marked educational demonstrate cryptographic concepts and API design patterns.
+They are **NOT suitable for production use** without extensive review and hardening.
+Features marked not implemented or disabled cannot be used for cryptographic operations.
 
 ### Zero-Knowledge Proofs
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| zk-SNARKs (Groth16) | Educational | Demonstrates ZKP concepts |
+| zk-SNARKs (Groth16) | Not implemented | Insecure prototype removed before the first release |
 | Commitment Schemes | Educational | Pedersen, hash-based |
 
 ### Advanced Signature Schemes
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| Ring Signatures | Educational | Anonymous group signing |
-| Threshold Signatures | Educational | Distributed signing |
+| Ring Signatures | Not implemented | Insecure prototype removed before the first release |
+| Threshold Signatures | Disabled | All core operations throw `NotSupportedException` since 1.0.1 |
 | Blind Signatures | Educational | Unlinkable signatures |
+
+Ring signatures and zk-SNARKs have no verification path in the current library.
+The historical prototypes did not authenticate signatures or validate proof statements.
+See the [verification audit](SECURITY.md#ring-signature-and-zk-snark-verification-audit---2026-09-30)
+for the findings and published-package scope.
 
 ### Multi-Party Computation
 

@@ -14,24 +14,24 @@ namespace HeroCrypt.Protocols.SecretSharing;
 /// Uses finite field arithmetic over GF(256) for byte-level operations
 ///
 /// Key features:
-/// - Perfect secrecy: K-1 shares reveal no information about the secret
-/// - Information-theoretically secure
-/// - Arbitrary threshold and share count
-/// - Constant-time operations where applicable
+/// - Perfect secrecy of secret bytes in the trusted-dealer model; length is visible
+/// - Information-theoretic confidentiality with fewer than K shares
+/// - Threshold and share count between 2 and 255
+/// Requires a trusted dealer and uniformly random coefficients. Shares do not carry
+/// their original threshold, authenticated origin, or sharing-session identity.
+/// This is not verifiable secret sharing or an authenticated MPC protocol.
+/// No managed-runtime constant-time guarantee is made.
 /// </summary>
 public sealed class ShamirSecretSharing
 {
-#pragma warning disable IDE0052 // Remove unread private member - policy reserved for future security validation
-    private readonly SecurityPolicyOptions policy;
-#pragma warning restore IDE0052
-
     /// <summary>
     /// Initializes a new instance of the ShamirSecretSharing class.
     /// </summary>
-    /// <param name="policy">Optional security policy. If null, uses SecurityPolicy.CurrentPolicy.</param>
+    /// <param name="policy">Reserved policy parameter; does not authenticate shares,
+    /// enforce algorithm restrictions, or provide compliance certification.</param>
     public ShamirSecretSharing(SecurityPolicyOptions? policy = null)
     {
-        this.policy = policy ?? SecurityPolicy.CurrentPolicy;
+        _ = policy;
     }
     private const int MaxShares = 255;
     private const int MinThreshold = 2;
@@ -72,6 +72,11 @@ public sealed class ShamirSecretSharing
         /// </summary>
         public Share Clone()
         {
+            if (Index == 0 || Data == null)
+            {
+                throw new InvalidOperationException("Cannot clone an uninitialized share");
+            }
+
             var dataCopy = new byte[Data.Length];
             Array.Copy(Data, dataCopy, Data.Length);
             return new Share(Index, dataCopy);
@@ -133,29 +138,52 @@ public sealed class ShamirSecretSharing
     /// <summary>
     /// Reconstructs a secret from shares using Lagrange interpolation
     /// </summary>
-    /// <param name="shares">Shares to use for reconstruction (minimum threshold required)</param>
+    /// <remarks>Requires at least two shares. The original split threshold cannot be
+    /// inferred from raw shares; use the explicit threshold overload to enforce a
+    /// trusted caller-supplied minimum. Neither overload authenticates shares.</remarks>
+    /// <param name="shares">Shares to use for reconstruction</param>
     /// <returns>Reconstructed secret</returns>
-    public byte[] Reconstruct(ReadOnlySpan<Share> shares)
+    public byte[] Reconstruct(ReadOnlySpan<Share> shares) => Reconstruct(shares, MinThreshold);
+
+    /// <summary>
+    /// Reconstructs a secret after enforcing a trusted caller-supplied threshold.
+    /// </summary>
+    /// <remarks>The threshold is a count requirement, not proof that shares belong
+    /// to one sharing session or that their values are authentic.</remarks>
+    /// <param name="shares">Shares to use for reconstruction</param>
+    /// <param name="threshold">Required minimum share count, between 2 and 255</param>
+    /// <returns>Reconstructed secret</returns>
+    public byte[] Reconstruct(ReadOnlySpan<Share> shares, int threshold)
     {
-        if (shares.Length < MinThreshold)
+        if (threshold < MinThreshold || threshold > MaxShares)
         {
-            throw new ArgumentException($"At least {MinThreshold} shares required", nameof(shares));
+            throw new ArgumentException($"Threshold must be between {MinThreshold} and {MaxShares}", nameof(threshold));
         }
 
-        // Validate all shares have same length
-        var secretLength = shares[0].Data.Length;
-        for (var i = 1; i < shares.Length; i++)
+        if (shares.Length < threshold || shares.Length > MaxShares)
         {
-            if (shares[i].Data.Length != secretLength)
-            {
-                throw new ArgumentException("All shares must have the same length", nameof(shares));
-            }
+            throw new ArgumentException($"Between {threshold} and {MaxShares} shares required", nameof(shares));
         }
 
-        // Check for duplicate share indices
+        // Validate every point before dereferencing data or interpolating.
+        var secretLength = 0;
         var indices = new HashSet<byte>();
         foreach (var share in shares)
         {
+            if (share.Index == 0 || share.Data == null || share.Data.Length == 0)
+            {
+                throw new ArgumentException("Shares must be initialized and contain nonempty data", nameof(shares));
+            }
+
+            if (secretLength == 0)
+            {
+                secretLength = share.Data.Length;
+            }
+            else if (share.Data.Length != secretLength)
+            {
+                throw new ArgumentException("All shares must have the same length", nameof(shares));
+            }
+
             if (!indices.Add(share.Index))
             {
                 throw new ArgumentException($"Duplicate share index: {share.Index}", nameof(shares));
@@ -253,34 +281,21 @@ public sealed class ShamirSecretSharing
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static byte GF256Multiply(byte a, byte b)
     {
-        byte result = 0;
-        byte temp = a;
+        uint result = 0;
+        uint temp = a;
+        uint multiplier = b;
 
         for (var i = 0; i < 8; i++)
         {
-            // If bit i of b is set, add temp to result
-            if ((b & 1) != 0)
-            {
-                result ^= temp;
-            }
-
-            // Check if high bit of temp is set
-            var highBitSet = (temp & 0x80) != 0;
-
-            // Shift temp left
-            temp <<= 1;
-
-            // If high bit was set, XOR with reduction polynomial
-            if (highBitSet)
-            {
-                temp ^= 0x1B; // Reduction polynomial for AES field
-            }
-
-            // Shift b right
-            b >>= 1;
+            // Mask selection avoids branches on secret field elements in source.
+            // Explicit wrapping subtraction also works in checked builds.
+            result ^= temp & unchecked(0u - (multiplier & 1u));
+            var reduction = unchecked(0u - (temp >> 7)) & 0x1Bu;
+            temp = ((temp << 1) & 0xFFu) ^ reduction;
+            multiplier >>= 1;
         }
 
-        return result;
+        return (byte)result;
     }
 
     /// <summary>
@@ -341,23 +356,43 @@ public sealed class ShamirSecretSharing
     }
 
     /// <summary>
-    /// Verifies that a set of shares can reconstruct the secret
+    /// Compares a reconstructed value with an expected secret using at least two shares.
     /// </summary>
     /// <param name="shares">Shares to verify</param>
-    /// <param name="expectedSecret">Expected secret (for testing)</param>
-    /// <returns>True if shares correctly reconstruct the secret</returns>
-    public bool Verify(ReadOnlySpan<Share> shares, ReadOnlySpan<byte> expectedSecret)
+    /// <remarks>Does not authenticate shares or infer their original threshold.
+    /// Use the explicit threshold overload to enforce a trusted minimum count.</remarks>
+    /// <param name="expectedSecret">Expected secret</param>
+    /// <returns>True if the reconstructed value matches; false for invalid shares</returns>
+    public bool Verify(ReadOnlySpan<Share> shares, ReadOnlySpan<byte> expectedSecret) =>
+        Verify(shares, expectedSecret, MinThreshold);
+
+    /// <summary>
+    /// Enforces a trusted minimum share count and compares the reconstructed value.
+    /// </summary>
+    /// <remarks>A matching value is not proof of share provenance, dealer honesty,
+    /// participant honesty, or membership in a single sharing session.</remarks>
+    /// <param name="shares">Shares to compare</param>
+    /// <param name="expectedSecret">Expected secret</param>
+    /// <param name="threshold">Required minimum share count, between 2 and 255</param>
+    /// <returns>True if the value matches; false for invalid shares or threshold</returns>
+    public bool Verify(ReadOnlySpan<Share> shares, ReadOnlySpan<byte> expectedSecret, int threshold)
     {
+        byte[]? reconstructed = null;
         try
         {
-            var reconstructed = Reconstruct(shares);
-            var result = SecureMemoryOperations.ConstantTimeEquals(reconstructed.AsSpan(), expectedSecret);
-            SecureMemoryOperations.SecureClear(reconstructed);
-            return result;
+            reconstructed = Reconstruct(shares, threshold);
+            return SecureMemoryOperations.ConstantTimeEquals(reconstructed.AsSpan(), expectedSecret);
         }
         catch (ArgumentException)
         {
             return false;
+        }
+        finally
+        {
+            if (reconstructed != null)
+            {
+                SecureMemoryOperations.SecureClear(reconstructed);
+            }
         }
     }
 }

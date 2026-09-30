@@ -146,16 +146,20 @@ Demonstrates Shamir's Secret Sharing for distributed key backup:
 ```csharp
 // Split a secret into 5 shares, requiring 3 to reconstruct
 var shares = HeroCryptBuilder.SecretSharing()
-    .WithShamirScheme()
     .WithThreshold(3)
-    .WithTotalShares(5)
+    .WithShareCount(5)
     .Split(secretKey);
 
 // Reconstruct with any 3 shares
 var reconstructed = HeroCryptBuilder.SecretSharing()
-    .WithShamirScheme()
-    .Combine(threeShares);
+    .WithThreshold(3)
+    .Reconstruct(threeShares);
 ```
+
+Keep the original threshold in trusted application metadata and set it for reconstruction.
+Shares contain only an index and bytes. Use a trusted dealer and authenticate share origin
+and sharing-session identity separately; `Verify` compares a reconstructed value and does
+not authenticate shares. Protect each share as sensitive data.
 
 **Use cases:**
 - Key escrow and backup

@@ -116,10 +116,42 @@ Production use of these features requires:
 
 - **RC4**: Removed; known vulnerabilities make it unsafe
 - **AES-OCB**: Patent restrictions may apply for commercial use
-- **Shamir's Secret Sharing**: Implemented over GF(256), ensure sufficient threshold
+- **Shamir's Secret Sharing**: GF(256) confidentiality with a trusted dealer; enforce the
+  original threshold and authenticate shares and sharing-session metadata separately.
 - **BIP39 Mnemonics**: Using simplified wordlist (production needs full BIP39 wordlist)
 
 ## 🔍 Security Audits
+
+### Shamir share boundary audit - 2026-09-30
+
+On the audited baseline, 14 of 21 new regression cases failed: uninitialized shares
+caused null dereferences, empty shares could verify an empty secret, and builder
+reconstruction and verification ignored the configured threshold. The seven passing
+cases checked all 65,536 GF(256) multiplication pairs against independent polynomial
+reduction, published FIPS 197 vectors, reordered/high indices, the maximum threshold,
+and the absence of share provenance authentication under all security policy levels.
+
+The corrected implementation validates shares before interpolation and the builder
+enforces its configured threshold (default 2). The core overloads accepting `threshold`
+enforce a trusted caller-supplied minimum. Raw shares do not encode their original
+threshold; the overloads without `threshold` only require two shares and cannot detect
+an undersized subset from a higher-threshold split.
+
+Shamir is a trusted-dealer confidentiality primitive, not verifiable secret sharing.
+`Verify` compares the reconstructed value with an expected secret; a match does not
+authenticate participants, provenance, or membership in one sharing session. Tampered
+or mixed shares can produce arbitrary values, including the expected value. Applications
+must authenticate shares and bind the threshold, indices and session identity in trusted
+metadata outside this API. `SecurityPolicyOptions` is reserved here and does not add
+authentication, enforce algorithm restrictions, or provide compliance certification.
+
+GF multiplication now uses fixed-round mask operations without secret-dependent source
+branches. Arithmetic regressions do not establish constant-time behavior of the JIT or
+runtime, and this API makes no such guarantee. Uniform coefficient sampling includes
+zero: coincident share values are valid, and rejecting them would change the distribution.
+
+See [Issue #127](https://github.com/KoalaFacts/HeroCrypt/issues/127) and the
+[Shamir specification](docs/CRYPTO_SPEC.md#83-shamirs-secret-sharing) for scope and usage.
 
 ### MPC protocol boundary audit - 2026-09-30
 

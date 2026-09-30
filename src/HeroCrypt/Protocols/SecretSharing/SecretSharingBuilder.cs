@@ -4,6 +4,8 @@ namespace HeroCrypt.Protocols.SecretSharing;
 
 /// <summary>
 /// Fluent builder for Shamir's Secret Sharing operations.
+/// Reconstruction and verification enforce the configured threshold (default 2).
+/// Shares and the threshold must come from a trusted source; no share authentication is provided.
 /// </summary>
 public sealed class SecretSharingBuilder
 {
@@ -14,7 +16,7 @@ public sealed class SecretSharingBuilder
     /// <summary>
     /// Sets the threshold (minimum shares needed to reconstruct).
     /// </summary>
-    /// <param name="threshold">The threshold value (minimum 2).</param>
+    /// <param name="threshold">The trusted threshold value (between 2 and 255).</param>
     /// <returns>This builder for chaining.</returns>
     public SecretSharingBuilder WithThreshold(int threshold)
     {
@@ -78,7 +80,7 @@ public sealed class SecretSharingBuilder
         }
 
         var shamir = new ShamirSecretSharing();
-        return shamir.Reconstruct(shares);
+        return shamir.Reconstruct(shares, threshold);
     }
 
     /// <summary>
@@ -89,11 +91,12 @@ public sealed class SecretSharingBuilder
     public byte[] Reconstruct(ShamirSecretSharing.Share[] shares)
     {
         var shamir = new ShamirSecretSharing();
-        return shamir.Reconstruct(shares);
+        return shamir.Reconstruct(shares, threshold);
     }
 
     /// <summary>
-    /// Verifies that the provided shares can reconstruct the expected secret.
+    /// Enforces the configured threshold and compares the reconstructed value.
+    /// A match does not authenticate shares or their sharing session.
     /// </summary>
     /// <param name="expectedSecret">The expected secret.</param>
     /// <returns>True if verification succeeds.</returns>
@@ -105,7 +108,7 @@ public sealed class SecretSharingBuilder
         }
 
         var shamir = new ShamirSecretSharing();
-        return shamir.Verify(shares, expectedSecret);
+        return shamir.Verify(shares, expectedSecret, threshold);
     }
 }
 

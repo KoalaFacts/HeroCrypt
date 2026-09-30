@@ -373,8 +373,36 @@ byte[] mac = Blake2bCore.ComputeHash(data, outputLength: 32, key: secretKey);
 | Property | Value |
 |----------|-------|
 | Field | GF(256) |
-| Threshold | Configurable (k of n) |
-| Status | **Production Ready** |
+| Threshold | 2 <= k <= n <= 255; caller supplies the trusted reconstruction threshold |
+| Security model | Trusted dealer; confidentiality only, no share authentication or VSS |
+| Status | **Scoped confidentiality primitive** |
+
+```csharp
+var shamir = new ShamirSecretSharing();
+var shares = shamir.Split(secret, threshold: 3, shareCount: 5);
+var recovered = shamir.Reconstruct(shares.AsSpan(0, 3), threshold: 3);
+var matches = shamir.Verify(shares.AsSpan(0, 3), secret, threshold: 3);
+```
+
+Store the original threshold in trusted application metadata. Shares contain only
+`Index` and `Data`; the overloads without an explicit threshold require two shares
+and cannot infer the threshold used at splitting. The builder enforces `WithThreshold`
+for splitting, reconstruction and verification, with a default of 2.
+
+`Verify` is an expected-value comparison, not proof of share origin, session membership,
+dealer honesty or participant honesty. Authenticate each share and bind its index,
+threshold and sharing-session identity outside this API. `SecurityPolicyOptions` does
+not introduce authentication, algorithm restrictions or compliance certification here.
+No managed-runtime constant-time guarantee is made.
+
+The confidentiality model requires independent uniform coefficients over the whole
+field, including zero; equal share payloads can legitimately occur. Fewer than k
+shares reveal no information about secret bytes in that model, but secret length is
+visible and guessing the original value can still succeed by chance. This is a
+mathematical model, not a claim that passing a roundtrip test proves secrecy.
+See [Shamir's original paper record](https://dspace.mit.edu/entities/publication/91c51bfc-5678-409c-80c5-44ce8fcdbadf)
+and [NIST FIPS 197, section 4.2](https://csrc.nist.gov/files/pubs/fips/197/final/docs/fips-197.pdf)
+for the secret-sharing construction and GF(256) arithmetic respectively.
 
 ---
 

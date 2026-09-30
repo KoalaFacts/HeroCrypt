@@ -147,9 +147,9 @@ public sealed class PgpKeyValidator : IDisposable
     /// <remarks>
     /// <para>
     /// When enabled, revoked keys will result in a warning (not an error).
-    /// This checks for the presence of a key revocation signature but does
-    /// not verify the revocation signature cryptographically unless
-    /// <see cref="VerifySelfSignatures"/> is also enabled.
+    /// Revocations are verified cryptographically under the primary key.
+    /// Invalid or unsupported revocation evidence produces an error rather
+    /// than authenticated revocation status. Designated revokers are not supported.
     /// </para>
     /// </remarks>
     public PgpKeyValidator CheckRevocation()
@@ -369,10 +369,10 @@ public sealed class PgpKeyValidator : IDisposable
                 }
             }
 
-            if (!hasValidBinding && bindings.Count > 0)
+            if (!hasValidBinding)
             {
                 issues.Add(PgpKeyValidationIssue.Error(
-                    PgpValidationCode.InvalidSubkeyBinding,
+                    bindings.Count == 0 ? PgpValidationCode.MissingSubkeyBinding : PgpValidationCode.InvalidSubkeyBinding,
                     $"Subkey {Convert.ToHexString(subkeyId)} has no valid binding signature."));
             }
         }
@@ -391,29 +391,65 @@ public sealed class PgpKeyValidator : IDisposable
 
     private static void ValidateRevocation(PgpPublicKeyRing keyRing, List<PgpKeyValidationIssue> issues)
     {
-        if (keyRing.IsRevoked)
+        using var verifier = PgpSignatureVerifier.Create();
+        bool keyRevoked = false;
+        foreach (var revocation in keyRing.Signatures.Where(s => s.SignatureType == PgpSignatureType.KeyRevocation))
         {
-            var reason = keyRing.GetRevocationReason();
-            var reasonText = reason.HasValue
-                ? $"{reason.Value.Reason.GetDescription()}: {reason.Value.ReasonText ?? "No reason given"}"
-                : "Key has been revoked";
+            if (!verifier.VerifyKeyRevocation(revocation, keyRing.MasterKey).IsValid)
+            {
+                issues.Add(PgpKeyValidationIssue.Error(
+                    PgpValidationCode.InvalidRevocationSignature,
+                    "Key revocation could not be authenticated under the primary key."));
+                continue;
+            }
+
+            if (keyRevoked)
+            {
+                continue;
+            }
+
+            keyRevoked = true;
+            var reasonSubpacket = revocation.HashedSubpackets
+                .FirstOrDefault(s => s.Type == PgpSignatureSubpacketType.ReasonForRevocation);
+            var reasonText = "Key has been revoked";
+            if (reasonSubpacket.Type == PgpSignatureSubpacketType.ReasonForRevocation && reasonSubpacket.Data.Length >= 1)
+            {
+                var reason = reasonSubpacket.GetRevocationReason();
+                reasonText = $"{reason.Reason.GetDescription()}: {reason.ReasonText ?? "No reason given"}";
+            }
             issues.Add(PgpKeyValidationIssue.Warning(
                 PgpValidationCode.KeyRevoked,
                 reasonText));
         }
 
-        // Check for revoked subkeys
-        foreach (var subkey in keyRing.Subkeys)
+        // A revocation must authenticate the exact primary-key/subkey pair.
+        var revokedSubkeys = new bool[keyRing.Subkeys.Count];
+        foreach (var revocation in keyRing.Signatures.Where(s => s.SignatureType == PgpSignatureType.SubkeyRevocation))
         {
-            var subkeyId = subkey.GetKeyId();
-            bool isRevoked = keyRing.Signatures.Any(s =>
-                s.SignatureType == PgpSignatureType.SubkeyRevocation);
-
-            if (isRevoked)
+            bool matchedSubkey = false;
+            for (int i = 0; i < keyRing.Subkeys.Count; i++)
             {
-                issues.Add(PgpKeyValidationIssue.Warning(
-                    PgpValidationCode.SubkeyRevoked,
-                    $"Subkey {Convert.ToHexString(subkeyId)} has been revoked."));
+                var subkey = keyRing.Subkeys[i];
+                if (!verifier.VerifySubkeyRevocation(revocation, keyRing.MasterKey, subkey).IsValid)
+                {
+                    continue;
+                }
+
+                matchedSubkey = true;
+                if (!revokedSubkeys[i])
+                {
+                    revokedSubkeys[i] = true;
+                    issues.Add(PgpKeyValidationIssue.Warning(
+                        PgpValidationCode.SubkeyRevoked,
+                        $"Subkey {Convert.ToHexString(subkey.GetKeyId())} has been revoked."));
+                }
+            }
+
+            if (!matchedSubkey)
+            {
+                issues.Add(PgpKeyValidationIssue.Error(
+                    PgpValidationCode.InvalidRevocationSignature,
+                    "Subkey revocation could not be authenticated for any subkey under the primary key."));
             }
         }
     }
@@ -434,7 +470,9 @@ public sealed class PgpKeyValidator : IDisposable
 
         if (issuerFingerprint != null)
         {
-            return issuerFingerprint.SequenceEqual(masterFingerprint);
+            return issuerFingerprint.Length == masterFingerprint.Length + 1 &&
+                issuerFingerprint[0] == masterKey.Version &&
+                issuerFingerprint.AsSpan(1).SequenceEqual(masterFingerprint);
         }
 
         if (issuerKeyId != null)
@@ -680,5 +718,10 @@ public enum PgpValidationCode
     /// <summary>
     /// Subkey has been revoked.
     /// </summary>
-    SubkeyRevoked
+    SubkeyRevoked,
+
+    /// <summary>
+    /// Revocation evidence could not be authenticated under the primary key.
+    /// </summary>
+    InvalidRevocationSignature
 }

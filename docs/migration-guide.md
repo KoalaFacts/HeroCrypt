@@ -2,6 +2,28 @@
 
 This guide helps you migrate between HeroCrypt versions and from other cryptographic libraries.
 
+## OpenPGP key-ring validation changes after v1.0.4
+
+- `VerifySubkeyBindings()` and `FullValidation()` now reject subkeys without any
+  binding signature. Previously this produced only a warning and `IsValid` was true.
+  A binding must verify under the primary key for the exact subkey. Structural-only
+  validation remains a presence check and does not establish cryptographic trust.
+- `CheckRevocation()` now authenticates revocations under the primary key even when
+  self-certification verification is disabled. Forged, malformed, misattributed or
+  unsupported evidence produces `InvalidRevocationSignature` errors. Designated
+  revokers are unsupported. A subkey revocation applies only to its signed subkey;
+  unrelated subkeys are no longer reported revoked. Reasons come from verified
+  signatures, and invalid evidence cannot erase a confirmed revocation warning.
+- Genuine revocation and expiration remain warnings: `IsValid` means no validation
+  errors, not permission to use an expired or revoked key. Callers must enforce their
+  own trust, key-usage, freshness and acceptance policies. Expiration checking still
+  uses decoded certification metadata and requires independent policy evaluation.
+  Signing-subkey cross-certification and complete OpenPGP key-ring trust are not
+  established by these checks.
+- Preserve previously trusted revocation decisions during migration. Reissue legacy
+  nonstandard revocation evidence through the trusted process described below;
+  validation failure is not evidence that a previously revoked key is usable.
+
 ## OpenPGP verification boundary changes after v1.0.4
 
 - Successful verification now reports the actual verification key's raw fingerprint

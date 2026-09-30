@@ -4,6 +4,10 @@
 
 ### Security
 
+- Require authenticated bindings for every subkey when OpenPGP binding validation
+  is requested. Authenticate primary-key and subkey revocations, reject unsupported
+  revocation evidence and scope each subkey status to its signed target. Correct
+  version-prefixed issuer fingerprint matching in structural checks.
 - Preserve parsed OpenPGP signature-subpacket length encodings so verification
   authenticates received bytes. Reject length-form changes without re-signing and
   accept independently signed legal five-octet encodings. Newly created subpackets

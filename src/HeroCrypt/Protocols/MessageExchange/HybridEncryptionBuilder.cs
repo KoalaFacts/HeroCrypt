@@ -21,10 +21,14 @@ namespace HeroCrypt.Protocols.MessageExchange;
 /// <para>
 /// For OpenPGP (RFC 4880) compatible operations, use <c>HeroCryptBuilder.Pgp()</c> instead.
 /// </para>
+/// <para>
+/// This custom envelope is not HPKE and does not authenticate the sender or prevent replay.
+/// Recipients must check associated data against their expected application context.
+/// <see cref="HybridEncryptionEnvelope.IsText"/> is an unauthenticated display hint.
+/// </para>
 /// </remarks>
 public class HybridEncryptionBuilder
 {
-    private static readonly char[] PemSeparators = ['\r', '\n'];
     private int keySize = 2048;
     private EncryptionAlgorithm algorithm = EncryptionAlgorithm.AesGcm;
 
@@ -42,6 +46,7 @@ public class HybridEncryptionBuilder
     /// </summary>
     public HybridEncryptionBuilder WithEncryptionAlgorithm(EncryptionAlgorithm value)
     {
+        ValidateAlgorithm(value);
         algorithm = value;
         return this;
     }
@@ -58,8 +63,15 @@ public class HybridEncryptionBuilder
 
         using var rsa = RSA.Create(keySize);
         var publicKey = ToPem("PUBLIC KEY", rsa.ExportSubjectPublicKeyInfo());
-        var privateKey = ToPem("PRIVATE KEY", rsa.ExportPkcs8PrivateKey());
-        return new KeyPair(publicKey, privateKey);
+        var privateDer = rsa.ExportPkcs8PrivateKey();
+        try
+        {
+            return new KeyPair(publicKey, ToPem("PRIVATE KEY", privateDer));
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(privateDer);
+        }
     }
 
     /// <summary>
@@ -70,9 +82,16 @@ public class HybridEncryptionBuilder
         ArgumentNullException.ThrowIfNull(plaintext);
 
         var bytes = Encoding.UTF8.GetBytes(plaintext);
-        var envelope = Encrypt(bytes, publicKeyPem, associatedData);
-        envelope.IsText = true;
-        return envelope;
+        try
+        {
+            var envelope = Encrypt(bytes, publicKeyPem, associatedData);
+            envelope.IsText = true;
+            return envelope;
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(bytes);
+        }
     }
 
     /// <summary>
@@ -82,25 +101,34 @@ public class HybridEncryptionBuilder
     {
         InputValidator.ValidateByteArray(data, nameof(data), allowEmpty: false);
 
+        var policy = SecurityPolicy.CurrentPolicy;
+        policy.ValidateHash("SHA256");
+        var selectedAlgorithm = algorithm;
+        ValidateAlgorithm(selectedAlgorithm);
         var symmetricKey = RandomNumberGenerator.GetBytes(32);
-
-        var encResult = HeroCryptBuilder.Encrypt()
-            .WithAlgorithm(algorithm)
-            .WithKey(symmetricKey)
-            .WithAssociatedData(associatedData ?? [])
-            .Encrypt(data);
-
-        var encryptedKey = EncryptKeyWithRsa(symmetricKey, publicKeyPem);
-
-        return new HybridEncryptionEnvelope
+        try
         {
-            Ciphertext = Convert.ToBase64String(encResult.Ciphertext),
-            Nonce = Convert.ToBase64String(encResult.Nonce),
-            EncryptedKey = Convert.ToBase64String(encryptedKey),
-            AssociatedData = associatedData is null ? null : Convert.ToBase64String(associatedData),
-            Algorithm = algorithm.ToString(),
-            IsText = false
-        };
+            var encryptedKey = EncryptKeyWithRsa(symmetricKey, publicKeyPem);
+            using var cipher = HeroCryptBuilder.Encrypt();
+            cipher.WithSecurityPolicy(policy)
+                .WithAlgorithm(selectedAlgorithm)
+                .WithKey(symmetricKey)
+                .WithAssociatedData(associatedData ?? []);
+            var encResult = cipher.Encrypt(data);
+            return new HybridEncryptionEnvelope
+            {
+                Ciphertext = Convert.ToBase64String(encResult.Ciphertext),
+                Nonce = Convert.ToBase64String(encResult.Nonce),
+                EncryptedKey = Convert.ToBase64String(encryptedKey),
+                AssociatedData = associatedData is null ? null : Convert.ToBase64String(associatedData),
+                Algorithm = selectedAlgorithm.ToString(),
+                IsText = false
+            };
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(symmetricKey);
+        }
     }
 
     /// <summary>
@@ -109,7 +137,14 @@ public class HybridEncryptionBuilder
     public static string DecryptToString(HybridEncryptionEnvelope envelope, string privateKeyPem)
     {
         var data = DecryptToBytes(envelope, privateKeyPem);
-        return Encoding.UTF8.GetString(data);
+        try
+        {
+            return Encoding.UTF8.GetString(data);
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(data);
+        }
     }
 
     /// <summary>
@@ -118,26 +153,42 @@ public class HybridEncryptionBuilder
     public static byte[] DecryptToBytes(HybridEncryptionEnvelope envelope, string privateKeyPem)
     {
         ArgumentNullException.ThrowIfNull(envelope);
-
+        var alg = envelope.Algorithm switch
+        {
+            nameof(EncryptionAlgorithm.AesGcm) => EncryptionAlgorithm.AesGcm,
+            nameof(EncryptionAlgorithm.ChaCha20Poly1305) => EncryptionAlgorithm.ChaCha20Poly1305,
+            nameof(EncryptionAlgorithm.XChaCha20Poly1305) => EncryptionAlgorithm.XChaCha20Poly1305,
+            _ => throw new ArgumentException("Envelope algorithm must name a supported AEAD cipher exactly.", nameof(envelope))
+        };
+        var policy = SecurityPolicy.CurrentPolicy;
+        policy.ValidateHash("SHA256");
         var symmetricKey = DecryptKeyWithRsa(Convert.FromBase64String(envelope.EncryptedKey), privateKeyPem);
-        var ciphertext = Convert.FromBase64String(envelope.Ciphertext);
-        var nonce = Convert.FromBase64String(envelope.Nonce);
-        var aad = envelope.AssociatedData is null ? [] : Convert.FromBase64String(envelope.AssociatedData);
-
-        var alg = Enum.TryParse<EncryptionAlgorithm>(envelope.Algorithm, out var parsed) ? parsed : EncryptionAlgorithm.AesGcm;
-
-        return HeroCryptBuilder.Decrypt()
-            .WithAlgorithm(alg)
-            .WithKey(symmetricKey)
-            .WithNonce(nonce)
-            .WithAssociatedData(aad)
-            .Decrypt(ciphertext);
+        try
+        {
+            if (symmetricKey.Length != 32)
+                throw new CryptographicException("Hybrid envelopes require a 32-byte payload key.");
+            var ciphertext = Convert.FromBase64String(envelope.Ciphertext);
+            var nonce = Convert.FromBase64String(envelope.Nonce);
+            var aad = envelope.AssociatedData is null ? [] : Convert.FromBase64String(envelope.AssociatedData);
+            using var cipher = HeroCryptBuilder.Decrypt();
+            cipher.WithSecurityPolicy(policy)
+                .WithAlgorithm(alg)
+                .WithKey(symmetricKey)
+                .WithNonce(nonce)
+                .WithAssociatedData(aad);
+            return cipher.Decrypt(ciphertext);
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(symmetricKey);
+        }
     }
 
     private static byte[] EncryptKeyWithRsa(byte[] key, string publicKeyPem)
     {
         using var rsa = RSA.Create();
         ImportPublicPem(rsa, publicKeyPem);
+        ValidateRsaKey(rsa);
         return rsa.Encrypt(key, RSAEncryptionPadding.OaepSHA256);
     }
 
@@ -145,6 +196,7 @@ public class HybridEncryptionBuilder
     {
         using var rsa = RSA.Create();
         ImportPrivatePem(rsa, privateKeyPem);
+        ValidateRsaKey(rsa);
         return rsa.Decrypt(encryptedKey, RSAEncryptionPadding.OaepSHA256);
     }
 
@@ -159,23 +211,62 @@ public class HybridEncryptionBuilder
 
     private static void ImportPublicPem(RSA rsa, string pem)
     {
-        var raw = ExtractPemContent(pem);
-        rsa.ImportSubjectPublicKeyInfo(raw, out _);
+        var raw = ExtractPemContent(pem, "PUBLIC KEY");
+        try
+        {
+            rsa.ImportSubjectPublicKeyInfo(raw, out var bytesRead);
+            if (bytesRead != raw.Length)
+                throw new CryptographicException("Trailing data after RSA public key.");
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(raw);
+        }
     }
 
     private static void ImportPrivatePem(RSA rsa, string pem)
     {
-        var raw = ExtractPemContent(pem);
-        rsa.ImportPkcs8PrivateKey(raw, out _);
+        var raw = ExtractPemContent(pem, "PRIVATE KEY");
+        try
+        {
+            rsa.ImportPkcs8PrivateKey(raw, out var bytesRead);
+            if (bytesRead != raw.Length)
+                throw new CryptographicException("Trailing data after RSA private key.");
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(raw);
+        }
     }
 
-    private static byte[] ExtractPemContent(string pem)
+    private static byte[] ExtractPemContent(string pem, string expectedLabel)
     {
-        var lines = pem.Split(PemSeparators, StringSplitOptions.RemoveEmptyEntries)
-            .Where(l => !l.StartsWith("-----", StringComparison.OrdinalIgnoreCase))
-            .ToArray();
-        var base64 = string.Concat(lines);
-        return Convert.FromBase64String(base64);
+        ArgumentNullException.ThrowIfNull(pem);
+        var text = pem.AsSpan().Trim();
+        if (!PemEncoding.TryFind(text, out var fields)
+            || fields.Location.GetOffsetAndLength(text.Length) != (0, text.Length)
+            || !text[fields.Label].SequenceEqual(expectedLabel.AsSpan()))
+            throw new ArgumentException($"Expected exactly one {expectedLabel} PEM block.", nameof(pem));
+
+        var raw = new byte[fields.DecodedDataLength];
+        if (!Convert.TryFromBase64Chars(text[fields.Base64Data], raw, out var bytesWritten) || bytesWritten != raw.Length)
+        {
+            CryptographicOperations.ZeroMemory(raw);
+            throw new ArgumentException("Invalid PEM base64 data.", nameof(pem));
+        }
+        return raw;
+    }
+
+    private static void ValidateRsaKey(RSA rsa)
+    {
+        if (rsa.KeySize < 2048)
+            throw new CryptographicException("Hybrid envelopes require RSA keys of at least 2048 bits.");
+    }
+
+    private static void ValidateAlgorithm(EncryptionAlgorithm value)
+    {
+        if (value is not (EncryptionAlgorithm.AesGcm or EncryptionAlgorithm.ChaCha20Poly1305 or EncryptionAlgorithm.XChaCha20Poly1305))
+            throw new ArgumentException("Hybrid RSA encryption supports AES-GCM, ChaCha20-Poly1305 and XChaCha20-Poly1305 only.", nameof(value));
     }
 }
 #endif
@@ -213,10 +304,11 @@ public class HybridEncryptionEnvelope
     /// <summary>
     /// Name of the symmetric algorithm used (from <see cref="EncryptionAlgorithm" />).
     /// </summary>
-    public string Algorithm { get; init; } = EncryptionAlgorithm.AesGcm.ToString();
+    public string Algorithm { get; init; } = string.Empty;
 
     /// <summary>
-    /// Indicates whether the original payload was text.
+    /// Unauthenticated display hint indicating whether the original payload was text.
+    /// Do not use this field for authorization or content validation.
     /// </summary>
     public bool IsText { get; set; }
 }

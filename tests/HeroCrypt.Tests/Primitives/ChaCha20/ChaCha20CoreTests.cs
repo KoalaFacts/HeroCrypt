@@ -158,21 +158,21 @@ public class ChaCha20CoreTests
         [Fact]
         public void Transform_SingleByte_RoundTripsCorrectly()
         {
-            // Arrange
-            var key = TestHelpers.RandomBytes(KEY_SIZE);
-            var nonce = TestHelpers.RandomBytes(NONCE_SIZE);
+            // RFC 8439 section 2.3.2: first keystream byte is 0x10 at counter 1.
+            var key = Enumerable.Range(0, KEY_SIZE).Select(i => (byte)i).ToArray();
+            var nonce = Convert.FromHexString("000000090000004A00000000");
 
             var plaintext = "B"u8.ToArray();
             var ciphertext = new byte[1];
             var decrypted = new byte[1];
 
             // Act
-            core.Transform(ciphertext, plaintext, key, nonce, 0);
-            core.Transform(decrypted, ciphertext, key, nonce, 0);
+            core.Transform(ciphertext, plaintext, key, nonce, 1);
+            core.Transform(decrypted, ciphertext, key, nonce, 1);
 
             // Assert
             Assert.Equal(plaintext, decrypted);
-            Assert.NotEqual(plaintext[0], ciphertext[0]);
+            Assert.Equal(0x52, ciphertext[0]);
         }
 
         [Fact]

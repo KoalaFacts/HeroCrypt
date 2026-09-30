@@ -41,6 +41,40 @@ We provide security updates for the following versions:
 
 ## 🔐 Security Best Practices
 
+### Hybrid encryption security model
+
+- `HybridEncryptionBuilder` wraps a fresh 32-byte AEAD key with RSA-OAEP-SHA256.
+  Imported keys must be at least 2048 bits and use one SPKI `PUBLIC KEY` or PKCS8
+  `PRIVATE KEY` PEM block. The envelope requires the exact algorithm name
+  `AesGcm`, `ChaCha20Poly1305` or `XChaCha20Poly1305`; missing/unknown names are rejected.
+- X25519 operation suites use an ephemeral sender key, reject all-zero agreement
+  output and derive 32 bytes with HKDF-SHA256, empty salt and the fixed info string
+  `X25519-Hybrid-Encryption`. This custom derivation does not bind public keys or
+  suite identifiers into the KDF. These suites are not HPKE, TLS, Noise or libsodium
+  sealed boxes. No authenticated key exchange or public-key identity binding is claimed.
+- .NET 10 ML-KEM operation suites require native `MLKem.IsSupported` and enforce
+  the selected 768/1024 parameter set for both public and private keys. They combine
+  ML-KEM with AEAD, not a classical-plus-post-quantum KEM combiner. The primitive's
+  one-argument encapsulation API continues to support all three ML-KEM parameter sets.
+- AEAD verifies ciphertext, nonce and supplied associated data. Anyone with a
+  recipient public key can create a valid encrypted message: these APIs do not
+  authenticate sender identity, provide signatures, freshness or replay prevention.
+  Recipients must compare authenticated associated data with an independently
+  expected context and implement any required replay/sender checks separately.
+  The RSA envelope's `IsText` flag is not authenticated.
+- X25519/ML-KEM operation suites honor `WithNonce`; without an explicit nonce they
+  generate one randomly. Deterministic mode is rejected even under testing policy,
+  because ephemeral key generation and KEM encapsulation remain randomized.
+- Owned temporary payload keys, private DER and plaintext byte buffers are cleared,
+  and internal symmetric builders are disposed. Caller-owned arrays are preserved.
+  Immutable private-key/plaintext strings and managed-runtime copies cannot be
+  reliably erased. Algorithm policy checks do not establish FIPS module certification.
+
+See [RFC 7748](https://www.rfc-editor.org/rfc/rfc7748),
+[RFC 9180](https://www.rfc-editor.org/rfc/rfc9180),
+[FIPS 203](https://csrc.nist.gov/pubs/fips/203/final) and
+[.NET native cryptography support](https://learn.microsoft.com/en-us/dotnet/standard/security/cross-platform-cryptography).
+
 When using HeroCrypt, please follow these security best practices:
 
 ### 1. **Use Recommended Algorithms**

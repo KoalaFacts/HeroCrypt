@@ -9,7 +9,7 @@ using HeroCrypt.Primitives.Curve25519;
 using HeroCrypt.Primitives.Hkdf;
 using HeroCrypt.Primitives.XChaCha20Poly1305;
 using HeroCrypt.Security;
-#if NET10_OR_GREATER
+#if NET10_0_OR_GREATER
 using HeroCrypt.Primitives.MLKem;
 #endif
 
@@ -582,11 +582,11 @@ public sealed class DecryptionBuilder : IDisposable
                 EncryptionAlgorithm.HpkeX25519AesGcm256 => throw new NotImplementedException(),
                 EncryptionAlgorithm.HpkeP256AesGcm128 => throw new NotImplementedException(),
                 EncryptionAlgorithm.AesCbcHmacSha256 => throw new NotImplementedException(),
-#if NET10_OR_GREATER
-                EncryptionAlgorithm.MLKem768AesGcm => DecryptMLKemAesGcm(ciphertext, key, nonce!, aad, encapsulatedKey),
-                EncryptionAlgorithm.MLKem1024AesGcm => DecryptMLKemAesGcm(ciphertext, key, nonce!, aad, encapsulatedKey),
-                EncryptionAlgorithm.MLKem768ChaCha20Poly1305 => DecryptMLKemChaCha20Poly1305(ciphertext, key, nonce!, aad, encapsulatedKey),
-                EncryptionAlgorithm.MLKem1024ChaCha20Poly1305 => DecryptMLKemChaCha20Poly1305(ciphertext, key, nonce!, aad, encapsulatedKey),
+#if NET10_0_OR_GREATER
+                EncryptionAlgorithm.MLKem768AesGcm => DecryptMLKemAesGcm(ciphertext, key, nonce!, aad, encapsulatedKey, MLKemCore.SecurityLevel.MLKem768),
+                EncryptionAlgorithm.MLKem1024AesGcm => DecryptMLKemAesGcm(ciphertext, key, nonce!, aad, encapsulatedKey, MLKemCore.SecurityLevel.MLKem1024),
+                EncryptionAlgorithm.MLKem768ChaCha20Poly1305 => DecryptMLKemChaCha20Poly1305(ciphertext, key, nonce!, aad, encapsulatedKey, MLKemCore.SecurityLevel.MLKem768),
+                EncryptionAlgorithm.MLKem1024ChaCha20Poly1305 => DecryptMLKemChaCha20Poly1305(ciphertext, key, nonce!, aad, encapsulatedKey, MLKemCore.SecurityLevel.MLKem1024),
 #endif
                 _ => throw new NotSupportedException($"Algorithm {algorithm} is not supported")
             };
@@ -869,16 +869,17 @@ public sealed class DecryptionBuilder : IDisposable
     }
 #endif
 
-#if NET10_OR_GREATER
+#if NET10_0_OR_GREATER
 #pragma warning disable SYSLIB5006
-    private byte[] DecryptMLKemAesGcm(byte[] ciphertext, byte[] secretKeyPemBytes, byte[] nonce, byte[] aad, byte[]? encapsulatedKey)
+    private byte[] DecryptMLKemAesGcm(byte[] ciphertext, byte[] secretKeyPemBytes, byte[] nonce, byte[] aad, byte[]? encapsulatedKey, MLKemCore.SecurityLevel level)
     {
         if (encapsulatedKey == null)
             throw new InvalidOperationException("Encapsulated key must be set using WithEncapsulatedKey() or FromEncryptionResult()");
 
         var secretKeyPem = System.Text.Encoding.UTF8.GetString(secretKeyPemBytes);
 
-        using var importedKey = System.Security.Cryptography.MLKem.ImportFromPem(secretKeyPem);
+        using var importedKey = MLKem.ImportFromPem(secretKeyPem);
+        MLKemCore.ValidateLevel(importedKey, level);
         var sharedSecret = importedKey.Decapsulate(encapsulatedKey);
 
         try
@@ -891,14 +892,15 @@ public sealed class DecryptionBuilder : IDisposable
         }
     }
 
-    private byte[] DecryptMLKemChaCha20Poly1305(byte[] ciphertext, byte[] secretKeyPemBytes, byte[] nonce, byte[] aad, byte[]? encapsulatedKey)
+    private byte[] DecryptMLKemChaCha20Poly1305(byte[] ciphertext, byte[] secretKeyPemBytes, byte[] nonce, byte[] aad, byte[]? encapsulatedKey, MLKemCore.SecurityLevel level)
     {
         if (encapsulatedKey == null)
             throw new InvalidOperationException("Encapsulated key must be set using WithEncapsulatedKey() or FromEncryptionResult()");
 
         var secretKeyPem = System.Text.Encoding.UTF8.GetString(secretKeyPemBytes);
 
-        using var importedKey = System.Security.Cryptography.MLKem.ImportFromPem(secretKeyPem);
+        using var importedKey = MLKem.ImportFromPem(secretKeyPem);
+        MLKemCore.ValidateLevel(importedKey, level);
         var sharedSecret = importedKey.Decapsulate(encapsulatedKey);
 
         try

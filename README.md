@@ -253,21 +253,28 @@ using var kdf = HeroCryptBuilder.Argon2()
 var derivedKey = kdf.DeriveKey();
 ```
 
-### PGP Hybrid Encryption
+### RSA Hybrid Encryption
 
 ```csharp
 using HeroCrypt;
+using HeroCrypt.Protocols.MessageExchange;
 
 // Generate RSA key pair
-var pgp = HeroCryptBuilder.Pgp();
-var keyPair = pgp.GenerateRsaKeyPair();
+var hybrid = HeroCryptBuilder.HybridEncryption();
+var keyPair = hybrid.GenerateRsaKeyPair();
 
 // Encrypt a message
-var envelope = pgp.Encrypt("Secret message", keyPair.PublicKey);
+var envelope = hybrid.Encrypt("Secret message", keyPair.PublicKey);
 
 // Decrypt the message
-var plaintext = pgp.DecryptToString(envelope, keyPair.PrivateKey);
+var plaintext = HybridEncryptionBuilder.DecryptToString(envelope, keyPair.PrivateKey);
 ```
+
+This custom RSA-OAEP-SHA256 + AEAD envelope requires RSA keys of at least 2048 bits.
+It is distinct from OpenPGP (`HeroCryptBuilder.Pgp()`) and HPKE. Encryption does not
+authenticate a sender or prevent replay. Check associated data against your expected
+application context; `IsText` is an unauthenticated hint. See the
+[hybrid encryption security model](SECURITY.md#hybrid-encryption-security-model).
 
 ### Working with Text Formats (Hex, Base64, Base64Url)
 

@@ -275,9 +275,8 @@ public enum EncryptionAlgorithm
     /// <para><b>Shared secret:</b> 32 bytes (derived via HKDF-SHA256)</para>
     /// <para><b>Platform Support:</b> .NET 6+ (pure managed implementation). Not supported on .NET Standard 2.0.</para>
     /// <para>
-    /// Modern hybrid encryption used in TLS 1.3, Signal Protocol, WireGuard, and Noise Protocol.
-    /// Fast ECDH key exchange combined with efficient AEAD.
-    /// Recommended for most modern applications.
+    /// Custom ephemeral X25519 + HKDF-SHA256 + AEAD composition, not HPKE or a TLS/Noise protocol.
+    /// Does not authenticate sender identity or prevent replay.
     /// </para>
     /// </remarks>
     X25519ChaCha20Poly1305,
@@ -292,7 +291,8 @@ public enum EncryptionAlgorithm
     /// <para><b>Platform Support:</b> .NET 6+ (pure managed implementation). Not supported on .NET Standard 2.0.</para>
     /// <para>
     /// Extended nonce variant for scenarios where random nonces are preferred.
-    /// Used by libsodium's crypto_box_seal.
+    /// This custom composition is not compatible with libsodium sealed boxes or HPKE.
+    /// Does not authenticate sender identity or prevent replay.
     /// </para>
     /// </remarks>
     X25519XChaCha20Poly1305,
@@ -307,7 +307,7 @@ public enum EncryptionAlgorithm
     /// <para><b>Platform Support:</b> .NET 6+ (X25519 managed, AES-GCM via platform). Not supported on .NET Standard 2.0.</para>
     /// <para>
     /// Alternative to ChaCha20 variant for environments with AES hardware acceleration.
-    /// Common in enterprise environments with hardware security modules.
+    /// This custom composition is not HPKE and does not authenticate sender identity or prevent replay.
     /// </para>
     /// </remarks>
     X25519AesGcm,
@@ -413,68 +413,6 @@ public enum EncryptionAlgorithm
     HpkeP256AesGcm128,
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Post-Quantum Cryptography
-    // ─────────────────────────────────────────────────────────────────────────
-
-#if NET10_OR_GREATER
-    /// <summary>
-    /// ML-KEM-768 + AES-GCM hybrid encryption (post-quantum).
-    /// </summary>
-    /// <remarks>
-    /// <para><b>Standard:</b> FIPS 203 (ML-KEM), NIST SP 800-38D (AES-GCM)</para>
-    /// <para><b>Security level:</b> ~192-bit classical, ~128-bit quantum</para>
-    /// <para><b>Shared secret:</b> 32 bytes (used as AES-256 key)</para>
-    /// <para><b>Platform Support:</b> .NET 10+ only.</para>
-    /// <para>
-    /// Post-quantum hybrid encryption combining ML-KEM key encapsulation with AES-GCM.
-    /// Provides protection against both classical and quantum computer attacks.
-    /// </para>
-    /// </remarks>
-    MLKem768AesGcm,
-
-    /// <summary>
-    /// ML-KEM-1024 + AES-GCM hybrid encryption (post-quantum).
-    /// </summary>
-    /// <remarks>
-    /// <para><b>Standard:</b> FIPS 203 (ML-KEM), NIST SP 800-38D (AES-GCM)</para>
-    /// <para><b>Security level:</b> ~256-bit classical, ~192-bit quantum</para>
-    /// <para><b>Shared secret:</b> 32 bytes (used as AES-256 key)</para>
-    /// <para><b>Platform Support:</b> .NET 10+ only.</para>
-    /// <para>
-    /// Highest security level ML-KEM variant for maximum protection.
-    /// Recommended for long-term secrets and high-security applications.
-    /// </para>
-    /// </remarks>
-    MLKem1024AesGcm,
-
-    /// <summary>
-    /// ML-KEM-768 + ChaCha20-Poly1305 hybrid encryption (post-quantum).
-    /// </summary>
-    /// <remarks>
-    /// <para><b>Standard:</b> FIPS 203 (ML-KEM), RFC 8439 (ChaCha20-Poly1305)</para>
-    /// <para><b>Security level:</b> ~192-bit classical, ~128-bit quantum</para>
-    /// <para><b>Platform Support:</b> .NET 10+ only.</para>
-    /// <para>
-    /// Post-quantum hybrid with ChaCha20-Poly1305 for software-only environments.
-    /// </para>
-    /// </remarks>
-    MLKem768ChaCha20Poly1305,
-
-    /// <summary>
-    /// ML-KEM-1024 + ChaCha20-Poly1305 hybrid encryption (post-quantum).
-    /// </summary>
-    /// <remarks>
-    /// <para><b>Standard:</b> FIPS 203 (ML-KEM), RFC 8439 (ChaCha20-Poly1305)</para>
-    /// <para><b>Security level:</b> ~256-bit classical, ~192-bit quantum</para>
-    /// <para><b>Platform Support:</b> .NET 10+ only.</para>
-    /// <para>
-    /// Maximum security post-quantum hybrid with ChaCha20-Poly1305.
-    /// </para>
-    /// </remarks>
-    MLKem1024ChaCha20Poly1305,
-#endif
-
-    // ─────────────────────────────────────────────────────────────────────────
     // Legacy Algorithms (Compatibility Only)
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -511,4 +449,71 @@ public enum EncryptionAlgorithm
     /// </para>
     /// </remarks>
     RsaPkcs1v15,
+
+#if NET10_0_OR_GREATER
+    // Append new suites to preserve existing algorithm numbers across target frameworks.
+    // ─────────────────────────────────────────────────────────────────────────
+    // Post-Quantum Cryptography
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// ML-KEM-768 + AES-GCM hybrid encryption (post-quantum).
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Standard:</b> FIPS 203 (ML-KEM), NIST SP 800-38D (AES-GCM)</para>
+    /// <para><b>Security level:</b> ML-KEM NIST category 3</para>
+    /// <para><b>Shared secret:</b> 32 bytes (used as AES-256 key)</para>
+    /// <para><b>Platform Support:</b> .NET 10+ only.</para>
+    /// <para>
+    /// Post-quantum hybrid encryption combining ML-KEM key encapsulation with AES-GCM.
+    /// Uses one ML-KEM key contribution; it is not a classical-plus-post-quantum KEM combiner.
+    /// Native ML-KEM platform support is required. No sender authentication or replay protection.
+    /// </para>
+    /// </remarks>
+    MLKem768AesGcm,
+
+    /// <summary>
+    /// ML-KEM-1024 + AES-GCM hybrid encryption (post-quantum).
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Standard:</b> FIPS 203 (ML-KEM), NIST SP 800-38D (AES-GCM)</para>
+    /// <para><b>Security level:</b> ML-KEM NIST category 5</para>
+    /// <para><b>Shared secret:</b> 32 bytes (used as AES-256 key)</para>
+    /// <para><b>Platform Support:</b> .NET 10+ only.</para>
+    /// <para>
+    /// Requires a matching ML-KEM-1024 key and native platform support.
+    /// No classical KEM combiner, sender authentication or replay protection is supplied.
+    /// </para>
+    /// </remarks>
+    MLKem1024AesGcm,
+
+    /// <summary>
+    /// ML-KEM-768 + ChaCha20-Poly1305 hybrid encryption (post-quantum).
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Standard:</b> FIPS 203 (ML-KEM), RFC 8439 (ChaCha20-Poly1305)</para>
+    /// <para><b>Security level:</b> ML-KEM NIST category 3</para>
+    /// <para><b>Platform Support:</b> .NET 10+ only.</para>
+    /// <para>
+    /// Post-quantum hybrid with ChaCha20-Poly1305 for software-only environments.
+    /// Requires a matching ML-KEM-768 key and native platform support.
+    /// No classical KEM combiner, sender authentication or replay protection is supplied.
+    /// </para>
+    /// </remarks>
+    MLKem768ChaCha20Poly1305,
+
+    /// <summary>
+    /// ML-KEM-1024 + ChaCha20-Poly1305 hybrid encryption (post-quantum).
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Standard:</b> FIPS 203 (ML-KEM), RFC 8439 (ChaCha20-Poly1305)</para>
+    /// <para><b>Security level:</b> ML-KEM NIST category 5</para>
+    /// <para><b>Platform Support:</b> .NET 10+ only.</para>
+    /// <para>
+    /// Requires a matching ML-KEM-1024 key and native platform support.
+    /// No classical KEM combiner, sender authentication or replay protection is supplied.
+    /// </para>
+    /// </remarks>
+    MLKem1024ChaCha20Poly1305,
+#endif
 }

@@ -265,21 +265,45 @@ public sealed class MLKemCore
         }
 
         using var key = SystemMLKem.ImportFromPem(publicKeyPem);
+        return Encapsulate(key);
+    }
+
+    /// <summary>
+    /// Encapsulates using a public key that must match the specified security level.
+    /// </summary>
+    /// <param name="publicKeyPem">Recipient public key in PEM format.</param>
+    /// <param name="level">Required ML-KEM parameter set.</param>
+    /// <returns>The encapsulated shared secret and ciphertext.</returns>
+    public EncapsulationResult Encapsulate(string publicKeyPem, SecurityLevel level)
+    {
+        using var key = ImportPublicKey(publicKeyPem, level);
+        return Encapsulate(key);
+    }
+
+    private static EncapsulationResult Encapsulate(SystemMLKem key)
+    {
         var sharedSecret = new byte[32];
-
-        // ML-KEM ciphertext size varies by algorithm - must be exact size
-        // ML-KEM-512: 768 bytes, ML-KEM-768: 1088 bytes, ML-KEM-1024: 1568 bytes
-        var ciphertextSize = key.Algorithm.Name switch
+        try
         {
-            "ML-KEM-512" => 768,
-            "ML-KEM-768" => 1088,
-            "ML-KEM-1024" => 1568,
-            _ => throw new NotSupportedException($"Unsupported ML-KEM algorithm: {key.Algorithm.Name}")
-        };
+            // ML-KEM ciphertext size varies by algorithm - must be exact size
+            // ML-KEM-512: 768 bytes, ML-KEM-768: 1088 bytes, ML-KEM-1024: 1568 bytes
+            var ciphertextSize = key.Algorithm.Name switch
+            {
+                "ML-KEM-512" => 768,
+                "ML-KEM-768" => 1088,
+                "ML-KEM-1024" => 1568,
+                _ => throw new NotSupportedException($"Unsupported ML-KEM algorithm: {key.Algorithm.Name}")
+            };
 
-        var ciphertext = new byte[ciphertextSize];
-        key.Encapsulate(ciphertext, sharedSecret);
-        return new EncapsulationResult(ciphertext, sharedSecret);
+            var ciphertext = new byte[ciphertextSize];
+            key.Encapsulate(ciphertext, sharedSecret);
+            return new EncapsulationResult(ciphertext, sharedSecret);
+        }
+        catch
+        {
+            SecureMemoryOperations.SecureClear(sharedSecret);
+            throw;
+        }
     }
 
     /// <summary>
@@ -293,8 +317,7 @@ public sealed class MLKemCore
     /// <exception cref="PlatformNotSupportedException">If ML-KEM is not supported</exception>
     public SystemMLKem ImportPublicKey(string publicKeyPem, SecurityLevel level = SecurityLevel.MLKem768)
     {
-        _ = level;
-
+        _ = ToMLKemAlgorithm(level);
         ValidatePemFormat(publicKeyPem, nameof(publicKeyPem));
 
         if (!IsSupported())
@@ -304,7 +327,23 @@ public sealed class MLKemCore
                 "Requires .NET 10+ with Windows CNG PQC support or OpenSSL 3.5+");
         }
 
-        return SystemMLKem.ImportFromPem(publicKeyPem);
+        var key = SystemMLKem.ImportFromPem(publicKeyPem);
+        try
+        {
+            ValidateLevel(key, level);
+            return key;
+        }
+        catch
+        {
+            key.Dispose();
+            throw;
+        }
+    }
+
+    internal static void ValidateLevel(SystemMLKem key, SecurityLevel level)
+    {
+        if (key.Algorithm != ToMLKemAlgorithm(level))
+            throw new CryptographicException("ML-KEM key parameter set does not match the selected security level.");
     }
 
     /// <summary>
@@ -338,7 +377,7 @@ public sealed class MLKemCore
         };
     }
 
-    private MLKemAlgorithm ToMLKemAlgorithm(SecurityLevel level)
+    private static MLKemAlgorithm ToMLKemAlgorithm(SecurityLevel level)
     {
         return level switch
         {

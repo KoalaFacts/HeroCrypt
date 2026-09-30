@@ -2,6 +2,33 @@
 
 This guide helps you migrate between HeroCrypt versions and from other cryptographic libraries.
 
+## Hybrid encryption hardening after v1.0.3
+
+- RSA envelopes now require an explicit canonical `Algorithm` name (`AesGcm`,
+  `ChaCha20Poly1305` or `XChaCha20Poly1305`), a 32-byte wrapped payload key, RSA
+  keys of at least 2048 bits and exactly one correctly labelled SPKI/PKCS8 PEM block
+  without trailing DER data. Invalid inputs previously accepted are now rejected.
+  Valid generated envelopes retain their wire format. Recover malformed historical
+  data only through a trusted migration process; do not guess algorithms from
+  untrusted metadata or silently downgrade validation.
+- X25519 rejects all-zero key agreement output and ignores the top input bit as
+  required by RFC 7748. Normal generated keys/ciphertexts keep their derivation.
+  Historical data created with a nonstandard high-bit public-key interpretation
+  may no longer decrypt. Review such data using trusted key material; do not add
+  a fallback to the incorrect interpretation. Low-order points are always rejected.
+- .NET 10 now exposes the four ML-KEM operation suites that were accidentally
+  excluded from compilation. Native platform support is still required. Imported
+  ML-KEM keys must match the selected parameter set; `ImportPublicKey` now enforces
+  its `level` argument (default 768). Pass 512/1024 explicitly when importing those
+  primitive keys.
+- None of these custom encryption compositions supplies sender authentication,
+  replay protection or application context validation. `IsText` is untrusted metadata.
+  See the [security model](../SECURITY.md#hybrid-encryption-security-model).
+- X25519/ML-KEM operation suites now honor explicit `WithNonce` values and reject
+  invalid nonce lengths. Remove testing-only deterministic mode from hybrid calls:
+  it is now rejected, because randomized key contributions cannot provide the
+  deterministic encryption behavior this option advertises.
+
 ## BIP39 wallet entry changes in v1.0.3
 
 Earlier releases generated demonstration words such as `word0005` rather than the

@@ -91,7 +91,7 @@ A fully RFC-compliant cryptographic library for .NET featuring high-performance,
 - **🎭 Zero-Knowledge & Advanced Protocols (Reference Implementations)**
   - zk-SNARKs (Groth16-style) - Zero-knowledge succinct proofs
   - Ring Signatures - Anonymous group signatures (basic, linkable, traceable)
-  - Threshold Signatures - Distributed multi-party signing (Schnorr, ECDSA, EdDSA, BLS)
+  - Threshold signature operations are disabled: the former simulation did not authenticate signatures
   - Multi-Party Computation - Secure computation without revealing inputs
   - Private Set Intersection - Find common elements privately
   - Beaver Triples - Preprocessing for secure multiplication

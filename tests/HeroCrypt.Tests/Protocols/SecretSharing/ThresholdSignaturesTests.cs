@@ -1,85 +1,51 @@
-using System.Text;
+using System.Security.Cryptography;
 using HeroCrypt.Protocols.SecretSharing;
+using HeroCrypt.Security;
 
 namespace HeroCrypt.Tests.Protocols.SecretSharing;
 
-/// <summary>
-/// Tests for Threshold Signature Schemes (TSS).
-/// Note: The implementation is a simplified reference, so we test the protocol flow.
-/// </summary>
+[Trait("Category", TestCategories.UNIT)]
+[Trait("Category", TestCategories.FAST)]
 public class ThresholdSignaturesTests
 {
-    private const int TOTAL_PARTIES = 5;
-    private const int THRESHOLD = 3; // t+1 = 4 signatures needed
-
     [Fact]
-    [Trait("Category", TestCategories.UNIT)]
-    public void ThresholdSignatureFlow_Success()
+    public void VerifySignature_PubliclyComputedForgery_IsRejected()
     {
-        // 1. Generate Keys (Distribution Phase)
-        var keyGen = new ThresholdSignatures().GenerateKeys(TOTAL_PARTIES, THRESHOLD);
+        byte[] message = [1, 2, 3];
+        var publicKey = RandomNumberGenerator.GetBytes(32);
+        var r = RandomNumberGenerator.GetBytes(32);
+        var baseS = RandomNumberGenerator.GetBytes(32);
+        var challenge = SHA256.HashData([.. r, .. publicKey, .. message]);
+        var tag = SHA256.HashData([.. baseS, .. challenge]);
+        var forgery = new ThresholdSignatures.ThresholdSignature(
+            r, [.. baseS, .. tag], [0, 1, 2], ThresholdSignatures.SignatureScheme.Schnorr);
 
-        Assert.True(keyGen.Success);
-        Assert.NotNull(keyGen.PublicKey);
-        Assert.Equal(TOTAL_PARTIES, keyGen.KeyShares.Length);
+        Assert.Throws<NotSupportedException>(() =>
+            new ThresholdSignatures().VerifySignature(message, forgery, publicKey));
+    }
 
-        // 2. Sign (Partial Signing Phase)
-        // We need t+1 signers. Let's use parties 0, 1, 2, 3.
-        var message = Encoding.UTF8.GetBytes("Transaction 12345");
-        var signers = new int[] { 0, 1, 2, 3 };
+    [Theory]
+    [InlineData(ThresholdSignatures.SignatureScheme.Schnorr)]
+    [InlineData(ThresholdSignatures.SignatureScheme.ECDSA)]
+    [InlineData(ThresholdSignatures.SignatureScheme.EdDSA)]
+    [InlineData(ThresholdSignatures.SignatureScheme.BLS)]
+    public void Operations_AllSchemes_AreUnsupported(ThresholdSignatures.SignatureScheme scheme)
+    {
+        var core = new ThresholdSignatures();
+        var keyShare = new ThresholdSignatures.KeyShare(0, 1, new byte[32], new byte[32], [], 2, 3, scheme);
+        var partial = new ThresholdSignatures.PartialSignature(0, 1, new byte[32], new byte[32]);
+        var signature = new ThresholdSignatures.ThresholdSignature(new byte[32], new byte[64], [0, 1, 2], scheme);
 
-        var partialSigs = new ThresholdSignatures.PartialSignature[signers.Length];
-        for (int i = 0; i < signers.Length; i++)
-        {
-            int partyId = signers[i];
-            partialSigs[i] = new ThresholdSignatures().SignPartial(message, keyGen.KeyShares[partyId], signers);
-
-            Assert.Equal(partyId, partialSigs[i].PartyId);
-            Assert.NotNull(partialSigs[i].Value);
-            Assert.NotNull(partialSigs[i].Commitment);
-        }
-
-        // 3. Combine (Aggregation Phase)
-        var signature = new ThresholdSignatures().CombineSignatures(
-            message,
-            partialSigs,
-            keyGen.PublicKey,
-            ThresholdSignatures.SignatureScheme.Schnorr);
-
-        Assert.NotNull(signature);
-        Assert.NotNull(signature.R);
-        Assert.NotNull(signature.S);
-        Assert.Equal(signers, signature.Signers);
-
-        // 4. Verify
-        var isValid = new ThresholdSignatures().VerifySignature(message, signature, keyGen.PublicKey);
-
-        Assert.True(isValid, "Signature verification failed");
+        Assert.Throws<NotSupportedException>(() => core.GenerateKeys(3, 2, scheme));
+        Assert.Throws<NotSupportedException>(() => core.SignPartial([1], keyShare, [0, 1, 2]));
+        Assert.Throws<NotSupportedException>(() => core.CombineSignatures([1], [partial], new byte[32], scheme));
+        Assert.Throws<NotSupportedException>(() => core.VerifySignature([1], signature, new byte[32]));
     }
 
     [Fact]
-    [Trait("Category", TestCategories.UNIT)]
-    public void GenerateKeys_InvalidParameters_Throws()
+    public void TestingPolicy_CannotEnableThresholdSignatures()
     {
-        Assert.Throws<ArgumentException>(() => new ThresholdSignatures().GenerateKeys(1, 1)); // Need >= 2 parties
-        Assert.Throws<ArgumentException>(() => new ThresholdSignatures().GenerateKeys(3, 3)); // Threshold < n
-    }
-
-    [Fact]
-    [Trait("Category", TestCategories.UNIT)]
-    public void SignPartial_InvalidSignerSet_Throws()
-    {
-        var keyGen = new ThresholdSignatures().GenerateKeys(TOTAL_PARTIES, THRESHOLD);
-        var message = Encoding.UTF8.GetBytes("Msg");
-
-        // Not enough signers
-        var tooFewSigners = new int[] { 0, 1, 2 }; // Need 4
-        Assert.Throws<ArgumentException>(() =>
-            new ThresholdSignatures().SignPartial(message, keyGen.KeyShares[0], tooFewSigners));
-
-        // Signer not in set
-        var validCountSigners = new int[] { 1, 2, 3, 4 };
-        Assert.Throws<ArgumentException>(() =>
-            new ThresholdSignatures().SignPartial(message, keyGen.KeyShares[0], validCountSigners)); // Party 0 not in list
+        Assert.Throws<NotSupportedException>(() =>
+            new ThresholdSignatures(SecurityPolicyOptions.Testing).GenerateKeys(3, 2));
     }
 }

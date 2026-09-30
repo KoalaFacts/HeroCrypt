@@ -32,7 +32,6 @@ Located in [UseCases/](HeroCrypt.Examples/UseCases/):
 | Secret Sharing | [SecretSharingExample.cs](HeroCrypt.Examples/UseCases/SecretSharingExample.cs) | Shamir's Secret Sharing for key backup |
 | Cryptographic Wallet | [CryptographicWalletExample.cs](HeroCrypt.Examples/UseCases/CryptographicWalletExample.cs) | BIP-39/BIP-32 HD wallet creation |
 | Secure Messaging | [SecureMessagingExample.cs](HeroCrypt.Examples/UseCases/SecureMessagingExample.cs) | Hybrid encryption for secure communication |
-| Corporate Approval | [CorporateApprovalExample.cs](HeroCrypt.Examples/UseCases/CorporateApprovalExample.cs) | Threshold signatures for multi-party approval |
 
 ### Post-Quantum Examples (.NET 10+)
 

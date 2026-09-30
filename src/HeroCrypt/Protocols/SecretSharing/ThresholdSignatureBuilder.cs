@@ -3,8 +3,12 @@ namespace HeroCrypt.Protocols.SecretSharing;
 #if !NETSTANDARD2_0
 
 /// <summary>
-/// Fluent builder for threshold signature operations.
+/// Reserved builder for threshold signatures. All operations are unsupported.
 /// </summary>
+/// <remarks>
+/// No secure threshold signature protocol is implemented. Configured operations throw
+/// <see cref="NotSupportedException"/>.
+/// </remarks>
 public sealed class ThresholdSignatureBuilder
 {
     private int numParties = 3;

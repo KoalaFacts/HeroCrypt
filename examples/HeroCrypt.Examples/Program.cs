@@ -24,7 +24,6 @@ while (true)
                 "4. Secure Messaging (Hybrid Encryption)",
                 "5. Secret Sharing (Shamir's Scheme)",
                 "6. Cryptographic Wallet (HD Wallet)",
-                "7. Corporate Approval (Threshold Sigs)",
                 "Exit"
             ]));
 
@@ -47,9 +46,6 @@ while (true)
             break;
         case "6. Cryptographic Wallet (HD Wallet)":
             await CryptographicWalletExample.RunAsync();
-            break;
-        case "7. Corporate Approval (Threshold Sigs)":
-            await CorporateApprovalExample.RunAsync();
             break;
         case "Exit":
             return;

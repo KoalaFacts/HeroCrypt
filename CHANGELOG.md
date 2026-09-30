@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+### Security
+
+- Disable the forgeable threshold signature simulation. Threshold key generation,
+  partial signing, combination, and verification now throw `NotSupportedException`.
+  Remove the corporate approval example and document migration of existing approvals.
+
 ## [1.0.0] - 2026-09-29
 
 See [GitHub Release](https://github.com/KoalaFacts/HeroCrypt/releases/tag/v1.0.0) for details.

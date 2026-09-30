@@ -69,17 +69,10 @@ public static partial class HeroCryptBuilder
     public static SecretSharingBuilder SecretSharing() => new();
 
     /// <summary>
-    /// Starts building a threshold signature operation.
+    /// Creates a reserved threshold signature builder. All operations are unsupported.
     /// </summary>
-    /// <example>
-    /// <code>
-    /// var keys = HeroCryptBuilder.ThresholdSignature()
-    ///     .WithParties(5)
-    ///     .WithThreshold(3)
-    ///     .GenerateKeys();
-    /// </code>
-    /// </example>
-    /// <returns>A new threshold signature builder.</returns>
+    /// <remarks>No secure threshold signature protocol is currently implemented.</remarks>
+    /// <returns>A builder whose operations throw <see cref="NotSupportedException"/>.</returns>
     public static ThresholdSignatureBuilder ThresholdSignature() => new();
 
     /// <summary>

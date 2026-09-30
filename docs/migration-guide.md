@@ -2,6 +2,29 @@
 
 This guide helps you migrate between HeroCrypt versions and from other cryptographic libraries.
 
+## OpenPGP verification boundary changes after v1.0.4
+
+- Successful verification now reports the actual verification key's raw fingerprint
+  (without the subpacket's version byte) and key ID. Check trusted fingerprints
+  independently; packet issuer claims cannot substitute for trust validation.
+- Signature versions/algorithms and issuer hints must match the verification key.
+  Weak/unsupported signature hashes, malformed or duplicate issuer/time fields,
+  unsupported critical subpackets and noncanonical/trailing RSA signature data reject.
+- Use dedicated verification methods for key/certification signatures. The document
+  overload accepts only binary/text signatures. Inline messages require one literal
+  packet and one signature in order, plus an optional matching one-pass packet.
+  Multiple signatures, packet overwrites and unexpected critical packets reject.
+- V6 signing keys automatically select V6 document signatures. Explicit V6 mode
+  requires a V6 key; both configuration orders reject a V4 key. One-pass packets
+  reuse the actual signature salt rather than generating a different salt.
+- V6 salts now use RFC 9580 Table 23 lengths (16/24/32 bytes for SHA-256/384/512).
+  Unknown or unsupported V6 hash IDs have no default salt size. Historical
+  signatures using digest-sized salts are rejected by the verifier.
+- This boundary hardening does not establish OpenPGP interoperability or key trust,
+  revocation, expiration or recipient-context policy. Hash framing corrections are
+  tracked separately in [Issue #140](https://github.com/KoalaFacts/HeroCrypt/issues/140).
+  See [verification scope](../SECURITY.md#openpgp-signature-verification-scope).
+
 ## Hybrid encryption hardening in v1.0.4
 
 - RSA envelopes now require an explicit canonical `Algorithm` name (`AesGcm`,

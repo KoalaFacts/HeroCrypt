@@ -78,70 +78,30 @@ public sealed class PgpSignatureVerifier : IDisposable
     {
         ThrowIfDisposed();
 
+        if (signature.SignatureType != PgpSignatureType.BinaryDocument &&
+            signature.SignatureType != PgpSignatureType.CanonicalTextDocument)
+        {
+            return PgpSignatureResult.Invalid("Document verification requires a document signature.");
+        }
+
         if (publicKeys.Count == 0)
         {
             return PgpSignatureResult.Invalid("No public keys provided for verification.");
         }
 
-        // Find the matching key
-        var signerKeyId = signature.GetIssuerKeyId();
-        var signerFingerprint = signature.GetIssuerFingerprint();
-
-        PgpPublicKeyPacket? matchingKey = null;
-
+        // Issuer metadata can only constrain candidates. Successful attribution
+        // always comes from the key that performs cryptographic verification.
+        PgpSignatureResult result = PgpSignatureResult.Invalid("No matching verification key.");
         foreach (var key in publicKeys)
         {
-            var keyId = key.GetKeyId();
-            var fingerprint = key.ComputeFingerprint();
-
-            // Match by fingerprint (preferred) or key ID
-            if (signerFingerprint != null && fingerprint.AsSpan().SequenceEqual(signerFingerprint))
+            result = VerifyWithKey(data, signature, key);
+            if (result.IsValid)
             {
-                matchingKey = key;
-                break;
-            }
-
-            if (signerKeyId != null && keyId.AsSpan().SequenceEqual(signerKeyId))
-            {
-                matchingKey = key;
-                break;
+                return result;
             }
         }
 
-        // If no match found, try all keys
-        if (!matchingKey.HasValue && signerKeyId == null && signerFingerprint == null)
-        {
-            // Try each key
-            foreach (var key in publicKeys)
-            {
-                var result = VerifyWithKey(data, signature, key);
-                if (result.IsValid)
-                {
-                    return result;
-                }
-            }
-
-            return PgpSignatureResult.Invalid(
-                "Signature verification failed with all available keys.",
-                signature.SignatureType,
-                (PgpHashAlgorithmId)signature.HashAlgorithm,
-                (PgpPublicKeyAlgorithm)signature.PublicKeyAlgorithm,
-                signature.Version);
-        }
-
-        if (!matchingKey.HasValue)
-        {
-            return PgpSignatureResult.Invalid(
-                signerKeyId != null
-                    ? $"No key found with ID {Convert.ToHexString(signerKeyId)}."
-                    : "No matching key found for signature.",
-                signature.SignatureType,
-                (PgpHashAlgorithmId)signature.HashAlgorithm,
-                (PgpPublicKeyAlgorithm)signature.PublicKeyAlgorithm,
-                signature.Version);
-        }
-
-        return VerifyWithKey(data, signature, matchingKey.Value);
+        return result;
     }
 
     /// <summary>
@@ -152,7 +112,25 @@ public sealed class PgpSignatureVerifier : IDisposable
     public PgpSignatureResult Verify(PgpSignedMessage signedMessage)
     {
         ThrowIfDisposed();
-        return Verify(signedMessage.Data.Span, signedMessage.Signature);
+        var signature = signedMessage.Signature;
+        if (signedMessage.OnePassSignature is { } onePass &&
+            (onePass.Version != (signature.Version == 4 ? 3 : 6) ||
+             onePass.SignatureType != signature.SignatureType ||
+             onePass.HashAlgorithm != signature.HashAlgorithm ||
+             onePass.PublicKeyAlgorithm != signature.PublicKeyAlgorithm ||
+             !onePass.IsNested || !onePass.Salt.Span.SequenceEqual(signature.Salt.Span)))
+        {
+            return PgpSignatureResult.Invalid("One-pass signature metadata does not match the signature.");
+        }
+
+        var result = Verify(signedMessage.Data.Span, signature);
+        if (result.IsValid && signedMessage.OnePassSignature is { } ops &&
+            !ops.KeyIdOrFingerprint.Span.SequenceEqual(ops.Version == 3 ? result.SignerKeyId : result.SignerFingerprint))
+        {
+            return PgpSignatureResult.Invalid("One-pass signer does not match the verification key.");
+        }
+
+        return result;
     }
 
     /// <summary>
@@ -424,6 +402,8 @@ public sealed class PgpSignatureVerifier : IDisposable
 
         try
         {
+            ValidateSignature(signature, certifyingKey);
+
             // Compute the certification hash
             byte[] computedHash = PgpSignatureHashHelper.ComputeCertificationHash(
                 certifiedKey,
@@ -454,8 +434,8 @@ public sealed class PgpSignatureVerifier : IDisposable
                 return PgpSignatureResult.Valid(
                     sigType,
                     signature.GetCreationTime(),
-                    signature.GetIssuerKeyId(),
-                    signature.GetIssuerFingerprint(),
+                    certifyingKey.GetKeyId(),
+                    certifyingKey.ComputeFingerprint(),
                     hashAlgorithm,
                     (PgpPublicKeyAlgorithm)signature.PublicKeyAlgorithm,
                     version);
@@ -496,6 +476,8 @@ public sealed class PgpSignatureVerifier : IDisposable
 
         try
         {
+            ValidateSignature(signature, signingKey);
+
             // Compute the hash based on signature type
             byte[] computedHash = ComputeKeyBasedSignatureHash(
                 primaryKey,
@@ -527,8 +509,8 @@ public sealed class PgpSignatureVerifier : IDisposable
                 return PgpSignatureResult.Valid(
                     sigType,
                     signature.GetCreationTime(),
-                    signature.GetIssuerKeyId(),
-                    signature.GetIssuerFingerprint(),
+                    signingKey.GetKeyId(),
+                    signingKey.ComputeFingerprint(),
                     hashAlgorithm,
                     (PgpPublicKeyAlgorithm)signature.PublicKeyAlgorithm,
                     version);
@@ -593,6 +575,8 @@ public sealed class PgpSignatureVerifier : IDisposable
 
         try
         {
+            ValidateSignature(signature, publicKey);
+
             // Compute the hash
             byte[] computedHash = ComputeSignatureHash(
                 data,
@@ -623,8 +607,8 @@ public sealed class PgpSignatureVerifier : IDisposable
                 return PgpSignatureResult.Valid(
                     sigType,
                     signature.GetCreationTime(),
-                    signature.GetIssuerKeyId(),
-                    signature.GetIssuerFingerprint(),
+                    publicKey.GetKeyId(),
+                    publicKey.ComputeFingerprint(),
                     hashAlgorithm,
                     (PgpPublicKeyAlgorithm)signature.PublicKeyAlgorithm,
                     version);
@@ -742,7 +726,18 @@ public sealed class PgpSignatureVerifier : IDisposable
     private static bool VerifyRsaSignature(byte[] hash, byte[] signatureData, PgpPublicKeyPacket publicKey, PgpHashAlgorithmId hashAlg)
     {
         // Read the signature MPI - returns the raw big integer value
-        var signatureValue = Mpi.Read(signatureData, out _);
+        var signatureValue = Mpi.Read(signatureData, out var consumed);
+        if (consumed != signatureData.Length || Mpi.GetEncodedLength(signatureValue) != consumed)
+        {
+            return false;
+        }
+
+        var canonical = new byte[consumed];
+        Mpi.Write(signatureValue, canonical);
+        if (!canonical.AsSpan().SequenceEqual(signatureData))
+        {
+            return false;
+        }
 
         // Extract public key components
         var (n, e) = publicKey.ReadRsaKey();
@@ -817,6 +812,76 @@ public sealed class PgpSignatureVerifier : IDisposable
     private static bool VerifyEcdsaSignature(byte[] hash, byte[] signatureData, PgpPublicKeyPacket publicKey)
     {
         throw new NotSupportedException("ECDSA verification is not yet implemented.");
+    }
+
+    private static void ValidateSignature(PgpSignaturePacket signature, PgpPublicKeyPacket key)
+    {
+        if ((signature.Version != 4 && signature.Version != 6) || signature.Version != key.Version ||
+            signature.PublicKeyAlgorithm != (byte)key.Algorithm)
+        {
+            throw new ArgumentException("Signature version or algorithm does not match the verification key.");
+        }
+
+        var hashAlgorithm = (PgpHashAlgorithmId)signature.HashAlgorithm;
+        if (hashAlgorithm != PgpHashAlgorithmId.Sha256 && hashAlgorithm != PgpHashAlgorithmId.Sha384 &&
+            hashAlgorithm != PgpHashAlgorithmId.Sha512 && hashAlgorithm != PgpHashAlgorithmId.Sha3_256 &&
+            hashAlgorithm != PgpHashAlgorithmId.Sha3_512)
+        {
+            throw new ArgumentException("Signature hash algorithm is unsupported or weak.");
+        }
+
+        if (signature.Version == 6 && signature.Salt.Length != PgpSignaturePacket.GetExpectedSaltLength(signature.HashAlgorithm))
+        {
+            throw new ArgumentException("Signature salt length does not match its hash algorithm.");
+        }
+
+        var fingerprint = key.ComputeFingerprint();
+        var keyId = key.GetKeyId();
+        ValidateSubpackets(signature.HashedSubpackets, key.Version, fingerprint, keyId, hashed: true);
+        ValidateSubpackets(signature.UnhashedSubpackets, key.Version, fingerprint, keyId, hashed: false);
+    }
+
+    private static void ValidateSubpackets(IReadOnlyList<PgpSignatureSubpacket> subpackets, byte keyVersion,
+        byte[] fingerprint, byte[] keyId, bool hashed)
+    {
+        var seen = new HashSet<PgpSignatureSubpacketType>();
+        foreach (var packet in subpackets)
+        {
+            // Knowing a type identifier is insufficient: critical semantics must
+            // actually be evaluated. Context, notation and trust policy are absent.
+            if (packet.IsCritical && (!hashed ||
+                (packet.Type != PgpSignatureSubpacketType.SignatureCreationTime &&
+                 packet.Type != PgpSignatureSubpacketType.IssuerFingerprint &&
+                 packet.Type != PgpSignatureSubpacketType.IssuerKeyId)))
+            {
+                throw new ArgumentException("Unsupported critical signature subpacket.");
+            }
+
+            if (packet.Type == PgpSignatureSubpacketType.IssuerFingerprint)
+            {
+                if (!seen.Add(packet.Type) || packet.Data.Length != fingerprint.Length + 1 ||
+                    packet.Data.Span[0] != keyVersion || !packet.Data.Span.Slice(1).SequenceEqual(fingerprint))
+                {
+                    throw new ArgumentException("Issuer fingerprint does not match the verification key.");
+                }
+            }
+            else if (packet.Type == PgpSignatureSubpacketType.IssuerKeyId)
+            {
+                if (!seen.Add(packet.Type) || !packet.Data.Span.SequenceEqual(keyId))
+                {
+                    throw new ArgumentException("Issuer key ID does not match the verification key.");
+                }
+            }
+            else if (packet.Type == PgpSignatureSubpacketType.SignatureCreationTime ||
+                     packet.Type == PgpSignatureSubpacketType.SignatureExpirationTime ||
+                     packet.Type == PgpSignatureSubpacketType.KeyExpirationTime)
+            {
+                if (!seen.Add(packet.Type) || packet.Data.Length != 4)
+                {
+                    throw new ArgumentException("Malformed or duplicate signature time subpacket.");
+                }
+            }
+        }
     }
 
     private void ThrowIfDisposed()

@@ -198,21 +198,16 @@ public readonly struct PgpSignaturePacket
     /// <returns>The expected salt length in bytes.</returns>
     public static int GetExpectedSaltLength(byte hashAlgorithm)
     {
-        // Per RFC 9580 Section 5.2.3:
-        // The salt SHOULD be the digest output size of the hash algorithm.
-        // Common algorithms and their output sizes:
+        // RFC 9580 Table 23 defines salt sizes independently of digest size.
         return hashAlgorithm switch
         {
-            1 => 16,   // MD5 (deprecated, but included for completeness)
-            2 => 20,   // SHA-1 (deprecated)
-            3 => 20,   // RIPE-MD/160
-            8 => 32,   // SHA-256
-            9 => 48,   // SHA-384
-            10 => 64,  // SHA-512
-            11 => 28,  // SHA-224
-            12 => 32,  // SHA3-256
-            14 => 64,  // SHA3-512
-            _ => 32,   // Default to 32 bytes for unknown algorithms
+            8 => 16,   // SHA-256
+            9 => 24,   // SHA-384
+            10 => 32,  // SHA-512
+            11 => 16,  // SHA-224
+            12 => 16,  // SHA3-256
+            14 => 32,  // SHA3-512
+            _ => throw new ArgumentException("Hash algorithm has no supported V6 signature salt size.", nameof(hashAlgorithm)),
         };
     }
 

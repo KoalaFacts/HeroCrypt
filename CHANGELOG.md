@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+### Security
+
+- Bind OpenPGP verification results to the actual verification key, validate issuer
+  hints and signature/key versions and algorithms, and reject weak hashes,
+  unsupported critical semantics and malformed RSA signature encodings.
+- Reject ambiguous single-signature message streams and mismatched one-pass
+  metadata. Return false for truncated packet framing in signed-message `TryRead`.
+- Reuse the V6 signature salt in its one-pass packet and select V6 signatures for
+  V6 keys. Explicit V6 mode requires a V6 key in either configuration order.
+- Correct V6 signature salt sizes to RFC 9580 Table 23 and reject unsupported
+  hash identifiers instead of assigning a default salt length.
+- Scope OpenPGP verification to cryptographic checks under supplied keys. Independent
+  RFC hash-framing incompatibility remains tracked in Issue #140; see
+  [migration notes](docs/migration-guide.md#openpgp-verification-boundary-changes-after-v104).
+
 ## [1.0.4] - 2026-09-30
 
 ### Migration required

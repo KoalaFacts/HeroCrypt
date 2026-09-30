@@ -1,5 +1,18 @@
 # Changelog
 
+## [Unreleased]
+
+### Security
+
+- Correct BIP32 parent fingerprints to HASH160, enforce wallet algorithm policy,
+  validate key material and root metadata, reject depth overflow and ambiguous paths,
+  and isolate caller buffers from key/result cleanup. Reuse portable secp256k1 private
+  derivation and run HD wallet regressions on macOS as well as Windows/Linux.
+- Reject null wallet sources and blank configured paths; honor the last builder
+  source selection so seed configuration cannot override a later mnemonic selection.
+- Clarify unsupported public-parent derivation and xprv/xpub import/export, fingerprint
+  authentication limits, and the standard non-hardened private-key exposure boundary.
+
 ## [1.0.2] - 2026-09-30
 
 ### Security

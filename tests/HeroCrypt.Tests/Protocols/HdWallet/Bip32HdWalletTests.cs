@@ -8,30 +8,8 @@ namespace HeroCrypt.Tests.Protocols.HdWallet;
 /// Tests for BIP32 Hierarchical Deterministic Wallets.
 /// </summary>
 /// <remarks>
-/// <para><b>Platform Support Notes:</b></para>
-/// <list type="bullet">
-///   <item>
-///     <term>secp256k1 on macOS</term>
-///     <description>
-///       The secp256k1 elliptic curve (OID 1.3.132.0.10) used by Bitcoin and BIP32 is not
-///       supported by the macOS Security framework. Apple's CommonCrypto only supports
-///       NIST curves (P-256, P-384, P-521). Tests that require child key derivation
-///       (which uses secp256k1 for public key computation) are automatically skipped on
-///       macOS using <c>Assert.Skip()</c>.
-///     </description>
-///   </item>
-///   <item>
-///     <term>Master key generation</term>
-///     <description>
-///       Master key generation uses HMAC-SHA512 which is supported on all platforms.
-///       Only child key derivation requires secp256k1.
-///     </description>
-///   </item>
-/// </list>
-/// <para>
-/// For production use on macOS, consider using a software implementation of secp256k1
-/// (e.g., libsecp256k1 via P/Invoke or a managed implementation).
-/// </para>
+/// Private derivation uses the portable secp256k1 core; the same tests run on
+/// Windows, Linux and macOS without platform exclusions.
 /// </remarks>
 [Trait("Category", TestCategories.UNIT)]
 [Trait("Category", TestCategories.FAST)]
@@ -116,7 +94,6 @@ public class Bip32HdWalletTests
         [Fact]
         public void NormalDerivation_Success()
         {
-            if (OperatingSystem.IsMacOS()) { Assert.Skip("secp256k1 not supported on macOS"); return; }
 
             var seed = new byte[64];
             new Random(42).NextBytes(seed);
@@ -135,7 +112,6 @@ public class Bip32HdWalletTests
         [Fact]
         public void HardenedDerivation_Success()
         {
-            if (OperatingSystem.IsMacOS()) { Assert.Skip("secp256k1 not supported on macOS"); return; }
 
             var seed = new byte[64];
             new Random(42).NextBytes(seed);
@@ -153,7 +129,6 @@ public class Bip32HdWalletTests
         [Fact]
         public void MultipleChildren_ProduceDifferentKeys()
         {
-            if (OperatingSystem.IsMacOS()) { Assert.Skip("secp256k1 not supported on macOS"); return; }
 
             var seed = new byte[64];
             new Random(42).NextBytes(seed);
@@ -172,7 +147,6 @@ public class Bip32HdWalletTests
         [Fact]
         public void SimplePathSync_Success()
         {
-            if (OperatingSystem.IsMacOS()) { Assert.Skip("secp256k1 not supported on macOS"); return; }
 
             var seed = new byte[64];
             new Random(42).NextBytes(seed);
@@ -187,7 +161,6 @@ public class Bip32HdWalletTests
         [Fact]
         public void BIP44Path_Success()
         {
-            if (OperatingSystem.IsMacOS()) { Assert.Skip("secp256k1 not supported on macOS"); return; }
 
             // Standard BIP44 path for Bitcoin
             var seed = new byte[64];
@@ -311,8 +284,8 @@ public class Bip32HdWalletTests
         [Fact]
         public void IsPrivate_ReturnsCorrectValue()
         {
-            var privateKey = new byte[32];
-            var publicKey = new byte[33];
+            var privateKey = Convert.FromHexString("0000000000000000000000000000000000000000000000000000000000000001");
+            var publicKey = Convert.FromHexString("0279BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798");
             var chainCode = new byte[32];
 
             var extendedPrivate = new Bip32HdWallet.ExtendedKey(privateKey, chainCode);
@@ -336,6 +309,7 @@ public class Bip32HdWalletTests
         public void InvalidChainCodeLength_ThrowsException()
         {
             var key = new byte[32];
+            key[31] = 1;
             var invalidChainCode = new byte[30]; // Not 32
 
             Assert.Throws<ArgumentException>(() =>

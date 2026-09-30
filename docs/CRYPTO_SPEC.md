@@ -355,9 +355,38 @@ byte[] mac = Blake2bCore.ComputeHash(data, outputLength: 32, key: secretKey);
 | Property | Value |
 |----------|-------|
 | Curve | secp256k1 |
-| Master Key | 512 bits from seed |
+| Master Key | 32-byte private scalar plus 32-byte chain code from HMAC-SHA512 |
 | Child Key Derivation | HMAC-SHA512 |
-| Status | **Production Ready** |
+| Parent Fingerprint | First four bytes of RIPEMD160(SHA256(compressed public key)) |
+| Supported Operations | Master generation; normal/hardened private-parent derivation |
+| Unsupported Operations | Public-parent child derivation; xprv/xpub import/export |
+| Platforms | .NET 8/9/10 on Windows, Linux and macOS; portable secp256k1 core |
+| Status | **Scoped key derivation primitive** |
+
+The default master domain is `Bitcoin seed`; a custom `keyType` produces a different
+derivation. Seeds must be 16-64 bytes. Extended keys validate private scalars in
+`1..n-1`, compressed public points, four-byte fingerprints, and zero root metadata.
+Depth cannot exceed 255. Text paths use numeric components in `0..2147483647` and
+an explicit apostrophe, `h` or `H` suffix for hardened indices; `DeriveChild` accepts
+the full raw `uint` index range. Invalid child scalars reject at the requested index;
+callers must retry the next index and record the index actually used.
+
+Constructor inputs are copied. Result arrays remain mutable: protect them, avoid
+concurrent mutation, and clear `ExtendedKey` and builder result seeds when finished.
+`DerivePath(key, "m")` returns the same key object. Path derivation preserves the
+caller-owned root and clears owned intermediates on success or failure. The builder
+clears its unreturned master key and owned temporary seed on failure.
+The last builder source selection replaces the previous source;
+null seed/mnemonic inputs and blank configured paths reject instead of falling back.
+Buffer cleanup is ownership hygiene, not a guarantee that managed runtimes or crypto
+dependencies erase every secret copy or execute in constant time. Compliance policy rejects BIP32's
+secp256k1 construction; algorithm policy does not provide module certification.
+
+Fingerprints can collide and do not authenticate ancestry. A parent's extended public
+material (public key and chain code) combined with a non-hardened descendant private
+key can expose the parent's private key. Use hardened boundaries where isolation is
+required, and protect seeds, private keys and chain codes. These are construction
+limits described in the [BIP32 standard](https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki).
 
 ### 8.2 BIP39 Mnemonics
 

@@ -48,56 +48,62 @@ public class KeyManagerTests
         }
 
         [Fact]
-        public void ValidateKey_ValidRandomKey_ReturnsValid()
+        public void ValidateKey_DistinctBytes_ReturnsValid()
         {
-            // Use 256 bytes to reliably achieve > 6.0 bits Shannon entropy.
-            // Shannon entropy measures bits per unique symbol; with 256 bytes,
-            // we get enough samples for entropy to approach the theoretical max of 8 bits.
-            // Smaller samples (32-64 bytes) have high variance and often fail the 6.0 threshold.
-            var key = new byte[256];
-            System.Security.Cryptography.RandomNumberGenerator.Fill(key);
+            // Fixed diagnostic input: distinct bytes have no repeating pairs.
+            // Sample entropy does not establish cryptographic generator quality.
+            var key = Enumerable.Range(0, 256).Select(i => (byte)i).ToArray();
 
             var result = KeyManager.ValidateKey(key);
 
             Assert.True(result.IsValid, $"Validation failed with issues: {string.Join(", ", result.Issues)}");
             Assert.Empty(result.Issues);
-            Assert.True(result.Entropy > 6.0, $"Entropy {result.Entropy:F2} should be > 6.0 for 256 random bytes");
-            Assert.True(result.Score >= 80, $"Score {result.Score} should be high for valid random key");
+            Assert.Equal(8.0, result.Entropy, precision: 10);
+            Assert.Equal(100, result.Score);
         }
 
         [Fact]
-        public void ValidateKey_32ByteRandomKey_HasReasonableEntropy()
+        public void ValidateKey_32DistinctBytes_ReportsSampleEntropy()
         {
-            // For typical 32-byte cryptographic keys, entropy is often 5.0-5.5 bits
-            // due to limited sample size. This test documents expected behavior.
-            var key = KeyManager.GenerateSecureKey(32);
+            var key = Enumerable.Range(0, 32).Select(i => (byte)i).ToArray();
 
             var result = KeyManager.ValidateKey(key);
 
-            // 32-byte keys typically don't achieve 6.0 bits entropy due to sample size
-            Assert.True(result.Entropy > 4.0, $"Entropy {result.Entropy:F2} should be reasonable");
-            Assert.True(result.Score > 0, "Random key should have positive score");
-            // The key may or may not be valid depending on entropy - document this behavior
-            Assert.NotNull(result.Issues);
+            Assert.Equal(5.0, result.Entropy, precision: 10);
+            Assert.Equal(100, result.Score);
+            Assert.True(result.IsValid);
+            Assert.Empty(result.Issues);
         }
 
         /// <summary>
-        /// Documents Shannon entropy behavior for cryptographic keys of various sizes.
-        /// Entropy increases with sample size as more byte values can be represented.
+        /// Checks empirical entropy for a known distribution at each sample size.
         /// </summary>
         [Theory]
-        [InlineData(32, 4.5)]   // 32-byte keys: entropy ~5.0-5.5 bits typical
-        [InlineData(64, 5.0)]   // 64-byte keys: entropy ~5.5-6.0 bits typical
-        [InlineData(128, 5.5)] // 128-byte keys: entropy ~6.0-7.0 bits typical
-        [InlineData(256, 6.5)] // 256-byte keys: entropy ~7.0-7.5 bits typical
-        public void ValidateKey_EntropyScalesWithKeySize(int keySize, double minExpectedEntropy)
+        [InlineData(32, 5.0)]
+        [InlineData(64, 6.0)]
+        [InlineData(128, 7.0)]
+        [InlineData(256, 8.0)]
+        public void ValidateKey_DistinctBytes_ReportsExpectedEntropy(int keySize, double expectedEntropy)
         {
-            var key = KeyManager.GenerateSecureKey(keySize);
+            var key = Enumerable.Range(0, keySize).Select(i => (byte)i).ToArray();
 
             var result = KeyManager.ValidateKey(key);
 
-            Assert.True(result.Entropy >= minExpectedEntropy,
-                $"Entropy {result.Entropy:F2} for {keySize}-byte key should be >= {minExpectedEntropy}");
+            Assert.Equal(expectedEntropy, result.Entropy, precision: 10);
+        }
+
+        [Fact]
+        public void ValidateKey_DistinctBytesWithOneRepeatingPair_ReturnsPatternIssue()
+        {
+            var key = Enumerable.Range(0, 128).Select(i => (byte)i).ToArray();
+            key[2] = key[0];
+            key[3] = key[1];
+
+            var result = KeyManager.ValidateKey(key);
+
+            Assert.False(result.IsValid);
+            Assert.Contains("Repeating patterns detected", result.Issues);
+            Assert.True(result.Entropy > 6.0);
         }
 
         [Fact]
@@ -707,11 +713,10 @@ public class KeyManagerTests
         [Fact]
         public void ValidateKey_ValidKey_ReturnsValid()
         {
-            // Use MinKeySize=128 to reliably achieve >6.0 bits Shannon entropy
-            // (smaller samples have more variance in entropy measurement)
+            // Fixed input isolates policy validation from random sampling.
             var policy = new KeyPolicy { MinKeySize = 128, MinEntropy = 6.0 };
             var manager = KeyManager.CreateKeyPolicy(policy);
-            var key = KeyManager.GenerateSecureKey(128);
+            var key = Enumerable.Range(0, 128).Select(i => (byte)i).ToArray();
 
             var result = manager.ValidateKey(key, DateTimeOffset.UtcNow);
 

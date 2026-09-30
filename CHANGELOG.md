@@ -2,8 +2,25 @@
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-09-30
+
+### Migration required
+
+- **Review existing wallets before upgrading.** Earlier BIP39 placeholder phrases
+  are nonstandard, and regenerating phrases from the same entropy can change the
+  wallet. Unicode/text normalization corrections can also change existing seeds.
+  Preserve trusted seeds/private keys and verify wallet identity before changing
+  recovery material. See [BIP39 migration](docs/migration-guide.md#bip39-wallet-entry-changes-in-v103).
+- Recompute BIP32 fingerprint metadata from trusted parents and configure the
+  original Shamir reconstruction threshold explicitly. See the
+  [migration guide](docs/migration-guide.md).
+
 ### Security
 
+- Validate Shamir share indices, lengths, initialization and count before
+  interpolation. Add explicit reconstruction/verification thresholds and enforce
+  the builder's configured threshold. Raw shares do not authenticate their origin,
+  sharing session or original threshold; the legacy overload only requires two.
 - Replace the demonstration BIP39 placeholder wordlist with the official 2048-word
   English list. Apply NFKD to raw seed password/salt, validate mnemonic checksums
   during entropy decoding and wallet construction, canonicalize accepted English
@@ -18,6 +35,12 @@
   source selection so seed configuration cannot override a later mnemonic selection.
 - Clarify unsupported public-parent derivation and xprv/xpub import/export, fingerprint
   authentication limits, and the standard non-hardened private-key exposure boundary.
+
+### Fixed
+
+- Use fixed distributions for key-validation acceptance and sample-entropy tests,
+  eliminating random rejection by the repeated-pair heuristic. Retain separate
+  random generator tests and verify the existing repeated-pair rejection boundary.
 
 ## [1.0.2] - 2026-09-30
 

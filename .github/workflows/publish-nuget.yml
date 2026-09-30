@@ -40,19 +40,13 @@ jobs:
         id: version
         run: |
           if [ "${{ github.event_name }}" == "workflow_run" ]; then
-            # Get the latest release (most recently created)
-            echo "Finding latest release from create-release workflow..."
-
-            TAG=$(gh api repos/${GITHUB_REPOSITORY}/releases \
-              --jq ".[0].tag_name" | head -n 1)
-
-            if [ -z "${TAG}" ]; then
-              echo "Error: Could not find any releases"
+            # Bind this publish to the release workflow that completed.
+            if [[ ! "$COMPLETED_RELEASE_TITLE" =~ ^Create\ Release\ v([0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+)?)$ ]]; then
+              echo "Error: Could not identify the completed release version"
               exit 1
             fi
-
-            VERSION="${TAG#v}"
-            echo "Using latest release: ${TAG}"
+            VERSION="${BASH_REMATCH[1]}"
+            TAG="v${VERSION}"
           elif [ -n "$REQUESTED_VERSION" ]; then
             VERSION="$REQUESTED_VERSION"
             TAG="v${VERSION}"
@@ -72,6 +66,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REQUESTED_VERSION: ${{ inputs.version }}
+          COMPLETED_RELEASE_TITLE: ${{ github.event.workflow_run.display_title }}
 
   publish:
     runs-on: ubuntu-latest
@@ -83,6 +78,7 @@ jobs:
     env:
       RELEASE_VERSION: ${{ needs.get-version.outputs.version }}
       RELEASE_TAG: ${{ needs.get-version.outputs.tag }}
+      EXPECTED_RELEASE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || '' }}
     environment:
       name: production
       url: https://www.nuget.org/packages/HeroCrypt/${{ needs.get-version.outputs.version }}
@@ -90,6 +86,15 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.get-version.outputs.tag }}
+
+      - name: Verify release source commit
+        run: |
+          if [ -n "$EXPECTED_RELEASE_SHA" ] && [ "$(git rev-parse HEAD)" != "$EXPECTED_RELEASE_SHA" ]; then
+            echo "Error: Release tag does not match the completed build"
+            exit 1
+          fi
 
       - name: Record version in summary
         run: |

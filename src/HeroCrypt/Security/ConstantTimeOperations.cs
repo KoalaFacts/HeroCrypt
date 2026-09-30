@@ -110,7 +110,8 @@ public static class ConstantTimeOperations
     public static uint ConstantTimeEquals(uint a, uint b)
     {
         var diff = a ^ b;
-        return 1 & ((diff - 1) >> 31);
+        // For any nonzero diff, either diff or its negation has the high bit set.
+        return 1u ^ ((diff | unchecked(0u - diff)) >> 31);
     }
 
     /// <summary>
@@ -180,27 +181,22 @@ public static class ConstantTimeOperations
     }
 
     /// <summary>
-    /// Performs constant-time modular reduction for small moduli.
+    /// Performs modular reduction with a fixed iteration count for any nonzero uint modulus.
     /// </summary>
     /// <param name="value">Value to reduce</param>
     /// <param name="modulus">Modulus</param>
     /// <returns>value mod modulus</returns>
     /// <remarks>
     /// <para>
-    /// This method uses repeated subtraction with a fixed iteration count (32) to ensure
-    /// constant-time execution regardless of the input value. While this is less efficient
-    /// than a simple modulo operation, it prevents timing side-channels that could leak
-    /// information about the value being reduced.
+    /// Processes all 32 input bits using binary long division. Each iteration shifts
+    /// the remainder, incorporates one bit, and conditionally subtracts the modulus
+    /// using a mask instead of an input-dependent branch.
     /// </para>
     /// <para>
-    /// The 32-iteration count is sufficient because a 32-bit value can be at most 2^32-1,
-    /// and each iteration reduces the value by at least 1 (the minimum modulus). In practice,
-    /// far fewer iterations are needed for typical moduli, but we always perform all 32
-    /// iterations to maintain constant timing.
-    /// </para>
-    /// <para>
-    /// For high-performance scenarios with large moduli, consider Montgomery or Barrett
-    /// reduction which are both constant-time and more efficient for larger values.
+    /// A 64-bit intermediate retains the carry when the modulus exceeds 2^31.
+    /// The remainder stays below the modulus after each iteration, so the shifted
+    /// intermediate is below twice the modulus and needs at most one subtraction.
+    /// Fixed work in source does not guarantee identical timing on every runtime or CPU.
     /// </para>
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
@@ -211,16 +207,16 @@ public static class ConstantTimeOperations
             throw new ArgumentException("Modulus cannot be zero", nameof(modulus));
         }
 
-        // Perform 32 iterations unconditionally to ensure constant-time execution.
-        // Each iteration conditionally subtracts the modulus if the result is >= modulus.
-        var result = value;
-        for (var i = 0; i < 32; i++)
+        ulong remainder = 0;
+        for (var bit = 31; bit >= 0; bit--)
         {
-            var needsReduction = ConstantTimeLessThan(modulus - 1, result);
-            result = ConditionalSelect(needsReduction, result - modulus, result);
+            remainder = (remainder << 1) | ((value >> bit) & 1u);
+            var difference = unchecked(remainder - modulus);
+            // Underflow sets bit 63; add the modulus back only in that case.
+            remainder = unchecked(difference + (modulus & (0UL - (difference >> 63))));
         }
 
-        return result;
+        return (uint)remainder;
     }
 
     /// <summary>

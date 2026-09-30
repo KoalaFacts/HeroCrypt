@@ -1,12 +1,14 @@
 # Changelog
 
-## [Unreleased]
+## [1.0.1] - 2026-09-30
 
 ### Security
 
 - Disable the forgeable threshold signature simulation. Threshold key generation,
   partial signing, combination, and verification now throw `NotSupportedException`.
   Remove the corporate approval example and document migration of existing approvals.
+- Correct unsigned constant-time equality and modular reduction over the full
+  32-bit range; retain a fixed 32-round reduction algorithm.
 
 ## [1.0.0] - 2026-09-29
 

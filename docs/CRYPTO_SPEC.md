@@ -474,7 +474,7 @@ included in its KDF; no public-key identity binding is claimed. ML-KEM + AEAD is
 not a classical-plus-post-quantum KEM combiner. Applications must validate expected
 associated-data context. The RSA envelope's `IsText` field is unauthenticated.
 See the [security model](../SECURITY.md#hybrid-encryption-security-model) and
-[migration notes](migration-guide.md#hybrid-encryption-hardening-after-v103).
+[migration notes](migration-guide.md#hybrid-encryption-hardening-in-v104).
 
 ## 9. Random Number Generation
 

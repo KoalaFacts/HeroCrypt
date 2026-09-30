@@ -88,9 +88,8 @@ A fully RFC-compliant cryptographic library for .NET featuring high-performance,
     - Conservative security based on hash functions only
   - ⚠️ Requires .NET 10+ with Windows CNG PQC support or OpenSSL 3.5+
 
-- **🎭 Zero-Knowledge & Advanced Protocols (Reference Implementations)**
-  - zk-SNARKs (Groth16-style) - Zero-knowledge succinct proofs
-  - Ring Signatures - Anonymous group signatures (basic, linkable, traceable)
+- **🎭 Advanced Protocol Availability**
+  - Ring signatures and zk-SNARKs are not implemented. Their insecure prototypes were removed before the first release; see the [verification audit](SECURITY.md#ring-signature-and-zk-snark-verification-audit---2026-09-30).
   - Threshold signature operations are disabled: the former simulation did not authenticate signatures
   - Multi-Party Computation - Secure computation without revealing inputs
   - Private Set Intersection - Find common elements privately

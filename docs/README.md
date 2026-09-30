@@ -131,9 +131,13 @@ HeroCrypt contains both **production-ready** and **educational/reference** imple
 ### 📚 Educational/Reference Only
 
 - Post-quantum cryptography
-- Zero-knowledge proofs
 - Advanced protocols
 - Hardware security integration (abstractions only)
+
+**Unavailable:** Ring signatures and zk-SNARKs are not implemented; their insecure
+prototypes were removed before the first release. Threshold signature operations
+are disabled in 1.0.1. See the
+[verification audit](../SECURITY.md#ring-signature-and-zk-snark-verification-audit---2026-09-30).
 
 **Always check [PRODUCTION_READINESS.md](../PRODUCTION_READINESS.md) before using a feature in production.**
 

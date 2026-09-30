@@ -212,6 +212,7 @@ public sealed class PgpKeyExpirationUpdater : IDisposable
 
         // Serialize hashed subpackets
         var hashedSubpacketData = PgpSignatureSubpacket.WriteAll(hashedSubpackets);
+        byte[] salt = version == 6 ? GenerateSalt() : [];
 
         // Compute the certification hash
         var hash = PgpSignatureHashHelper.ComputeCertificationHash(
@@ -221,7 +222,7 @@ public sealed class PgpKeyExpirationUpdater : IDisposable
             (byte)sigType,
             pubAlgo,
             hashAlgo,
-            hashedSubpacketData);
+            hashedSubpacketData, salt);
 
         // Get hash prefix
         ushort hashPrefix = BinaryPrimitives.ReadUInt16BigEndian(hash);
@@ -232,7 +233,6 @@ public sealed class PgpKeyExpirationUpdater : IDisposable
         // Build signature packet
         if (version == 6)
         {
-            var salt = GenerateSalt();
             return PgpSignaturePacket.CreateV6(
                 sigType,
                 pubAlgo,

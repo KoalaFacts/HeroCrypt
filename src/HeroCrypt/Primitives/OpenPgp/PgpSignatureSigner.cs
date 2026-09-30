@@ -246,7 +246,7 @@ public sealed class PgpSignatureSigner : IDisposable
         // Set signature type to canonical text
         signatureType = PgpSignatureType.CanonicalTextDocument;
 
-        // Canonicalize text: CRLF line endings, remove trailing whitespace
+        // Canonicalize text line endings without changing signed whitespace
         var canonicalized = CanonicalizeText(text);
         var data = System.Text.Encoding.UTF8.GetBytes(canonicalized);
 
@@ -300,7 +300,7 @@ public sealed class PgpSignatureSigner : IDisposable
         byte[] salt = useVersion6 ? GenerateSalt(hashAlgorithm) : [];
 
         // Compute the hash
-        byte[] hash = ComputeSignatureHash(
+        byte[] hash = PgpSignatureHashHelper.ComputeDocumentHash(
             data,
             version,
             (byte)signatureType,
@@ -341,70 +341,6 @@ public sealed class PgpSignatureSigner : IDisposable
         }
     }
 
-    private byte[] ComputeSignatureHash(
-        ReadOnlySpan<byte> data,
-        byte version,
-        byte sigType,
-        byte pubAlgo,
-        byte hashAlgo,
-        byte[] hashedSubpackets,
-        byte[] salt)
-    {
-        using var hash = hashAlgorithm.CreateIncrementalHash();
-
-        // For V6, hash salt first
-        if (version == 6 && salt.Length > 0)
-        {
-            hash.AppendData(salt);
-        }
-
-        // Hash the data
-        hash.AppendData(data.ToArray());
-
-        // Build and hash the header
-        // V4: version(1) + sigtype(1) + pubalg(1) + hashalg(1) + hashedlen(2) + hashed
-        // V6: version(1) + sigtype(1) + pubalg(1) + hashalg(1) + hashedlen(4) + hashed
-        if (version == 4)
-        {
-            var header = new byte[6 + hashedSubpackets.Length];
-            header[0] = version;
-            header[1] = sigType;
-            header[2] = pubAlgo;
-            header[3] = hashAlgo;
-            BinaryPrimitives.WriteUInt16BigEndian(header.AsSpan(4), (ushort)hashedSubpackets.Length);
-            Array.Copy(hashedSubpackets, 0, header, 6, hashedSubpackets.Length);
-            hash.AppendData(header);
-
-            // V4 trailer: version(1) + 0xFF(1) + length(4)
-            var trailer = new byte[6];
-            trailer[0] = version;
-            trailer[1] = 0xFF;
-            uint totalLen = (uint)(4 + hashedSubpackets.Length); // version + sigtype + pubalg + hashalg + hashedlen(2) + hashed
-            BinaryPrimitives.WriteUInt32BigEndian(trailer.AsSpan(2), totalLen);
-            hash.AppendData(trailer);
-        }
-        else // V6
-        {
-            var header = new byte[8 + hashedSubpackets.Length];
-            header[0] = version;
-            header[1] = sigType;
-            header[2] = pubAlgo;
-            header[3] = hashAlgo;
-            BinaryPrimitives.WriteUInt32BigEndian(header.AsSpan(4), (uint)hashedSubpackets.Length);
-            Array.Copy(hashedSubpackets, 0, header, 8, hashedSubpackets.Length);
-            hash.AppendData(header);
-
-            // V6 trailer: version(1) + 0xFF(1) + length(8)
-            var trailer = new byte[10];
-            trailer[0] = version;
-            trailer[1] = 0xFF;
-            ulong totalLen = (ulong)(4 + hashedSubpackets.Length); // version + sigtype + pubalg + hashalg + hashedlen(4) + hashed
-            BinaryPrimitives.WriteUInt64BigEndian(trailer.AsSpan(2), totalLen);
-            hash.AppendData(trailer);
-        }
-
-        return hash.GetHashAndReset();
-    }
 
     private byte[] CreateSignatureData(byte[] hash)
     {
@@ -483,13 +419,7 @@ public sealed class PgpSignatureSigner : IDisposable
 
     private static string CanonicalizeText(string text)
     {
-        // Split into lines, trim trailing whitespace, join with CRLF
         var lines = text.Split(["\r\n", "\r", "\n"], StringSplitOptions.None);
-        for (int i = 0; i < lines.Length; i++)
-        {
-            lines[i] = lines[i].TrimEnd();
-        }
-
         return string.Join("\r\n", lines);
     }
 

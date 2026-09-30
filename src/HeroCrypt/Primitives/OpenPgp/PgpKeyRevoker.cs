@@ -204,6 +204,7 @@ public sealed class PgpKeyRevoker : IDisposable
 
         // Serialize hashed subpackets
         var hashedSubpacketData = PgpSignatureSubpacket.WriteAll(hashedSubpackets);
+        byte[] salt = version == 6 ? GenerateSalt() : [];
 
         // Compute hash
         var hash = sigType == PgpSignatureType.SubkeyRevocation && subkeyToRevoke.HasValue
@@ -214,14 +215,14 @@ public sealed class PgpKeyRevoker : IDisposable
                 (byte)sigType,
                 pubAlgo,
                 hashAlgo,
-                hashedSubpacketData)
+                hashedSubpacketData, salt)
             : ComputeKeyRevocationHash(
                 publicKey,
                 version,
                 (byte)sigType,
                 pubAlgo,
                 hashAlgo,
-                hashedSubpacketData);
+                hashedSubpacketData, salt);
 
         // Get hash prefix
         ushort hashPrefix = BinaryPrimitives.ReadUInt16BigEndian(hash);
@@ -232,7 +233,6 @@ public sealed class PgpKeyRevoker : IDisposable
         // Build signature packet
         if (version == 6)
         {
-            var salt = GenerateSalt();
             return PgpSignaturePacket.CreateV6(
                 sigType,
                 pubAlgo,
@@ -262,7 +262,7 @@ public sealed class PgpKeyRevoker : IDisposable
         byte sigType,
         byte pubAlgo,
         byte hashAlgo,
-        byte[] hashedSubpackets)
+        byte[] hashedSubpackets, byte[] salt)
     {
         return PgpSignatureHashHelper.ComputeKeySignatureHash(
             publicKey,
@@ -271,7 +271,7 @@ public sealed class PgpKeyRevoker : IDisposable
             sigType,
             pubAlgo,
             hashAlgo,
-            hashedSubpackets);
+            hashedSubpackets, salt);
     }
 
     private static byte[] ComputeSubkeyRevocationHash(
@@ -281,7 +281,7 @@ public sealed class PgpKeyRevoker : IDisposable
         byte sigType,
         byte pubAlgo,
         byte hashAlgo,
-        byte[] hashedSubpackets)
+        byte[] hashedSubpackets, byte[] salt)
     {
         return PgpSignatureHashHelper.ComputeKeySignatureHash(
             masterKey,
@@ -290,7 +290,7 @@ public sealed class PgpKeyRevoker : IDisposable
             sigType,
             pubAlgo,
             hashAlgo,
-            hashedSubpackets);
+            hashedSubpackets, salt);
     }
 
     private byte[] CreateSignatureData(byte[] hash)

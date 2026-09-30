@@ -13,9 +13,14 @@
   V6 keys. Explicit V6 mode requires a V6 key in either configuration order.
 - Correct V6 signature salt sizes to RFC 9580 Table 23 and reject unsupported
   hash identifiers instead of assigning a default salt length.
-- Scope OpenPGP verification to cryptographic checks under supplied keys. Independent
-  RFC hash-framing incompatibility remains tracked in Issue #140; see
-  [migration notes](docs/migration-guide.md#openpgp-verification-boundary-changes-after-v104).
+- Scope OpenPGP verification to cryptographic checks under supplied keys.
+- Correct V4/V6 signature header/trailer lengths and key-material prefixes; bind V6
+  salts in certification, binding, revocation, expiration and rotation signatures.
+  Historical nonstandard signatures require trusted re-signing/certification;
+  no legacy verification fallback is provided. See
+  [migration notes](docs/migration-guide.md#openpgp-signature-hash-correction-after-v104).
+- Normalize canonical document line endings in both signing and verification while
+  preserving authenticated trailing spaces and tabs.
 
 ## [1.0.4] - 2026-09-30
 

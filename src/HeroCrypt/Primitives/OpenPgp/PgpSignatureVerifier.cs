@@ -412,7 +412,7 @@ public sealed class PgpSignatureVerifier : IDisposable
                 (byte)signature.SignatureType,
                 (byte)(PgpPublicKeyAlgorithm)signature.PublicKeyAlgorithm,
                 signature.HashAlgorithm,
-                PgpSignatureSubpacket.WriteAll(signature.HashedSubpackets));
+                PgpSignatureSubpacket.WriteAll(signature.HashedSubpackets), signature.Salt.ToArray());
 
             // Verify hash prefix
             ushort computedPrefix = BinaryPrimitives.ReadUInt16BigEndian(computedHash);
@@ -479,7 +479,7 @@ public sealed class PgpSignatureVerifier : IDisposable
             ValidateSignature(signature, signingKey);
 
             // Compute the hash based on signature type
-            byte[] computedHash = ComputeKeyBasedSignatureHash(
+            byte[] computedHash = PgpSignatureHashHelper.ComputeKeySignatureHash(
                 primaryKey,
                 secondaryKey,
                 signature.Version,
@@ -536,36 +536,6 @@ public sealed class PgpSignatureVerifier : IDisposable
         }
     }
 
-    /// <summary>
-    /// Computes hash for key-based signatures (revocation, binding, direct key).
-    /// </summary>
-    /// <remarks>
-    /// Note: Unlike data signatures, key-based signatures in the current implementation
-    /// do not include the V6 salt in the hash computation. This matches the creation
-    /// behavior in PgpKeyRevoker and PgpKeyRotator.
-    /// </remarks>
-    private static byte[] ComputeKeyBasedSignatureHash(
-        PgpPublicKeyPacket primaryKey,
-        PgpPublicKeyPacket? secondaryKey,
-        byte version,
-        byte sigType,
-        byte pubAlgo,
-        byte hashAlgo,
-        byte[] hashedSubpackets,
-        byte[] salt)
-    {
-        // Note: salt parameter is accepted for API consistency but not used for key-based signatures
-        _ = salt;
-
-        return PgpSignatureHashHelper.ComputeKeySignatureHash(
-            primaryKey,
-            secondaryKey,
-            version,
-            sigType,
-            pubAlgo,
-            hashAlgo,
-            hashedSubpackets);
-    }
 
     private PgpSignatureResult VerifyWithKey(ReadOnlySpan<byte> data, PgpSignaturePacket signature, PgpPublicKeyPacket publicKey)
     {
@@ -578,7 +548,7 @@ public sealed class PgpSignatureVerifier : IDisposable
             ValidateSignature(signature, publicKey);
 
             // Compute the hash
-            byte[] computedHash = ComputeSignatureHash(
+            byte[] computedHash = PgpSignatureHashHelper.ComputeDocumentHash(
                 data,
                 signature.Version,
                 (byte)signature.SignatureType,
@@ -634,69 +604,6 @@ public sealed class PgpSignatureVerifier : IDisposable
         }
     }
 
-    private static byte[] ComputeSignatureHash(
-        ReadOnlySpan<byte> data,
-        byte version,
-        byte sigType,
-        byte pubAlgo,
-        byte hashAlgo,
-        byte[] hashedSubpackets,
-        byte[] salt)
-    {
-        var hashAlgorithm = (PgpHashAlgorithmId)hashAlgo;
-        using var hash = hashAlgorithm.CreateIncrementalHash();
-
-        // For V6, hash salt first
-        if (version == 6 && salt.Length > 0)
-        {
-            hash.AppendData(salt);
-        }
-
-        // Hash the data
-        hash.AppendData(data.ToArray());
-
-        // Build and hash the header
-        if (version == 4)
-        {
-            var header = new byte[6 + hashedSubpackets.Length];
-            header[0] = version;
-            header[1] = sigType;
-            header[2] = pubAlgo;
-            header[3] = hashAlgo;
-            BinaryPrimitives.WriteUInt16BigEndian(header.AsSpan(4), (ushort)hashedSubpackets.Length);
-            Array.Copy(hashedSubpackets, 0, header, 6, hashedSubpackets.Length);
-            hash.AppendData(header);
-
-            // V4 trailer: version(1) + 0xFF(1) + length(4)
-            var trailer = new byte[6];
-            trailer[0] = version;
-            trailer[1] = 0xFF;
-            uint totalLen = (uint)(4 + hashedSubpackets.Length);
-            BinaryPrimitives.WriteUInt32BigEndian(trailer.AsSpan(2), totalLen);
-            hash.AppendData(trailer);
-        }
-        else // V6
-        {
-            var header = new byte[8 + hashedSubpackets.Length];
-            header[0] = version;
-            header[1] = sigType;
-            header[2] = pubAlgo;
-            header[3] = hashAlgo;
-            BinaryPrimitives.WriteUInt32BigEndian(header.AsSpan(4), (uint)hashedSubpackets.Length);
-            Array.Copy(hashedSubpackets, 0, header, 8, hashedSubpackets.Length);
-            hash.AppendData(header);
-
-            // V6 trailer: version(1) + 0xFF(1) + length(8)
-            var trailer = new byte[10];
-            trailer[0] = version;
-            trailer[1] = 0xFF;
-            ulong totalLen = (ulong)(4 + hashedSubpackets.Length);
-            BinaryPrimitives.WriteUInt64BigEndian(trailer.AsSpan(2), totalLen);
-            hash.AppendData(trailer);
-        }
-
-        return hash.GetHashAndReset();
-    }
 
     private static bool VerifySignatureData(byte[] hash, byte[] signatureData, PgpPublicKeyPacket publicKey, PgpHashAlgorithmId hashAlg)
     {

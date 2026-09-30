@@ -1,153 +1,90 @@
 using HeroCrypt.Protocols.SecretSharing;
-using HeroCrypt.Tests.Infrastructure;
+using HeroCrypt.Security;
 
 namespace HeroCrypt.Tests.Protocols.SecretSharing;
 
-/// <summary>
-/// Tests for Secure Multi-Party Computation protocols.
-/// </summary>
+[Trait("Category", TestCategories.UNIT)]
+[Trait("Category", TestCategories.FAST)]
 public class SecureMpcTests
 {
-    private const int NUM_PARTIES = 5;
-    private const int THRESHOLD = 3;
-
-    [Fact]
-    [Trait("Category", TestCategories.UNIT)]
-    public void SecureSum_ValidInputs_ReturnsSum()
+    [Theory]
+    [InlineData(SecureMpc.SecurityModel.SemiHonest)]
+    [InlineData(SecureMpc.SecurityModel.Malicious)]
+    [InlineData(SecureMpc.SecurityModel.Covert)]
+    [InlineData((SecureMpc.SecurityModel)0)]
+    public void SecurityModel_CannotEnableSum(SecureMpc.SecurityModel model)
     {
-        // Setup: Each party has an input
-        // XOR sum implies just XORing them in GF(256) context of Shamir?
-        // Wait, SecureSum: "Add shares in GF(256)" -> Implementation uses XOR for addition?
-        // Line 183: `localSum[byteIdx] ^= share.Data[byteIdx];`
-        // ShamirSecretSharing uses GF(256).
-        // If inputs are bytes, and we share them using Shamir...
-        // The implementation sums the shares.
-        // Due to linearity of Shamir Secret Sharing, Sum(Shares) = Share(Sum).
-        // So reconstruction of sums should yield sum of secrets.
-        // But what is "Sum"? in GF(2^8), addition is XOR.
-        // So this computes XOR sum.
+        var mpc = new SecureMpc();
 
-        var inputs = new byte[NUM_PARTIES][];
-        var expectedXorSum = new byte[32]; // 32 bytes input
+        Assert.Throws<NotSupportedException>(() => mpc.SecureSum([[1], [2], [3]], 2, model));
+    }
 
-        for (int i = 0; i < NUM_PARTIES; i++)
-        {
-            inputs[i] = TestHelpers.RandomBytes(32);
-            for (int j = 0; j < 32; j++)
-            {
-                expectedXorSum[j] ^= inputs[i][j];
-            }
-        }
-
-        var result = new SecureMpc().SecureSum(inputs, THRESHOLD);
-
-        Assert.True(result.Success);
-        Assert.Equal(NUM_PARTIES, result.ParticipantCount);
-        CryptoAssertions.AssertBytesEqual(expectedXorSum, result.Result);
+    [Theory]
+    [InlineData(SecureMpc.SecurityModel.SemiHonest)]
+    [InlineData(SecureMpc.SecurityModel.Malicious)]
+    [InlineData(SecureMpc.SecurityModel.Covert)]
+    [InlineData((SecureMpc.SecurityModel)0)]
+    public void SecurityModel_CannotEnablePrivateIntersection(SecureMpc.SecurityModel model)
+    {
+        Assert.Throws<NotSupportedException>(() =>
+            new SecureMpc().PrivateSetIntersection([[1], [2]], [[2], [3]], model));
     }
 
     [Fact]
-    [Trait("Category", TestCategories.UNIT)]
-    public void SecureMultiply_ValidInputs_ReturnsProduct()
+    public void SecureSum_UnequalInputLengths_CannotReportTruncatedSuccess()
     {
-        // Multiplication in GF(256).
-        // Since input is byte array, is it element-wise multiplication?
-        // SecureMultiply code:
-        // Line 278: result[j] = GF256Multiply(dValue[j], eValue[j]);
-        // Yes, element-wise.
+        Assert.Throws<NotSupportedException>(() =>
+            new SecureMpc().SecureSum([[1], [2, 99], [3, 100]], 2));
+    }
 
-        // Let's use single byte inputs for simplicity to verify math easily.
-        var inputsX = new byte[NUM_PARTIES][];
-        var inputsY = new byte[NUM_PARTIES][];
-        // Note: SecureMultiply requires SHARES of inputs, not raw inputs.
-        // So we must split X and Y first.
-
-        var X = new byte[] { 0x02 }; // Element
-        var Y = new byte[] { 0x03 }; // Element
-        // In Rijndael GF(2^8): 2 * 3 = x * (x+1) = x^2 + x = 00000110 = 6. 
-        // Wait, 0x02 is 'x'. 0x03 is 'x+1'.
-        // 0x02 * 0x03 = 0x06?
-        // AES field: m(x) = x^8 + x^4 + x^3 + x + 1.
-        // Let's rely on the implementation to be consistent with itself (Beaver triples generation uses same Mul).
-        // We just check if reconstruct(result) == X * Y.
-
-        // Split X and Y
-        var xSharesRaw = new ShamirSecretSharing().Split(X, THRESHOLD, NUM_PARTIES);
-        var ySharesRaw = new ShamirSecretSharing().Split(Y, THRESHOLD, NUM_PARTIES);
-
-        // Convert to MPC Share objects
-        var xShares = new SecureMpc.MpcShare[NUM_PARTIES];
-        var yShares = new SecureMpc.MpcShare[NUM_PARTIES];
-        for (int i = 0; i < NUM_PARTIES; i++)
+    [Theory]
+    [InlineData(2, true)]
+    [InlineData(-1, false)]
+    [InlineData(4, false)]
+    public void SecureMultiply_TamperedTripleOrInvalidThreshold_IsRejected(int threshold, bool tamper)
+    {
+        var x = new SecureMpc.MpcShare[3];
+        var y = new SecureMpc.MpcShare[3];
+        var triples = new SecureMpc.BeaverTriple[3];
+        for (var party = 0; party < 3; party++)
         {
-            xShares[i] = new SecureMpc.MpcShare(i, xSharesRaw[i].Data, xSharesRaw[i].Index);
-            yShares[i] = new SecureMpc.MpcShare(i, ySharesRaw[i].Data, ySharesRaw[i].Index);
+            var index = (byte)(party + 1);
+            x[party] = new SecureMpc.MpcShare(party, [2], index);
+            y[party] = new SecureMpc.MpcShare(party, [3], index);
+            triples[party] = new SecureMpc.BeaverTriple(
+                new SecureMpc.MpcShare(party, [1], index),
+                new SecureMpc.MpcShare(party, [1], index),
+                new SecureMpc.MpcShare(party, [1], index));
         }
 
-        // Generate Triples
-        var triples = new SecureMpc().GenerateBeaverTriples(NUM_PARTIES, THRESHOLD, 1);
+        // Corrupt c = a*b for one participant. The former simulation consumed it
+        // without authenticating the triple or detecting participant tampering.
+        if (tamper)
+        {
+            triples[0].C.Value[0] = 0;
+        }
 
-        // Perform computation
-        var productShares = new SecureMpc().SecureMultiply(xShares, yShares, triples, THRESHOLD);
+        Assert.Throws<NotSupportedException>(() => new SecureMpc().SecureMultiply(x, y, triples, threshold));
+    }
 
-        // Reconstruct
-        var shamirShares = productShares.Select(s => new ShamirSecretSharing.Share(s.ShareIndex, s.Value)).ToArray();
-        // Use subset for reconstruction
-        var subset = shamirShares.Take(THRESHOLD + 1).ToArray();
-        var result = new ShamirSecretSharing().Reconstruct(subset);
+    [Theory]
+    [InlineData(SecurityLevel.None)]
+    [InlineData(SecurityLevel.Standard)]
+    [InlineData(SecurityLevel.Strict)]
+    [InlineData(SecurityLevel.Compliance)]
+    public void SecurityPolicy_CannotEnableMpcOperations(SecurityLevel level)
+    {
+        var mpc = new SecureMpc(new SecurityPolicyOptions(level, AllowDeterministicNonSiv: true));
 
-        // Create expected using internal helper logic (implied validity if it passes, or we calculate manually)
-        // 2 * 3 = 6 in normal arithmetic, and likely in GF(2^8) too for small numbers.
-        // Let's check 3 * 3 = 5 (x+1)(x+1) = x^2+1 = 5.
-        // 2 * 2 = 4.
-
-        // Actually, let's just assert it is consistent (run it locally or trust logic).
-        // Better: X=1 (Identity). 1 * Y = Y.
-        // SecureMpc uses GF256Multiply.
-        var expected = new byte[1];
-        // We can't access private GF256Multiply to check expected.
-        // We can check identity property.
-
+        Assert.Throws<NotSupportedException>(() => mpc.SecureSum([[1], [2], [3]], 2));
+        Assert.Throws<NotSupportedException>(() => mpc.PrivateSetIntersection([[1]], [[1]]));
+        Assert.Throws<NotSupportedException>(() => mpc.GenerateBeaverTriples(3, 2, 1));
+        Assert.Throws<NotSupportedException>(() => mpc.SecureMultiply([], [], [], 2));
     }
 
     [Fact]
-    [Trait("Category", TestCategories.UNIT)]
-    public void SecureMultiply_Identity_Success()
+    public void BeaverTripleGeneration_CannotProduceUnsupportedProtocolMaterial()
     {
-        var X = new byte[] { 0x01 }; // Identity
-        var Y = "B"u8.ToArray(); // Any value
-
-        var xSharesRaw = new ShamirSecretSharing().Split(X, THRESHOLD, NUM_PARTIES);
-        var ySharesRaw = new ShamirSecretSharing().Split(Y, THRESHOLD, NUM_PARTIES);
-
-        var xShares = new SecureMpc.MpcShare[NUM_PARTIES];
-        var yShares = new SecureMpc.MpcShare[NUM_PARTIES];
-        for (int i = 0; i < NUM_PARTIES; i++)
-        {
-            xShares[i] = new SecureMpc.MpcShare(i, xSharesRaw[i].Data, xSharesRaw[i].Index);
-            yShares[i] = new SecureMpc.MpcShare(i, ySharesRaw[i].Data, ySharesRaw[i].Index);
-        }
-
-        var triples = new SecureMpc().GenerateBeaverTriples(NUM_PARTIES, THRESHOLD, 1);
-        var productShares = new SecureMpc().SecureMultiply(xShares, yShares, triples, THRESHOLD);
-
-        var shamirShares = productShares.Select(s => new ShamirSecretSharing.Share(s.ShareIndex, s.Value)).Take(THRESHOLD + 1).ToArray();
-        var result = new ShamirSecretSharing().Reconstruct(shamirShares);
-
-        Assert.Single(result);
-        Assert.Equal(0x42, result[0]);
-    }
-
-    [Fact]
-    [Trait("Category", TestCategories.UNIT)]
-    public void PrivateSetIntersection_CommonElements_Returned()
-    {
-        var set1 = new byte[][] { [1], [2], [3] };
-        var set2 = new byte[][] { [3], [4], [5] };
-
-        var intersection = new SecureMpc().PrivateSetIntersection(set1, set2);
-
-        Assert.Single(intersection);
-        Assert.Equal(3, intersection[0][0]);
+        Assert.Throws<NotSupportedException>(() => new SecureMpc().GenerateBeaverTriples(3, 2, 32));
     }
 }

@@ -2,6 +2,28 @@
 
 This guide helps you migrate between HeroCrypt versions and from other cryptographic libraries.
 
+## MPC security change in v1.0.2
+
+`SecureMpc.SecureSum`, `SecureMultiply`, `PrivateSetIntersection`, and
+`GenerateBeaverTriples` now throw `NotSupportedException`. The corresponding
+configured `MpcBuilder` operations are also unsupported. No reviewed MPC or private
+set intersection protocol is currently implemented. Security policies and models,
+including `Malicious` and `Covert`, cannot enable these operations.
+
+The former implementation gathered all parties' plaintext inputs or shares in one
+process and did not authenticate participants or preprocessing material. Selecting
+a security model did not enforce it. PSI was a local hash-based set comparison,
+and multiplication accepted invalid thresholds and corrupted Beaver triples.
+Unequal sum input lengths could silently discard trailing bytes.
+
+Review applications that relied on these APIs for privacy or tamper detection.
+Previously computed results do not prove that inputs remained private or that
+participants and triples were authenticated. Independently revalidate results from
+trusted inputs, and reassess any disclosure of party inputs to the executing process.
+Use a reviewed distributed protocol with explicit participant and trust boundaries
+before resuming MPC or PSI. Catching `NotSupportedException` and continuing with a
+plaintext calculation does not restore those security guarantees.
+
 ## Threshold signature security change in v1.0.1
 
 The threshold signature simulation has been removed. `ThresholdSignatures` and

@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using HeroCrypt.Security;
 
 namespace HeroCrypt.Protocols.SecretSharing;
@@ -6,50 +5,30 @@ namespace HeroCrypt.Protocols.SecretSharing;
 #if !NETSTANDARD2_0
 
 /// <summary>
-/// Secure Multi-Party Computation (MPC) protocols
-///
-/// MPC allows multiple parties to jointly compute a function over their private inputs
-/// while keeping those inputs secret. No single party learns anything except the final result.
-///
-/// IMPORTANT: This is a simplified reference implementation for educational purposes.
-/// Production MPC requires:
-///
-/// 1. Secure communication channels (TLS, authenticated encryption)
-/// 2. Malicious security (Byzantine fault tolerance, zero-knowledge proofs)
-/// 3. Optimized secret sharing (Shamir, replicated, additive)
-/// 4. Beaver triples for multiplication
-/// 5. Garbled circuits for general computation
-/// 6. Oblivious transfer protocols
-/// 7. Commitment schemes for input validation
-/// 8. Network fault tolerance and timeouts
-///
-/// Based on:
-/// - GMW Protocol (Goldreich-Micali-Wigderson, 1987)
-/// - BGW Protocol (Ben-Or, Goldwasser, Wigderson, 1988)
-/// - SPDZ Protocol (modern practical MPC, 2012)
-///
-/// Use cases:
-/// - Private set intersection
-/// - Secure auctions
-/// - Privacy-preserving machine learning
-/// - Confidential data analysis
-/// - Secure voting
-/// - Multi-signature wallets
+/// Reserved API for multi-party computation protocols.
 /// </summary>
+/// <remarks>
+/// MPC, private set intersection, and Beaver triple generation are not supported.
+/// The former local simulation did not provide distributed privacy or authenticated
+/// computation. All operations throw <see cref="NotSupportedException"/> until a
+/// reviewed protocol is implemented.
+/// </remarks>
 public sealed class SecureMpc
 {
-    private readonly SecurityPolicyOptions policy;
+    private const string UnsupportedMessage =
+        "Multi-party computation is not supported. The former simulation did not provide distributed privacy or authenticated computation.";
 
     /// <summary>
-    /// Initializes a new instance of the SecureMpc class.
+    /// Initializes the reserved MPC API.
     /// </summary>
-    /// <param name="policy">Optional security policy. If null, uses SecurityPolicy.CurrentPolicy.</param>
+    /// <param name="policy">Security policy for a future implementation.</param>
     public SecureMpc(SecurityPolicyOptions? policy = null)
     {
-        this.policy = policy ?? SecurityPolicy.CurrentPolicy;
+        _ = policy;
     }
+
     /// <summary>
-    /// Security model for MPC
+    /// Reserved security model for a future MPC protocol
     /// </summary>
     public enum SecurityModel
     {
@@ -130,355 +109,51 @@ public sealed class SecureMpc
     }
 
     /// <summary>
-    /// Securely computes the sum of private inputs from multiple parties.
-    ///
-    /// Each party provides a private input. The protocol reveals only the sum,
-    /// not individual inputs.
-    ///
-    /// This is the simplest MPC operation (no multiplication required).
+    /// Reserved sum operation. No secure multi-party protocol is implemented.
     /// </summary>
-    /// <param name="partyInputs">Private inputs from each party</param>
-    /// <param name="threshold">Number of shares needed to reconstruct (t+1)</param>
-    /// <param name="model">Security model</param>
-    /// <returns>Sum of all inputs</returns>
+    /// <param name="partyInputs">Inputs for a future protocol.</param>
+    /// <param name="threshold">Reconstruction threshold for a future protocol.</param>
+    /// <param name="model">Security model for a future protocol.</param>
+    /// <returns>No result is produced.</returns>
+    /// <exception cref="NotSupportedException">MPC operations are unsupported.</exception>
     public ComputationResult SecureSum(byte[][] partyInputs, int threshold,
         SecurityModel model = SecurityModel.SemiHonest)
-    {
-        _ = model;
-
-        if (partyInputs == null || partyInputs.Length < 2)
-        {
-            throw new ArgumentException("At least 2 parties required", nameof(partyInputs));
-        }
-        if (threshold < 1 || threshold >= partyInputs.Length)
-        {
-            throw new ArgumentException("Invalid threshold", nameof(threshold));
-        }
-
-        int numParties = partyInputs.Length;
-
-        try
-        {
-            // Protocol:
-            // 1. Each party i secret-shares their input xi into shares [xi]1, [xi]2, ..., [xi]n
-            // 2. Party j receives share [xi]j from each party i
-            // 3. Each party locally computes [sum]j = Σ[xi]j
-            // 4. Parties reconstruct the sum from threshold+1 shares
-
-            // Share each party's input
-            var shamir = new ShamirSecretSharing(policy);
-            var allShares = new ShamirSecretSharing.Share[numParties][];
-            for (int i = 0; i < numParties; i++)
-            {
-                allShares[i] = shamir.Split(
-                    partyInputs[i],
-                    threshold,
-                    numParties
-                );
-            }
-
-            // Each party collects their shares and sums locally
-            var sumShares = new ShamirSecretSharing.Share[numParties];
-            for (int partyId = 0; partyId < numParties; partyId++)
-            {
-                // Collect share partyId from each input
-                byte[] localSum = new byte[partyInputs[0].Length];
-
-                for (int inputIdx = 0; inputIdx < numParties; inputIdx++)
-                {
-                    var share = allShares[inputIdx][partyId];
-
-                    // Add shares in GF(256)
-                    for (int byteIdx = 0; byteIdx < localSum.Length; byteIdx++)
-                    {
-                        localSum[byteIdx] ^= share.Data[byteIdx];
-                    }
-                }
-
-                sumShares[partyId] = new ShamirSecretSharing.Share(
-                    allShares[0][partyId].Index,
-                    localSum
-                );
-            }
-
-            // Reconstruct the sum (need threshold+1 shares)
-            var reconstructionShares = sumShares.Take(threshold + 1).ToArray();
-            var result = shamir.Reconstruct(reconstructionShares);
-
-            return new ComputationResult(result, numParties, true);
-        }
-        catch (ArgumentException)
-        {
-            return new ComputationResult([], numParties, false);
-        }
-    }
+        => throw new NotSupportedException(UnsupportedMessage);
 
     /// <summary>
-    /// Securely multiplies two secret-shared values.
-    ///
-    /// Given [x] and [y] (secret shared values), computes [x * y] without
-    /// revealing x or y.
-    ///
-    /// Uses Beaver multiplication triples for efficiency.
+    /// Reserved multiplication operation. No authenticated MPC protocol is implemented.
     /// </summary>
-    /// <param name="xShares">Shares of first operand</param>
-    /// <param name="yShares">Shares of second operand</param>
-    /// <param name="beaverTriple">Preprocessed Beaver triple for each party</param>
-    /// <param name="threshold">Reconstruction threshold</param>
-    /// <returns>Shares of the product x * y</returns>
+    /// <param name="xShares">First operand shares for a future protocol.</param>
+    /// <param name="yShares">Second operand shares for a future protocol.</param>
+    /// <param name="beaverTriple">Preprocessing shares for a future protocol.</param>
+    /// <param name="threshold">Reconstruction threshold for a future protocol.</param>
+    /// <returns>No result is produced.</returns>
+    /// <exception cref="NotSupportedException">MPC operations are unsupported.</exception>
     public MpcShare[] SecureMultiply(MpcShare[] xShares, MpcShare[] yShares,
         BeaverTriple[] beaverTriple, int threshold)
-    {
-        _ = threshold;
-
-        if (xShares == null || yShares == null || beaverTriple == null)
-        {
-            throw new ArgumentNullException(nameof(xShares));
-        }
-        if (xShares.Length != yShares.Length || xShares.Length != beaverTriple.Length)
-        {
-            throw new ArgumentException("Share arrays must have same length");
-        }
-
-        int numParties = xShares.Length;
-
-        // Beaver multiplication protocol:
-        // Given: [x], [y], and Beaver triple ([a], [b], [c]) where c = a*b
-        //
-        // 1. Each party locally computes:
-        //    [d] = [x] - [a]
-        //    [e] = [y] - [b]
-        //
-        // 2. Parties reveal d and e (these are random due to a,b being random)
-        //
-        // 3. Each party locally computes:
-        //    [x*y] = d*e + d*[b] + e*[a] + [c]
-        //
-        // This works because:
-        //    x*y = (d+a)*(e+b) = d*e + d*b + e*a + a*b
-        //                      = d*e + d*[b] + e*[a] + [c]
-
-        var productShares = new MpcShare[numParties];
-
-        try
-        {
-            // Step 1: Compute [d] = [x] - [a] and [e] = [y] - [b]
-            var dShares = new MpcShare[numParties];
-            var eShares = new MpcShare[numParties];
-
-            for (int i = 0; i < numParties; i++)
-            {
-                dShares[i] = SubtractShares(xShares[i], beaverTriple[i].A);
-                eShares[i] = SubtractShares(yShares[i], beaverTriple[i].B);
-            }
-
-            // Step 2: Reconstruct d and e (these are safe to reveal)
-            var dValue = ReconstructSecret([.. dShares.Select(s =>
-                new ShamirSecretSharing.Share(s.ShareIndex, s.Value))]);
-            var eValue = ReconstructSecret([.. eShares.Select(s =>
-                new ShamirSecretSharing.Share(s.ShareIndex, s.Value))]);
-
-            // Step 3: Each party computes [x*y] = d*e + d*[b] + e*[a] + [c]
-            for (int i = 0; i < numParties; i++)
-            {
-                var result = new byte[xShares[i].Value.Length];
-
-                // d * e (public multiplication)
-                for (int j = 0; j < result.Length; j++)
-                {
-                    result[j] = GF256Multiply(dValue[j], eValue[j]);
-                }
-
-                // d * [b]
-                for (int j = 0; j < result.Length; j++)
-                {
-                    result[j] ^= GF256Multiply(dValue[j], beaverTriple[i].B.Value[j]);
-                }
-
-                // e * [a]
-                for (int j = 0; j < result.Length; j++)
-                {
-                    result[j] ^= GF256Multiply(eValue[j], beaverTriple[i].A.Value[j]);
-                }
-
-                // + [c]
-                for (int j = 0; j < result.Length; j++)
-                {
-                    result[j] ^= beaverTriple[i].C.Value[j];
-                }
-
-                productShares[i] = new MpcShare(i, result, xShares[i].ShareIndex);
-            }
-
-            return productShares;
-        }
-        catch
-        {
-            throw new InvalidOperationException("Secure multiplication failed");
-        }
-    }
+        => throw new NotSupportedException(UnsupportedMessage);
 
     /// <summary>
-    /// Generates Beaver triples for secure multiplication preprocessing.
-    ///
-    /// In production: Generated via distributed protocol or trusted dealer.
-    /// Each party gets shares [a], [b], [c] where c = a*b.
+    /// Reserved preprocessing operation. No secure Beaver triple protocol is implemented.
     /// </summary>
-    /// <param name="numParties">Number of parties</param>
-    /// <param name="threshold">Reconstruction threshold</param>
-    /// <param name="valueLength">Length of values in bytes</param>
-    /// <returns>Beaver triple for each party</returns>
+    /// <param name="numParties">Number of parties for a future protocol.</param>
+    /// <param name="threshold">Reconstruction threshold for a future protocol.</param>
+    /// <param name="valueLength">Value length for a future protocol.</param>
+    /// <returns>No triples are produced.</returns>
+    /// <exception cref="NotSupportedException">MPC operations are unsupported.</exception>
     public BeaverTriple[] GenerateBeaverTriples(int numParties, int threshold, int valueLength)
-    {
-        if (numParties < 2)
-        {
-            throw new ArgumentException("At least 2 parties required", nameof(numParties));
-        }
-        if (threshold < 1 || threshold >= numParties)
-        {
-            throw new ArgumentException("Invalid threshold", nameof(threshold));
-        }
-
-        // In production: Generated via MPC protocol (no trusted dealer)
-        // Or using homomorphic encryption, oblivious transfer, etc.
-
-        // Generate random a and b
-        var a = RandomNumberGenerator.GetBytes(valueLength);
-        var b = RandomNumberGenerator.GetBytes(valueLength);
-
-        // Compute c = a * b in GF(256)
-        var c = new byte[valueLength];
-        for (int i = 0; i < valueLength; i++)
-        {
-            c[i] = GF256Multiply(a[i], b[i]);
-        }
-
-        // Secret share a, b, and c
-        var shamir = new ShamirSecretSharing(SecurityPolicy.CurrentPolicy);
-        var aShares = shamir.Split(a, threshold, numParties);
-        var bShares = shamir.Split(b, threshold, numParties);
-        var cShares = shamir.Split(c, threshold, numParties);
-
-        // Clean up secrets
-        SecureMemoryOperations.SecureClear(a);
-        SecureMemoryOperations.SecureClear(b);
-        SecureMemoryOperations.SecureClear(c);
-
-        // Create Beaver triples for each party
-        var triples = new BeaverTriple[numParties];
-        for (int i = 0; i < numParties; i++)
-        {
-            triples[i] = new BeaverTriple(
-                new MpcShare(i, aShares[i].Data, aShares[i].Index),
-                new MpcShare(i, bShares[i].Data, bShares[i].Index),
-                new MpcShare(i, cShares[i].Data, cShares[i].Index)
-            );
-        }
-
-        return triples;
-    }
+        => throw new NotSupportedException(UnsupportedMessage);
 
     /// <summary>
-    /// Computes private set intersection (PSI) between two parties.
-    ///
-    /// Returns elements that appear in both sets without revealing other elements.
+    /// Reserved set intersection operation. No private set intersection protocol is implemented.
     /// </summary>
-    /// <param name="party1Set">Party 1's private set</param>
-    /// <param name="party2Set">Party 2's private set</param>
-    /// <param name="model">Security model</param>
-    /// <returns>Intersection of the two sets</returns>
+    /// <param name="party1Set">First party's set for a future protocol.</param>
+    /// <param name="party2Set">Second party's set for a future protocol.</param>
+    /// <param name="model">Security model for a future protocol.</param>
+    /// <returns>No intersection is produced.</returns>
+    /// <exception cref="NotSupportedException">MPC operations are unsupported.</exception>
     public byte[][] PrivateSetIntersection(byte[][] party1Set, byte[][] party2Set,
         SecurityModel model = SecurityModel.SemiHonest)
-    {
-        _ = model;
-
-        if (party1Set == null || party2Set == null)
-        {
-            throw new ArgumentNullException(party1Set == null ? nameof(party1Set) : nameof(party2Set));
-        }
-
-        // Simplified PSI protocol using hashing
-        // Production implementations use:
-        // - Diffie-Hellman PSI
-        // - Circuit-based PSI
-        // - Oblivious Polynomial Evaluation
-        // - Bloom filters with oblivious transfer
-
-        // Hash both sets (simplified - real PSI uses more sophisticated cryptography)
-        var set1Hashes = party1Set.Select(HashSha256).ToList();
-        var set2Hashes = party2Set.Select(HashSha256).ToList();
-
-        // Find intersection (in production: done obliviously)
-        var intersection = new List<byte[]>();
-        for (int i = 0; i < party1Set.Length; i++)
-        {
-            var hash1 = set1Hashes[i];
-            if (set2Hashes.Any(hash2 => SecureMemoryOperations.ConstantTimeEquals(hash1, hash2)))
-            {
-                intersection.Add(party1Set[i]);
-            }
-        }
-
-        return [.. intersection];
-    }
-
-    // Helper methods
-
-    private static byte[] HashSha256(byte[] data)
-    {
-        return HashSha256((ReadOnlySpan<byte>)data);
-    }
-
-    private static byte[] HashSha256(ReadOnlySpan<byte> data)
-    {
-#if NETSTANDARD2_0
-        return Sha256Extensions.HashData(data);
-#else
-        return SHA256.HashData(data);
-#endif
-    }
-
-    private static MpcShare SubtractShares(MpcShare a, MpcShare b)
-    {
-        var result = new byte[a.Value.Length];
-        for (int i = 0; i < result.Length; i++)
-        {
-            result[i] = (byte)(a.Value[i] ^ b.Value[i]); // XOR in GF(256) is addition/subtraction
-        }
-        return new MpcShare(a.PartyId, result, a.ShareIndex);
-    }
-
-    private static byte[] ReconstructSecret(ShamirSecretSharing.Share[] shares)
-    {
-        var shamir = new ShamirSecretSharing(SecurityPolicy.CurrentPolicy);
-        return shamir.Reconstruct(shares);
-    }
-
-    private static byte GF256Multiply(byte a, byte b)
-    {
-        // Multiplication in GF(256) using Rijndael's field
-        byte p = 0;
-        byte hi_bit_set;
-
-        for (int counter = 0; counter < 8; counter++)
-        {
-            if ((b & 1) != 0)
-            {
-                p ^= a;
-            }
-
-            hi_bit_set = (byte)(a & 0x80);
-            a <<= 1;
-
-            if (hi_bit_set != 0)
-            {
-                a ^= 0x1B; // Rijndael's irreducible polynomial
-            }
-
-            b >>= 1;
-        }
-
-        return p;
-    }
+        => throw new NotSupportedException(UnsupportedMessage);
 }
 #endif

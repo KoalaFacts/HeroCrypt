@@ -3,8 +3,12 @@ namespace HeroCrypt.Protocols.SecretSharing;
 #if !NETSTANDARD2_0
 
 /// <summary>
-/// Fluent builder for Secure Multi-Party Computation operations.
+/// Reserved builder for multi-party computation operations.
 /// </summary>
+/// <remarks>
+/// No secure MPC or private set intersection protocol is implemented.
+/// Configured computation and preprocessing operations throw <see cref="NotSupportedException"/>.
+/// </remarks>
 public sealed class MpcBuilder
 {
     private int threshold = 2;
@@ -69,7 +73,7 @@ public sealed class MpcBuilder
     }
 
     /// <summary>
-    /// Computes the secure sum of all party inputs.
+    /// Invokes the unsupported MPC sum operation for configured inputs.
     /// </summary>
     /// <returns>The computation result containing the sum.</returns>
     public SecureMpc.ComputationResult ComputeSum()
@@ -82,7 +86,7 @@ public sealed class MpcBuilder
     }
 
     /// <summary>
-    /// Computes the secure sum of the provided inputs.
+    /// Invokes the unsupported MPC sum operation for provided inputs.
     /// </summary>
     /// <param name="inputs">Array of inputs from each party.</param>
     /// <returns>The computation result containing the sum.</returns>
@@ -93,7 +97,7 @@ public sealed class MpcBuilder
     }
 
     /// <summary>
-    /// Computes the private set intersection between two parties.
+    /// Invokes the unsupported private set intersection operation.
     /// </summary>
     /// <returns>Elements that appear in both sets.</returns>
     public byte[][] ComputeIntersection()
@@ -108,7 +112,7 @@ public sealed class MpcBuilder
     }
 
     /// <summary>
-    /// Computes the private set intersection between two parties.
+    /// Invokes the unsupported private set intersection operation.
     /// </summary>
     /// <param name="set1">First party's set.</param>
     /// <param name="set2">Second party's set.</param>
@@ -120,7 +124,7 @@ public sealed class MpcBuilder
     }
 
     /// <summary>
-    /// Generates Beaver triples for secure multiplication preprocessing.
+    /// Invokes the unsupported Beaver triple preprocessing operation.
     /// </summary>
     /// <param name="numParties">Number of parties.</param>
     /// <param name="valueLength">Length of values in bytes.</param>

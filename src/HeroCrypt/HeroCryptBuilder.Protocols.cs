@@ -76,16 +76,10 @@ public static partial class HeroCryptBuilder
     public static ThresholdSignatureBuilder ThresholdSignature() => new();
 
     /// <summary>
-    /// Starts building a secure multi-party computation operation.
+    /// Creates a reserved MPC builder. Configured operations are unsupported.
     /// </summary>
-    /// <example>
-    /// <code>
-    /// var result = HeroCryptBuilder.Mpc()
-    ///     .WithThreshold(2)
-    ///     .ComputeSum(partyInputs);
-    /// </code>
-    /// </example>
-    /// <returns>A new MPC builder.</returns>
+    /// <remarks>No secure MPC or private set intersection protocol is currently implemented.</remarks>
+    /// <returns>A builder whose configured operations throw <see cref="NotSupportedException"/>.</returns>
     public static MpcBuilder Mpc() => new();
 #endif
 }

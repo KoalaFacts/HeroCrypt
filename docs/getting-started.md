@@ -149,6 +149,9 @@ prototypes were removed before the first release. Threshold signature operations
 throw `NotSupportedException` in 1.0.1. See the
 [verification audit](../SECURITY.md#ring-signature-and-zk-snark-verification-audit---2026-09-30).
 
+MPC, private set intersection, and Beaver triple operations are disabled in 1.0.2.
+See the [MPC migration guide](migration-guide.md#mpc-security-change-in-v102).
+
 ### Memory Management
 
 HeroCrypt provides secure memory management:

@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.0.2] - 2026-09-30
+
+### Security
+
+- Disable the MPC simulation: sum, multiplication, private set intersection, and
+  Beaver triple generation now throw `NotSupportedException`. The former local
+  implementation ignored security models and did not provide distributed privacy
+  or authenticated computation. Remove the simulated arithmetic and hash matching.
+- Add rejection regressions for security model and policy bypasses, silent sum
+  truncation, invalid multiplication thresholds, and corrupted Beaver triples.
+  Document migration and update protocol availability claims.
+
 ## [1.0.1] - 2026-09-30
 
 ### Security
@@ -67,8 +79,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Comprehensive test suite with 45+ tests including integration and real-world examples
   - Security hardening: PEM validation, secure memory operations, disposal safety
   - Platform support: Windows CNG with PQC or OpenSSL 3.5+
-- Advanced Protocols (Phase 3F) - Reference implementations
-  - Multi-Party Computation with secure sum, multiplication, and private set intersection
 - Post-Quantum Cryptography (Phase 3E) - Reference implementations
   - CRYSTALS-Kyber (ML-KEM, FIPS 203) key encapsulation mechanism
   - CRYSTALS-Dilithium (ML-DSA, FIPS 204) digital signatures

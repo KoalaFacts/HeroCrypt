@@ -103,7 +103,7 @@ The following components are **simplified reference implementations** for educat
 - **Zero-Knowledge & Advanced Protocols** (Phase 3F)
   - Ring signatures and zk-SNARKs are **not implemented**. Their insecure prototypes were removed before the first release; do not restore them as working cryptography.
   - Threshold signature operations are **disabled** in 1.0.1 and throw `NotSupportedException`; see [GHSA-7498-jx43-v926](https://github.com/KoalaFacts/HeroCrypt/security/advisories/GHSA-7498-jx43-v926).
-  - MPC remains an educational implementation requiring a separate security review.
+  - MPC sum, multiplication, private set intersection, and Beaver triple generation are **disabled** in 1.0.2. The former local simulation did not provide distributed privacy or authenticated computation; see the [migration guide](docs/migration-guide.md#mpc-security-change-in-v102).
 
 Production use of these features requires:
 - Complete mathematical implementations
@@ -120,6 +120,33 @@ Production use of these features requires:
 - **BIP39 Mnemonics**: Using simplified wordlist (production needs full BIP39 wordlist)
 
 ## 🔍 Security Audits
+
+### MPC protocol boundary audit - 2026-09-30
+
+The MPC API through 1.0.1 was a local simulation: one caller provided all plaintext
+inputs or all shares. It had no authenticated participant communication or malicious
+participant checks. `SecureSum` and `PrivateSetIntersection` ignored `SecurityModel`,
+including `Malicious` and `Covert`; PSI performed ordinary local SHA-256 matching.
+`SecureMultiply` ignored its threshold and consumed unauthenticated Beaver triples.
+Triple generation and reconstruction used the global policy instead of the instance policy.
+
+Package metadata inspection of all six public versions (0.1.0, 0.1.2, 0.2.0,
+0.3.0, 1.0.0, and 1.0.1) confirmed that all four operations are exposed by
+each .NET 8, 9, and 10 asset. The .NET Standard 2.0 assets do not expose MPC.
+
+Regression tests against the former implementation reproduced successful execution
+for unsupported security models, unequal input lengths that silently truncated the
+sum, invalid multiplication thresholds, and a corrupted Beaver triple. The previous
+product test with no result assertion was replaced by rejection coverage.
+
+In 1.0.2 all four core operations throw `NotSupportedException` before processing
+inputs or generating preprocessing material. Configured builder operations delegate
+to the same rejection; missing builder configuration still reports a configuration
+error. Changing security models or policies cannot enable MPC. Shamir secret sharing
+remains a separate primitive and does not establish an authenticated MPC protocol.
+
+See the [migration guide](docs/migration-guide.md#mpc-security-change-in-v102) for
+reviewing uses of previous computation results and replacing protocol assumptions.
 
 ### Ring signature and zk-SNARK verification audit - 2026-09-30
 

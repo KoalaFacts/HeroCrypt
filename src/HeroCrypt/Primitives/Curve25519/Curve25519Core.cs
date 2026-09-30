@@ -124,11 +124,22 @@ internal sealed class Curve25519Core
             throw new ArgumentNullException(nameof(publicKey));
         }
 #endif
-        return privateKey.Length != KEY_SIZE
-            ? throw new ArgumentException($"Private key must be {KEY_SIZE} bytes", nameof(privateKey))
-            : publicKey.Length != KEY_SIZE
-            ? throw new ArgumentException($"Public key must be {KEY_SIZE} bytes", nameof(publicKey))
-            : ScalarMult(privateKey, publicKey);
+        if (privateKey.Length != KEY_SIZE)
+            throw new ArgumentException($"Private key must be {KEY_SIZE} bytes", nameof(privateKey));
+        if (publicKey.Length != KEY_SIZE)
+            throw new ArgumentException($"Public key must be {KEY_SIZE} bytes", nameof(publicKey));
+
+        var sharedSecret = ScalarMult(privateKey, publicKey);
+        var nonzero = 0;
+        // RFC 7748 section 6.1: inspect every byte before rejecting a low-order contribution.
+        for (var i = 0; i < sharedSecret.Length; i++)
+            nonzero |= sharedSecret[i];
+        if (nonzero == 0)
+        {
+            SecureMemoryOperations.SecureClear(sharedSecret);
+            throw new CryptographicException("X25519 key agreement produced an all-zero shared secret.");
+        }
+        return sharedSecret;
     }
 
     /// <summary>
@@ -289,7 +300,8 @@ internal sealed class Curve25519Core
         x.N6 = ((m[19] & 0xFF & ~1) >> 1) | ((m[20] & 0xFF) << 7) | ((m[21] & 0xFF) << 15) | ((m[22] & 0xFF & 7) << 23);
         x.N7 = ((m[22] & 0xFF & ~7) >> 3) | ((m[23] & 0xFF) << 5) | ((m[24] & 0xFF) << 13) | ((m[25] & 0xFF & 15) << 21);
         x.N8 = ((m[25] & 0xFF & ~15) >> 4) | ((m[26] & 0xFF) << 4) | ((m[27] & 0xFF) << 12) | ((m[28] & 0xFF & 63) << 20);
-        x.N9 = ((m[28] & 0xFF & ~63) >> 6) | ((m[29] & 0xFF) << 2) | ((m[30] & 0xFF) << 10) | ((m[31] & 0xFF) << 18);
+        // RFC 7748 section 5: X25519 ignores the most significant input bit.
+        x.N9 = ((m[28] & 0xFF & ~63) >> 6) | ((m[29] & 0xFF) << 2) | ((m[30] & 0xFF) << 10) | ((m[31] & 0x7F) << 18);
     }
 
     /// <summary>

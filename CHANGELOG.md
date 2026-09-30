@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### Security
+
+- Harden RSA hybrid envelopes with canonical AEAD selection, imported RSA key
+  minimums, a 32-byte payload-key requirement, strict single PEM/DER validation
+  and deterministic disposal/clearing of owned secret buffers.
+- Reject all-zero X25519 agreement output, including low-order input aliases.
+  Correct RFC 7748 high-bit input decoding and cover known-key hybrid ciphertexts.
+- Restore accidentally excluded .NET 10 ML-KEM encryption suites and enforce
+  selected key parameter sets on encapsulation, decapsulation and public-key import.
+- Clarify custom hybrid encryption's sender, replay, context and metadata limits.
+  See [migration notes](docs/migration-guide.md#hybrid-encryption-hardening-after-v103).
+
 ## [1.0.3] - 2026-09-30
 
 ### Migration required

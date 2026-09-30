@@ -9,7 +9,7 @@ using HeroCrypt.Primitives.Curve25519;
 using HeroCrypt.Primitives.Hkdf;
 using HeroCrypt.Primitives.XChaCha20Poly1305;
 using HeroCrypt.Security;
-#if NET10_OR_GREATER
+#if NET10_0_OR_GREATER
 using HeroCrypt.Primitives.MLKem;
 #endif
 
@@ -508,7 +508,7 @@ public sealed class EncryptionBuilder : IDisposable
             EncryptionAlgorithm.X25519XChaCha20Poly1305 or
             EncryptionAlgorithm.X25519AesGcm =>
                 throw new NotSupportedException("X25519 hybrid encryption uses recipient public keys. Use WithKey() with the recipient's public key."),
-#if NET10_OR_GREATER
+#if NET10_0_OR_GREATER
             EncryptionAlgorithm.MLKem768AesGcm or
             EncryptionAlgorithm.MLKem1024AesGcm or
             EncryptionAlgorithm.MLKem768ChaCha20Poly1305 or
@@ -700,11 +700,11 @@ public sealed class EncryptionBuilder : IDisposable
                 EncryptionAlgorithm.HpkeX25519AesGcm256 => throw new NotImplementedException(),
                 EncryptionAlgorithm.HpkeP256AesGcm128 => throw new NotImplementedException(),
                 EncryptionAlgorithm.AesCbcHmacSha256 => throw new NotImplementedException(),
-#if NET10_OR_GREATER
-                EncryptionAlgorithm.MLKem768AesGcm => EncryptMLKemAesGcm(plaintext, key, aad),
-                EncryptionAlgorithm.MLKem1024AesGcm => EncryptMLKemAesGcm(plaintext, key, aad),
-                EncryptionAlgorithm.MLKem768ChaCha20Poly1305 => EncryptMLKemChaCha20Poly1305(plaintext, key, aad),
-                EncryptionAlgorithm.MLKem1024ChaCha20Poly1305 => EncryptMLKemChaCha20Poly1305(plaintext, key, aad),
+#if NET10_0_OR_GREATER
+                EncryptionAlgorithm.MLKem768AesGcm => EncryptMLKemAesGcm(plaintext, key, aad, MLKemCore.SecurityLevel.MLKem768),
+                EncryptionAlgorithm.MLKem1024AesGcm => EncryptMLKemAesGcm(plaintext, key, aad, MLKemCore.SecurityLevel.MLKem1024),
+                EncryptionAlgorithm.MLKem768ChaCha20Poly1305 => EncryptMLKemChaCha20Poly1305(plaintext, key, aad, MLKemCore.SecurityLevel.MLKem768),
+                EncryptionAlgorithm.MLKem1024ChaCha20Poly1305 => EncryptMLKemChaCha20Poly1305(plaintext, key, aad, MLKemCore.SecurityLevel.MLKem1024),
 #endif
                 _ => throw new NotSupportedException($"Algorithm {algorithm} is not supported")
             };
@@ -862,10 +862,10 @@ public sealed class EncryptionBuilder : IDisposable
         // Generate ephemeral key pair
         var curve = new Curve25519Core((securityPolicy ?? SecurityPolicy.CurrentPolicy));
         var ephemeralPrivateKey = curve.GeneratePrivateKey();
-        var ephemeralPublicKey = curve.DerivePublicKey(ephemeralPrivateKey);
 
         try
         {
+            var ephemeralPublicKey = curve.DerivePublicKey(ephemeralPrivateKey);
             // Compute shared secret via X25519 key agreement
             var sharedSecret = curve.ComputeSharedSecret(ephemeralPrivateKey, recipientPublicKey);
 
@@ -982,13 +982,13 @@ public sealed class EncryptionBuilder : IDisposable
         GC.SuppressFinalize(this);
     }
 
-#if NET10_OR_GREATER
+#if NET10_0_OR_GREATER
 #pragma warning disable SYSLIB5006
-    private EncryptionResult EncryptMLKemAesGcm(byte[] plaintext, byte[] publicKeyPemBytes, byte[] aad)
+    private EncryptionResult EncryptMLKemAesGcm(byte[] plaintext, byte[] publicKeyPemBytes, byte[] aad, MLKemCore.SecurityLevel level)
     {
         var publicKeyPem = System.Text.Encoding.UTF8.GetString(publicKeyPemBytes);
 
-        using var encapsulation = MLKemCore.Encapsulate(publicKeyPem);
+        using var encapsulation = new MLKemCore(securityPolicy ?? SecurityPolicy.CurrentPolicy).Encapsulate(publicKeyPem, level);
 
         var result = new AesGcmCore((securityPolicy ?? SecurityPolicy.CurrentPolicy)).Encrypt(plaintext, encapsulation.SharedSecret, associatedData: aad);
 
@@ -1000,11 +1000,11 @@ public sealed class EncryptionBuilder : IDisposable
         };
     }
 
-    private EncryptionResult EncryptMLKemChaCha20Poly1305(byte[] plaintext, byte[] publicKeyPemBytes, byte[] aad)
+    private EncryptionResult EncryptMLKemChaCha20Poly1305(byte[] plaintext, byte[] publicKeyPemBytes, byte[] aad, MLKemCore.SecurityLevel level)
     {
         var publicKeyPem = System.Text.Encoding.UTF8.GetString(publicKeyPemBytes);
 
-        using var encapsulation = MLKemCore.Encapsulate(publicKeyPem);
+        using var encapsulation = new MLKemCore(securityPolicy ?? SecurityPolicy.CurrentPolicy).Encapsulate(publicKeyPem, level);
 
         var result = new ChaCha20Poly1305Core((securityPolicy ?? SecurityPolicy.CurrentPolicy)).Encrypt(plaintext, encapsulation.SharedSecret, associatedData: aad);
 

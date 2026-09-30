@@ -460,6 +460,22 @@ for the secret-sharing construction and GF(256) arithmetic respectively.
 
 ---
 
+### 8.4 Hybrid encryption compositions
+
+| API | Construction | Validation |
+|-----|--------------|------------|
+| `HybridEncryptionBuilder` | RSA-OAEP-SHA256 wraps a fresh 32-byte key; AES-GCM / ChaCha20-Poly1305 / XChaCha20-Poly1305 encrypts payload | RSA >= 2048 bits, exact algorithm name, single SPKI/PKCS8 PEM, full DER consumption |
+| X25519 operation suites | Ephemeral X25519, HKDF-SHA256 (empty salt, fixed `X25519-Hybrid-Encryption` info), AEAD | RFC 7748 top-bit decoding; reject all-zero agreement output |
+| .NET 10 ML-KEM operation suites | Native ML-KEM-768/1024 shared secret used as 32-byte AEAD key | Native support; public/private key parameter set must match suite |
+
+These custom constructions are not HPKE or OpenPGP and provide no sender
+authentication or replay protection. X25519 public keys/suite identifiers are not
+included in its KDF; no public-key identity binding is claimed. ML-KEM + AEAD is
+not a classical-plus-post-quantum KEM combiner. Applications must validate expected
+associated-data context. The RSA envelope's `IsText` field is unauthenticated.
+See the [security model](../SECURITY.md#hybrid-encryption-security-model) and
+[migration notes](migration-guide.md#hybrid-encryption-hardening-after-v103).
+
 ## 9. Random Number Generation
 
 ### 9.1 Source

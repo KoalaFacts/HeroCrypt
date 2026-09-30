@@ -13,9 +13,7 @@ This document provides a clear overview of which HeroCrypt features are producti
 | **Not implemented** | No implementation or public API is shipped |
 | **Disabled** | API remains, but operations throw `NotSupportedException` |
 
-## Production-Ready Features
-
-### Hybrid encryption scope
+## Hybrid encryption scope
 
 RSA-OAEP + AEAD envelopes, X25519 + AEAD operations and .NET 10 ML-KEM + AEAD
 operations are custom compositions. Primitive standards and regression tests do
@@ -24,6 +22,8 @@ They provide no sender authentication or replay protection; applications must
 validate expected context. X25519 suites are not HPKE, and ML-KEM suites do not
 combine classical and post-quantum key agreement. Native ML-KEM availability is
 platform dependent. See the [security model](SECURITY.md#hybrid-encryption-security-model).
+
+## Production-Ready Features
 
 These features are fully tested, RFC-compliant, and recommended for production use.
 

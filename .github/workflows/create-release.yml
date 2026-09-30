@@ -63,8 +63,10 @@ jobs:
           VERSION="$RELEASE_VERSION"
           DATE=$(date +%Y-%m-%d)
 
-          # Insert new version entry after "# Changelog" title
-          sed -i "/# Changelog/a\\\\n## [$VERSION] - $DATE\\n\\nSee [GitHub Release](https://github.com/${{ github.repository }}/releases/tag/v$VERSION) for details.\\n" CHANGELOG.md
+          # Preserve version notes prepared in the release PR.
+          if ! grep -Fq "## [$VERSION] - " CHANGELOG.md; then
+            sed -i "/# Changelog/a\\\\n## [$VERSION] - $DATE\\n\\nSee [GitHub Release](https://github.com/${{ github.repository }}/releases/tag/v$VERSION) for details.\\n" CHANGELOG.md
+          fi
 
           echo "Updated CHANGELOG.md with version $VERSION"
 
@@ -73,10 +75,12 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           # Use git add -A to catch any line-ending normalization changes from .gitattributes
           git add -A
-          git commit -m "chore: release v$VERSION [skip ci]"
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: release v$VERSION [skip ci]"
 
-          # Push changes (we just checked out fresh, so should be up to date)
-          git push
+            # Push changes (we just checked out fresh, so should be up to date)
+            git push
+          fi
 
           echo "CHANGELOG.md committed and pushed"
 

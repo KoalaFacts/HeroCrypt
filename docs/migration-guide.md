@@ -2,7 +2,7 @@
 
 This guide helps you migrate between HeroCrypt versions and from other cryptographic libraries.
 
-## Threshold signature security change (unreleased)
+## Threshold signature security change in v1.0.1
 
 The threshold signature simulation has been removed. `ThresholdSignatures` and
 configured `ThresholdSignatureBuilder` operations now throw `NotSupportedException`.

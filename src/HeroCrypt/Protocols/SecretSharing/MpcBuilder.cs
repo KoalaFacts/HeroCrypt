@@ -75,7 +75,8 @@ public sealed class MpcBuilder
     /// <summary>
     /// Invokes the unsupported MPC sum operation for configured inputs.
     /// </summary>
-    /// <returns>The computation result containing the sum.</returns>
+    /// <returns>No result is produced.</returns>
+    /// <exception cref="NotSupportedException">MPC operations are unsupported.</exception>
     public SecureMpc.ComputationResult ComputeSum()
     {
         if (partyInputs == null)
@@ -89,7 +90,8 @@ public sealed class MpcBuilder
     /// Invokes the unsupported MPC sum operation for provided inputs.
     /// </summary>
     /// <param name="inputs">Array of inputs from each party.</param>
-    /// <returns>The computation result containing the sum.</returns>
+    /// <returns>No result is produced.</returns>
+    /// <exception cref="NotSupportedException">MPC operations are unsupported.</exception>
     public SecureMpc.ComputationResult ComputeSum(byte[][] inputs)
     {
         var mpc = new SecureMpc();
@@ -99,7 +101,8 @@ public sealed class MpcBuilder
     /// <summary>
     /// Invokes the unsupported private set intersection operation.
     /// </summary>
-    /// <returns>Elements that appear in both sets.</returns>
+    /// <returns>No intersection is produced.</returns>
+    /// <exception cref="NotSupportedException">MPC operations are unsupported.</exception>
     public byte[][] ComputeIntersection()
     {
         if (party1Set == null)
@@ -116,7 +119,8 @@ public sealed class MpcBuilder
     /// </summary>
     /// <param name="set1">First party's set.</param>
     /// <param name="set2">Second party's set.</param>
-    /// <returns>Elements that appear in both sets.</returns>
+    /// <returns>No intersection is produced.</returns>
+    /// <exception cref="NotSupportedException">MPC operations are unsupported.</exception>
     public byte[][] ComputeIntersection(byte[][] set1, byte[][] set2)
     {
         var mpc = new SecureMpc();
@@ -128,7 +132,8 @@ public sealed class MpcBuilder
     /// </summary>
     /// <param name="numParties">Number of parties.</param>
     /// <param name="valueLength">Length of values in bytes.</param>
-    /// <returns>Beaver triples for each party.</returns>
+    /// <returns>No triples are produced.</returns>
+    /// <exception cref="NotSupportedException">MPC operations are unsupported.</exception>
     public SecureMpc.BeaverTriple[] GenerateBeaverTriples(int numParties, int valueLength)
     {
         var mpc = new SecureMpc();

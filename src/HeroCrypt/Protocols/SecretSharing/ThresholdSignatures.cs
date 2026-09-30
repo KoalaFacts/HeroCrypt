@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using HeroCrypt.Security;
 
 namespace HeroCrypt.Protocols.SecretSharing;
@@ -6,52 +5,25 @@ namespace HeroCrypt.Protocols.SecretSharing;
 #if !NETSTANDARD2_0
 
 /// <summary>
-/// Threshold Signature Schemes (TSS)
-///
-/// Threshold signatures allow a group of n parties to jointly sign messages, where
-/// any t+1 parties can create a valid signature, but t or fewer cannot.
-///
-/// Key properties:
-/// - No single party holds the full private key
-/// - Threshold t+1 parties needed to sign
-/// - Signature looks identical to regular signature (no one knows it's threshold)
-/// - Prevents single point of failure for key compromise
-///
-/// IMPORTANT: This is a simplified reference implementation for educational purposes.
-/// Production threshold signatures require:
-///
-/// 1. Distributed Key Generation (DKG) protocol (no trusted dealer)
-/// 2. Zero-knowledge proofs for verification
-/// 3. Secure communication channels
-/// 4. Byzantine fault tolerance
-/// 5. Proactive secret sharing for key refresh
-/// 6. Additive/multiplicative sharing optimizations
-/// 7. Constant-time operations
-///
-/// Based on:
-/// - "Practical Threshold Signatures" by Shoup (2000)
-/// - "Fast Multiparty Threshold ECDSA" by Gennaro &amp; Goldfeder (2018)
-/// - "GG20: One Round Threshold ECDSA" (2020)
-/// - FROST: Flexible Round-Optimized Schnorr Threshold Signatures (2020)
-///
-/// Use cases:
-/// - Multi-signature cryptocurrency wallets
-/// - Certificate authority key protection
-/// - Distributed consensus systems
-/// - Secure key backup and recovery
-/// - Corporate authorization workflows
+/// Reserved API for threshold signature protocols.
 /// </summary>
+/// <remarks>
+/// Threshold signatures are not supported. The former hash-based simulation did not
+/// authenticate signatures and has been removed. All operations throw
+/// <see cref="NotSupportedException"/> until a reviewed protocol is implemented.
+/// </remarks>
 public sealed class ThresholdSignatures
 {
-    private readonly SecurityPolicyOptions policy;
+    private const string UnsupportedMessage =
+        "Threshold signatures are not supported. The former simulation did not provide cryptographic authentication.";
 
     /// <summary>
-    /// Initializes a new instance of the ThresholdSignatures class.
+    /// Initializes the reserved threshold signature API.
     /// </summary>
-    /// <param name="policy">Optional security policy. If null, uses SecurityPolicy.CurrentPolicy.</param>
+    /// <param name="policy">Security policy for a future implementation.</param>
     public ThresholdSignatures(SecurityPolicyOptions? policy = null)
     {
-        this.policy = policy ?? SecurityPolicy.CurrentPolicy;
+        _ = policy;
     }
     /// <summary>
     /// Signature scheme for threshold signatures
@@ -194,393 +166,46 @@ public sealed class ThresholdSignatures
         }
     }
 
-    /// <summary>
-    /// Performs distributed key generation for threshold signatures.
-    ///
-    /// CRITICAL: In production, this MUST be done via a secure DKG protocol where
-    /// no single party learns the full private key. This simplified version uses
-    /// a trusted dealer (acceptable for testing, NOT for production).
-    ///
-    /// Production DKG protocols:
-    /// - Feldman VSS (Verifiable Secret Sharing)
-    /// - Pedersen VSS (information-theoretically secure)
-    /// - JF-DKG (Joint-Feldman)
-    /// - GJKR (Gennaro-Jarecki-Krawczyk-Rabin) DKG
-    /// </summary>
-    /// <param name="numParties">Total number of parties (n)</param>
-    /// <param name="threshold">Threshold (t) - need t+1 to sign</param>
-    /// <param name="scheme">Signature scheme</param>
-    /// <returns>Key shares for each party and the public key</returns>
+    /// <summary>Threshold key generation is not supported.</summary>
+    /// <param name="numParties">Total number of parties.</param>
+    /// <param name="threshold">Threshold parameter.</param>
+    /// <param name="scheme">Signature scheme.</param>
+    /// <returns>No result; this operation is not supported.</returns>
+    /// <exception cref="NotSupportedException">No secure threshold protocol is implemented.</exception>
     public KeyGenerationResult GenerateKeys(int numParties, int threshold,
         SignatureScheme scheme = SignatureScheme.Schnorr)
-    {
-        if (numParties < 2)
-        {
-            throw new ArgumentException("At least 2 parties required", nameof(numParties));
-        }
-        if (threshold < 1 || threshold >= numParties)
-        {
-            throw new ArgumentException("Threshold must be 1 ≤ t < n", nameof(threshold));
-        }
+        => throw new NotSupportedException(UnsupportedMessage);
 
-        try
-        {
-            // In production DKG:
-            // 1. Each party generates local polynomial of degree t
-            // 2. Parties broadcast commitments to polynomial coefficients
-            // 3. Each party sends shares to other parties over secure channels
-            // 4. Parties verify received shares against commitments
-            // 5. Public key = sum of all parties' public polynomial commitments at 0
-
-            const int KeySize = 32; // 256-bit keys
-
-            // Generate master secret key (in production: never exists in one place)
-            var masterSecretKey = RandomNumberGenerator.GetBytes(KeySize);
-
-            // Generate public key from secret key
-            var publicKey = DerivePublicKey(masterSecretKey, scheme);
-
-            // Secret share the master key using Shamir's scheme
-            var shamir = new ShamirSecretSharing(policy);
-            var shares = shamir.Split(masterSecretKey, threshold, numParties);
-
-            // Generate polynomial commitments for verification
-            var publicCommitments = GeneratePolynomialCommitments(threshold + 1, scheme);
-
-            // Create key share for each party
-            var keyShares = new KeyShare[numParties];
-            for (int i = 0; i < numParties; i++)
-            {
-                keyShares[i] = new KeyShare(
-                    i,
-                    shares[i].Index,
-                    shares[i].Data,
-                    publicKey,
-                    publicCommitments,
-                    threshold,
-                    numParties,
-                    scheme
-                );
-            }
-
-            // Securely erase master secret key
-            SecureMemoryOperations.SecureClear(masterSecretKey);
-
-            return new KeyGenerationResult(keyShares, publicKey, true);
-        }
-        catch (CryptographicException)
-        {
-            return new KeyGenerationResult(
-                [],
-                [],
-                false
-            );
-        }
-    }
-
-    /// <summary>
-    /// Creates a partial signature using a key share.
-    ///
-    /// Each participating party creates a partial signature. These are later
-    /// combined to form the complete threshold signature.
-    /// </summary>
-    /// <param name="message">Message to sign</param>
-    /// <param name="keyShare">Party's key share</param>
-    /// <param name="signers">List of all participating signers (must be ≥ threshold+1)</param>
-    /// <param name="nonce">Optional nonce (if null, generated securely)</param>
-    /// <returns>Partial signature from this party</returns>
+    /// <summary>Threshold partial signing is not supported.</summary>
+    /// <param name="message">Message to sign.</param>
+    /// <param name="keyShare">Party's key share.</param>
+    /// <param name="signers">Participating parties.</param>
+    /// <param name="nonce">Optional nonce.</param>
+    /// <returns>No result; this operation is not supported.</returns>
+    /// <exception cref="NotSupportedException">No secure threshold protocol is implemented.</exception>
     public PartialSignature SignPartial(ReadOnlySpan<byte> message, KeyShare keyShare,
         int[] signers, byte[]? nonce = null)
-    {
-        ArgumentNullException.ThrowIfNull(keyShare);
-        if (signers == null || signers.Length < keyShare.Threshold + 1)
-        {
-            throw new ArgumentException($"Need at least {keyShare.Threshold + 1} signers", nameof(signers));
-        }
-        if (!signers.Contains(keyShare.PartyId))
-        {
-            throw new ArgumentException("Key share owner must be in signers list", nameof(signers));
-        }
+        => throw new NotSupportedException(UnsupportedMessage);
 
-        // Generate or use provided nonce
-        byte[] nonceValue = nonce ?? RandomNumberGenerator.GetBytes(32);
-
-        try
-        {
-            // Threshold signing protocol (simplified Schnorr-style):
-            //
-            // Round 1: Each party i
-            //   - Generates random nonce ki
-            //   - Computes Ri = ki·G and broadcasts commitment H(Ri)
-            //
-            // Round 2: Each party i
-            //   - Opens Ri
-            //   - Verifies other commitments
-            //   - Computes R = Σ Ri
-            //   - Computes challenge c = H(R || publicKey || message)
-            //
-            // Round 3: Each party i
-            //   - Computes Lagrange coefficient λi for their share
-            //   - Computes partial signature si = ki + λi·xi·c (mod q)
-            //   - Broadcasts si with zero-knowledge proof
-            //
-            // Combination:
-            //   - S = Σ si (mod q)
-            //   - Final signature is (R, S)
-
-            // Compute message hash
-            var messageHash = ComputeSha256(message);
-
-            // Generate commitment (nonce · G in real implementation)
-            var commitment = ComputeSha256(nonceValue);
-
-            // Compute Lagrange coefficient for this share
-            var lagrange = ComputeLagrangeCoefficient(
-                keyShare.ShareIndex,
-                [.. signers.Select(id => (byte)(id + 1))],
-                keyShare.Threshold
-            );
-
-            // Compute partial signature value
-            // In production: si = ki + λi·xi·c (mod curve order)
-            var partialValue = ComputePartialSignatureValue(
-                keyShare.PrivateShare,
-                nonceValue,
-                messageHash,
-                lagrange
-            );
-
-            return new PartialSignature(
-                keyShare.PartyId,
-                keyShare.ShareIndex,
-                partialValue,
-                commitment
-            );
-        }
-        finally
-        {
-            if (nonce == null) // Only zero if we generated it
-            {
-                SecureMemoryOperations.SecureClear(nonceValue);
-            }
-        }
-    }
-
-    /// <summary>
-    /// Combines partial signatures into a complete threshold signature.
-    ///
-    /// Requires at least threshold+1 valid partial signatures.
-    /// </summary>
-    /// <param name="message">The message that was signed</param>
-    /// <param name="partialSignatures">Partial signatures from parties</param>
-    /// <param name="publicKey">Public key for verification</param>
-    /// <param name="scheme">Signature scheme</param>
-    /// <returns>Complete threshold signature</returns>
+    /// <summary>Threshold signature combination is not supported.</summary>
+    /// <param name="message">Message to sign.</param>
+    /// <param name="partialSignatures">Partial signatures.</param>
+    /// <param name="publicKey">Public key.</param>
+    /// <param name="scheme">Signature scheme.</param>
+    /// <returns>No result; this operation is not supported.</returns>
+    /// <exception cref="NotSupportedException">No secure threshold protocol is implemented.</exception>
     public ThresholdSignature CombineSignatures(ReadOnlySpan<byte> message,
         PartialSignature[] partialSignatures, byte[] publicKey, SignatureScheme scheme)
-    {
-        _ = scheme;
+        => throw new NotSupportedException(UnsupportedMessage);
 
-        if (partialSignatures == null || partialSignatures.Length == 0)
-        {
-            throw new ArgumentException("No partial signatures provided", nameof(partialSignatures));
-        }
-        ArgumentNullException.ThrowIfNull(publicKey);
-
-        // In production:
-        // 1. Verify each partial signature with zero-knowledge proof
-        // 2. Check commitments were opened correctly
-        // 3. Combine: S = Σ si (mod q)
-        // 4. Final signature is (R, S) where R = Σ Ri
-
-        // Combine commitments to get R
-        var rValue = CombineCommitments([.. partialSignatures.Select(ps => ps.Commitment)]);
-
-        // Combine partial signature values to get base S
-        var baseS = CombinePartialValues([.. partialSignatures.Select(ps => ps.Value)]);
-
-        // Compute challenge (binds R, publicKey, and message together)
-        var challengeData = rValue.Concat(publicKey).Concat(message.ToArray()).ToArray();
-        var challenge = ComputeSha256(challengeData);
-
-        // Compute verification tag that binds S to the message via the challenge
-        var tag = ComputeSha256(baseS.Concat(challenge).ToArray());
-
-        // S includes both the combined value and the verification tag
-        var sValue = baseS.Concat(tag).ToArray();
-
-        var signers = partialSignatures.Select(ps => ps.PartyId).ToArray();
-
-        return new ThresholdSignature(rValue, sValue, signers, scheme);
-    }
-
-    /// <summary>
-    /// Verifies a threshold signature.
-    ///
-    /// The signature verification is identical to regular signature verification -
-    /// no one can tell it's a threshold signature!
-    /// </summary>
-    /// <param name="message">The message that was signed</param>
-    /// <param name="signature">The threshold signature</param>
-    /// <param name="publicKey">The public key</param>
-    /// <returns>True if signature is valid, false otherwise</returns>
+    /// <summary>Threshold signature verification is not supported.</summary>
+    /// <param name="message">Message to verify.</param>
+    /// <param name="signature">Signature to verify.</param>
+    /// <param name="publicKey">Public key.</param>
+    /// <returns>No result; this operation is not supported.</returns>
+    /// <exception cref="NotSupportedException">No secure threshold protocol is implemented.</exception>
     public bool VerifySignature(ReadOnlySpan<byte> message,
         ThresholdSignature signature, byte[] publicKey)
-    {
-        ArgumentNullException.ThrowIfNull(signature);
-        ArgumentNullException.ThrowIfNull(publicKey);
-
-        try
-        {
-            // Verification equation (Schnorr-style):
-            // S·G = R + c·PublicKey
-            // where c = H(R || PublicKey || message)
-
-            // Compute challenge
-            var challengeData = signature.R
-                .Concat(publicKey)
-                .Concat(message.ToArray())
-                .ToArray();
-            var challenge = ComputeSha256(challengeData);
-
-            // Verify equation (simplified - production uses elliptic curve ops)
-            bool isValid = VerifySignatureEquation(
-                signature.R,
-                signature.S,
-                publicKey,
-                challenge
-            );
-
-            return isValid;
-        }
-        catch (CryptographicException)
-        {
-            return false;
-        }
-    }
-
-    // Helper methods
-
-    private static byte[] DerivePublicKey(byte[] secretKey, SignatureScheme scheme)
-    {
-        _ = scheme;
-
-        // In production: publicKey = secretKey · G (generator point)
-        // Different curves for different schemes:
-        // - Schnorr: secp256k1 or Ed25519
-        // - ECDSA: secp256k1 (Bitcoin/Ethereum)
-        // - EdDSA: Ed25519 or Ed448
-        // - BLS: BLS12-381
-
-        return ComputeSha256(secretKey);
-    }
-
-    private static byte[][] GeneratePolynomialCommitments(int count, SignatureScheme scheme)
-    {
-        _ = scheme;
-
-        // In production: Commitments to polynomial coefficients
-        // For Feldman VSS: Ci = ai · G for each coefficient ai
-
-        var commitments = new byte[count][];
-        for (int i = 0; i < count; i++)
-        {
-            commitments[i] = RandomNumberGenerator.GetBytes(32);
-        }
-        return commitments;
-    }
-
-    private static byte ComputeLagrangeCoefficient(byte shareIndex, byte[] signerIndices, int threshold)
-    {
-        _ = threshold;
-
-        // In production: Lagrange interpolation coefficient in field
-        // λi = Π(j/(j-i)) for j ∈ signers, j ≠ i
-
-        byte result = 1;
-        foreach (var j in signerIndices)
-        {
-            if (j != shareIndex)
-            {
-                // Simplified field arithmetic
-                result ^= (byte)(j ^ shareIndex);
-            }
-        }
-        return result;
-    }
-
-    private static byte[] ComputePartialSignatureValue(byte[] privateShare,
-        byte[] nonce, byte[] messageHash, byte lagrange)
-    {
-        // In production: si = ki + λi·xi·c (mod curve order)
-
-        var combined = privateShare
-            .Concat(nonce)
-            .Concat(messageHash)
-            .Concat([lagrange])
-            .ToArray();
-
-        return ComputeSha256(combined);
-    }
-
-    private static byte[] CombineCommitments(byte[][] commitments)
-    {
-        // In production: R = Σ Ri (elliptic curve point addition)
-
-        var combined = commitments.SelectMany(c => c).ToArray();
-        return ComputeSha256(combined);
-    }
-
-    private static byte[] CombinePartialValues(byte[][] values)
-    {
-        // In production: S = Σ si (mod curve order)
-
-        var result = new byte[values[0].Length];
-        foreach (var value in values)
-        {
-            for (int i = 0; i < result.Length; i++)
-            {
-                result[i] ^= value[i];
-            }
-        }
-        return result;
-    }
-
-    private static byte[] ComputeSha256(ReadOnlySpan<byte> data)
-    {
-#if NETSTANDARD2_0
-        return Sha256Extensions.HashData(data);
-#else
-        return SHA256.HashData(data);
-#endif
-    }
-
-    private static bool VerifySignatureEquation(byte[] r, byte[] s, byte[] publicKey, byte[] challenge)
-    {
-        // In production: Check S·G = R + c·PublicKey (elliptic curve)
-
-        // Basic length checks
-        if (r.Length == 0 || publicKey.Length == 0 || challenge.Length == 0)
-        {
-            return false;
-        }
-
-        // S should contain baseS (32 bytes) + tag (32 bytes)
-        if (s.Length != 64)
-        {
-            return false;
-        }
-
-        // Extract baseS and stored tag
-        var baseS = s[..32];
-        var storedTag = s[32..];
-
-        // Recompute expected tag: SHA256(baseS || challenge)
-        // The challenge is SHA256(R || publicKey || message), so this binds to the message
-        var expectedTag = ComputeSha256(baseS.Concat(challenge).ToArray());
-
-        // Constant-time comparison to prevent timing attacks
-        return CryptographicOperations.FixedTimeEquals(storedTag, expectedTag);
-    }
+        => throw new NotSupportedException(UnsupportedMessage);
 }
 #endif

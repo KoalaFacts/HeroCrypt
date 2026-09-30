@@ -95,7 +95,6 @@ The [examples](../examples/) directory contains practical examples:
   - [SecureMessagingExample.cs](../examples/HeroCrypt.Examples/UseCases/SecureMessagingExample.cs) - Hybrid encryption for secure messaging
   - [SecretSharingExample.cs](../examples/HeroCrypt.Examples/UseCases/SecretSharingExample.cs) - Shamir's secret sharing
   - [CryptographicWalletExample.cs](../examples/HeroCrypt.Examples/UseCases/CryptographicWalletExample.cs) - BIP39/BIP32 HD wallets
-  - [CorporateApprovalExample.cs](../examples/HeroCrypt.Examples/UseCases/CorporateApprovalExample.cs) - Threshold signatures
 - **[PostQuantum/](../examples/HeroCrypt.Examples/PostQuantum/)** - Post-quantum cryptography examples (.NET 10+)
 
 ## Additional Resources

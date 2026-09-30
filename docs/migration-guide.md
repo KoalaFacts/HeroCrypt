@@ -2,6 +2,18 @@
 
 This guide helps you migrate between HeroCrypt versions and from other cryptographic libraries.
 
+## Threshold signature security change (unreleased)
+
+The threshold signature simulation has been removed. `ThresholdSignatures` and
+configured `ThresholdSignatureBuilder` operations now throw `NotSupportedException`.
+No secure threshold signing protocol is currently implemented.
+
+Previously accepted threshold signatures were public hash values that anyone could
+forge using only the public key and message. Do not use them as proof of approval
+or authenticity. Re-establish approvals from an authoritative source and use a
+reviewed signing protocol before accepting new signatures. Existing threshold
+signature values cannot be converted into authentic signatures.
+
 ## Table of Contents
 
 1. [Migrating to v1.0](#migrating-to-v10)

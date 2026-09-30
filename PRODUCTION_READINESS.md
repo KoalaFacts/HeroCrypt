@@ -127,9 +127,12 @@ for the findings and published-package scope.
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| Secure MPC | Educational | Basic protocols |
-| Private Set Intersection | Educational | PSI protocols |
-| Beaver Triples | Educational | Preprocessing |
+| Secure MPC | Disabled | Sum and multiplication operations throw `NotSupportedException` since 1.0.2 |
+| Private Set Intersection | Disabled | The former local hash comparison did not provide a private protocol |
+| Beaver Triples | Disabled | Preprocessing generation throws `NotSupportedException` since 1.0.2 |
+
+Changing the security model or policy cannot enable these operations. See the
+[MPC migration guide](docs/migration-guide.md#mpc-security-change-in-v102).
 
 ### Cryptographic Protocols
 

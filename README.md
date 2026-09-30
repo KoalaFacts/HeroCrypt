@@ -91,10 +91,7 @@ A fully RFC-compliant cryptographic library for .NET featuring high-performance,
 - **🎭 Advanced Protocol Availability**
   - Ring signatures and zk-SNARKs are not implemented. Their insecure prototypes were removed before the first release; see the [verification audit](SECURITY.md#ring-signature-and-zk-snark-verification-audit---2026-09-30).
   - Threshold signature operations are disabled: the former simulation did not authenticate signatures
-  - Multi-Party Computation - Secure computation without revealing inputs
-  - Private Set Intersection - Find common elements privately
-  - Beaver Triples - Preprocessing for secure multiplication
-  - ⚠️ Educational implementations demonstrating API design and workflow
+  - MPC, private set intersection, and Beaver triple operations are disabled in 1.0.2: the former local simulation did not provide distributed privacy or authenticated computation; see the [migration guide](docs/migration-guide.md#mpc-security-change-in-v102).
 
 - **🔒 Hardware Security Integration (Abstraction Layer)**
   - PKCS#11 HSM integration - Industry-standard hardware security module API

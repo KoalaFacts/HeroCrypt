@@ -139,7 +139,7 @@ dotnet test --filter "FullyQualifiedName~HashBuilder"
 | Shamir's Secret Sharing | `ShamirSecretSharingTests.cs` | Fast | Complete |
 | Secret Sharing Builder | `SecretSharingBuilderTests.cs` | Fast | Complete |
 | Threshold Signatures | `ThresholdSignaturesTests.cs` | Slow | Complete |
-| MPC | `SecureMpcTests.cs` | Slow | Complete |
+| MPC / PSI / Beaver triples | `SecureMpcTests.cs`, `MpcBuilderTests.cs` | Fast | Unsupported-operation and regression rejection coverage |
 | Hybrid Encryption | `HybridEncryptionBuilderTests.cs` | Fast | Complete |
 | Key Manager | `KeyManagerTests.cs` | Fast | Complete |
 

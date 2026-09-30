@@ -4,7 +4,7 @@
 
 The English wordlist in `src/HeroCrypt/Protocols/HdWallet/Bip39English.txt` is
 copied unchanged from the [Bitcoin BIPs repository](https://github.com/bitcoin/bips/blob/master/bip-0039/english.txt).
-BIP39 was authored by Marek Palatinus, Pavol Rusnak, Sean Bowe and Alan de Leon and
+BIP39 was authored by Marek Palatinus, Pavol Rusnak, Aaron Voisine and Sean Bowe and
 is [licensed under MIT](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki).
 
 The test vectors embedded in `Bip39MnemonicTests.cs` are from the MIT-licensed

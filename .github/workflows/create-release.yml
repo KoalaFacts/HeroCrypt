@@ -82,7 +82,7 @@ jobs:
             git push
           fi
 
-          echo "CHANGELOG.md committed and pushed"
+          echo "CHANGELOG.md ready for release $VERSION"
 
       - name: Pack NuGet packages
         run: |

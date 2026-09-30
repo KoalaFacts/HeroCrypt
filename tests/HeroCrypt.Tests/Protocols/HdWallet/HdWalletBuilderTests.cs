@@ -176,7 +176,7 @@ public class HdWalletBuilderTests
         public void FromMnemonic_DifferentMnemonics_ProduceDifferentSeeds()
         {
             var mnemonic1 = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
-            var mnemonic2 = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon zoo";
+            var mnemonic2 = "legal winner thank year wave sausage worth useful legal winner thank yellow";
 
             var result1 = new HdWalletBuilder().FromMnemonic(mnemonic1).Derive();
             var result2 = new HdWalletBuilder().FromMnemonic(mnemonic2).Derive();

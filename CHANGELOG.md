@@ -4,6 +4,12 @@
 
 ### Security
 
+- Replace the demonstration BIP39 placeholder wordlist with the official 2048-word
+  English list. Apply NFKD to raw seed password/salt, validate mnemonic checksums
+  during entropy decoding and wallet construction, canonicalize accepted English
+  wallet inputs, guard entropy-size overflow, and clear owned temporary buffers.
+  Existing placeholder phrases and historical Unicode/text derivation require
+  explicit recovery review; see the migration guide before updating stored wallets.
 - Correct BIP32 parent fingerprints to HASH160, enforce wallet algorithm policy,
   validate key material and root metadata, reject depth overflow and ambiguous paths,
   and isolate caller buffers from key/result cleanup. Reuse portable secp256k1 private

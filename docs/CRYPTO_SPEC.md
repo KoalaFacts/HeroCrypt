@@ -394,8 +394,33 @@ limits described in the [BIP32 standard](https://github.com/bitcoin/bips/blob/ma
 |----------|-----------------|
 | Word Counts | 12, 15, 18, 21, 24 |
 | Entropy | 128-256 bits |
-| Passphrase | Optional |
-| Status | **Production Ready** |
+| Wordlist | Official ordered 2048-word English list |
+| Seed | 64 bytes, PBKDF2-HMAC-SHA512, 2048 iterations |
+| Passphrase | Optional; NFKD, no trimming or case folding |
+| Status | **Scoped wallet seed primitive** |
+
+Generation and checksum/entropy validation use the official English wordlist.
+`MnemonicToEntropy` checks the checksum before returning entropy.
+`HdWalletBuilder` validates and canonicalizes accepted English case/spacing before
+seed derivation and returns the phrase actually used.
+
+Raw `MnemonicToSeed` is independent of the wordlist parser: it applies NFKD to the
+mnemonic and salt without changing mnemonic case or collapsing spaces. Callers
+must validate inputs separately when a standard recovery phrase is required. Raw
+Unicode text conversion does not imply non-English generation/checksum support.
+Every passphrase yields a seed; this API cannot detect a wrong passphrase.
+
+Instance policy is passed to PBKDF2 and SHA-256 checksum validation. The fixed 2048
+iterations are required by BIP39, below general password-KDF recommendations; policy
+acceptance does not certify the module or wallet. Owned temporary entropy/bit/hash
+and UTF-8 buffers are cleared, and callers must clear returned seed/entropy arrays.
+Managed strings and dependency/runtime copies cannot be guaranteed erased; no
+constant-time or runtime-wide zeroization claim is made.
+
+Earlier placeholder wordlists and text derivation can yield different wallets.
+Review the [migration guidance](migration-guide.md#bip39-wallet-entry-changes-unreleased)
+before changing stored recovery material. Wordlist provenance and the MIT notice
+are in [third-party notices](../THIRD-PARTY-NOTICES.md).
 
 ### 8.3 Shamir's Secret Sharing
 

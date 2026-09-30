@@ -70,7 +70,7 @@ A fully RFC-compliant cryptographic library for .NET featuring high-performance,
   - Balloon Hashing (cache-timing resistant)
   - BIP32 master and private-parent key derivation with secp256k1 and HASH160 fingerprints;
     public-parent derivation and xprv/xpub import/export are unsupported
-  - BIP39 Mnemonic Codes (12/15/18/21/24 words)
+  - BIP39 official English mnemonics (12/15/18/21/24 words), checksum-validated wallet entry and NFKD seed conversion; review migration guidance for older placeholder phrases
   - Shamir's Secret Sharing (SSS)
   - Key rotation and hierarchical key management
 

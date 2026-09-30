@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+## [1.0.4] - 2026-09-30
+
+### Migration required
+
+- Review stored hybrid envelopes and imported keys before upgrading. RSA envelopes
+  require canonical algorithm metadata, a 32-byte payload key, RSA keys of at least
+  2048 bits and strict single PEM/DER encoding. Low-order X25519 inputs are rejected;
+  nonstandard historical high-bit decoding may change decryption results.
+- Explicit X25519/ML-KEM nonces are now honored and deterministic mode is rejected.
+  Ensure callers provide unique nonces and remove deterministic-mode configuration.
+  See [hybrid migration](docs/migration-guide.md#hybrid-encryption-hardening-in-v104).
+
 ### Security
 
 - Harden RSA hybrid envelopes with canonical AEAD selection, imported RSA key
@@ -14,7 +26,7 @@
 - Honor explicit AEAD nonces in X25519/ML-KEM hybrid operations, validate nonce
   lengths and reject deterministic mode instead of silently ignoring these options.
 - Clarify custom hybrid encryption's sender, replay, context and metadata limits.
-  See [migration notes](docs/migration-guide.md#hybrid-encryption-hardening-after-v103).
+  See [migration notes](docs/migration-guide.md#hybrid-encryption-hardening-in-v104).
 
 ### Testing
 

@@ -2,7 +2,7 @@
 
 This guide helps you migrate between HeroCrypt versions and from other cryptographic libraries.
 
-## Hybrid encryption hardening after v1.0.3
+## Hybrid encryption hardening in v1.0.4
 
 - RSA envelopes now require an explicit canonical `Algorithm` name (`AesGcm`,
   `ChaCha20Poly1305` or `XChaCha20Poly1305`), a 32-byte wrapped payload key, RSA

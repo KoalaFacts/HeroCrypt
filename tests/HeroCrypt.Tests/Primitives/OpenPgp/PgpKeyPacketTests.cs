@@ -156,7 +156,8 @@ public class PgpKeyPacketTests
         [Fact]
         public void CreateEcdsa_EncodesOidCorrectly()
         {
-            var publicPoint = TestHelpers.RandomBytes(65); // Uncompressed P-256 point
+            var publicPoint = TestHelpers.RandomBytes(65);
+            publicPoint[0] = 0x04; // Uncompressed point marker; MPI strips a leading zero byte.
 
             var packet = PgpPublicKeyPacket.CreateEcdsa(
                 4,

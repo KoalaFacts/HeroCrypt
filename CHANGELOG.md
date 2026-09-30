@@ -4,6 +4,10 @@
 
 ### Security
 
+- Preserve parsed OpenPGP signature-subpacket length encodings so verification
+  authenticates received bytes. Reject length-form changes without re-signing and
+  accept independently signed legal five-octet encodings. Newly created subpackets
+  continue to use minimal length encodings.
 - Bind OpenPGP verification results to the actual verification key, validate issuer
   hints and signature/key versions and algorithms, and reject weak hashes,
   unsupported critical semantics and malformed RSA signature encodings.

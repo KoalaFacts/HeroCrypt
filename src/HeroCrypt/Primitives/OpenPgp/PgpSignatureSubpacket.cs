@@ -27,6 +27,9 @@ namespace HeroCrypt.Primitives.OpenPgp;
 /// </remarks>
 public readonly struct PgpSignatureSubpacket
 {
+    // A parsed five-octet length must survive serialization because its bytes are authenticated.
+    private readonly bool useFiveOctetLength;
+
     /// <summary>
     /// The critical bit mask for the type byte.
     /// </summary>
@@ -64,6 +67,12 @@ public readonly struct PgpSignatureSubpacket
         Type = type;
         IsCritical = isCritical;
         Data = data;
+    }
+
+    private PgpSignatureSubpacket(PgpSignatureSubpacketType type, bool isCritical,
+        ReadOnlyMemory<byte> data, bool useFiveOctetLength) : this(type, isCritical, data)
+    {
+        this.useFiveOctetLength = useFiveOctetLength;
     }
 
     /// <summary>
@@ -734,7 +743,7 @@ public readonly struct PgpSignatureSubpacket
         int dataLength = length - 1;
         var data = dataLength > 0 ? source.Slice(lengthBytes + 1, dataLength).ToArray() : [];
 
-        subpacket = new PgpSignatureSubpacket(type, isCritical, data);
+        subpacket = new PgpSignatureSubpacket(type, isCritical, data, useFiveOctetLength: lengthBytes == 5);
         bytesConsumed = totalLength;
         return true;
     }
@@ -777,7 +786,7 @@ public readonly struct PgpSignatureSubpacket
         }
 
         int contentLength = 1 + Data.Length; // type + data
-        return GetLengthEncodingSize(contentLength) + contentLength;
+        return (useFiveOctetLength ? 5 : GetLengthEncodingSize(contentLength)) + contentLength;
     }
 
     /// <summary>
@@ -795,7 +804,7 @@ public readonly struct PgpSignatureSubpacket
         }
 
         int contentLength = 1 + Data.Length;
-        int offset = WriteLengthEncoding(contentLength, destination);
+        int offset = WriteLengthEncoding(contentLength, destination, useFiveOctetLength);
 
         // Write type byte with critical bit
         destination[offset++] = (byte)((byte)Type | (IsCritical ? CriticalBit : 0));
@@ -863,15 +872,15 @@ public readonly struct PgpSignatureSubpacket
         return 5;
     }
 
-    private static int WriteLengthEncoding(int length, Span<byte> destination)
+    private static int WriteLengthEncoding(int length, Span<byte> destination, bool useFiveOctetLength)
     {
-        if (length < 192)
+        if (!useFiveOctetLength && length < 192)
         {
             destination[0] = (byte)length;
             return 1;
         }
 
-        if (length < 16320)
+        if (!useFiveOctetLength && length < 16320)
         {
             int adjusted = length - 192;
             destination[0] = (byte)((adjusted >> 8) + 192);

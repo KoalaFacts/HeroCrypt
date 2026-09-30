@@ -25,6 +25,13 @@ This guide helps you migrate between HeroCrypt versions and from other cryptogra
 
 ## OpenPGP signature hash correction after v1.0.4
 
+- Parsed signature subpackets now retain their original length encoding. Verification
+  authenticates the received signed bytes rather than a normalized reconstruction.
+  Changing a hashed subpacket's length form without re-signing is rejected; legitimate
+  signatures over five-octet lengths are accepted. Rebuilding a parsed subpacket from
+  semantic values can change its signed bytes and requires a new signature. Original
+  wire encodings lost by earlier serialization cannot be recovered from the decoded
+  values alone; retain originals or reissue signatures through a trusted process.
 - V4 and V6 signatures now hash the complete signature header through hashed
   subpackets, followed by a six-byte trailer containing a four-byte header length.
   V6 key/certification signatures hash their salt first and use the V6 key-material

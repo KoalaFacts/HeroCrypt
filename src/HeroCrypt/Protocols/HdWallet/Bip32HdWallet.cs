@@ -3,7 +3,9 @@ using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
+using HeroCrypt.Primitives.Secp256k1;
 using HeroCrypt.Security;
+using Org.BouncyCastle.Crypto.Digests;
 
 namespace HeroCrypt.Protocols.HdWallet;
 
@@ -11,46 +13,22 @@ namespace HeroCrypt.Protocols.HdWallet;
 
 /// <summary>
 /// BIP32 Hierarchical Deterministic Wallet implementation.
-/// Implements BIP-0032 specification for deriving child keys from master keys.
+/// Supports BIP-0032 master generation and private-parent child derivation.
 /// </summary>
 /// <remarks>
 /// <para><b>Key Features:</b></para>
 /// <list type="bullet">
 ///   <item>Master key generation from seed (HMAC-SHA512)</item>
-///   <item>Child key derivation (normal and hardened)</item>
-///   <item>Extended key serialization (xprv/xpub format)</item>
+///   <item>Private-parent child key derivation (normal and hardened)</item>
+///   <item>HASH160 parent fingerprints</item>
 ///   <item>Support for key paths (e.g., m/44'/0'/0'/0/0)</item>
 /// </list>
 /// <para><b>Standard:</b> BIP-0032 (https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki)</para>
-/// <para><b>Platform Support:</b></para>
-/// <list type="bullet">
-///   <item>
-///     <term>Master Key Generation</term>
-///     <description>
-///       Uses HMAC-SHA512, which is supported on all platforms.
-///       <see cref="GenerateMasterKey"/> works on Windows, Linux, and macOS.
-///     </description>
-///   </item>
-///   <item>
-///     <term>Child Key Derivation (Windows/Linux)</term>
-///     <description>
-///       Fully supported. Uses secp256k1 elliptic curve operations.
-///     </description>
-///   </item>
-///   <item>
-///     <term>Child Key Derivation (macOS)</term>
-///     <description>
-///       <b>Not supported.</b> The secp256k1 elliptic curve (OID 1.3.132.0.10) is not
-///       supported by Apple's Security framework. macOS only supports NIST curves
-///       (P-256, P-384, P-521). <see cref="DeriveChild"/> will throw
-///       <see cref="CryptographicException"/> on macOS.
-///     </description>
-///   </item>
-/// </list>
-/// <para>
-/// For production use on macOS, consider using a software implementation of secp256k1
-/// (e.g., libsecp256k1 via P/Invoke or a managed implementation like NBitcoin).
-/// </para>
+/// <para>Private derivation uses the portable secp256k1 core on Windows, Linux and macOS.
+/// Public-parent child derivation and xprv/xpub import/export are not supported.</para>
+/// <para>Fingerprints are identifiers, not authentication. Compliance policy rejects
+/// this construction. No managed-runtime constant-time or complete zeroization guarantee
+/// is made; callers must protect and clear returned key material.</para>
 /// </remarks>
 public sealed class Bip32HdWallet
 {
@@ -81,15 +59,19 @@ public sealed class Bip32HdWallet
     /// <summary>
     /// Represents an extended key (public or private) with chain code
     /// </summary>
+    /// <remarks>Copies constructor inputs. Exposed arrays remain mutable and must not
+    /// be modified concurrently with wallet operations. Clearing this object erases
+    /// its owned buffers, not the constructor's input buffers.</remarks>
     public class ExtendedKey
     {
         /// <summary>
-        /// Key data (32 bytes for private, 33 bytes for public)
+        /// Owned key data (32 bytes for private, 33 bytes for compressed public).
+        /// The array is mutable; operations revalidate it before use.
         /// </summary>
         public byte[] Key { get; }
 
         /// <summary>
-        /// Chain code (32 bytes)
+        /// Owned chain code (32 bytes). Treat it as sensitive key material.
         /// </summary>
         public byte[] ChainCode { get; }
 
@@ -124,19 +106,22 @@ public sealed class Bip32HdWallet
         public ExtendedKey(byte[] key, byte[] chainCode, byte depth = 0,
             byte[]? parentFingerprint = null, uint childIndex = 0)
         {
-            if (key.Length is not 32 and not 33)
-            {
-                throw new ArgumentException("Key must be 32 bytes (private) or 33 bytes (public)", nameof(key));
-            }
+            ArgumentNullException.ThrowIfNull(key);
+            ArgumentNullException.ThrowIfNull(chainCode);
+            ValidateKeyMaterial(key);
             if (chainCode.Length != 32)
             {
                 throw new ArgumentException("Chain code must be 32 bytes", nameof(chainCode));
             }
 
-            Key = key;
-            ChainCode = chainCode;
+            var fingerprint = parentFingerprint ?? new byte[4];
+            ValidateMetadata(depth, fingerprint, childIndex);
+
+            // Own copies so clearing this key cannot erase the caller's buffers.
+            Key = key.ToArray();
+            ChainCode = chainCode.ToArray();
             Depth = depth;
-            ParentFingerprint = parentFingerprint ?? new byte[4];
+            ParentFingerprint = fingerprint.ToArray();
             ChildIndex = childIndex;
         }
 
@@ -157,7 +142,8 @@ public sealed class Bip32HdWallet
     /// Generates a master extended key from a seed
     /// </summary>
     /// <param name="seed">Seed bytes (16-64 bytes, 64 recommended)</param>
-    /// <param name="keyType">Key type identifier (default: "Bitcoin seed")</param>
+    /// <param name="keyType">HMAC domain (default: "Bitcoin seed"). Other values produce
+    /// a custom derivation, not standard BIP32 master keys.</param>
     /// <returns>Master extended private key</returns>
     public ExtendedKey GenerateMasterKey(ReadOnlySpan<byte> seed, string keyType = BITCOIN_SEED)
     {
@@ -166,20 +152,25 @@ public sealed class Bip32HdWallet
             throw new ArgumentException($"Seed must be between {MinSeedLength} and {MaxSeedLength} bytes", nameof(seed));
         }
 
+        policy.ValidateSignature("SECP256K1");
+        policy.ValidateHash("SHA512");
+
         // Compute I = HMAC-SHA512(Key = keyType, Data = seed)
         var hmacKey = Encoding.UTF8.GetBytes(keyType);
         Span<byte> hmacResult = stackalloc byte[64];
-
-        using (var hmac = new HMACSHA512(hmacKey))
-        {
-            hmac.TryComputeHash(seed, hmacResult, out _);
-        }
+        byte[]? masterKey = null;
+        byte[]? chainCode = null;
 
         try
         {
+            using (var hmac = new HMACSHA512(hmacKey))
+            {
+                hmac.TryComputeHash(seed, hmacResult, out _);
+            }
+
             // Split into master private key (IL) and chain code (IR)
-            var masterKey = hmacResult.Slice(0, 32).ToArray();
-            var chainCode = hmacResult.Slice(32, 32).ToArray();
+            masterKey = hmacResult.Slice(0, 32).ToArray();
+            chainCode = hmacResult.Slice(32, 32).ToArray();
 
             // BIP32 spec: In case parse256(IL) is 0 or parse256(IL) >= n, the master key is invalid
             if (IsZero(masterKey) || IsGreaterThanOrEqualToN(masterKey))
@@ -195,6 +186,8 @@ public sealed class Bip32HdWallet
         {
             SecureMemoryOperations.SecureClear(hmacResult);
             SecureMemoryOperations.SecureClear(hmacKey);
+            if (masterKey != null) SecureMemoryOperations.SecureClear(masterKey);
+            if (chainCode != null) SecureMemoryOperations.SecureClear(chainCode);
         }
     }
 
@@ -204,127 +197,73 @@ public sealed class Bip32HdWallet
     /// <param name="parent">Parent extended key</param>
     /// <param name="index">Child index (use values >= HardenedOffset for hardened derivation)</param>
     /// <returns>Derived child key</returns>
+    /// <exception cref="NotSupportedException">The parent is a public key.</exception>
+    /// <exception cref="InvalidOperationException">Depth would exceed 255 or the
+    /// derived scalar is invalid. For an invalid scalar, retry with the next index.</exception>
     public ExtendedKey DeriveChild(ExtendedKey parent, uint index)
     {
-#if !NETSTANDARD2_0
         ArgumentNullException.ThrowIfNull(parent);
-#else
-        if (parent == null)
+        ValidateKeyMaterial(parent.Key);
+        ValidateMetadata(parent.Depth, parent.ParentFingerprint, parent.ChildIndex);
+        policy.ValidateSignature("SECP256K1");
+        policy.ValidateHash("SHA512");
+        policy.ValidateHash("SHA256");
+        policy.ValidateHash("RIPEMD160");
+
+        if (!parent.IsPrivate)
         {
-            throw new ArgumentNullException(nameof(parent));
+            throw new NotSupportedException("BIP32 public-parent child derivation is not supported.");
         }
-#endif
-
-        var isHardened = index >= HardenedOffset;
-
-        // Hardened derivation requires private key
-        if (isHardened && !parent.IsPrivate)
+        if (parent.Depth == byte.MaxValue)
         {
-            throw new InvalidOperationException("Cannot derive hardened child from public key");
-        }
-
-        Span<byte> data = stackalloc byte[37]; // 1 + 32 + 4
-        var dataLength = 0;
-
-        if (isHardened)
-        {
-            // Hardened: data = 0x00 || parent_private_key || index
-            data[0] = 0x00;
-            parent.Key.CopyTo(data.Slice(1, 32));
-            dataLength = 33;
-        }
-        else
-        {
-            // Normal: data = parent_public_key || index
-            if (parent.IsPrivate)
-            {
-                // Derive public key from private key (simplified - would need full ECC implementation)
-                // For now, we'll use a placeholder approach
-                var publicKey = DerivePublicKeyFromPrivate(parent.Key);
-                publicKey.CopyTo(data);
-                dataLength = 33;
-            }
-            else
-            {
-                parent.Key.CopyTo(data);
-                dataLength = 33;
-            }
+            throw new InvalidOperationException("BIP32 child depth cannot exceed 255.");
         }
 
-        // Append child index (big-endian)
-        BinaryPrimitives.WriteUInt32BigEndian(data.Slice(dataLength, 4), index);
-
-        // Compute I = HMAC-SHA512(Key = parent_chain_code, Data = data)
+        Span<byte> data = stackalloc byte[37];
         Span<byte> hmacResult = stackalloc byte[64];
-        using (var hmac = new HMACSHA512(parent.ChainCode))
-        {
-            hmac.TryComputeHash(data.Slice(0, dataLength + 4), hmacResult, out _);
-        }
-
+        byte[]? childKey = null;
+        byte[]? childChainCode = null;
         try
         {
-            var childKey = new byte[32];
-            var childChainCode = hmacResult.Slice(32, 32).ToArray();
-
-            if (parent.IsPrivate)
+            if (index >= HardenedOffset)
             {
-                // BIP32 spec: In case parse256(IL) >= n or ki = 0, the resulting key is invalid
-                var IL = hmacResult.Slice(0, 32);
-
-                if (IsGreaterThanOrEqualToN(IL))
-                {
-                    throw new InvalidOperationException(
-                        $"Invalid child key at index {index}: IL >= n. " +
-                        "This is extremely rare. Increment index and try again.");
-                }
-
-                // child_key = (parse256(IL) + parent_key) mod n
-                AddModN(IL, parent.Key, childKey);
-
-                // Check if resulting key is zero
-                if (IsZero(childKey))
-                {
-                    throw new InvalidOperationException(
-                        $"Invalid child key at index {index}: derived key is zero. " +
-                        "This is extremely rare. Increment index and try again.");
-                }
+                data[0] = 0;
+                parent.Key.CopyTo(data.Slice(1, 32));
             }
             else
             {
-                // REFERENCE IMPLEMENTATION LIMITATION
-                // Public key derivation requires full ECC point addition (secp256k1)
-                // Production implementation needs:
-                // 1. Parse parent public key as EC point (33 or 65 bytes)
-                // 2. Parse IL as scalar value
-                // 3. Compute point(IL) + parent_public_key using EC point addition
-                // 4. Serialize resulting point as compressed public key
-                //
-                // For production, use established libraries like:
-                // - NBitcoin (Bitcoin-specific HD wallet implementation)
-                // - BouncyCastle (full ECC implementation)
-                // - libsecp256k1 wrapper
+                DerivePublicKeyFromPrivate(parent.Key).CopyTo(data);
+            }
+            BinaryPrimitives.WriteUInt32BigEndian(data.Slice(33, 4), index);
 
-                throw new InvalidOperationException(
-                    "BIP32 public key derivation is not supported in this reference implementation. " +
-                    "This requires full secp256k1 elliptic curve point addition. " +
-                    "For production use, consider libraries like NBitcoin or BouncyCastle that provide complete BIP32 support.");
+            using (var hmac = new HMACSHA512(parent.ChainCode))
+            {
+                hmac.TryComputeHash(data, hmacResult, out _);
             }
 
-            // Calculate parent fingerprint (first 4 bytes of HASH160(parent_public_key))
-            var parentFingerprint = CalculateFingerprint(parent);
+            var left = hmacResult.Slice(0, 32);
+            if (IsGreaterThanOrEqualToN(left))
+            {
+                throw new InvalidOperationException($"Invalid child key at index {index}: IL >= n. Try the next index.");
+            }
 
-            return new ExtendedKey(
-                childKey,
-                childChainCode,
-                depth: (byte)(parent.Depth + 1),
-                parentFingerprint: parentFingerprint,
-                childIndex: index
-            );
+            childKey = new byte[32];
+            AddModN(left, parent.Key, childKey);
+            if (IsZero(childKey))
+            {
+                throw new InvalidOperationException($"Invalid child key at index {index}: derived key is zero. Try the next index.");
+            }
+            childChainCode = hmacResult.Slice(32, 32).ToArray();
+
+            return new ExtendedKey(childKey, childChainCode, (byte)(parent.Depth + 1),
+                CalculateFingerprint(parent), index);
         }
         finally
         {
             SecureMemoryOperations.SecureClear(hmacResult);
             SecureMemoryOperations.SecureClear(data);
+            if (childKey != null) SecureMemoryOperations.SecureClear(childKey);
+            if (childChainCode != null) SecureMemoryOperations.SecureClear(childChainCode);
         }
     }
 
@@ -336,33 +275,49 @@ public sealed class Bip32HdWallet
     /// <returns>Derived key</returns>
     public ExtendedKey DerivePath(ExtendedKey masterKey, string path)
     {
+        ArgumentNullException.ThrowIfNull(masterKey);
+        ValidateKeyMaterial(masterKey.Key);
+        ValidateMetadata(masterKey.Depth, masterKey.ParentFingerprint, masterKey.ChildIndex);
+        policy.ValidateSignature("SECP256K1");
         if (string.IsNullOrWhiteSpace(path))
         {
             throw new ArgumentException("Path cannot be empty", nameof(path));
         }
 
         var indices = ParsePath(path);
+        if (indices.Length > byte.MaxValue - masterKey.Depth)
+        {
+            throw new ArgumentException("BIP32 path would exceed depth 255", nameof(path));
+        }
         var currentKey = masterKey;
 
-        foreach (var index in indices)
+        try
         {
-            var nextKey = DeriveChild(currentKey, index);
-
-            // Clear intermediate keys (except master and final)
-            if (currentKey != masterKey)
+            foreach (var index in indices)
             {
-                currentKey.Clear();
+                var nextKey = DeriveChild(currentKey, index);
+                if (currentKey != masterKey)
+                {
+                    currentKey.Clear();
+                }
+                currentKey = nextKey;
             }
-
-            currentKey = nextKey;
+            return currentKey;
         }
-
-        return currentKey;
+        catch
+        {
+            // Own intermediate keys, but never erase the caller's root.
+            if (currentKey != masterKey) currentKey.Clear();
+            throw;
+        }
     }
 
     /// <summary>
     /// Parses a BIP32 derivation path into indices
     /// </summary>
+    /// <remarks>Numeric components range from 0 to 2147483647. Hardened components
+    /// require an apostrophe, h or H suffix. Whitespace and signed numbers are rejected.
+    /// Paths may be relative or begin with m/ or M/.</remarks>
     /// <param name="path">Path string (e.g., "m/44'/0'/0'/0/0")</param>
     /// <returns>Array of child indices</returns>
     public uint[] ParsePath(string path)
@@ -395,17 +350,14 @@ public sealed class Bip32HdWallet
                 part = part.Substring(0, part.Length - 1);
             }
 
-            if (!uint.TryParse(part, out var index))
+            if (!uint.TryParse(part, NumberStyles.None, CultureInfo.InvariantCulture, out var index)
+                || index >= HardenedOffset)
             {
                 throw new ArgumentException($"Invalid path component: {parts[i]}", nameof(path));
             }
 
             if (isHardened)
             {
-                if (index >= HardenedOffset)
-                {
-                    throw new ArgumentException($"Index too large for hardened derivation: {index}", nameof(path));
-                }
                 index += HardenedOffset;
             }
 
@@ -432,6 +384,7 @@ public sealed class Bip32HdWallet
     /// </summary>
     public string FormatPath(uint[] indices)
     {
+        ArgumentNullException.ThrowIfNull(indices);
         if (indices.Length == 0)
         {
             return "m";
@@ -450,38 +403,12 @@ public sealed class Bip32HdWallet
     /// Derives a public key from a private key using secp256k1 elliptic curve operations
     /// </summary>
     /// <remarks>
-    /// Uses .NET's built-in ECDsa with secp256k1 curve to derive the public key.
+    /// Uses the portable secp256k1 core with this wallet's security policy.
     /// Returns a 33-byte compressed public key in SEC format (0x02/0x03 prefix + x-coordinate).
     /// </remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static byte[] DerivePublicKeyFromPrivate(byte[] privateKey)
-    {
-        // Use .NET's built-in ECDsa with secp256k1 curve
-        var curve = ECCurve.CreateFromFriendlyName("secp256k1");
-        using var ecdsa = ECDsa.Create(curve);
-
-        var ecParams = new ECParameters
-        {
-            Curve = curve,
-            D = privateKey
-        };
-
-        ecdsa.ImportParameters(ecParams);
-
-        var pubParams = ecdsa.ExportParameters(false);
-        if (pubParams.Q.X == null || pubParams.Q.Y == null)
-        {
-            throw new InvalidOperationException("Failed to derive public key from private key");
-        }
-
-        // Compress the public key (0x02/0x03 prefix + x coordinate)
-        var yIsEven = (pubParams.Q.Y[pubParams.Q.Y.Length - 1] & 1) == 0;
-        var compressedPubKey = new byte[33];
-        compressedPubKey[0] = yIsEven ? (byte)0x02 : (byte)0x03;
-        Array.Copy(pubParams.Q.X, 0, compressedPubKey, 1, 32);
-
-        return compressedPubKey;
-    }
+    private byte[] DerivePublicKeyFromPrivate(byte[] privateKey) =>
+        new Secp256k1Core(policy).DerivePublicKey(privateKey, compressed: true);
 
     /// <summary>
     /// Adds two 32-byte values modulo n (secp256k1 group order)
@@ -545,27 +472,54 @@ public sealed class Bip32HdWallet
     /// Calculates the fingerprint of a key (first 4 bytes of HASH160)
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static byte[] CalculateFingerprint(ExtendedKey key)
+    private byte[] CalculateFingerprint(ExtendedKey key)
     {
         // HASH160 = RIPEMD160(SHA256(public_key))
-        // Note: RIPEMD160 is not available in all .NET versions, so we use double SHA256 as an alternative
         var publicKey = key.IsPrivate ? DerivePublicKeyFromPrivate(key.Key) : key.Key;
 
-        // Double SHA256 to approximate HASH160 behavior
-        var hash1 = ComputeSha256(publicKey);
-        var hash2 = ComputeSha256(hash1);
-        var fingerprint = new byte[4];
-        Array.Copy(hash2, 0, fingerprint, 0, 4);
-        return fingerprint;
+        var sha256 = SHA256.HashData(publicKey);
+        var digest = new RipeMD160Digest();
+        digest.BlockUpdate(sha256, 0, sha256.Length);
+        var hash160 = new byte[digest.GetDigestSize()];
+        digest.DoFinal(hash160, 0);
+        return hash160.AsSpan(0, 4).ToArray();
     }
 
-    private static byte[] ComputeSha256(ReadOnlySpan<byte> data)
+    private static void ValidateKeyMaterial(byte[] key)
     {
-#if NETSTANDARD2_0
-        return Sha256Extensions.HashData(data);
-#else
-        return SHA256.HashData(data);
-#endif
+        if (key.Length == 32)
+        {
+            if (IsZero(key) || IsGreaterThanOrEqualToN(key))
+            {
+                throw new ArgumentException("Private key must be in the range 1..n-1", nameof(key));
+            }
+            return;
+        }
+        if (key.Length != 33 || key[0] is not 0x02 and not 0x03)
+        {
+            throw new ArgumentException("Key must be a 32-byte private scalar or a 33-byte compressed public point", nameof(key));
+        }
+        try
+        {
+            // Point decoding validates the curve equation without performing a wallet operation.
+            _ = new Secp256k1Core().DecompressPublicKey(key);
+        }
+        catch (ArgumentException exception)
+        {
+            throw new ArgumentException("Invalid secp256k1 public point", nameof(key), exception);
+        }
+    }
+
+    private static void ValidateMetadata(byte depth, byte[] parentFingerprint, uint childIndex)
+    {
+        if (parentFingerprint.Length != 4)
+        {
+            throw new ArgumentException("Parent fingerprint must be 4 bytes", nameof(parentFingerprint));
+        }
+        if (depth == 0 && (childIndex != 0 || !IsZero(parentFingerprint)))
+        {
+            throw new ArgumentException("Master keys must have a zero parent fingerprint and child index");
+        }
     }
 
     /// <summary>

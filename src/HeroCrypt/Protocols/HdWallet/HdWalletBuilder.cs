@@ -1,3 +1,5 @@
+using HeroCrypt.Security;
+
 namespace HeroCrypt.Protocols.HdWallet;
 
 #if !NETSTANDARD2_0
@@ -13,7 +15,7 @@ public sealed class HdWalletResult
     public string? Mnemonic { get; }
 
     /// <summary>
-    /// The seed derived from the mnemonic.
+    /// Owned seed bytes. Callers must clear this buffer when finished.
     /// </summary>
     public byte[] Seed { get; }
 
@@ -109,35 +111,46 @@ public sealed class HdWalletBuilder
     /// <returns>The HD wallet result containing mnemonic, seed, and derived key.</returns>
     public HdWalletResult Derive()
     {
-        byte[] derivedSeed;
+        byte[]? derivedSeed = null;
+        Bip32HdWallet.ExtendedKey? masterKey = null;
+        Bip32HdWallet.ExtendedKey? finalKey = null;
+        var succeeded = false;
         string? resultMnemonic = mnemonic;
 
-        if (seed != null)
+        try
         {
-            // Use provided seed directly
-            derivedSeed = seed;
-            resultMnemonic = null;
+            if (seed != null)
+            {
+                // Result ownership is independent of the caller's seed buffer.
+                derivedSeed = seed.ToArray();
+                resultMnemonic = null;
+            }
+            else
+            {
+                var bip39 = new Bip39Mnemonic();
+                resultMnemonic ??= bip39.GenerateRandomMnemonic(wordCount);
+                derivedSeed = bip39.MnemonicToSeed(resultMnemonic, passphrase);
+            }
+
+            var bip32 = new Bip32HdWallet();
+            masterKey = bip32.GenerateMasterKey(derivedSeed);
+            finalKey = string.IsNullOrEmpty(derivationPath)
+                ? masterKey
+                : bip32.DerivePath(masterKey, derivationPath);
+
+            var result = new HdWalletResult(resultMnemonic, derivedSeed, finalKey, derivationPath);
+            succeeded = true;
+            return result;
         }
-        else
+        finally
         {
-            // Generate or use mnemonic
-            var bip39 = new Bip39Mnemonic();
-            resultMnemonic ??= bip39.GenerateRandomMnemonic(wordCount);
-
-            // Convert mnemonic to seed
-            derivedSeed = bip39.MnemonicToSeed(resultMnemonic, passphrase);
+            if (masterKey != null && (!succeeded || masterKey != finalKey)) masterKey.Clear();
+            if (!succeeded)
+            {
+                if (finalKey != null && finalKey != masterKey) finalKey.Clear();
+                if (derivedSeed != null) SecureMemoryOperations.SecureClear(derivedSeed);
+            }
         }
-
-        // Generate master key
-        var bip32 = new Bip32HdWallet();
-        var masterKey = bip32.GenerateMasterKey(derivedSeed);
-
-        // Derive path if specified
-        var finalKey = string.IsNullOrEmpty(derivationPath)
-            ? masterKey
-            : bip32.DerivePath(masterKey, derivationPath);
-
-        return new HdWalletResult(resultMnemonic, derivedSeed, finalKey, derivationPath);
     }
 
     /// <summary>

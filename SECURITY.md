@@ -122,6 +122,31 @@ Production use of these features requires:
 
 ## 🔍 Security Audits
 
+### BIP32 wallet boundary audit - 2026-09-30
+
+Before product changes, 43 audit cases produced 38 failures and five passes. The
+17 nodes in official BIP32 vectors 1-4 checked private/public keys, chain codes,
+fingerprints, depth and child indices. Four master nodes passed; 13 child nodes
+matched private keys and chain codes but failed parent fingerprints, which incorrectly
+used double SHA-256. An independent integer reference confirmed scalar addition at
+carry and reduction boundaries. Other failures covered invalid keys/metadata, depth
+wrapping, ambiguous paths, ignored Compliance policy and caller-buffer aliasing.
+
+The corrected implementation computes HASH160 fingerprints, uses the portable
+secp256k1 core, enforces instance policy, validates imported and mutable key material,
+and rejects depth overflow and ambiguous path components. Owned temporary key/seed
+buffers and intermediates clear on normal and exceptional paths; returned buffers
+remain the caller's responsibility. This does not guarantee runtime-wide zeroization
+or constant-time execution. Public-parent derivation and xprv/xpub import/export are
+explicitly unsupported, rather than advertised as a complete BIP32 wallet.
+
+An additional regression demonstrates the standard's non-hardened exposure boundary:
+parent extended public material plus a non-hardened child private key can recover
+the parent private key. Fingerprints identify keys but do not authenticate ancestry.
+See [Issue #129](https://github.com/KoalaFacts/HeroCrypt/issues/129), the
+[BIP32 specification](docs/CRYPTO_SPEC.md#81-bip32-hd-wallets), and the
+[migration guidance](docs/migration-guide.md#bip32-wallet-boundary-changes-unreleased).
+
 ### Shamir share boundary audit - 2026-09-30
 
 On the audited baseline, 14 of 21 new regression cases failed: uninitialized shares

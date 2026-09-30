@@ -2,6 +2,36 @@
 
 This guide helps you migrate between HeroCrypt versions and from other cryptographic libraries.
 
+## BIP32 wallet boundary changes (unreleased)
+
+The corrected `Bip32HdWallet` parent fingerprint is the first four bytes of
+RIPEMD160(SHA256(compressed public key)). Earlier fingerprints used double SHA-256
+and are not standard BIP32 fingerprints. Recompute stored parent-fingerprint metadata
+from trusted parent keys; the fingerprint correction does not change private key or
+chain-code derivation. Fingerprints are identifiers with collisions, not authentication.
+
+`ExtendedKey` now rejects invalid private scalars, malformed/off-curve public points,
+non-four-byte fingerprints and nonzero root metadata. It owns copies of constructor
+inputs, so `Clear` does not erase those input buffers; clear caller-owned originals
+separately. Builder result seeds also own independent storage. Arrays remain mutable
+and must not be changed concurrently with operations.
+
+Depth 255 cannot derive another child. Text paths require numeric components in
+`0..2147483647`, with an apostrophe, `h` or `H` for hardening; whitespace, signs and
+unmarked indices above this range reject. Replace raw high indices in paths with
+their explicit hardened form, e.g. `2147483648` becomes `0'`. The raw `DeriveChild`
+index API still accepts `uint` indices. Invalid derived scalars reject; retry the
+next index and persist the actual chosen index rather than the originally requested one.
+
+Private-parent derivation uses the portable secp256k1 core, including on macOS.
+Public-parent child derivation remains unavailable and throws `NotSupportedException`.
+xprv/xpub import/export is not implemented. Compliance policy now rejects the
+secp256k1 wallet construction; earlier successful calls did not prove compliance.
+
+Protect extended public material: combined with a non-hardened child private key it
+can reveal the parent private key, as specified by BIP32. This audit provides no
+managed-runtime constant-time, complete zeroization or module-certification guarantee.
+
 ## MPC security change in v1.0.2
 
 `SecureMpc.SecureSum`, `SecureMultiply`, `PrivateSetIntersection`, and

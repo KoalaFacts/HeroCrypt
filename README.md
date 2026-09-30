@@ -68,7 +68,8 @@ A fully RFC-compliant cryptographic library for .NET featuring high-performance,
   - HKDF (RFC 5869)
   - Scrypt (memory-hard KDF)
   - Balloon Hashing (cache-timing resistant)
-  - BIP32 Hierarchical Deterministic Wallets - Production-ready with secp256k1 support
+  - BIP32 master and private-parent key derivation with secp256k1 and HASH160 fingerprints;
+    public-parent derivation and xprv/xpub import/export are unsupported
   - BIP39 Mnemonic Codes (12/15/18/21/24 words)
   - Shamir's Secret Sharing (SSS)
   - Key rotation and hierarchical key management

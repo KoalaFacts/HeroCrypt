@@ -436,6 +436,12 @@ public readonly struct PgpSignaturePacket
 
         byte saltLength = source[offset++];
 
+        if (saltLength == 0)
+        {
+            error = "V6 signatures require a salt.";
+            return false;
+        }
+
         if (source.Length < offset + saltLength)
         {
             error = $"Source too short for salt. Need {saltLength} bytes.";

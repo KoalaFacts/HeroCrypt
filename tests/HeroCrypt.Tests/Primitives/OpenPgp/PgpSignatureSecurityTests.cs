@@ -153,6 +153,19 @@ public class PgpSignatureSecurityTests
     }
 
     [Fact]
+    public void TryRead_EmptyV6Salt_ReturnsFalse()
+    {
+        using var stream = new MemoryStream();
+        using (var writer = new PgpPacketWriter(stream, leaveOpen: true))
+        {
+            new PgpLiteralDataPacket(PgpLiteralDataFormat.Binary, "", DateTimeOffset.UnixEpoch, Data).WriteTo(writer);
+            // Complete V6 framing with empty subpacket areas, hash prefix and salt.
+            writer.WritePacket(PgpPacketTag.Signature, [6, 0, 27, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+        }
+        Assert.False(PgpSignedMessage.TryRead(stream.ToArray(), out _, out _));
+    }
+
+    [Fact]
     public void Verify_ValidBinaryMessage_ReportsVerificationKey()
     {
         var pair = GenerateKey();

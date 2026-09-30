@@ -31,6 +31,7 @@ public static class SecretSharingExample
         Console.WriteLine($"Total Shares to Generate: {totalShares}");
         Console.WriteLine($"Threshold needed to reconstruct: {threshold}");
         Console.WriteLine("Meaning: Any 3 of the 5 shareholders can restore the secret.");
+        Console.WriteLine("Use a trusted dealer and authenticate each share and its sharing session separately.");
         Console.WriteLine();
 
         // 3. Split the Secret
@@ -57,18 +58,12 @@ public static class SecretSharingExample
         var insufficientShares = shares.Take(2).ToArray();
         try
         {
-            var failedResult = HeroCryptBuilder.SecretSharing()
+            HeroCryptBuilder.SecretSharing()
+                .WithThreshold(threshold)
                 .Reconstruct(insufficientShares);
-
-            // Note: Depending on implementation specifics, it might return garbage or throw.
-            // If it returns garbage, the check below ensures we know it failed.
-            string recoveredText = Encoding.UTF8.GetString(failedResult);
-            if (recoveredText != secretPassword)
-            {
-                Console.WriteLine("     Result: Failed (Output does not match original secret)");
-            }
+            throw new InvalidOperationException("Insufficient shares were unexpectedly accepted.");
         }
-        catch (Exception ex)
+        catch (ArgumentException ex)
         {
             Console.WriteLine($"     Result: Failed with error: {ex.Message}");
         }
@@ -82,6 +77,7 @@ public static class SecretSharingExample
         try
         {
             var recoveredBytes = HeroCryptBuilder.SecretSharing()
+                .WithThreshold(threshold)
                 .Reconstruct(sufficientShares);
 
             string recoveredSecret = Encoding.UTF8.GetString(recoveredBytes);

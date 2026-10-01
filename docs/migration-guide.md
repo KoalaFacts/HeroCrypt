@@ -2,6 +2,44 @@
 
 This guide helps you migrate between HeroCrypt versions and from other cryptographic libraries.
 
+## OpenPGP preferences and object association after v1.0.4
+
+- Preference getters now authenticate current self-signatures. A current Direct Key
+  self-signature takes precedence and is required for V6. For V4 without Direct Key
+  policy, use the current authenticated primary User ID; absent a primary marker,
+  all current authenticated User ID policies must agree. Missing authentication or
+  conflicting policy throws `InvalidOperationException`. An absent preference field
+  in the selected authenticated signature returns `null`, without older fallback.
+- Future signatures do not become effective early. An expired newest signature,
+  equal-time conflicting policy, duplicate preference fields, malformed primary
+  markers, incomplete AEAD pairs and unsupported critical policy fail closed.
+  Certification revocation policy remains unsupported. Preference IDs are advertised
+  values, including unknown IDs; they do not prove implementation support or perform
+  recipient-specific algorithm negotiation.
+- `GetPrimaryUserId()` evaluates current self-certifications and Boolean primary
+  markers. Without a true marker, it returns the first authenticated User ID.
+  An empty User ID collection returns `null`; present but unauthenticated User IDs
+  cause an exception. Equal-time conflicting primary markers cause an exception.
+- `GetSignaturesForUserId()` and `GetSubkeyBindingSignatures()` return only supported
+  authenticated primary-key signatures over the exact object. Third-party signatures
+  and unsupported candidates remain in raw `Signatures`. These queries establish
+  cryptographic association, not current certification validity or revocation policy.
+- Export writes each signature occurrence once. Verified object association takes
+  precedence over imported packet position. Import retains unverified placement for
+  third-party, User Attribute and unsupported signatures through ring modifications
+  and secret-to-public extraction. Placement is not authentication. Component-based
+  construction without imported layout places unassociated raw signatures in the
+  primary packet group; callers must not infer certification from that position.
+- `PreferredAeadAlgorithms` now uses RFC 9580 type **39**, replacing reserved legacy
+  type **34**. Raw imported signed bytes remain intact, but a selected authenticated
+  type-34 policy makes the AEAD preference getter throw. Reissue it with trusted
+  signing keys using type 39. Do not rewrite signed bytes or treat old output as
+  standards-based evidence. There is no legacy alias or verification fallback.
+- Preserve independently trusted current policy and revocation decisions. These
+  APIs do not establish identity trust, metadata freshness, protection against
+  stripped signatures, signing-subkey cross-certification, historical acceptance
+  or a complete OpenPGP recipient-context policy engine.
+
 ## OpenPGP key-ring validation changes after v1.0.4
 
 - `VerifySubkeyBindings()` and `FullValidation()` now reject subkeys without any

@@ -58,6 +58,11 @@ public readonly struct PgpPublicKeyRing : IEquatable<PgpPublicKeyRing>
     /// </summary>
     public IReadOnlyList<PgpSignaturePacket> Signatures { get; }
 
+    internal IReadOnlyList<PgpSignatureAssociation> SignatureAssociations { get; private init; }
+
+    internal PgpPublicKeyRing WithSignatureAssociations(IReadOnlyList<PgpSignatureAssociation> associations) =>
+        this with { SignatureAssociations = associations };
+
     /// <summary>
     /// Gets the key ID of the master key.
     /// </summary>
@@ -108,6 +113,7 @@ public readonly struct PgpPublicKeyRing : IEquatable<PgpPublicKeyRing>
         UserIds = userIds ?? [];
         UserAttributes = userAttributes ?? [];
         Signatures = signatures ?? [];
+        SignatureAssociations = [];
 
         // Validate all subkeys have IsSubkey = true
         foreach (var subkey in Subkeys)
@@ -251,6 +257,9 @@ public readonly struct PgpPublicKeyRing : IEquatable<PgpPublicKeyRing>
         List<PgpUserIdPacket> userIds = [];
         List<PgpUserAttributePacket> userAttributes = [];
         List<PgpSignaturePacket> signatures = [];
+        List<PgpSignatureAssociation> associations = [];
+        var targetTag = PgpPacketTag.PublicKey;
+        var targetBody = masterKey.ToArray();
 
         // Read remaining packets
         while (reader.ReadNextPacket(out tag, out body))
@@ -271,6 +280,8 @@ public readonly struct PgpPublicKeyRing : IEquatable<PgpPublicKeyRing>
                         return false;
                     }
                     subkeys.Add(subkey);
+                    targetTag = PgpPacketTag.PublicSubkey;
+                    targetBody = subkey.ToArray();
                     break;
 
                 case PgpPacketTag.UserId:
@@ -280,6 +291,8 @@ public readonly struct PgpPublicKeyRing : IEquatable<PgpPublicKeyRing>
                         return false;
                     }
                     userIds.Add(userId);
+                    targetTag = PgpPacketTag.UserId;
+                    targetBody = userId.ToArray();
                     break;
 
                 case PgpPacketTag.UserAttribute:
@@ -289,6 +302,8 @@ public readonly struct PgpPublicKeyRing : IEquatable<PgpPublicKeyRing>
                         return false;
                     }
                     userAttributes.Add(userAttr);
+                    targetTag = PgpPacketTag.UserAttribute;
+                    targetBody = userAttr.ToArray();
                     break;
 
                 case PgpPacketTag.Signature:
@@ -298,6 +313,7 @@ public readonly struct PgpPublicKeyRing : IEquatable<PgpPublicKeyRing>
                         return false;
                     }
                     signatures.Add(signature);
+                    associations.Add(new PgpSignatureAssociation(signature.ToArray(), targetTag, targetBody));
                     break;
 
                 case PgpPacketTag.Trust:
@@ -312,7 +328,7 @@ public readonly struct PgpPublicKeyRing : IEquatable<PgpPublicKeyRing>
         }
 
     done:
-        keyRing = new PgpPublicKeyRing(masterKey, subkeys, userIds, userAttributes, signatures);
+        keyRing = new PgpPublicKeyRing(masterKey, subkeys, userIds, userAttributes, signatures).WithSignatureAssociations(associations);
         return true;
     }
 
@@ -384,13 +400,14 @@ public readonly struct PgpPublicKeyRing : IEquatable<PgpPublicKeyRing>
     }
 
     /// <summary>
-    /// Gets all signatures for a specific user ID by index.
+    /// Gets supported authenticated self-signatures for an exact user ID by index.
     /// </summary>
     /// <param name="userIdIndex">The index of the user ID in the UserIds collection.</param>
     /// <returns>The signatures for the user ID.</returns>
     /// <remarks>
-    /// This method returns signatures that appear to certify the specified user ID
-    /// based on signature type (0x10-0x13 certifications, 0x30 revocations).
+    /// Verifies the primary-key signature over the exact User ID. Third-party and
+    /// unsupported signatures remain available in Signatures. This does not establish
+    /// current certification validity, revocation policy or identity trust.
     /// </remarks>
     public IEnumerable<PgpSignaturePacket> GetSignaturesForUserId(int userIdIndex)
     {
@@ -399,25 +416,19 @@ public readonly struct PgpPublicKeyRing : IEquatable<PgpPublicKeyRing>
             yield break;
         }
 
-        // Filter signatures that are certification types
-        foreach (var sig in Signatures)
+        using var verifier = PgpSignatureVerifier.Create();
+        foreach (var signature in Signatures)
         {
-            var sigType = sig.SignatureType;
-            if (sigType == PgpSignatureType.GenericCertification ||
-                sigType == PgpSignatureType.PersonaCertification ||
-                sigType == PgpSignatureType.CasualCertification ||
-                sigType == PgpSignatureType.PositiveCertification ||
-                sigType == PgpSignatureType.CertificationRevocation)
-            {
-                // Note: In a full implementation, we'd need to track which signature
-                // follows which user ID in the packet stream. For now, return all certifications.
-                yield return sig;
-            }
+            bool valid = PgpKeyRingPacketLayout.IsCertification(signature.SignatureType)
+                ? verifier.VerifySelfCertification(signature, MasterKey, UserIds[userIdIndex]).IsValid
+                : signature.SignatureType == PgpSignatureType.CertificationRevocation &&
+                  verifier.VerifySelfCertificationRevocation(signature, MasterKey, UserIds[userIdIndex]).IsValid;
+            if (valid) yield return signature;
         }
     }
 
     /// <summary>
-    /// Gets the binding signatures for a subkey.
+    /// Gets supported authenticated binding and revocation signatures for an exact primary/subkey pair.
     /// </summary>
     /// <param name="subkeyId">The 8-byte key ID of the subkey.</param>
     /// <returns>The binding signatures for the subkey.</returns>
@@ -430,52 +441,32 @@ public readonly struct PgpPublicKeyRing : IEquatable<PgpPublicKeyRing>
             yield break;
         }
 
-        // Return subkey binding signatures
-        foreach (var sig in Signatures)
+        using var verifier = PgpSignatureVerifier.Create();
+        foreach (var signature in Signatures)
         {
-            if (sig.SignatureType == PgpSignatureType.SubkeyBinding ||
-                sig.SignatureType == PgpSignatureType.SubkeyRevocation)
+            bool valid = signature.SignatureType switch
             {
-                yield return sig;
-            }
+                PgpSignatureType.SubkeyBinding => verifier.VerifySubkeyBinding(signature, MasterKey, subkey.Value).IsValid,
+                PgpSignatureType.SubkeyRevocation => verifier.VerifySubkeyRevocation(signature, MasterKey, subkey.Value).IsValid,
+                _ => false
+            };
+            if (valid) yield return signature;
         }
     }
 
     /// <summary>
-    /// Gets the primary user ID (the first one or the one marked as primary).
+    /// Gets the current authenticated primary user ID.
     /// </summary>
     /// <returns>The primary user ID, or null if no user IDs exist.</returns>
     /// <remarks>
     /// <para>
-    /// This method looks for a signature containing the PrimaryUserId subpacket.
-    /// If not found, it returns the first user ID.
+    /// Uses current self-certifications and authenticated Boolean primary markers.
+    /// Without a marker, returns the first authenticated User ID. This does not establish identity trust.
     /// </para>
     /// </remarks>
-    public PgpUserIdPacket? GetPrimaryUserId()
-    {
-        if (UserIds.Count == 0)
-        {
-            return null;
-        }
-
-        // Look for a signature with the PrimaryUserId subpacket
-        foreach (var sig in Signatures)
-        {
-            // Check if any subpacket indicates this is the primary user ID
-            foreach (var subpacket in sig.HashedSubpackets)
-            {
-                if (subpacket.Type == PgpSignatureSubpacketType.PrimaryUserId)
-                {
-                    // Found primary user ID marker - return first user ID
-                    // (In a full implementation, we'd track which user ID this signature certifies)
-                    return UserIds[0];
-                }
-            }
-        }
-
-        // Default to first user ID
-        return UserIds[0];
-    }
+    /// <exception cref="InvalidOperationException">Authenticated current User ID policy is missing, ambiguous or unsupported.</exception>
+    public PgpUserIdPacket? GetPrimaryUserId() =>
+        PgpSelfSignatureResolver.PrimaryUser(this, DateTimeOffset.UtcNow);
 
     /// <summary>
     /// Adds a subkey to this key ring.
@@ -498,7 +489,7 @@ public readonly struct PgpPublicKeyRing : IEquatable<PgpPublicKeyRing>
         List<PgpPublicKeyPacket> newSubkeys = [.. Subkeys, subkey];
         List<PgpSignaturePacket> newSignatures = [.. Signatures, bindingSignature];
 
-        return new PgpPublicKeyRing(MasterKey, newSubkeys, UserIds, UserAttributes, newSignatures);
+        return new PgpPublicKeyRing(MasterKey, newSubkeys, UserIds, UserAttributes, newSignatures).WithSignatureAssociations(SignatureAssociations);
     }
 
     /// <summary>
@@ -517,7 +508,7 @@ public readonly struct PgpPublicKeyRing : IEquatable<PgpPublicKeyRing>
             return this;
         }
 
-        return new PgpPublicKeyRing(MasterKey, newSubkeys, UserIds, UserAttributes, Signatures);
+        return new PgpPublicKeyRing(MasterKey, newSubkeys, UserIds, UserAttributes, Signatures).WithSignatureAssociations(SignatureAssociations);
     }
 
     /// <summary>
@@ -533,7 +524,7 @@ public readonly struct PgpPublicKeyRing : IEquatable<PgpPublicKeyRing>
             ? [.. Signatures, certification.Value]
             : [.. Signatures];
 
-        return new PgpPublicKeyRing(MasterKey, Subkeys, newUserIds, UserAttributes, newSignatures);
+        return new PgpPublicKeyRing(MasterKey, Subkeys, newUserIds, UserAttributes, newSignatures).WithSignatureAssociations(SignatureAssociations);
     }
 
     /// <summary>
@@ -544,7 +535,7 @@ public readonly struct PgpPublicKeyRing : IEquatable<PgpPublicKeyRing>
     public PgpPublicKeyRing AddSignature(PgpSignaturePacket signature)
     {
         List<PgpSignaturePacket> newSignatures = [.. Signatures, signature];
-        return new PgpPublicKeyRing(MasterKey, Subkeys, UserIds, UserAttributes, newSignatures);
+        return new PgpPublicKeyRing(MasterKey, Subkeys, UserIds, UserAttributes, newSignatures).WithSignatureAssociations(SignatureAssociations);
     }
 
     /// <summary>
@@ -846,6 +837,7 @@ public readonly struct PgpPublicKeyRing : IEquatable<PgpPublicKeyRing>
     /// </list>
     /// </para>
     /// </remarks>
+    /// <exception cref="InvalidOperationException">Authenticated current preference policy is missing, ambiguous or unsupported.</exception>
     public byte[]? GetPreferredSymmetricAlgorithms()
     {
         return GetPreferredAlgorithmsOfType(PgpSignatureSubpacketType.PreferredSymmetricAlgorithms);
@@ -865,6 +857,7 @@ public readonly struct PgpPublicKeyRing : IEquatable<PgpPublicKeyRing>
     /// </list>
     /// </para>
     /// </remarks>
+    /// <exception cref="InvalidOperationException">Authenticated current preference policy is missing, ambiguous or unsupported.</exception>
     public byte[]? GetPreferredHashAlgorithms()
     {
         return GetPreferredAlgorithmsOfType(PgpSignatureSubpacketType.PreferredHashAlgorithms);
@@ -885,6 +878,7 @@ public readonly struct PgpPublicKeyRing : IEquatable<PgpPublicKeyRing>
     /// </list>
     /// </para>
     /// </remarks>
+    /// <exception cref="InvalidOperationException">Authenticated current preference policy is missing, ambiguous or unsupported.</exception>
     public byte[]? GetPreferredCompressionAlgorithms()
     {
         return GetPreferredAlgorithmsOfType(PgpSignatureSubpacketType.PreferredCompressionAlgorithms);
@@ -905,36 +899,14 @@ public readonly struct PgpPublicKeyRing : IEquatable<PgpPublicKeyRing>
     /// </list>
     /// </para>
     /// </remarks>
+    /// <exception cref="InvalidOperationException">Authenticated current preference policy is missing, ambiguous or unsupported.</exception>
     public byte[]? GetPreferredAeadAlgorithms()
     {
         return GetPreferredAlgorithmsOfType(PgpSignatureSubpacketType.PreferredAeadAlgorithms);
     }
 
-    private byte[]? GetPreferredAlgorithmsOfType(PgpSignatureSubpacketType subpacketType)
-    {
-        // Look for a self-signature with the preferred algorithms subpacket
-        foreach (var sig in Signatures)
-        {
-            // Look for self-certification signatures
-            if (sig.SignatureType != PgpSignatureType.GenericCertification &&
-                sig.SignatureType != PgpSignatureType.PersonaCertification &&
-                sig.SignatureType != PgpSignatureType.CasualCertification &&
-                sig.SignatureType != PgpSignatureType.PositiveCertification)
-            {
-                continue;
-            }
-
-            foreach (var subpacket in sig.HashedSubpackets)
-            {
-                if (subpacket.Type == subpacketType)
-                {
-                    return subpacket.Data.ToArray();
-                }
-            }
-        }
-
-        return null; // Not found
-    }
+    private byte[]? GetPreferredAlgorithmsOfType(PgpSignatureSubpacketType subpacketType) =>
+        PgpSelfSignatureResolver.Preferences(this, subpacketType, DateTimeOffset.UtcNow);
 
     /// <summary>
     /// Adds a user attribute to this key ring.
@@ -949,7 +921,7 @@ public readonly struct PgpPublicKeyRing : IEquatable<PgpPublicKeyRing>
             ? [.. Signatures, certification.Value]
             : [.. Signatures];
 
-        return new PgpPublicKeyRing(MasterKey, Subkeys, UserIds, newUserAttributes, newSignatures);
+        return new PgpPublicKeyRing(MasterKey, Subkeys, UserIds, newUserAttributes, newSignatures).WithSignatureAssociations(SignatureAssociations);
     }
 
     /// <summary>
@@ -1035,72 +1007,24 @@ public readonly struct PgpPublicKeyRing : IEquatable<PgpPublicKeyRing>
     /// <param name="format">The packet format to use (default: New).</param>
     public void WriteTo(PgpPacketWriter writer, PgpPacketFormat format = PgpPacketFormat.New)
     {
-        // Write master key
+        var groups = PgpKeyRingPacketLayout.Group(this);
         MasterKey.WriteTo(writer, format);
-
-        // Write user IDs with their signatures
-        // Note: In a proper implementation, we'd track which signatures belong to which user IDs
+        foreach (var signature in groups[0]) signature.WriteTo(writer, format);
+        int group = 1;
         foreach (var userId in UserIds)
         {
             userId.WriteTo(writer, format);
+            foreach (var signature in groups[group++]) signature.WriteTo(writer, format);
         }
-
-        // Write user attributes
-        foreach (var userAttr in UserAttributes)
+        foreach (var attribute in UserAttributes)
         {
-            userAttr.WriteTo(writer, format);
+            attribute.WriteTo(writer, format);
+            foreach (var signature in groups[group++]) signature.WriteTo(writer, format);
         }
-
-        // Write all signatures (certifications, direct key, etc.)
-        // In a proper implementation, we'd interleave these with user IDs/subkeys appropriately
-        List<PgpSignaturePacket> certSigs = [];
-        List<PgpSignaturePacket> subkeySigs = [];
-        List<PgpSignaturePacket> otherSigs = [];
-
-        foreach (var sig in Signatures)
-        {
-            if (sig.SignatureType == PgpSignatureType.SubkeyBinding ||
-                sig.SignatureType == PgpSignatureType.SubkeyRevocation ||
-                sig.SignatureType == PgpSignatureType.PrimaryKeyBinding)
-            {
-                subkeySigs.Add(sig);
-            }
-            else if (sig.SignatureType == PgpSignatureType.GenericCertification ||
-                     sig.SignatureType == PgpSignatureType.PersonaCertification ||
-                     sig.SignatureType == PgpSignatureType.CasualCertification ||
-                     sig.SignatureType == PgpSignatureType.PositiveCertification ||
-                     sig.SignatureType == PgpSignatureType.CertificationRevocation)
-            {
-                certSigs.Add(sig);
-            }
-            else
-            {
-                otherSigs.Add(sig);
-            }
-        }
-
-        // Write certification signatures (after user IDs)
-        foreach (var sig in certSigs)
-        {
-            sig.WriteTo(writer, format);
-        }
-
-        // Write other signatures (direct key, etc.)
-        foreach (var sig in otherSigs)
-        {
-            sig.WriteTo(writer, format);
-        }
-
-        // Write subkeys with their binding signatures
         foreach (var subkey in Subkeys)
         {
             subkey.WriteTo(writer, format);
-
-            // Write binding signatures for this subkey
-            foreach (var sig in subkeySigs)
-            {
-                sig.WriteTo(writer, format);
-            }
+            foreach (var signature in groups[group++]) signature.WriteTo(writer, format);
         }
     }
 

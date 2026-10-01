@@ -61,6 +61,11 @@ public readonly struct PgpSecretKeyRing : IEquatable<PgpSecretKeyRing>
     /// </summary>
     public IReadOnlyList<PgpSignaturePacket> Signatures { get; }
 
+    internal IReadOnlyList<PgpSignatureAssociation> SignatureAssociations { get; private init; }
+
+    internal PgpSecretKeyRing WithSignatureAssociations(IReadOnlyList<PgpSignatureAssociation> associations) =>
+        this with { SignatureAssociations = associations };
+
     /// <summary>
     /// Gets the key ID of the master key.
     /// </summary>
@@ -116,6 +121,7 @@ public readonly struct PgpSecretKeyRing : IEquatable<PgpSecretKeyRing>
         UserIds = userIds ?? [];
         UserAttributes = userAttributes ?? [];
         Signatures = signatures ?? [];
+        SignatureAssociations = [];
 
         // Validate all subkeys have IsSubkey = true
         foreach (var subkey in Subkeys)
@@ -259,6 +265,9 @@ public readonly struct PgpSecretKeyRing : IEquatable<PgpSecretKeyRing>
         List<PgpUserIdPacket> userIds = [];
         List<PgpUserAttributePacket> userAttributes = [];
         List<PgpSignaturePacket> signatures = [];
+        List<PgpSignatureAssociation> associations = [];
+        var targetTag = PgpPacketTag.PublicKey;
+        var targetBody = masterKey.PublicKey.ToArray();
 
         // Read remaining packets
         while (reader.ReadNextPacket(out tag, out body))
@@ -277,6 +286,8 @@ public readonly struct PgpSecretKeyRing : IEquatable<PgpSecretKeyRing>
                         return false;
                     }
                     subkeys.Add(subkey);
+                    targetTag = PgpPacketTag.PublicSubkey;
+                    targetBody = subkey.PublicKey.ToArray();
                     break;
 
                 case PgpPacketTag.UserId:
@@ -286,6 +297,8 @@ public readonly struct PgpSecretKeyRing : IEquatable<PgpSecretKeyRing>
                         return false;
                     }
                     userIds.Add(userId);
+                    targetTag = PgpPacketTag.UserId;
+                    targetBody = userId.ToArray();
                     break;
 
                 case PgpPacketTag.UserAttribute:
@@ -295,6 +308,8 @@ public readonly struct PgpSecretKeyRing : IEquatable<PgpSecretKeyRing>
                         return false;
                     }
                     userAttributes.Add(userAttr);
+                    targetTag = PgpPacketTag.UserAttribute;
+                    targetBody = userAttr.ToArray();
                     break;
 
                 case PgpPacketTag.Signature:
@@ -304,6 +319,7 @@ public readonly struct PgpSecretKeyRing : IEquatable<PgpSecretKeyRing>
                         return false;
                     }
                     signatures.Add(signature);
+                    associations.Add(new PgpSignatureAssociation(signature.ToArray(), targetTag, targetBody));
                     break;
 
                 case PgpPacketTag.Trust:
@@ -318,7 +334,7 @@ public readonly struct PgpSecretKeyRing : IEquatable<PgpSecretKeyRing>
         }
 
     done:
-        keyRing = new PgpSecretKeyRing(masterKey, subkeys, userIds, userAttributes, signatures);
+        keyRing = new PgpSecretKeyRing(masterKey, subkeys, userIds, userAttributes, signatures).WithSignatureAssociations(associations);
         return true;
     }
 
@@ -401,7 +417,7 @@ public readonly struct PgpSecretKeyRing : IEquatable<PgpSecretKeyRing>
         // Extract public keys from subkeys
         var subkeysPublic = Subkeys.Select(sk => sk.PublicKey).ToList();
 
-        return new PgpPublicKeyRing(masterPublic, subkeysPublic, UserIds, UserAttributes, Signatures);
+        return new PgpPublicKeyRing(masterPublic, subkeysPublic, UserIds, UserAttributes, Signatures).WithSignatureAssociations(SignatureAssociations);
     }
 
     /// <summary>
@@ -425,7 +441,7 @@ public readonly struct PgpSecretKeyRing : IEquatable<PgpSecretKeyRing>
         List<PgpSecretKeyPacket> newSubkeys = [.. Subkeys, subkey];
         List<PgpSignaturePacket> newSignatures = [.. Signatures, bindingSignature];
 
-        return new PgpSecretKeyRing(MasterKey, newSubkeys, UserIds, UserAttributes, newSignatures);
+        return new PgpSecretKeyRing(MasterKey, newSubkeys, UserIds, UserAttributes, newSignatures).WithSignatureAssociations(SignatureAssociations);
     }
 
     /// <summary>
@@ -444,7 +460,7 @@ public readonly struct PgpSecretKeyRing : IEquatable<PgpSecretKeyRing>
             return this;
         }
 
-        return new PgpSecretKeyRing(MasterKey, newSubkeys, UserIds, UserAttributes, Signatures);
+        return new PgpSecretKeyRing(MasterKey, newSubkeys, UserIds, UserAttributes, Signatures).WithSignatureAssociations(SignatureAssociations);
     }
 
     /// <summary>
@@ -460,7 +476,7 @@ public readonly struct PgpSecretKeyRing : IEquatable<PgpSecretKeyRing>
             ? [.. Signatures, certification.Value]
             : [.. Signatures];
 
-        return new PgpSecretKeyRing(MasterKey, Subkeys, newUserIds, UserAttributes, newSignatures);
+        return new PgpSecretKeyRing(MasterKey, Subkeys, newUserIds, UserAttributes, newSignatures).WithSignatureAssociations(SignatureAssociations);
     }
 
     /// <summary>
@@ -471,7 +487,7 @@ public readonly struct PgpSecretKeyRing : IEquatable<PgpSecretKeyRing>
     public PgpSecretKeyRing AddSignature(PgpSignaturePacket signature)
     {
         List<PgpSignaturePacket> newSignatures = [.. Signatures, signature];
-        return new PgpSecretKeyRing(MasterKey, Subkeys, UserIds, UserAttributes, newSignatures);
+        return new PgpSecretKeyRing(MasterKey, Subkeys, UserIds, UserAttributes, newSignatures).WithSignatureAssociations(SignatureAssociations);
     }
 
     /// <summary>
@@ -665,69 +681,24 @@ public readonly struct PgpSecretKeyRing : IEquatable<PgpSecretKeyRing>
     /// <param name="format">The packet format to use (default: New).</param>
     public void WriteTo(PgpPacketWriter writer, PgpPacketFormat format = PgpPacketFormat.New)
     {
-        // Write master key
+        var groups = PgpKeyRingPacketLayout.Group(ExtractPublicKeyRing());
         MasterKey.WriteTo(writer, format);
-
-        // Write user IDs
+        foreach (var signature in groups[0]) signature.WriteTo(writer, format);
+        int group = 1;
         foreach (var userId in UserIds)
         {
             userId.WriteTo(writer, format);
+            foreach (var signature in groups[group++]) signature.WriteTo(writer, format);
         }
-
-        // Write user attributes
-        foreach (var userAttr in UserAttributes)
+        foreach (var attribute in UserAttributes)
         {
-            userAttr.WriteTo(writer, format);
+            attribute.WriteTo(writer, format);
+            foreach (var signature in groups[group++]) signature.WriteTo(writer, format);
         }
-
-        // Categorize signatures
-        List<PgpSignaturePacket> certSigs = [];
-        List<PgpSignaturePacket> subkeySigs = [];
-        List<PgpSignaturePacket> otherSigs = [];
-
-        foreach (var sig in Signatures)
-        {
-            if (sig.SignatureType == PgpSignatureType.SubkeyBinding ||
-                sig.SignatureType == PgpSignatureType.SubkeyRevocation ||
-                sig.SignatureType == PgpSignatureType.PrimaryKeyBinding)
-            {
-                subkeySigs.Add(sig);
-            }
-            else if (sig.SignatureType == PgpSignatureType.GenericCertification ||
-                     sig.SignatureType == PgpSignatureType.PersonaCertification ||
-                     sig.SignatureType == PgpSignatureType.CasualCertification ||
-                     sig.SignatureType == PgpSignatureType.PositiveCertification ||
-                     sig.SignatureType == PgpSignatureType.CertificationRevocation)
-            {
-                certSigs.Add(sig);
-            }
-            else
-            {
-                otherSigs.Add(sig);
-            }
-        }
-
-        // Write certification signatures
-        foreach (var sig in certSigs)
-        {
-            sig.WriteTo(writer, format);
-        }
-
-        // Write other signatures
-        foreach (var sig in otherSigs)
-        {
-            sig.WriteTo(writer, format);
-        }
-
-        // Write subkeys with binding signatures
         foreach (var subkey in Subkeys)
         {
             subkey.WriteTo(writer, format);
-
-            foreach (var sig in subkeySigs)
-            {
-                sig.WriteTo(writer, format);
-            }
+            foreach (var signature in groups[group++]) signature.WriteTo(writer, format);
         }
     }
 

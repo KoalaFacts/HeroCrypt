@@ -326,14 +326,14 @@ public enum PgpSignatureSubpacketType : byte
     IssuerFingerprint = 33,
 
     /// <summary>
-    /// Preferred AEAD Algorithms (Type 34) - RFC 9580.
+    /// Preferred AEAD Ciphersuites (Type 39) - RFC 9580 Section 5.2.3.15.
     /// </summary>
     /// <remarks>
     /// <para><b>Standard:</b> RFC 9580</para>
-    /// <para>List of AEAD algorithm IDs in preference order.</para>
+    /// <para>List of symmetric-cipher/AEAD algorithm pairs in preference order.</para>
     /// </remarks>
     [NotImplemented("Preferred AEAD algorithms - RFC 9580", Priority = 2)]
-    PreferredAeadAlgorithms = 34,
+    PreferredAeadAlgorithms = 39,
 
     /// <summary>
     /// Intended Recipient Fingerprint (Type 35) - RFC 9580.

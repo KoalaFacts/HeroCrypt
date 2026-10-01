@@ -179,16 +179,13 @@ public class PgpKeyRingTests
         }
 
         [Fact]
-        public void GetPrimaryUserId_WithUserIds_ReturnsFirst()
+        public void GetPrimaryUserId_WithoutSelfCertifications_Throws()
         {
             var masterKey = CreateTestPublicKey(isSubkey: false);
             var userIds = new[] { new PgpUserIdPacket("First User"), new PgpUserIdPacket("Second User") };
             var keyRing = new PgpPublicKeyRing(masterKey, userIds: userIds);
 
-            var primary = keyRing.GetPrimaryUserId();
-
-            Assert.NotNull(primary);
-            Assert.Equal("First User", primary.Value.UserId);
+            Assert.Throws<InvalidOperationException>(() => keyRing.GetPrimaryUserId());
         }
 
         private static PgpPublicKeyPacket CreateTestPublicKey(bool isSubkey)

@@ -54,9 +54,10 @@ public class PgpExpirationSecurityTests
         Assert.DoesNotContain(result.Warnings, x => x.Code == PgpValidationCode.KeyExpired);
         if (version == 6)
         {
-            Assert.Equal(PgpSignatureType.DirectKey, ring.Signatures.Last().SignatureType);
+            var updatedPolicy = Assert.Single(ring.Signatures, s => s.SignatureType == PgpSignatureType.DirectKey &&
+                s.GetCreationTime() == Created.AddHours(1));
             using var verifier = PgpSignatureVerifier.Create();
-            Assert.True(verifier.VerifyDirectKeySignature(ring.Signatures.Last(), ring.MasterKey, ring.MasterKey).IsValid);
+            Assert.True(verifier.VerifyDirectKeySignature(updatedPolicy, ring.MasterKey, ring.MasterKey).IsValid);
         }
     }
 

@@ -387,6 +387,17 @@ public sealed class PgpSignatureVerifier : IDisposable
         return VerifyCertification(signature, publicKey, publicKey, userId);
     }
 
+    // Cryptographic target association only; this does not evaluate certification-revocation policy.
+    internal PgpSignatureResult VerifySelfCertificationRevocation(PgpSignaturePacket signature,
+        PgpPublicKeyPacket publicKey, PgpUserIdPacket userId)
+    {
+        ThrowIfDisposed();
+        if (signature.SignatureType != PgpSignatureType.CertificationRevocation)
+            return PgpSignatureResult.Invalid("Expected a certification revocation.", signature.SignatureType,
+                (PgpHashAlgorithmId)signature.HashAlgorithm, (PgpPublicKeyAlgorithm)signature.PublicKeyAlgorithm, signature.Version);
+        return VerifyCertificationSignature(signature, publicKey, publicKey, userId);
+    }
+
     /// <summary>
     /// Core method for verifying certification signatures.
     /// </summary>

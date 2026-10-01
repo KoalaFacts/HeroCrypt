@@ -24,6 +24,30 @@ This guide helps you migrate between HeroCrypt versions and from other cryptogra
   nonstandard revocation evidence through the trusted process described below;
   validation failure is not evidence that a previously revoked key is usable.
 
+## OpenPGP revocation status changes after v1.0.4
+
+- `PgpPublicKeyRing.IsRevoked`, `PgpSecretKeyRing.IsKeyRevoked` and both
+  `GetRevocationReason()` methods now authenticate primary-key revocations under
+  the exact primary key. Invalid-only or unsupported designated-revoker evidence
+  throws `InvalidOperationException`; do not translate that failure into permission
+  to use the key. No candidates returns false/null, which means no supplied evidence,
+  not proof that revocation evidence has never existed.
+- Genuine evidence mixed with invalid packets still confirms revocation. The
+  validator also reports each invalid signature as an error. Candidate enumeration
+  through `GetRevocationSignatures()` and `GetSubkeyRevocationSignatures()` returns
+  raw unverified packets, including invalid ones.
+- Reasons come only from authenticated hashed fields. A confirmed compromise reason
+  dominates superseded/retired reasons regardless of packet order. Missing, empty,
+  duplicate, unknown or certification-only reason fields normalize to `NoReason`;
+  conflicting non-compromise codes also yield `NoReason`. Conflicting texts for the
+  same code yield a null text. `IsHardRevocation()` classifies only `KeySuperseded`
+  and `KeyRetired` as soft; unspecified and unknown key reasons are conservative.
+- These APIs establish supplied self-revocation evidence. They do not evaluate
+  historical signature acceptance, revocation effective times, freshness, complete
+  key trust or removal of evidence from a ring. Secret-key status checks use public
+  material and require no passphrase. Preserve independently trusted revocation
+  decisions and apply your application's acceptance policy.
+
 ## OpenPGP expiration policy changes after v1.0.4
 
 - `GetKeyLifetime()`, `GetExpirationTime()` and `IsExpiredAt()` now authenticate

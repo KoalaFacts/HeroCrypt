@@ -1,7 +1,7 @@
 namespace HeroCrypt.Primitives.OpenPgp;
 
 /// <summary>
-/// Revocation reason codes as defined in RFC 4880 Section 5.2.3.23.
+/// Revocation reason codes as defined in RFC 9580 Section 5.2.3.31.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -74,10 +74,10 @@ public enum PgpRevocationReason : byte
 public static class ExtensionsToPgpRevocationReason
 {
     /// <summary>
-    /// Gets whether this revocation reason indicates the key should never be trusted again.
+    /// Gets whether this key-revocation reason requires conservative hard-revocation handling.
     /// </summary>
     /// <param name="reason">The revocation reason.</param>
-    /// <returns>True if this is a "hard" revocation (compromised key).</returns>
+    /// <returns>False only for the known soft key reasons KeySuperseded and KeyRetired.</returns>
     /// <remarks>
     /// <para>
     /// A "hard" revocation (KeyCompromised) means all signatures made with the key
@@ -87,10 +87,15 @@ public static class ExtensionsToPgpRevocationReason
     /// "Soft" revocations (KeySuperseded, KeyRetired) mean the key should not be
     /// used for new operations, but existing signatures remain valid.
     /// </para>
+    /// <para>
+    /// Unspecified, unknown and certification-only codes do not establish a soft
+    /// key revocation and are handled conservatively. This classifies reason codes;
+    /// it does not authenticate evidence or decide historical signature acceptance.
+    /// </para>
     /// </remarks>
     public static bool IsHardRevocation(this PgpRevocationReason reason)
     {
-        return reason == PgpRevocationReason.KeyCompromised;
+        return reason is not (PgpRevocationReason.KeySuperseded or PgpRevocationReason.KeyRetired);
     }
 
     /// <summary>

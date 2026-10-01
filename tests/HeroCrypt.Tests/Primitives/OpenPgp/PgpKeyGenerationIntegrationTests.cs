@@ -1617,7 +1617,7 @@ public class PgpKeyGenerationIntegrationTests
             Assert.True(PgpRevocationReason.KeyCompromised.IsHardRevocation());
             Assert.False(PgpRevocationReason.KeyRetired.IsHardRevocation());
             Assert.False(PgpRevocationReason.KeySuperseded.IsHardRevocation());
-            Assert.False(PgpRevocationReason.NoReason.IsHardRevocation());
+            Assert.True(PgpRevocationReason.NoReason.IsHardRevocation());
         }
 
         [Fact]

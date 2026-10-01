@@ -670,7 +670,7 @@ public readonly struct PgpPublicKeyRing : IEquatable<PgpPublicKeyRing>
     }
 
     /// <summary>
-    /// Gets all key revocation signatures (type 0x20) for the master key.
+    /// Gets raw, unverified primary-key revocation candidates (type 0x20).
     /// </summary>
     /// <returns>The key revocation signatures.</returns>
     public IEnumerable<PgpSignaturePacket> GetRevocationSignatures()
@@ -679,7 +679,7 @@ public readonly struct PgpPublicKeyRing : IEquatable<PgpPublicKeyRing>
     }
 
     /// <summary>
-    /// Gets all subkey revocation signatures (type 0x28).
+    /// Gets raw, unverified subkey revocation candidates (type 0x28).
     /// </summary>
     /// <returns>The subkey revocation signatures.</returns>
     public IEnumerable<PgpSignaturePacket> GetSubkeyRevocationSignatures()
@@ -692,12 +692,12 @@ public readonly struct PgpPublicKeyRing : IEquatable<PgpPublicKeyRing>
     /// </summary>
     /// <remarks>
     /// <para>
-    /// This checks for the presence of a key revocation signature (type 0x20).
-    /// Note that this does not verify the signature - use a signature verifier
-    /// to validate the revocation.
+    /// Authenticates supplied primary-key self-revocation evidence. This does not
+    /// establish freshness, effective times, historical acceptance or key trust.
     /// </para>
     /// </remarks>
-    public bool IsRevoked => Signatures.Any(s => s.SignatureType == PgpSignatureType.KeyRevocation);
+    /// <exception cref="InvalidOperationException">Only invalid or unsupported revocation evidence is supplied.</exception>
+    public bool IsRevoked => GetRevocationReason().HasValue;
 
     /// <summary>
     /// Gets the key expiration date, if any expiration is set.
@@ -771,24 +771,65 @@ public readonly struct PgpPublicKeyRing : IEquatable<PgpPublicKeyRing>
     /// <summary>
     /// Gets the revocation reason if the key has been revoked.
     /// </summary>
-    /// <returns>The revocation reason and text, or null if not revoked.</returns>
+    /// <returns>The authenticated reason and text, or null if no primary revocation candidates are supplied.</returns>
+    /// <exception cref="InvalidOperationException">Only invalid or unsupported revocation evidence is supplied.</exception>
+    /// <remarks>
+    /// Compromise dominates soft reasons. Ambiguous or unsupported reasons become
+    /// NoReason; conflicting texts become null. Invalid packets cannot erase genuine
+    /// evidence. This does not evaluate effective times or historical acceptance.
+    /// </remarks>
     public (PgpRevocationReason Reason, string? ReasonText)? GetRevocationReason()
     {
-        var revocation = Signatures.FirstOrDefault(s => s.SignatureType == PgpSignatureType.KeyRevocation);
-        if (revocation.SignatureType != PgpSignatureType.KeyRevocation)
+        var reason = GetAuthenticatedRevocationReason(out var invalidEvidenceCount);
+        if (reason == null && invalidEvidenceCount != 0)
         {
-            return null;
+            throw new InvalidOperationException("Primary-key revocation evidence could not be authenticated under the primary key.");
         }
+        return reason;
+    }
 
-        foreach (var subpacket in revocation.HashedSubpackets)
+    internal (PgpRevocationReason Reason, string? ReasonText)? GetAuthenticatedRevocationReason(out int invalidEvidenceCount)
+    {
+        invalidEvidenceCount = 0;
+        (PgpRevocationReason Reason, string? ReasonText)? selected = null;
+        using var verifier = PgpSignatureVerifier.Create();
+        foreach (var revocation in GetRevocationSignatures())
         {
-            if (subpacket.Type == PgpSignatureSubpacketType.ReasonForRevocation)
+            if (!verifier.VerifyKeyRevocation(revocation, MasterKey).IsValid)
             {
-                return subpacket.GetRevocationReason();
+                invalidEvidenceCount++;
+                continue;
+            }
+
+            var reason = ReadAuthenticatedReason(revocation);
+            if (!selected.HasValue ||
+                (reason.Reason == PgpRevocationReason.KeyCompromised && selected.Value.Reason != PgpRevocationReason.KeyCompromised))
+            {
+                selected = reason;
+            }
+            else if (selected.Value.Reason == reason.Reason)
+            {
+                if (!string.Equals(selected.Value.ReasonText, reason.ReasonText, StringComparison.Ordinal))
+                    selected = (reason.Reason, null);
+            }
+            else if (selected.Value.Reason != PgpRevocationReason.KeyCompromised)
+            {
+                selected = (PgpRevocationReason.NoReason, null);
             }
         }
+        return selected;
+    }
 
-        return (PgpRevocationReason.NoReason, null);
+    private static (PgpRevocationReason Reason, string? ReasonText) ReadAuthenticatedReason(PgpSignaturePacket revocation)
+    {
+        var reasons = revocation.HashedSubpackets.Where(s => s.Type == PgpSignatureSubpacketType.ReasonForRevocation).ToArray();
+        if (reasons.Length != 1 || reasons[0].Data.Length == 0)
+            return (PgpRevocationReason.NoReason, null);
+
+        var reason = reasons[0].GetRevocationReason();
+        return reason.Reason is PgpRevocationReason.NoReason or PgpRevocationReason.KeySuperseded or
+            PgpRevocationReason.KeyCompromised or PgpRevocationReason.KeyRetired
+            ? reason : (PgpRevocationReason.NoReason, null);
     }
 
     /// <summary>

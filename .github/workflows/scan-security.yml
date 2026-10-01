@@ -136,7 +136,8 @@ jobs:
         run: dotnet build src/HeroCrypt/HeroCrypt.csproj --configuration Release --no-restore --framework ${{ matrix.framework }}
 
       - name: Run Microsoft Security DevOps
-        uses: microsoft/security-devops-action@v1
+        # MSDO v1 with a native Node 24 runtime; pin the reviewed upstream revision.
+        uses: microsoft/security-devops-action@241d09d34a00dc03aad8b1e8cf988a6f66ecd3f5
         id: msdo
         with:
           # Available tools: antimalware, binskim, credscan, eslint, templateanalyzer, terrascan, trivy

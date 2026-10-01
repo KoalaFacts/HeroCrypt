@@ -401,6 +401,9 @@ public readonly struct PgpSecretKeyRingCollection : IEquatable<PgpSecretKeyRingC
         List<PgpUserIdPacket> userIds = [];
         List<PgpUserAttributePacket> userAttributes = [];
         List<PgpSignaturePacket> signatures = [];
+        List<PgpSignatureAssociation> associations = [];
+        var targetTag = PgpPacketTag.PublicKey;
+        var targetBody = masterKey.PublicKey.ToArray();
 
         while (reader.ReadNextPacket(out tag, out body))
         {
@@ -417,6 +420,8 @@ public readonly struct PgpSecretKeyRingCollection : IEquatable<PgpSecretKeyRingC
                         return false;
                     }
                     subkeys.Add(subkey);
+                    targetTag = PgpPacketTag.PublicSubkey;
+                    targetBody = subkey.PublicKey.ToArray();
                     break;
 
                 case PgpPacketTag.UserId:
@@ -426,6 +431,8 @@ public readonly struct PgpSecretKeyRingCollection : IEquatable<PgpSecretKeyRingC
                         return false;
                     }
                     userIds.Add(userId);
+                    targetTag = PgpPacketTag.UserId;
+                    targetBody = userId.ToArray();
                     break;
 
                 case PgpPacketTag.UserAttribute:
@@ -435,6 +442,8 @@ public readonly struct PgpSecretKeyRingCollection : IEquatable<PgpSecretKeyRingC
                         return false;
                     }
                     userAttributes.Add(userAttr);
+                    targetTag = PgpPacketTag.UserAttribute;
+                    targetBody = userAttr.ToArray();
                     break;
 
                 case PgpPacketTag.Signature:
@@ -444,6 +453,7 @@ public readonly struct PgpSecretKeyRingCollection : IEquatable<PgpSecretKeyRingC
                         return false;
                     }
                     signatures.Add(signature);
+                    associations.Add(new PgpSignatureAssociation(signature.ToArray(), targetTag, targetBody));
                     break;
 
                 case PgpPacketTag.Trust:
@@ -456,7 +466,7 @@ public readonly struct PgpSecretKeyRingCollection : IEquatable<PgpSecretKeyRingC
         }
 
     done:
-        keyRing = new PgpSecretKeyRing(masterKey, subkeys, userIds, userAttributes, signatures);
+        keyRing = new PgpSecretKeyRing(masterKey, subkeys, userIds, userAttributes, signatures).WithSignatureAssociations(associations);
         return true;
     }
 

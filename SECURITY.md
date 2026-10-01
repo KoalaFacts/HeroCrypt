@@ -114,6 +114,21 @@ OpenPGP policy handling or detect deletion of newer signatures from an imported 
 Preserve independently trusted current policy and revocation decisions. See
 [expiration migration](docs/migration-guide.md#openpgp-expiration-policy-changes-after-v104).
 
+Algorithm preference getters authenticate current Direct Key or V4 User ID policy.
+V6 requires Direct Key policy; conflicting V4 User ID preferences without an
+authenticated primary marker fail closed. Missing authenticated policy throws;
+missing fields in selected authenticated policy return null. Advertised IDs do not
+perform algorithm negotiation or establish implementation support. Primary User ID
+selection authenticates current self-certifications and Boolean markers.
+
+User ID and subkey signature queries authenticate supported self-signatures over
+the exact object. Raw third-party and unsupported signatures remain available.
+Export retains each signature occurrence once, preferring cryptographic association
+over imported position. Unverified imported layout is retained only for serialization,
+including User Attribute signatures; it is not evidence of a valid certification.
+Reserved legacy AEAD preference type 34 requires trusted re-signing with RFC type 39.
+See [preference migration](docs/migration-guide.md#openpgp-preferences-and-object-association-after-v104).
+
 Document verification accepts only binary/text document signature types. Key and
 certification signatures use their dedicated methods. Unsupported critical semantics,
 including critical notation and recipient-context constraints, are rejected. Only

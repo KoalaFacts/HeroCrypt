@@ -4,6 +4,12 @@
 
 ### Security
 
+- Authenticate OpenPGP algorithm preferences and primary User ID selection using
+  current self-signatures. Scope signature queries to the exact signed User ID or
+  primary/subkey pair and export each signature occurrence once beside its object.
+  Retain unverified imported layout separately from cryptographic association.
+  Correct Preferred AEAD Ciphersuites to RFC 9580 type 39; legacy type 34 requires
+  trusted re-signing. See [migration notes](docs/migration-guide.md#openpgp-preferences-and-object-association-after-v104).
 - Authenticate OpenPGP primary-key revocation status and reasons in public and
   secret key-ring getters. Reject invalid-only evidence, preserve confirmed status
   alongside invalid packets, and prevent packet-order softening of compromise

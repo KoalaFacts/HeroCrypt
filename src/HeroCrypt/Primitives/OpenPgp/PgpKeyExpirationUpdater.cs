@@ -11,7 +11,8 @@ namespace HeroCrypt.Primitives.OpenPgp;
 /// <remarks>
 /// <para>
 /// This class creates a new self-signature with an updated KeyExpirationTime subpacket.
-/// The new signature supersedes any previous self-signature for expiration purposes.
+/// The new signature supersedes earlier self-signatures for its signed object.
+/// V6 and multi-User-ID updates use a Direct Key self-signature.
 /// </para>
 /// <para>
 /// <b>Usage:</b>
@@ -122,6 +123,7 @@ public sealed class PgpKeyExpirationUpdater : IDisposable
     /// Sets a custom timestamp for the new self-signature.
     /// </summary>
     /// <param name="timestamp">The signature timestamp.</param>
+    /// <remarks>The timestamp must be later than current policy by at least one encoded whole second.</remarks>
     /// <returns>This builder for chaining.</returns>
     public PgpKeyExpirationUpdater WithTimestamp(DateTimeOffset timestamp)
     {
@@ -145,12 +147,17 @@ public sealed class PgpKeyExpirationUpdater : IDisposable
         var version = masterPublicKey.Version;
         var sigTimestamp = timestamp ?? DateTimeOffset.UtcNow;
 
-        // Get the first user ID from the key ring
-        if (secretKeyRing.Value.UserIds.Count == 0)
+        var current = PgpSelfSignatureResolver.Resolve(secretKeyRing.Value.ExtractPublicKeyRing(), sigTimestamp);
+        if (sigTimestamp.ToUnixTimeSeconds() <= current.GetCreationTime()!.Value.ToUnixTimeSeconds())
+            throw new InvalidOperationException("An expiration update requires a later whole-second signature timestamp.");
+
+        // V6 primary-key policy belongs on a Direct Key self-signature.
+        if (version == 4 && secretKeyRing.Value.UserIds.Count == 0)
         {
             throw new InvalidOperationException("Key ring has no user IDs.");
         }
-        var userIdPacket = secretKeyRing.Value.UserIds[0];
+        PgpUserIdPacket? userIdPacket = version == 4 && secretKeyRing.Value.UserIds.Count == 1 &&
+            current.SignatureType != PgpSignatureType.DirectKey ? secretKeyRing.Value.UserIds[0] : null;
 
         // Create the new self-certification signature with updated expiration
         var newCertification = CreateUpdatedCertification(
@@ -158,7 +165,8 @@ public sealed class PgpKeyExpirationUpdater : IDisposable
             masterSecretKey,
             userIdPacket,
             version,
-            sigTimestamp);
+            sigTimestamp,
+            current.GetKeyFlags() ?? (PgpKeyCapabilities.Certify | PgpKeyCapabilities.Sign));
 
         // Build new key rings with the additional signature
         var newPublicKeyRing = secretKeyRing.Value.ExtractPublicKeyRing().AddSignature(newCertification);
@@ -178,16 +186,14 @@ public sealed class PgpKeyExpirationUpdater : IDisposable
     private PgpSignaturePacket CreateUpdatedCertification(
         PgpPublicKeyPacket publicKey,
         PgpSecretKeyPacket secretKey,
-        PgpUserIdPacket userIdPacket,
+        PgpUserIdPacket? userIdPacket,
         byte version,
-        DateTimeOffset sigTimestamp)
+        DateTimeOffset sigTimestamp,
+        PgpKeyCapabilities keyFlags)
     {
-        var sigType = PgpSignatureType.PositiveCertification;
+        var sigType = userIdPacket.HasValue ? PgpSignatureType.PositiveCertification : PgpSignatureType.DirectKey;
         var pubAlgo = (byte)publicKey.Algorithm;
         var hashAlgo = (byte)PgpHashAlgorithmId.Sha256;
-
-        // Get existing key flags from the key ring's self-signature
-        var keyFlags = GetExistingKeyFlags();
 
         // Build hashed subpackets
         var hashedSubpackets = new List<PgpSignatureSubpacket>
@@ -205,24 +211,24 @@ public sealed class PgpKeyExpirationUpdater : IDisposable
         }
 
         // Build unhashed subpackets
-        var unhashedSubpackets = new List<PgpSignatureSubpacket>
-        {
-            PgpSignatureSubpacket.CreateIssuerKeyId(publicKey.GetKeyId())
-        };
+        List<PgpSignatureSubpacket> unhashedSubpackets = version == 4
+            ? [PgpSignatureSubpacket.CreateIssuerKeyId(publicKey.GetKeyId())]
+            : [];
 
         // Serialize hashed subpackets
         var hashedSubpacketData = PgpSignatureSubpacket.WriteAll(hashedSubpackets);
         byte[] salt = version == 6 ? GenerateSalt() : [];
 
         // Compute the certification hash
-        var hash = PgpSignatureHashHelper.ComputeCertificationHash(
+        var hash = userIdPacket.HasValue ? PgpSignatureHashHelper.ComputeCertificationHash(
             publicKey,
-            userIdPacket,
+            userIdPacket.Value,
             version,
             (byte)sigType,
             pubAlgo,
             hashAlgo,
-            hashedSubpacketData, salt);
+            hashedSubpacketData, salt) : PgpSignatureHashHelper.ComputeKeySignatureHash(
+                publicKey, null, version, (byte)sigType, pubAlgo, hashAlgo, hashedSubpacketData, salt);
 
         // Get hash prefix
         ushort hashPrefix = BinaryPrimitives.ReadUInt16BigEndian(hash);
@@ -254,30 +260,6 @@ public sealed class PgpKeyExpirationUpdater : IDisposable
                 hashPrefix,
                 signatureData);
         }
-    }
-
-    private PgpKeyCapabilities GetExistingKeyFlags()
-    {
-        // Look for key flags in existing self-signatures
-        foreach (var sig in secretKeyRing!.Value.Signatures)
-        {
-            if (sig.SignatureType == PgpSignatureType.GenericCertification ||
-                sig.SignatureType == PgpSignatureType.PersonaCertification ||
-                sig.SignatureType == PgpSignatureType.CasualCertification ||
-                sig.SignatureType == PgpSignatureType.PositiveCertification)
-            {
-                foreach (var subpacket in sig.HashedSubpackets)
-                {
-                    if (subpacket.Type == PgpSignatureSubpacketType.KeyFlags)
-                    {
-                        return subpacket.GetKeyFlags();
-                    }
-                }
-            }
-        }
-
-        // Default flags if none found
-        return PgpKeyCapabilities.Certify | PgpKeyCapabilities.Sign;
     }
 
     private static byte[] CreateSignatureData(PgpSecretKeyPacket secretKey, byte[] hash)

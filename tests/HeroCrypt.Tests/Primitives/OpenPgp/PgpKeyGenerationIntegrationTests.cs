@@ -3042,8 +3042,7 @@ public class PgpKeyGenerationIntegrationTests
 
             // Assert - The new expiration should be picked up from the latest signature
             Assert.NotNull(updatedPublic.GetKeyLifetime());
-            // Note: The implementation returns the first found expiration from signatures
-            // In a real implementation, we'd pick the most recent signature's expiration
+            Assert.Equal(extendedLifetime, updatedPublic.GetKeyLifetime());
         }
 
         [Fact]
@@ -3070,9 +3069,8 @@ public class PgpKeyGenerationIntegrationTests
 
             var (updatedPublic, _) = updater.Update();
 
-            // Assert - The key ring now has a signature with no expiration
-            // Note: Implementation returns first found, so original expiration may still be returned
-            // In production, you'd want to look at the most recent signature
+            // The authenticated new signature removes expiration.
+            Assert.Null(updatedPublic.GetKeyLifetime());
             Assert.True(updatedPublic.Signatures.Count > result.PublicKeyRing.Signatures.Count);
         }
 

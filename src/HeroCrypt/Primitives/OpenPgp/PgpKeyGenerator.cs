@@ -733,7 +733,7 @@ public sealed class PgpKeyGenerator
         var userIdPacket = new PgpUserIdPacket(userId!);
 
         // Create self-certification signature (using unencrypted key)
-        var certificationSignature = CreateUserIdCertification(publicKey, unencryptedSecretKey, userIdPacket, version);
+        var certificationSignature = CreateRsaSelfSignature(publicKey, unencryptedSecretKey, userIdPacket, version);
 
         // Build key rings with UNENCRYPTED keys (encryption happens at the end)
         var publicKeyRing = new PgpPublicKeyRing(
@@ -759,6 +759,13 @@ public sealed class PgpKeyGenerator
         if (addSigningSubkey)
         {
             (publicKeyRing, secretKeyRing) = AddRsaSigningSubkey(publicKeyRing, secretKeyRing, keySizeBits, version);
+        }
+
+        if (version == 6)
+        {
+            var direct = CreateRsaSelfSignature(publicKey, unencryptedSecretKey, null, version);
+            publicKeyRing = publicKeyRing.AddSignature(direct);
+            secretKeyRing = secretKeyRing.AddSignature(direct);
         }
 
         // NOW encrypt all secret keys if passphrase is provided
@@ -826,7 +833,7 @@ public sealed class PgpKeyGenerator
 
         // Create self-certification signature (Ed25519 signing key, so Certify | Sign flags)
         var certFlags = PgpKeyCapabilities.Certify | PgpKeyCapabilities.Sign;
-        var certificationSignature = CreateEd25519UserIdCertification(
+        var certificationSignature = CreateEd25519SelfSignature(
             publicKeyPacket,
             privateKey,
             userIdPacket,
@@ -848,6 +855,9 @@ public sealed class PgpKeyGenerator
             userAttributes: null,
             signatures: [certificationSignature]);
 
+        var direct = CreateEd25519SelfSignature(publicKeyPacket, privateKey, null, certFlags, version);
+        publicKeyRing = publicKeyRing.AddSignature(direct);
+        secretKeyRing = secretKeyRing.AddSignature(direct);
         return new PgpKeyGeneratorResult(secretKeyRing, publicKeyRing, userId!);
     }
 
@@ -895,7 +905,7 @@ public sealed class PgpKeyGenerator
 
             // Create self-certification signature (Certify | Sign for master key)
             var certFlags = PgpKeyCapabilities.Certify | PgpKeyCapabilities.Sign;
-            var certificationSignature = CreateEd25519UserIdCertification(
+            var certificationSignature = CreateEd25519SelfSignature(
                 masterPublicPacket,
                 ed25519Private,
                 userIdPacket,
@@ -937,6 +947,10 @@ public sealed class PgpKeyGenerator
                 userAttributes: null,
                 signatures: [certificationSignature]);
             secretKeyRing = secretKeyRing.AddSubkey(subkeySecretPacket, bindingSignature);
+
+            var direct = CreateEd25519SelfSignature(masterPublicPacket, ed25519Private, null, certFlags, version);
+            publicKeyRing = publicKeyRing.AddSignature(direct);
+            secretKeyRing = secretKeyRing.AddSignature(direct);
 
             return new PgpKeyGeneratorResult(secretKeyRing, publicKeyRing, userId!);
         }
@@ -1238,13 +1252,13 @@ public sealed class PgpKeyGenerator
         return CreateEncryptedSecretKeyFromBytes(publicKey, secretMaterial, passphraseBytes);
     }
 
-    private PgpSignaturePacket CreateUserIdCertification(
+    private PgpSignaturePacket CreateRsaSelfSignature(
         PgpPublicKeyPacket publicKey,
         PgpSecretKeyPacket secretKey,
-        PgpUserIdPacket userIdPacket,
+        PgpUserIdPacket? userIdPacket,
         byte version)
     {
-        var sigType = PgpSignatureType.PositiveCertification;
+        var sigType = userIdPacket.HasValue ? PgpSignatureType.PositiveCertification : PgpSignatureType.DirectKey;
         var pubAlgo = (byte)publicKey.Algorithm;
         var hashAlgo = (byte)PgpHashAlgorithmId.Sha256;
 
@@ -1291,24 +1305,24 @@ public sealed class PgpKeyGenerator
         }
 
         // Build unhashed subpackets
-        var unhashedSubpackets = new List<PgpSignatureSubpacket>
-        {
-            PgpSignatureSubpacket.CreateIssuerKeyId(publicKey.GetKeyId())
-        };
+        List<PgpSignatureSubpacket> unhashedSubpackets = version == 4
+            ? [PgpSignatureSubpacket.CreateIssuerKeyId(publicKey.GetKeyId())]
+            : [];
 
         // Serialize hashed subpackets
         var hashedSubpacketData = PgpSignatureSubpacket.WriteAll(hashedSubpackets);
         byte[] salt = version == 6 ? GenerateSalt(PgpHashAlgorithmId.Sha256) : [];
 
         // Compute the certification hash
-        var hash = ComputeCertificationHash(
+        var hash = userIdPacket.HasValue ? ComputeCertificationHash(
             publicKey,
-            userIdPacket,
+            userIdPacket.Value,
             version,
             (byte)sigType,
             pubAlgo,
             hashAlgo,
-            hashedSubpacketData, salt);
+            hashedSubpacketData, salt) : PgpSignatureHashHelper.ComputeKeySignatureHash(
+                publicKey, null, version, (byte)sigType, pubAlgo, hashAlgo, hashedSubpacketData, salt);
 
         // Get hash prefix
         ushort hashPrefix = BinaryPrimitives.ReadUInt16BigEndian(hash);
@@ -1575,14 +1589,14 @@ public sealed class PgpKeyGenerator
         return salt;
     }
 
-    private PgpSignaturePacket CreateEd25519UserIdCertification(
+    private PgpSignaturePacket CreateEd25519SelfSignature(
         PgpPublicKeyPacket publicKey,
         byte[] ed25519PrivateKey,
-        PgpUserIdPacket userIdPacket,
+        PgpUserIdPacket? userIdPacket,
         PgpKeyCapabilities keyFlags,
         byte version)
     {
-        var sigType = PgpSignatureType.PositiveCertification;
+        var sigType = userIdPacket.HasValue ? PgpSignatureType.PositiveCertification : PgpSignatureType.DirectKey;
         var pubAlgo = (byte)PgpPublicKeyAlgorithm.Ed25519;
         var hashAlgo = (byte)PgpHashAlgorithmId.Sha256;
 
@@ -1629,24 +1643,24 @@ public sealed class PgpKeyGenerator
         }
 
         // Build unhashed subpackets
-        var unhashedSubpackets = new List<PgpSignatureSubpacket>
-        {
-            PgpSignatureSubpacket.CreateIssuerKeyId(publicKey.GetKeyId())
-        };
+        List<PgpSignatureSubpacket> unhashedSubpackets = version == 4
+            ? [PgpSignatureSubpacket.CreateIssuerKeyId(publicKey.GetKeyId())]
+            : [];
 
         // Serialize hashed subpackets
         var hashedSubpacketData = PgpSignatureSubpacket.WriteAll(hashedSubpackets);
         byte[] salt = version == 6 ? GenerateSalt(PgpHashAlgorithmId.Sha256) : [];
 
-        // Compute the certification hash
-        var hash = ComputeCertificationHash(
+        // Compute the self-signature hash for the actual signed object.
+        var hash = userIdPacket.HasValue ? ComputeCertificationHash(
             publicKey,
-            userIdPacket,
+            userIdPacket.Value,
             version,
             (byte)sigType,
             pubAlgo,
             hashAlgo,
-            hashedSubpacketData, salt);
+            hashedSubpacketData, salt) : PgpSignatureHashHelper.ComputeKeySignatureHash(
+                publicKey, null, version, (byte)sigType, pubAlgo, hashAlgo, hashedSubpacketData, salt);
 
         // Get hash prefix
         ushort hashPrefix = BinaryPrimitives.ReadUInt16BigEndian(hash);

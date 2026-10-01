@@ -750,7 +750,8 @@ public class PgpKeyGeneratorTests
                 .GenerateEd25519();
 
             // Assert
-            Assert.Single(result.PublicKeyRing.Signatures);
+            Assert.Equal(2, result.PublicKeyRing.Signatures.Count);
+            Assert.Single(result.PublicKeyRing.Signatures, x => x.SignatureType == PgpSignatureType.DirectKey);
             var sig = result.PublicKeyRing.Signatures[0];
             Assert.Equal(PgpSignatureType.PositiveCertification, sig.SignatureType);
             Assert.Equal(6, sig.Version);
@@ -892,8 +893,9 @@ public class PgpKeyGeneratorTests
                 .WithUserId("Test <test@example.com>")
                 .GenerateEd25519WithX25519Subkey();
 
-            // Assert - Should have certification + binding signatures
-            Assert.Equal(2, result.PublicKeyRing.Signatures.Count);
+            // Certification, binding and Direct Key self-signatures.
+            Assert.Equal(3, result.PublicKeyRing.Signatures.Count);
+            Assert.Single(result.PublicKeyRing.Signatures, x => x.SignatureType == PgpSignatureType.DirectKey);
 
             var certSig = result.PublicKeyRing.Signatures[0];
             Assert.Equal(PgpSignatureType.PositiveCertification, certSig.SignatureType);

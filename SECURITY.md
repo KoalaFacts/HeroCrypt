@@ -91,8 +91,20 @@ binding for each supplied subkey; `ValidateStructureOnly()` does not.
 subkey revocations. Unsupported designated-revoker evidence fails validation.
 Confirmed revocation remains a warning, so `IsValid` alone is not an acceptance
 policy. The validator does not establish signing-subkey cross-certification, key
-usage, freshness or trust. Its expiration check currently uses decoded certification
-metadata; evaluate that policy independently before accepting a key.
+usage, freshness or trust. `CheckExpiration()` authenticates primary-key expiration
+policy and reports `InvalidExpirationEvidence` when no supported unambiguous current
+policy can be established. Expiration getters likewise throw instead of reporting
+an unlimited lifetime without authenticated evidence.
+
+Expiration selection uses the newest authenticated non-future self-signature for
+each signed object. V6 requires a Direct Key self-signature. An authenticated Direct
+Key policy takes precedence; otherwise V4 User ID policies must agree. Missing or
+zero expiration in the selected signature means no expiration. Conflicting equal-time
+signatures, an expired newest self-signature, certification revocations and unsupported
+critical policy fields fail closed. This supported subset does not establish complete
+OpenPGP policy handling or detect deletion of newer signatures from an imported ring.
+Preserve independently trusted current policy and revocation decisions. See
+[expiration migration](docs/migration-guide.md#openpgp-expiration-policy-changes-after-v104).
 
 Document verification accepts only binary/text document signature types. Key and
 certification signatures use their dedicated methods. Unsupported critical semantics,

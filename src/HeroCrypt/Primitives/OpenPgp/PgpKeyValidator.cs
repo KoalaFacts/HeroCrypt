@@ -131,6 +131,8 @@ public sealed class PgpKeyValidator : IDisposable
     /// <para>
     /// When enabled, expired keys will result in a warning (not an error).
     /// Use <see cref="AtTime"/> to check expiration at a specific time.
+    /// Missing, conflicting or unsupported authenticated self-signature policy
+    /// produces an <see cref="PgpValidationCode.InvalidExpirationEvidence"/> error.
     /// </para>
     /// </remarks>
     public PgpKeyValidator CheckExpiration()
@@ -380,12 +382,19 @@ public sealed class PgpKeyValidator : IDisposable
 
     private static void ValidateExpiration(PgpPublicKeyRing keyRing, DateTimeOffset atTime, List<PgpKeyValidationIssue> issues)
     {
-        if (keyRing.IsExpiredAt(atTime))
+        try
         {
-            var expirationTime = keyRing.GetExpirationTime();
-            issues.Add(PgpKeyValidationIssue.Warning(
-                PgpValidationCode.KeyExpired,
-                $"Key expired at {expirationTime:yyyy-MM-dd HH:mm:ss} UTC."));
+            var expirationTime = keyRing.GetExpirationTimeAt(atTime);
+            if (expirationTime.HasValue && atTime >= expirationTime.Value)
+            {
+                issues.Add(PgpKeyValidationIssue.Warning(
+                    PgpValidationCode.KeyExpired,
+                    $"Key expired at {expirationTime.Value:yyyy-MM-dd HH:mm:ss} UTC."));
+            }
+        }
+        catch (InvalidOperationException ex)
+        {
+            issues.Add(PgpKeyValidationIssue.Error(PgpValidationCode.InvalidExpirationEvidence, ex.Message));
         }
     }
 
@@ -723,5 +732,10 @@ public enum PgpValidationCode
     /// <summary>
     /// Revocation evidence could not be authenticated under the primary key.
     /// </summary>
-    InvalidRevocationSignature
+    InvalidRevocationSignature,
+
+    /// <summary>
+    /// Current authenticated expiration policy is missing, ambiguous or unsupported.
+    /// </summary>
+    InvalidExpirationEvidence
 }

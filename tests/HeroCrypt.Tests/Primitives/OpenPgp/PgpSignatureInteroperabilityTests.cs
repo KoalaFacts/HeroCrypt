@@ -167,18 +167,26 @@ public class PgpSignatureInteroperabilityTests
     [InlineData(6, true)]
     public void KeyLifecycle_AllProducers_UseIndependentRfcHashes(byte version, bool ed25519)
     {
-        var generator = PgpKeyGenerator.Create().WithVersion(version).WithUserId("interop@example.invalid").WithEncryptionSubkey();
+        var generator = PgpKeyGenerator.Create().WithVersion(version).WithCreationTime(DateTimeOffset.FromUnixTimeSeconds(1700000000))
+            .WithUserId("interop@example.invalid").WithEncryptionSubkey();
         var pair = ed25519 ? generator.GenerateEd25519WithX25519Subkey() : generator.GenerateRsa();
         var certification = Assert.Single(pair.PublicKeyRing.Signatures, x => x.SignatureType == PgpSignatureType.PositiveCertification);
         AssertIndependentSignature(certification, pair.MasterPublicKey, CertificationMaterial(pair.MasterPublicKey, pair.UserId, version));
         var subkey = Assert.Single(pair.PublicKeyRing.Subkeys);
         var binding = Assert.Single(pair.PublicKeyRing.Signatures, x => x.SignatureType == PgpSignatureType.SubkeyBinding);
         AssertIndependentSignature(binding, pair.MasterPublicKey, KeyMaterial(pair.MasterPublicKey, version).Concat(KeyMaterial(subkey, version)).ToArray());
+        if (version == 6)
+        {
+            var direct = Assert.Single(pair.PublicKeyRing.Signatures, x => x.SignatureType == PgpSignatureType.DirectKey);
+            AssertIndependentSignature(direct, pair.MasterPublicKey, KeyMaterial(pair.MasterPublicKey, version));
+        }
 
         using var updater = PgpKeyExpirationUpdater.Create().WithSecretKeyRing(pair.SecretKeyRing).WithNewExpiration(TimeSpan.FromDays(365));
         var updated = updater.Update();
-        var renewed = updated.PublicKeyRing.Signatures.Last(x => x.SignatureType == PgpSignatureType.PositiveCertification);
-        AssertIndependentSignature(renewed, pair.MasterPublicKey, CertificationMaterial(pair.MasterPublicKey, pair.UserId, version));
+        var renewed = updated.PublicKeyRing.Signatures.Last();
+        Assert.Equal(version == 6 ? PgpSignatureType.DirectKey : PgpSignatureType.PositiveCertification, renewed.SignatureType);
+        AssertIndependentSignature(renewed, pair.MasterPublicKey, version == 6 ? KeyMaterial(pair.MasterPublicKey, version)
+            : CertificationMaterial(pair.MasterPublicKey, pair.UserId, version));
 
         using var revoker = PgpKeyRevoker.Create().WithSecretKey(pair.MasterSecretKey);
         var revoked = revoker.WithSubkey(subkey).RevokeSubkey();

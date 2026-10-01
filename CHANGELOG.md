@@ -4,6 +4,11 @@
 
 ### Security
 
+- Resolve OpenPGP primary-key expiration from the newest authenticated current
+  self-signature for the signed object. Reject missing, conflicting or unsupported
+  policy evidence instead of treating it as an unlimited lifetime. Generate V6
+  Direct Key self-signatures and authenticate the policy used by expiration updates.
+  See [migration notes](docs/migration-guide.md#openpgp-expiration-policy-changes-after-v104).
 - Require authenticated bindings for every subkey when OpenPGP binding validation
   is requested. Authenticate primary-key and subkey revocations, reject unsupported
   revocation evidence and scope each subkey status to its signed target. Correct

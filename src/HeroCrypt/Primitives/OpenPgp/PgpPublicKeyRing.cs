@@ -703,6 +703,7 @@ public readonly struct PgpPublicKeyRing : IEquatable<PgpPublicKeyRing>
     /// Gets the key expiration date, if any expiration is set.
     /// </summary>
     /// <returns>The expiration date, or null if the key never expires.</returns>
+    /// <exception cref="InvalidOperationException">Current authenticated policy is missing, ambiguous or unsupported.</exception>
     /// <remarks>
     /// <para>
     /// The expiration time is stored as a relative offset from the key creation time
@@ -711,49 +712,33 @@ public readonly struct PgpPublicKeyRing : IEquatable<PgpPublicKeyRing>
     /// </remarks>
     public DateTimeOffset? GetExpirationTime()
     {
-        var lifetime = GetKeyLifetime();
-        if (lifetime == null)
-        {
-            return null;
-        }
+        return GetExpirationTimeAt(DateTimeOffset.UtcNow);
+    }
 
-        return CreationTime + lifetime.Value;
+    internal DateTimeOffset? GetExpirationTimeAt(DateTimeOffset atTime)
+    {
+        var lifetime = GetKeyLifetimeAt(atTime);
+        return lifetime.HasValue ? DateTimeOffset.FromUnixTimeSeconds(CreationTime.ToUnixTimeSeconds()) + lifetime.Value : null;
     }
 
     /// <summary>
     /// Gets the key lifetime (duration from creation to expiration), if set.
     /// </summary>
     /// <returns>The key lifetime, or null if the key never expires.</returns>
+    /// <exception cref="InvalidOperationException">Current authenticated policy is missing, ambiguous or unsupported.</exception>
+    /// <remarks>
+    /// Uses the current authenticated Direct Key self-signature, or agreeing latest
+    /// V4 User ID self-certifications. V6 requires a Direct Key self-signature.
+    /// Future signatures do not take effect early; expired newest evidence does not
+    /// fall back to older policy. This establishes expiration evidence, not key trust.
+    /// </remarks>
     public TimeSpan? GetKeyLifetime()
     {
-        // Look for a self-signature with the KeyExpirationTime subpacket
-        foreach (var sig in Signatures)
-        {
-            // Look for self-certification signatures
-            if (sig.SignatureType != PgpSignatureType.GenericCertification &&
-                sig.SignatureType != PgpSignatureType.PersonaCertification &&
-                sig.SignatureType != PgpSignatureType.CasualCertification &&
-                sig.SignatureType != PgpSignatureType.PositiveCertification)
-            {
-                continue;
-            }
-
-            foreach (var subpacket in sig.HashedSubpackets)
-            {
-                if (subpacket.Type == PgpSignatureSubpacketType.KeyExpirationTime)
-                {
-                    var seconds = subpacket.GetKeyExpirationTime();
-                    if (seconds == 0)
-                    {
-                        return null; // 0 means never expires
-                    }
-                    return TimeSpan.FromSeconds(seconds);
-                }
-            }
-        }
-
-        return null; // No expiration subpacket found
+        return GetKeyLifetimeAt(DateTimeOffset.UtcNow);
     }
+
+    internal TimeSpan? GetKeyLifetimeAt(DateTimeOffset atTime) =>
+        PgpSelfSignatureResolver.Lifetime(PgpSelfSignatureResolver.Resolve(this, atTime));
 
     /// <summary>
     /// Gets whether the key has expired.
@@ -771,9 +756,10 @@ public readonly struct PgpPublicKeyRing : IEquatable<PgpPublicKeyRing>
     /// </summary>
     /// <param name="atTime">The time to check.</param>
     /// <returns>True if the key was expired at the specified time.</returns>
+    /// <exception cref="InvalidOperationException">Current authenticated policy is missing, ambiguous or unsupported.</exception>
     public bool IsExpiredAt(DateTimeOffset atTime)
     {
-        var expirationTime = GetExpirationTime();
+        var expirationTime = GetExpirationTimeAt(atTime);
         if (expirationTime == null)
         {
             return false; // Never expires

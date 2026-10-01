@@ -16,13 +16,40 @@ This guide helps you migrate between HeroCrypt versions and from other cryptogra
   signatures, and invalid evidence cannot erase a confirmed revocation warning.
 - Genuine revocation and expiration remain warnings: `IsValid` means no validation
   errors, not permission to use an expired or revoked key. Callers must enforce their
-  own trust, key-usage, freshness and acceptance policies. Expiration checking still
-  uses decoded certification metadata and requires independent policy evaluation.
+  own trust, key-usage, freshness and acceptance policies. Expiration policy now
+  requires authenticated current self-signatures as described below.
   Signing-subkey cross-certification and complete OpenPGP key-ring trust are not
   established by these checks.
 - Preserve previously trusted revocation decisions during migration. Reissue legacy
   nonstandard revocation evidence through the trusted process described below;
   validation failure is not evidence that a previously revoked key is usable.
+
+## OpenPGP expiration policy changes after v1.0.4
+
+- `GetKeyLifetime()`, `GetExpirationTime()` and `IsExpiredAt()` now authenticate
+  primary-key policy. Missing, ambiguous or unsupported evidence throws
+  `InvalidOperationException`; `CheckExpiration()` reports `InvalidExpirationEvidence`
+  instead. Do not catch this error and interpret it as an unlimited lifetime.
+- Selection uses the newest authenticated self-signature for the actual signed
+  object, ignoring signatures dated after the evaluation time or before key creation.
+  Absent or zero key expiration in that selected signature means no expiration;
+  an older expiration value is not a fallback. Equal-time conflicting signatures
+  and an expired newest self-signature fail closed. Dates use encoded whole seconds.
+- A current authenticated Direct Key self-signature supplies whole-key policy.
+  V6 requires one; generation now includes it. Without a Direct Key policy, V4
+  authenticated User ID policies must agree on expiration. Certification revocations
+  and unsupported critical policy fields are rejected by this supported subset.
+  This does not establish complete OpenPGP policy processing, key trust or protection
+  against removal of newer signatures from imported key rings.
+- Expiration updates now authenticate existing policy before copying key flags.
+  Their creation timestamp must be strictly later, in encoded whole seconds, than
+  the selected self-signature. An immediate update within the same second throws;
+  use a later timestamp when that time has arrived. V6 and multiple-User-ID updates
+  emit Direct Key signatures so the new expiration applies to the whole key.
+- Preserve independently trusted keys, latest policy and revocation decisions.
+  Historical V6 rings without a valid Direct Key signature need trusted regeneration
+  or reissuance; the updater does not bootstrap unauthenticated policy. Validation
+  failure is not evidence that an expired or revoked key has become usable.
 
 ## OpenPGP verification boundary changes after v1.0.4
 

@@ -85,6 +85,15 @@ issuer hints are not trusted identity evidence. Applications must establish trus
 in that key independently. `WithPublicKeyRing` includes subkeys without establishing
 their binding, revocation status, permitted usage or current validity.
 
+`PgpKeyValidator.VerifySubkeyBindings()` requires an authenticated primary-key
+binding for each supplied subkey; `ValidateStructureOnly()` does not.
+`CheckRevocation()` authenticates primary-key revocations and the exact target of
+subkey revocations. Unsupported designated-revoker evidence fails validation.
+Confirmed revocation remains a warning, so `IsValid` alone is not an acceptance
+policy. The validator does not establish signing-subkey cross-certification, key
+usage, freshness or trust. Its expiration check currently uses decoded certification
+metadata; evaluate that policy independently before accepting a key.
+
 Document verification accepts only binary/text document signature types. Key and
 certification signatures use their dedicated methods. Unsupported critical semantics,
 including critical notation and recipient-context constraints, are rejected. Only

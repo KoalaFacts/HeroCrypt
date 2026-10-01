@@ -4,6 +4,12 @@
 
 ### Security
 
+- Authenticate OpenPGP primary-key revocation status and reasons in public and
+  secret key-ring getters. Reject invalid-only evidence, preserve confirmed status
+  alongside invalid packets, and prevent packet-order softening of compromise
+  reasons. Treat ambiguous or unsupported reasons conservatively; only known
+  superseded and retired key reasons are classified as soft.
+  See [migration notes](docs/migration-guide.md#openpgp-revocation-status-changes-after-v104).
 - Resolve OpenPGP primary-key expiration from the newest authenticated current
   self-signature for the signed object. Reject missing, conflicting or unsupported
   policy evidence instead of treating it as an unlimited lifetime. Generate V6

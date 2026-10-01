@@ -401,34 +401,19 @@ public sealed class PgpKeyValidator : IDisposable
     private static void ValidateRevocation(PgpPublicKeyRing keyRing, List<PgpKeyValidationIssue> issues)
     {
         using var verifier = PgpSignatureVerifier.Create();
-        bool keyRevoked = false;
-        foreach (var revocation in keyRing.Signatures.Where(s => s.SignatureType == PgpSignatureType.KeyRevocation))
+        var keyReason = keyRing.GetAuthenticatedRevocationReason(out var invalidEvidenceCount);
+        for (int i = 0; i < invalidEvidenceCount; i++)
         {
-            if (!verifier.VerifyKeyRevocation(revocation, keyRing.MasterKey).IsValid)
-            {
-                issues.Add(PgpKeyValidationIssue.Error(
-                    PgpValidationCode.InvalidRevocationSignature,
-                    "Key revocation could not be authenticated under the primary key."));
-                continue;
-            }
-
-            if (keyRevoked)
-            {
-                continue;
-            }
-
-            keyRevoked = true;
-            var reasonSubpacket = revocation.HashedSubpackets
-                .FirstOrDefault(s => s.Type == PgpSignatureSubpacketType.ReasonForRevocation);
-            var reasonText = "Key has been revoked";
-            if (reasonSubpacket.Type == PgpSignatureSubpacketType.ReasonForRevocation && reasonSubpacket.Data.Length >= 1)
-            {
-                var reason = reasonSubpacket.GetRevocationReason();
-                reasonText = $"{reason.Reason.GetDescription()}: {reason.ReasonText ?? "No reason given"}";
-            }
+            issues.Add(PgpKeyValidationIssue.Error(
+                PgpValidationCode.InvalidRevocationSignature,
+                "Key revocation could not be authenticated under the primary key."));
+        }
+        if (keyReason.HasValue)
+        {
+            var reason = keyReason.Value;
             issues.Add(PgpKeyValidationIssue.Warning(
                 PgpValidationCode.KeyRevoked,
-                reasonText));
+                $"{reason.Reason.GetDescription()}: {reason.ReasonText ?? "No reason given"}"));
         }
 
         // A revocation must authenticate the exact primary-key/subkey pair.

@@ -90,7 +90,15 @@ binding for each supplied subkey; `ValidateStructureOnly()` does not.
 `CheckRevocation()` authenticates primary-key revocations and the exact target of
 subkey revocations. Unsupported designated-revoker evidence fails validation.
 Confirmed revocation remains a warning, so `IsValid` alone is not an acceptance
-policy. The validator does not establish signing-subkey cross-certification, key
+policy. Public and secret key-ring revocation status/reason getters also authenticate
+primary-key self-revocations, and throw for invalid-only or unsupported evidence.
+Genuine evidence is retained alongside invalid packets. Only authenticated hashed
+reason fields affect the result; compromise dominates soft reasons, and ambiguous
+or unsupported reasons are conservative. Candidate enumeration remains unverified.
+These checks do not establish revocation effective times, historical signature
+acceptance, freshness or detect stripped evidence. See the
+[revocation migration notes](docs/migration-guide.md#openpgp-revocation-status-changes-after-v104).
+The validator does not establish signing-subkey cross-certification, key
 usage, freshness or trust. `CheckExpiration()` authenticates primary-key expiration
 policy and reports `InvalidExpirationEvidence` when no supported unambiguous current
 policy can be established. Expiration getters likewise throw instead of reporting

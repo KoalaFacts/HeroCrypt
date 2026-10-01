@@ -520,7 +520,7 @@ public readonly struct PgpSecretKeyRing : IEquatable<PgpSecretKeyRing>
     }
 
     /// <summary>
-    /// Gets all key revocation signatures (type 0x20) for the master key.
+    /// Gets raw, unverified primary-key revocation candidates (type 0x20).
     /// </summary>
     /// <returns>The key revocation signatures.</returns>
     public IEnumerable<PgpSignaturePacket> GetRevocationSignatures()
@@ -529,7 +529,7 @@ public readonly struct PgpSecretKeyRing : IEquatable<PgpSecretKeyRing>
     }
 
     /// <summary>
-    /// Gets all subkey revocation signatures (type 0x28).
+    /// Gets raw, unverified subkey revocation candidates (type 0x28).
     /// </summary>
     /// <returns>The subkey revocation signatures.</returns>
     public IEnumerable<PgpSignaturePacket> GetSubkeyRevocationSignatures()
@@ -542,35 +542,21 @@ public readonly struct PgpSecretKeyRing : IEquatable<PgpSecretKeyRing>
     /// </summary>
     /// <remarks>
     /// <para>
-    /// This checks for the presence of a key revocation signature (type 0x20).
-    /// Note that this does not verify the signature - use a signature verifier
-    /// to validate the revocation.
+    /// Authenticates supplied primary-key self-revocation evidence using public
+    /// material only. No passphrase is required. Effective times, freshness,
+    /// historical acceptance and key trust are not established.
     /// </para>
     /// </remarks>
-    public bool IsKeyRevoked => Signatures.Any(s => s.SignatureType == PgpSignatureType.KeyRevocation);
+    /// <exception cref="InvalidOperationException">Only invalid or unsupported revocation evidence is supplied.</exception>
+    public bool IsKeyRevoked => ExtractPublicKeyRing().IsRevoked;
 
     /// <summary>
     /// Gets the revocation reason if the key has been revoked.
     /// </summary>
-    /// <returns>The revocation reason and text, or null if not revoked.</returns>
-    public (PgpRevocationReason Reason, string? ReasonText)? GetRevocationReason()
-    {
-        var revocation = Signatures.FirstOrDefault(s => s.SignatureType == PgpSignatureType.KeyRevocation);
-        if (revocation.SignatureType != PgpSignatureType.KeyRevocation)
-        {
-            return null;
-        }
-
-        foreach (var subpacket in revocation.HashedSubpackets)
-        {
-            if (subpacket.Type == PgpSignatureSubpacketType.ReasonForRevocation)
-            {
-                return subpacket.GetRevocationReason();
-            }
-        }
-
-        return (PgpRevocationReason.NoReason, null);
-    }
+    /// <returns>The authenticated reason and text, or null if no primary revocation candidates are supplied.</returns>
+    /// <exception cref="InvalidOperationException">Only invalid or unsupported revocation evidence is supplied.</exception>
+    /// <remarks>Uses the public key-ring policy without decrypting secret material. See <see cref="PgpPublicKeyRing.GetRevocationReason"/>.</remarks>
+    public (PgpRevocationReason Reason, string? ReasonText)? GetRevocationReason() => ExtractPublicKeyRing().GetRevocationReason();
 
     /// <summary>
     /// Securely clears all sensitive key material from memory.

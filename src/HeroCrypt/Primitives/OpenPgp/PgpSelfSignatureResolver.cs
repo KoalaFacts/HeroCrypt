@@ -9,24 +9,11 @@ internal static class PgpSelfSignatureResolver
 {
     internal static byte[]? Preferences(PgpPublicKeyRing ring, PgpSignatureSubpacketType type, DateTimeOffset atTime)
     {
-        ValidatePolicyRing(ring);
-        using var verifier = PgpSignatureVerifier.Create();
-        var direct = Latest(ring.Signatures.Where(s => s.SignatureType == PgpSignatureType.DirectKey),
-            s => verifier.VerifyDirectKeySignature(s, ring.MasterKey, ring.MasterKey).IsValid, ring.CreationTime, atTime);
-        if (direct.HasValue) return ReadPreferences(direct.Value, type);
-        if (ring.Version == 6)
-            throw new InvalidOperationException("V6 preferences require a current authenticated Direct Key self-signature.");
-
-        var users = CurrentUsers(ring, atTime);
-        if (users.Count == 0)
-            throw new InvalidOperationException("No current authenticated self-signature establishes algorithm preferences.");
-        var primary = MarkedPrimary(users);
-        if (primary.HasValue) return ReadPreferences(users[primary.Value].Signature, type);
-
-        var selected = ReadPreferences(users[0].Signature, type);
-        foreach (var user in users.Skip(1))
+        var policies = PrimaryPolicies(ring, atTime);
+        var selected = ReadPreferences(policies[0], type);
+        foreach (var policy in policies.Skip(1))
         {
-            var value = ReadPreferences(user.Signature, type);
+            var value = ReadPreferences(policy, type);
             if ((selected == null) != (value == null) ||
                 (selected != null && value != null && !selected.AsSpan().SequenceEqual(value)))
                 throw new InvalidOperationException("User ID algorithm preferences conflict without an authenticated primary User ID.");
@@ -41,6 +28,54 @@ internal static class PgpSelfSignatureResolver
         if (users.Count == 0)
             throw new InvalidOperationException("No current authenticated User ID self-certification is available.");
         return users[MarkedPrimary(users) ?? 0].UserId;
+    }
+
+    internal static PgpKeyCapabilities? PrimaryFlags(PgpPublicKeyRing ring, DateTimeOffset atTime)
+    {
+        var policies = PrimaryPolicies(ring, atTime);
+        var flags = Flags(policies[0]);
+        if (policies.Skip(1).Any(policy => Flags(policy) != flags))
+            throw new InvalidOperationException("User ID signing policies conflict without an authenticated primary User ID.");
+        return flags;
+    }
+
+    private static IReadOnlyList<PgpSignaturePacket> PrimaryPolicies(PgpPublicKeyRing ring, DateTimeOffset atTime)
+    {
+        ValidatePolicyRing(ring);
+        using var verifier = PgpSignatureVerifier.Create();
+        var direct = Latest(ring.Signatures.Where(s => s.SignatureType == PgpSignatureType.DirectKey),
+            s => verifier.VerifyDirectKeySignature(s, ring.MasterKey, ring.MasterKey).IsValid, ring.CreationTime, atTime);
+        if (direct.HasValue) return [direct.Value];
+        if (ring.Version == 6)
+            throw new InvalidOperationException("V6 primary-key policy requires a current Direct Key self-signature.");
+        var users = CurrentUsers(ring, atTime);
+        if (users.Count == 0) throw new InvalidOperationException("No current authenticated primary-key policy.");
+        var primary = MarkedPrimary(users);
+        return primary.HasValue ? [users[primary.Value].Signature] : users.Select(user => user.Signature).ToArray();
+    }
+
+    internal static PgpSignaturePacket Binding(PgpPublicKeyRing ring, PgpPublicKeyPacket subkey, DateTimeOffset atTime)
+    {
+        ValidatePolicyRing(ring);
+        using var verifier = PgpSignatureVerifier.Create();
+        var floor = ring.CreationTime > subkey.CreationTime ? ring.CreationTime : subkey.CreationTime;
+        return Latest(ring.Signatures.Where(s => s.SignatureType == PgpSignatureType.SubkeyBinding),
+            s => verifier.VerifySubkeyBinding(s, ring.MasterKey, subkey).IsValid, floor, atTime)
+            ?? throw new InvalidOperationException("No current authenticated binding for the exact primary/subkey pair.");
+    }
+
+    internal static PgpKeyCapabilities? Flags(PgpSignaturePacket signature)
+    {
+        var fields = signature.HashedSubpackets.Where(s => s.Type == PgpSignatureSubpacketType.KeyFlags).ToArray();
+        if (fields.Length > 1) throw new InvalidOperationException("Duplicate authenticated Key Flags are ambiguous.");
+        if (fields.Length == 0) return null;
+        var data = fields[0].Data.Span;
+        if (data.Length == 0) return PgpKeyCapabilities.None;
+        if ((data[0] & 0x40) != 0)
+            throw new InvalidOperationException("Unsupported Key Flags bits.");
+        for (int i = 1; i < data.Length; i++)
+            if (data[i] != 0) throw new InvalidOperationException("Unsupported Key Flags extension bits.");
+        return (PgpKeyCapabilities)data[0];
     }
 
     private static List<(PgpUserIdPacket UserId, PgpSignaturePacket Signature)> CurrentUsers(PgpPublicKeyRing ring, DateTimeOffset atTime)
@@ -145,6 +180,7 @@ internal static class PgpSelfSignatureResolver
         PgpSignaturePacket? latest = null;
         long latestTime = long.MinValue;
         bool conflicting = false;
+        bool latestRejectedMetadata = false;
         foreach (var signature in signatures)
         {
             // The general verifier rejects critical policy fields it does not evaluate.
@@ -154,7 +190,19 @@ internal static class PgpSelfSignatureResolver
                 s.Type != PgpSignatureSubpacketType.IssuerFingerprint &&
                 s.Type != PgpSignatureSubpacketType.IssuerKeyId))
                 throw new InvalidOperationException("Unsupported critical self-signature policy.");
-            if (!authenticate(signature)) continue;
+            bool rejectedMetadata = false;
+            if (!authenticate(signature))
+            {
+                if (signature.UnhashedSubpackets.Count == 0) continue;
+                // Unauthenticated hints must not hide a genuine newer policy and
+                // restore superseded permission. Use only signed bytes to detect it,
+                // then reject the selected packet rather than silently repairing it.
+                var signedEvidence = new PgpSignaturePacket(signature.Version, signature.SignatureType,
+                    signature.PublicKeyAlgorithm, signature.HashAlgorithm, signature.HashedSubpackets, [],
+                    signature.HashPrefix, signature.SignatureData, signature.Salt);
+                if (!authenticate(signedEvidence)) continue;
+                rejectedMetadata = true;
+            }
             var created = signature.GetCreationTime();
             if (!created.HasValue || created.Value.ToUnixTimeSeconds() < keyCreation.ToUnixTimeSeconds() ||
                 created.Value.ToUnixTimeSeconds() > atTime.ToUnixTimeSeconds()) continue;
@@ -164,16 +212,20 @@ internal static class PgpSelfSignatureResolver
                 latest = signature;
                 latestTime = time;
                 conflicting = false;
+                latestRejectedMetadata = rejectedMetadata;
             }
-            else if (time == latestTime && latest.HasValue &&
-                !PgpSignatureSubpacket.WriteAll(latest.Value.HashedSubpackets)
-                    .AsSpan().SequenceEqual(PgpSignatureSubpacket.WriteAll(signature.HashedSubpackets)))
+            else if (time == latestTime && latest.HasValue)
             {
-                conflicting = true;
+                latestRejectedMetadata |= rejectedMetadata;
+                if (!PgpSignatureSubpacket.WriteAll(latest.Value.HashedSubpackets)
+                    .AsSpan().SequenceEqual(PgpSignatureSubpacket.WriteAll(signature.HashedSubpackets)))
+                    conflicting = true;
             }
         }
 
         if (conflicting) throw new InvalidOperationException("Conflicting self-signatures have the same creation time.");
+        if (latestRejectedMetadata)
+            throw new InvalidOperationException("The newest authenticated policy has unsupported unhashed metadata; older policy is not a valid fallback.");
         if (latest.HasValue)
         {
             var expires = latest.Value.HashedSubpackets.FirstOrDefault(s => s.Type == PgpSignatureSubpacketType.SignatureExpirationTime);

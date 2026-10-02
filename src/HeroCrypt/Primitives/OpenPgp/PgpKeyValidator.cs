@@ -113,7 +113,8 @@ public sealed class PgpKeyValidator : IDisposable
     /// <remarks>
     /// <para>
     /// Subkey binding signatures (type 0x18) bind subkeys to the master key.
-    /// Each subkey should have a valid binding signature from the master key.
+    /// Each subkey requires a current binding from the master key. Signing-capable
+    /// subkeys without explicit non-signing usage also require embedded cross-certification.
     /// </para>
     /// </remarks>
     public PgpKeyValidator VerifySubkeyBindings()
@@ -168,7 +169,7 @@ public sealed class PgpKeyValidator : IDisposable
     /// <returns>This validator for chaining.</returns>
     /// <remarks>
     /// <para>
-    /// This affects expiration checking. If not set, the current time is used.
+    /// This affects expiration and current subkey-binding checks. If not set, the current time is used.
     /// </para>
     /// </remarks>
     public PgpKeyValidator AtTime(DateTimeOffset time)
@@ -221,7 +222,7 @@ public sealed class PgpKeyValidator : IDisposable
         // Subkey binding verification
         if (verifySubkeyBindings && issues.All(i => i.Severity != PgpValidationSeverity.Error))
         {
-            ValidateSubkeyBindings(publicKeyRing.Value, issues);
+            ValidateSubkeyBindings(publicKeyRing.Value, effectiveTime, issues);
         }
 
         // Expiration check
@@ -349,33 +350,21 @@ public sealed class PgpKeyValidator : IDisposable
         }
     }
 
-    private static void ValidateSubkeyBindings(PgpPublicKeyRing keyRing, List<PgpKeyValidationIssue> issues)
+    private static void ValidateSubkeyBindings(PgpPublicKeyRing keyRing, DateTimeOffset atTime, List<PgpKeyValidationIssue> issues)
     {
-        using var verifier = PgpSignatureVerifier.Create();
-
         foreach (var subkey in keyRing.Subkeys)
         {
             var subkeyId = subkey.GetKeyId();
-            var bindings = keyRing.Signatures
-                .Where(s => s.SignatureType == PgpSignatureType.SubkeyBinding)
-                .ToList();
-
-            bool hasValidBinding = false;
-            foreach (var binding in bindings)
+            try
             {
-                var result = verifier.VerifySubkeyBinding(binding, keyRing.MasterKey, subkey);
-                if (result.IsValid)
-                {
-                    hasValidBinding = true;
-                    break;
-                }
+                PgpSigningKeyPolicy.ValidateBinding(keyRing, subkey, atTime);
             }
-
-            if (!hasValidBinding)
+            catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or NotSupportedException)
             {
                 issues.Add(PgpKeyValidationIssue.Error(
-                    bindings.Count == 0 ? PgpValidationCode.MissingSubkeyBinding : PgpValidationCode.InvalidSubkeyBinding,
-                    $"Subkey {Convert.ToHexString(subkeyId)} has no valid binding signature."));
+                    keyRing.Signatures.Any(s => s.SignatureType == PgpSignatureType.SubkeyBinding)
+                        ? PgpValidationCode.InvalidSubkeyBinding : PgpValidationCode.MissingSubkeyBinding,
+                    $"Subkey {Convert.ToHexString(subkeyId)}: {ex.Message}"));
             }
         }
     }

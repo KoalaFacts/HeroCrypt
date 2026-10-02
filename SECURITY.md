@@ -82,11 +82,19 @@ When using HeroCrypt, please follow these security best practices:
 The verifier checks cryptographic signatures under explicitly supplied keys. A valid
 result reports the actual verification key's raw fingerprint and key ID; packet
 issuer hints are not trusted identity evidence. Applications must establish trust
-in that key independently. `WithPublicKeyRing` includes subkeys without establishing
-their binding, revocation status, permitted usage or current validity.
+in that key independently. `WithPublicKey` alone performs cryptographic verification.
+`WithPublicKeyRing` additionally requires current authenticated hashed Sign permission,
+primary-key expiration/revocation checks and, for a signing subkey, a current exact
+primary-key binding and independently verified embedded type-0x19 cross-certification.
+Subkey expiration and revocation are checked against its exact signed target.
+Adding the same key separately cannot bypass its configured ring policy. Results
+identify the actual signing key, not a trusted primary-key identity.
 
 `PgpKeyValidator.VerifySubkeyBindings()` requires an authenticated primary-key
-binding for each supplied subkey; `ValidateStructureOnly()` does not.
+binding for each supplied subkey, selecting current evidence at `AtTime` (or now).
+Signing-only subkeys, signing-capable subkeys with Sign permission and those without
+authenticated usage require cross-certification; explicit non-signing usage on an
+encryption-capable subkey does not. `ValidateStructureOnly()` remains a presence check.
 `CheckRevocation()` authenticates primary-key revocations and the exact target of
 subkey revocations. Unsupported designated-revoker evidence fails validation.
 Confirmed revocation remains a warning, so `IsValid` alone is not an acceptance
@@ -98,8 +106,8 @@ or unsupported reasons are conservative. Candidate enumeration remains unverifie
 These checks do not establish revocation effective times, historical signature
 acceptance, freshness or detect stripped evidence. See the
 [revocation migration notes](docs/migration-guide.md#openpgp-revocation-status-changes-after-v104).
-The validator does not establish signing-subkey cross-certification, key
-usage, freshness or trust. `CheckExpiration()` authenticates primary-key expiration
+The validator does not establish document acceptance, freshness or trust.
+`CheckExpiration()` authenticates primary-key expiration
 policy and reports `InvalidExpirationEvidence` when no supported unambiguous current
 policy can be established. Expiration getters likewise throw instead of reporting
 an unlimited lifetime without authenticated evidence.
@@ -113,6 +121,20 @@ critical policy fields fail closed. This supported subset does not establish com
 OpenPGP policy handling or detect deletion of newer signatures from an imported ring.
 Preserve independently trusted current policy and revocation decisions. See
 [expiration migration](docs/migration-guide.md#openpgp-expiration-policy-changes-after-v104).
+
+Signing policy uses the same current primary-policy selection as preferences and
+the newest authenticated non-future binding for the exact subkey. Removed permission,
+an expired newest binding or ambiguous equal-time policy never falls back to an older
+binding. Only hashed Key Flags authorize usage; duplicate fields and unknown bits
+are rejected. Invalid unhashed hints cannot hide authentic newer policy to restore
+older permission; selected unsupported metadata fails closed. Zero extension octets
+are supported. Exactly one embedded back signature
+is accepted across the hashed and unhashed sections; either location requires its
+own authentication and current creation/expiration checks. Critical policy fields
+beyond the supported creation/issuer subset remain rejected. Ring verification
+evaluates current supplied key evidence, not historical document acceptance or
+document-signature expiration. See
+[signing-policy migration](docs/migration-guide.md#openpgp-signing-key-policy-after-v104).
 
 Algorithm preference getters authenticate current Direct Key or V4 User ID policy.
 V6 requires Direct Key policy; conflicting V4 User ID preferences without an

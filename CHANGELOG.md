@@ -4,6 +4,12 @@
 
 ### Security
 
+- Preserve OpenPGP key-ring context during document verification. Require current
+  authenticated Sign permission, exact subkey bindings and independently authenticated
+  embedded signing-subkey cross-certification; reject current key expiration/revocation
+  and raw/ring configuration bypasses. Strengthen requested binding validation while
+  retaining explicit single-key cryptographic verification and encryption-only subkeys.
+  See [migration notes](docs/migration-guide.md#openpgp-signing-key-policy-after-v104).
 - Authenticate OpenPGP algorithm preferences and primary User ID selection using
   current self-signatures. Scope signature queries to the exact signed User ID or
   primary/subkey pair and export each signature occurrence once beside its object.

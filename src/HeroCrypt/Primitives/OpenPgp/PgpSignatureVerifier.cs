@@ -27,6 +27,7 @@ namespace HeroCrypt.Primitives.OpenPgp;
 public sealed class PgpSignatureVerifier : IDisposable
 {
     private readonly List<PgpPublicKeyPacket> publicKeys = [];
+    private readonly List<PgpPublicKeyRing> keyRings = [];
     private bool disposed;
 
     private PgpSignatureVerifier()
@@ -40,7 +41,7 @@ public sealed class PgpSignatureVerifier : IDisposable
     public static PgpSignatureVerifier Create() => new();
 
     /// <summary>
-    /// Adds a public key for verification.
+    /// Adds a public key for cryptographic verification without key-ring policy.
     /// </summary>
     /// <param name="publicKey">The public key packet.</param>
     /// <returns>This verifier for chaining.</returns>
@@ -52,13 +53,14 @@ public sealed class PgpSignatureVerifier : IDisposable
     }
 
     /// <summary>
-    /// Adds all keys from a public key ring for verification.
+    /// Adds a key ring for current signing-policy and cryptographic verification.
     /// </summary>
     /// <param name="keyRing">The public key ring.</param>
     /// <returns>This verifier for chaining.</returns>
     public PgpSignatureVerifier WithPublicKeyRing(PgpPublicKeyRing keyRing)
     {
         ThrowIfDisposed();
+        keyRings.Add(keyRing);
         publicKeys.Add(keyRing.MasterKey);
         foreach (var subkey in keyRing.Subkeys)
         {
@@ -92,12 +94,20 @@ public sealed class PgpSignatureVerifier : IDisposable
         // Issuer metadata can only constrain candidates. Successful attribution
         // always comes from the key that performs cryptographic verification.
         PgpSignatureResult result = PgpSignatureResult.Invalid("No matching verification key.");
+        var atTime = DateTimeOffset.UtcNow;
         foreach (var key in publicKeys)
         {
             result = VerifyWithKey(data, signature, key);
             if (result.IsValid)
             {
-                return result;
+                var contexts = keyRings.Where(ring => PgpSigningKeyPolicy.Contains(ring, key)).ToArray();
+                if (contexts.Length == 0) return result;
+                string? error = null;
+                foreach (var ring in contexts)
+                {
+                    if (PgpSigningKeyPolicy.TryAuthorize(ring, key, atTime, out error)) return result;
+                }
+                result = PgpSignatureResult.Invalid(error ?? "Key-ring signing policy rejected the verification key.");
             }
         }
 
@@ -322,6 +332,19 @@ public sealed class PgpSignatureVerifier : IDisposable
         }
 
         return VerifyKeyBasedSignature(signature, masterKey, masterKey, subkey);
+    }
+
+    /// <summary>
+    /// Verifies a primary-key binding (0x19) made by the subkey over the exact primary/subkey pair.
+    /// </summary>
+    /// <remarks>This is cryptographic association only; current binding policy is evaluated by ring verification.</remarks>
+    public PgpSignatureResult VerifyPrimaryKeyBinding(PgpSignaturePacket signature,
+        PgpPublicKeyPacket masterKey, PgpPublicKeyPacket subkey)
+    {
+        ThrowIfDisposed();
+        if (signature.SignatureType != PgpSignatureType.PrimaryKeyBinding)
+            return PgpSignatureResult.Invalid("Expected a PrimaryKeyBinding (0x19) signature.");
+        return VerifyKeyBasedSignature(signature, subkey, masterKey, subkey);
     }
 
     /// <summary>
@@ -822,6 +845,7 @@ public sealed class PgpSignatureVerifier : IDisposable
         if (!disposed)
         {
             publicKeys.Clear();
+            keyRings.Clear();
             disposed = true;
         }
     }

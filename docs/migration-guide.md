@@ -2,6 +2,37 @@
 
 This guide helps you migrate between HeroCrypt versions and from other cryptographic libraries.
 
+## OpenPGP signing-key policy after v1.0.4
+
+- `WithPublicKeyRing` document verification now requires current authenticated hashed
+  Sign permission. Primary keys require supported current self-signature policy;
+  subkeys require a current exact primary-key binding and independently authenticated
+  embedded type-0x19 back signature over that same primary/subkey pair. Primary and
+  signing-subkey expiration/revocation reject current ring acceptance. A cryptographic
+  signature from an unbound or adopted subkey is insufficient.
+- Exactly one embedded back signature is allowed across hashed/unhashed subpackets.
+  Its signer must be the subkey, with a current creation time and unexpired signature.
+  Future bindings are not effective early; permission removal, expired newest binding,
+  duplicate/unknown Key Flags and equal-time conflicts do not use older policy.
+  Key Flags may contain trailing zero octets; unsigned flags never grant permission.
+  Invalid unhashed metadata cannot hide authenticated newer policy and restore older
+  permission: the selected packet fails closed instead of being silently repaired.
+- `VerifySubkeyBindings` and `FullValidation` now check current bindings and signing
+  cross-certifications. `AtTime` affects that selection as well as expiration.
+  Explicit encryption-only usage on encryption-capable subkeys needs no back signature.
+  Structural-only validation remains limited, and confirmed revocation/expiration
+  remain validator warnings; `IsValid` alone is not document acceptance.
+- `WithPublicKey` alone retains raw cryptographic verification for applications that
+  evaluate policy themselves. When the same key appears in a configured ring, adding
+  it separately in either order cannot bypass ring policy. `VerifyPrimaryKeyBinding`
+  provides typed cryptographic verification of type 0x19 without current usage policy.
+- Reissue missing bindings/flags/back signatures through trusted primary/subkey owners.
+  Do not synthesize consent from public keys, relabel signed fields or add a legacy
+  fallback. Preserve trusted current policy and revoked-key decisions. Identity trust,
+  stripped evidence, metadata freshness, historical document acceptance and document
+  signature expiration remain application responsibilities. Unsupported critical
+  policy fields still fail closed; this is a supported subset, not full OpenPGP policy.
+
 ## OpenPGP preferences and object association after v1.0.4
 
 - Preference getters now authenticate current self-signatures. A current Direct Key
@@ -56,8 +87,8 @@ This guide helps you migrate between HeroCrypt versions and from other cryptogra
   errors, not permission to use an expired or revoked key. Callers must enforce their
   own trust, key-usage, freshness and acceptance policies. Expiration policy now
   requires authenticated current self-signatures as described below.
-  Signing-subkey cross-certification and complete OpenPGP key-ring trust are not
-  established by these checks.
+  Current signing-subkey cross-certification is now checked as described above;
+  complete OpenPGP key-ring trust is not established by these checks.
 - Preserve previously trusted revocation decisions during migration. Reissue legacy
   nonstandard revocation evidence through the trusted process described below;
   validation failure is not evidence that a previously revoked key is usable.

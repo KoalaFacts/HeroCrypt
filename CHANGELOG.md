@@ -4,6 +4,9 @@
 
 ### Security
 
+- Reject incomplete OpenPGP AEAD chunks instead of ignoring bytes before the
+  final authentication tag. Require both a data-chunk tag and a final summary
+  tag; malformed or modified encrypted data returns no plaintext.
 - Preserve OpenPGP key-ring context during document verification. Require current
   authenticated Sign permission, exact subkey bindings and independently authenticated
   embedded signing-subkey cross-certification; reject current key expiration/revocation

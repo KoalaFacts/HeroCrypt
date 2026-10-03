@@ -2,6 +2,35 @@
 
 This guide helps you migrate between HeroCrypt versions and from other cryptographic libraries.
 
+## OpenPGP encrypted-envelope correction after v1.0.4
+
+- AES-GCM messages now follow RFC 9580 SEIPD v2: HKDF derives the message key and
+  nonce prefix, chunk sizes mean `2^(c + 6)` for `c` from 0 to 16, and chunk and
+  final tags authenticate the specified header and total plaintext length.
+  New messages use `c = 6` (4096 bytes). GCM is the supported AEAD mode;
+  EAX/OCB encryption and decryption remain unsupported.
+- SEIPD v1 uses PKESK v3/SKESK v4; SEIPD v2 uses PKESK v6/SKESK v6, independently
+  of recipient key version. V6 PKESK encodes the recipient count before the key
+  version and fingerprint. RSA v6 session plaintext omits the cipher octet.
+  X25519 derives a 16-byte AES Key Wrap key from the ephemeral public key,
+  recipient public key and shared secret; only v3 includes a clear cipher octet.
+- V4 SKESK encrypted plaintext is the cipher octet followed by the session key,
+  with no checksum. V6 uses counted S2K/IV fields, HKDF and authenticated wrapping.
+  `CreateV6` creates these packets. A v4 SKESK alone cannot confirm a passphrase;
+  authenticate the complete encrypted message before accepting its candidate key.
+  Message decryption now tries later candidates after authentication failure.
+  New SKESK factories reject unsalted Simple S2K; legacy direct-key packets can
+  still be read. AES wrapping is supported; other wrapping ciphers are rejected.
+- Ciphertext produced by the historical nonstandard envelope implementation may
+  fail to decrypt after this correction. Recover it only through a trusted,
+  isolated copy of the original implementation, validate recovered data against
+  trusted records, then re-encrypt with the corrected implementation. Retain a
+  protected backup until recovery is verified. Do not relabel packet versions,
+  strip checksums or enable an automatic legacy-decryption fallback.
+- This change covers RSA/X25519 and AES session wrapping, not all OpenPGP
+  algorithms or message grammar. ECDH v6 session decryption is explicitly
+  unsupported. Identity trust and recipient-key authorization remain caller policy.
+
 ## OpenPGP signing-key policy after v1.0.4
 
 - `WithPublicKeyRing` document verification now requires current authenticated hashed

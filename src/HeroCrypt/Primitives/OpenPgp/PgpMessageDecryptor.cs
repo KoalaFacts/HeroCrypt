@@ -241,43 +241,48 @@ public sealed class PgpMessageDecryptor : IDisposable
     {
         message = default;
         error = null;
-
         if (secretKeys.Count == 0 && messagePassphrases.Count == 0)
         {
             error = "No secret keys or message passphrases configured.";
             return false;
         }
 
-        // Parse packets from the message
         using var stream = new MemoryStream(data.ToArray());
         using var reader = new PgpPacketReader(stream);
-
         var pkeskPackets = new List<PgpPublicKeyEncryptedSessionKeyPacket>();
         var skeskPackets = new List<PgpSymmetricKeyEncryptedSessionKeyPacket>();
         PgpSymEncryptedIntegrityProtectedDataPacket? seipdPacket = null;
-
         while (reader.ReadNextPacket(out var tag, out var body))
         {
             if (tag == PgpPacketTag.PublicKeyEncryptedSessionKey)
             {
-                if (PgpPublicKeyEncryptedSessionKeyPacket.TryRead(body.Span, out var pkesk, out _))
+                if (seipdPacket != null || !PgpPublicKeyEncryptedSessionKeyPacket.TryRead(body.Span, out var pkesk, out _))
                 {
-                    pkeskPackets.Add(pkesk);
+                    error = "Malformed or misplaced PKESK packet.";
+                    return false;
                 }
+
+                pkeskPackets.Add(pkesk);
             }
             else if (tag == PgpPacketTag.SymmetricKeyEncryptedSessionKey)
             {
-                if (PgpSymmetricKeyEncryptedSessionKeyPacket.TryRead(body.Span, out var skesk, out _))
+                if (seipdPacket != null || !PgpSymmetricKeyEncryptedSessionKeyPacket.TryRead(body.Span, out var skesk, out _))
                 {
-                    skeskPackets.Add(skesk);
+                    error = "Malformed or misplaced SKESK packet.";
+                    return false;
                 }
+
+                skeskPackets.Add(skesk);
             }
             else if (tag == PgpPacketTag.SymmetricallyEncryptedIntegrityProtectedData)
             {
-                if (PgpSymEncryptedIntegrityProtectedDataPacket.TryRead(body.Span, out var seipd, out _))
+                if (seipdPacket != null || !PgpSymEncryptedIntegrityProtectedDataPacket.TryRead(body.Span, out var seipd, out _))
                 {
-                    seipdPacket = seipd;
+                    error = "Malformed or duplicate SEIPD packet.";
+                    return false;
                 }
+
+                seipdPacket = seipd;
             }
         }
 
@@ -293,123 +298,123 @@ public sealed class PgpMessageDecryptor : IDisposable
             return false;
         }
 
-        // Try to decrypt the session key
-        byte[]? sessionKey = null;
-        SymmetricCipherAlgorithm symmetricAlgorithm = SymmetricCipherAlgorithm.Aes256;
-        byte[] decryptionKeyId = [];
-        string? lastDecryptionError = null;
-        bool foundMatchingKey = false;
-        bool usedPassphrase = false;
-
-        // First try SKESK packets with message passphrases
-        if (skeskPackets.Count > 0 && messagePassphrases.Count > 0)
+        var container = seipdPacket.Value;
+        int pkeskVersion = container.Version == 1 ? 3 : 6;
+        int skeskVersion = container.Version == 1 ? 4 : 6;
+        if (pkeskPackets.Any(packet => packet.Version != pkeskVersion) ||
+            skeskPackets.Any(packet => packet.Version != skeskVersion))
         {
-            foreach (var skesk in skeskPackets)
-            {
-                foreach (var passphraseBytes in messagePassphrases)
-                {
-                    try
-                    {
-                        var decryptedKey = skesk.DecryptSessionKey(passphraseBytes);
-                        if (decryptedKey.Length > 0)
-                        {
-                            // Session key was encrypted in SKESK
-                            sessionKey = decryptedKey;
-                            symmetricAlgorithm = skesk.CipherAlgorithm;
-                            usedPassphrase = true;
-                            break;
-                        }
-                        else
-                        {
-                            // Direct key mode - derive the key from passphrase
-                            // The KEK is the session key
-                            var s2kParams = S2K.S2KParameters.Parse(skesk.S2kSpecifier.Span);
-                            int keySize = GetKeySize(skesk.CipherAlgorithm);
-                            sessionKey = s2kParams.DeriveKey(passphraseBytes, keySize);
-                            symmetricAlgorithm = skesk.CipherAlgorithm;
-                            usedPassphrase = true;
-                            break;
-                        }
-                    }
-                    catch
-                    {
-                        // Wrong passphrase, try next
-                        lastDecryptionError = "Passphrase decryption failed.";
-                    }
-                }
-
-                if (sessionKey != null)
-                {
-                    break;
-                }
-            }
-        }
-
-        // If SKESK didn't work, try PKESK packets with secret keys
-        if (sessionKey == null && pkeskPackets.Count > 0 && secretKeys.Count > 0)
-        {
-            foreach (var pkesk in pkeskPackets)
-            {
-                foreach (var secretKey in secretKeys)
-                {
-                    if (KeyMatches(pkesk, secretKey))
-                    {
-                        foundMatchingKey = true;
-                        // Try to decrypt with this key
-                        var result = TryDecryptSessionKey(pkesk, secretKey, out var decryptError);
-                        if (result.HasValue)
-                        {
-                            symmetricAlgorithm = result.Value.Algorithm;
-                            sessionKey = result.Value.SessionKey;
-                            decryptionKeyId = secretKey.GetKeyId();
-                            break;
-                        }
-                        else if (decryptError != null)
-                        {
-                            lastDecryptionError = decryptError;
-                        }
-                    }
-                }
-
-                if (sessionKey != null)
-                {
-                    break;
-                }
-            }
-        }
-
-        if (sessionKey == null)
-        {
-            error = usedPassphrase || (foundMatchingKey && lastDecryptionError != null)
-                ? $"Decryption failed: {lastDecryptionError ?? "Unknown error"}"
-                : skeskPackets.Count > 0 && messagePassphrases.Count == 0
-                    ? "Message requires a passphrase for decryption. Use WithMessagePassphrase()."
-                    : pkeskPackets.Count > 0 && secretKeys.Count == 0
-                    ? "Message requires a secret key for decryption. Use WithSecretKey() or WithSecretKeyRing()."
-                    : "No matching secret key or passphrase found for decryption.";
-
+            error = "Session key packet versions do not match the SEIPD version.";
             return false;
         }
 
+        // A derived or unwrapped key is only a candidate. Authenticate its entire
+        // container before selecting it, including direct SKESK passphrases.
+        string? lastError = null;
+        foreach (var skesk in skeskPackets)
+        {
+            foreach (var password in messagePassphrases)
+            {
+                byte[]? key = null;
+                try
+                {
+                    var candidate = skesk.DecryptSessionKeyWithAlgorithm(password, container.CipherAlgorithm, securityPolicy);
+                    key = candidate.SessionKey;
+                    if (TryDecryptContent(container, key, candidate.Algorithm, [], out message, out lastError))
+                    {
+                        return true;
+                    }
+                }
+                catch (Exception ex) when (IsCandidateFailure(ex))
+                {
+                    lastError = ex.Message;
+                }
+                finally
+                {
+                    if (key != null)
+                    {
+                        SecureMemoryOperations.SecureClear(key);
+                    }
+                }
+            }
+        }
+
+        foreach (var pkesk in pkeskPackets)
+        {
+            foreach (var secretKey in secretKeys)
+            {
+                if (!KeyMatches(pkesk, secretKey))
+                {
+                    continue;
+                }
+
+                var candidate = TryDecryptSessionKey(pkesk, secretKey, container.CipherAlgorithm, out lastError);
+                if (!candidate.HasValue)
+                {
+                    continue;
+                }
+
+                var key = candidate.Value.SessionKey;
+                try
+                {
+                    if (TryDecryptContent(container, key, candidate.Value.Algorithm,
+                        secretKey.GetKeyId(), out message, out lastError))
+                    {
+                        return true;
+                    }
+                }
+                finally
+                {
+                    SecureMemoryOperations.SecureClear(key);
+                }
+            }
+        }
+
+        message = default;
+        error = lastError != null ? $"Secret key or passphrase decryption failed: {lastError}"
+            : skeskPackets.Count > 0 && messagePassphrases.Count == 0
+                ? "Message requires a passphrase for decryption. Use WithMessagePassphrase()."
+                : pkeskPackets.Count > 0 && secretKeys.Count == 0
+                    ? "Message requires a secret key for decryption. Use WithSecretKey() or WithSecretKeyRing()."
+                    : "No matching secret key or passphrase found for decryption.";
+        return false;
+    }
+
+    private bool TryDecryptContent(PgpSymEncryptedIntegrityProtectedDataPacket container,
+        byte[] key, SymmetricCipherAlgorithm algorithm, byte[] keyId,
+        out PgpDecryptedMessage message, out string? error)
+    {
+        message = default;
+        error = null;
+        byte[]? plaintext = null;
         try
         {
-            // Decrypt the SEIPD packet
-            var plaintext = seipdPacket.Value.Version == 1
-                ? DecryptSeipdV1(seipdPacket.Value, sessionKey, symmetricAlgorithm)
-                : DecryptSeipdV2(seipdPacket.Value, sessionKey);
+            if (key.Length != GetKeySize(algorithm))
+            {
+                throw new CryptographicException("Session key length does not match the data algorithm.");
+            }
 
-            // Parse the plaintext to get the literal data packet
-            return ParseDecryptedContent(plaintext, decryptionKeyId, seipdPacket.Value.Version,
-                maxDecompressedSize, out message, out error);
+            plaintext = container.Version == 1 ? DecryptSeipdV1(container, key, algorithm)
+                : DecryptSeipdV2(container, key);
+            return ParseDecryptedContent(plaintext, keyId, container.Version, maxDecompressedSize, out message, out error);
+        }
+        catch (Exception ex) when (IsCandidateFailure(ex))
+        {
+            message = default;
+            error = ex.Message;
+            return false;
         }
         finally
         {
-            if (sessionKey != null)
+            if (plaintext != null)
             {
-                SecureMemoryOperations.SecureClear(sessionKey);
+                SecureMemoryOperations.SecureClear(plaintext);
             }
         }
     }
+
+    private static bool IsCandidateFailure(Exception exception)
+        => exception is CryptographicException or ArgumentException or NotSupportedException or InvalidDataException or FormatException or SecurityPolicyException;
 
     private static bool KeyMatches(PgpPublicKeyEncryptedSessionKeyPacket pkesk, PgpSecretKeyPacket secretKey)
     {
@@ -418,12 +423,19 @@ public sealed class PgpMessageDecryptor : IDisposable
         if (pkesk.Version == 3)
         {
             byte[] keyId = secretKey.GetKeyId();
-            return pkesk.KeyId.Span.SequenceEqual(keyId);
+            bool anonymous = true;
+            foreach (byte value in pkesk.KeyId.Span)
+            {
+                anonymous &= value == 0;
+            }
+
+            return anonymous || pkesk.KeyId.Span.SequenceEqual(keyId);
         }
         else if (pkesk.Version == 6)
         {
             byte[] fingerprint = secretKey.ComputeFingerprint();
-            return pkesk.Fingerprint.Span.SequenceEqual(fingerprint);
+            return pkesk.Fingerprint.IsEmpty || (pkesk.KeyVersion == secretKey.PublicKey.Version &&
+                pkesk.Fingerprint.Span.SequenceEqual(fingerprint));
         }
 
         return false;
@@ -432,6 +444,7 @@ public sealed class PgpMessageDecryptor : IDisposable
     private (SymmetricCipherAlgorithm Algorithm, byte[] SessionKey)? TryDecryptSessionKey(
         PgpPublicKeyEncryptedSessionKeyPacket pkesk,
         PgpSecretKeyPacket secretKey,
+        SymmetricCipherAlgorithm dataAlgorithm,
         out string? error)
     {
         error = null;
@@ -463,16 +476,42 @@ public sealed class PgpMessageDecryptor : IDisposable
                 pkesk.Algorithm == PgpPublicKeyAlgorithm.RsaEncryptOnly)
 #pragma warning restore CS0618
             {
-                return PgpKeyEncryption.DecryptSessionKeyRsa(pkesk.EncryptedSessionKey.Span, secretKey);
+                return PgpKeyEncryption.DecryptSessionKeyRsa(pkesk.EncryptedSessionKey.Span, secretKey, securityPolicy, pkesk.Version == 6, dataAlgorithm);
             }
             else if (pkesk.Algorithm == PgpPublicKeyAlgorithm.X25519)
             {
-                // X25519 PKESK doesn't include algorithm byte, so we assume AES-256
-                byte[] sessionKey = PgpKeyEncryption.DecryptSessionKeyX25519(pkesk.EncryptedSessionKey.Span, secretKey, securityPolicy);
-                return (SymmetricCipherAlgorithm.Aes256, sessionKey);
+                var payload = pkesk.EncryptedSessionKey.ToArray();
+                var algorithm = dataAlgorithm;
+                if (pkesk.Version == 3)
+                {
+                    if (payload.Length < 34 || payload[32] != payload.Length - 33)
+                    {
+                        throw new CryptographicException("Invalid X25519 v3 session key framing.");
+                    }
+
+                    algorithm = (SymmetricCipherAlgorithm)payload[33];
+                    if (algorithm is not (SymmetricCipherAlgorithm.Aes128 or SymmetricCipherAlgorithm.Aes192 or SymmetricCipherAlgorithm.Aes256))
+                    {
+                        throw new CryptographicException("X25519 requires an AES session key.");
+                    }
+
+                    var wrapped = new byte[payload.Length - 1];
+                    payload.AsSpan(0, 33).CopyTo(wrapped);
+                    wrapped[32]--;
+                    payload.AsSpan(34).CopyTo(wrapped.AsSpan(33));
+                    payload = wrapped;
+                }
+
+                byte[] sessionKey = PgpKeyEncryption.DecryptSessionKeyX25519(payload, secretKey, securityPolicy);
+                return (algorithm, sessionKey);
             }
             else if (pkesk.Algorithm == PgpPublicKeyAlgorithm.Ecdh)
             {
+                if (pkesk.Version != 3)
+                {
+                    throw new NotSupportedException("ECDH v6 session key decryption is not implemented.");
+                }
+
                 // ECDH (RFC 6637) - session key includes algorithm byte
                 return PgpKeyEncryption.DecryptSessionKeyEcdhCurve25519(pkesk.EncryptedSessionKey.Span, secretKey);
             }
@@ -482,7 +521,7 @@ public sealed class PgpMessageDecryptor : IDisposable
                 return null;
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (IsCandidateFailure(ex))
         {
             error = ex.Message;
             return null;
@@ -682,169 +721,8 @@ public sealed class PgpMessageDecryptor : IDisposable
     }
 #pragma warning restore CA5350
 
-    private byte[] DecryptSeipdV2(
-        PgpSymEncryptedIntegrityProtectedDataPacket seipd,
-        byte[] sessionKey)
-    {
-#if NETSTANDARD2_0
-        throw new PlatformNotSupportedException("AEAD decryption requires .NET Core 3.0 or later.");
-#else
-        // Derive message key using HKDF
-        byte[] info = [0x12, 0x02, (byte)seipd.CipherAlgorithm, (byte)seipd.AeadAlgorithm, seipd.ChunkSize];
-        var hkdf = new Hkdf.HkdfCore(securityPolicy);
-        byte[] messageKey = hkdf.DeriveKey(
-            sessionKey,
-            seipd.Salt.ToArray(),
-            info,
-            PgpKeyEncryption.GetSessionKeySize(seipd.CipherAlgorithm),
-            HashAlgorithmName.SHA256);
-
-        try
-        {
-            return AeadDecrypt(seipd.EncryptedData.ToArray(), messageKey, seipd.Salt.ToArray(), seipd.ChunkSize, seipd.AeadAlgorithm, seipd.CipherAlgorithm);
-        }
-        finally
-        {
-            SecureMemoryOperations.SecureClear(messageKey);
-        }
-#endif
-    }
-
-#if !NETSTANDARD2_0
-    private byte[] AeadDecrypt(byte[] ciphertext, byte[] key, byte[] salt, byte chunkSizeExponent, AeadAlgorithm aeadAlgorithm, SymmetricCipherAlgorithm cipherAlgorithm)
-    {
-        int chunkSize = 1 << chunkSizeExponent;
-        int nonceSize = GetAeadNonceSize(aeadAlgorithm);
-        int tagSize = 16;
-
-        // A data chunk tag and the final summary tag are both mandatory.
-        if (ciphertext.Length < 2 * tagSize)
-        {
-            throw new CryptographicException("AEAD ciphertext is missing required authentication tags.");
-        }
-
-        using var output = new MemoryStream();
-
-        int pos = 0;
-        int chunkIndex = 0;
-
-        while (pos < ciphertext.Length - tagSize) // Last 16 bytes is final tag
-        {
-            int chunkCiphertextLen = Math.Min(chunkSize + tagSize, ciphertext.Length - tagSize - pos);
-            int chunkPlaintextLen = chunkCiphertextLen - tagSize;
-
-            if (chunkPlaintextLen <= 0)
-            {
-                // Every octet before the final summary tag must belong to an
-                // authenticated data chunk. Ignoring this remainder would let
-                // an attacker append bytes without changing either valid tag.
-                throw new CryptographicException("AEAD ciphertext contains an incomplete data chunk.");
-            }
-
-            // Build nonce
-            byte[] nonce = new byte[nonceSize];
-            int saltPrefix = Math.Min(nonceSize - 8, salt.Length);
-            Array.Copy(salt, 0, nonce, 0, saltPrefix);
-            for (int i = 0; i < 8; i++)
-            {
-                nonce[nonceSize - 8 + i] = (byte)((long)chunkIndex >> (56 - i * 8));
-            }
-
-            // Associated data
-            byte[] aad = [0x12, 0x02, (byte)cipherAlgorithm, (byte)aeadAlgorithm, chunkSizeExponent];
-
-            // Decrypt chunk
-            byte[] chunkCiphertext = new byte[chunkPlaintextLen];
-            byte[] tag = new byte[tagSize];
-            Array.Copy(ciphertext, pos, chunkCiphertext, 0, chunkPlaintextLen);
-            Array.Copy(ciphertext, pos + chunkPlaintextLen, tag, 0, tagSize);
-
-            byte[] chunkPlaintext = new byte[chunkPlaintextLen];
-
-            if (aeadAlgorithm == AeadAlgorithm.Gcm)
-            {
-                using var aesGcm = new System.Security.Cryptography.AesGcm(key, tagSize);
-                aesGcm.Decrypt(nonce.AsSpan(), chunkCiphertext.AsSpan(), tag.AsSpan(), chunkPlaintext.AsSpan(), aad.AsSpan());
-            }
-            else
-            {
-                throw new NotSupportedException($"AEAD algorithm {aeadAlgorithm} is not yet implemented.");
-            }
-
-            output.Write(chunkPlaintext, 0, chunkPlaintext.Length);
-
-            pos += chunkCiphertextLen;
-            chunkIndex++;
-        }
-
-        // Verify final authentication tag (RFC 9580 Section 5.13.2)
-        // The final tag authenticates the total number of plaintext octets
-        if (ciphertext.Length >= tagSize)
-        {
-            byte[] finalTag = new byte[tagSize];
-            Array.Copy(ciphertext, ciphertext.Length - tagSize, finalTag, 0, tagSize);
-
-            // Build final nonce with the total chunk count
-            byte[] finalNonce = new byte[nonceSize];
-            int saltPrefix = Math.Min(nonceSize - 8, salt.Length);
-            Array.Copy(salt, 0, finalNonce, 0, saltPrefix);
-            for (int i = 0; i < 8; i++)
-            {
-                finalNonce[nonceSize - 8 + i] = (byte)((long)chunkIndex >> (56 - i * 8));
-            }
-
-            // Final AAD includes the total plaintext length (big-endian, 8 bytes)
-            long totalPlaintextLen = output.Length;
-            byte[] finalAad = new byte[5 + 8];
-            finalAad[0] = 0x12; // SEIPD v2 tag
-            finalAad[1] = 0x02; // Version 2
-            finalAad[2] = (byte)cipherAlgorithm;
-            finalAad[3] = (byte)aeadAlgorithm;
-            finalAad[4] = chunkSizeExponent;
-            for (int i = 0; i < 8; i++)
-            {
-                finalAad[5 + i] = (byte)(totalPlaintextLen >> (56 - i * 8));
-            }
-
-            // Verify final tag (empty plaintext, just authentication)
-            if (aeadAlgorithm == AeadAlgorithm.Gcm)
-            {
-                try
-                {
-                    using var aesGcm = new System.Security.Cryptography.AesGcm(key, tagSize);
-                    // Decrypting empty ciphertext just verifies the tag
-                    // IDE0301 suppressed: using [] causes ambiguity between byte[] and Span<byte> overloads
-#pragma warning disable IDE0301
-                    aesGcm.Decrypt(
-                        nonce: finalNonce.AsSpan(),
-                        ciphertext: ReadOnlySpan<byte>.Empty,
-                        tag: finalTag.AsSpan(),
-                        plaintext: Span<byte>.Empty,
-                        associatedData: finalAad.AsSpan());
-#pragma warning restore IDE0301
-                }
-                catch (AuthenticationTagMismatchException)
-                {
-                    throw new CryptographicException(
-                        "AEAD final authentication tag verification failed. Message may have been tampered with or truncated.");
-                }
-            }
-        }
-
-        return output.ToArray();
-    }
-
-    private static int GetAeadNonceSize(AeadAlgorithm algorithm)
-    {
-        return algorithm switch
-        {
-            AeadAlgorithm.Eax => 16,
-            AeadAlgorithm.Ocb => 15,
-            AeadAlgorithm.Gcm => 12,
-            _ => 12
-        };
-    }
-#endif
+    private byte[] DecryptSeipdV2(PgpSymEncryptedIntegrityProtectedDataPacket seipd, byte[] sessionKey)
+        => PgpSeipdAead.Decrypt(seipd, sessionKey, securityPolicy);
 
     private static bool ParseDecryptedContent(
         byte[] plaintext,

@@ -394,8 +394,8 @@ public class PgpSymmetricKeyEncryptedSessionKeyPacketTests
 
             Assert.Equal(4, packet.Version);
             Assert.NotEmpty(packet.EncryptedSessionKey.ToArray());
-            // ESK = algorithm(1) + key(32) + checksum(2) = 35 bytes
-            Assert.Equal(35, packet.EncryptedSessionKey.Length);
+            // SKESK v4 = algorithm(1) + key(32), without a checksum.
+            Assert.Equal(33, packet.EncryptedSessionKey.Length);
         }
 
         [Fact]
@@ -525,26 +525,14 @@ public class PgpSymmetricKeyEncryptedSessionKeyPacketTests
         }
 
         [Fact]
-        public void DecryptSessionKey_WrongPassphrase_ThrowsException()
+        public void DecryptMessage_WrongPassphrase_ReturnsNoPlaintext()
         {
-            var originalKey = TestHelpers.RandomBytes(32);
-            var wrongPassphrase = Encoding.UTF8.GetBytes("wrong-passphrase");
-
-            var packet = PgpSymmetricKeyEncryptedSessionKeyPacket.Create(
-                TestPassphrase,
-                originalKey,
-                SymmetricCipherAlgorithm.Aes256);
-
-            // Wrong passphrase should throw - either due to checksum validation failure
-            // or due to decrypted garbage producing invalid algorithm byte
-            var ex = Assert.ThrowsAny<Exception>(() =>
-                packet.DecryptSessionKey(wrongPassphrase));
-
-            // The exception will be either CryptographicException (checksum) or
-            // ArgumentException (unknown algorithm from garbage data)
-            Assert.True(
-                ex is CryptographicException || ex is ArgumentException,
-                $"Expected CryptographicException or ArgumentException but got {ex.GetType().Name}");
+            // A v4 SKESK is not authenticated; the message MDC confirms the key.
+            using var encryptor = PgpMessageEncryptor.Create().WithPassphrase("correct");
+            var message = encryptor.Encrypt("fixture"u8).ToArray();
+            using var decryptor = PgpMessageDecryptor.Create().WithMessagePassphrase("wrong");
+            Assert.False(decryptor.TryDecrypt(message, out var result, out _));
+            Assert.True(result.Data.IsEmpty);
         }
 
         [Fact]
@@ -776,15 +764,10 @@ public class PgpSymmetricKeyEncryptedSessionKeyPacketTests
             var ciphertext = new byte[plaintext.Length];
             var tag = new byte[tagSize];
 
-            using var aesGcm = new System.Security.Cryptography.AesGcm(key, tagSize);
-#pragma warning disable IDE0301
-            aesGcm.Encrypt(
-                nonce: nonce,
-                plaintext: plaintext,
-                ciphertext: ciphertext,
-                tag: tag,
-                associatedData: ReadOnlySpan<byte>.Empty);
-#pragma warning restore IDE0301
+            byte[] aad = [0xC3, 6, (byte)SymmetricCipherAlgorithm.Aes256, (byte)AeadAlgorithm.Gcm];
+            var kek = HKDF.DeriveKey(HashAlgorithmName.SHA256, key, key.Length, info: aad);
+            using var aesGcm = new System.Security.Cryptography.AesGcm(kek, tagSize);
+            aesGcm.Encrypt(nonce, plaintext, ciphertext, tag, aad);
 
             // Combine ciphertext and tag
             var result = new byte[ciphertext.Length + tag.Length];

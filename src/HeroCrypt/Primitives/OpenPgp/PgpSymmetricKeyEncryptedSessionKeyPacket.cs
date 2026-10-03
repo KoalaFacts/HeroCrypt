@@ -278,9 +278,10 @@ public readonly struct PgpSymmetricKeyEncryptedSessionKeyPacket : IEquatable<Pgp
         int ivOffset = 5 + s2kLength;
         int ivLength = GetIvLength(aeadAlgorithm);
 
-        if (source.Length < ivOffset + ivLength)
+        if (ivLength == 0 || source[4] != s2kLength || count != 3 + s2kLength + ivLength ||
+            source.Length < ivOffset + ivLength)
         {
-            error = "Source too short for v6 SKESK IV.";
+            error = "Invalid v6 SKESK field counts or IV.";
             return false;
         }
 
@@ -323,8 +324,14 @@ public readonly struct PgpSymmetricKeyEncryptedSessionKeyPacket : IEquatable<Pgp
             1 => 10, // Salted S2K
             3 => 11, // Iterated and Salted S2K
             4 => 20, // Argon2 S2K (RFC 9580)
-            _ => 2   // Unknown, assume minimal
+            _ => 0
         };
+
+        if (length == 0 || s2kData.Length < length)
+        {
+            error = "Unsupported or truncated S2K specifier.";
+            return false;
+        }
 
         return true;
     }
@@ -388,7 +395,7 @@ public readonly struct PgpSymmetricKeyEncryptedSessionKeyPacket : IEquatable<Pgp
             destination[offset++] = (byte)fieldsLength;
             destination[offset++] = (byte)CipherAlgorithm;
             destination[offset++] = (byte)AeadAlgorithm;
-            destination[offset++] = 0; // S2K count byte (placeholder)
+            destination[offset++] = (byte)S2kSpecifier.Length;
             S2kSpecifier.Span.CopyTo(destination.Slice(offset));
             offset += S2kSpecifier.Length;
             IV.Span.CopyTo(destination.Slice(offset));
@@ -452,133 +459,107 @@ public readonly struct PgpSymmetricKeyEncryptedSessionKeyPacket : IEquatable<Pgp
     /// For v4 packets without an encrypted session key, the S2K-derived key is returned directly.
     /// For v4 packets with an encrypted session key, the S2K-derived key is used to decrypt it.
     /// For v6 packets, AEAD decryption is used.
+    /// A v4 session-key packet has no authentication of its own; authenticate the
+    /// encrypted message with MDC before accepting a passphrase or releasing data.
     /// </para>
     /// </remarks>
     public byte[] DecryptSessionKey(ReadOnlySpan<byte> passphrase)
+        => DecryptSessionKeyWithAlgorithm(passphrase, CipherAlgorithm).SessionKey;
+
+    internal (SymmetricCipherAlgorithm Algorithm, byte[] SessionKey) DecryptSessionKeyWithAlgorithm(
+        ReadOnlySpan<byte> passphrase, SymmetricCipherAlgorithm dataAlgorithm, SecurityPolicyOptions? policy = null)
     {
-        // Parse S2K parameters
+        if (Version == Version6 || !EncryptedSessionKey.IsEmpty)
+        {
+            ValidateWrappingCipher(CipherAlgorithm);
+        }
+
         var s2kParams = S2KParameters.Parse(S2kSpecifier.Span);
-
-        // Get the key size for this cipher
-        int keySize = GetKeySize(CipherAlgorithm);
-
-        // Derive the key encryption key (KEK) from the passphrase
-        var kek = s2kParams.DeriveKey(passphrase, keySize);
-
+        var derived = s2kParams.DeriveKey(passphrase, GetKeySize(CipherAlgorithm), policy);
         try
         {
             if (Version == Version4)
             {
-                return DecryptSessionKeyV4(kek);
+                if (EncryptedSessionKey.IsEmpty)
+                {
+                    return (CipherAlgorithm, (byte[])derived.Clone());
+                }
+
+                if (S2kSpecifier.Span[0] == (byte)S2KType.Simple)
+                {
+                    throw new CryptographicException("Encrypted v4 SKESK requires salted S2K.");
+                }
+
+                var plaintext = DecryptCfb(EncryptedSessionKey.Span, derived, CipherAlgorithm);
+                try
+                {
+                    if (plaintext.Length < 1)
+                    {
+                        throw new CryptographicException("Decrypted session key data too short.");
+                    }
+
+                    var algorithm = (SymmetricCipherAlgorithm)plaintext[0];
+                    int keySize = GetKeySize(algorithm);
+                    if (plaintext.Length != 1 + keySize)
+                    {
+                        throw new CryptographicException("SKESK session key length does not match its algorithm.");
+                    }
+
+                    return (algorithm, plaintext.AsSpan(1).ToArray());
+                }
+                finally
+                {
+                    SecureMemoryOperations.SecureClear(plaintext);
+                }
             }
-            else
-            {
-                return DecryptSessionKeyV6(kek);
-            }
+
+            var session = DecryptSessionKeyV6(derived, policy);
+            // The container supplies the data algorithm. The public primitive returns
+            // the key only; message decryption checks it against the container.
+            return (dataAlgorithm, session);
         }
         finally
         {
-            SecureMemoryOperations.SecureClear(kek);
+            SecureMemoryOperations.SecureClear(derived);
         }
     }
 
-    private byte[] DecryptSessionKeyV4(byte[] kek)
-    {
-        // If no encrypted session key, the KEK IS the session key
-        if (EncryptedSessionKey.Length == 0)
-        {
-            // Return a copy since kek will be cleared
-            var sessionKey = new byte[kek.Length];
-            kek.CopyTo(sessionKey, 0);
-            return sessionKey;
-        }
-
-        // Decrypt the session key using CFB mode with zero IV (OpenPGP style)
-        // The encrypted data is: cipher_algorithm_byte || session_key || checksum
-        var encryptedData = EncryptedSessionKey.Span;
-
-        // Use CFB mode to decrypt
-        var decrypted = DecryptCfb(encryptedData, kek, CipherAlgorithm);
-
-        try
-        {
-            // First byte is the algorithm, followed by key, then 2-byte checksum
-            if (decrypted.Length < 3)
-            {
-                throw new CryptographicException("Decrypted session key data too short.");
-            }
-
-            var algorithm = (SymmetricCipherAlgorithm)decrypted[0];
-            int sessionKeySize = GetKeySize(algorithm);
-
-            if (decrypted.Length < 1 + sessionKeySize + 2)
-            {
-                throw new CryptographicException($"Decrypted session key data too short for {algorithm}.");
-            }
-
-            var sessionKey = new byte[sessionKeySize];
-            Array.Copy(decrypted, 1, sessionKey, 0, sessionKeySize);
-
-            // Verify checksum (sum of all key bytes mod 65536)
-            int checksum = 0;
-            for (int i = 0; i < sessionKeySize; i++)
-            {
-                checksum += sessionKey[i];
-            }
-            checksum &= 0xFFFF;
-
-            int storedChecksum = (decrypted[1 + sessionKeySize] << 8) | decrypted[1 + sessionKeySize + 1];
-
-            if (checksum != storedChecksum)
-            {
-                SecureMemoryOperations.SecureClear(sessionKey);
-                throw new CryptographicException("Session key checksum verification failed. Incorrect passphrase?");
-            }
-
-            return sessionKey;
-        }
-        finally
-        {
-            SecureMemoryOperations.SecureClear(decrypted);
-        }
-    }
-
-    private byte[] DecryptSessionKeyV6(byte[] kek)
+    private byte[] DecryptSessionKeyV6(byte[] derived, SecurityPolicyOptions? policy)
     {
 #if NETSTANDARD2_0
         throw new PlatformNotSupportedException("AEAD decryption requires .NET Core 3.0 or later.");
 #else
         if (AeadAlgorithm != AeadAlgorithm.Gcm)
         {
-            throw new NotSupportedException($"AEAD algorithm {AeadAlgorithm} is not yet supported for SKESK v6. Only GCM is currently implemented.");
+            throw new NotSupportedException("SKESK v6 currently supports only GCM.");
         }
 
-        const int tagSize = 16;
-        var encryptedData = EncryptedSessionKey.Span;
-
-        if (encryptedData.Length <= tagSize)
+        int length = EncryptedSessionKey.Length - 16;
+        if (IV.Length != 12 || length is not (16 or 24 or 32))
         {
-            throw new CryptographicException("Encrypted session key data too short.");
+            throw new CryptographicException("Invalid SKESK v6 IV or encrypted session key length.");
         }
 
-        int ciphertextLength = encryptedData.Length - tagSize;
-        var ciphertext = encryptedData[..ciphertextLength];
-        var tag = encryptedData[ciphertextLength..];
-
-        byte[] plaintext = new byte[ciphertextLength];
-
-        using var aesGcm = new System.Security.Cryptography.AesGcm(kek, tagSize);
-        // IDE0301 suppressed: using [] causes ambiguity between byte[] and Span<byte> overloads
-#pragma warning disable IDE0301
-        aesGcm.Decrypt(
-            nonce: IV.Span,
-            ciphertext: ciphertext,
-            tag: tag,
-            plaintext: plaintext,
-            associatedData: ReadOnlySpan<byte>.Empty);
-#pragma warning restore IDE0301
-
-        return plaintext;
+        byte[] aad = [0xC3, 6, (byte)CipherAlgorithm, (byte)AeadAlgorithm];
+        var kek = new Hkdf.HkdfCore(policy).DeriveKey(derived, [], aad, derived.Length, HashAlgorithmName.SHA256);
+        var plaintext = new byte[length];
+        bool authenticated = false;
+        try
+        {
+            using var gcm = new System.Security.Cryptography.AesGcm(kek, 16);
+            gcm.Decrypt(IV.Span, EncryptedSessionKey.Span.Slice(0, length),
+                EncryptedSessionKey.Span.Slice(length, 16), plaintext, aad);
+            authenticated = true;
+            return plaintext;
+        }
+        finally
+        {
+            SecureMemoryOperations.SecureClear(kek);
+            if (!authenticated)
+            {
+                SecureMemoryOperations.SecureClear(plaintext);
+            }
+        }
 #endif
     }
 
@@ -645,33 +626,35 @@ public readonly struct PgpSymmetricKeyEncryptedSessionKeyPacket : IEquatable<Pgp
         SymmetricCipherAlgorithm cipherAlgorithm = SymmetricCipherAlgorithm.Aes256,
         S2KType s2kType = S2KType.IteratedAndSalted,
         HashingAlgorithm hashAlgorithm = HashingAlgorithm.Sha256)
+        => CreateV4(passphrase, sessionKey, cipherAlgorithm, s2kType, hashAlgorithm, null);
+
+    internal static PgpSymmetricKeyEncryptedSessionKeyPacket CreateV4(
+        ReadOnlySpan<byte> passphrase, byte[]? sessionKey, SymmetricCipherAlgorithm cipherAlgorithm,
+        S2KType s2kType, HashingAlgorithm hashAlgorithm, SecurityPolicyOptions? policy)
     {
-        // Create S2K parameters
-        S2KParameters s2kParams;
-        if (s2kType == S2KType.Argon2)
+        if (s2kType == S2KType.Simple)
         {
-            s2kParams = S2KParameters.CreateArgon2();
+            throw new ArgumentException("New SKESK packets require salted S2K.", nameof(s2kType));
         }
-        else
+
+        if (sessionKey != null)
         {
-            byte encodedCount = s2kType == S2KType.IteratedAndSalted ? (byte)0xC0 : (byte)0;
-#pragma warning disable CS0618 // Simple S2K needed for OpenPGP compatibility
-            s2kParams = s2kType switch
-            {
-                S2KType.Simple => S2KParameters.CreateSimple(hashAlgorithm),
-                S2KType.Salted => S2KParameters.CreateSalted(hashAlgorithm),
-                S2KType.IteratedAndSalted => S2KParameters.CreateIterated(hashAlgorithm, encodedCount),
-                _ => throw new ArgumentException($"Unsupported S2K type: {s2kType}", nameof(s2kType))
-            };
-#pragma warning restore CS0618
+            ValidateWrappingCipher(cipherAlgorithm);
         }
+
+        if (sessionKey != null && sessionKey.Length != GetKeySize(cipherAlgorithm))
+        {
+            throw new ArgumentException("Encrypted v4 SKESK requires a matching session key and salted S2K.", nameof(sessionKey));
+        }
+
+        var s2kParams = CreateS2kParameters(s2kType, hashAlgorithm);
 
         // Serialize S2K specifier
         var s2kSpecifier = s2kParams.Serialize();
 
         // Derive the key encryption key
         int keySize = GetKeySize(cipherAlgorithm);
-        var kek = s2kParams.DeriveKey(passphrase, keySize);
+        var kek = s2kParams.DeriveKey(passphrase, keySize, policy);
 
         try
         {
@@ -684,20 +667,10 @@ public readonly struct PgpSymmetricKeyEncryptedSessionKeyPacket : IEquatable<Pgp
             }
             else
             {
-                // Encrypt the session key
-                // Format: algorithm_byte || session_key || 2-byte checksum
-                int checksumValue = 0;
-                for (int i = 0; i < sessionKey.Length; i++)
-                {
-                    checksumValue += sessionKey[i];
-                }
-                checksumValue &= 0xFFFF;
-
-                var plaintext = new byte[1 + sessionKey.Length + 2];
+                // RFC 9580 v4 SKESK has no checksum: algorithm followed by key.
+                var plaintext = new byte[1 + sessionKey.Length];
                 plaintext[0] = (byte)cipherAlgorithm;
                 sessionKey.CopyTo(plaintext.AsSpan(1));
-                plaintext[1 + sessionKey.Length] = (byte)(checksumValue >> 8);
-                plaintext[1 + sessionKey.Length + 1] = (byte)(checksumValue & 0xFF);
 
                 try
                 {
@@ -717,6 +690,102 @@ public readonly struct PgpSymmetricKeyEncryptedSessionKeyPacket : IEquatable<Pgp
         finally
         {
             SecureMemoryOperations.SecureClear(kek);
+        }
+    }
+
+    /// <summary>Creates an RFC 9580 v6 SKESK packet with AES-GCM authentication.</summary>
+    /// <param name="passphrase">The passphrase bytes.</param>
+    /// <param name="sessionKey">The AES session key to wrap.</param>
+    /// <param name="cipherAlgorithm">The AES wrapping cipher.</param>
+    /// <param name="aeadAlgorithm">The AEAD mode; GCM is supported.</param>
+    /// <param name="s2kType">The S2K derivation type.</param>
+    /// <param name="hashAlgorithm">The S2K hash algorithm.</param>
+    /// <param name="securityPolicy">The cryptographic validation policy.</param>
+    /// <returns>An authenticated v6 session key packet.</returns>
+    public static PgpSymmetricKeyEncryptedSessionKeyPacket CreateV6(
+        ReadOnlySpan<byte> passphrase, byte[] sessionKey,
+        SymmetricCipherAlgorithm cipherAlgorithm = SymmetricCipherAlgorithm.Aes256,
+        AeadAlgorithm aeadAlgorithm = AeadAlgorithm.Gcm,
+        S2KType s2kType = S2KType.IteratedAndSalted,
+        HashingAlgorithm hashAlgorithm = HashingAlgorithm.Sha256,
+        SecurityPolicyOptions? securityPolicy = null)
+    {
+#if NETSTANDARD2_0
+        throw new PlatformNotSupportedException("AEAD encryption requires .NET Core 3.0 or later.");
+#else
+        ValidateWrappingCipher(cipherAlgorithm);
+        if (s2kType == S2KType.Simple)
+        {
+            throw new ArgumentException("New SKESK packets require salted S2K.", nameof(s2kType));
+        }
+
+        if (aeadAlgorithm != AeadAlgorithm.Gcm)
+        {
+            throw new NotSupportedException("SKESK v6 currently supports only GCM.");
+        }
+
+        if (sessionKey.Length is not (16 or 24 or 32))
+        {
+            throw new ArgumentException("SKESK v6 requires an AES session key.", nameof(sessionKey));
+        }
+
+        var parameters = CreateS2kParameters(s2kType, hashAlgorithm);
+        var derived = parameters.DeriveKey(passphrase, GetKeySize(cipherAlgorithm), securityPolicy);
+        byte[] aad = [0xC3, 6, (byte)cipherAlgorithm, (byte)aeadAlgorithm];
+        byte[]? kek = null;
+        try
+        {
+            kek = new Hkdf.HkdfCore(securityPolicy).DeriveKey(derived, [], aad, derived.Length, HashAlgorithmName.SHA256);
+            var iv = new byte[12];
+            using (var rng = RandomNumberGenerator.Create())
+            {
+                rng.GetBytes(iv);
+            }
+
+            var encrypted = new byte[sessionKey.Length + 16];
+            using var gcm = new System.Security.Cryptography.AesGcm(kek, 16);
+            gcm.Encrypt(iv, sessionKey, encrypted.AsSpan(0, sessionKey.Length), encrypted.AsSpan(sessionKey.Length), aad);
+            return new PgpSymmetricKeyEncryptedSessionKeyPacket(cipherAlgorithm, aeadAlgorithm,
+                parameters.Serialize(), iv, encrypted);
+        }
+        finally
+        {
+            SecureMemoryOperations.SecureClear(derived);
+            if (kek != null)
+            {
+                SecureMemoryOperations.SecureClear(kek);
+            }
+        }
+#endif
+    }
+
+    private static S2KParameters CreateS2kParameters(S2KType s2kType, HashingAlgorithm hashAlgorithm)
+    {
+        // Create S2K parameters
+        S2KParameters s2kParams;
+        if (s2kType == S2KType.Argon2)
+        {
+            s2kParams = S2KParameters.CreateArgon2();
+        }
+        else
+        {
+            byte encodedCount = s2kType == S2KType.IteratedAndSalted ? (byte)0xC0 : (byte)0;
+            s2kParams = s2kType switch
+            {
+                S2KType.Salted => S2KParameters.CreateSalted(hashAlgorithm),
+                S2KType.IteratedAndSalted => S2KParameters.CreateIterated(hashAlgorithm, encodedCount),
+                _ => throw new ArgumentException($"Unsupported S2K type: {s2kType}", nameof(s2kType))
+            };
+        }
+
+        return s2kParams;
+    }
+
+    private static void ValidateWrappingCipher(SymmetricCipherAlgorithm algorithm)
+    {
+        if (algorithm is not (SymmetricCipherAlgorithm.Aes128 or SymmetricCipherAlgorithm.Aes192 or SymmetricCipherAlgorithm.Aes256))
+        {
+            throw new NotSupportedException("SKESK session wrapping currently supports only AES.");
         }
     }
 

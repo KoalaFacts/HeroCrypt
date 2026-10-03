@@ -151,6 +151,11 @@ public readonly struct PgpSymEncryptedIntegrityProtectedDataPacket : IEquatable<
             throw new ArgumentException($"Salt must be {SaltLength} bytes.", nameof(salt));
         }
 
+        if (chunkSize > 16)
+        {
+            throw new ArgumentOutOfRangeException(nameof(chunkSize), "Chunk size must be between 0 and 16.");
+        }
+
         Version = VersionAead;
         CipherAlgorithm = cipherAlgorithm;
         AeadAlgorithm = aeadAlgorithm;
@@ -311,6 +316,11 @@ public readonly struct PgpSymEncryptedIntegrityProtectedDataPacket : IEquatable<
         var cipherAlgorithm = (SymmetricCipherAlgorithm)source[1];
         var aeadAlgorithm = (AeadAlgorithm)source[2];
         var chunkSize = source[3];
+        if (chunkSize > 16)
+        {
+            error = "Unsupported SEIPD v2 chunk size. Expected 0 through 16.";
+            return false;
+        }
         var salt = source.Slice(4, SaltLength).ToArray();
         var encryptedData = source.Slice(v2HeaderLength).ToArray();
 

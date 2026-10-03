@@ -717,6 +717,12 @@ public sealed class PgpMessageDecryptor : IDisposable
         int nonceSize = GetAeadNonceSize(aeadAlgorithm);
         int tagSize = 16;
 
+        // A data chunk tag and the final summary tag are both mandatory.
+        if (ciphertext.Length < 2 * tagSize)
+        {
+            throw new CryptographicException("AEAD ciphertext is missing required authentication tags.");
+        }
+
         using var output = new MemoryStream();
 
         int pos = 0;
@@ -729,7 +735,10 @@ public sealed class PgpMessageDecryptor : IDisposable
 
             if (chunkPlaintextLen <= 0)
             {
-                break;
+                // Every octet before the final summary tag must belong to an
+                // authenticated data chunk. Ignoring this remainder would let
+                // an attacker append bytes without changing either valid tag.
+                throw new CryptographicException("AEAD ciphertext contains an incomplete data chunk.");
             }
 
             // Build nonce

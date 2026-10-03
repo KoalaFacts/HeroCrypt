@@ -4,6 +4,12 @@
 
 ### Security
 
+- Correct OpenPGP encrypted envelopes to RFC 9580: AES-GCM key/IV derivation,
+  authenticated chunk framing, v4/v6 SKESK wrapping and counts, v6 PKESK recipient
+  fields, RSA v6 sessions and X25519 HKDF/AES-128 Key Wrap. Enforce session/container
+  version combinations and authenticate each candidate before selecting it.
+  Historical nonstandard ciphertext requires trusted re-encryption; see
+  [migration notes](docs/migration-guide.md#openpgp-encrypted-envelope-correction-after-v104).
 - Reject incomplete OpenPGP AEAD chunks instead of ignoring bytes before the
   final authentication tag. Require both a data-chunk tag and a final summary
   tag; malformed or modified encrypted data returns no plaintext.

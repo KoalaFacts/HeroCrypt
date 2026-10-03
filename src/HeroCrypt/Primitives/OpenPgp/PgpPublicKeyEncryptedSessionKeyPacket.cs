@@ -23,7 +23,7 @@ namespace HeroCrypt.Primitives.OpenPgp;
 /// <b>Wire format (v6 - RFC 9580):</b>
 /// <code>
 /// +----------+---------+--------+-------------+-----------+----------------------+
-/// | Version  | Key Ver |FP Len  | Fingerprint | Algorithm | Encrypted Session Key|
+/// | Version  | Count   |Key Ver | Fingerprint | Algorithm | Encrypted Session Key|
 /// | 1 byte   | 1 byte  |1 byte  |  variable   |  1 byte   |      variable        |
 /// +----------+---------+--------+-------------+-----------+----------------------+
 /// </code>
@@ -47,9 +47,9 @@ public readonly struct PgpPublicKeyEncryptedSessionKeyPacket : IEquatable<PgpPub
     public const int MinSizeV3 = 10;
 
     /// <summary>
-    /// Minimum packet size for v6: version (1) + key version (1) + fp length (1) + algorithm (1).
+    /// Minimum packet size for anonymous v6: version (1) + count (1) + algorithm (1).
     /// </summary>
-    public const int MinSizeV6 = 4;
+    public const int MinSizeV6 = 3;
 
     /// <summary>
     /// Gets the version number.
@@ -132,9 +132,15 @@ public readonly struct PgpPublicKeyEncryptedSessionKeyPacket : IEquatable<PgpPub
         PgpPublicKeyAlgorithm algorithm,
         ReadOnlyMemory<byte> encryptedSessionKey)
     {
+        if (!fingerprint.IsEmpty && !((keyVersion == 4 && fingerprint.Length == 20) ||
+            (keyVersion == 6 && fingerprint.Length == 32)))
+        {
+            throw new ArgumentException("Fingerprint must match key version 4 or 6.", nameof(fingerprint));
+        }
+
         Version = Version6;
         KeyId = ReadOnlyMemory<byte>.Empty;
-        KeyVersion = keyVersion;
+        KeyVersion = fingerprint.IsEmpty ? 0 : keyVersion;
         Fingerprint = fingerprint;
         Algorithm = algorithm;
         EncryptedSessionKey = encryptedSessionKey;
@@ -242,18 +248,29 @@ public readonly struct PgpPublicKeyEncryptedSessionKeyPacket : IEquatable<PgpPub
             return false;
         }
 
-        int keyVersion = source[1];
-        int fpLength = source[2];
-
-        if (source.Length < 3 + fpLength + 1)
+        int count = source[1];
+        if (count != 0 && count != 21 && count != 33)
         {
-            error = "Source too short for v6 PKESK packet fingerprint.";
+            error = "Invalid v6 PKESK recipient field count.";
             return false;
         }
 
-        var fingerprint = source.Slice(3, fpLength).ToArray();
-        var algorithm = (PgpPublicKeyAlgorithm)source[3 + fpLength];
-        var encryptedSessionKey = source.Slice(4 + fpLength).ToArray();
+        if (source.Length < 3 + count)
+        {
+            error = "Source too short for v6 PKESK recipient fields.";
+            return false;
+        }
+
+        int keyVersion = count == 0 ? 0 : source[2];
+        if (count != 0 && !((keyVersion == 4 && count == 21) || (keyVersion == 6 && count == 33)))
+        {
+            error = "Fingerprint length does not match the v6 PKESK recipient key version.";
+            return false;
+        }
+
+        var fingerprint = count == 0 ? [] : source.Slice(3, count - 1).ToArray();
+        var algorithm = (PgpPublicKeyAlgorithm)source[2 + count];
+        var encryptedSessionKey = source.Slice(3 + count).ToArray();
 
         packet = new PgpPublicKeyEncryptedSessionKeyPacket(
             Version6,
@@ -278,7 +295,7 @@ public readonly struct PgpPublicKeyEncryptedSessionKeyPacket : IEquatable<PgpPub
         }
         else
         {
-            return 1 + 1 + 1 + Fingerprint.Length + 1 + EncryptedSessionKey.Length;
+            return 3 + (Fingerprint.IsEmpty ? 0 : 1 + Fingerprint.Length) + EncryptedSessionKey.Length;
         }
     }
 
@@ -307,10 +324,13 @@ public readonly struct PgpPublicKeyEncryptedSessionKeyPacket : IEquatable<PgpPub
         }
         else
         {
-            destination[offset++] = (byte)KeyVersion;
-            destination[offset++] = (byte)Fingerprint.Length;
-            Fingerprint.Span.CopyTo(destination.Slice(offset));
-            offset += Fingerprint.Length;
+            destination[offset++] = (byte)(Fingerprint.IsEmpty ? 0 : Fingerprint.Length + 1);
+            if (!Fingerprint.IsEmpty)
+            {
+                destination[offset++] = (byte)KeyVersion;
+                Fingerprint.Span.CopyTo(destination.Slice(offset));
+                offset += Fingerprint.Length;
+            }
             destination[offset++] = (byte)Algorithm;
         }
 

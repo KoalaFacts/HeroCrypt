@@ -239,7 +239,7 @@ public sealed class PgpMessageEncryptor : IDisposable
     /// <summary>
     /// Enables AEAD encryption (SEIPD v2) with the specified algorithm.
     /// </summary>
-    /// <param name="algorithm">The AEAD algorithm (GCM or OCB).</param>
+    /// <param name="algorithm">GCM, the supported AEAD mode; None selects CFB/MDC.</param>
     /// <returns>This encryptor for chaining.</returns>
     public PgpMessageEncryptor WithAead(AeadAlgorithm algorithm = AeadAlgorithm.Gcm)
     {
@@ -444,7 +444,7 @@ public sealed class PgpMessageEncryptor : IDisposable
             recipient.Algorithm == PgpPublicKeyAlgorithm.RsaEncryptOnly)
 #pragma warning restore CS0618
         {
-            encryptedSessionKey = PgpKeyEncryption.EncryptSessionKeyRsa(sessionKey, symmetricAlgorithm, recipient);
+            encryptedSessionKey = PgpKeyEncryption.EncryptSessionKeyRsa(sessionKey, symmetricAlgorithm, recipient, securityPolicy, aeadAlgorithm != AeadAlgorithm.None);
         }
         else
         {
@@ -453,10 +453,20 @@ public sealed class PgpMessageEncryptor : IDisposable
                 : throw new NotSupportedException($"Public key algorithm {recipient.Algorithm} is not supported for encryption.");
         }
 
-        // Create PKESK packet based on key version
+        if (recipient.Algorithm == PgpPublicKeyAlgorithm.X25519 && aeadAlgorithm == AeadAlgorithm.None)
+        {
+            var v3Payload = new byte[encryptedSessionKey.Length + 1];
+            encryptedSessionKey.AsSpan(0, 33).CopyTo(v3Payload);
+            v3Payload[32]++;
+            v3Payload[33] = (byte)symmetricAlgorithm;
+            encryptedSessionKey.AsSpan(33).CopyTo(v3Payload.AsSpan(34));
+            encryptedSessionKey = v3Payload;
+        }
+
+        // The data container determines the session-packet version.
         PgpPublicKeyEncryptedSessionKeyPacket pkesk;
 
-        if (recipient.Version == 6)
+        if (aeadAlgorithm != AeadAlgorithm.None)
         {
             // Version 6 PKESK uses fingerprint
             pkesk = new PgpPublicKeyEncryptedSessionKeyPacket(
@@ -479,13 +489,11 @@ public sealed class PgpMessageEncryptor : IDisposable
 
     private byte[] CreateSkeskPacket(byte[] passphrase, byte[] sessionKey)
     {
-        // Create SKESK packet using the passphrase
-        var skesk = PgpSymmetricKeyEncryptedSessionKeyPacket.Create(
-            passphrase,
-            sessionKey,
-            symmetricAlgorithm,
-            s2kType,
-            s2kHashAlgorithm);
+        var skesk = aeadAlgorithm == AeadAlgorithm.None
+            ? PgpSymmetricKeyEncryptedSessionKeyPacket.CreateV4(passphrase, sessionKey,
+                symmetricAlgorithm, s2kType, s2kHashAlgorithm, securityPolicy)
+            : PgpSymmetricKeyEncryptedSessionKeyPacket.CreateV6(passphrase, sessionKey,
+                symmetricAlgorithm, aeadAlgorithm, s2kType, s2kHashAlgorithm, securityPolicy);
 
         return skesk.ToArray();
     }
@@ -646,152 +654,16 @@ public sealed class PgpMessageEncryptor : IDisposable
 
     private byte[] EncryptSeipdV2(byte[] plaintext, byte[] sessionKey)
     {
-        // Generate random salt (32 bytes)
-        byte[] salt = new byte[32];
+        var salt = new byte[32];
         using (var rng = RandomNumberGenerator.Create())
         {
             rng.GetBytes(salt);
         }
 
-        // Default chunk size exponent (6 = 2^6 = 64 bytes, small for testing; typical would be 12 = 4KB)
-        byte chunkSizeExponent = 12;
-
-        // Derive message key using HKDF
-        byte[] messageKey = DeriveAeadMessageKey(sessionKey, salt);
-
-        try
-        {
-            // AEAD encrypt
-            byte[] encryptedData = AeadEncrypt(plaintext, messageKey, salt, chunkSizeExponent);
-
-            // Build SEIPD v2 packet body
-            // version(1) + cipher(1) + aead(1) + chunkSize(1) + salt(32) + encrypted
-            byte[] seipdBody = new byte[1 + 1 + 1 + 1 + 32 + encryptedData.Length];
-            int offset = 0;
-            seipdBody[offset++] = 2; // version
-            seipdBody[offset++] = (byte)symmetricAlgorithm;
-            seipdBody[offset++] = (byte)aeadAlgorithm;
-            seipdBody[offset++] = chunkSizeExponent;
-            salt.CopyTo(seipdBody.AsSpan(offset));
-            offset += 32;
-            encryptedData.CopyTo(seipdBody.AsSpan(offset));
-
-            return seipdBody;
-        }
-        finally
-        {
-            SecureMemoryOperations.SecureClear(messageKey);
-        }
-    }
-
-    private byte[] DeriveAeadMessageKey(byte[] sessionKey, byte[] salt)
-    {
-        // RFC 9580: HKDF-SHA256 with info = packet tag || version || cipher || aead || chunk size
-        byte[] info = [0x12, 0x02, (byte)symmetricAlgorithm, (byte)aeadAlgorithm, 12]; // tag 18, v2
-
-        var hkdf = new Hkdf.HkdfCore(securityPolicy);
-        return hkdf.DeriveKey(
-            sessionKey,
-            salt,
-            info,
-            PgpKeyEncryption.GetSessionKeySize(symmetricAlgorithm),
-            HashAlgorithmName.SHA256);
-    }
-
-    private byte[] AeadEncrypt(byte[] plaintext, byte[] key, byte[] salt, byte chunkSizeExponent)
-    {
-#if NETSTANDARD2_0
-        throw new PlatformNotSupportedException("AEAD encryption requires .NET Core 3.0 or later.");
-#else
-        int chunkSize = 1 << chunkSizeExponent;
-        int nonceSize = GetAeadNonceSize(aeadAlgorithm);
-        int tagSize = 16;
-
-        // Calculate number of chunks
-        int numChunks = (plaintext.Length + chunkSize - 1) / chunkSize;
-        if (numChunks == 0)
-        {
-            numChunks = 1;
-        }
-
-        using var output = new MemoryStream();
-
-        // Encrypt each chunk
-        for (int chunkIndex = 0; chunkIndex < numChunks; chunkIndex++)
-        {
-            int chunkStart = chunkIndex * chunkSize;
-            int chunkLength = Math.Min(chunkSize, plaintext.Length - chunkStart);
-
-            // Build nonce: salt prefix + chunk index (big-endian)
-            byte[] nonce = new byte[nonceSize];
-            int saltPrefix = Math.Min(nonceSize - 8, salt.Length);
-            Array.Copy(salt, 0, nonce, 0, saltPrefix);
-            // Chunk index as big-endian 64-bit
-            for (int i = 0; i < 8; i++)
-            {
-                nonce[nonceSize - 8 + i] = (byte)((long)chunkIndex >> (56 - i * 8));
-            }
-
-            // Associated data: packet tag || version || cipher || aead || chunk size
-            byte[] aad = [0x12, 0x02, (byte)symmetricAlgorithm, (byte)aeadAlgorithm, chunkSizeExponent];
-
-            // Encrypt chunk with AEAD
-            byte[] chunkPlaintext = new byte[chunkLength];
-            Array.Copy(plaintext, chunkStart, chunkPlaintext, 0, chunkLength);
-
-            byte[] ciphertext = new byte[chunkLength + tagSize];
-
-            if (aeadAlgorithm == AeadAlgorithm.Gcm)
-            {
-                using var aesGcm = new System.Security.Cryptography.AesGcm(key, tagSize);
-                byte[] tag = new byte[tagSize];
-                aesGcm.Encrypt(nonce.AsSpan(), chunkPlaintext.AsSpan(), ciphertext.AsSpan(0, chunkLength), tag.AsSpan(), aad.AsSpan());
-                tag.CopyTo(ciphertext.AsSpan(chunkLength));
-            }
-            else
-            {
-                // OCB - use custom implementation or fallback
-                throw new NotSupportedException($"AEAD algorithm {aeadAlgorithm} is not yet implemented.");
-            }
-
-            output.Write(ciphertext, 0, ciphertext.Length);
-        }
-
-        // Final authentication tag (RFC 9580 Section 5.13.2)
-        // The final tag authenticates the total number of plaintext octets
-        byte[] finalNonce = new byte[nonceSize];
-        int finalSaltPrefix = Math.Min(nonceSize - 8, salt.Length);
-        Array.Copy(salt, 0, finalNonce, 0, finalSaltPrefix);
-        for (int i = 0; i < 8; i++)
-        {
-            finalNonce[nonceSize - 8 + i] = (byte)((long)numChunks >> (56 - i * 8));
-        }
-
-        // Final AAD includes the total plaintext length (big-endian, 8 bytes) per RFC 9580
-        long totalPlaintextLen = plaintext.Length;
-        byte[] finalAad = new byte[5 + 8];
-        finalAad[0] = 0x12; // SEIPD v2 tag
-        finalAad[1] = 0x02; // Version 2
-        finalAad[2] = (byte)symmetricAlgorithm;
-        finalAad[3] = (byte)aeadAlgorithm;
-        finalAad[4] = chunkSizeExponent;
-        for (int i = 0; i < 8; i++)
-        {
-            finalAad[5 + i] = (byte)(totalPlaintextLen >> (56 - i * 8));
-        }
-
-        if (aeadAlgorithm == AeadAlgorithm.Gcm)
-        {
-            using var aesGcm = new System.Security.Cryptography.AesGcm(key, tagSize);
-            byte[] finalTag = new byte[tagSize];
-            byte[] emptyPlaintext = [];
-            byte[] emptyCtxt = [];
-            aesGcm.Encrypt(finalNonce.AsSpan(), emptyPlaintext, emptyCtxt, finalTag.AsSpan(), finalAad.AsSpan());
-            output.Write(finalTag, 0, finalTag.Length);
-        }
-
-        return output.ToArray();
-#endif
+        var encryptedData = PgpSeipdAead.Encrypt(plaintext, sessionKey, symmetricAlgorithm,
+            aeadAlgorithm, PgpSeipdAead.DefaultChunkSize, salt, securityPolicy);
+        return PgpSymEncryptedIntegrityProtectedDataPacket.CreateV2(symmetricAlgorithm,
+            aeadAlgorithm, PgpSeipdAead.DefaultChunkSize, salt, encryptedData).ToArray();
     }
 
     private static int GetBlockSize(SymmetricCipherAlgorithm algorithm)
@@ -816,18 +688,7 @@ public sealed class PgpMessageEncryptor : IDisposable
 #pragma warning restore CS0618
     }
 
-#if !NETSTANDARD2_0
-    private static int GetAeadNonceSize(AeadAlgorithm algorithm)
-    {
-        return algorithm switch
-        {
-            AeadAlgorithm.Eax => 16,
-            AeadAlgorithm.Ocb => 15,
-            AeadAlgorithm.Gcm => 12,
-            _ => 12
-        };
-    }
-#endif
+
 
     private void ThrowIfDisposed()
     {

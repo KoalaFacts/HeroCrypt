@@ -46,6 +46,7 @@ internal static class PgpKeyEncryption
     /// <param name="symmetricAlgorithm">The symmetric algorithm ID for the session key.</param>
     /// <param name="publicKey">The recipient's RSA public key packet.</param>
     /// <param name="securityPolicy">Optional security policy for cryptographic validation.</param>
+    /// <param name="version6">Whether the PKESK omits the cipher octet for SEIPD v2.</param>
     /// <returns>The encrypted session key as an MPI.</returns>
     /// <remarks>
     /// <para>
@@ -61,7 +62,8 @@ internal static class PgpKeyEncryption
         ReadOnlySpan<byte> sessionKey,
         SymmetricCipherAlgorithm symmetricAlgorithm,
         PgpPublicKeyPacket publicKey,
-        SecurityPolicyOptions? securityPolicy = null)
+        SecurityPolicyOptions? securityPolicy = null,
+        bool version6 = false)
     {
         if (publicKey.Algorithm != PgpPublicKeyAlgorithm.RsaEncryptOrSign &&
 #pragma warning disable CS0618 // Obsolete member
@@ -74,8 +76,13 @@ internal static class PgpKeyEncryption
         // Read RSA key parameters
         var (n, e) = publicKey.ReadRsaKey();
 
-        // Build PKCS#1 v1.5 plaintext: symAlg + sessionKey + checksum
-        int plaintextLen = 1 + sessionKey.Length + 2;
+        if (sessionKey.Length != GetSessionKeySize(symmetricAlgorithm))
+        {
+            throw new ArgumentException("Session key length does not match its algorithm.", nameof(sessionKey));
+        }
+
+        // Version 6 omits the cipher octet; its SEIPD v2 supplies that algorithm.
+        int plaintextLen = (version6 ? 0 : 1) + sessionKey.Length + 2;
         byte[] plaintext = new byte[plaintextLen];
 
         try
@@ -83,7 +90,10 @@ internal static class PgpKeyEncryption
             int offset = 0;
 
             // Symmetric algorithm ID
-            plaintext[offset++] = (byte)symmetricAlgorithm;
+            if (!version6)
+            {
+                plaintext[offset++] = (byte)symmetricAlgorithm;
+            }
 
             // Session key
             sessionKey.CopyTo(plaintext.AsSpan(offset));
@@ -119,12 +129,16 @@ internal static class PgpKeyEncryption
     /// <param name="encryptedMpi">The encrypted session key MPI.</param>
     /// <param name="secretKey">The recipient's RSA secret key packet.</param>
     /// <param name="securityPolicy">Optional security policy for cryptographic validation.</param>
+    /// <param name="version6">Whether the PKESK uses the v6 plaintext format.</param>
+    /// <param name="dataAlgorithm">The data cipher supplied by SEIPD v2.</param>
     /// <returns>A tuple of (symmetric algorithm, session key).</returns>
     /// <exception cref="CryptographicException">If decryption or checksum verification fails.</exception>
     public static (SymmetricCipherAlgorithm Algorithm, byte[] SessionKey) DecryptSessionKeyRsa(
         ReadOnlySpan<byte> encryptedMpi,
         PgpSecretKeyPacket secretKey,
-        SecurityPolicyOptions? securityPolicy = null)
+        SecurityPolicyOptions? securityPolicy = null,
+        bool version6 = false,
+        SymmetricCipherAlgorithm dataAlgorithm = SymmetricCipherAlgorithm.Aes256)
     {
         if (secretKey.IsEncrypted)
         {
@@ -144,7 +158,11 @@ internal static class PgpKeyEncryption
         var (d, p, q, _) = secretKey.ReadRsaSecretKey();
 
         // Decode MPI
-        byte[] ciphertext = Mpi.ReadBytes(encryptedMpi, out _);
+        byte[] ciphertext = Mpi.ReadBytes(encryptedMpi, out int consumed);
+        if (consumed != encryptedMpi.Length)
+        {
+            throw new CryptographicException("Trailing data after RSA session key MPI.");
+        }
 
         // Pad ciphertext to modulus length if needed
         // MPI encoding strips leading zeros, but RSA decryption requires exact modulus length
@@ -178,11 +196,16 @@ internal static class PgpKeyEncryption
                 throw new CryptographicException("Decrypted session key too short.");
             }
 
-            var symmetricAlgorithm = (SymmetricCipherAlgorithm)plaintext[0];
-            int sessionKeyLen = plaintext.Length - 3; // 1 for algo, 2 for checksum
+            var symmetricAlgorithm = version6 ? dataAlgorithm : (SymmetricCipherAlgorithm)plaintext[0];
+            int sessionKeyLen = GetSessionKeySize(symmetricAlgorithm);
+            int keyOffset = version6 ? 0 : 1;
+            if (plaintext.Length != keyOffset + sessionKeyLen + 2)
+            {
+                throw new CryptographicException("RSA session key length does not match its algorithm.");
+            }
 
             byte[] sessionKey = new byte[sessionKeyLen];
-            Array.Copy(plaintext, 1, sessionKey, 0, sessionKeyLen);
+            Array.Copy(plaintext, keyOffset, sessionKey, 0, sessionKeyLen);
 
             // Verify checksum
             ushort expectedChecksum = (ushort)((plaintext[^2] << 8) | plaintext[^1]);
@@ -224,7 +247,7 @@ internal static class PgpKeyEncryption
     /// <code>
     /// 1. Generate ephemeral X25519 key pair
     /// 2. sharedSecret = X25519(ephemeralPrivate, recipientPublic)
-    /// 3. KEK = HKDF-SHA256(sharedSecret, info="OpenPGP X25519")
+    /// 3. KEK = HKDF-SHA256(ephemeralPublic || recipientPublic || sharedSecret, info="OpenPGP X25519", length=16)
     /// 4. wrappedKey = AES-KeyWrap(KEK, sessionKey)
     /// </code>
     /// </para>
@@ -239,13 +262,18 @@ internal static class PgpKeyEncryption
             throw new ArgumentException($"Expected X25519 key, got {publicKey.Algorithm}.", nameof(publicKey));
         }
 
+        if (sessionKey.Length is not (16 or 24 or 32))
+        {
+            throw new ArgumentException("X25519 requires an AES session key.", nameof(sessionKey));
+        }
+
         var policy = securityPolicy ?? SecurityPolicy.CurrentPolicy;
 
         // Get recipient's public key
         byte[] recipientPublic = publicKey.ReadNativePublicKey();
 
         // Generate ephemeral key pair
-        var curve = new Curve25519Core();
+        var curve = new Curve25519Core(policy);
         byte[] ephemeralPrivate = curve.GeneratePrivateKey();
         byte[] ephemeralPublic = curve.DerivePublicKey(ephemeralPrivate);
 
@@ -256,11 +284,7 @@ internal static class PgpKeyEncryption
 
             try
             {
-                // Derive KEK using HKDF-SHA256
-                // RFC 9580: info = "OpenPGP X25519" || ephemeralPublic || recipientPublic
-                byte[] info = BuildX25519HkdfInfo(ephemeralPublic, recipientPublic);
-                var hkdf = new HkdfCore(policy);
-                byte[] kek = hkdf.DeriveKey(sharedSecret, [], info, 32, HashAlgorithmName.SHA256);
+                byte[] kek = DeriveX25519Kek(ephemeralPublic, recipientPublic, sharedSecret, policy);
 
                 try
                 {
@@ -323,7 +347,7 @@ internal static class PgpKeyEncryption
         // Parse input
         byte[] ephemeralPublic = encryptedData.Slice(0, 32).ToArray();
         int wrappedKeyLen = encryptedData[32];
-        if (encryptedData.Length < 33 + wrappedKeyLen)
+        if (wrappedKeyLen is not (24 or 32 or 40) || encryptedData.Length != 33 + wrappedKeyLen)
         {
             throw new ArgumentException("Encrypted data truncated.", nameof(encryptedData));
         }
@@ -337,15 +361,12 @@ internal static class PgpKeyEncryption
         try
         {
             // Compute shared secret
-            var curve = new Curve25519Core();
+            var curve = new Curve25519Core(policy);
             byte[] sharedSecret = curve.ComputeSharedSecret(privateKey, ephemeralPublic);
 
             try
             {
-                // Derive KEK using HKDF-SHA256
-                byte[] info = BuildX25519HkdfInfo(ephemeralPublic, ourPublic);
-                var hkdf = new HkdfCore(policy);
-                byte[] kek = hkdf.DeriveKey(sharedSecret, [], info, 32, HashAlgorithmName.SHA256);
+                byte[] kek = DeriveX25519Kek(ephemeralPublic, ourPublic, sharedSecret, policy);
 
                 try
                 {
@@ -368,19 +389,22 @@ internal static class PgpKeyEncryption
         }
     }
 
-    /// <summary>
-    /// Builds the HKDF info parameter for X25519.
-    /// </summary>
-    private static byte[] BuildX25519HkdfInfo(byte[] ephemeralPublic, byte[] recipientPublic)
+    private static byte[] DeriveX25519Kek(byte[] ephemeralPublic, byte[] recipientPublic,
+        byte[] sharedSecret, SecurityPolicyOptions policy)
     {
-        // RFC 9580: info = "OpenPGP X25519" || ephemeralPublic || recipientPublic
-        byte[] info = new byte[X25519HkdfLabel.Length + 32 + 32];
-        X25519HkdfLabel.CopyTo(info.AsSpan(0));
-        ephemeralPublic.CopyTo(info.AsSpan(X25519HkdfLabel.Length));
-        recipientPublic.CopyTo(info.AsSpan(X25519HkdfLabel.Length + 32));
-        return info;
+        var input = new byte[96];
+        ephemeralPublic.CopyTo(input, 0);
+        recipientPublic.CopyTo(input, 32);
+        sharedSecret.CopyTo(input, 64);
+        try
+        {
+            return new HkdfCore(policy).DeriveKey(input, [], X25519HkdfLabel, 16, HashAlgorithmName.SHA256);
+        }
+        finally
+        {
+            SecureMemoryOperations.SecureClear(input);
+        }
     }
-
 
     /// <summary>
     /// Curve25519 OID bytes for ECDH (algorithm 18).

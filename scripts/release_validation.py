@@ -16,12 +16,15 @@ DOCUMENTS = ("README.md", "LICENSE", "THIRD-PARTY-NOTICES.md", "SECURITY.md", "P
 
 def read_archive(path):
     with zipfile.ZipFile(path) as archive:
+        # ZipInfo.filename is normalized on Windows. Inspect the original ZIP
+        # spelling first so unsafe separators cannot disappear before validation.
+        for info in archive.infolist():
+            name = info.orig_filename
+            if "\\" in name or PurePosixPath(name).is_absolute() or ".." in PurePosixPath(name).parts:
+                raise ValueError(f"Unsafe ZIP path: {name}")
         names = archive.namelist()
         if len(names) != len(set(names)):
             raise ValueError(f"Duplicate ZIP entries: {path}")
-        for name in names:
-            if "\\" in name or PurePosixPath(name).is_absolute() or ".." in PurePosixPath(name).parts:
-                raise ValueError(f"Unsafe ZIP path: {name}")
         return {name: archive.read(name) for name in names if not name.endswith("/")}
 
 

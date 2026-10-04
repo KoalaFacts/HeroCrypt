@@ -42,7 +42,11 @@ class PackageValidationTests(unittest.TestCase):
         path = self.root / name
         with zipfile.ZipFile(path, "w") as archive:
             for key, value in files.items():
-                archive.writestr(key, value)
+                # ZipInfo normalizes backslashes on Windows; fixtures must retain
+                # the exact malicious archive names they are intended to test.
+                info = zipfile.ZipInfo(key)
+                info.filename = key
+                archive.writestr(info, value)
         return path
 
     def validate(self, files=None, symbols=False):
@@ -137,6 +141,19 @@ class PackageValidationTests(unittest.TestCase):
             files[name] = b"unsafe"
             with self.subTest(name=name), self.assertRaisesRegex(ValueError, "Unsafe"):
                 self.validate(files)
+
+    def test_raw_zip_paths_are_rejected_before_windows_normalization(self):
+        from unittest.mock import patch
+        for name in ("lib\\net8.0\\HeroCrypt.dll", "extra\\payload.txt"):
+            files = contents()
+            files[name] = b"unsafe"
+            # Exercise Python's real Windows separator normalization on any host.
+            with self.subTest(name=name), patch("zipfile.os.sep", "\\"):
+                path = self.write(files)
+                with zipfile.ZipFile(path) as archive:
+                    self.assertIn(name, [info.orig_filename for info in archive.infolist()])
+                with self.assertRaisesRegex(ValueError, "Unsafe"):
+                    release.validate_package(path, VERSION, SHA, REPOSITORY, self.root)
 
     def test_reproducible_payload_ignores_only_zip_container_metadata(self):
         first = self.write(contents(), "first.nupkg")

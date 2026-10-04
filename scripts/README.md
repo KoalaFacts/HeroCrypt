@@ -1,6 +1,6 @@
 # HeroCrypt Build Scripts
 
-This directory contains scripts for validating and maintaining code quality without requiring the .NET SDK.
+This directory contains code-quality and release-validation helpers. Python package validation and XML-source checks do not require .NET; the package consumer smoke test requires the pinned .NET SDK and runtimes.
 
 ## check-xml-docs.sh
 
@@ -225,3 +225,19 @@ To improve the script:
 ### License
 
 MIT License - Same as HeroCrypt project
+
+
+## Release validation
+
+- `release_ci.py`: requires a complete successful latest main-push CI attempt for
+  the exact source SHA before creating or publishing a release
+- `release_validation.py`: verifies package identity, source SHA, framework payloads,
+  symbols and source-matching documents; compares repeated-build payloads
+- `release_smoke.py`: creates a temporary consumer with an exact package reference
+  and isolated NuGet cache, then checks the actual package on .NET 8/9/10
+- `test_release_validation.py`: Python standard-library regressions for validators,
+  smoke-project configuration and workflow contracts
+
+Run `python3 -m unittest discover -s scripts -p 'test_release_validation.py' -v`.
+For publication and partial-failure recovery, follow the
+[workflow guide](../.github/workflows/README.md).

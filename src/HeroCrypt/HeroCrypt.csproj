@@ -5,7 +5,7 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageId>HeroCrypt</PackageId>
-    <Description>A comprehensive, RFC-compliant cryptographic library for .NET featuring Argon2 (RFC 9106), Blake2b (RFC 7693), ChaCha20-Poly1305 (RFC 8439), Curve25519 (RFC 7748), BIP32/BIP39 HD wallets, post-quantum cryptography (ML-KEM, ML-DSA, SLH-DSA), and modern AEAD ciphers. Multi-framework support: .NET Standard 2.0, .NET 8.0/9.0/10.0.</Description>
+    <Description>A cryptographic library for .NET featuring Argon2 (RFC 9106), Blake2b (RFC 7693), ChaCha20-Poly1305 (RFC 8439), Curve25519 (RFC 7748), BIP32/BIP39 HD wallets, post-quantum cryptography (ML-KEM, ML-DSA, SLH-DSA), and modern AEAD ciphers. Multi-framework support: .NET Standard 2.0, .NET 8.0/9.0/10.0.</Description>
     <PackageTags>cryptography;encryption;decryption;argon2;blake2b;chacha20;poly1305;curve25519;bip32;bip39;ml-kem;ml-dsa;post-quantum;pqc;rabbit;aead;rsa;pgp;hash;security;rfc9106;rfc7693;rfc8439;rfc7748;fips203;fips204</PackageTags>
     <PackageProjectUrl>https://github.com/KoalaFacts/HeroCrypt</PackageProjectUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
@@ -31,6 +31,9 @@
   <ItemGroup>
     <None Include="..\..\README.md" Pack="true" PackagePath="\" />
     <None Include="..\..\THIRD-PARTY-NOTICES.md" Pack="true" PackagePath="\" />
+    <None Include="..\..\LICENSE" Pack="true" PackagePath="\" />
+    <None Include="..\..\SECURITY.md" Pack="true" PackagePath="\" />
+    <None Include="..\..\PRODUCTION_READINESS.md" Pack="true" PackagePath="\" />
     <EmbeddedResource Include="Protocols\HdWallet\Bip39English.txt" />
   </ItemGroup>
 

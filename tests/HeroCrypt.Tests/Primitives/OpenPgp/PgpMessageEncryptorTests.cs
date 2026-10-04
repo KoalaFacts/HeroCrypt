@@ -536,9 +536,10 @@ public class PgpMessageEncryptorTests
         [Fact]
         public void RoundTrip_WithKeyRing_DecryptsSuccessfully()
         {
-            var (publicKey, secretKey) = CreateRsaKeyPair();
-            var publicKeyRing = new PgpPublicKeyRing(publicKey);
-            var secretKeyRing = new PgpSecretKeyRing(secretKey);
+            var pair = PgpKeyGenerator.Create().WithVersion(4).WithKeySize(2048)
+                .WithUserId("key-ring-fixture@example.invalid").WithEncryptionSubkey().GenerateRsa();
+            var publicKeyRing = pair.PublicKeyRing;
+            var secretKeyRing = pair.SecretKeyRing;
             var plaintext = "Test with key rings"u8.ToArray();
 
             // Encrypt using key ring

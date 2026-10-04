@@ -38,7 +38,7 @@ jobs:
         uses: ./.github/actions/extract-build-config
 
   build-and-test:
-    name: Build and Test
+    name: Build and Test (${{ matrix.os }}, ${{ matrix.framework }})
     needs: setup
     runs-on: ${{ matrix.os }}
     permissions:
@@ -63,13 +63,13 @@ jobs:
         dotnet-version: ${{ needs.setup.outputs.versions }}
 
     - name: Restore dependencies
-      run: dotnet restore
+      run: dotnet restore --locked-mode
 
     - name: Build
       run: dotnet build --configuration Release --no-restore --framework ${{ matrix.framework }}
 
     - name: Run tests
-      run: dotnet test --project tests/HeroCrypt.Tests/HeroCrypt.Tests.csproj --configuration Debug --framework ${{ matrix.framework }} --no-restore --results-directory ./TestResults -- --report-xunit-trx --report-xunit-trx-filename test-results.trx --coverlet --coverlet-output-format cobertura
+      run: dotnet test --project tests/HeroCrypt.Tests/HeroCrypt.Tests.csproj --configuration Release --no-build --framework ${{ matrix.framework }} --no-restore --results-directory ./TestResults -- --report-xunit-trx --report-xunit-trx-filename test-results.trx --coverlet --coverlet-output-format cobertura
 
     - name: Publish test results
       uses: EnricoMi/publish-unit-test-result-action@v2
@@ -145,13 +145,75 @@ jobs:
         dotnet-version: ${{ needs.setup.outputs.versions }}
 
     - name: Restore dependencies
-      run: dotnet restore
+      run: dotnet restore --locked-mode
 
     - name: Build (with warnings as errors)
       run: dotnet build --configuration Release --no-restore /p:TreatWarningsAsErrors=true
 
     - name: Check formatting
-      run: dotnet format --verify-no-changes --verbosity diagnostic
+      run: dotnet format --no-restore --verify-no-changes --verbosity diagnostic
+
+  package-validation:
+    name: Validate Release Package (${{ matrix.os }})
+    needs: setup
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    env:
+      RELEASE_VERSION: 1.0.0-ci
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v7
+      with:
+        fetch-depth: 0
+        persist-credentials: false
+
+    - name: Setup .NET SDKs
+      uses: ./.github/actions/setup-dotnet-sdks
+      with:
+        dotnet-version: ${{ needs.setup.outputs.versions }}
+
+    - name: Test package validation gates
+      run: python -m unittest discover -s scripts -p 'test_release_validation.py' -v
+
+    - name: Restore locked dependencies and fail closed on audit errors
+      run: |
+        cat > "$RUNNER_TEMP/release-nuget.config" <<'XML'
+        <configuration>
+          <packageSources><clear/><add key="nuget.org" value="https://api.nuget.org/v3/index.json"/></packageSources>
+          <auditSources><clear/><add key="nuget.org" value="https://api.nuget.org/v3/index.json"/></auditSources>
+        </configuration>
+        XML
+        dotnet restore src/HeroCrypt/HeroCrypt.csproj --locked-mode --force --no-http-cache --configfile "$RUNNER_TEMP/release-nuget.config" -p:NuGetAudit=true -p:NuGetAuditMode=all -p:NuGetAuditLevel=low -p:TreatWarningsAsErrors=true
+        git diff --exit-code
+
+    - name: Build, pack, validate and reproduce the Release payload
+      run: |
+        for iteration in first second; do
+          dotnet build src/HeroCrypt/HeroCrypt.csproj --configuration Release --no-restore --no-incremental -p:GeneratePackageOnBuild=false -p:ContinuousIntegrationBuild=true "-p:Version=$RELEASE_VERSION" "-p:PackageVersion=$RELEASE_VERSION" "-p:RepositoryCommit=$GITHUB_SHA"
+          dotnet pack src/HeroCrypt/HeroCrypt.csproj --configuration Release --no-build --no-restore --output "$RUNNER_TEMP/$iteration" -p:ContinuousIntegrationBuild=true "-p:PackageVersion=$RELEASE_VERSION" "-p:Version=$RELEASE_VERSION" "-p:RepositoryCommit=$GITHUB_SHA"
+          python scripts/release_validation.py validate "$RUNNER_TEMP/$iteration/HeroCrypt.$RELEASE_VERSION.nupkg" "$RUNNER_TEMP/$iteration/HeroCrypt.$RELEASE_VERSION.snupkg" --version "$RELEASE_VERSION" --commit "$GITHUB_SHA" --repository "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
+        done
+        for extension in nupkg snupkg; do
+          python scripts/release_validation.py compare "$RUNNER_TEMP/first/HeroCrypt.$RELEASE_VERSION.$extension" "$RUNNER_TEMP/second/HeroCrypt.$RELEASE_VERSION.$extension"
+        done
+        git diff --exit-code
+
+    - name: Smoke-test packaged public APIs on each runtime
+      run: python scripts/release_smoke.py "$RUNNER_TEMP/first" --version "$RELEASE_VERSION" --commit "$GITHUB_SHA"
+
+    - name: Upload validated package artifacts
+      uses: actions/upload-artifact@v7
+      with:
+        name: validated-release-packages-${{ matrix.os }}
+        path: ${{ runner.temp }}/first/*
+        if-no-files-found: error
+        retention-days: 14
 
   dependency-review:
     name: Dependency Review

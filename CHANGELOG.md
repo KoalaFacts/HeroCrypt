@@ -2,8 +2,32 @@
 
 ## [Unreleased]
 
+## [1.0.5] - 2026-10-04
+
+This security patch intentionally rejects unsafe or nonstandard inputs accepted by
+earlier versions. Review the migration guidance before upgrading stored data or
+key rings. Supported profiles and remaining limits are in
+[production readiness](PRODUCTION_READINESS.md); no completed independent
+professional security audit is claimed.
+
 ### Security
 
+- Authenticate current recipient-ring encryption permission, primary/subkey
+  binding, expiration and revocation before selecting a key. Reject appended
+  unbound keys and prevent separately configured raw keys from bypassing a
+  matching ring's policy. Raw packet-only use remains explicitly caller-managed.
+- Reject short SEIPD v1 ciphertext before CFB indexing, normalize public session-key
+  and integrity failures, compute the full MDC before rejecting framing, and clear
+  rejected temporary plaintext. This does not qualify RSA PKCS#1 v1.5 decryption
+  against remotely observable timing oracles; see the production scope.
+- Restrict high-level message encryption to implemented AES-128/192/256 ciphers.
+  Previously selected Twofish/Camellia labels could describe an AES-CFB payload.
+  Such mislabeled historical output needs trusted recovery, not automatic fallback.
+- Derive recipient metadata from the actual PKESK packet. V6 key IDs use the first
+  eight fingerprint bytes; key version and session-packet version are distinct.
+- Add the RFC 9580 `SeipdV2` feature bit (0x08); retain reserved historical 0x02/0x04
+  public values with obsolete warnings. Conservative generator defaults remain
+  MDC-only; adding a bit does not implement OCB or recipient negotiation.
 - Correct OpenPGP encrypted envelopes to RFC 9580: AES-GCM key/IV derivation,
   authenticated chunk framing, v4/v6 SKESK wrapping and counts, v6 PKESK recipient
   fields, RSA v6 sessions and X25519 HKDF/AES-128 Key Wrap. Enforce session/container
@@ -61,6 +85,18 @@
   [migration notes](docs/migration-guide.md#openpgp-signature-hash-correction-after-v104).
 - Normalize canonical document line endings in both signing and verification while
   preserving authenticated trailing spaces and tabs.
+
+### Release qualification
+
+- Test Release builds and actual package consumers on supported runtime/OS profiles;
+  add independent Bouncy Castle v4 RSA/AES message and tamper checks.
+- Pin qualified SDK/tool versions, require locked audited dependencies and the exact
+  main commit's complete CI gate, and stop release-workflow source mutation.
+- Validate package provenance, framework contents and bundled license/security
+  documents; compare repeated-build payloads and independently rebuild downloaded
+  release packages before NuGet publication. Existing versions are never overwritten.
+- Replace stale blanket readiness/audit claims with profile-specific limits and
+  explicit migration and partial-publication recovery guidance.
 
 ## [1.0.4] - 2026-09-30
 

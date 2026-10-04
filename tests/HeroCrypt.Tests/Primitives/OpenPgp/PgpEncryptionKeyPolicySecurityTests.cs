@@ -1,4 +1,7 @@
+using System.Buffers.Binary;
+using System.Security.Cryptography;
 using HeroCrypt.Primitives.OpenPgp;
+using HeroCrypt.Primitives.Rsa;
 
 namespace HeroCrypt.Tests.Primitives.OpenPgp;
 
@@ -101,7 +104,9 @@ public class PgpEncryptionKeyPolicySecurityTests
     [InlineData(6, true)]
     public void Encrypt_RawKeyCannotBypassConfiguredRingPolicy(int version, bool rawFirst)
     {
-        var owner = Generate(version, encryptionSubkey: false);
+        // Ring selection succeeds for its valid encryption subkey; the separately
+        // configured signing-only primary must still be vetoed in either order.
+        var owner = Generate(version);
         Assert.Throws<InvalidOperationException>(() =>
         {
             using var encryptor = PgpMessageEncryptor.Create();
@@ -122,6 +127,35 @@ public class PgpEncryptionKeyPolicySecurityTests
         var encrypted = Encrypt(owner.PublicKeyRing);
         using var decryptor = PgpMessageDecryptor.Create().WithSecretKey(owner.MasterSecretKey);
         Assert.Equal(Document, decryptor.Decrypt(encrypted).Data.ToArray());
+    }
+
+    [Theory]
+    [InlineData(4)]
+    [InlineData(6)]
+    public void Encrypt_NewerBindingRemovesPermission_DoesNotRestoreOlderEncryptionUsage(int version)
+    {
+        var owner = Generate(version);
+        var subkey = owner.PublicKeyRing.Subkeys[0];
+        PgpSignatureSubpacket[] fields = [
+            PgpSignatureSubpacket.CreateSignatureCreationTime(Created.AddHours(1)),
+            PgpSignatureSubpacket.CreateIssuerFingerprint((byte)version, owner.MasterPublicKey.ComputeFingerprint()),
+            PgpSignatureSubpacket.CreateKeyFlags(PgpKeyCapabilities.Authentication)
+        ];
+        byte[] salt = version == 6 ? new byte[16] : [];
+        var digest = PgpSignatureHashHelper.ComputeKeySignatureHash(owner.MasterPublicKey, subkey,
+            (byte)version, (byte)PgpSignatureType.SubkeyBinding, 1, 8,
+            PgpSignatureSubpacket.WriteAll(fields), salt);
+        var (n, e) = owner.MasterPublicKey.ReadRsaKey();
+        var (d, p, q, _) = owner.MasterSecretKey.ReadRsaSecretKey();
+        using var rsa = RSA.Create();
+        rsa.ImportParameters(new RsaCore().ToRsaParameters(new RsaPrivateKey(n, d, p, q, e)));
+        var rawSignature = rsa.SignHash(digest, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+        var binding = new PgpSignaturePacket((byte)version, PgpSignatureType.SubkeyBinding, 1, 8,
+            fields, [], BinaryPrimitives.ReadUInt16BigEndian(digest), Mpi.Encode(rawSignature), salt);
+        using var verifier = PgpSignatureVerifier.Create();
+        Assert.True(verifier.VerifySubkeyBinding(binding, owner.MasterPublicKey, subkey).IsValid);
+
+        Assert.Throws<InvalidOperationException>(() => Encrypt(owner.PublicKeyRing.AddSignature(binding)));
     }
 
     private static PgpEncryptedMessage Encrypt(PgpPublicKeyRing ring)

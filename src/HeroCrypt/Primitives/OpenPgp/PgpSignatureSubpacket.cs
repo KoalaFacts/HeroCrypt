@@ -974,14 +974,21 @@ public enum PgpFeatures : byte
     ModificationDetection = 0x01,
 
     /// <summary>
-    /// AEAD Encrypted Data (SEIPD v2 or AEAD packets).
+    /// Historical draft AEAD feature bit; reserved in RFC 9580.
     /// </summary>
+    [Obsolete("This historical draft bit is reserved in RFC 9580. Use SeipdV2 for version 2 SEIPD support.")]
     AeadEncryptedData = 0x02,
 
     /// <summary>
-    /// Version 6 public keys (RFC 9580).
+    /// Historical public API value; reserved in RFC 9580 and does not indicate version 6 key support.
     /// </summary>
+    [Obsolete("This bit is reserved in RFC 9580 and does not advertise version 6 keys.")]
     Version6Keys = 0x04,
+
+    /// <summary>
+    /// Version 2 Symmetrically Encrypted and Integrity Protected Data packets (RFC 9580).
+    /// </summary>
+    SeipdV2 = 0x08,
 }
 
 /// <summary>

@@ -31,6 +31,7 @@ namespace HeroCrypt.Primitives.OpenPgp;
 public sealed class PgpMessageEncryptor : IDisposable
 {
     private readonly List<PgpPublicKeyPacket> recipients = [];
+    private readonly List<PgpPublicKeyRing> recipientRings = [];
     private readonly List<byte[]> passphrases = [];
     private SymmetricCipherAlgorithm symmetricAlgorithm = SymmetricCipherAlgorithm.Aes256;
     private AeadAlgorithm aeadAlgorithm = AeadAlgorithm.None;
@@ -83,32 +84,17 @@ public sealed class PgpMessageEncryptor : IDisposable
     /// <param name="keyRing">The recipient's public key ring.</param>
     /// <returns>This encryptor for chaining.</returns>
     /// <remarks>
-    /// The encryption subkey will be selected automatically if available,
-    /// otherwise the master key is used.
+    /// At encryption time, selects a currently authorized encryption subkey,
+    /// or a primary key with authenticated encryption permission. Binding,
+    /// expiration and revocation evidence is checked; external key trust and
+    /// freshness remain the caller's responsibility.
     /// </remarks>
     public PgpMessageEncryptor AddRecipient(PgpPublicKeyRing keyRing)
     {
         ThrowIfDisposed();
 
-        // Prefer encryption-capable subkey, fall back to master key
-        PgpPublicKeyPacket? encryptionKey = null;
-        foreach (var subkey in keyRing.Subkeys)
-        {
-            if (subkey.Algorithm == PgpPublicKeyAlgorithm.RsaEncryptOrSign ||
-#pragma warning disable CS0618 // Obsolete member
-                subkey.Algorithm == PgpPublicKeyAlgorithm.RsaEncryptOnly ||
-#pragma warning restore CS0618
-                subkey.Algorithm == PgpPublicKeyAlgorithm.X25519 ||
-                subkey.Algorithm == PgpPublicKeyAlgorithm.Ecdh)
-            {
-                encryptionKey = subkey;
-                break;
-            }
-        }
-
-        encryptionKey ??= keyRing.MasterKey;
-
-        recipients.Add(encryptionKey.Value);
+        // Keep a stable packet snapshot, but evaluate current policy at Encrypt.
+        recipientRings.Add(PgpPublicKeyRing.Read(keyRing.ToArray()));
         return this;
     }
 
@@ -117,6 +103,7 @@ public sealed class PgpMessageEncryptor : IDisposable
     /// </summary>
     /// <param name="publicKey">The recipient's public key.</param>
     /// <returns>This encryptor for chaining.</returns>
+    /// <remarks>Trust and usage policy are caller-managed unless the same key is also in a configured ring.</remarks>
     public PgpMessageEncryptor AddRecipient(PgpPublicKeyPacket publicKey)
     {
         ThrowIfDisposed();
@@ -306,9 +293,27 @@ public sealed class PgpMessageEncryptor : IDisposable
     {
         ThrowIfDisposed();
 
-        if (recipients.Count == 0 && passphrases.Count == 0)
+        if (recipients.Count == 0 && recipientRings.Count == 0 && passphrases.Count == 0)
         {
             throw new InvalidOperationException("At least one recipient or passphrase must be added before encryption.");
+        }
+
+        if (symmetricAlgorithm is not (SymmetricCipherAlgorithm.Aes128 or SymmetricCipherAlgorithm.Aes192 or SymmetricCipherAlgorithm.Aes256))
+            throw new NotSupportedException("OpenPGP message encryption currently supports only AES-128, AES-192 and AES-256.");
+        securityPolicy.ValidateOpenPgpSymmetric((byte)symmetricAlgorithm);
+
+        var atTime = DateTimeOffset.UtcNow;
+        var encryptionRecipients = new List<PgpPublicKeyPacket>(recipients);
+        foreach (var ring in recipientRings)
+            encryptionRecipients.Add(PgpEncryptionKeyPolicy.Select(ring, atTime));
+        foreach (var recipient in encryptionRecipients)
+        {
+            foreach (var ring in recipientRings)
+            {
+                if (PgpSigningKeyPolicy.Contains(ring, recipient) &&
+                    !PgpEncryptionKeyPolicy.TryAuthorize(ring, recipient, atTime, out var error))
+                    throw new InvalidOperationException("Configured recipient ring does not authorize encryption: " + error);
+            }
         }
 
         // 1. Create literal data packet and serialize with header
@@ -347,10 +352,12 @@ public sealed class PgpMessageEncryptor : IDisposable
         {
             // 4. Create PKESK packets for each recipient
             var pkeskPackets = new List<byte[]>();
-            foreach (var recipient in recipients)
+            var recipientInfos = new List<PgpRecipientInfo>();
+            foreach (var recipient in encryptionRecipients)
             {
                 var pkeskData = CreatePkeskPacket(recipient, sessionKey);
                 pkeskPackets.Add(pkeskData);
+                recipientInfos.Add(PgpRecipientInfo.FromPacket(PgpPublicKeyEncryptedSessionKeyPacket.Read(pkeskData)));
             }
 
             // 4b. Create SKESK packets for each passphrase
@@ -396,16 +403,9 @@ public sealed class PgpMessageEncryptor : IDisposable
 
             writer.WritePacket(PgpPacketTag.SymmetricallyEncryptedIntegrityProtectedData, seipdData, PgpPacketFormat.New);
 
-            // Create recipient info array from public keys
-            var recipientInfos = new PgpRecipientInfo[recipients.Count];
-            for (int i = 0; i < recipients.Count; i++)
-            {
-                recipientInfos[i] = PgpRecipientInfo.FromPublicKey(recipients[i]);
-            }
-
             return new PgpEncryptedMessage(
                 output.ToArray(),
-                recipientInfos,
+                recipientInfos.ToArray(),
                 seipdVersion,
                 symmetricAlgorithm,
                 aeadAlgorithm,
@@ -710,6 +710,7 @@ public sealed class PgpMessageEncryptor : IDisposable
         if (!disposed)
         {
             recipients.Clear();
+            recipientRings.Clear();
             foreach (var passphrase in passphrases)
             {
                 SecureMemoryOperations.SecureClear(passphrase);

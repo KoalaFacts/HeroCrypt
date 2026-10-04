@@ -72,7 +72,7 @@ public class PgpSignaturePacketTests
         [Fact]
         public void CreateFeatures_CreatesCorrectSubpacket()
         {
-            var features = PgpFeatures.ModificationDetection | PgpFeatures.AeadEncryptedData;
+            var features = PgpFeatures.ModificationDetection | PgpFeatures.SeipdV2;
 
             var subpacket = PgpSignatureSubpacket.CreateFeatures(features);
 
@@ -1244,13 +1244,17 @@ public class PgpSignaturePacketTests
         [Fact]
         public void FeatureFlags_AeadEncryptedData_HasCorrectValue()
         {
+#pragma warning disable CS0618 // Preserve published legacy enum values, now explicitly reserved.
             Assert.Equal(0x02, (byte)PgpFeatures.AeadEncryptedData);
+#pragma warning restore CS0618
         }
 
         [Fact]
         public void FeatureFlags_Version6Keys_HasCorrectValue()
         {
+#pragma warning disable CS0618 // Preserve published legacy enum values, now explicitly reserved.
             Assert.Equal(0x04, (byte)PgpFeatures.Version6Keys);
+#pragma warning restore CS0618
         }
     }
 }

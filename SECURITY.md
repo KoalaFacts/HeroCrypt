@@ -9,7 +9,7 @@ HeroCrypt is a cryptographic library where security is paramount. We take all se
 You can report security vulnerabilities through these channels:
 
 1. **GitHub Security Advisories** (Recommended): Use the "Report a vulnerability" button in the Security tab
-2. **GitHub Issues**: Create an issue with the `security` label
+2. **Public issues**: Use only for already disclosed issues or non-sensitive security questions. Do not post undisclosed vulnerability details or operational secrets publicly.
 
 Please include the following information in your report:
 
@@ -76,6 +76,29 @@ See [RFC 7748](https://www.rfc-editor.org/rfc/rfc7748),
 [.NET native cryptography support](https://learn.microsoft.com/en-us/dotnet/standard/security/cross-platform-cryptography).
 
 When using HeroCrypt, please follow these security best practices:
+
+### OpenPGP encryption and decryption scope
+
+`AddRecipient(PgpPublicKeyRing)` retains a packet snapshot and selects a supported
+recipient at encryption time using current authenticated encryption flags, exact
+bindings, expiration and revocation checks. The primary key requires authenticated
+current policy; a subkey requires its own primary-key binding. Adding the same key
+through the raw packet overload cannot bypass a configured ring's policy. The raw
+packet-only overload leaves identity and usage authorization to the caller.
+Applications must still authenticate primary-key identity, preserve known revocations
+and enforce freshness of externally supplied key metadata.
+
+High-level message encryption supports AES-128/192/256 and GCM for SEIPD v2. Other
+high-level data ciphers fail before producing mislabeled ciphertext. Decryption
+returns authenticated literal bytes, not proof of sender identity; it is not a
+combined signed-and-encrypted verifier. See [production scope](PRODUCTION_READINESS.md).
+
+Session-key and integrity failures use a generic public error. SEIPD v1 verifies
+its full MDC before reporting framing failure, and rejected temporary plaintext is
+cleared. This does not establish constant-time RSA PKCS#1 v1.5 implicit rejection
+across native providers. Do not expose that path as an unauthenticated remotely
+observable decryption service. Review [RFC 9580 section 13.5](https://www.rfc-editor.org/rfc/rfc9580.html#section-13.5)
+and the deployment-specific threat model.
 
 ### OpenPGP signature verification scope
 
@@ -220,24 +243,22 @@ See [migration guidance](docs/migration-guide.md#openpgp-signature-hash-correcti
 
 ## 🚨 Known Limitations & Warnings
 
-### Reference Implementations
-The following components are **simplified reference implementations** for educational and API design purposes only:
+### Platform-dependent and unqualified features
 
-- **Post-Quantum Cryptography** (Phase 3E)
-  - CRYSTALS-Kyber, CRYSTALS-Dilithium, SPHINCS+
-  - ⚠️ **DO NOT use in production** without complete implementation
+- **Post-quantum cryptography**: ML-KEM, ML-DSA and SLH-DSA use .NET 10 native
+  cryptography APIs. Availability depends on the runtime and provider; probe support
+  and test your deployment. A standardized primitive does not certify a composition.
+- **Educational protocols**: Noise, Signal, OTR, OPAQUE, commitment and blind-signature
+  reference implementations are not qualified production protocols.
+- **Unavailable protocols**: Ring signatures and zk-SNARKs are not implemented.
+  Their insecure prototypes were removed before the first release.
+- **Disabled operations**: Threshold signatures throw `NotSupportedException` since
+  1.0.1; MPC sum, multiplication, private set intersection and Beaver generation
+  are disabled since 1.0.2. See the [migration guide](docs/migration-guide.md).
 
-- **Zero-Knowledge & Advanced Protocols** (Phase 3F)
-  - Ring signatures and zk-SNARKs are **not implemented**. Their insecure prototypes were removed before the first release; do not restore them as working cryptography.
-  - Threshold signature operations are **disabled** in 1.0.1 and throw `NotSupportedException`; see [GHSA-7498-jx43-v926](https://github.com/KoalaFacts/HeroCrypt/security/advisories/GHSA-7498-jx43-v926).
-  - MPC sum, multiplication, private set intersection, and Beaver triple generation are **disabled** in 1.0.2. The former local simulation did not provide distributed privacy or authenticated computation; see the [migration guide](docs/migration-guide.md#mpc-security-change-in-v102).
-
-Production use of these features requires:
-- Complete mathematical implementations
-- Security audits
-- Constant-time operations
-- Formal verification
-- NIST test vector validation
+Future production protocol work requires a complete threat model, sound construction,
+negative and interoperability tests, side-channel review and independent security
+review. Changing a policy option cannot enable disabled functionality.
 
 ### Algorithm-Specific Warnings
 
@@ -245,7 +266,7 @@ Production use of these features requires:
 - **AES-OCB**: Patent restrictions may apply for commercial use
 - **Shamir's Secret Sharing**: GF(256) confidentiality with a trusted dealer; enforce the
   original threshold and authenticate shares and sharing-session metadata separately.
-- **BIP39 Mnemonics**: Using simplified wordlist (production needs full BIP39 wordlist)
+- **BIP39 Mnemonics**: The official English wordlist and checksum validation are present. Review the v1.0.3 migration guidance before using historical placeholder phrases.
 
 ## 🔍 Security Audits
 
@@ -387,13 +408,13 @@ Any future implementation needs real cryptographic verification and tests that
 reject forged signatures, invalid proofs, and altered public statements.
 This review does not establish the security of other protocols or primitives.
 
-### Completed Audits
+### Historical internal review
 
 **Internal Security Audit - October 2025**
 - **Date**: 2025-10-26
 - **Type**: Comprehensive internal code audit
 - **Scope**: All source files (~11,000 lines of code)
-- **Grade**: B+ (Production-Ready Core, Educational Advanced Features)
+- **Scope limitation**: Historical internal review only; not an independent audit or current release certification
 
 **Findings**:
 - **CRITICAL-001**: Non-cryptographic Random in SecureBuffer (Line 271) - ✅ **FIXED**
@@ -407,12 +428,14 @@ This review does not establish the security of other protocols or primitives.
 - Created PRODUCTION_READINESS.md to document feature status
 - Updated security documentation
 
-**Conclusion**: Core cryptographic features (Argon2, Blake2b, ChaCha20-Poly1305, AES-GCM, RSA, ECC) are production-ready after fixes. Advanced features (PQC, ZK, Protocols, Hardware) are educational implementations only.
+**Current interpretation**: This historical review does not establish the security of the current codebase or every composition. Later releases corrected additional security defects. Use the current [production scope](PRODUCTION_READINESS.md), version-specific migration notes and exact-release test evidence.
 
-### Planned Audits
-- Professional third-party security audit planned for Q2 2026
-- Specific focus on core cryptographic implementations
-- Formal verification exploration for critical components
+### Independent audit status
+
+No completed independent professional audit report is provided with this release.
+The historical Q2 2026 audit target is not evidence of a completed audit. Targeted
+regression reviews, standards vectors, dependency scans and CI do not replace an
+independent protocol and application security review.
 
 ## 📋 Security Checklist for Contributors
 

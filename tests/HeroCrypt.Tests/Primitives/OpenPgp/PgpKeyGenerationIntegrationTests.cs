@@ -1279,7 +1279,7 @@ public class PgpKeyGenerationIntegrationTests
         }
 
         [Fact]
-        public void EncryptedMessage_Recipients_Ed25519X25519_V6Format()
+        public void EncryptedMessage_Recipients_V6KeyWithDefaultCfb_UsesV3Pkesk()
         {
             // Arrange
             var keyResult = PgpKeyGenerator.Create()
@@ -1298,8 +1298,10 @@ public class PgpKeyGenerationIntegrationTests
 
             var recipient = encrypted.Recipients[0];
             Assert.Equal(PgpPublicKeyAlgorithm.X25519, recipient.Algorithm);
-            // V6 PKESK exposes full fingerprint
-            Assert.True(recipient.Version == 6 || recipient.Fingerprint.Length > 0 || recipient.KeyId.Length == 8);
+            Assert.Equal(3, recipient.Version);
+            Assert.True(recipient.Fingerprint.IsEmpty);
+            Assert.Equal(keyResult.PublicKeyRing.Subkeys[0].GetKeyId(), recipient.KeyId.ToArray());
+            Assert.True(recipient.MatchesKey(keyResult.PublicKeyRing.Subkeys[0]));
         }
 
         [Fact]

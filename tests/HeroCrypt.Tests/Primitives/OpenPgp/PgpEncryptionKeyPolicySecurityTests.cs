@@ -94,6 +94,36 @@ public class PgpEncryptionKeyPolicySecurityTests
         Assert.Equal(Document, decryptor.Decrypt(encryptor.Encrypt(Document)).Data.ToArray());
     }
 
+    [Theory]
+    [InlineData(4, false)]
+    [InlineData(4, true)]
+    [InlineData(6, false)]
+    [InlineData(6, true)]
+    public void Encrypt_RawKeyCannotBypassConfiguredRingPolicy(int version, bool rawFirst)
+    {
+        var owner = Generate(version, encryptionSubkey: false);
+        Assert.Throws<InvalidOperationException>(() =>
+        {
+            using var encryptor = PgpMessageEncryptor.Create();
+            if (rawFirst) encryptor.AddRecipient(owner.MasterPublicKey);
+            encryptor.AddRecipient(owner.PublicKeyRing);
+            if (!rawFirst) encryptor.AddRecipient(owner.MasterPublicKey);
+            encryptor.Encrypt(Document);
+        });
+    }
+
+    [Theory]
+    [InlineData(4)]
+    [InlineData(6)]
+    public void Encrypt_CurrentAuthenticatedPrimaryEncryptionPermission_RoundTrips(int version)
+    {
+        var owner = Generator(version).WithKeyFlags(PgpKeyCapabilities.Certify |
+            PgpKeyCapabilities.EncryptCommunications).GenerateRsa();
+        var encrypted = Encrypt(owner.PublicKeyRing);
+        using var decryptor = PgpMessageDecryptor.Create().WithSecretKey(owner.MasterSecretKey);
+        Assert.Equal(Document, decryptor.Decrypt(encrypted).Data.ToArray());
+    }
+
     private static PgpEncryptedMessage Encrypt(PgpPublicKeyRing ring)
     {
         using var encryptor = PgpMessageEncryptor.Create().AddRecipient(ring);

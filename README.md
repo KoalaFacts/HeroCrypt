@@ -6,7 +6,9 @@
 [![.NET](https://img.shields.io/badge/.NET%20Standard-2.0-purple)](https://dotnet.microsoft.com/download)
 [![.NET](https://img.shields.io/badge/.NET-8.0%20|%209.0%20|%2010.0-purple)](https://dotnet.microsoft.com/download)
 
-A fully RFC-compliant cryptographic library for .NET featuring high-performance, secure implementations of modern cryptographic algorithms with multi-framework support.
+A cryptographic library for .NET with standards-based primitives, OpenPGP support and multi-framework APIs. Supported production profiles and limitations are documented below.
+
+> **Production scope:** Qualify the exact API, runtime and protocol profile used by your application. The release includes tested primitives, platform-dependent features and educational protocols; it is not a blanket cryptographic security certification. See [production readiness](PRODUCTION_READINESS.md), [security limits](SECURITY.md) and [migration guidance](docs/migration-guide.md). No completed independent professional security audit is claimed.
 
 ## Table of Contents
 
@@ -76,15 +78,15 @@ A fully RFC-compliant cryptographic library for .NET featuring high-performance,
 
 - **🔮 Post-Quantum Cryptography**
   - **ML-KEM (FIPS 203)** - Key encapsulation mechanism (formerly CRYSTALS-Kyber)
-    - ✅ Production-ready on .NET 10+ (native BCL implementation)
+    - Platform-dependent .NET 10+ BCL implementation; validate availability and integration
     - ML-KEM-512, ML-KEM-768, ML-KEM-1024 parameter sets
     - Protection against "harvest now, decrypt later" attacks
   - **ML-DSA (FIPS 204)** - Digital signatures (formerly CRYSTALS-Dilithium)
-    - ✅ Production-ready on .NET 10+ (native BCL implementation)
+    - Platform-dependent .NET 10+ BCL implementation; validate availability and integration
     - ML-DSA-44, ML-DSA-65, ML-DSA-87 parameter sets
     - Lattice-based quantum-resistant signatures
   - **SLH-DSA (FIPS 205)** - Stateless hash-based signatures (formerly SPHINCS+)
-    - ✅ Production-ready on .NET 10+ (native BCL implementation)
+    - Platform-dependent .NET 10+ BCL implementation; validate availability and integration
     - "Small" and "Fast" variants at 128/192/256-bit security levels
     - Conservative security based on hash functions only
   - ⚠️ Requires .NET 10+ with Windows CNG PQC support or OpenSSL 3.5+
@@ -408,17 +410,17 @@ HeroCrypt is built with a small, layered architecture:
 
 | Algorithm | Standard | Status |
 |-----------|----------|--------|
-| Argon2d   | RFC 9106 | ✅ Fully Compliant |
-| Argon2i   | RFC 9106 | ✅ Fully Compliant |
-| Argon2id  | RFC 9106 | ✅ Fully Compliant |
-| Blake2b   | RFC 7693 | ✅ Fully Compliant |
-| ChaCha20-Poly1305 | RFC 8439 | ✅ Fully Compliant |
-| Curve25519 (X25519) | RFC 7748 | ✅ Fully Compliant |
-| Rabbit Stream Cipher | RFC 4503 | ✅ Fully Compliant |
-| HKDF | RFC 5869 | ✅ Fully Compliant |
-| ML-KEM (FIPS 203) | FIPS 203 | ✅ Production-ready (.NET 10+) |
-| ML-DSA (FIPS 204) | FIPS 204 | ✅ Production-ready (.NET 10+) |
-| SLH-DSA (FIPS 205) | FIPS 205 | ✅ Production-ready (.NET 10+) |
+| Argon2d   | RFC 9106 | Test-vector coverage |
+| Argon2i   | RFC 9106 | Test-vector coverage |
+| Argon2id  | RFC 9106 | Test-vector coverage |
+| Blake2b   | RFC 7693 | Test-vector coverage |
+| ChaCha20-Poly1305 | RFC 8439 | Test-vector coverage |
+| Curve25519 (X25519) | RFC 7748 | Test-vector coverage |
+| Rabbit Stream Cipher | RFC 4503 | Test-vector coverage |
+| HKDF | RFC 5869 | Test-vector coverage |
+| ML-KEM (FIPS 203) | FIPS 203 | Platform-dependent BCL (.NET 10+) |
+| ML-DSA (FIPS 204) | FIPS 204 | Platform-dependent BCL (.NET 10+) |
+| SLH-DSA (FIPS 205) | FIPS 205 | Platform-dependent BCL (.NET 10+) |
 | RSA       | RFC 8017 | ✅ Basic Support |
 
 ## 🔒 Security
@@ -463,7 +465,7 @@ Contributions are welcome! Please feel free to submit issues or pull requests.
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License - see [LICENSE](LICENSE) for details.
 
 ## 🙏 Acknowledgments
 

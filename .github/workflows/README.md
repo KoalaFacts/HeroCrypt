@@ -1,492 +1,119 @@
-# HeroCrypt CI/CD Workflows
+# CI and Release Workflows
 
-This directory contains the GitHub Actions workflows for building, testing, releasing, and publishing HeroCrypt.
+HeroCrypt uses the existing GitHub Actions release and NuGet trusted-publishing
+pipeline. The workflow files are authoritative. Releases must use a new immutable
+version and source commit; never overwrite or move an existing release tag.
 
-## 📋 Workflow Overview
+## Build and Test
 
-**Simple and Clean:** Only 3 active workflows - no archived clutter, no legacy code.
+`ci.yml` builds and tests Release on Windows, Linux and macOS for .NET 8, 9 and 10.
+Code quality builds all targets with warnings as errors and checks formatting.
+The .NET Standard 2.0 library is compiled and packed; it is not an executable test
+target. TRX results and coverage artifacts record platform skips explicitly.
 
-The CI/CD pipeline consists of three main workflows:
+The package-validation matrix on Ubuntu and Windows builds candidate packages from the exact checked-out
+SHA, validates metadata and bundled documents, compares a repeated build's payload,
+and runs an isolated consumer against that package. These jobs do not publish.
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    1. Build and Test                         │
-│  Trigger: Every commit/push                                  │
-│  Output: Versioned build artifacts                           │
-└─────────────────────────────────────────────────────────────┘
-                            │
-                            ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    2. Create Release                         │
-│  Trigger: Manual (select build artifacts)                    │
-│  Output: GitHub Release + Git Tag                            │
-└─────────────────────────────────────────────────────────────┘
-                            │
-                            ▼
-┌─────────────────────────────────────────────────────────────┐
-│                   3. Publish to NuGet                        │
-│  Trigger: Automatic (on release published)                   │
-│  Output: Package on NuGet.org                                │
-└─────────────────────────────────────────────────────────────┘
-```
+SDKs are pinned in `global.json` and `Directory.Build.props`; restores use committed
+lock files. Update SDKs and lock files together through a reviewed change. A failed
+restore or audit is a failed gate, not a reason to disable verification.
 
----
+## Security and documentation
 
-## 🔨 1. Build and Test Workflow
+`scan-security.yml` runs dependency audits and Microsoft Security DevOps, alongside
+GitHub-managed code scanning. `documentation-check.yml` checks public API XML
+documentation. These automated checks do not constitute an independent security
+audit. Review the exact commit's findings before release.
 
-**File:** `build-and-test.yml`
+## Create Release
 
-### Purpose
-Builds and tests the codebase on every commit across multiple .NET frameworks and operating systems.
-
-### Triggers
-- Push to any branch
-- Pull requests to any branch
-- Manual workflow dispatch
-
-### Build Number Format
-```
-{branch-name}-{date}.{run-number}.{commit-hash}
-
-Examples:
-  main-20241025.123.abc1234
-  develop-20241025.45.def5678
-  feature-auth-20241025.12.ghi9012
-```
-
-### Build Matrix
-| Framework | Ubuntu | Windows | macOS | Tests |
-|-----------|--------|---------|-------|-------|
-| net10.0 | ✅ | ✅ | ✅ | Full |
-| net9.0 | ✅ | ✅ | ✅ | Full |
-| net8.0 | ✅ | ✅ | ✅ | Full |
-| netstandard2.0 | ✅ | ✅ | ✅ | Compile only |
-
-**Total:** 12 build configurations
-
-### Artifacts Produced
-Each successful build creates an artifact package containing:
-- `*.nupkg` - NuGet package (multi-framework)
-- `*.snupkg` - Symbol package for debugging
-- `build-manifest.json` - Build metadata
-
-**Artifact Name:** `herocrypt-{build-number}`
-
-**Retention:** 90 days
-
-### Validation Steps
-Every build includes:
-- ✅ Multi-framework compilation
-- ✅ Unit tests (net8.0, net9.0)
-- ✅ **RFC Compliance Tests** (Argon2, Blake2b, ChaCha20-Poly1305, etc.)
-- ✅ **Security Validation Tests** (constant-time ops, secure memory, etc.)
-- ✅ Code coverage collection
-
-### Outputs
-- Test results (`.trx` files)
-- Code coverage reports (Cobertura format)
-- Packaged artifacts ready for release (only if all tests pass)
-
----
-
-## 🚀 2. Create Release Workflow
-
-**File:** `create-release.yml`
-
-### Purpose
-Creates a GitHub release from previously built artifacts.
-
-### Trigger
-Manual workflow dispatch only
-
-### Required Inputs
-| Input | Description | Example |
-|-------|-------------|---------|
-| `version` | Semantic version number | `1.0.0` or `1.0.0-beta.1` |
-| `build-number` | Build artifacts to use | `main-20241025.123.abc1234` |
-| `prerelease` | Mark as pre-release | `true` / `false` |
-| `release-notes` | Additional notes (optional) | Feature description |
-
-### Process
-1. ✅ Validates version format
-2. ✅ Checks tag doesn't already exist
-3. ✅ Downloads specified build artifacts
-4. ✅ Verifies artifact integrity
-5. ✅ Generates release notes (from input + build manifest)
-6. ✅ Creates GitHub Release with git tag (`v{version}`)
-7. ✅ Attaches artifacts (.nupkg, .snupkg, build-manifest.json)
-
-**Simple and Clean:** No code changes, no test runs, no version updates. Just takes your pre-validated build artifacts and creates a release.
-
-### Environment
-- **Name:** `production`
-- **Protection:** Recommended to require manual approval
-
-### Example Usage
-
-#### Via GitHub UI:
-1. Go to **Actions** → **Create Release**
-2. Click **Run workflow**
-3. Fill in:
-   - Version: `1.0.0`
-   - Build number: `main-20241025.123.abc1234`
-   - Pre-release: `false`
-   - Release notes: Optional description
-4. Click **Run workflow**
-
-#### Via GitHub CLI:
-```bash
-gh workflow run create-release.yml \
-  -f version=1.0.0 \
-  -f build-number=main-20241025.123.abc1234 \
-  -f prerelease=false \
-  -f release-notes="Initial stable release"
-```
-
-### What Gets Created
-- ✅ Git tag: `v{version}`
-- ✅ GitHub Release with:
-  - Auto-generated release notes
-  - NuGet package (.nupkg)
-  - Symbol package (.snupkg)
-  - Build manifest
-  - SBOM
-
----
-
-## 📦 3. Publish to NuGet Workflow
-
-**File:** `publish-nuget.yml`
-
-### Purpose
-Automatically publishes a GitHub release to NuGet.org using **Trusted Publishing**.
-
-### Triggers
-- **Automatic:** When a GitHub release is published
-- **Manual:** Workflow dispatch with release tag input
-
-### Authentication Method
-**NuGet Trusted Publishing (OIDC)**
-- ✅ No API keys required
-- ✅ Secure GitHub-NuGet authentication
-- ✅ Automatic token management via OIDC
-
-### Required Permissions
-```yaml
-permissions:
-  id-token: write  # Required for OIDC
-  contents: read
-  actions: read
-```
-
-### Process
-1. ✅ Determines release tag and version
-2. ✅ Checks out code at release tag
-3. ✅ Downloads release assets (.nupkg, .snupkg)
-4. ✅ Verifies package integrity
-5. ✅ Publishes to NuGet.org via OIDC
-6. ✅ Verifies package availability
-7. ✅ Publishes workflow summary
-
-### Environment
-- **Name:** `production` (same as create-release workflow)
-- **URL:** `https://www.nuget.org/packages/HeroCrypt`
-
-### NuGet Trusted Publishing Setup
-
-Before using this workflow, you **must** configure NuGet Trusted Publishing:
-
-#### 1. Configure on NuGet.org
-1. Log in to [NuGet.org](https://www.nuget.org)
-2. Go to your account settings
-3. Navigate to **Trusted Publishers**
-4. Click **Add a new Trusted Publisher**
-5. Select **GitHub Actions**
-6. Configure:
-   - **Repository owner:** `KoalaFacts` (or your username)
-   - **Repository name:** `HeroCrypt`
-   - **Workflow file:** `publish-nuget.yml`
-   - **Environment name:** `production`
-7. Save the configuration
-
-#### 2. Verify GitHub Environment
-The `production` environment is shared between the `create-release.yml` and `publish-nuget.yml` workflows.
-
-1. Go to your repository **Settings** → **Environments**
-2. Verify environment: `production` exists (created during release setup)
-3. (Optional) Add protection rules:
-   - Required reviewers
-   - Wait timer
-   - Deployment branches
-
-### Manual Publishing
-If automatic publishing fails, you can manually trigger:
+`create-release.yml` accepts one `version` input and runs only from `main`. Prepare
+and merge the matching dated CHANGELOG section and migration notes first. Confirm
+all required checks are green on the exact current main SHA.
 
 ```bash
-gh workflow run publish-nuget.yml \
-  -f release-tag=v1.0.0
+gh workflow run create-release.yml --ref main -f version=1.0.5
 ```
 
----
+The GitHub UI equivalent is Actions → Create Release → Run workflow, branch `main`,
+version `1.0.5`. Verify the current SHA immediately before dispatch. Do not run an
+old workflow attempt against a newer source tree.
 
-## 🔒 Security & Quality
+The workflow:
 
-### GitHub Security Features
-GitHub provides built-in security features that you can enable:
+1. Checks out the triggering immutable SHA and refuses an existing version tag
+   or release
+2. Requires committed release notes, a clean source tree and the latest successful
+   exact-SHA main-push CI attempt with all 15 jobs and their critical steps
+3. Restores locked dependencies with fail-closed vulnerability auditing
+4. Builds the exact release version, runs the Release tests and packs that build
+5. Validates package ID/version/source SHA, all four target-framework DLL/XML
+   payloads, symbol PDBs, license, README, notices and security/readiness documents
+6. Rebuilds and compares payload bytes, excluding ZIP container metadata
+7. Runs packaged public API smoke tests on .NET 8/9/10 in a fresh NuGet cache
+8. Creates SPDX 2.2 and 3.0 SBOMs for all four framework output directories using a
+   shared multi-target project dependency inventory, plus toolchain information
+9. Records SHA-256 checksums, reserves the new tag atomically and creates the release
+10. Downloads the published assets again and verifies their checksums and source
 
-1. **CodeQL Analysis** (Recommended)
-   - Go to **Settings** → **Code security and analysis**
-   - Enable **CodeQL analysis** (default setup)
-   - Select **C#** as the language
-   - Automatic security scanning with always up-to-date rules
+No source files are changed or committed by the workflow. The test matrix before
+dispatch and the release-local checks serve different purposes; both are required.
 
-2. **Dependabot Alerts** (Recommended)
-   - Automatic vulnerability detection in dependencies
-   - Security advisories and patch suggestions
+## Publish to NuGet
 
-3. **Secret Scanning** (Recommended)
-   - Automatic detection of exposed secrets
-   - Prevents accidental credential commits
+`publish-nuget.yml` runs after a successful Create Release workflow on `main`.
+It identifies that run's version, requires a full immutable release target SHA,
+and compares it to the completed workflow's source SHA. It verifies the tag, exact-source CI gate, downloaded package checksums, metadata
+and source documents. It then independently rebuilds and packs the verified source
+with the pinned SDKs and locked dependencies, comparing both package payloads
+before requesting the existing NuGet trusted-publisher OIDC credential. It publishes the validated package
+and paired symbols without silently accepting a preexisting version.
 
-4. **Dependency Graph**
-   - Visualize project dependencies
-   - Track dependency updates
+No signed build-attestation claim is made by this pipeline; package/source evidence
+comes from exact-SHA verification and independent payload rebuilding.
 
-**Note:** All these features are configured in **Settings** → **Code security and analysis**
+The existing `production` environment may require approval configured by repository
+maintainers. Do not remove environment protections or create replacement credentials
+to bypass a blocked run.
 
-### RFC Compliance & Security Tests
-Built into the **Build and Test** workflow:
-- ✅ RFC 9106 (Argon2) compliance tests
-- ✅ RFC 7693 (Blake2b) compliance tests
-- ✅ RFC 8439 (ChaCha20-Poly1305) compliance tests
-- ✅ RFC 7748 (Curve25519) compliance tests
-- ✅ Security validation (constant-time ops, secure memory)
-
-These tests run on **every build** before artifacts are created.
-
-### Dependabot (GitHub Feature)
-**File:** `.github/dependabot.yml`
-
-Automatically monitors and updates dependencies:
-- 📦 **NuGet packages** - Weekly on Mondays
-- ⚙️ **GitHub Actions** - Weekly on Mondays
-- 🔄 **Groups** minor and patch updates together
-- 👤 Requests review from KoalaFacts
-- ⚠️ Major updates require manual review
-
-**Setup Required:**
-1. Go to **Settings** → **General** → **Pull Requests**
-2. Enable "**Allow auto-merge**"
-3. Dependabot will create grouped PRs for minor/patch updates
-4. You can enable auto-merge on those PRs directly
-
-This replaces the need for a custom auto-merge workflow!
-
----
-
-## 📊 Complete Release Process
-
-### Step-by-Step Guide
-
-#### Step 1: Development & Testing
-1. Create feature branch
-2. Commit changes
-3. Push to GitHub
-4. **Build and Test workflow** runs automatically
-5. Review test results and code coverage
-
-#### Step 2: Prepare for Release
-1. Merge feature branch to `main`
-2. **Build and Test workflow** runs on main
-3. Note the build number (e.g., `main-20241025.123.abc1234`)
-4. Download and manually test artifacts (optional)
-
-#### Step 3: Create Release
-1. Go to **Actions** → **Create Release**
-2. Run workflow with:
-   - Version: `1.0.0`
-   - Build number: `main-20241025.123.abc1234`
-   - Pre-release: `false`
-3. Wait for completion
-4. Verify GitHub release is created
-
-#### Step 4: Automatic Publishing
-1. **Publish to NuGet workflow** triggers automatically
-2. Package is published to NuGet.org via Trusted Publishing
-3. Verify package at: `https://www.nuget.org/packages/HeroCrypt/1.0.0`
-
-#### Step 5: Verification
-```bash
-# Test installation
-dotnet new console -n TestHeroCrypt
-cd TestHeroCrypt
-dotnet add package HeroCrypt --version 1.0.0
-dotnet build
-```
-
----
-
-## 🎯 Quick Reference
-
-### Common Tasks
-
-#### Find a Build Artifact
-1. Go to **Actions** tab
-2. Click on a workflow run
-3. Scroll to **Artifacts** section
-4. Download `herocrypt-{build-number}`
-
-#### Create a Pre-release
-```bash
-gh workflow run create-release.yml \
-  -f version=1.0.0-rc.1 \
-  -f build-number=main-20241025.123.abc1234 \
-  -f prerelease=true
-```
-
-#### Publish an Existing Release
-```bash
-gh workflow run publish-nuget.yml \
-  -f release-tag=v1.0.0
-```
-
-#### Check Build Status
-```bash
-gh run list --workflow=build-and-test.yml --limit 5
-```
-
-#### View Latest Artifacts
-```bash
-gh run list --workflow=build-and-test.yml --limit 1
-gh run view {run-id} --log
-```
-
----
-
-## 🔧 Configuration Files
-
-### Related Configuration
-- `Directory.Build.props` - Version management and build properties
-- `coverlet.runsettings` - Code coverage configuration
-- `.github/dependabot.yml` - Dependency update configuration
-
-### Environment Variables
-| Variable | Set By | Used For |
-|----------|--------|----------|
-| `CI` | All workflows | Detect CI environment |
-| `BUILD_NUMBER` | Build workflow | File versioning |
-| `GITHUB_REF` | GitHub | Branch/tag detection |
-| `GITHUB_RUN_NUMBER` | GitHub | Sequential build numbering |
-
----
-
-## 📝 Best Practices
-
-### Version Numbering
-- **Stable releases:** `1.0.0`, `1.2.3`, `2.0.0`
-- **Pre-releases:** `1.0.0-alpha.1`, `1.0.0-beta.2`, `1.0.0-rc.1`
-- **Development:** Automatically handled by `Directory.Build.props`
-
-### Release Checklist
-- [ ] All tests passing on main branch (check build workflow)
-- [ ] Code review completed
-- [ ] Documentation updated
-- [ ] CHANGELOG.md updated (if exists)
-- [ ] Build artifacts available and verified
-- [ ] NuGet Trusted Publishing configured
-- [ ] Release notes prepared
-
-### Rollback Process
-If you need to rollback a release:
-
-1. **Unlist package on NuGet.org** (don't delete)
-   ```bash
-   # Via nuget.org web UI
-   # Package Settings → Unlist
-   ```
-
-2. **Create new patch release**
-   ```bash
-   # Revert changes in code
-   git revert <commit-hash>
-   git push
-
-   # Create new release with reverted code
-   gh workflow run create-release.yml \
-     -f version=1.0.1 \
-     -f build-number={new-build-number}
-   ```
-
----
-
-## 🆘 Troubleshooting
-
-### Build Failures
-- Check test results in workflow logs
-- Review code coverage reports
-- Verify all frameworks compile
-
-### Release Creation Fails
-- Verify build artifact exists and is correct
-- Check version format (must be semver)
-- Ensure tag doesn't already exist
-- Check artifact name matches build number
-
-### NuGet Publishing Fails
-**Error: "Authentication failed"**
-- Verify NuGet Trusted Publishing is configured
-- Check environment name matches: `production`
-- Verify workflow file name is correct: `publish-nuget.yml`
-
-**Error: "Package version already exists"**
-- NuGet doesn't allow overwriting versions
-- Create a new patch version
-
-**Error: "Package validation failed"**
-- Check package metadata in .csproj
-- Verify .nuspec is valid
-- Check framework compatibility
-
-### Manual NuGet Publishing (Fallback)
-If Trusted Publishing fails, you can publish manually:
+A manual dispatch is available only for a verified release not yet submitted:
 
 ```bash
-# Generate API key on nuget.org
-# Then use:
-dotnet nuget push *.nupkg \
-  --api-key YOUR_API_KEY \
-  --source https://api.nuget.org/v3/index.json
+gh workflow run publish-nuget.yml --ref main -f version=1.0.5
 ```
 
----
+Afterward, verify the NuGet package version and repository SHA, and compare package
+payloads to the GitHub release. NuGet may add its repository signature; that changes
+the ZIP hash without changing the library payload. Do not report publication until
+the expected package is available and verified.
 
-## 📚 Additional Resources
+## Failure and recovery
 
-- [GitHub Actions Documentation](https://docs.github.com/en/actions)
-- [NuGet Trusted Publishing](https://docs.microsoft.com/en-us/nuget/nuget-org/publish-a-package#trusted-publishers)
-- [Semantic Versioning](https://semver.org/)
-- [HeroCrypt Documentation](../../README.md)
+- The latest CI attempt must contain every required job. A partial rerun does not
+  establish that complete evidence; use **Re-run all jobs** and wait for success
+- A test, audit, reproducibility or package-validation failure blocks release.
+  Diagnose it and prepare a reviewed correction; do not weaken the gate
+- An existing tag or release is refused. If a run reserved a tag but failed before
+  completing the GitHub release, stop for verified maintainer recovery. Do not
+  automatically delete or repoint the tag, replace assets or overwrite a release
+- If NuGet accepted the package before a later step failed, inspect the published
+  bytes before retrying. A symbols-only failure may require an explicitly scoped
+  recovery; resubmitting the main package is not a successful new publication
+- Authentication or environment-approval failures require the existing authorized
+  maintainer flow. Do not generate a new API key as an automatic fallback
+- A corrected published package needs a new version. Rolling back to a vulnerable
+  package can restore the vulnerability; disable the affected feature if necessary
+  and follow the security migration guidance
 
----
+## Local validation helpers
 
-## 🎯 Workflow Summary
+```bash
+python3 -m unittest discover -s scripts -p 'test_release_validation.py' -v
+python3 scripts/release_validation.py --help
+python3 scripts/release_smoke.py --help
+```
 
-**Total Active Workflows:** 3
-
-| Workflow | Purpose | Trigger | Lines |
-|----------|---------|---------|-------|
-| `build-and-test.yml` | Multi-framework build & validation | Every commit | 232 |
-| `create-release.yml` | Create GitHub Release | Manual | 194 |
-| `publish-nuget.yml` | Publish to NuGet.org | On release | 230 |
-
-**Total:** 656 lines of clean, focused workflow code.
-
-**Additional Configuration:**
-- `.github/dependabot.yml` - Dependency monitoring (uses GitHub's native features)
-
-**Philosophy:** Simple, essential, maintainable. No archived workflows, no legacy code, no clutter. Use GitHub's built-in features when possible.
-
----
-
-**Last Updated:** 2024-10-25
-**Maintained By:** HeroCrypt Team
+The Python validators use the standard library. The smoke test additionally needs
+the pinned .NET SDK and supported runtimes. See [test status](../../TEST_STATUS.md)
+and [production scope](../../PRODUCTION_READINESS.md) for evidence and limitations.

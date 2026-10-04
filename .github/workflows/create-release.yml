@@ -8,8 +8,13 @@ on:
         required: true
         type: string
 
+concurrency:
+  group: create-release
+  cancel-in-progress: false
+
 permissions:
   contents: write
+  actions: read  # Read exact-source CI results; no persistent credentials
 
 env:
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
@@ -26,6 +31,7 @@ jobs:
     steps:
       - name: Validate version format
         run: |
+          test "$GITHUB_REF" = refs/heads/main || { echo "Release must run from main"; exit 1; }
           VERSION="$RELEASE_VERSION"
           if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+)?$ ]]; then
             echo "Error: Invalid version format: $VERSION"
@@ -33,12 +39,19 @@ jobs:
             exit 1
           fi
           echo "Version validated: $VERSION"
+          echo "RELEASE_ARTIFACTS=$RUNNER_TEMP/release-artifacts" >> "$GITHUB_ENV"
 
       - name: Checkout code
         uses: actions/checkout@v7
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ github.sha }}
           fetch-depth: 0
+          persist-credentials: false
+
+      - name: Require the complete exact-source main CI run
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 scripts/release_ci.py --repository "$GITHUB_REPOSITORY" --commit "$GITHUB_SHA"
 
       - name: Extract build configuration
         id: config
@@ -49,74 +62,77 @@ jobs:
         with:
           dotnet-version: ${{ steps.config.outputs.versions }}
 
-      - name: Restore dependencies
-        run: dotnet restore
-
-      - name: Build Release
-        run: dotnet build --configuration Release --no-restore
-
-      - name: Run tests in Debug configuration
-        run: dotnet test --project tests/HeroCrypt.Tests/HeroCrypt.Tests.csproj --configuration Debug --no-restore
-
-      - name: Update CHANGELOG.md
+      - name: Verify source and refuse an existing release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          VERSION="$RELEASE_VERSION"
-          DATE=$(date +%Y-%m-%d)
-
-          # Preserve version notes prepared in the release PR.
-          if ! grep -Fq "## [$VERSION] - " CHANGELOG.md; then
-            sed -i "/# Changelog/a\\\\n## [$VERSION] - $DATE\\n\\nSee [GitHub Release](https://github.com/${{ github.repository }}/releases/tag/v$VERSION) for details.\\n" CHANGELOG.md
-          fi
-
-          echo "Updated CHANGELOG.md with version $VERSION"
-
-          # Commit the CHANGELOG update
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          # Use git add -A to catch any line-ending normalization changes from .gitattributes
-          git add -A
-          if ! git diff --cached --quiet; then
-            git commit -m "chore: release v$VERSION [skip ci]"
-
-            # Push changes (we just checked out fresh, so should be up to date)
-            git push
-          fi
-
-          echo "CHANGELOG.md ready for release $VERSION"
-
-      - name: Pack NuGet packages
-        run: |
-          dotnet pack src/HeroCrypt/HeroCrypt.csproj \
-            --configuration Release \
-            "-p:PackageVersion=$RELEASE_VERSION" \
-            "-p:Version=$RELEASE_VERSION"
-
-      - name: Verify packages were created
-        run: |
-          if [ ! -f "src/HeroCrypt/bin/Release/HeroCrypt.${RELEASE_VERSION}.nupkg" ]; then
-            echo "Error: Main package not found"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git diff --exit-code
+          git ls-remote --tags origin "refs/tags/v${RELEASE_VERSION}" "refs/tags/v${RELEASE_VERSION}^{}" > "$RUNNER_TEMP/existing-tag"
+          test ! -s "$RUNNER_TEMP/existing-tag" || { echo "Tag already exists"; exit 1; }
+          gh api "repos/$GITHUB_REPOSITORY/releases" --paginate --jq '.[].tag_name' > "$RUNNER_TEMP/existing-releases"
+          if grep -Fxq "v${RELEASE_VERSION}" "$RUNNER_TEMP/existing-releases"; then
+            echo "Release already exists"
             exit 1
           fi
-          if [ ! -f "src/HeroCrypt/bin/Release/HeroCrypt.${RELEASE_VERSION}.snupkg" ]; then
-            echo "Error: Symbol package not found"
-            exit 1
-          fi
-          echo "Packages verified:"
-          ls -lh "src/HeroCrypt/bin/Release/HeroCrypt.${RELEASE_VERSION}."*
+          grep -Fq "## [$RELEASE_VERSION] - " CHANGELOG.md || { echo "Commit release notes before dispatch"; exit 1; }
+          mkdir -p "$RELEASE_ARTIFACTS"
+          dotnet --info > "$RELEASE_ARTIFACTS/toolchain.txt"
+          printf '\nSource commit: %s\nWorkflow run: %s/actions/runs/%s\n' "$GITHUB_SHA" "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" >> "$RELEASE_ARTIFACTS/toolchain.txt"
+
+      - name: Test release validation gates
+        run: python3 -m unittest discover -s scripts -p 'test_release_validation.py' -v
+
+      - name: Restore locked dependencies and fail closed on audit errors
+        run: |
+          cat > "$RUNNER_TEMP/release-nuget.config" <<'XML'
+          <configuration>
+            <packageSources><clear/><add key="nuget.org" value="https://api.nuget.org/v3/index.json"/></packageSources>
+            <auditSources><clear/><add key="nuget.org" value="https://api.nuget.org/v3/index.json"/></auditSources>
+          </configuration>
+          XML
+          dotnet restore --locked-mode --force --no-http-cache --configfile "$RUNNER_TEMP/release-nuget.config" -p:NuGetAudit=true -p:NuGetAuditMode=all -p:NuGetAuditLevel=low -p:TreatWarningsAsErrors=true
+          git diff --exit-code
+
+      - name: Build exact release source and version
+        run: dotnet build --configuration Release --no-restore -p:GeneratePackageOnBuild=false -p:ContinuousIntegrationBuild=true -p:RepositoryBranch=refs/heads/main "-p:Version=$RELEASE_VERSION" "-p:PackageVersion=$RELEASE_VERSION" "-p:RepositoryCommit=$GITHUB_SHA"
+
+      - name: Run tests against the Release build on every runtime
+        run: dotnet test --project tests/HeroCrypt.Tests/HeroCrypt.Tests.csproj --configuration Release --no-build --no-restore
+
+      - name: Pack and validate the tested Release build
+        run: |
+          dotnet pack src/HeroCrypt/HeroCrypt.csproj --configuration Release --no-build --no-restore --output "$RELEASE_ARTIFACTS" -p:ContinuousIntegrationBuild=true -p:RepositoryBranch=refs/heads/main "-p:PackageVersion=$RELEASE_VERSION" "-p:Version=$RELEASE_VERSION" "-p:RepositoryCommit=$GITHUB_SHA"
+          python3 scripts/release_validation.py validate "$RELEASE_ARTIFACTS/HeroCrypt.$RELEASE_VERSION.nupkg" "$RELEASE_ARTIFACTS/HeroCrypt.$RELEASE_VERSION.snupkg" --version "$RELEASE_VERSION" --commit "$GITHUB_SHA" --repository "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
+
+      - name: Rebuild and compare every package payload byte
+        run: |
+          dotnet build src/HeroCrypt/HeroCrypt.csproj --configuration Release --no-restore --no-incremental -p:GeneratePackageOnBuild=false -p:ContinuousIntegrationBuild=true -p:RepositoryBranch=refs/heads/main "-p:Version=$RELEASE_VERSION" "-p:PackageVersion=$RELEASE_VERSION" "-p:RepositoryCommit=$GITHUB_SHA"
+          dotnet pack src/HeroCrypt/HeroCrypt.csproj --configuration Release --no-build --no-restore --output "$RUNNER_TEMP/rebuilt-packages" -p:ContinuousIntegrationBuild=true -p:RepositoryBranch=refs/heads/main "-p:PackageVersion=$RELEASE_VERSION" "-p:Version=$RELEASE_VERSION" "-p:RepositoryCommit=$GITHUB_SHA"
+          for extension in nupkg snupkg; do
+            python3 scripts/release_validation.py compare "$RELEASE_ARTIFACTS/HeroCrypt.$RELEASE_VERSION.$extension" "$RUNNER_TEMP/rebuilt-packages/HeroCrypt.$RELEASE_VERSION.$extension"
+          done
+          git diff --exit-code
+
+      - name: Smoke-test the packaged public APIs on every runtime
+        run: python3 scripts/release_smoke.py "$RELEASE_ARTIFACTS" --version "$RELEASE_VERSION" --commit "$GITHUB_SHA"
 
       - name: Install Microsoft SBOM tool
-        run: dotnet tool install --global Microsoft.Sbom.DotNetTool
+        run: |
+          dotnet tool install --global Microsoft.Sbom.DotNetTool --version 4.1.13
+          dotnet tool list --global >> "$RELEASE_ARTIFACTS/toolchain.txt"
 
       - name: Generate SBOMs
         run: |
-          mkdir -p release-sboms
+          mkdir -p "$RUNNER_TEMP/sbom-output"
 
-          # Generate SBOMs for each framework and SPDX version
-          for framework in net8.0 net9.0 net10.0; do
+          # Hash each framework output; dependency detection covers the full multi-target project.
+          # These are per-output manifests, not a claim of framework-isolated dependency graphs.
+          for framework in netstandard2.0 net8.0 net9.0 net10.0; do
             for spdx_version in 2.2 3.0; do
               echo "Generating SBOM for $framework, SPDX $spdx_version..."
 
-              mkdir -p sbom-output-$framework-$spdx_version
+              mkdir -p "$RUNNER_TEMP/sbom-output/$framework-$spdx_version"
 
               sbom-tool generate \
                 -b src/HeroCrypt/bin/Release/$framework \
@@ -126,13 +142,15 @@ jobs:
                 -ps KoalaFacts \
                 -nsb https://github.com/${{ github.repository }} \
                 -mi SPDX:$spdx_version \
-                -m sbom-output-$framework-$spdx_version \
+                -m "$RUNNER_TEMP/sbom-output/$framework-$spdx_version" \
                 -V Verbose
 
               # Find and copy SBOM file
-              SBOM_FILE=$(find sbom-output-$framework-$spdx_version -type f -name "*.spdx.json" | head -n 1)
+              mapfile -t SBOM_FILES < <(find "$RUNNER_TEMP/sbom-output/$framework-$spdx_version" -type f -name "*.spdx.json")
+              test "${#SBOM_FILES[@]}" -eq 1 || { echo "Expected exactly one SBOM"; exit 1; }
+              SBOM_FILE="${SBOM_FILES[0]}"
               if [ -n "$SBOM_FILE" ]; then
-                cp "$SBOM_FILE" "release-sboms/HeroCrypt.${RELEASE_VERSION}.$framework.spdx-$spdx_version.json"
+                cp "$SBOM_FILE" "$RELEASE_ARTIFACTS/HeroCrypt.${RELEASE_VERSION}.$framework.spdx-$spdx_version.json"
                 echo "Created: HeroCrypt.${RELEASE_VERSION}.$framework.spdx-$spdx_version.json"
               else
                 echo "Error: No SBOM file found for $framework SPDX $spdx_version"
@@ -142,7 +160,7 @@ jobs:
           done
 
           echo "All SBOMs generated:"
-          ls -lh release-sboms/
+          ls -lh "$RELEASE_ARTIFACTS/"
 
       - name: Create release description footer
         id: release-notes
@@ -165,17 +183,17 @@ jobs:
             echo "- **Frameworks**: netstandard2.0, net8.0, net9.0, net10.0"
             echo ""
             echo "### Security Scope"
-            echo "Review [security scope](https://github.com/${REPO}/blob/v${VERSION}/SECURITY.md) and [migration guidance](https://github.com/${REPO}/blob/v${VERSION}/docs/migration-guide.md) before upgrading."
+            echo "Review [security scope](https://github.com/${REPO}/blob/${GITHUB_SHA}/SECURITY.md) and [migration guidance](https://github.com/${REPO}/blob/${GITHUB_SHA}/docs/migration-guide.md) before upgrading."
             echo ""
             echo "### SBOMs (Software Bill of Materials)"
             echo "Per-framework SBOMs included in this release:"
-            echo "- SPDX 2.2 format (net8.0, net9.0, net10.0)"
-            echo "- SPDX 3.0 format (net8.0, net9.0, net10.0)"
+            echo "- SPDX 2.2 format (netstandard2.0, net8.0, net9.0, net10.0)"
+            echo "- SPDX 3.0 format (netstandard2.0, net8.0, net9.0, net10.0)"
             echo ""
             echo "### Documentation"
-            echo "- [README](https://github.com/${REPO}/blob/main/README.md)"
-            echo "- [Full Changelog](https://github.com/${REPO}/blob/main/CHANGELOG.md)"
-          } > release-footer.md
+            echo "- [README](https://github.com/${REPO}/blob/${GITHUB_SHA}/README.md)"
+            echo "- [Full Changelog](https://github.com/${REPO}/blob/${GITHUB_SHA}/CHANGELOG.md)"
+          } > "$RUNNER_TEMP/release-footer.md"
 
           echo "Release footer created with installation and package details"
 
@@ -188,58 +206,58 @@ jobs:
           gh api repos/${{ github.repository }}/releases/generate-notes \
             -f tag_name="${TAG}" \
             -f target_commitish="${GITHUB_SHA}" \
-            --jq .body > auto-notes.md
+            --jq .body > "$RUNNER_TEMP/auto-notes.md"
 
           # Put prepared security and migration guidance before generated PR notes.
-          # Resolve repository-relative Markdown links against the immutable tag.
+          # Resolve repository-relative Markdown links against the immutable commit.
           python3 - <<'PY'
           import os
-          import re
           from pathlib import Path
+          from scripts.release_validation import release_notes_section
 
-          version = os.environ["RELEASE_VERSION"]
-          repository = os.environ["GITHUB_REPOSITORY"]
-          changelog = Path("CHANGELOG.md").read_text()
-          heading = re.search(rf"^## \[{re.escape(version)}\] - .+$", changelog, re.MULTILINE)
-          if heading is None:
-              raise SystemExit("Prepared release notes are missing")
-          remainder = changelog[heading.end():]
-          section = re.split(r"^## ", remainder, maxsplit=1, flags=re.MULTILINE)[0].strip()
-          if not section:
-              raise SystemExit("Prepared release notes are empty")
-          section = re.sub(
-              r"\]\((docs/[^)]+)\)",
-              lambda match: f"](https://github.com/{repository}/blob/v{version}/{match[1]})",
-              section,
+          section = release_notes_section(
+              Path("CHANGELOG.md").read_text(), os.environ["RELEASE_VERSION"],
+              os.environ["GITHUB_REPOSITORY"], os.environ["GITHUB_SHA"],
           )
-          notes = section + "\n\n" + Path("auto-notes.md").read_text() + Path("release-footer.md").read_text()
-          Path("release-notes.md").write_text(notes)
+          temporary = Path(os.environ["RUNNER_TEMP"])
+          notes = section + "\n\n" + (temporary / "auto-notes.md").read_text() + (temporary / "release-footer.md").read_text()
+          (temporary / "release-notes.md").write_text(notes)
           PY
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create GitHub Release
+      - name: Check source, record checksums and create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "Creating release v${RELEASE_VERSION}..."
-
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git diff --exit-code
+          test -z "$(git ls-files --others --exclude-standard)" || { echo "Unexpected untracked source files"; exit 1; }
+          git ls-remote --tags origin "refs/tags/v${RELEASE_VERSION}" "refs/tags/v${RELEASE_VERSION}^{}" > "$RUNNER_TEMP/existing-tag"
+          test ! -s "$RUNNER_TEMP/existing-tag" || { echo "Tag appeared while building"; exit 1; }
+          (cd "$RELEASE_ARTIFACTS" && sha256sum *.nupkg *.snupkg *.json toolchain.txt > SHA256SUMS)
+          # Recheck just before publication in case CI was rerun during this build.
+          python3 scripts/release_ci.py --repository "$GITHUB_REPOSITORY" --commit "$GITHUB_SHA"
+          # Atomically reserve the new tag; a racing preexisting tag fails here.
+          gh api "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/v${RELEASE_VERSION}" -f sha="$GITHUB_SHA"
           gh release create "v${RELEASE_VERSION}" \
+            --verify-tag \
             --title "Release v${RELEASE_VERSION}" \
             --target "$GITHUB_SHA" \
-            --notes-file release-notes.md \
-            "src/HeroCrypt/bin/Release/HeroCrypt.${RELEASE_VERSION}.nupkg" \
-            "src/HeroCrypt/bin/Release/HeroCrypt.${RELEASE_VERSION}.snupkg" \
-            release-sboms/*.json
+            --notes-file "$RUNNER_TEMP/release-notes.md" \
+            "$RELEASE_ARTIFACTS/"*
 
-          echo "Release created with auto-generated notes and published!"
+      - name: Verify published source and artifact bytes
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Verify release was created
         run: |
-          echo "Verifying release v${RELEASE_VERSION}..."
-          gh release view "v${RELEASE_VERSION}" --json assets --jq '.assets[].name'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          gh release view "v${RELEASE_VERSION}" --json targetCommitish --jq .targetCommitish > "$RUNNER_TEMP/published-sha"
+          test "$(cat "$RUNNER_TEMP/published-sha")" = "$GITHUB_SHA"
+          git fetch origin "refs/tags/v${RELEASE_VERSION}:refs/tags/v${RELEASE_VERSION}"
+          test "$(git rev-parse "v${RELEASE_VERSION}^{commit}")" = "$GITHUB_SHA"
+          gh release download "v${RELEASE_VERSION}" --dir "$RUNNER_TEMP/published-artifacts"
+          cmp "$RELEASE_ARTIFACTS/SHA256SUMS" "$RUNNER_TEMP/published-artifacts/SHA256SUMS"
+          (cd "$RUNNER_TEMP/published-artifacts" && sha256sum --check --strict SHA256SUMS)
 
       - name: Release summary
         run: |
@@ -254,9 +272,9 @@ jobs:
           echo "- HeroCrypt.${RELEASE_VERSION}.snupkg (symbols)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**SBOMs (Software Bill of Materials):**" >> $GITHUB_STEP_SUMMARY
-          echo "- 6 SBOMs total (3 frameworks × 2 SPDX formats)" >> $GITHUB_STEP_SUMMARY
-          echo "- Per-framework dependency tracking" >> $GITHUB_STEP_SUMMARY
+          echo "- 8 SBOMs total (4 frameworks × 2 SPDX formats)" >> $GITHUB_STEP_SUMMARY
+          echo "- Per-framework artifact hashes with a multi-target project dependency inventory" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
-          echo "The publish-nuget workflow will automatically trigger when this release is published" >> $GITHUB_STEP_SUMMARY
+          echo "The publish-nuget workflow will automatically trigger after this verified Create Release run succeeds" >> $GITHUB_STEP_SUMMARY
 run-name: Create Release v${{ inputs.version }}

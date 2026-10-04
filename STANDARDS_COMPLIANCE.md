@@ -1,18 +1,18 @@
 # Standards Compliance
 
-This document details HeroCrypt's compliance with cryptographic standards, RFCs, and NIST specifications.
+This document lists implementation targets and test evidence for cryptographic standards. Test vectors do not certify a complete implementation, protocol composition or deployment. No FIPS 140 validation or independent full-library audit is claimed; consult [production scope](PRODUCTION_READINESS.md) for limitations.
 
 ## Compliance Summary
 
 | Standard | Algorithm | Status | Verification Method |
 |----------|-----------|--------|---------------------|
-| RFC 9106 | Argon2 | Fully Compliant | Official test vectors |
-| RFC 7693 | Blake2b | Fully Compliant | Official test vectors |
-| RFC 8439 | ChaCha20-Poly1305 | Fully Compliant | Official test vectors |
-| RFC 7748 | X25519 | Fully Compliant | Official test vectors |
-| RFC 8032 | Ed25519 | Fully Compliant | BCL implementation |
-| RFC 5869 | HKDF | Fully Compliant | Official test vectors |
-| RFC 4503 | Rabbit | Fully Compliant | Appendix A test vectors |
+| RFC 9106 | Argon2 | Test-vector coverage | Official test vectors |
+| RFC 7693 | Blake2b | Test-vector coverage | Official test vectors |
+| RFC 8439 | ChaCha20-Poly1305 | Test-vector coverage | Official test vectors |
+| RFC 7748 | X25519 | Test-vector coverage | Official test vectors |
+| RFC 8032 | Ed25519 | Test-vector coverage | Managed implementation and interoperability regressions |
+| RFC 5869 | HKDF | Test-vector coverage | Official test vectors |
+| RFC 4503 | Rabbit | Test-vector coverage | Appendix A test vectors |
 | RFC 8017 | RSA (PKCS#1 v2.2) | Compliant | BCL implementation |
 | FIPS 203 | ML-KEM | Compliant | BCL implementation (.NET 10+) |
 | FIPS 204 | ML-DSA | Compliant | BCL implementation (.NET 10+) |
@@ -22,7 +22,7 @@ This document details HeroCrypt's compliance with cryptographic standards, RFCs,
 
 ### RFC 9106 - Argon2
 
-**Status:** Fully Compliant
+**Status:** Test-vector coverage
 
 HeroCrypt implements all three Argon2 variants as specified in RFC 9106:
 
@@ -56,7 +56,7 @@ var hash = HeroCryptBuilder.DeriveKey()
 
 ### RFC 7693 - Blake2b
 
-**Status:** Fully Compliant
+**Status:** Test-vector coverage
 
 | Feature | Support | Notes |
 |---------|---------|-------|
@@ -83,7 +83,7 @@ var mac = HeroCryptBuilder.Hash()
 
 ### RFC 8439 - ChaCha20 and Poly1305
 
-**Status:** Fully Compliant
+**Status:** Test-vector coverage
 
 | Component | Status | Notes |
 |-----------|--------|-------|
@@ -108,7 +108,7 @@ var result = HeroCryptBuilder.Encrypt()
 
 ### RFC 7748 - Curve25519 (X25519)
 
-**Status:** Fully Compliant
+**Status:** Test-vector coverage
 
 | Operation | Status | Notes |
 |-----------|--------|-------|
@@ -128,16 +128,15 @@ var sharedSecret = HeroCryptBuilder.X25519()
 
 ### RFC 8032 - Ed25519
 
-**Status:** Fully Compliant (via .NET BCL)
+**Status:** Managed implementation with test-vector and interoperability coverage
 
 | Feature | Status | Notes |
 |---------|--------|-------|
 | Key generation | Compliant | 32-byte seeds |
 | Signing | Compliant | 64-byte signatures |
-| Verification | Compliant | Constant-time |
-| Batch verification | Supported | Performance optimization |
+| Verification | Implemented | Individual signature verification |
 
-**Implementation:** Uses .NET's native Ed25519 implementation (.NET 8+)
+**Implementation:** `Ed25519Core` uses the managed `Ed25519Impl`, based on the TweetNaCl reference. This is not a native .NET BCL backend. No public batch-verification API or independently established constant-time guarantee is claimed.
 
 ```csharp
 // RFC 8032 compliant signatures
@@ -153,7 +152,7 @@ var signature = HeroCryptBuilder.Sign()
 
 ### RFC 5869 - HKDF
 
-**Status:** Fully Compliant
+**Status:** Test-vector coverage
 
 | Phase | Status | Notes |
 |-------|--------|-------|
@@ -177,7 +176,7 @@ var derivedKey = HeroCryptBuilder.DeriveKey()
 
 ### RFC 4503 - Rabbit Stream Cipher
 
-**Status:** Fully Compliant
+**Status:** Test-vector coverage
 
 | Feature | Status | Notes |
 |---------|--------|-------|
@@ -269,7 +268,7 @@ SHA3-256, SHA3-384, SHA3-512, SHAKE128, SHAKE256
 
 ### BIP-0032 - Hierarchical Deterministic Wallets
 
-**Status:** Fully Compliant
+**Status:** Test-vector coverage
 
 | Feature | Status | Notes |
 |---------|--------|-------|
@@ -280,7 +279,7 @@ SHA3-256, SHA3-384, SHA3-512, SHAKE128, SHAKE256
 
 ### BIP-0039 - Mnemonic Codes
 
-**Status:** Fully Compliant
+**Status:** Test-vector coverage
 
 | Feature | Status | Notes |
 |---------|--------|-------|
@@ -291,7 +290,7 @@ SHA3-256, SHA3-384, SHA3-512, SHAKE128, SHAKE256
 
 ### SEC 2 - secp256k1
 
-**Status:** Fully Compliant
+**Status:** Test-vector coverage
 
 Used for Bitcoin-compatible operations and BIP-32 wallets.
 
@@ -308,13 +307,8 @@ All RFC-compliant implementations are verified against official test vectors:
 ### Running Compliance Tests
 
 ```bash
-# Run all compliance tests
-dotnet test --filter "Category=Compliance"
-
-# Run specific standard tests
-dotnet test --filter "FullyQualifiedName~Argon2"
-dotnet test --filter "FullyQualifiedName~Blake2b"
-dotnet test --filter "FullyQualifiedName~ChaCha20"
+# Includes standards-vector tests using Microsoft.Testing.Platform
+dotnet test --project tests/HeroCrypt.Tests/HeroCrypt.Tests.csproj --configuration Release
 ```
 
 ### Continuous Verification

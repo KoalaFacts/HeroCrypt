@@ -1,252 +1,128 @@
 # Production Readiness Guide
 
-This document provides a clear overview of which HeroCrypt features are production-ready and which are educational/reference implementations.
+HeroCrypt releases are qualified by API and deployment profile. A passing test
+suite or a release number does not certify every algorithm, protocol composition
+or application. No completed independent professional security audit or FIPS 140
+validation is claimed.
 
-## Quick Summary
+Read [SECURITY.md](SECURITY.md) and the [migration guide](docs/migration-guide.md)
+before upgrading. Security patches can intentionally reject previously accepted
+keys, signatures or ciphertext. Pin the tested package version in production.
 
-| Status | Description |
-|--------|-------------|
-| **Production-Ready** | Fully tested, RFC-compliant, suitable for production use |
-| **Beta** | Functional and tested, but API may change |
-| **Educational** | Reference implementations for learning, not for production |
-| **Abstraction** | Requires external dependencies (hardware/cloud) |
-| **Not implemented** | No implementation or public API is shipped |
-| **Disabled** | API remains, but operations throw `NotSupportedException` |
+## Release qualification
 
-## Hybrid encryption scope
+The release process must establish these gates for the exact source commit:
 
-RSA-OAEP + AEAD envelopes, X25519 + AEAD operations and .NET 10 ML-KEM + AEAD
-operations are custom compositions. Primitive standards and regression tests do
-not establish a standardized or independently audited encryption protocol.
-They provide no sender authentication or replay protection; applications must
-validate expected context. X25519 suites are not HPKE, and ML-KEM suites do not
-combine classical and post-quantum key agreement. Native ML-KEM availability is
-platform dependent. See the [security model](SECURITY.md#hybrid-encryption-security-model).
+- Release builds and tests on Windows, Linux and macOS for .NET 8, 9 and 10;
+  compile the .NET Standard 2.0 library as well
+- Standards-vector, independent-implementation and tamper/negative regressions
+  for the supported cryptographic paths
+- Dependency vulnerability checks, warnings-as-errors and formatting checks
+- Package identity, source commit, target-framework contents, license and notices
+- Package consumer smoke tests and repeated-build payload comparisons on Ubuntu
+  and Windows for .NET 8/9/10
+- An immutable new version, prepared migration notes and a verified publication
 
-## Production-Ready Features
+These are engineering release gates, not evidence that every execution path,
+side channel or downstream application has been audited. See the linked workflow
+results for each release; do not use an earlier commit's green checks as evidence.
 
-These features are fully tested, RFC-compliant, and recommended for production use.
+## OpenPGP profile
 
-### Hashing Algorithms
+OpenPGP support is a subset of RFC 9580. Applications must choose and test a
+specific profile rather than infer interoperability from the library name.
 
-| Algorithm | Status | Standard | Notes |
-|-----------|--------|----------|-------|
-| SHA-256/384/512 | Production-Ready | FIPS 180-4 | BCL implementation |
-| SHA3-256/384/512 | Production-Ready | FIPS 202 | .NET 8+ only |
-| Blake2b | Production-Ready | RFC 7693 | Variable output 1-64 bytes |
-| Blake2b-Long | Production-Ready | RFC 7693 | Outputs > 64 bytes |
+| Path | Supported scope | Important limit |
+|------|-----------------|-----------------|
+| Signatures | Supported v4/v6 RSA and Ed25519 paths, RFC framing and salted v6 hashing | Trust in the actual signing key remains application policy |
+| Ring encryption recipients | Current authenticated encryption flags, exact bindings, expiration and revocation | Caller authenticates primary identity and metadata freshness |
+| Ring signature verification | Authenticated current Sign flags, exact subkey bindings and signing cross-certification; expiration/revocation checks | Metadata freshness, stripped evidence and historical acceptance require application policy |
+| Encrypted envelopes | RSA/X25519 and AES session wrapping; SEIPD v1 and AES-GCM SEIPD v2 | ECDH v6 sessions and OpenPGP EAX/OCB are unsupported; see RSA decryption exposure limit below |
+| SEIPD v2 | .NET 8/9/10 AES-GCM with authenticated chunks and final length tag | .NET Standard 2.0 throws; general AES-OCB primitive availability does not enable OpenPGP OCB |
+| Message encryption/decryption | Literal-data payloads with integrity validation | Decryption does not verify an embedded sender signature or authenticate sender identity |
+| Integrated signed-and-encrypted messages | No high-level combined API | Encrypting serialized signed-message bytes creates a nested literal payload, not a standard integrated packet stream |
+| Key preferences | Authenticated preference getters and object association | Getters do not negotiate ciphers or establish external identity trust |
 
-### Password Hashing & Key Derivation
+### RSA decryption exposure limit
 
-| Algorithm | Status | Standard | Notes |
-|-----------|--------|----------|-------|
-| Argon2d | Production-Ready | RFC 9106 | Data-dependent |
-| Argon2i | Production-Ready | RFC 9106 | Data-independent |
-| Argon2id | Production-Ready | RFC 9106 | Hybrid (recommended) |
-| PBKDF2 | Production-Ready | RFC 8018 | SHA-256/384/512 |
-| HKDF | Production-Ready | RFC 5869 | Key derivation |
-| Scrypt | Production-Ready | RFC 7914 | Memory-hard |
+RSA PKCS#1 v1.5 session unwrapping is retained for interoperable local/offline or
+otherwise trusted-input use. Its native-provider and complete candidate-processing
+timing has not been qualified against remote decryption oracles. Do not expose it
+as an unauthenticated remotely observable decryption endpoint. Uniform public error
+messages are not proof of constant-time decryption or implicit rejection. See
+[RFC 9580 section 13.5](https://www.rfc-editor.org/rfc/rfc9580.html#section-13.5).
 
-### Authenticated Encryption (AEAD)
+### Interoperability evidence
 
-| Algorithm | Status | Standard | Notes |
-|-----------|--------|----------|-------|
-| ChaCha20-Poly1305 | Production-Ready | RFC 8439 | SIMD optimized |
-| XChaCha20-Poly1305 | Production-Ready | RFC 8439 | Extended nonce |
-| AES-GCM | Production-Ready | NIST SP 800-38D | Hardware accelerated |
-| AES-CCM | Production-Ready | RFC 3610 | .NET 8+ |
-| AES-SIV | Production-Ready | RFC 5297 | Nonce-misuse resistant |
-| AES-OCB | Production-Ready | RFC 7253 | High performance |
+The repository includes RFC 9580 Appendix A.11 passphrase/GCM fixtures,
+independently constructed RSA/X25519 envelope checks, independently computed v4/v6
+signature framing, and v4 RSA signature/message interoperability with Bouncy Castle. These fixtures
+are test data, not operational keys.
 
-### Stream Ciphers
+This evidence does not establish complete v6 signed-and-encrypted interoperability
+with OpenPGP.js, GnuPG or every RFC 9580 implementation. Such a deployment needs
+pinned-version, bidirectional integration tests for its complete wire profile.
 
-| Algorithm | Status | Standard | Notes |
-|-----------|--------|----------|-------|
-| ChaCha20 | Production-Ready | RFC 8439 | 8/12/20 round variants |
-| XChaCha20 | Production-Ready | Draft | Extended nonce |
-| XSalsa20 | Production-Ready | - | NaCl compatible |
-| Rabbit | Production-Ready | RFC 4503 | Fully compliant |
-| HC-128 | Production-Ready | eSTREAM | Portfolio cipher |
-| HC-256 | Production-Ready | eSTREAM | Portfolio cipher |
+Relevant regression suites include:
 
-### Asymmetric Cryptography
+- `PgpEnvelopeInteropSecurityTests`
+- `PgpSignatureInteroperabilityTests`
+- `PgpAeadIntegritySecurityTests`
+- `PgpSigningKeyPolicySecurityTests`
+- `PgpEncryptionKeyPolicySecurityTests`
+- `PgpMessageInteroperabilityTests`
+- `PgpDecryptionFailureSecurityTests`
 
-| Algorithm | Status | Standard | Notes |
-|-----------|--------|----------|-------|
-| RSA (OAEP) | Production-Ready | RFC 8017 | 2048+ bit keys |
-| RSA (PSS) | Production-Ready | RFC 8017 | Signatures |
-| ECDSA (P-256/384/521) | Production-Ready | FIPS 186-4 | BCL implementation |
-| Ed25519 | Production-Ready | RFC 8032 | .NET 8+ native |
-| X25519 | Production-Ready | RFC 7748 | Key exchange |
-| secp256k1 | Production-Ready | SEC 2 | Bitcoin compatible |
+Before using a received public ring, authenticate its primary-key identity through
+an independent trusted channel. Preserve known revocations and enforce metadata
+freshness. A mathematically valid key is not necessarily an authorized recipient.
 
-### Wallet & Key Management
+## Primitive and platform scope
 
-| Feature | Status | Standard | Notes |
-|---------|--------|----------|-------|
-| BIP39 Mnemonics | Scoped wallet seed primitive | BIP-0039 | Official English words, checksum-validated wallet entry; raw NFKD seed conversion is independent of validation |
-| BIP32 HD Wallets | Scoped primitive | BIP-0032 | Master/private-parent derivation; no public-parent derivation or xprv/xpub import/export |
-| Shamir's Secret Sharing | Scoped primitive | - | Trusted-dealer confidentiality; caller supplies threshold and authenticates shares separately |
+| Category | Implementation scope | Deployment requirement |
+|----------|----------------------|------------------------|
+| Hashes and KDFs | SHA family, Blake2b, Argon2, PBKDF2, HKDF and Scrypt | Use the intended variant and resource limits; review standards-vector coverage |
+| AEAD | AES and ChaCha-family implementations and platform backends | Unique nonces where required; verify associated context and handle authentication failure |
+| Ed25519/X25519 | Managed implementations with test vectors | No blanket constant-time or independent-audit certification |
+| RSA/ECDSA | Runtime cryptography; secp256k1 uses Bouncy Castle | Validate runtime support, key sizes, usage and provider behavior |
+| ML-KEM/ML-DSA/SLH-DSA | .NET 10 native APIs, platform dependent | Probe support at runtime; a standardized primitive is not an audited application protocol |
+| BIP39/BIP32 | Official English mnemonic list; checksum validation; private-parent HD derivation | No public-parent derivation or xprv/xpub import/export; review historical recovery guidance |
+| Shamir sharing | Trusted-dealer confidentiality primitive | Authenticate shares and session metadata separately; enforce the original threshold |
 
-## Beta Features
+.NET Standard 2.0 compatibility does not guarantee that all APIs work on every
+.NET Standard consumer. Native and newer-runtime features may throw. The .NET
+8/9/10 test matrix does not execute a .NET Framework consumer or every provider.
 
-These features are functional but may have API changes in future versions.
+## Custom encryption compositions
 
-### Post-Quantum Cryptography (.NET 10+ Only)
+RSA-OAEP + AEAD envelopes, X25519 + AEAD and ML-KEM + AEAD operations are custom
+compositions. X25519 suites are not HPKE, and ML-KEM suites do not combine classical
+and post-quantum key agreement. They provide no sender authentication or replay
+prevention. Applications must independently validate expected associated context,
+sender identity and freshness. See the [security model](SECURITY.md#hybrid-encryption-security-model).
 
-| Algorithm | Status | Standard | Notes |
-|-----------|--------|----------|-------|
-| ML-KEM | Beta | FIPS 203 | Key encapsulation |
-| ML-DSA | Beta | FIPS 204 | Digital signatures |
-| SLH-DSA | Beta | FIPS 205 | Hash-based signatures |
+## Educational disabled and external features
 
-**Requirements:**
-- .NET 10.0 or later
-- Windows: Windows 11 24H2+ or Windows Server 2025+
-- Linux: OpenSSL 3.5+ with PQC provider
+- Noise, Signal, OTR, OPAQUE, commitments and blind-signature demonstrations are
+  educational/reference implementations and are not qualified production protocols
+- Threshold signatures, MPC sum/multiplication, private set intersection and Beaver
+  triple generation remain disabled; policy changes cannot enable them
+- Ring signatures and zk-SNARKs are not implemented
+- HSM, Key Vault, TPM, TEE and enterprise compliance abstractions need external
+  implementations and their own security review; API names do not confer certification
 
-**Note:** These use native .NET BCL implementations and are production-quality, but are marked Beta due to the relatively new FIPS standards.
+Do not protect real user secrets with educational or disabled features. A future
+production protocol implementation requires its own threat model, design review,
+interop and negative tests, and independent security review.
 
-## Unavailable and Reference Protocols
+## Upgrade and rollback
 
-Features marked educational demonstrate cryptographic concepts and API design patterns.
-They are **NOT suitable for production use** without extensive review and hardening.
-Features marked not implemented or disabled cannot be used for cryptographic operations.
+Keep a protected backup and test migrations against representative data before
+changing a production dependency. Do not overwrite an existing package or release
+tag. A corrective release uses a new version.
 
-### Zero-Knowledge Proofs
-
-| Feature | Status | Notes |
-|---------|--------|-------|
-| zk-SNARKs (Groth16) | Not implemented | Insecure prototype removed before the first release |
-| Commitment Schemes | Educational | Pedersen, hash-based |
-
-### Advanced Signature Schemes
-
-| Feature | Status | Notes |
-|---------|--------|-------|
-| Ring Signatures | Not implemented | Insecure prototype removed before the first release |
-| Threshold Signatures | Disabled | All core operations throw `NotSupportedException` since 1.0.1 |
-| Blind Signatures | Educational | Unlinkable signatures |
-
-Ring signatures and zk-SNARKs have no verification path in the current library.
-The historical prototypes did not authenticate signatures or validate proof statements.
-See the [verification audit](SECURITY.md#ring-signature-and-zk-snark-verification-audit---2026-09-30)
-for the findings and published-package scope.
-
-### Multi-Party Computation
-
-| Feature | Status | Notes |
-|---------|--------|-------|
-| Secure MPC | Disabled | Sum and multiplication operations throw `NotSupportedException` since 1.0.2 |
-| Private Set Intersection | Disabled | The former local hash comparison did not provide a private protocol |
-| Beaver Triples | Disabled | Preprocessing generation throws `NotSupportedException` since 1.0.2 |
-
-Changing the security model or policy cannot enable these operations. See the
-[MPC migration guide](docs/migration-guide.md#mpc-security-change-in-v102).
-
-### Cryptographic Protocols
-
-| Protocol | Status | Notes |
-|----------|--------|-------|
-| Noise Framework | Educational | Multiple patterns |
-| Signal Protocol | Educational | Double Ratchet, X3DH |
-| OTR Messaging | Educational | Deniable messaging |
-| OPAQUE PAKE | Educational | RFC 9497 |
-
-## Abstraction Layers
-
-These features provide interfaces to external systems and require vendor SDKs or hardware access.
-
-### Hardware Security
-
-| Feature | Status | Requirements |
-|---------|--------|--------------|
-| PKCS#11 HSM | Abstraction | HSM device + vendor SDK |
-| Azure Key Vault | Abstraction | Azure subscription |
-| TPM 2.0 | Abstraction | TPM hardware |
-| TEE (SGX/TrustZone) | Abstraction | Compatible hardware |
-
-### Enterprise Features
-
-| Feature | Status | Requirements |
-|---------|--------|--------------|
-| Certificate Authority | Abstraction | PKI infrastructure |
-| Key Management Service | Abstraction | KMS backend |
-| Compliance Framework | Abstraction | Audit infrastructure |
-
-## Using This Guide
-
-### Before Production Deployment
-
-1. **Verify Status**: Confirm the feature is marked "Production-Ready"
-2. **Check Requirements**: Ensure your target framework supports the feature
-3. **Review Best Practices**: See [docs/best-practices.md](docs/best-practices.md)
-4. **Test Thoroughly**: Run integration tests with your specific use case
-5. **Security Review**: Consider a security audit for sensitive applications
-
-### For Educational Features
-
-Educational implementations are valuable for:
-- Learning cryptographic concepts
-- Prototyping and experimentation
-- Understanding API design patterns
-- Academic research
-
-**Do NOT use educational features for:**
-- Production systems
-- Protecting real user data
-- Financial or healthcare applications
-- Any security-critical application
-
-### Upgrading from Educational to Production
-
-If you need production-quality versions of educational features:
-
-1. **Evaluate alternatives**: Look for established libraries
-2. **Request prioritization**: Open a GitHub issue for production support
-3. **Contribute**: Help implement production-quality versions
-4. **Consult experts**: Engage cryptographic consultants
-
-## Framework Compatibility Matrix
-
-| Feature Category | .NET Standard 2.0 | .NET 8.0 | .NET 9.0 | .NET 10.0 |
-|-----------------|-------------------|----------|----------|-----------|
-| Core Hashing | Yes | Yes | Yes | Yes |
-| Password Hashing | Yes | Yes | Yes | Yes |
-| Stream Ciphers | Yes | Yes | Yes | Yes |
-| ChaCha20-Poly1305 | Yes | Yes | Yes | Yes |
-| AES-GCM | Limited | Yes | Yes | Yes |
-| AES-CCM | No | Yes | Yes | Yes |
-| Ed25519 (native) | No | Yes | Yes | Yes |
-| SHA-3 | No | Yes | Yes | Yes |
-| Post-Quantum | No | No | No | Yes |
-
-## Security Considerations
-
-### Production-Ready Features
-
-- Implemented following RFC specifications
-- Include comprehensive test vectors
-- Use constant-time operations where applicable
-- Implement secure memory clearing
-- Undergo regular code review
-
-### Educational Features
-
-- May not implement all security countermeasures
-- May be vulnerable to side-channel attacks
-- May not handle all edge cases
-- Should not be trusted with real secrets
-
-## Getting Help
-
-- **Questions**: [GitHub Discussions](https://github.com/KoalaFacts/HeroCrypt/discussions)
-- **Bug Reports**: [GitHub Issues](https://github.com/KoalaFacts/HeroCrypt/issues)
-- **Security Issues**: See [SECURITY.md](SECURITY.md)
-- **Feature Requests**: [GitHub Issues](https://github.com/KoalaFacts/HeroCrypt/issues) with `enhancement` label
-
-## Version History
-
-This document applies to HeroCrypt v1.0.0 and later.
-
-See [CHANGELOG.md](CHANGELOG.md) for version-specific changes to production readiness.
+A rollback to an older vulnerable package can reintroduce forgery, policy bypass
+or confidentiality defects. Prefer disabling the affected feature while preparing
+a corrected release. Historical nonstandard ciphertext or signatures need the
+trusted recovery process in the migration guide; do not add automatic insecure
+fallbacks or silently relabel old data.

@@ -24,7 +24,7 @@ public readonly struct PgpRecipientInfo : IEquatable<PgpRecipientInfo>
     /// Gets the 8-byte key ID (v3 PKESK only).
     /// </summary>
     /// <remarks>
-    /// <para>For v6 PKESK packets, this returns the last 8 bytes of the fingerprint.</para>
+    /// <para>For v6 PKESK packets, this uses the key version: the first 8 fingerprint bytes for v6 keys, the last 8 for v4 keys.</para>
     /// </remarks>
     public ReadOnlyMemory<byte> KeyId { get; }
 
@@ -66,9 +66,9 @@ public readonly struct PgpRecipientInfo : IEquatable<PgpRecipientInfo>
         Version = 6;
         KeyVersion = keyVersion;
         Fingerprint = fingerprint;
-        // For v6, derive key ID from fingerprint (last 8 bytes)
+        // Key version, rather than session-packet version, determines the key ID.
         KeyId = fingerprint.Length >= 8
-            ? fingerprint.Slice(fingerprint.Length - 8)
+            ? fingerprint.Slice(keyVersion == 6 ? 0 : fingerprint.Length - 8, 8)
             : fingerprint;
         Algorithm = algorithm;
     }
@@ -85,27 +85,6 @@ public readonly struct PgpRecipientInfo : IEquatable<PgpRecipientInfo>
         else
         {
             return new PgpRecipientInfo(packet.KeyVersion, packet.Fingerprint, packet.Algorithm);
-        }
-    }
-
-    /// <summary>
-    /// Creates a recipient info from a public key packet.
-    /// </summary>
-    /// <param name="publicKey">The recipient's public key.</param>
-    internal static PgpRecipientInfo FromPublicKey(PgpPublicKeyPacket publicKey)
-    {
-        var fingerprint = publicKey.ComputeFingerprint();
-        if (publicKey.Version == 6)
-        {
-            return new PgpRecipientInfo(publicKey.Version, fingerprint, publicKey.Algorithm);
-        }
-        else
-        {
-            // V4: use last 8 bytes of fingerprint as key ID
-            var keyId = fingerprint.Length >= 8
-                ? fingerprint.AsMemory(fingerprint.Length - 8)
-                : fingerprint.AsMemory();
-            return new PgpRecipientInfo(keyId, publicKey.Algorithm);
         }
     }
 
@@ -132,18 +111,11 @@ public readonly struct PgpRecipientInfo : IEquatable<PgpRecipientInfo>
         if (Version == 6 && Fingerprint.Length > 0)
         {
             // V6: Compare full fingerprint
-            return Fingerprint.Span.SequenceEqual(keyFingerprint);
+            return KeyVersion == publicKey.Version && Fingerprint.Span.SequenceEqual(keyFingerprint);
         }
         else
         {
-            // V3: Compare key ID (last 8 bytes of fingerprint)
-            if (keyFingerprint.Length >= 8)
-            {
-                var keyId = keyFingerprint.AsSpan(keyFingerprint.Length - 8);
-                return KeyId.Span.SequenceEqual(keyId);
-            }
-
-            return false;
+            return KeyId.Length == 8 && KeyId.Span.SequenceEqual(publicKey.GetKeyId());
         }
     }
 

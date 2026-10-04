@@ -35,10 +35,12 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.VERSION }}
       tag: ${{ steps.version.outputs.TAG }}
+      sha: ${{ steps.version.outputs.SHA }}
     steps:
       - name: Determine version from release
         id: version
         run: |
+          test "$GITHUB_REF" = refs/heads/main || { echo "Publish must run from main"; exit 1; }
           if [ "${{ github.event_name }}" == "workflow_run" ]; then
             # Bind this publish to the release workflow that completed.
             if [[ ! "$COMPLETED_RELEASE_TITLE" =~ ^Create\ Release\ v([0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+)?)$ ]]; then
@@ -60,6 +62,16 @@ jobs:
             exit 1
           fi
 
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" > "$RUNNER_TEMP/release.json"
+          test "$(jq -r .draft "$RUNNER_TEMP/release.json")" = false
+          test "$(jq -r .tag_name "$RUNNER_TEMP/release.json")" = "$TAG"
+          SHA=$(jq -r .target_commitish "$RUNNER_TEMP/release.json")
+          [[ "$SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "Release target must be an immutable full commit SHA"; exit 1; }
+          if [ -n "$COMPLETED_RELEASE_SHA" ] && [ "$SHA" != "$COMPLETED_RELEASE_SHA" ]; then
+            echo "Release source differs from the successful Create Release run"
+            exit 1
+          fi
+          echo "SHA=$SHA" >> "$GITHUB_OUTPUT"
           echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
           echo "TAG=$TAG" >> $GITHUB_OUTPUT
           echo "Publishing version: $VERSION (tag: $TAG)"
@@ -67,6 +79,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REQUESTED_VERSION: ${{ inputs.version }}
           COMPLETED_RELEASE_TITLE: ${{ github.event.workflow_run.display_title }}
+          COMPLETED_RELEASE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || '' }}
 
   publish:
     runs-on: ubuntu-latest
@@ -74,11 +87,11 @@ jobs:
     permissions:
       contents: read
       id-token: write  # Required for OIDC authentication with NuGet.org
-      attestations: write  # For package provenance
+      actions: read  # Verify exact-source main CI before publishing
     env:
       RELEASE_VERSION: ${{ needs.get-version.outputs.version }}
       RELEASE_TAG: ${{ needs.get-version.outputs.tag }}
-      EXPECTED_RELEASE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || '' }}
+      EXPECTED_RELEASE_SHA: ${{ needs.get-version.outputs.sha }}
     environment:
       name: production
       url: https://www.nuget.org/packages/HeroCrypt/${{ needs.get-version.outputs.version }}
@@ -87,14 +100,29 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v7
         with:
-          ref: ${{ needs.get-version.outputs.tag }}
+          ref: ${{ needs.get-version.outputs.sha }}
+          fetch-depth: 0
+          persist-credentials: false
 
-      - name: Verify release source commit
+      - name: Verify immutable release source and tag
         run: |
-          if [ -n "$EXPECTED_RELEASE_SHA" ] && [ "$(git rev-parse HEAD)" != "$EXPECTED_RELEASE_SHA" ]; then
-            echo "Error: Release tag does not match the completed build"
-            exit 1
-          fi
+          test "$(git rev-parse HEAD)" = "$EXPECTED_RELEASE_SHA"
+          git fetch origin "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
+          test "$(git rev-parse "$RELEASE_TAG^{commit}")" = "$EXPECTED_RELEASE_SHA"
+
+      - name: Require complete exact-source main CI, including manual recovery
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 scripts/release_ci.py --repository "$GITHUB_REPOSITORY" --commit "$EXPECTED_RELEASE_SHA"
+
+      - name: Extract pinned build configuration
+        id: config
+        uses: ./.github/actions/extract-build-config
+
+      - name: Setup pinned .NET SDKs
+        uses: ./.github/actions/setup-dotnet-sdks
+        with:
+          dotnet-version: ${{ steps.config.outputs.versions }}
 
       - name: Record version in summary
         run: |
@@ -113,64 +141,33 @@ jobs:
           fi
           echo "Version format validated: $VERSION"
 
-      - name: Download packages from GitHub Release
-        run: |
-          TAG="$RELEASE_TAG"
-          VERSION="$RELEASE_VERSION"
-
-          echo "Downloading packages from release $TAG..."
-
-          # Verify release exists
-          if ! gh release view "$TAG" > /dev/null 2>&1; then
-            echo "Error: Release $TAG not found"
-            echo "Please create the release first using the create-release workflow"
-            exit 1
-          fi
-
-          # Create packages directory
-          mkdir -p ./packages
-
-          # Download NuGet packages from the release
-          gh release download "$TAG" \
-            --pattern "HeroCrypt.${VERSION}.nupkg" \
-            --dir ./packages
-
-          gh release download "$TAG" \
-            --pattern "HeroCrypt.${VERSION}.snupkg" \
-            --dir ./packages
-
-          echo "Downloaded packages:"
-          ls -lh ./packages/
+      - name: Download verified release artifacts
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release download "$RELEASE_TAG" --dir ./packages
 
-      - name: Validate package contents
+      - name: Validate checksums, package contents and source identity
         run: |
-          VERSION="$RELEASE_VERSION"
+          (cd packages && sha256sum --check --strict SHA256SUMS)
+          python3 scripts/release_validation.py validate "packages/HeroCrypt.$RELEASE_VERSION.nupkg" "packages/HeroCrypt.$RELEASE_VERSION.snupkg" --version "$RELEASE_VERSION" --commit "$EXPECTED_RELEASE_SHA" --repository "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
 
-          # Verify both packages exist
-          if [ ! -f "./packages/HeroCrypt.${VERSION}.nupkg" ]; then
-            echo "Error: Main package not found: HeroCrypt.${VERSION}.nupkg"
-            exit 1
-          fi
-
-          if [ ! -f "./packages/HeroCrypt.${VERSION}.snupkg" ]; then
-            echo "Error: Symbol package not found: HeroCrypt.${VERSION}.snupkg"
-            exit 1
-          fi
-
-          echo "Package contents:"
-          for pkg in ./packages/*.nupkg; do
-            if [ -f "$pkg" ]; then
-              echo "=== $pkg ==="
-              unzip -l "$pkg" | head -50 || true
-            fi
+      - name: Independently rebuild the verified source before trusting release assets
+        run: |
+          cat > "$RUNNER_TEMP/rebuild-nuget.config" <<'XML'
+          <configuration>
+            <packageSources><clear/><add key="nuget.org" value="https://api.nuget.org/v3/index.json"/></packageSources>
+            <auditSources><clear/><add key="nuget.org" value="https://api.nuget.org/v3/index.json"/></auditSources>
+          </configuration>
+          XML
+          dotnet restore src/HeroCrypt/HeroCrypt.csproj --locked-mode --force --no-http-cache --configfile "$RUNNER_TEMP/rebuild-nuget.config" -p:NuGetAudit=true -p:NuGetAuditMode=all -p:NuGetAuditLevel=low -p:TreatWarningsAsErrors=true
+          dotnet build src/HeroCrypt/HeroCrypt.csproj --configuration Release --no-restore --no-incremental -p:GeneratePackageOnBuild=false -p:ContinuousIntegrationBuild=true -p:RepositoryBranch=refs/heads/main "-p:Version=$RELEASE_VERSION" "-p:PackageVersion=$RELEASE_VERSION" "-p:RepositoryCommit=$EXPECTED_RELEASE_SHA"
+          dotnet pack src/HeroCrypt/HeroCrypt.csproj --configuration Release --no-build --no-restore --output "$RUNNER_TEMP/source-rebuilt" -p:ContinuousIntegrationBuild=true -p:RepositoryBranch=refs/heads/main "-p:PackageVersion=$RELEASE_VERSION" "-p:Version=$RELEASE_VERSION" "-p:RepositoryCommit=$EXPECTED_RELEASE_SHA"
+          python3 scripts/release_validation.py validate "$RUNNER_TEMP/source-rebuilt/HeroCrypt.$RELEASE_VERSION.nupkg" "$RUNNER_TEMP/source-rebuilt/HeroCrypt.$RELEASE_VERSION.snupkg" --version "$RELEASE_VERSION" --commit "$EXPECTED_RELEASE_SHA" --repository "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
+          for extension in nupkg snupkg; do
+            python3 scripts/release_validation.py compare "$RUNNER_TEMP/source-rebuilt/HeroCrypt.$RELEASE_VERSION.$extension" "packages/HeroCrypt.$RELEASE_VERSION.$extension"
           done
-
-      - name: Generate package provenance
-        uses: actions/attest-build-provenance@v4
-        with:
-          subject-path: './packages/*.nupkg'
+          git diff --exit-code
+          test "$(git rev-parse HEAD)" = "$EXPECTED_RELEASE_SHA"
 
       - name: NuGet login (OIDC temporary API key)
         uses: NuGet/login@v1
@@ -181,15 +178,11 @@ jobs:
 
       - name: Publish to NuGet.org using Trusted Publishing
         run: |
-          for pkg in ./packages/*.nupkg ./packages/*.snupkg; do
-            if [ -f "$pkg" ]; then
-              echo "Publishing $pkg..."
-              dotnet nuget push "$pkg" \
-                --source https://api.nuget.org/v3/index.json \
-                --api-key "$NUGET_API_KEY" \
-                --skip-duplicate
-            fi
-          done
+          # Push the validated main package once; NuGet also submits its paired snupkg.
+          # An existing version is an error rather than a silently successful overwrite.
+          dotnet nuget push "./packages/HeroCrypt.$RELEASE_VERSION.nupkg" \
+            --source https://api.nuget.org/v3/index.json \
+            --api-key "$NUGET_API_KEY"
         env:
           NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
 

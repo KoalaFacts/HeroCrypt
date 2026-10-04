@@ -2,6 +2,58 @@
 
 This guide helps you migrate between HeroCrypt versions and from other cryptographic libraries.
 
+## Release qualification in v1.0.5
+
+This is a security patch with deliberate acceptance-policy changes. Previously
+accepted but unsafe/nonstandard inputs can now fail. It does not add OpenPGP OCB,
+a high-level signed-and-encrypted API, or a universal production/audit certification.
+
+- Keep protected backups and validate representative stored data before updating.
+  Follow the existing after-v1.0.4 signature/envelope recovery sections below.
+- Pin the package version and verify its repository commit. The GitHub release
+  contains package checksums, toolchain details and security/readiness documents;
+  NuGet may add a repository signature without changing library payloads.
+- Use the supported [production profiles](../PRODUCTION_READINESS.md). In particular,
+  OpenPGP GCM requires a supported modern runtime, decrypting a literal payload does
+  not authenticate its sender, and complete v6 interoperability with external
+  applications needs application-specific tests.
+- Do not expose RSA PKCS#1 v1.5 session decryption as an unauthenticated remotely
+  observable service. Generic errors are not proof of constant-time implicit
+  rejection. This release does not establish that provider-dependent property.
+- Keep externally trusted identity, revocation and freshness decisions. Do not
+  treat absent supplied revocations, a generic validation result or an algorithm
+  name alone as authorization to use a key.
+
+A rollback may reintroduce security defects. Prefer a new corrective version or
+pause the affected feature; never replace a published package or retarget a tag.
+
+## OpenPGP recipient acceptance and failure handling in v1.0.5
+
+- A ring recipient now needs current authenticated Encrypt Communications or Encrypt
+  Storage permission. Subkeys need an exact authenticated binding; revoked, expired,
+  future or unsupported policy cannot authorize encryption. If no eligible supported
+  key remains, encryption throws `InvalidOperationException`. A separately added raw
+  copy of a denied ring key cannot override this decision in either order.
+- Raw packet-only recipients remain available for callers that independently manage
+  policy. Do not switch to that overload just to bypass an unexplained ring failure.
+  Reissue missing/incorrect bindings or flags through the trusted key owner instead.
+- High-level message encryption rejects non-AES data ciphers. Historical output
+  selected with a Twofish/Camellia label may contain AES-CFB bytes. Recover only in an
+  isolated, trusted process and re-encrypt valid data; no automatic relabeling or
+  fallback is supported.
+- Treat session-key and integrity failures as one generic decryption failure. Do not
+  parse old exception text or expose detailed internal failures to remote callers.
+  Malformed short CFB containers return failure without leaking partial plaintext.
+  The RSA timing-exposure warning above still applies.
+- Recipient metadata follows the actual PKESK version. A v6 key's ID is its first
+  eight fingerprint bytes even inside a v3 PKESK; a v4 key's ID remains the last eight.
+  Use full fingerprints for trusted identity binding, not key IDs alone.
+- `PgpFeatures.SeipdV2` is the RFC 9580 0x08 capability. The published 0x02 and 0x04
+  members retain their numeric values but are obsolete because those bits are
+  reserved. Do not rewrite authenticated existing signatures. Generator defaults
+  remain conservative; explicit capability signaling must match the implementation
+  and cipher preferences of the application.
+
 ## OpenPGP encrypted-envelope correction after v1.0.4
 
 - AES-GCM messages now follow RFC 9580 SEIPD v2: HKDF derives the message key and

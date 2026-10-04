@@ -26,6 +26,7 @@ namespace HeroCrypt.Primitives.OpenPgp;
 /// </remarks>
 public sealed class PgpMessageDecryptor : IDisposable
 {
+    private const string AuthenticationFailure = "Message integrity could not be verified.";
     private readonly List<PgpSecretKeyPacket> secretKeys = [];
     private readonly List<byte[]> messagePassphrases = [];
     private string? passphrase;
@@ -327,7 +328,7 @@ public sealed class PgpMessageDecryptor : IDisposable
                 }
                 catch (Exception ex) when (IsCandidateFailure(ex))
                 {
-                    lastError = ex.Message;
+                    lastError = AuthenticationFailure;
                 }
                 finally
                 {
@@ -387,6 +388,7 @@ public sealed class PgpMessageDecryptor : IDisposable
         message = default;
         error = null;
         byte[]? plaintext = null;
+        bool authenticated = false;
         try
         {
             if (key.Length != GetKeySize(algorithm))
@@ -396,12 +398,15 @@ public sealed class PgpMessageDecryptor : IDisposable
 
             plaintext = container.Version == 1 ? DecryptSeipdV1(container, key, algorithm)
                 : DecryptSeipdV2(container, key);
+            authenticated = true;
             return ParseDecryptedContent(plaintext, keyId, container.Version, maxDecompressedSize, out message, out error);
         }
         catch (Exception ex) when (IsCandidateFailure(ex))
         {
             message = default;
-            error = ex.Message;
+            // Do not distinguish session-key or integrity failures. Errors parsing
+            // already-authenticated content (such as a size limit) remain useful.
+            error = authenticated ? ex.Message : AuthenticationFailure;
             return false;
         }
         finally
@@ -523,7 +528,7 @@ public sealed class PgpMessageDecryptor : IDisposable
         }
         catch (Exception ex) when (IsCandidateFailure(ex))
         {
-            error = ex.Message;
+            error = AuthenticationFailure;
             return null;
         }
     }
@@ -535,70 +540,49 @@ public sealed class PgpMessageDecryptor : IDisposable
     {
         int blockSize = GetBlockSize(algorithm);
         byte[] encryptedData = seipd.EncryptedData.ToArray();
-
-        // CFB decrypt
+        // Validate public framing before the CFB implementation indexes its prefix.
+        if (encryptedData.Length < blockSize + 2 + 22)
+        {
+            throw new CryptographicException(AuthenticationFailure);
+        }
         byte[] decrypted = CfbDecrypt(encryptedData, sessionKey, blockSize, algorithm);
-
-        // Verify prefix (quick check)
-        if (decrypted.Length < blockSize + 2)
+        try
         {
-            throw new CryptographicException("Decrypted data too short.");
-        }
-
-        // Check that last 2 bytes of prefix are repeated
-        if (decrypted[blockSize - 2] != decrypted[blockSize] ||
-            decrypted[blockSize - 1] != decrypted[blockSize + 1])
-        {
-            throw new CryptographicException("Session key quick check failed.");
-        }
-
-        // Extract plaintext and MDC
-        // Format: prefix(blockSize+2) || data || MDC packet (0xD3 0x14 || hash(20))
-        if (decrypted.Length < blockSize + 2 + 22) // minimum: prefix + MDC header + hash
-        {
-            throw new CryptographicException("Decrypted data missing MDC.");
-        }
-
-        // Verify MDC
-        int mdcStart = decrypted.Length - 22;
-        if (decrypted[mdcStart] != 0xD3 || decrypted[mdcStart + 1] != 0x14)
-        {
-            throw new CryptographicException("Invalid MDC packet header.");
-        }
-
-        byte[] expectedMdc = new byte[20];
-        Array.Copy(decrypted, mdcStart + 2, expectedMdc, 0, 20);
-
-        // Calculate MDC: SHA-1(prefix || plaintext || 0xD3 0x14)
+            int mdcStart = decrypted.Length - 22;
+            // Always compute the entire MDC before rejecting prefix or MDC-header
+            // bytes. A separate quick-check result is a decryption oracle.
 #pragma warning disable CA5350 // SHA-1 is weak, but required by OpenPGP SEIPD v1 specification
-        byte[] actualMdc;
+            byte[] actualMdc;
 #if NETSTANDARD2_0
-        using (var sha1 = SHA1.Create())
-        {
-            sha1.TransformBlock(decrypted, 0, mdcStart + 2, null, 0);
-            sha1.TransformFinalBlock([], 0, 0);
-            actualMdc = sha1.Hash!;
-        }
+            using (var sha1 = SHA1.Create())
+            {
+                sha1.TransformBlock(decrypted, 0, mdcStart + 2, null, 0);
+                sha1.TransformFinalBlock([], 0, 0);
+                actualMdc = sha1.Hash!;
+            }
 #else
-        using (var sha1 = IncrementalHash.CreateHash(HashAlgorithmName.SHA1))
-        {
-            sha1.AppendData(decrypted.AsSpan(0, mdcStart + 2));
-            actualMdc = sha1.GetHashAndReset();
-        }
+            using (var sha1 = IncrementalHash.CreateHash(HashAlgorithmName.SHA1))
+            {
+                sha1.AppendData(decrypted.AsSpan(0, mdcStart + 2));
+                actualMdc = sha1.GetHashAndReset();
+            }
 #endif
 #pragma warning restore CA5350
+            bool validMdc = SecureMemoryOperations.ConstantTimeEquals(actualMdc.AsSpan(), decrypted.AsSpan(mdcStart + 2, 20));
+            int framingDifference = (decrypted[mdcStart] ^ 0xD3) | (decrypted[mdcStart + 1] ^ 0x14) |
+                (decrypted[blockSize - 2] ^ decrypted[blockSize]) |
+                (decrypted[blockSize - 1] ^ decrypted[blockSize + 1]);
+            if (!validMdc || framingDifference != 0)
+                throw new CryptographicException(AuthenticationFailure);
 
-        // Use constant-time comparison to prevent timing attacks on MDC verification
-        if (!SecureMemoryOperations.ConstantTimeEquals(actualMdc.AsSpan(), expectedMdc))
-        {
-            throw new CryptographicException("MDC verification failed. Message may have been tampered with.");
+            byte[] plaintext = new byte[mdcStart - blockSize - 2];
+            Array.Copy(decrypted, blockSize + 2, plaintext, 0, plaintext.Length);
+            return plaintext;
         }
-
-        // Return plaintext (after prefix, before MDC)
-        byte[] plaintext = new byte[mdcStart - blockSize - 2];
-        Array.Copy(decrypted, blockSize + 2, plaintext, 0, plaintext.Length);
-
-        return plaintext;
+        finally
+        {
+            SecureMemoryOperations.SecureClear(decrypted);
+        }
     }
 
     private static byte[] CfbDecrypt(byte[] ciphertext, byte[] key, int blockSize, SymmetricCipherAlgorithm algorithm)
@@ -619,7 +603,7 @@ public sealed class PgpMessageDecryptor : IDisposable
         byte[] fre = new byte[blockSize]; // Encrypted feedback register
 
         using var encryptor = cipher.CreateEncryptor();
-
+        bool completed = false;
         try
         {
             // Phase 1: Decrypt the first blockSize bytes
@@ -680,12 +664,14 @@ public sealed class PgpMessageDecryptor : IDisposable
                 pos += bytesToProcess;
             }
 
+            completed = true;
             return plaintext;
         }
         finally
         {
             SecureMemoryOperations.SecureClear(fr);
             SecureMemoryOperations.SecureClear(fre);
+            if (!completed) SecureMemoryOperations.SecureClear(plaintext);
         }
     }
 

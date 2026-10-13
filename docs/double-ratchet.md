@@ -12,6 +12,10 @@ not implement X3DH/PQXDH, identity/prekey management, header encryption, group
 messaging, post-quantum ratchets or persistent state. The managed primitives do not
 provide a blanket constant-time or complete zeroization guarantee.
 
+The [cryptographic validation record](cryptographic-validation.md) describes the
+independent reference transcripts, attack cases, key-buffer cleanup checks and
+remaining security boundaries.
+
 ## Establishing a session
 
 Before constructing sessions, independently authenticate a high-entropy 32-byte

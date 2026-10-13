@@ -81,6 +81,27 @@ public class Secp256k1InteropTests
     }
 
     [Fact]
+    public void Verify_AcceptsRareVerificationPointWithXAboveOrder()
+    {
+        // Construct R.x = n + r, s = 1, e = 0 and Q = r^-1 R. Then the
+        // verification point is R and its x coordinate MUST be reduced mod n.
+        // Random signatures hit this branch with negligible probability.
+        var r = BigInteger.Two;
+        var point = Domain.Curve.DecodePoint(Convert.FromHexString(
+            "03fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364143"));
+        Assert.Equal(Domain.N.Add(r), point.Normalize().AffineXCoord.ToBigInteger());
+        var publicPoint = point.Multiply(r.ModInverse(Domain.N)).Normalize();
+        var signature = new byte[64];
+        Scalar(r).CopyTo(signature, 0);
+        Scalar(BigInteger.One).CopyTo(signature, 32);
+        var verifier = new ECDsaSigner();
+        verifier.Init(false, new ECPublicKeyParameters(publicPoint, Domain));
+        Assert.True(verifier.VerifySignature(new byte[32], r, BigInteger.One));
+        Assert.True(core.Verify(new byte[32], signature, publicPoint.GetEncoded(true)));
+        Assert.True(core.Verify(new byte[32], signature, publicPoint.GetEncoded(false)));
+    }
+
+    [Fact]
     public void NonceRetry_FollowsRfc6979RejectionUpdate()
     {
         var key = Scalar(BigInteger.One);

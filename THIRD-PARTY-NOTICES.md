@@ -1,5 +1,14 @@
 # Third-party notices
 
+## Wycheproof ECDSA test vectors
+
+The unchanged secp256k1 SHA-256 P1363 corpus under
+`tests/HeroCrypt.Tests/Fixtures/Wycheproof` comes from
+[C2SP/wycheproof](https://github.com/C2SP/wycheproof), revision
+`7a325932231bd7a724c791c8b0d65ea4d6d2f435`.
+It is distributed under Apache-2.0. The upstream license and fixture provenance
+are included in that directory. These files are used only by the test project.
+
 ## BIP39 English wordlist and reference vectors
 
 The English wordlist in `src/HeroCrypt/Protocols/HdWallet/Bip39English.txt` is

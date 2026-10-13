@@ -7,6 +7,28 @@ namespace HeroCrypt.Tests.Protocols.X3dh;
 
 public class X3dhProfileTests
 {
+    [Fact]
+    public void Transcript_BindsEveryPublicKeyIdentifierAndOptionalPresence()
+    {
+        var a = X3dhReference.Public(X3dhReference.Key("Alice identity"));
+        var b = X3dhReference.Public(X3dhReference.Key("Bob identity"));
+        var e = X3dhReference.Public(X3dhReference.Key("Alice ephemeral"));
+        var s = X3dhReference.Public(X3dhReference.Key("signed prekey"));
+        var o = X3dhReference.Public(X3dhReference.Key("one time"));
+        var alternate = X3dhReference.Public(X3dhReference.Key("alternate"));
+        var bundle = X3dhPreKeyBundle.Create(b, 1, s, new byte[64], 2, o);
+        var original = X3dhKdf.SessionContext(a, b, e, bundle, "ctx"u8.ToArray());
+        foreach (var changed in new[]
+        {
+            X3dhKdf.SessionContext(alternate, b, e, bundle, "ctx"u8.ToArray()),
+            X3dhKdf.SessionContext(a, alternate, e, bundle, "ctx"u8.ToArray()),
+            X3dhKdf.SessionContext(a, b, alternate, bundle, "ctx"u8.ToArray()),
+            X3dhKdf.SessionContext(a, b, e, X3dhPreKeyBundle.Create(b, 1, alternate, new byte[64], 2, o), "ctx"u8.ToArray()),
+            X3dhKdf.SessionContext(a, b, e, X3dhPreKeyBundle.Create(b, 1, s, new byte[64], 3, o), "ctx"u8.ToArray()),
+            X3dhKdf.SessionContext(a, b, e, X3dhPreKeyBundle.Create(b, 1, s, new byte[64], 2, alternate), "ctx"u8.ToArray()),
+            X3dhKdf.SessionContext(a, b, e, X3dhPreKeyBundle.Create(b, 1, s, new byte[64], null, null), "ctx"u8.ToArray())
+        }) Assert.NotEqual(original, changed);
+    }
     [Theory]
     [InlineData(false, "128262ae19685198a46556b9882e0586b6aac0967cfc5db54d3a63fe9a217b5e")]
     [InlineData(true, "7c9f19834f2972a847b334fff823a56d6ce4b77921234018749f6ab910e2170d")]

@@ -12,6 +12,21 @@ namespace HeroCrypt.Tests.Primitives.XEdDsa;
 [Trait("Category", TestCategories.COMPLIANCE)]
 public class XEdDsaCoreTests
 {
+    [Fact]
+    public void Verify_RejectsEquivalentNoncanonicalScalarAndPublicCoordinate()
+    {
+        var order = new BigInteger(Convert.FromHexString("EDD3F55C1A631258D69CF7A2DEF9DE1400000000000000000000000000000010"));
+        var key = new byte[32]; (5 * order - 1).ToByteArray().CopyTo(key, 0);
+        var core = new XEdDsaCore(); var publicKey = core.DerivePublicKey(key);
+        Assert.Equal(new byte[] { 9 }.Concat(new byte[31]), publicKey);
+        var signature = core.Sign("malleability"u8, key);
+        var s = new BigInteger(signature.AsSpan(32).ToArray()); var alternate = signature.ToArray();
+        (s + order).ToByteArray().CopyTo(alternate, 32);
+        Assert.False(core.Verify("malleability"u8, alternate, publicKey));
+        var p = (BigInteger.One << 255) - 19; var noncanonical = new byte[32];
+        (p + 9).ToByteArray().CopyTo(noncanonical, 0);
+        Assert.False(core.Verify("malleability"u8, signature, noncanonical));
+    }
     public static IEnumerable<object[]> Vectors()
     {
         using var stream = typeof(XEdDsaCoreTests).Assembly.GetManifestResourceStream("HeroCrypt.Tests.Fixtures.XEdDsa.vectors.json")!;

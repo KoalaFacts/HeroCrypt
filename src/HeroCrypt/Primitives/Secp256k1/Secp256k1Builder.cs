@@ -13,6 +13,9 @@ namespace HeroCrypt.Primitives.Secp256k1;
 /// It provides 128-bit security and supports both compressed and uncompressed public key formats.
 /// </para>
 /// <para>Supported on Windows, Linux, and macOS through the bundled curve implementation.</para>
+/// <para>The managed implementation uses variable-time BigInteger arithmetic and is
+/// not qualified against timing/cache side channels. Secret BigInteger storage cannot
+/// be reliably zeroized; callers must protect and clear their key buffers.</para>
 /// </remarks>
 /// <example>
 /// <code>

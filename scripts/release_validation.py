@@ -48,6 +48,12 @@ def validate_package(path, version, commit, repository, source_root):
     metadata = root.find("{*}metadata")
     if metadata is None:
         raise ValueError("Missing package metadata")
+    # Bouncy Castle is an independent test oracle, never a production dependency.
+    for dependency in metadata.findall(".//{*}dependency"):
+        if "bouncycastle" in dependency.get("id", "").lower():
+            raise ValueError("Bouncy Castle must not be a runtime package dependency")
+    if any("bouncycastle" in PurePosixPath(name).name.lower() and name.lower().endswith(".dll") for name in files):
+        raise ValueError("Bouncy Castle must not be embedded in the release package")
     for key, expected in (("id", "HeroCrypt"), ("version", version)):
         if metadata.findtext(f"{{*}}{key}") != expected:
             raise ValueError(f"Package {key} does not match {expected}")

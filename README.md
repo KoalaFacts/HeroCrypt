@@ -426,7 +426,8 @@ HeroCrypt is built with a small, layered architecture:
 ## 🔒 Security
 
 - Core algorithms (Argon2, Blake2b, ChaCha20, Rabbit) implemented from scratch following RFC specifications
-- secp256k1 key operations and ECDSA signatures use Bouncy Castle's cross-platform curve implementation
+- secp256k1 key operations, RFC 6979 ECDSA signatures and BIP32 RIPEMD-160 fingerprints use HeroCrypt's managed implementations. Bouncy Castle is used only for independent comparison tests and is not a runtime dependency.
+- Managed secp256k1 uses variable-time `BigInteger` arithmetic; timing/cache side-channel resistance and complete secret zeroization are not established.
 - Post-quantum cryptography uses .NET 10+ native BCL implementations (FIPS 203/204/205)
 - Constant-time comparisons for sensitive operations
 - Secure memory management with automatic zeroing

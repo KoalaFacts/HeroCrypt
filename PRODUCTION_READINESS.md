@@ -84,7 +84,7 @@ freshness. A mathematically valid key is not necessarily an authorized recipient
 | Hashes and KDFs | SHA family, Blake2b, Argon2, PBKDF2, HKDF and Scrypt | Use the intended variant and resource limits; review standards-vector coverage |
 | AEAD | AES and ChaCha-family implementations and platform backends | Unique nonces where required; verify associated context and handle authentication failure |
 | Ed25519/X25519 | Managed implementations with test vectors | No blanket constant-time or independent-audit certification |
-| RSA/ECDSA | Runtime cryptography; secp256k1 uses Bouncy Castle | Validate runtime support, key sizes, usage and provider behavior |
+| RSA/ECDSA | Runtime cryptography; secp256k1 uses HeroCrypt's managed SEC 2/RFC 6979 implementation | Validate runtime support, key sizes and usage; managed secp256k1 is variable-time and not qualified against timing/cache side channels |
 | ML-KEM/ML-DSA/SLH-DSA | .NET 10 native APIs, platform dependent | Probe support at runtime; a standardized primitive is not an audited application protocol |
 | BIP39/BIP32 | Official English mnemonic list; checksum validation; private-parent HD derivation | No public-parent derivation or xprv/xpub import/export; review historical recovery guidance |
 | Shamir sharing | Trusted-dealer confidentiality primitive | Authenticate shares and session metadata separately; enforce the original threshold |

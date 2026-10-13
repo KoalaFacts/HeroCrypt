@@ -1,17 +1,16 @@
+using System.Numerics;
 using System.Security.Cryptography;
 using HeroCrypt.Polyfills;
 using HeroCrypt.Security;
-using Org.BouncyCastle.Asn1.Sec;
-using Org.BouncyCastle.Crypto.Digests;
-using Org.BouncyCastle.Crypto.Parameters;
-using Org.BouncyCastle.Crypto.Signers;
-using BcBigInteger = Org.BouncyCastle.Math.BigInteger;
 
 namespace HeroCrypt.Primitives.Secp256k1;
 
 /// <summary>
-/// secp256k1 key and ECDSA operations backed by Bouncy Castle's curve implementation.
+/// Managed SEC 2 secp256k1 key and RFC 6979 deterministic ECDSA operations.
 /// </summary>
+/// <remarks>Uses variable-time System.Numerics.BigInteger arithmetic. This implementation
+/// is not qualified against local timing/cache side channels, and BigInteger secret
+/// storage cannot be reliably zeroized. Byte buffers are cleared where owned.</remarks>
 internal sealed class Secp256k1Core
 {
     /// <summary>The size of a secp256k1 private key in bytes.</summary>
@@ -23,7 +22,6 @@ internal sealed class Secp256k1Core
     /// <summary>The size of a compact ECDSA signature in bytes.</summary>
     public const int SIGNATURE_SIZE = 64;
 
-    private static readonly ECDomainParameters Domain = CreateDomain();
     private readonly SecurityPolicyOptions policy;
 
     /// <summary>Creates secp256k1 operations under the specified security policy.</summary>
@@ -57,8 +55,8 @@ internal sealed class Secp256k1Core
         policy.ValidateSignature("SECP256K1");
         ValidatePrivateKey(privateKey);
 
-        var scalar = new BcBigInteger(1, privateKey);
-        return Domain.G.Multiply(scalar).Normalize().GetEncoded(compressed);
+        var scalar = Secp256k1Math.ReadScalar(privateKey);
+        return Secp256k1Math.Encode(Secp256k1Math.Multiply(Secp256k1Math.Generator, scalar), compressed);
     }
 
     /// <summary>Signs a 32-byte message hash with deterministic ECDSA and low-S normalization.</summary>
@@ -71,23 +69,29 @@ internal sealed class Secp256k1Core
         ValidateMessageHash(messageHash);
         ValidatePrivateKey(privateKey);
 
-        var scalar = new BcBigInteger(1, privateKey);
-        var signer = new ECDsaSigner(new HMacDsaKCalculator(new Sha256Digest()));
-        signer.Init(true, new ECPrivateKeyParameters(scalar, Domain));
-        var components = signer.GenerateSignature(messageHash);
-        var r = components[0];
-        var s = components[1];
-
-        // Bitcoin-style low-S normalization also avoids a second encoding for the same signature.
-        if (s.CompareTo(Domain.N.ShiftRight(1)) > 0)
+        var scalar = Secp256k1Math.ReadScalar(privateKey);
+        var hash = Secp256k1Math.ReadScalar(messageHash);
+        var order = Secp256k1Math.Order;
+        using var nonces = new Secp256k1NonceGenerator(privateKey, messageHash);
+        while (true)
         {
-            s = Domain.N.Subtract(s);
-        }
+            var nonce = nonces.Next();
+            var point = Secp256k1Math.ToAffine(Secp256k1Math.Multiply(Secp256k1Math.Generator, nonce));
+            var r = point.X % order;
+            var s = Secp256k1Math.Mod(BigInteger.ModPow(nonce, order - 2, order) * (hash + r * scalar), order);
+            if (r.IsZero || s.IsZero)
+            {
+                nonces.Reject();
+                continue;
+            }
 
-        var signature = new byte[SIGNATURE_SIZE];
-        WriteScalar(r, signature, 0);
-        WriteScalar(s, signature, 32);
-        return signature;
+            // Preserve Bitcoin-style low-S normalization and compact r || s encoding.
+            if (s > order / 2) s = order - s;
+            var signature = new byte[SIGNATURE_SIZE];
+            Secp256k1Math.EncodeScalar(r).CopyTo(signature, 0);
+            Secp256k1Math.EncodeScalar(s).CopyTo(signature, 32);
+            return signature;
+        }
     }
 
     /// <summary>Verifies a compact ECDSA signature against a public key.</summary>
@@ -106,12 +110,17 @@ internal sealed class Secp256k1Core
         }
         ValidatePublicKeyLength(publicKey);
 
-        var point = Domain.Curve.DecodePoint(publicKey);
-        var verifier = new ECDsaSigner();
-        verifier.Init(false, new ECPublicKeyParameters(point, Domain));
-        var r = new BcBigInteger(1, signature.AsSpan(0, 32).ToArray());
-        var s = new BcBigInteger(1, signature.AsSpan(32, 32).ToArray());
-        return verifier.VerifySignature(messageHash, r, s);
+        var point = Secp256k1Math.Decode(publicKey);
+        var r = Secp256k1Math.ReadScalar(signature.AsSpan(0, 32));
+        var s = Secp256k1Math.ReadScalar(signature.AsSpan(32, 32));
+        var order = Secp256k1Math.Order;
+        if (r.Sign <= 0 || s.Sign <= 0 || r >= order || s >= order) return false;
+        var inverse = BigInteger.ModPow(s, order - 2, order);
+        var u1 = Secp256k1Math.Mod(Secp256k1Math.ReadScalar(messageHash) * inverse, order);
+        var u2 = Secp256k1Math.Mod(r * inverse, order);
+        var result = Secp256k1Math.ToAffine(Secp256k1Math.Add(
+            Secp256k1Math.Multiply(Secp256k1Math.Generator, u1), Secp256k1Math.Multiply(point, u2)));
+        return !result.IsInfinity && result.X % order == r;
     }
 
     /// <summary>Converts an uncompressed public key to compressed form.</summary>
@@ -125,7 +134,7 @@ internal sealed class Secp256k1Core
             throw new ArgumentException("Invalid uncompressed public key", nameof(uncompressedKey));
         }
 
-        return Domain.Curve.DecodePoint(uncompressedKey).GetEncoded(true);
+        return Secp256k1Math.Encode(Secp256k1Math.Decode(uncompressedKey), compressed: true);
     }
 
     /// <summary>Converts a compressed public key to uncompressed form.</summary>
@@ -139,20 +148,13 @@ internal sealed class Secp256k1Core
             throw new ArgumentException("Invalid compressed public key", nameof(compressedKey));
         }
 
-        return Domain.Curve.DecodePoint(compressedKey).GetEncoded(false);
-    }
-
-    private static ECDomainParameters CreateDomain()
-    {
-        var parameters = SecNamedCurves.GetByName("secp256k1")
-            ?? throw new InvalidOperationException("The secp256k1 curve is unavailable.");
-        return new ECDomainParameters(parameters.Curve, parameters.G, parameters.N, parameters.H);
+        return Secp256k1Math.Encode(Secp256k1Math.Decode(compressedKey), compressed: false);
     }
 
     private static bool IsValidPrivateKey(byte[] privateKey)
     {
-        var scalar = new BcBigInteger(1, privateKey);
-        return scalar.SignValue > 0 && scalar.CompareTo(Domain.N) < 0;
+        var scalar = Secp256k1Math.ReadScalar(privateKey);
+        return scalar.Sign > 0 && scalar < Secp256k1Math.Order;
     }
 
     private static void ValidatePrivateKey(byte[] privateKey)
@@ -186,14 +188,4 @@ internal sealed class Secp256k1Core
         }
     }
 
-    private static void WriteScalar(BcBigInteger value, byte[] destination, int offset)
-    {
-        var bytes = value.ToByteArrayUnsigned();
-        if (bytes.Length > 32)
-        {
-            throw new CryptographicException("ECDSA produced an invalid scalar.");
-        }
-
-        Array.Copy(bytes, 0, destination, offset + 32 - bytes.Length, bytes.Length);
-    }
 }

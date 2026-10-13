@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Remove Bouncy Castle from the production library and NuGet dependency graph;
+  retain it only as a private test dependency for independent comparisons.
+- Implement portable managed SEC 2 secp256k1 arithmetic, RFC 6979 deterministic
+  ECDSA with low-S signatures, and RIPEMD-160 for BIP32 HASH160 fingerprints.
+  Preserve public key/signature formats and BIP32 vectors. Managed secp256k1
+  remains variable-time and does not guarantee complete secret zeroization.
+- Reject noncanonical SEC public-key encodings and gate release packages against
+  accidental Bouncy Castle dependencies or embedded assemblies.
+
 ## [1.0.5] - 2026-10-04
 
 This security patch intentionally rejects unsafe or nonstandard inputs accepted by

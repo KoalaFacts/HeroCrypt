@@ -206,6 +206,17 @@ See [migration guidance](docs/migration-guide.md#openpgp-signature-hash-correcti
 - ⚠️ **Post-Quantum algorithms** - Current implementations are reference/educational only
 
 ### 3. **Key Management**
+
+secp256k1 uses HeroCrypt's managed SEC 2 curve arithmetic and RFC 6979 HMAC-SHA256
+nonce generation, with compact ECDSA signatures and low-S normalization. BIP32
+HASH160 fingerprints use the managed RIPEMD-160 implementation. Bouncy Castle is
+only an independent test oracle and is not included as a production dependency.
+The managed secp256k1 arithmetic uses variable-time `System.Numerics.BigInteger`;
+it is not qualified against timing or cache side channels, and immutable
+BigInteger secret storage cannot be reliably zeroized. Clearing owned byte buffers
+does not erase every managed-runtime copy. This implementation must not be assumed
+to provide a hardened signing backend for environments with local side-channel attackers.
+
 - **Never hardcode keys** in source code
 - **Use secure key storage** (OS key stores, HSM, or encrypted at rest)
 - **Rotate keys regularly** according to your security policy

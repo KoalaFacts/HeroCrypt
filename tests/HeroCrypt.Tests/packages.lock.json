@@ -2,6 +2,12 @@
   "version": 1,
   "dependencies": {
     "net10.0": {
+      "BouncyCastle.Cryptography": {
+        "type": "Direct",
+        "requested": "[2.7.0, )",
+        "resolved": "2.7.0",
+        "contentHash": "U+12df8UEWHgBi04YVf/Lgi2dy3SItlIYvHjjEVa/BngCQIzDCDRBk50DDByCfDvSbe5pRNFr3b7UrVK2kMcLw=="
+      },
       "coverlet.MTP": {
         "type": "Direct",
         "requested": "[10.1.0, )",
@@ -50,11 +56,6 @@
         "dependencies": {
           "xunit.v3.mtp-v2": "[4.0.1]"
         }
-      },
-      "BouncyCastle.Cryptography": {
-        "type": "Transitive",
-        "resolved": "2.7.0",
-        "contentHash": "U+12df8UEWHgBi04YVf/Lgi2dy3SItlIYvHjjEVa/BngCQIzDCDRBk50DDByCfDvSbe5pRNFr3b7UrVK2kMcLw=="
       },
       "Microsoft.ApplicationInsights": {
         "type": "Transitive",
@@ -311,13 +312,16 @@
         }
       },
       "herocrypt": {
-        "type": "Project",
-        "dependencies": {
-          "BouncyCastle.Cryptography": "[2.7.0, )"
-        }
+        "type": "Project"
       }
     },
     "net8.0": {
+      "BouncyCastle.Cryptography": {
+        "type": "Direct",
+        "requested": "[2.7.0, )",
+        "resolved": "2.7.0",
+        "contentHash": "U+12df8UEWHgBi04YVf/Lgi2dy3SItlIYvHjjEVa/BngCQIzDCDRBk50DDByCfDvSbe5pRNFr3b7UrVK2kMcLw=="
+      },
       "coverlet.MTP": {
         "type": "Direct",
         "requested": "[10.1.0, )",
@@ -368,11 +372,6 @@
           "xunit.v3.mtp-v2": "[4.0.1]"
         }
       },
-      "BouncyCastle.Cryptography": {
-        "type": "Transitive",
-        "resolved": "2.7.0",
-        "contentHash": "U+12df8UEWHgBi04YVf/Lgi2dy3SItlIYvHjjEVa/BngCQIzDCDRBk50DDByCfDvSbe5pRNFr3b7UrVK2kMcLw=="
-      },
       "Microsoft.ApplicationInsights": {
         "type": "Transitive",
         "resolved": "2.23.0",
@@ -654,13 +653,16 @@
         }
       },
       "herocrypt": {
-        "type": "Project",
-        "dependencies": {
-          "BouncyCastle.Cryptography": "[2.7.0, )"
-        }
+        "type": "Project"
       }
     },
     "net9.0": {
+      "BouncyCastle.Cryptography": {
+        "type": "Direct",
+        "requested": "[2.7.0, )",
+        "resolved": "2.7.0",
+        "contentHash": "U+12df8UEWHgBi04YVf/Lgi2dy3SItlIYvHjjEVa/BngCQIzDCDRBk50DDByCfDvSbe5pRNFr3b7UrVK2kMcLw=="
+      },
       "coverlet.MTP": {
         "type": "Direct",
         "requested": "[10.1.0, )",
@@ -711,11 +713,6 @@
           "xunit.v3.mtp-v2": "[4.0.1]"
         }
       },
-      "BouncyCastle.Cryptography": {
-        "type": "Transitive",
-        "resolved": "2.7.0",
-        "contentHash": "U+12df8UEWHgBi04YVf/Lgi2dy3SItlIYvHjjEVa/BngCQIzDCDRBk50DDByCfDvSbe5pRNFr3b7UrVK2kMcLw=="
-      },
       "Microsoft.ApplicationInsights": {
         "type": "Transitive",
         "resolved": "2.23.0",
@@ -997,10 +994,7 @@
         }
       },
       "herocrypt": {
-        "type": "Project",
-        "dependencies": {
-          "BouncyCastle.Cryptography": "[2.7.0, )"
-        }
+        "type": "Project"
       }
     }
   }

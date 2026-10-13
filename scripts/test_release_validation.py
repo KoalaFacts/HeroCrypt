@@ -57,6 +57,21 @@ class PackageValidationTests(unittest.TestCase):
         self.validate()
         self.validate(symbols=True)
 
+    def test_rejects_bouncy_castle_runtime_dependencies(self):
+        for package in ("BouncyCastle.Cryptography", "Portable.BouncyCastle", "bouncycastle"):
+            with self.subTest(package=package):
+                files = contents()
+                dependency = f'<dependencies><group targetFramework="net8.0"><dependency id="{package}" version="2.7.0"/></group></dependencies>'
+                files["HeroCrypt.nuspec"] = files["HeroCrypt.nuspec"].replace(b"</metadata>", dependency.encode() + b"</metadata>")
+                with self.assertRaisesRegex(ValueError, "Bouncy Castle"):
+                    self.validate(files)
+
+    def test_rejects_embedded_bouncy_castle_assembly(self):
+        files = contents()
+        files["lib/net8.0/BouncyCastle.Cryptography.dll"] = b"MZ dependency-fixture"
+        with self.assertRaisesRegex(ValueError, "Bouncy Castle"):
+            self.validate(files)
+
     def test_each_framework_assembly_documentation_and_symbol_is_required(self):
         for tfm in FRAMEWORKS:
             for suffix in ("dll", "xml", "pdb"):

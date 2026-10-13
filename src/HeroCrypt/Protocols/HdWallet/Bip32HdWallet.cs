@@ -3,9 +3,9 @@ using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
+using HeroCrypt.Primitives.Ripemd160;
 using HeroCrypt.Primitives.Secp256k1;
 using HeroCrypt.Security;
-using Org.BouncyCastle.Crypto.Digests;
 
 namespace HeroCrypt.Protocols.HdWallet;
 
@@ -478,10 +478,7 @@ public sealed class Bip32HdWallet
         var publicKey = key.IsPrivate ? DerivePublicKeyFromPrivate(key.Key) : key.Key;
 
         var sha256 = SHA256.HashData(publicKey);
-        var digest = new RipeMD160Digest();
-        digest.BlockUpdate(sha256, 0, sha256.Length);
-        var hash160 = new byte[digest.GetDigestSize()];
-        digest.DoFinal(hash160, 0);
+        var hash160 = Ripemd160Core.Hash(sha256);
         return hash160.AsSpan(0, 4).ToArray();
     }
 

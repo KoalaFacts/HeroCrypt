@@ -47,11 +47,6 @@
           "Spectre.Console.Ansi": "0.57.2"
         }
       },
-      "BouncyCastle.Cryptography": {
-        "type": "Transitive",
-        "resolved": "2.7.0",
-        "contentHash": "U+12df8UEWHgBi04YVf/Lgi2dy3SItlIYvHjjEVa/BngCQIzDCDRBk50DDByCfDvSbe5pRNFr3b7UrVK2kMcLw=="
-      },
       "Microsoft.Extensions.Configuration": {
         "type": "Transitive",
         "resolved": "10.0.12",
@@ -313,10 +308,7 @@
         "contentHash": "sOZM+VyRj1pg/ItlHsvrSbjws6oGqZveTzTNBGZ9ziwRDyKsOF3ub6vhvOdxotCIqtlnyHAIwP5sLNvgiZC+pQ=="
       },
       "herocrypt": {
-        "type": "Project",
-        "dependencies": {
-          "BouncyCastle.Cryptography": "[2.7.0, )"
-        }
+        "type": "Project"
       }
     },
     "net8.0": {
@@ -365,11 +357,6 @@
           "Spectre.Console.Ansi": "0.57.2"
         }
       },
-      "BouncyCastle.Cryptography": {
-        "type": "Transitive",
-        "resolved": "2.7.0",
-        "contentHash": "U+12df8UEWHgBi04YVf/Lgi2dy3SItlIYvHjjEVa/BngCQIzDCDRBk50DDByCfDvSbe5pRNFr3b7UrVK2kMcLw=="
-      },
       "Microsoft.Extensions.Configuration": {
         "type": "Transitive",
         "resolved": "10.0.12",
@@ -660,10 +647,7 @@
         }
       },
       "herocrypt": {
-        "type": "Project",
-        "dependencies": {
-          "BouncyCastle.Cryptography": "[2.7.0, )"
-        }
+        "type": "Project"
       }
     },
     "net9.0": {
@@ -712,11 +696,6 @@
           "Spectre.Console.Ansi": "0.57.2"
         }
       },
-      "BouncyCastle.Cryptography": {
-        "type": "Transitive",
-        "resolved": "2.7.0",
-        "contentHash": "U+12df8UEWHgBi04YVf/Lgi2dy3SItlIYvHjjEVa/BngCQIzDCDRBk50DDByCfDvSbe5pRNFr3b7UrVK2kMcLw=="
-      },
       "Microsoft.Extensions.Configuration": {
         "type": "Transitive",
         "resolved": "10.0.12",
@@ -1007,10 +986,7 @@
         }
       },
       "herocrypt": {
-        "type": "Project",
-        "dependencies": {
-          "BouncyCastle.Cryptography": "[2.7.0, )"
-        }
+        "type": "Project"
       }
     }
   }

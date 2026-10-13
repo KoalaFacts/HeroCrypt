@@ -150,4 +150,6 @@ dotnet run --project examples/HeroCrypt.Examples/HeroCrypt.Examples.csproj \
 For the design and implementation decisions, see the
 [reviewed specification](superpowers/specs/2026-10-14-x3dh-design.md),
 [plan](superpowers/plans/2026-10-14-x3dh.md) and
-[cryptographic validation record](cryptographic-validation.md).
+[cryptographic validation record](cryptographic-validation.md),
+[final X3DH qualification](x3dh-validation.md) and
+[implementation review](superpowers/reviews/2026-10-14-x3dh-implementation-review.md).

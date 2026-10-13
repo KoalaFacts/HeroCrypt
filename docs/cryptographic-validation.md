@@ -114,3 +114,6 @@ and [security limits](../SECURITY.md).
 The subsequent [X3DH implementation](x3dh.md) adds identity/prekey bootstrap and
 its own independent vectors, reference decryption and hostile-delivery tests.
 The earlier results above remain dated evidence for their original scope.
+
+See the [2026-10-14 X3DH qualification](x3dh-validation.md) for the subsequent
+full framework matrix, packaged API consumers and resolved review coverage gaps.

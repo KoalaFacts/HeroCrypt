@@ -43,7 +43,7 @@ public sealed class SlhDsaCore
         this.policy = policy ?? SecurityPolicy.CurrentPolicy;
     }
     /// <summary>
-    /// SLH-DSA security levels and variants (FIPS 205)
+    /// SLH-DSA SHA2 security levels and variants (FIPS 205)
     /// </summary>
     public enum SecurityLevel
     {
@@ -196,6 +196,8 @@ public sealed class SlhDsaCore
     /// <returns>A new SLH-DSA key pair</returns>
     /// <exception cref="PlatformNotSupportedException">If SLH-DSA is not supported on this platform</exception>
     /// <exception cref="CryptographicException">If key generation fails</exception>
+    /// <exception cref="ArgumentOutOfRangeException">If the security level is unknown.</exception>
+    /// <remarks>Generated keys use the SHA2 parameter sets for the selected security level and size/speed variant.</remarks>
     [Experimental("SYSLIB5006")]
     public SlhDsaKeyPair GenerateKeyPair(SecurityLevel level = SecurityLevel.SlhDsa128s)
     {
@@ -352,10 +354,18 @@ public sealed class SlhDsaCore
         };
     }
 
-    private SlhDsaAlgorithm ToSlhDsaAlgorithm(SecurityLevel level)
+    private static SlhDsaAlgorithm ToSlhDsaAlgorithm(SecurityLevel level)
     {
-        // SLH-DSA enum values don't exist yet in .NET 10 - will be added in future release
-        throw new NotSupportedException("SLH-DSA is not yet available in .NET 10. The enum values are not defined in the current SDK.");
+        return level switch
+        {
+            SecurityLevel.SlhDsa128s => SlhDsaAlgorithm.SlhDsaSha2_128s,
+            SecurityLevel.SlhDsa128f => SlhDsaAlgorithm.SlhDsaSha2_128f,
+            SecurityLevel.SlhDsa192s => SlhDsaAlgorithm.SlhDsaSha2_192s,
+            SecurityLevel.SlhDsa192f => SlhDsaAlgorithm.SlhDsaSha2_192f,
+            SecurityLevel.SlhDsa256s => SlhDsaAlgorithm.SlhDsaSha2_256s,
+            SecurityLevel.SlhDsa256f => SlhDsaAlgorithm.SlhDsaSha2_256f,
+            _ => throw new ArgumentOutOfRangeException(nameof(level), level, "Unknown SLH-DSA security level.")
+        };
     }
 
     /// <summary>

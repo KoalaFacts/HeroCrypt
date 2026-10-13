@@ -335,6 +335,11 @@ byte[] mac = Blake2bCore.ComputeHash(data, outputLength: 32, key: secretKey);
 
 ### 7.3 SLH-DSA (FIPS 205)
 
+HeroCrypt's six key-generation levels select the SHA2 parameter sets (`SLH-DSA-SHA2-*`)
+exposed by the .NET 10 native API. Availability remains platform-dependent; probe
+`SlhDsaCore.IsSupported()` before use. Imported PEM keys retain their native algorithm
+identifier. Unknown key-generation levels are rejected.
+
 | Variant | Security | Public Key | Signature |
 |---------|----------|------------|-----------|
 | SLH-DSA-128s | 128-bit | 32 bytes | 7856 bytes |

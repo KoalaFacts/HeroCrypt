@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Map all six SLH-DSA security levels to .NET 10's native SHA2 parameter sets
+  instead of unconditionally rejecting key generation. Reject unknown levels;
+  verify native PEM identity, signature sizes and bidirectional signing with context.
+
 ### Added
 
 - Add in-memory `DoubleRatchetSession` and immutable `DoubleRatchetMessage` APIs

@@ -12,7 +12,7 @@ namespace HeroCrypt.Protocols.DoubleRatchet;
 /// and ChaCha20-Poly1305. The shared secret, peer key and session context must be
 /// authenticated separately. This HeroCrypt wire profile is not Signal-compatible
 /// and implements no persistence or header encryption. The separate
-/// <see cref="HeroCrypt.Protocols.X3dh.X3dhHandshake"/> API can establish its bootstrap inputs.
+/// <see cref="X3dh.X3dhHandshake"/> API can establish its bootstrap inputs.
 /// Establish a fresh
 /// authenticated session after restart; do not restore or reuse old state.
 /// This implementation has not received an independent security audit.

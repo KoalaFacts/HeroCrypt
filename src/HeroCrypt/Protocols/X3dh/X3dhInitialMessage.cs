@@ -8,8 +8,8 @@ namespace HeroCrypt.Protocols.X3dh;
 public sealed class X3dhInitialMessage
 {
     private readonly byte[] encoded;
-    private readonly DoubleRatchetMessage message;
-    private X3dhInitialMessage(byte[] encoded, DoubleRatchetMessage message) { this.encoded = encoded; this.message = message; }
+
+    private X3dhInitialMessage(byte[] encoded, DoubleRatchetMessage message) { this.encoded = encoded; RatchetMessage = message; }
     /// <summary>Returns a copy of the initiator identity key.</summary>
     public byte[] InitiatorIdentityPublicKey => encoded.AsSpan(5, 32).ToArray();
     /// <summary>Returns a copy of the initiator ephemeral key.</summary>
@@ -19,7 +19,7 @@ public sealed class X3dhInitialMessage
     /// <summary>Returns the selected optional one-time identifier.</summary>
     public uint? OneTimePreKeyId => encoded[73] == 1 ? BinaryPrimitives.ReadUInt32BigEndian(encoded.AsSpan(74, 4)) : null;
     /// <summary>Returns the immutable nested ratchet message zero.</summary>
-    public DoubleRatchetMessage RatchetMessage => message;
+    public DoubleRatchetMessage RatchetMessage { get; }
     /// <summary>Parses/copies an envelope with zero initial counters and bounded exact lengths.</summary>
     public static X3dhInitialMessage FromBytes(byte[] encoded)
     {

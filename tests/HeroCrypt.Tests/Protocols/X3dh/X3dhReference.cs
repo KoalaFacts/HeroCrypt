@@ -1,11 +1,11 @@
+using System.Buffers.Binary;
 using System.Security.Cryptography;
 using System.Text;
-using System.Buffers.Binary;
 using Org.BouncyCastle.Crypto.Digests;
 using Org.BouncyCastle.Crypto.Generators;
 using Org.BouncyCastle.Crypto.Parameters;
-using BcX25519 = Org.BouncyCastle.Math.EC.Rfc7748.X25519;
 using BcCipher = Org.BouncyCastle.Crypto.Modes.ChaCha20Poly1305;
+using BcX25519 = Org.BouncyCastle.Math.EC.Rfc7748.X25519;
 
 namespace HeroCrypt.Tests.Protocols.X3dh;
 

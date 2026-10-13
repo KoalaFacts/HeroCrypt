@@ -82,6 +82,40 @@ public class X3dhPreKeyStoreTests
             if (snapshot != null) { Assert.Equal(original, snapshot); Array.Clear(snapshot); }
     }
 
+    [Fact]
+    public async Task StoreConstruction_RacingIdentityDisposal_ReturnsCompleteStoreOrDisposedAsync()
+    {
+        using var identity = X3dhIdentityKey.Generate();
+        var expected = identity.PublicKey;
+        using var before = X3dhPreKeyStore.Create(identity);
+        AssertValid(before);
+        var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var constructors = Enumerable.Range(0, 16).Select(async _ =>
+        {
+            await start.Task;
+            try { return X3dhPreKeyStore.Create(identity); }
+            catch (ObjectDisposedException) { return null; }
+        }).ToArray();
+        var dispose = Task.Run(async () => { await start.Task; identity.Dispose(); }, TestContext.Current.CancellationToken);
+        start.SetResult();
+        foreach (var store in await Task.WhenAll(constructors))
+        {
+            if (store == null) continue;
+            using (store) AssertValid(store);
+        }
+        await dispose;
+        AssertValid(before);
+        Assert.Throws<ObjectDisposedException>(() => X3dhPreKeyStore.Create(identity));
+
+        void AssertValid(X3dhPreKeyStore store)
+        {
+            var bundle = store.GetBundle();
+            Assert.Equal(expected, bundle.IdentityPublicKey);
+            Assert.True(new XEdDsaCore().Verify([5, .. bundle.SignedPreKeyPublicKey],
+                bundle.SignedPreKeySignature, expected));
+        }
+    }
+
     internal static object Field(X3dhPreKeyStore store, string name) =>
         typeof(X3dhPreKeyStore).GetField(name, BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(store)!;
 }

@@ -8,7 +8,11 @@ namespace HeroCrypt.Protocols.X3dh;
 public sealed class X3dhPreKeyBundle
 {
     private readonly byte[] encoded;
-    private X3dhPreKeyBundle(byte[] encoded) => this.encoded = encoded;
+    private X3dhPreKeyBundle(byte[] encoded)
+    {
+        this.encoded = encoded;
+    }
+
     /// <summary>Returns a copy of the identity public key.</summary>
     public byte[] IdentityPublicKey => encoded.AsSpan(5, 32).ToArray();
     /// <summary>Returns the signed prekey identifier.</summary>

@@ -13,7 +13,11 @@ public sealed class XEdDsaBuilder : IDisposable
     private byte[]? signature;
     private bool disposed;
 
-    private XEdDsaBuilder(SecurityPolicyOptions? policy = null) => core = new XEdDsaCore(policy);
+    private XEdDsaBuilder(SecurityPolicyOptions? policy = null)
+    {
+        core = new XEdDsaCore(policy);
+    }
+
     /// <summary>Creates a builder.</summary>
     public static XEdDsaBuilder Create() => new();
     /// <summary>Creates a builder with an explicit policy.</summary>

@@ -34,6 +34,28 @@ public class X3dhHandshakeTests
         Assert.Throws<CryptographicException>(() => pair.Accept(first.InitialMessage));
     }
 
+    [Theory]
+    [InlineData(1, 0)]
+    [InlineData(4096, X3dhValidation.MaxMetadata)]
+    public void MaximumPayloadAndContextEndpoints_RoundTrip(int contextLength, int metadataLength)
+    {
+        using var alice = X3dhIdentityKey.Generate();
+        using var bob = X3dhIdentityKey.Generate();
+        using var store = X3dhPreKeyStore.Create(bob);
+        var context = new byte[contextLength];
+        var metadata = new byte[metadataLength];
+        var plaintext = new byte[X3dhValidation.MaxPayload];
+        context[^1] = 1;
+        plaintext[0] = 23; plaintext[^1] = 42;
+        if (metadataLength != 0) metadata[^1] = 7;
+        using var first = X3dhHandshake.Initiate(alice, store.GetBundle(store.GenerateOneTimePreKey()),
+            bob.PublicKey, context, plaintext, metadata);
+        var parsed = X3dhInitialMessage.FromBytes(first.InitialMessage.ToBytes());
+        using var accepted = store.Accept(parsed, alice.PublicKey, context, metadata);
+        Assert.Equal(plaintext, accepted.Plaintext);
+        Assert.Equal(new byte[] { 9 }, first.Session.Decrypt(accepted.Session.Encrypt([9])));
+    }
+
     [Fact]
     public void InvalidBundleSignatureAndDirectoryOpkWithholding_AreDistinguished()
     {

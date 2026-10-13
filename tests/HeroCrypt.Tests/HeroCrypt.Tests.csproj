@@ -26,6 +26,7 @@
   <ItemGroup>
     <None Include="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
     <EmbeddedResource Include="Fixtures/Wycheproof/ecdsa_secp256k1_sha256_p1363_test.json" />
+    <EmbeddedResource Include="Fixtures/XEdDsa/vectors.json" />
   </ItemGroup>
 
 </Project>

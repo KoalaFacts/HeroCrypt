@@ -260,7 +260,7 @@ public sealed record SecurityPolicyOptions(
 
             var nonFipsAlgorithms = new HashSet<string>
             {
-                "ED25519", "ED448",
+                "ED25519", "ED448", "XEDDSA",
                 "SECP256K1"
             };
 

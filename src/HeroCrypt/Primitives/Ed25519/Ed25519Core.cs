@@ -121,7 +121,7 @@ internal sealed class Ed25519Core
 /// Ed25519 implementation based on TweetNaCl reference implementation.
 /// Uses 64-bit limb representation for field elements.
 /// </summary>
-internal sealed class Ed25519Impl
+internal sealed partial class Ed25519Impl
 {
     // Static readonly constants for Ed25519 curve (avoid allocation on every call)
     private static readonly long[] GfDConst =
@@ -347,36 +347,47 @@ internal sealed class Ed25519Impl
 
     private void Pack25519(byte[] o, long[] n)
     {
-        var m = new long[16];
-        var t = new long[16];
-
-        for (var i = 0; i < 16; i++)
+        long[] m = [];
+        long[] t = [];
+        try
         {
-            t[i] = n[i];
-        }
+            m = new long[16];
+            t = new long[16];
 
-        Car25519(t);
-        Car25519(t);
-        Car25519(t);
-
-        for (var j = 0; j < 2; j++)
-        {
-            m[0] = t[0] - 0xFFED;
-            for (var i = 1; i < 15; i++)
+            for (var i = 0; i < 16; i++)
             {
-                m[i] = t[i] - 0xFFFF - ((m[i - 1] >> 16) & 1);
-                m[i - 1] &= 0xFFFF;
+                t[i] = n[i];
             }
-            m[15] = t[15] - 0x7FFF - ((m[14] >> 16) & 1);
-            var b = (int)((m[15] >> 16) & 1);
-            m[14] &= 0xFFFF;
-            Sel25519(t, m, 1 - b);
-        }
 
-        for (var i = 0; i < 16; i++)
+            Car25519(t);
+            Car25519(t);
+            Car25519(t);
+
+            for (var j = 0; j < 2; j++)
+            {
+                m[0] = t[0] - 0xFFED;
+                for (var i = 1; i < 15; i++)
+                {
+                    m[i] = t[i] - 0xFFFF - ((m[i - 1] >> 16) & 1);
+                    m[i - 1] &= 0xFFFF;
+                }
+                m[15] = t[15] - 0x7FFF - ((m[14] >> 16) & 1);
+                var b = (int)((m[15] >> 16) & 1);
+                m[14] &= 0xFFFF;
+                Sel25519(t, m, 1 - b);
+            }
+
+            for (var i = 0; i < 16; i++)
+            {
+                o[2 * i] = (byte)(t[i] & 0xFF);
+                o[2 * i + 1] = (byte)(t[i] >> 8);
+            }
+
+        }
+        finally
         {
-            o[2 * i] = (byte)(t[i] & 0xFF);
-            o[2 * i + 1] = (byte)(t[i] >> 8);
+            ClearLongArray(m);
+            ClearLongArray(t);
         }
     }
 
@@ -407,33 +418,42 @@ internal sealed class Ed25519Impl
 
     private void M(long[] o, long[] a, long[] b)
     {
-        var t = new long[31];
-
-        for (var i = 0; i < 31; i++)
+        long[] t = [];
+        try
         {
-            t[i] = 0;
-        }
+            t = new long[31];
 
-        for (var i = 0; i < 16; i++)
-        {
-            for (var j = 0; j < 16; j++)
+            for (var i = 0; i < 31; i++)
             {
-                t[i + j] += a[i] * b[j];
+                t[i] = 0;
             }
-        }
 
-        for (var i = 0; i < 15; i++)
+            for (var i = 0; i < 16; i++)
+            {
+                for (var j = 0; j < 16; j++)
+                {
+                    t[i + j] += a[i] * b[j];
+                }
+            }
+
+            for (var i = 0; i < 15; i++)
+            {
+                t[i] += 38 * t[i + 16];
+            }
+
+            for (var i = 0; i < 16; i++)
+            {
+                o[i] = t[i];
+            }
+
+            Car25519(o);
+            Car25519(o);
+
+        }
+        finally
         {
-            t[i] += 38 * t[i + 16];
+            ClearLongArray(t);
         }
-
-        for (var i = 0; i < 16; i++)
-        {
-            o[i] = t[i];
-        }
-
-        Car25519(o);
-        Car25519(o);
     }
 
     private void S(long[] o, long[] a)
@@ -443,163 +463,260 @@ internal sealed class Ed25519Impl
 
     private void Inv25519(long[] o, long[] i)
     {
-        var c = new long[16];
-        for (var a = 0; a < 16; a++)
+        long[] c = [];
+        try
         {
-            c[a] = i[a];
-        }
-
-        for (var a = 253; a >= 0; a--)
-        {
-            S(c, c);
-            if (a is not 2 and not 4)
+            c = new long[16];
+            for (var a = 0; a < 16; a++)
             {
-                M(c, c, i);
+                c[a] = i[a];
             }
-        }
 
-        for (var a = 0; a < 16; a++)
+            for (var a = 253; a >= 0; a--)
+            {
+                S(c, c);
+                if (a is not 2 and not 4)
+                {
+                    M(c, c, i);
+                }
+            }
+
+            for (var a = 0; a < 16; a++)
+            {
+                o[a] = c[a];
+            }
+
+        }
+        finally
         {
-            o[a] = c[a];
+            ClearLongArray(c);
         }
     }
 
     private void Pow2523(long[] o, long[] i)
     {
-        var c = new long[16];
-        for (var a = 0; a < 16; a++)
+        long[] c = [];
+        try
         {
-            c[a] = i[a];
-        }
-
-        for (var a = 250; a >= 0; a--)
-        {
-            S(c, c);
-            if (a != 1)
+            c = new long[16];
+            for (var a = 0; a < 16; a++)
             {
-                M(c, c, i);
+                c[a] = i[a];
             }
-        }
 
-        for (var a = 0; a < 16; a++)
+            for (var a = 250; a >= 0; a--)
+            {
+                S(c, c);
+                if (a != 1)
+                {
+                    M(c, c, i);
+                }
+            }
+
+            for (var a = 0; a < 16; a++)
+            {
+                o[a] = c[a];
+            }
+
+        }
+        finally
         {
-            o[a] = c[a];
+            ClearLongArray(c);
         }
     }
 
     private void Pack(byte[] r, long[][] p)
     {
-        var tx = new long[16];
-        var ty = new long[16];
-        var zi = new long[16];
+        long[] tx = [];
+        long[] ty = [];
+        long[] zi = [];
+        try
+        {
+            tx = new long[16];
+            ty = new long[16];
+            zi = new long[16];
 
-        Inv25519(zi, p[2]);
-        M(tx, p[0], zi);
-        M(ty, p[1], zi);
+            Inv25519(zi, p[2]);
+            M(tx, p[0], zi);
+            M(ty, p[1], zi);
 
-        Pack25519(r, ty);
-        r[31] ^= (byte)(Par25519(tx) << 7);
+            Pack25519(r, ty);
+            r[31] ^= (byte)(Par25519(tx) << 7);
+
+        }
+        finally
+        {
+            ClearLongArray(tx);
+            ClearLongArray(ty);
+            ClearLongArray(zi);
+        }
     }
 
     private int Par25519(long[] a)
     {
-        var d = new byte[32];
-        Pack25519(d, a);
-        return d[0] & 1;
+        byte[] d = [];
+        try
+        {
+            d = new byte[32];
+            Pack25519(d, a);
+            return d[0] & 1;
+
+        }
+        finally
+        {
+            ClearArray(d);
+        }
     }
 
     private bool Unpackneg(long[][] r, byte[] p)
     {
-        var t = new long[16];
-        var chk = new long[16];
-        var num = new long[16];
-        var den = new long[16];
-        var den2 = new long[16];
-        var den4 = new long[16];
-        var den6 = new long[16];
-
-        Set25519(r[2], Gf1());
-        Unpack25519(r[1], p);
-        S(num, r[1]);
-        M(den, num, GfD());
-        Z(num, num, r[2]);
-        A(den, r[2], den);
-
-        S(den2, den);
-        S(den4, den2);
-        M(den6, den4, den2);
-        M(t, den6, num);
-        M(t, t, den);
-
-        Pow2523(t, t);
-        M(t, t, num);
-        M(t, t, den);
-        M(t, t, den);
-        M(r[0], t, den);
-
-        S(chk, r[0]);
-        M(chk, chk, den);
-        if (!Neq25519(chk, num))
+        long[] t = [];
+        long[] chk = [];
+        long[] num = [];
+        long[] den = [];
+        long[] den2 = [];
+        long[] den4 = [];
+        long[] den6 = [];
+        try
         {
-            M(r[0], r[0], GfI());
-        }
+            t = new long[16];
+            chk = new long[16];
+            num = new long[16];
+            den = new long[16];
+            den2 = new long[16];
+            den4 = new long[16];
+            den6 = new long[16];
 
-        S(chk, r[0]);
-        M(chk, chk, den);
-        if (!Neq25519(chk, num))
+            Set25519(r[2], Gf1());
+            Unpack25519(r[1], p);
+            S(num, r[1]);
+            M(den, num, GfD());
+            Z(num, num, r[2]);
+            A(den, r[2], den);
+
+            S(den2, den);
+            S(den4, den2);
+            M(den6, den4, den2);
+            M(t, den6, num);
+            M(t, t, den);
+
+            Pow2523(t, t);
+            M(t, t, num);
+            M(t, t, den);
+            M(t, t, den);
+            M(r[0], t, den);
+
+            S(chk, r[0]);
+            M(chk, chk, den);
+            if (!Neq25519(chk, num))
+            {
+                M(r[0], r[0], GfI());
+            }
+
+            S(chk, r[0]);
+            M(chk, chk, den);
+            if (!Neq25519(chk, num))
+            {
+                return false;
+            }
+
+            if (Par25519(r[0]) == (p[31] >> 7))
+            {
+                Z(r[0], Gf0(), r[0]);
+            }
+
+            M(r[3], r[0], r[1]);
+            return true;
+
+        }
+        finally
         {
-            return false;
+            ClearLongArray(t);
+            ClearLongArray(chk);
+            ClearLongArray(num);
+            ClearLongArray(den);
+            ClearLongArray(den2);
+            ClearLongArray(den4);
+            ClearLongArray(den6);
         }
-
-        if (Par25519(r[0]) == (p[31] >> 7))
-        {
-            Z(r[0], Gf0(), r[0]);
-        }
-
-        M(r[3], r[0], r[1]);
-        return true;
     }
 
     private bool Neq25519(long[] a, long[] b)
     {
-        var c = new byte[32];
-        var d = new byte[32];
-        Pack25519(c, a);
-        Pack25519(d, b);
-        return CryptoVerify32(c, d);
+        byte[] c = [];
+        byte[] d = [];
+        try
+        {
+            c = new byte[32];
+            d = new byte[32];
+            Pack25519(c, a);
+            Pack25519(d, b);
+            return CryptoVerify32(c, d);
+
+        }
+        finally
+        {
+            ClearArray(c);
+            ClearArray(d);
+        }
     }
 
     private void Add(long[][] p, long[][] q)
     {
-        var a = new long[16];
-        var b = new long[16];
-        var c = new long[16];
-        var d = new long[16];
-        var e = new long[16];
-        var f = new long[16];
-        var g = new long[16];
-        var h = new long[16];
-        var t = new long[16];
+        long[] a = [];
+        long[] b = [];
+        long[] c = [];
+        long[] d = [];
+        long[] e = [];
+        long[] f = [];
+        long[] g = [];
+        long[] h = [];
+        long[] t = [];
+        try
+        {
+            a = new long[16];
+            b = new long[16];
+            c = new long[16];
+            d = new long[16];
+            e = new long[16];
+            f = new long[16];
+            g = new long[16];
+            h = new long[16];
+            t = new long[16];
 
-        Z(a, p[1], p[0]);
-        Z(t, q[1], q[0]);
-        M(a, a, t);
-        A(b, p[0], p[1]);
-        A(t, q[0], q[1]);
-        M(b, b, t);
-        M(c, p[3], q[3]);
-        M(c, c, GfD2());
-        M(d, p[2], q[2]);
-        A(d, d, d);
-        Z(e, b, a);
-        Z(f, d, c);
-        A(g, d, c);
-        A(h, b, a);
+            Z(a, p[1], p[0]);
+            Z(t, q[1], q[0]);
+            M(a, a, t);
+            A(b, p[0], p[1]);
+            A(t, q[0], q[1]);
+            M(b, b, t);
+            M(c, p[3], q[3]);
+            M(c, c, GfD2());
+            M(d, p[2], q[2]);
+            A(d, d, d);
+            Z(e, b, a);
+            Z(f, d, c);
+            A(g, d, c);
+            A(h, b, a);
 
-        M(p[0], e, f);
-        M(p[1], h, g);
-        M(p[2], g, f);
-        M(p[3], e, h);
+            M(p[0], e, f);
+            M(p[1], h, g);
+            M(p[2], g, f);
+            M(p[3], e, h);
+
+        }
+        finally
+        {
+            ClearLongArray(a);
+            ClearLongArray(b);
+            ClearLongArray(c);
+            ClearLongArray(d);
+            ClearLongArray(e);
+            ClearLongArray(f);
+            ClearLongArray(g);
+            ClearLongArray(h);
+            ClearLongArray(t);
+        }
     }
 
     private void Cswap(long[][] p, long[][] q, int b)
@@ -612,18 +729,27 @@ internal sealed class Ed25519Impl
 
     private void Scalarbase(long[][] p, byte[] s)
     {
-        var q = new long[4][];
-        for (var i = 0; i < 4; i++)
+        long[][] q = [];
+        try
         {
-            q[i] = new long[16];
+            q = new long[4][];
+            for (var i = 0; i < 4; i++)
+            {
+                q[i] = new long[16];
+            }
+
+            Set25519(q[0], GfX());
+            Set25519(q[1], GfY());
+            Set25519(q[2], Gf1());
+            M(q[3], GfX(), GfY());
+
+            Scalarmult(p, q, s);
+
         }
-
-        Set25519(q[0], GfX());
-        Set25519(q[1], GfY());
-        Set25519(q[2], Gf1());
-        M(q[3], GfX(), GfY());
-
-        Scalarmult(p, q, s);
+        finally
+        {
+            ClearXEdPoint(q);
+        }
     }
 
     private void Scalarmult(long[][] p, long[][] q, byte[] s)
@@ -680,16 +806,25 @@ internal sealed class Ed25519Impl
 
     private void Reduce(byte[] r)
     {
-        var x = new long[64];
-        for (var i = 0; i < 64; i++)
+        long[] x = [];
+        try
         {
-            x[i] = r[i];
+            x = new long[64];
+            for (var i = 0; i < 64; i++)
+            {
+                x[i] = r[i];
+            }
+            for (var i = 0; i < 64; i++)
+            {
+                r[i] = 0;
+            }
+            ModL(r, 0, x);
+
         }
-        for (var i = 0; i < 64; i++)
+        finally
         {
-            r[i] = 0;
+            ClearLongArray(x);
         }
-        ModL(r, 0, x);
     }
 
     private long[] Gf0()
@@ -750,7 +885,7 @@ internal sealed class Ed25519Impl
 
     private void ClearArray(byte[] a)
     {
-        SecureMemoryOperations.SecureClear(a);
+        SecureMemoryOperations.SecureClear(a.AsSpan());
     }
 
     private void ClearLongArray(long[] a)

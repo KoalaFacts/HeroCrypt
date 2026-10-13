@@ -7,8 +7,10 @@ API is available on .NET Standard 2.0 and .NET 8/9/10 and has no third-party run
 cryptographic dependency.
 
 This new profile has not received an independent security audit and is not a
-qualified production messaging protocol. It is not Signal's wire format and does
-not implement X3DH/PQXDH, identity/prekey management, header encryption, group
+qualified production messaging protocol. It uses a HeroCrypt wire format and
+can be bootstrapped by the separate [X3DH API](x3dh.md), which manages signed and
+one-time prekeys and requires independently trusted expected identities. It does
+not implement PQXDH, network identity directories, header encryption, group
 messaging, post-quantum ratchets or persistent state. The managed primitives do not
 provide a blanket constant-time or complete zeroization guarantee.
 

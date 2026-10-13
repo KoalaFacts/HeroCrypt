@@ -10,11 +10,15 @@
 
 ### Added
 
+- Add normalized XEdDSA signatures and classical X3DH identity/prekey handshake
+  APIs with explicit expected-identity checks, bounded prekey/replay storage and
+  atomic first-message acceptance into Double Ratchet. Consume OPKs only after
+  authentication; document directory-withholding and in-memory lifecycle limits.
 - Add in-memory `DoubleRatchetSession` and immutable `DoubleRatchetMessage` APIs
   using HeroCrypt X25519/HKDF/ChaCha20-Poly1305 and .NET HMAC-SHA256. Support DH
   turns, bounded out-of-order delivery and replay rejection, with no state changes
   on authentication failure. Document authenticated bootstrap requirements and
-  absent X3DH, Signal wire compatibility and persistent-state support.
+  the separate X3DH bootstrap API, absent Signal wire compatibility and persistent-state support.
 
 ### Changed
 

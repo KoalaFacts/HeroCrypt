@@ -1,5 +1,16 @@
 # HeroCrypt Examples
 
+The offline X3DH identity/prekey handshake and Double Ratchet exchange can run
+without the interactive menu:
+
+```bash
+dotnet run --project examples/HeroCrypt.Examples/HeroCrypt.Examples.csproj \
+  --configuration Release --framework net10.0 -- --x3dh
+```
+
+The example trusts identities created locally. Real callers must independently
+verify expected identities and publish fresh prekeys after a store restart.
+
 This directory contains practical, runnable examples demonstrating HeroCrypt's cryptographic capabilities.
 
 ## Quick Start

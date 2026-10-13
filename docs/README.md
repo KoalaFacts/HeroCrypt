@@ -7,6 +7,7 @@ Welcome to the HeroCrypt documentation! This directory contains comprehensive gu
 - **[Getting Started](getting-started.md)** - New to HeroCrypt? Start here!
 - **[Best Practices](best-practices.md)** - Security best practices for production use
 - **[Cryptographic Validation](cryptographic-validation.md)** - External vectors, independent reference peers and security boundaries
+- **[X3DH Identity Handshake](x3dh.md)** - Verified identity/prekey bootstrap into Double Ratchet
 - **[Troubleshooting](troubleshooting.md)** - Common issues and solutions
 - **[Examples](../examples/)** - Code examples for common use cases
 

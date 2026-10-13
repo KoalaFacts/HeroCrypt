@@ -207,14 +207,20 @@ See [migration guidance](docs/migration-guide.md#openpgp-signature-hash-correcti
 
 ### 3. **Key Management**
 
-The [Double Ratchet profile](docs/double-ratchet.md) requires a separately authenticated
-shared secret, responder key and peer/session context. It implements classical DH
+The [Double Ratchet profile](docs/double-ratchet.md) requires authenticated bootstrap
+inputs, established externally or through the separate [X3DH profile](docs/x3dh.md).
+X3DH requires independently trusted expected identities, authenticates signed
+prekeys and first-message context, and consumes one-time prekeys only after successful
+authentication. OPK availability is not signed; require presence if four-DH is mandatory.
+The ratchet implements classical DH
 and symmetric ratchets, bounded skipped keys and replay rejection in memory. It has
-no independent audit, X3DH, Signal wire interoperability or persistent-state API and
+no independent professional audit, Signal wire interoperability or persistent-state API and
 is not a qualified production messaging protocol. Never restore stale session state;
 establish a fresh authenticated session after restart. Authentication failure does
 not change session state, but this does not establish constant-time behavior or
 complete managed-runtime key erasure.
+After restarting an X3DH store, publish fresh prekeys; never restore old private
+prekeys with an empty replay cache. Active sessions have independent ownership.
 
 secp256k1 uses HeroCrypt's managed SEC 2 curve arithmetic and RFC 6979 HMAC-SHA256
 nonce generation, with compact ECDSA signatures and low-S normalization. BIP32

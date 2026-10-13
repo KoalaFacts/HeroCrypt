@@ -104,8 +104,13 @@ cannot be reliably erased. Cleanup tests establish clearing of specific owned
 byte arrays, not all runtime copies or physical memory. These properties remain
 limitations of the managed implementation; no timing-resistance claim is made.
 
-Double Ratchet still requires an independently authenticated bootstrap, fresh
-sessions after restart, and application-specific qualification. These tests do
+At the recorded 2026-10-13 qualification, Double Ratchet required an independently
+authenticated bootstrap, fresh sessions after restart, and application-specific
+qualification. That test scope did
 not provide X3DH/PQXDH, identity management, state persistence, Signal wire
 compatibility or post-quantum security. See the [protocol profile](double-ratchet.md)
 and [security limits](../SECURITY.md).
+
+The subsequent [X3DH implementation](x3dh.md) adds identity/prekey bootstrap and
+its own independent vectors, reference decryption and hostile-delivery tests.
+The earlier results above remain dated evidence for their original scope.

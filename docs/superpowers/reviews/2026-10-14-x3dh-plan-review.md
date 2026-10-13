@@ -2,7 +2,7 @@
 
 Reviewed on 2026-10-14 at the user's request. Baseline: design `ff7ec49` and
 implementation plan `e798a98`. This is a review of proposed code, interfaces and
-state transitions; X3DH has not been implemented or qualified yet.
+state transitions; at that reviewed baseline X3DH had not been implemented or qualified.
 
 The primary agent checked two independent reviewers' findings against the
 repository and reference sources, then corrected the

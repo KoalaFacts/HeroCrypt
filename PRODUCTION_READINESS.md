@@ -105,10 +105,11 @@ sender identity and freshness. See the [security model](SECURITY.md#hybrid-encry
 
 - The [Double Ratchet profile](docs/double-ratchet.md) implements classical X25519
   DH/symmetric ratchets, ChaCha20-Poly1305 messages, bounded skipped keys and replay
-  rejection. It requires an independently authenticated shared secret, responder
-  key and session context. This new in-memory profile has no independent audit,
-  persistent-state support, X3DH or Signal wire interoperability; it is not a
-  qualified production messaging protocol. Underlying managed-primitives timing
+  rejection. It requires authenticated bootstrap inputs, established externally
+  or through the [X3DH identity handshake](docs/x3dh.md), which requires verified
+  expected identities and uses signed/optional one-time prekeys. These in-memory
+  profiles have no independent professional audit, persistent-state support or Signal wire interoperability; they are not
+  qualified production messaging protocols. Underlying managed-primitives timing
   and zeroization limitations still apply.
 - Noise, OTR, OPAQUE, commitments and blind-signature demonstrations are
   educational/reference implementations and are not qualified production protocols

@@ -116,7 +116,8 @@ A cryptographic library for .NET with standards-based primitives, OpenPGP suppor
 
 - **🔗 Cryptographic Protocols**
   - Noise Protocol Framework - Modern secure transport with multiple handshake patterns
-  - [Double Ratchet](docs/double-ratchet.md) - Classical X25519 DH and symmetric ratchets for HeroCrypt endpoints, with authenticated messages, bounded out-of-order delivery and replay rejection. Requires an authenticated bootstrap; X3DH and Signal wire interoperability are not implemented.
+  - [Double Ratchet](docs/double-ratchet.md) - Classical X25519 DH and symmetric ratchets for HeroCrypt endpoints, with authenticated messages, bounded out-of-order delivery and replay rejection. Accepts authenticated bootstrap inputs, including the separate X3DH profile.
+  - [X3DH Identity Handshake](docs/x3dh.md) - X25519/SHA-256 and normalized XEdDSA signed prekeys, optional one-time prekeys, explicit expected-peer identity checks and transactional first-message acceptance. Requires independently verified identities; no Signal wire interoperability or persistence.
   - OTR Messaging - Off-the-Record messaging with deniable authentication
   - OPAQUE PAKE - RFC 9497 password-authenticated key exchange
   - TLS 1.3 - Custom cipher suites, 0-RTT resumption, certificate pinning

@@ -3,6 +3,12 @@ using HeroCrypt.Examples.UseCases;
 
 using Spectre.Console;
 
+if (args.Length == 1 && args[0] == "--x3dh")
+{
+    await X3dhExample.RunAsync();
+    return;
+}
+
 if (args.Length == 1 && args[0] == "--double-ratchet")
 {
     await DoubleRatchetExample.RunAsync();
@@ -31,6 +37,7 @@ while (true)
                 "5. Secret Sharing (Shamir's Scheme)",
                 "6. Cryptographic Wallet (HD Wallet)",
                 "7. Double Ratchet Messaging",
+                "8. X3DH Identity Handshake",
                 "Exit"
             ]));
 
@@ -56,6 +63,9 @@ while (true)
             break;
         case "7. Double Ratchet Messaging":
             await DoubleRatchetExample.RunAsync();
+            break;
+        case "8. X3DH Identity Handshake":
+            await X3dhExample.RunAsync();
             break;
         case "Exit":
             return;

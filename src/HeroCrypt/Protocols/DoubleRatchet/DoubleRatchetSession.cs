@@ -11,7 +11,9 @@ namespace HeroCrypt.Protocols.DoubleRatchet;
 /// Implements the classical DH and symmetric ratchets with X25519, HKDF/HMAC-SHA256
 /// and ChaCha20-Poly1305. The shared secret, peer key and session context must be
 /// authenticated separately. This HeroCrypt wire profile is not Signal-compatible
-/// and implements no X3DH, persistence or header encryption. Establish a fresh
+/// and implements no persistence or header encryption. The separate
+/// <see cref="HeroCrypt.Protocols.X3dh.X3dhHandshake"/> API can establish its bootstrap inputs.
+/// Establish a fresh
 /// authenticated session after restart; do not restore or reuse old state.
 /// This implementation has not received an independent security audit.
 /// Owned byte buffers are cleared, without a complete managed-runtime zeroization guarantee.

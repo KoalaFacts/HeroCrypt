@@ -18,7 +18,11 @@ namespace HeroCrypt.Protocols.DoubleRatchet;
 /// </remarks>
 public sealed class DoubleRatchetSession : IDisposable
 {
+#if NET9_0_OR_GREATER
+    private readonly Lock sync = new();
+#else
     private readonly object sync = new();
+#endif
     private readonly byte[] context;
     private readonly int maxSkippedKeys;
     private readonly SecurityPolicyOptions policy;

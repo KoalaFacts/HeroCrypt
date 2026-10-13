@@ -33,10 +33,10 @@
 
 **Interfaces:** `Root(byte[] root, byte[] dh, SecurityPolicyOptions policy) -> (byte[] Root, byte[] Chain)`; `Chain(byte[] chain) -> (byte[] Next, byte[] Message)`; public message `FromBytes(byte[])`, `ToBytes()`, `RatchetPublicKey`, `PreviousChainLength`, `MessageNumber`, `Nonce`, `Ciphertext`.
 
-- [ ] Write tests: independently computed root/chain vectors; exact 53-byte header and counters; malformed lengths/version/coordinates; copy ownership.
-- [ ] Run tests and confirm missing functionality fails. Use minimal throwing declarations to make missing APIs compile when needed.
-- [ ] Implement exact KDF framing, canonical X25519 validation and immutable message codec.
-- [ ] Run focused tests; expected all pass. Commit only task files.
+- [x] Write tests: independently computed root/chain vectors; exact 53-byte header and counters; malformed lengths/version/coordinates; copy ownership.
+- [x] Run tests and confirm missing functionality fails. Use minimal throwing declarations to make missing APIs compile when needed.
+- [x] Implement exact KDF framing, canonical X25519 validation and immutable message codec.
+- [x] Run focused tests; expected all pass. Commit only task files.
 
 ### Task 2: Transactional session state machine
 
@@ -44,20 +44,20 @@
 
 **Interfaces:** Spec's `CreateInitiator`, `CreateResponder`, `Encrypt`, `Decrypt`, `Dispose`. The factories also accept an optional final `SecurityPolicyOptions? policy = null` to match existing explicit-policy APIs; omitted policy captures the current immutable policy.
 
-- [ ] Write tests for initial delivery/reply, multiple DH turns, same-chain/cross-chain reordering, replay, wrong secret/context/AD, header/ciphertext/tag modifications, malformed/low-order keys, total skipped-key limit, overflow, ownership, disposal and concurrent calls. After every rejected message assert the authentic original still decrypts.
-- [ ] Run and inspect the failed tests before implementing their behavior.
-- [ ] Implement cloned disposable state, standard initial/DH transitions, bounded key skipping and single-use keys. Header `N=uint.MaxValue` cannot be consumed or emitted; exhausted counters throw before mutation.
-- [ ] Compare deterministic KDF/initial transitions with independent fixtures, then run the complete Double Ratchet test namespace; expected all pass. Commit task files.
+- [x] Write tests for initial delivery/reply, multiple DH turns, same-chain/cross-chain reordering, replay, wrong secret/context/AD, header/ciphertext/tag modifications, malformed/low-order keys, total skipped-key limit, overflow, ownership, disposal and concurrent calls. After every rejected message assert the authentic original still decrypts.
+- [x] Run and inspect the failed tests before implementing their behavior.
+- [x] Implement cloned disposable state, standard initial/DH transitions, bounded key skipping and single-use keys. Header `N=uint.MaxValue` cannot be consumed or emitted; exhausted counters throw before mutation.
+- [x] Compare deterministic KDF/initial transitions with independent fixtures, then run the complete Double Ratchet test namespace; expected all pass. Commit task files.
 
 ### Task 3: Public documentation, example and final validation
 
 **Files:** Add `examples/HeroCrypt.Examples/UseCases/DoubleRatchetExample.cs`; modify `Program.cs`, examples README, root README, CHANGELOG, SECURITY and PRODUCTION_READINESS. Add `docs/double-ratchet.md`.
 
-- [ ] Add a two-party in-memory example showing authenticated bootstrap assumptions, reordering and replies. Clearly mark in-memory lifecycle, unaudited profile and absent X3DH.
-- [ ] Build all frameworks with locked restore, run new tests and full suites on .NET 8/9/10, plus Python package gates. Confirm no new failures against the known baseline.
-- [ ] Run formatting on changed C# files and an isolated package consumer exercising the new public session API; verify package graph has no Bouncy Castle.
-- [ ] Request one fresh-context final code review of all protocol code/tests/spec. Resolve important findings with failing regression tests and rerun affected checks.
-- [ ] Commit verified task changes; preserve all unrelated changes. Report test outcomes, known repository failures and protocol limitations.
+- [x] Add a two-party in-memory example showing authenticated bootstrap assumptions, reordering and replies. Clearly mark in-memory lifecycle, unaudited profile and absent X3DH.
+- [x] Build all frameworks with locked restore, run new tests and full suites on .NET 8/9/10, plus Python package gates. Confirm no new failures against the known baseline.
+- [x] Run formatting on changed C# files and an isolated package consumer exercising the new public session API; verify package graph has no Bouncy Castle.
+- [x] Request one fresh-context final code review of all protocol code/tests/spec. Resolve important findings with failing regression tests and rerun affected checks.
+- [x] Commit verified task changes; preserve all unrelated changes. Report test outcomes, known repository failures and protocol limitations.
 
 ## Execution record
 

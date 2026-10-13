@@ -32,6 +32,15 @@ Located in [UseCases/](HeroCrypt.Examples/UseCases/):
 | Secret Sharing | [SecretSharingExample.cs](HeroCrypt.Examples/UseCases/SecretSharingExample.cs) | Shamir's Secret Sharing for key backup |
 | Cryptographic Wallet | [CryptographicWalletExample.cs](HeroCrypt.Examples/UseCases/CryptographicWalletExample.cs) | BIP-39/BIP-32 HD wallet creation |
 | Secure Messaging | [SecureMessagingExample.cs](HeroCrypt.Examples/UseCases/SecureMessagingExample.cs) | Hybrid encryption for secure communication |
+| Double Ratchet | [DoubleRatchetExample.cs](HeroCrypt.Examples/UseCases/DoubleRatchetExample.cs) | Two-party in-memory sessions, DH turns, reordering and replay rejection |
+
+Run the Double Ratchet example without an interactive terminal:
+
+```bash
+dotnet run --project examples/HeroCrypt.Examples/HeroCrypt.Examples.csproj --framework net10.0 -- --double-ratchet
+```
+
+Run that command from the repository root. See the [profile and lifecycle limits](../docs/double-ratchet.md).
 
 ### Post-Quantum Examples (.NET 10+)
 

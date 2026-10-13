@@ -207,6 +207,15 @@ See [migration guidance](docs/migration-guide.md#openpgp-signature-hash-correcti
 
 ### 3. **Key Management**
 
+The [Double Ratchet profile](docs/double-ratchet.md) requires a separately authenticated
+shared secret, responder key and peer/session context. It implements classical DH
+and symmetric ratchets, bounded skipped keys and replay rejection in memory. It has
+no independent audit, X3DH, Signal wire interoperability or persistent-state API and
+is not a qualified production messaging protocol. Never restore stale session state;
+establish a fresh authenticated session after restart. Authentication failure does
+not change session state, but this does not establish constant-time behavior or
+complete managed-runtime key erasure.
+
 secp256k1 uses HeroCrypt's managed SEC 2 curve arithmetic and RFC 6979 HMAC-SHA256
 nonce generation, with compact ECDSA signatures and low-S normalization. BIP32
 HASH160 fingerprints use the managed RIPEMD-160 implementation. Bouncy Castle is
@@ -259,7 +268,7 @@ to provide a hardened signing backend for environments with local side-channel a
 - **Post-quantum cryptography**: ML-KEM, ML-DSA and SLH-DSA use .NET 10 native
   cryptography APIs. Availability depends on the runtime and provider; probe support
   and test your deployment. A standardized primitive does not certify a composition.
-- **Educational protocols**: Noise, Signal, OTR, OPAQUE, commitment and blind-signature
+- **Educational protocols**: Noise, OTR, OPAQUE, commitment and blind-signature
   reference implementations are not qualified production protocols.
 - **Unavailable protocols**: Ring signatures and zk-SNARKs are not implemented.
   Their insecure prototypes were removed before the first release.

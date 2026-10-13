@@ -33,9 +33,9 @@ process restart. Document these boundaries explicitly.
 Add types in `HeroCrypt.Protocols.DoubleRatchet`:
 
 - `DoubleRatchetSession.CreateInitiator(byte[] sharedSecret, byte[] responderPublicKey,
-  byte[] sessionContext, int maxSkippedKeys = 1000)`.
+  byte[] sessionContext, int maxSkippedKeys = 1000, SecurityPolicyOptions? policy = null)`.
 - `DoubleRatchetSession.CreateResponder(byte[] sharedSecret, byte[] responderPrivateKey,
-  byte[] sessionContext, int maxSkippedKeys = 1000)`.
+  byte[] sessionContext, int maxSkippedKeys = 1000, SecurityPolicyOptions? policy = null)`.
 - `DoubleRatchetMessage Encrypt(ReadOnlySpan<byte> plaintext, ReadOnlySpan<byte> associatedData = default)`.
 - `byte[] Decrypt(DoubleRatchetMessage message, ReadOnlySpan<byte> associatedData = default)`.
 - `DoubleRatchetMessage.FromBytes(byte[] encoded)` and `byte[] ToBytes()` for transport.
@@ -127,4 +127,6 @@ implemented when it remains outside this change.
 ## Review status
 
 This design incorporates the user's selected compatibility scope and production
-dependency constraint. Written-spec review is pending before implementation planning.
+dependency constraint. The user approved the written design and instructed execution
+with “开干”. Factories accept an optional explicit immutable policy, consistent with
+existing HeroCrypt APIs; omission captures the current policy.

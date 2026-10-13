@@ -169,15 +169,62 @@ public class DoubleRatchetSessionTests
     }
 
     [Fact]
+    public void LaterDhForgery_RollsBackBothOldAndNewChainSkipping()
+    {
+        using var pair = new Pair();
+        var old = Enumerable.Range(0, 4).Select(i => pair.Alice.Encrypt([(byte)i])).ToArray();
+        pair.Bob.Decrypt(old[1]); // Nr=2, with old message 0 already cached.
+        pair.Alice.Decrypt(pair.Bob.Encrypt("turn"u8));
+        var newFirst = pair.Alice.Encrypt("new zero"u8);
+        var newSecond = pair.Alice.Encrypt("new one"u8);
+        foreach (var offset in new[] { 33, 37 })
+        {
+            var farAhead = newSecond.ToBytes();
+            BinaryPrimitives.WriteUInt32BigEndian(farAhead.AsSpan(offset, 4), uint.MaxValue);
+            Assert.Throws<CryptographicException>(() => pair.Bob.Decrypt(DoubleRatchetMessage.FromBytes(farAhead)));
+        }
+        var badTag = newSecond.ToBytes();
+        badTag[^1] ^= 1;
+        Assert.Throws<CryptographicException>(() => pair.Bob.Decrypt(DoubleRatchetMessage.FromBytes(badTag)));
+        Assert.Equal(new byte[] { 0 }, pair.Bob.Decrypt(old[0]));
+        Assert.Equal("new one"u8.ToArray(), pair.Bob.Decrypt(newSecond));
+        Assert.Equal(new byte[] { 2 }, pair.Bob.Decrypt(old[2]));
+        Assert.Equal(new byte[] { 3 }, pair.Bob.Decrypt(old[3]));
+        Assert.Equal("new zero"u8.ToArray(), pair.Bob.Decrypt(newFirst));
+    }
+
+    [Fact]
+    public void FinalCounterValue_ReceivesSafelyAndResetsOnNextDhTurn()
+    {
+        using var pair = new Pair();
+        pair.Bob.Decrypt(pair.Alice.Encrypt("first"u8));
+        var field = typeof(DoubleRatchetSession).GetField("state", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        var aliceState = (DoubleRatchetState)field.GetValue(pair.Alice)!;
+        var bobState = (DoubleRatchetState)field.GetValue(pair.Bob)!;
+        // Inject near-exhaustion counters into already aligned chains, without billions of test iterations.
+        aliceState.SendCount = uint.MaxValue - 1;
+        bobState.ReceiveCount = uint.MaxValue - 1;
+        var last = pair.Alice.Encrypt("last"u8);
+        Assert.Equal(uint.MaxValue - 1, last.MessageNumber);
+        Assert.Equal("last"u8.ToArray(), pair.Bob.Decrypt(last));
+        Assert.Throws<InvalidOperationException>(() => pair.Alice.Encrypt("exhausted"u8));
+        Assert.Throws<CryptographicException>(() => pair.Bob.Decrypt(last));
+        pair.Alice.Decrypt(pair.Bob.Encrypt("new DH"u8));
+        var next = pair.Alice.Encrypt("new chain"u8);
+        Assert.Equal(uint.MaxValue, next.PreviousChainLength);
+        Assert.Equal(0u, next.MessageNumber);
+        Assert.Equal("new chain"u8.ToArray(), pair.Bob.Decrypt(next));
+    }
+
+    [Fact]
     public void ExhaustedSendCounter_DoesNotWrapOrChangeState()
     {
         using var pair = new Pair();
         var field = typeof(DoubleRatchetSession).GetField("state", BindingFlags.NonPublic | BindingFlags.Instance)!;
-        var state = field.GetValue(pair.Alice)!;
-        var count = state.GetType().GetField("SendCount", BindingFlags.NonPublic | BindingFlags.Instance)!;
-        count.SetValue(state, uint.MaxValue);
+        var state = (DoubleRatchetState)field.GetValue(pair.Alice)!;
+        state.SendCount = uint.MaxValue;
         Assert.Throws<InvalidOperationException>(() => pair.Alice.Encrypt("exhausted"u8));
-        Assert.Equal(uint.MaxValue, count.GetValue(field.GetValue(pair.Alice)));
+        Assert.Equal(uint.MaxValue, ((DoubleRatchetState)field.GetValue(pair.Alice)!).SendCount);
     }
 
     [Theory]
@@ -264,6 +311,28 @@ public class DoubleRatchetSessionTests
         var decrypted = await Task.WhenAll(messages.AsEnumerable().Reverse().Select(m => Task.Run(() => pair.Bob.Decrypt(m))));
         Assert.Equal(Enumerable.Range(0, 32).Select(i => (byte)i), decrypted.Select(d => d[0]).Order());
         Assert.Throws<CryptographicException>(() => pair.Bob.Decrypt(messages[0]));
+    }
+
+    [Fact]
+    public async Task ConcurrentDisposal_LeavesCompletedMessagesValidAsync()
+    {
+        using var pair = new Pair();
+        var first = pair.Alice.Encrypt("first"u8);
+        var start = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var sends = Enumerable.Range(0, 32).Select(i => Task.Run(async () =>
+        {
+            await start.Task;
+            try { return pair.Alice.Encrypt([(byte)i]); }
+            catch (ObjectDisposedException) { return null; }
+        }, TestContext.Current.CancellationToken)).ToArray();
+        var dispose = Task.Run(async () => { await start.Task; pair.Alice.Dispose(); }, TestContext.Current.CancellationToken);
+        start.SetResult(true);
+        var completed = await Task.WhenAll(sends);
+        await dispose;
+        var messages = completed.OfType<DoubleRatchetMessage>().Prepend(first).OrderBy(m => m.MessageNumber).ToArray();
+        Assert.Equal(messages.Length, messages.Select(m => m.MessageNumber).Distinct().Count());
+        foreach (var message in messages) Assert.NotEmpty(pair.Bob.Decrypt(message));
+        Assert.Throws<ObjectDisposedException>(() => pair.Alice.Encrypt("closed"u8));
     }
 
     [Fact]

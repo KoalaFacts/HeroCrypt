@@ -3,6 +3,12 @@ using HeroCrypt.Examples.UseCases;
 
 using Spectre.Console;
 
+if (args.Length == 1 && args[0] == "--double-ratchet")
+{
+    await DoubleRatchetExample.RunAsync();
+    return;
+}
+
 while (true)
 {
     AnsiConsole.Clear();
@@ -24,6 +30,7 @@ while (true)
                 "4. Secure Messaging (Hybrid Encryption)",
                 "5. Secret Sharing (Shamir's Scheme)",
                 "6. Cryptographic Wallet (HD Wallet)",
+                "7. Double Ratchet Messaging",
                 "Exit"
             ]));
 
@@ -46,6 +53,9 @@ while (true)
             break;
         case "6. Cryptographic Wallet (HD Wallet)":
             await CryptographicWalletExample.RunAsync();
+            break;
+        case "7. Double Ratchet Messaging":
+            await DoubleRatchetExample.RunAsync();
             break;
         case "Exit":
             return;

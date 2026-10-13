@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Added
+
+- Add in-memory `DoubleRatchetSession` and immutable `DoubleRatchetMessage` APIs
+  using HeroCrypt X25519/HKDF/ChaCha20-Poly1305 and .NET HMAC-SHA256. Support DH
+  turns, bounded out-of-order delivery and replay rejection, with no state changes
+  on authentication failure. Document authenticated bootstrap requirements and
+  absent X3DH, Signal wire compatibility and persistent-state support.
+
 ### Changed
 
 - Remove Bouncy Castle from the production library and NuGet dependency graph;

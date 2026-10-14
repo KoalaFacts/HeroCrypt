@@ -24,6 +24,10 @@
 
 ### Changed
 
+- Refresh stable .NET packages and SDK patches, test infrastructure, Remotion
+  and frontend dependency lockfiles. Preserve the test telemetry provider's
+  upstream-selected Application Insights 2.x dependency and the SDK-owned .NET Standard
+  compatibility package.
 - Remove Bouncy Castle from the production library and NuGet dependency graph;
   retain it only as a private test dependency for independent comparisons.
 - Implement portable managed SEC 2 secp256k1 arithmetic, RFC 6979 deterministic

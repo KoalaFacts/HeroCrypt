@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-14
+
 ### Fixed
 
 - Map all six SLH-DSA security levels to .NET 10's native SHA2 parameter sets
@@ -30,6 +32,17 @@
   remains variable-time and does not guarantee complete secret zeroization.
 - Reject noncanonical SEC public-key encodings and gate release packages against
   accidental Bouncy Castle dependencies or embedded assemblies.
+
+### Validation and usage
+
+- Qualify XEdDSA, X3DH and Double Ratchet with independent vectors/reference
+  decryption, adversarial delivery, concurrency and lifecycle checks. Full runtime
+  results and packaged consumers are recorded in [X3DH qualification](docs/x3dh-validation.md).
+- Peer identity authentication remains the caller's responsibility; session/prekey
+  state is in memory. This HeroCrypt wire profile does not provide Signal wire
+  compatibility or PQXDH. See [X3DH usage](docs/x3dh.md),
+  [Double Ratchet usage](docs/double-ratchet.md) and
+  [cryptographic validation limits](docs/cryptographic-validation.md).
 
 ## [1.0.5] - 2026-10-04
 

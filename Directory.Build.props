@@ -16,7 +16,7 @@
 
   <!-- Version Information -->
   <PropertyGroup>
-    <VersionPrefix>1.0.5</VersionPrefix>
+    <VersionPrefix>1.1.0</VersionPrefix>
     <GitHubRefIsTag Condition="'$(GITHUB_REF)' != ''">$([System.String]::Copy('$(GITHUB_REF)').StartsWith('refs/tags/'))</GitHubRefIsTag>
     <GitHubRefIsTag Condition="'$(GitHubRefIsTag)' == ''">False</GitHubRefIsTag>
     <VersionSuffix Condition="'$(Configuration)' == 'Debug'">dev</VersionSuffix>
@@ -24,10 +24,10 @@
 
     <!-- Assembly versioning strategy -->
     <!-- AssemblyVersion uses only major.minor for binary compatibility -->
-    <AssemblyVersion>1.0.0</AssemblyVersion>
+    <AssemblyVersion>1.1.0</AssemblyVersion>
     <!-- FileVersion includes build number if available -->
-    <FileVersion Condition="'$(BUILD_NUMBER)' != ''">1.0.5.$(BUILD_NUMBER)</FileVersion>
-    <FileVersion Condition="'$(BUILD_NUMBER)' == ''">1.0.5.0</FileVersion>
+    <FileVersion Condition="'$(BUILD_NUMBER)' != ''">1.1.0.$(BUILD_NUMBER)</FileVersion>
+    <FileVersion Condition="'$(BUILD_NUMBER)' == ''">1.1.0.0</FileVersion>
 
     <!-- Package Information -->
     <Authors>KoalaFacts Contributors</Authors>

@@ -107,7 +107,7 @@ The [examples](../examples/) directory contains practical examples:
 - **[SECURITY.md](../SECURITY.md)** - Security policy and vulnerability reporting
 - **[CONTRIBUTING.md](../CONTRIBUTING.md)** - Contribution guidelines
 - **[CHANGELOG.md](../CHANGELOG.md)** - Version history and changes
-- **[LICENSE](../LICENSE)** - MIT License
+- **[LICENSE](../LICENSE)** - Apache License 2.0
 
 ### Technical Documentation
 
@@ -278,7 +278,7 @@ Found an issue with the documentation? Please:
 
 ## License
 
-HeroCrypt is released under the [MIT License](../LICENSE).
+HeroCrypt is released under the [Apache License 2.0](../LICENSE).
 
 Documentation is licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 

@@ -274,4 +274,4 @@ We welcome new examples! When contributing:
 
 ## License
 
-Examples are licensed under MIT, same as the main HeroCrypt library.
+Examples are licensed under Apache-2.0, same as the main HeroCrypt library.

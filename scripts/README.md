@@ -224,7 +224,7 @@ To improve the script:
 
 ### License
 
-MIT License - Same as HeroCrypt project
+Apache License 2.0 - Same as HeroCrypt project
 
 
 ## Release validation

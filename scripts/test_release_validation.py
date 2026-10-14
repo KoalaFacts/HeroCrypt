@@ -15,7 +15,7 @@ DOCS = ("README.md", "LICENSE", "THIRD-PARTY-NOTICES.md", "SECURITY.md", "PRODUC
 
 def contents(symbols=False):
     nuspec = f'''<package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd"><metadata>
-    <id>HeroCrypt</id><version>{VERSION}</version><license type="expression">MIT</license>
+    <id>HeroCrypt</id><version>{VERSION}</version><license type="expression">Apache-2.0</license>
     <readme>README.md</readme><repository type="git" url="{REPOSITORY}" commit="{SHA}"/>
     </metadata></package>'''
     files = {"HeroCrypt.nuspec": nuspec.encode(), "_rels/.rels": b"container metadata"}
@@ -56,6 +56,13 @@ class PackageValidationTests(unittest.TestCase):
     def test_valid_package_and_symbols(self):
         self.validate()
         self.validate(symbols=True)
+
+    def test_rejects_stale_mit_license_expression(self):
+        files = contents()
+        files["HeroCrypt.nuspec"] = files["HeroCrypt.nuspec"].replace(
+            b">Apache-2.0</license>", b">MIT</license>")
+        with self.assertRaisesRegex(ValueError, "Apache-2.0"):
+            self.validate(files)
 
     def test_rejects_bouncy_castle_runtime_dependencies(self):
         for package in ("BouncyCastle.Cryptography", "Portable.BouncyCastle", "bouncycastle"):
@@ -98,7 +105,7 @@ class PackageValidationTests(unittest.TestCase):
     def test_wrong_identity_version_repository_commit_license_or_readme_rejected(self):
         replacements = [(b">HeroCrypt</id>", b">Other</id>"), (b">1.0.0</version>", b">0.9.0</version>"),
                         (SHA.encode(), b"b" * 40), (REPOSITORY.encode(), b"https://example.com/repo"),
-                        (b">MIT</license>", b">UNLICENSED</license>"), (b">README.md</readme>", b">other.md</readme>")]
+                        (b">Apache-2.0</license>", b">UNLICENSED</license>"), (b">README.md</readme>", b">other.md</readme>")]
         for before, after in replacements:
             with self.subTest(before=before):
                 files = contents()

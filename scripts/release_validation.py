@@ -67,8 +67,8 @@ def validate_package(path, version, commit, repository, source_root):
     if not symbols:
         required.update(DOCUMENTS)
         license_node = metadata.find("{*}license")
-        if license_node is None or license_node.get("type") != "expression" or license_node.text != "MIT":
-            raise ValueError("Expected the declared MIT license expression")
+        if license_node is None or license_node.get("type") != "expression" or license_node.text != "Apache-2.0":
+            raise ValueError("Expected the declared Apache-2.0 license expression")
         if metadata.findtext("{*}readme") != "README.md":
             raise ValueError("Expected README.md package readme metadata")
     missing = required - files.keys()

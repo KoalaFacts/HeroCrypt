@@ -24,6 +24,8 @@
 
 ### Changed
 
+- Align HeroCrypt's license text, package metadata, documentation and release
+  validation with Apache-2.0. Preserve third-party license notices.
 - Refresh stable .NET packages and SDK patches, test infrastructure, Remotion
   and frontend dependency lockfiles. Preserve the test telemetry provider's
   upstream-selected Application Insights 2.x dependency and the SDK-owned .NET Standard

@@ -2,7 +2,7 @@
 
 [![NuGet Version](https://img.shields.io/nuget/v/HeroCrypt.svg)](https://www.nuget.org/packages/HeroCrypt/)
 [![Build Status](https://github.com/KoalaFacts/HeroCrypt/actions/workflows/ci.yml/badge.svg)](https://github.com/KoalaFacts/HeroCrypt/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 [![.NET](https://img.shields.io/badge/.NET%20Standard-2.0-purple)](https://dotnet.microsoft.com/download)
 [![.NET](https://img.shields.io/badge/.NET-8.0%20|%209.0%20|%2010.0-purple)](https://dotnet.microsoft.com/download)
 
@@ -467,7 +467,7 @@ Contributions are welcome! Please feel free to submit issues or pull requests.
 
 ## 📄 License
 
-This project is licensed under the MIT License - see [LICENSE](LICENSE) for details.
+This project is licensed under the Apache License 2.0 - see [LICENSE](LICENSE) for details.
 
 ## 🙏 Acknowledgments
 

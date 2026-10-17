@@ -41,6 +41,7 @@ internal sealed class DoubleRatchetState : IDisposable
         }
     }
 
+    /// <inheritdoc />
     public void Dispose()
     {
         Clear(Root); Clear(PrivateKey); Clear(PublicKey); Clear(RemoteKey);

@@ -5,6 +5,7 @@ using HeroCrypt.Security;
 
 namespace HeroCrypt.Protocols.X3dh;
 
+/// <summary>Authenticates incoming X3DH handshakes and atomically consumes one-time prekeys.</summary>
 public sealed partial class X3dhPreKeyStore
 {
     private int acceptedHandshakeCount;

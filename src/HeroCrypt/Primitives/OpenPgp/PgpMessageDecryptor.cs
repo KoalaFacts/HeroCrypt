@@ -467,7 +467,7 @@ public sealed class PgpMessageDecryptor : IDisposable
                 // Decrypt the secret key using S2K key derivation
                 secretKey = secretKey.Decrypt(passphrase!, securityPolicy.S2KLimits);
             }
-            catch (CryptographicException)
+            catch (Exception ex) when (IsCandidateFailure(ex))
             {
                 error = "Failed to decrypt secret key. Wrong passphrase?";
                 return null;

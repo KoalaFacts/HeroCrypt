@@ -22,6 +22,10 @@ public class PgpS2KResourceSecurityTests
     {
         var key = Parameters().DeriveKey("public fixture"u8, 16);
         var skesk = new PgpSymmetricKeyEncryptedSessionKeyPacket(SymmetricCipherAlgorithm.Aes128, Parameters().Serialize());
+        Assert.Throws<CryptographicException>(() => skesk.DecryptSessionKey("public fixture"u8,
+            SecurityPolicyOptions.Testing with { S2KLimits = LowerLimit(memoryLimit) }));
+        Assert.Equal(key, skesk.DecryptSessionKey("public fixture"u8,
+            SecurityPolicyOptions.Default with { S2KLimits = ExactLimits }));
         var literal = Packet(PgpPacketTag.LiteralData, [0x62, 0, 0, 0, 0, 0, .. Plaintext]);
         byte[] mdcInput = [.. new byte[18], .. literal, 0xD3, 0x14];
 #pragma warning disable CA5350 // SEIPD v1 requires SHA-1 for its MDC.
@@ -68,6 +72,10 @@ public class PgpS2KResourceSecurityTests
         }
         var skesk = new PgpSymmetricKeyEncryptedSessionKeyPacket(SymmetricCipherAlgorithm.Aes128,
             AeadAlgorithm.Gcm, Parameters().Serialize(), nonce, wrapped.Concat(tag).ToArray());
+        Assert.Throws<CryptographicException>(() => skesk.DecryptSessionKey("public fixture"u8,
+            SecurityPolicyOptions.Testing with { S2KLimits = LowerLimit(memoryLimit) }));
+        Assert.Equal(session, skesk.DecryptSessionKey("public fixture"u8,
+            SecurityPolicyOptions.Default with { S2KLimits = ExactLimits }));
         var literal = Packet(PgpPacketTag.LiteralData, [0x62, 0, 0, 0, 0, 0, .. Plaintext]);
         var salt = new byte[32];
         var data = PgpSeipdAead.Encrypt(literal, session, SymmetricCipherAlgorithm.Aes128,
@@ -120,6 +128,39 @@ public class PgpS2KResourceSecurityTests
         Assert.ThrowsAny<ArgumentException>(() => encrypted.Decrypt("public fixture"));
     }
 
+    [Theory]
+    [InlineData(35, false)]
+    [InlineData(35, true)]
+    [InlineData(31, false)]
+    [InlineData(31, true)]
+    public void Message_RejectedS2KParameters_DoNotPreventLaterKeyAuthentication(byte exponent, bool anonymous)
+    {
+        using var encryptor = PgpMessageEncryptor.Create().AddRecipient(Recipient.Value.MasterPublicKey);
+        var wire = encryptor.Encrypt(Plaintext).ToArray();
+        if (anonymous)
+        {
+            using var source = new MemoryStream(wire);
+            using var reader = new PgpPacketReader(source);
+            using var destination = new MemoryStream();
+            using var writer = new PgpPacketWriter(destination, leaveOpen: true);
+            while (reader.ReadNextPacket(out var packetTag, out var body))
+            {
+                var bytes = body.ToArray();
+                if (packetTag == PgpPacketTag.PublicKeyEncryptedSessionKey)
+                {
+                    bytes.AsSpan(1, 8).Clear();
+                }
+                writer.WritePacket(packetTag, bytes);
+            }
+            wire = destination.ToArray();
+        }
+
+        using var decryptor = PgpMessageDecryptor.Create().WithSecretKey(ProtectedSecret(exponent))
+            .WithSecretKey(Recipient.Value.MasterSecretKey).WithPassphrase("public fixture");
+        Assert.True(decryptor.TryDecrypt(wire, out var result, out var error), error);
+        Assert.Equal(Plaintext, result.Data.ToArray());
+    }
+
     [Fact]
     public void KeyGenerator_HonorsCallerBudget()
     {
@@ -127,6 +168,27 @@ public class PgpS2KResourceSecurityTests
             .WithArgon2Passphrase("public fixture", passes: 2, parallelism: 1, memoryExponent: 3)
             .WithSecurityPolicy(SecurityPolicyOptions.Default with { S2KLimits = LowerLimit(true) });
         Assert.Throws<CryptographicException>(() => generator.GenerateEd25519());
+    }
+
+    [Fact]
+    public void StandaloneSkesk_CanRaiseBudgetWithoutChangingGlobalPolicy()
+    {
+        var expected = Parameters().DeriveKey("public fixture"u8, 16, SecurityPolicyOptions.Default);
+        var skesk = new PgpSymmetricKeyEncryptedSessionKeyPacket(SymmetricCipherAlgorithm.Aes128, Parameters().Serialize());
+        var previous = Defaults.SecurityPolicy;
+        var restricted = previous with { S2KLimits = LowerLimit(true) };
+        try
+        {
+            Defaults.SecurityPolicy = restricted;
+            Assert.Throws<CryptographicException>(() => skesk.DecryptSessionKey("public fixture"u8));
+            Assert.Equal(expected, skesk.DecryptSessionKey("public fixture"u8,
+                previous with { S2KLimits = ExactLimits }));
+            Assert.Same(restricted, Defaults.SecurityPolicy);
+        }
+        finally
+        {
+            Defaults.SecurityPolicy = previous;
+        }
     }
 
     [Fact]

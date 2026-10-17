@@ -38,6 +38,7 @@ var message = decryptor.Decrypt(encodedMessage);
 
 var secretKey = encryptedSecretKey.Decrypt(passphrase, limits);
 var key = parameters.DeriveKey(passphraseBytes, 32, policy);
+var sessionKey = skesk.DecryptSessionKey(passphraseBytes, policy);
 ```
 
 The same policy works with `S2KBuilder.Create(policy)`, message encryption, and
@@ -49,12 +50,15 @@ with exponent 21 (2 GiB) require explicit limits. Both limits must be positive.
 Testing/legacy algorithm policies and scoped level overrides retain the limits.
 
 Existing public method signatures, valid derived bytes, algorithm choices, and
-packet encodings are preserved. `Decrypt(string, S2KResourceLimits)` is additive;
+packet encodings are preserved. The explicit-policy SKESK `DecryptSessionKey`
+overload and `Decrypt(string, S2KResourceLimits)` are additive;
 the existing secret-key `Decrypt(string)` uses the current policy's limits and
 continues its legacy hash-consumption behavior. This fix does not migrate the
 historical 21-byte `PgpS2KSpecifier` secret-key representation; the 20-byte
 `S2KParameters` representation remains unchanged too. Previously accepted
 malformed or over-budget parameters now fail explicitly.
+Rejected S2K parameters on one secret key do not prevent trying later matching
+keys; a candidate is still accepted only after authenticating the message.
 
 Regression tests use 8–32 KiB Argon2 fixtures, an independent Bouncy Castle
 implementation, native AES message/secret-key fixtures, and parameter-only

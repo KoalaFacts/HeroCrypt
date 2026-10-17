@@ -150,6 +150,7 @@ public readonly struct S2KParameters
             throw new ArgumentException("Argon2 S2K data too short (need 20 bytes)", nameof(data));
         }
 
+        S2KCore.ValidateArgon2Parameters(data[17], data[18], data[19]);
         bytesRead = 20;
         return new S2KParameters
         {
@@ -308,6 +309,7 @@ public readonly struct S2KParameters
         byte parallelism = 4,
         byte memoryExponent = 16)
     {
+        S2KCore.ValidateArgon2Parameters(timePasses, parallelism, memoryExponent);
         var core = new S2KCore();
         return new S2KParameters
         {

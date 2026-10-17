@@ -170,34 +170,46 @@ internal sealed class S2KCore
             throw new ArgumentException($"Argon2 salt must be {ARGON2_SALT_SIZE} bytes.", nameof(salt));
         }
 
-        if (timePasses < 1)
+        long memorySizeKiB = ValidateArgon2Parameters(timePasses, parallelism, memoryExponent);
+        if (memorySizeKiB > int.MaxValue)
         {
-            throw new ArgumentException("Time passes must be at least 1.", nameof(timePasses));
+            throw new NotSupportedException("Argon2 S2K memory exponent 31 exceeds the implementation's supported memory size.");
         }
 
-        if (parallelism < 1)
-        {
-            throw new ArgumentException("Parallelism must be at least 1.", nameof(parallelism));
-        }
-
-        // RFC 9580: memory = 2^m KiB
-        var memorySizeKiB = 1 << memoryExponent;
-
-        // Ensure minimum memory requirement: 8 * parallelism
-        if (memorySizeKiB < 8 * parallelism)
-        {
-            throw new ArgumentException($"Memory exponent {memoryExponent} results in {memorySizeKiB} KiB which is less than minimum {8 * parallelism} KiB for parallelism {parallelism}.", nameof(memoryExponent));
-        }
+        policy.S2KLimits.ValidateArgon2(memorySizeKiB, timePasses);
 
         var argon2 = new Argon2Core();
         return argon2.Hash(
             password: password.ToArray(),
             salt: salt.ToArray(),
             iterations: timePasses,
-            memorySize: memorySizeKiB,
+            memorySize: checked((int)memorySizeKiB),
             parallelism: parallelism,
             hashLength: keySize,
             type: Argon2Type.Argon2id);
+    }
+
+    // Validate the encoded domain before shifting. C# otherwise masks the shift count.
+    internal static long ValidateArgon2Parameters(byte timePasses, byte parallelism, byte memoryExponent)
+    {
+        if (timePasses == 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(timePasses), "Argon2 passes must be nonzero.");
+        }
+        if (parallelism == 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(parallelism), "Argon2 parallelism must be nonzero.");
+        }
+        int minimumExponent = 3;
+        for (int remaining = parallelism - 1; remaining > 0; remaining /= 2)
+        {
+            minimumExponent++;
+        }
+        if (memoryExponent < minimumExponent || memoryExponent > 31)
+        {
+            throw new ArgumentOutOfRangeException(nameof(memoryExponent), $"Argon2 memory exponent must be between {minimumExponent} and 31 (at least 8 KiB per lane).");
+        }
+        return 1L << memoryExponent;
     }
 
     /// <summary>

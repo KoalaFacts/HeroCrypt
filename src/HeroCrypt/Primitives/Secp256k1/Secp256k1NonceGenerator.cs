@@ -59,6 +59,7 @@ internal sealed class Secp256k1NonceGenerator : IDisposable
         }
     }
 
+    /// <inheritdoc />
     public void Dispose()
     {
         SecureMemoryOperations.SecureClear(key);

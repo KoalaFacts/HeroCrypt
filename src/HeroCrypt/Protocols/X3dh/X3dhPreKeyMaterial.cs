@@ -7,6 +7,7 @@ internal sealed class X3dhPreKeyMaterial(byte[] privateKey, byte[] publicKey, by
     internal readonly byte[] PrivateKey = privateKey;
     internal readonly byte[] PublicKey = publicKey;
     internal readonly byte[] Signature = signature;
+    /// <inheritdoc />
     public void Dispose()
     {
         SecureMemoryOperations.SecureClear(PrivateKey.AsSpan()); SecureMemoryOperations.SecureClear(PublicKey.AsSpan());

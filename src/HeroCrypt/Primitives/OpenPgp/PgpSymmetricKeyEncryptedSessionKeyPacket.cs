@@ -466,6 +466,15 @@ public readonly struct PgpSymmetricKeyEncryptedSessionKeyPacket : IEquatable<Pgp
     public byte[] DecryptSessionKey(ReadOnlySpan<byte> passphrase)
         => DecryptSessionKeyWithAlgorithm(passphrase, CipherAlgorithm).SessionKey;
 
+    /// <summary>
+    /// Decrypts the session key using an explicit algorithm policy and S2K resource limits.
+    /// </summary>
+    /// <param name="passphrase">The passphrase bytes.</param>
+    /// <param name="policy">Optional policy; null uses <see cref="SecurityPolicy.CurrentPolicy"/>.</param>
+    /// <returns>The decrypted session key; authenticate the enclosing message before use.</returns>
+    public byte[] DecryptSessionKey(ReadOnlySpan<byte> passphrase, SecurityPolicyOptions? policy)
+        => DecryptSessionKeyWithAlgorithm(passphrase, CipherAlgorithm, policy).SessionKey;
+
     internal (SymmetricCipherAlgorithm Algorithm, byte[] SessionKey) DecryptSessionKeyWithAlgorithm(
         ReadOnlySpan<byte> passphrase, SymmetricCipherAlgorithm dataAlgorithm, SecurityPolicyOptions? policy = null)
     {

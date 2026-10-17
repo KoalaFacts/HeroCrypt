@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Security
+
+- Validate OpenPGP Argon2 S2K passes, parallelism, and the full memory-exponent
+  range before shifting or deriving keys. Reject exponent aliases and explicitly
+  report the implementation limit for exponent 31.
+- Enforce configurable per-derivation memory and work budgets across S2K,
+  message decryption, secret-key decryption, and key generation, including legacy
+  algorithm policies. Defaults preserve existing generation settings; higher-cost
+  inputs require explicit limits. See [compatibility and usage](docs/argon2-s2k-resource-limits.md).
+
 ## [1.1.0] - 2026-10-14
 
 ### Fixed

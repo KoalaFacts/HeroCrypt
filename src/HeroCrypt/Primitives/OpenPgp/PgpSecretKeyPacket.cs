@@ -751,6 +751,16 @@ public readonly struct PgpSecretKeyPacket
     /// </para>
     /// </remarks>
     public PgpSecretKeyPacket Decrypt(string passphrase)
+        => Decrypt(passphrase, SecurityPolicy.CurrentPolicy.S2KLimits);
+
+    /// <summary>
+    /// Decrypts a secret key with explicit per-derivation S2K resource limits.
+    /// Existing legacy hash consumption behavior is preserved.
+    /// </summary>
+    /// <param name="passphrase">The passphrase.</param>
+    /// <param name="limits">Resource limits, enforced before Argon2 allocation or work.</param>
+    /// <returns>The decrypted secret key.</returns>
+    public PgpSecretKeyPacket Decrypt(string passphrase, S2KResourceLimits limits)
     {
         if (!IsEncrypted)
         {
@@ -774,7 +784,7 @@ public readonly struct PgpSecretKeyPacket
         try
         {
             // Derive encryption key using S2K
-            byte[] encryptionKey = DeriveS2KKey(S2KSpecifier.Value, passphraseBytes, keySize);
+            byte[] encryptionKey = DeriveS2KKey(S2KSpecifier.Value, passphraseBytes, keySize, limits);
 
             try
             {
@@ -866,10 +876,10 @@ public readonly struct PgpSecretKeyPacket
     /// <summary>
     /// Derives an encryption key from the S2K specifier and passphrase.
     /// </summary>
-    private static byte[] DeriveS2KKey(PgpS2KSpecifier specifier, byte[] passphrase, int keySize)
+    private static byte[] DeriveS2KKey(PgpS2KSpecifier specifier, byte[] passphrase, int keySize, S2KResourceLimits limits)
     {
         // Use Testing policy to allow legacy hash algorithms (e.g., SHA-1) commonly used in OpenPGP
-        var core = new S2KCore(SecurityPolicyOptions.Testing);
+        var core = new S2KCore(SecurityPolicyOptions.Testing with { S2KLimits = limits });
         var hashAlgorithm = GetHashAlgorithmName(specifier.HashAlgorithm);
 
         return specifier.Type switch

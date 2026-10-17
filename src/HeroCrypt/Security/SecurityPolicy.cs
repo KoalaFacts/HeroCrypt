@@ -134,7 +134,10 @@ public static class SecurityPolicy
             previousPolicy = ScopedPolicy.Value;
             ScopedPolicy.Value = new SecurityPolicyOptions(
                 Level: level,
-                AllowDeterministicNonSiv: level == SecurityLevel.None);
+                AllowDeterministicNonSiv: level == SecurityLevel.None)
+            {
+                S2KLimits = CurrentPolicy.S2KLimits
+            };
         }
 
         /// <summary>

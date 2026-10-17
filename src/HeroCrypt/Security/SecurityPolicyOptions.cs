@@ -34,6 +34,15 @@ public sealed record SecurityPolicyOptions(
     bool AllowDeterministicNonSiv = false)
 {
     /// <summary>
+    /// Gets resource limits for OpenPGP Argon2 S2K. These apply at every security level.
+    /// </summary>
+    public S2KResourceLimits S2KLimits
+    {
+        get;
+        init => field = value ?? throw new ArgumentNullException(nameof(value));
+    } = S2KResourceLimits.Default;
+
+    /// <summary>
     /// Gets the default security policy options (Standard level, no dangerous features).
     /// </summary>
     public static SecurityPolicyOptions Default { get; } = new();

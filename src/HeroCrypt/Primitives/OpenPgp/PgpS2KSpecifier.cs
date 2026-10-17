@@ -16,7 +16,7 @@ namespace HeroCrypt.Primitives.OpenPgp;
 public readonly struct PgpS2KSpecifier
 {
     /// <summary>
-    /// Minimum allowed memory exponent for Argon2 (2^16 KB = 64 MB).
+    /// Minimum encoded memory exponent for Argon2 (2^3 KiB = 8 KiB).
     /// </summary>
     /// <remarks>
     /// RFC 9580 Section 3.7.1.4 requires the memory exponent to be within [3, 31].
@@ -166,26 +166,7 @@ public readonly struct PgpS2KSpecifier
     /// <exception cref="ArgumentOutOfRangeException">If any parameter is out of valid range.</exception>
     public static void ValidateArgon2Parameters(byte passes, byte parallelism, byte memoryExponent)
     {
-        if (memoryExponent < MinArgon2MemoryExponent || memoryExponent > MaxArgon2MemoryExponent)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(memoryExponent),
-                $"Memory exponent must be between {MinArgon2MemoryExponent} and {MaxArgon2MemoryExponent}.");
-        }
-
-        if (passes < MinArgon2Passes)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(passes),
-                $"Passes must be at least {MinArgon2Passes}.");
-        }
-
-        if (parallelism < MinArgon2Parallelism)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(parallelism),
-                $"Parallelism must be at least {MinArgon2Parallelism}.");
-        }
+        S2KCore.ValidateArgon2Parameters(passes, parallelism, memoryExponent);
     }
 
     /// <summary>
@@ -268,21 +249,13 @@ public readonly struct PgpS2KSpecifier
                 byte passes = source[19];
                 byte parallelism = source[20];
 
-                if (memoryExponent < MinArgon2MemoryExponent || memoryExponent > MaxArgon2MemoryExponent)
+                try
                 {
-                    error = "Invalid Argon2 memory exponent.";
-                    return false;
+                    ValidateArgon2Parameters(passes, parallelism, memoryExponent);
                 }
-
-                if (passes < MinArgon2Passes)
+                catch (ArgumentException ex)
                 {
-                    error = "Invalid Argon2 passes parameter.";
-                    return false;
-                }
-
-                if (parallelism < MinArgon2Parallelism)
-                {
-                    error = "Invalid Argon2 parallelism parameter.";
+                    error = ex.Message;
                     return false;
                 }
 

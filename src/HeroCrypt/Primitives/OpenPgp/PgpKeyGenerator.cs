@@ -1134,7 +1134,7 @@ public sealed class PgpKeyGenerator
         byte memoryExponent)
     {
         // Generate 16-byte salt for Argon2
-        var core = new S2KCore();
+        var core = new S2KCore(securityPolicy);
         byte[] salt = core.GenerateArgon2Salt();
 
         // Derive encryption key using Argon2

@@ -448,9 +448,9 @@ const CoreScene: React.FC<SceneProps> = ({durationInFrames}) => {
     {
       title: "Protocols",
       items: [
-        "Noise, Signal, TLS 1.3",
-        "OPAQUE PAKE",
-        "Shamir secret sharing",
+        "X3DH / Double Ratchet: in-memory",
+        "No Signal wire interoperability",
+        "Not production messaging protocols",
       ],
     },
   ];
@@ -713,7 +713,7 @@ const ClosingScene: React.FC<SceneProps> = ({durationInFrames}) => {
   const badges = [
     ".NET Standard 2.0",
     ".NET 8/9/10",
-    "MIT licensed",
+    "Apache-2.0 licensed",
     "NuGet: HeroCrypt",
   ];
 
@@ -734,8 +734,8 @@ const ClosingScene: React.FC<SceneProps> = ({durationInFrames}) => {
           maxWidth={760}
           style={getFadeInUpStyle(frame, fps, 0.22, 12, 0.45)}
         >
-          HeroCrypt ships RFC-compliant cryptography with a production-ready API
-          surface and multi-framework support.
+          HeroCrypt provides standards-based primitives and multi-framework APIs.
+          Qualify your API and deployment profile: see PRODUCTION_READINESS.md.
         </Subtitle>
         <div
           style={{

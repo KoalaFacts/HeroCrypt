@@ -280,3 +280,17 @@ and RC results do not establish GA qualification.
 
 For publication and partial-failure recovery, follow the
 [workflow guide](../.github/workflows/README.md).
+
+
+The ordinary Build and Test workflow also has a Linux x64 RC2 consumer job. It
+uses this same run's validated, stable-SDK-built package, then official
+`actions/setup-dotnet` with SDK `11.0.100-rc.2.26504.105` and runtime
+`11.0.0-rc.2.26504.105`. An unavailable or mismatched version fails; no fallback
+version is accepted. `--verify-execution` additionally checks JIT/AOT dynamic-code
+state, Linux x64 native ELF identity, and expected source/runtime/mode rejection
+controls. Default consumer invocations remain unchanged.
+
+The retained CI evidence identifies checkout/PR head/base/tree, package version,
+source SHA/hash, SDK/runtime and OS/RID, with separate JIT and AOT logs. This is
+only a Linux x64 consumer compatibility check, not full .NET 11 library test,
+all-OS, WASM or GA qualification. It creates no NuGet publication, tag or release.

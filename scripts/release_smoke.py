@@ -27,6 +27,15 @@ if (args.Length > 2)
         throw new Exception("Runtime identity mismatch: " + runtime);
     Console.WriteLine("Verified runtime: " + runtime);
 }
+if (args.Length > 3)
+{
+    var supported = System.Runtime.CompilerServices.RuntimeFeature.IsDynamicCodeSupported;
+    var compiled = System.Runtime.CompilerServices.RuntimeFeature.IsDynamicCodeCompiled;
+    Console.WriteLine($"Execution: {args[3]}; DynamicCodeSupported={supported}; DynamicCodeCompiled={compiled}");
+    var expected = args[3] == "jit";
+    if ((args[3] != "jit" && args[3] != "aot") || supported != expected || compiled != expected)
+        throw new Exception("Execution mode mismatch");
+}
 using var hasher = HeroCryptBuilder.Blake2b().WithOutputLength(32);
 var hash = Convert.ToHexString(hasher.ComputeHash(Encoding.UTF8.GetBytes("abc")));
 if (hash != "BDDD813C634239723171EF3FEE98579B94964E3BB1CB3E427262C8C068D52319")
@@ -112,6 +121,30 @@ def verify_sdk(dotnet, root, env, expected):
     print(f"Verified SDK: {actual}; executable: {dotnet}", flush=True)
 
 
+def verify_linux_elf(path):
+    header = path.read_bytes()[:20]
+    if len(header) < 20 or header[:6] != b"\x7fELF\x02\x01" or header[18:20] != b"\x3e\x00":
+        raise ValueError("Expected Linux x64 ELF native executable")
+    print("Verified native ELF: Linux x64", flush=True)
+
+
+def expect_failure(command, expected, **kwargs):
+    result = subprocess.run(command, capture_output=True, text=True, **kwargs)
+    output = result.stdout + result.stderr
+    print(f"Negative control: {expected}; exit={result.returncode}", flush=True)
+    if result.returncode == 0 or expected not in output:
+        raise ValueError(f"Expected failure {expected}; exit={result.returncode}: {output}")
+
+
+def verify_controls(command, root, env):
+    for index, value, error in ((-3, "0" * 40, "Loaded assembly version/source commit mismatch"),
+                                (-2, "0.0.0", "Runtime identity mismatch"),
+                                (-1, "jit" if command[-1] == "aot" else "aot", "Execution mode mismatch")):
+        negative = list(command)
+        negative[index] = value
+        expect_failure(negative, error, cwd=root, env=env)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("package_dir", type=Path)
@@ -124,6 +157,8 @@ def main():
     parser.add_argument("--dotnet", type=Path, help="Absolute path to an already installed dotnet executable")
     parser.add_argument("--sdk-version", help="Exact SDK version; no roll-forward")
     parser.add_argument("--runtime-version", help="Exact runtime version, checked inside the consumer")
+    parser.add_argument("--verify-execution", action="store_true",
+                        help="Verify JIT/AOT mode and source/runtime/mode negative controls (AOT: Linux x64 ELF)")
     args = parser.parse_args()
     explicit_toolchain = any((args.dotnet, args.sdk_version, args.runtime_version))
     if explicit_toolchain:
@@ -134,6 +169,8 @@ def main():
         for version in (args.sdk_version, args.runtime_version):
             if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?", version):
                 parser.error("SDK/runtime versions must be exact versions")
+    if args.verify_execution and (not explicit_toolchain or (args.aot and args.rid != "linux-x64")):
+        parser.error("--verify-execution requires exact toolchain inputs; AOT requires linux-x64")
     if args.aot and (not args.framework or not args.rid or not args.sha256):
         parser.error("AOT requires --framework, --rid and --sha256")
     if args.aot and len(args.framework) != 1:
@@ -165,6 +202,8 @@ def main():
                        DOTNET_ROLL_FORWARD="Disable")
             verify_sdk(dotnet, root, env, args.sdk_version)
             consumer_args.append(args.runtime_version)
+        if args.verify_execution:
+            consumer_args.append("aot" if args.aot else "jit")
         native_args = ["--runtime", args.rid, "-p:PublishAot=true"] if args.aot else []
         subprocess.run([dotnet, "restore", "Smoke.csproj", *native_args, "--configfile", "NuGet.Config",
                         "-p:NuGetAudit=true", "-p:NuGetAuditMode=all", "-p:TreatWarningsAsErrors=true"],
@@ -176,12 +215,20 @@ def main():
                             "-p:TreatWarningsAsErrors=true", "--output", str(output)], cwd=root, env=env, check=True)
             executable = output / ("Smoke.exe" if args.rid.startswith("win-") else "Smoke")
             print(f"Native artifact SHA256: {hashlib.sha256(executable.read_bytes()).hexdigest()}", flush=True)
-            subprocess.run([str(executable), *consumer_args], cwd=root, env=env, check=True)
+            if args.verify_execution:
+                verify_linux_elf(executable)
+            command = [str(executable), *consumer_args]
+            subprocess.run(command, cwd=root, env=env, check=True)
+            if args.verify_execution:
+                verify_controls(command, root, env)
             return
         for framework in frameworks:
-            subprocess.run([dotnet, "run", "--project", "Smoke.csproj", "--configuration", "Release",
-                            "--framework", framework, "--no-restore", "--", *consumer_args],
-                           cwd=root, env=env, check=True)
+            command = [dotnet, "run", "--project", "Smoke.csproj", "--configuration", "Release",
+                       "--framework", framework, "--no-restore", "--", *consumer_args]
+            subprocess.run(command, cwd=root, env=env, check=True)
+            if args.verify_execution:
+                command.insert(command.index("--no-restore"), "--no-build")
+                verify_controls(command, root, env)
 
 
 if __name__ == "__main__":

@@ -325,7 +325,34 @@ class CiGateTests(unittest.TestCase):
         chosen = self.ci.select_run(self.workflow, [self.run], SHA, self.repository)
         self.assertEqual(chosen["run_attempt"], 2)
         self.ci.validate_jobs(chosen, self.jobs)
-        self.assertEqual(len(self.jobs), 15)
+        self.assertEqual(len(self.jobs), 16)
+
+    def test_rc2_job_and_each_critical_step_are_required(self):
+        import copy
+        name = "RC2 consumer (linux-x64 JIT and NativeAOT)"
+        steps = (
+            "Checkout exact package source",
+            "Download this run's stable-built Linux package",
+            "Setup exact official RC2 SDK",
+            "Verify exact source and package identity",
+            "Execute RC2 JIT and native consumers with negative controls",
+            "Retain RC2 consumer evidence",
+        )
+        jobs = [job for job in self.jobs if job["name"] != name]
+        with self.assertRaises(ValueError):
+            self.ci.validate_jobs(self.run, jobs)
+        rc2 = dict(self.jobs[0], name=name, steps=[
+            {"name": step, "status": "completed", "conclusion": "success"} for step in steps])
+        self.ci.validate_jobs(self.run, jobs + [rc2])
+        for step in steps:
+            for state in ("absent", "skipped", "failure"):
+                changed = copy.deepcopy(rc2)
+                if state == "absent":
+                    changed["steps"] = [s for s in changed["steps"] if s["name"] != step]
+                else:
+                    next(s for s in changed["steps"] if s["name"] == step)["conclusion"] = state
+                with self.subTest(step=step, state=state), self.assertRaises(ValueError):
+                    self.ci.validate_jobs(self.run, jobs + [changed])
 
     def test_rejects_wrong_workflow_event_branch_sha_repository_and_incomplete_runs(self):
         import copy
@@ -465,6 +492,37 @@ class ExactToolchainTests(unittest.TestCase):
             "--sdk-version", "10.0.402", "--runtime-version", "10.0.13", "--framework", "net10.0")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("Exact toolchain requires", result.stderr)
+
+
+class RcConsumerEvidenceTests(unittest.TestCase):
+    def test_ci_has_exact_nonpublishing_rc_consumer_job(self):
+        workflow = (Path(__file__).resolve().parents[1] / ".github/workflows/ci.yml").read_text()
+        self.assertIn("  rc2-consumer:", workflow)
+        job = workflow.split("  rc2-consumer:", 1)[1].split("  dependency-review:", 1)[0]
+        for required in ("needs: package-validation", "ubuntu-latest", "11.0.100-rc.2.26504.105",
+                         "11.0.0-rc.2.26504.105", "validated-release-packages-ubuntu-latest",
+                         "--verify-execution", "--aot --rid linux-x64", "actions/setup-dotnet@v6"):
+            self.assertIn(required, job)
+        for forbidden in ("sudo ", "secrets.", "nuget push", "gh release", "contents: write"):
+            self.assertNotIn(forbidden, job)
+
+    def test_elf_validation_rejects_managed_binary(self):
+        import release_smoke
+        self.assertTrue(hasattr(release_smoke, "verify_linux_elf"), "Native ELF verification missing")
+        with tempfile.TemporaryDirectory() as directory:
+            binary = Path(directory) / "Smoke"
+            binary.write_bytes(b"MZ" + bytes(62))
+            with self.assertRaisesRegex(ValueError, "ELF"):
+                release_smoke.verify_linux_elf(binary)
+
+    def test_negative_control_requires_specific_failure(self):
+        import release_smoke
+        self.assertTrue(hasattr(release_smoke, "expect_failure"), "Specific negative-control verification missing")
+        with self.assertRaisesRegex(ValueError, "Expected failure"):
+            release_smoke.expect_failure([sys.executable, "-c", "raise Exception('unrelated')"], "Runtime identity mismatch")
+        with self.assertRaisesRegex(ValueError, "Expected failure"):
+            release_smoke.expect_failure([sys.executable, "-c", "print('Runtime identity mismatch')"], "Runtime identity mismatch")
+        release_smoke.expect_failure([sys.executable, "-c", "raise Exception('Runtime identity mismatch')"], "Runtime identity mismatch")
 
 
 if __name__ == "__main__":

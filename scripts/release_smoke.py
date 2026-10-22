@@ -74,8 +74,35 @@ foreach (var length in new[] { 0, 4087, 4088 })
     if (verifier.TryDecrypt(output.ToArray(), out var plaintext, out var error)
         || !plaintext.Data.IsEmpty || string.IsNullOrEmpty(error))
         throw new Exception("Packaged OpenPGP accepted a modified authentication tag");
+    VerifyRecovery();
+    foreach (var invalid in new byte[][] { [], [0], message[..^1], message[..(message.Length / 2)] })
+    {
+        if (verifier.TryDecrypt(invalid, out plaintext, out error)
+            || !plaintext.Data.IsEmpty || string.IsNullOrEmpty(error))
+            throw new Exception("Packaged OpenPGP invalid input did not fail closed");
+        VerifyRecovery();
+    }
+    void VerifyRecovery()
+    {
+        if (!verifier.TryDecrypt(message, out var recovered, out var recoveryError)
+            || !recovered.Data.Span.SequenceEqual(data) || recoveryError != null)
+            throw new Exception("Packaged OpenPGP same-instance recovery failed");
+    }
+    verifier.Dispose();
+    verifier.Dispose();
+    ExpectDisposed(() => verifier.TryDecrypt(message, out _, out _));
+    ExpectDisposed(() => verifier.Decrypt(message));
+    ExpectDisposed(() => verifier.WithMessagePassphrase(password));
 }
 Console.WriteLine("Package consumer: source identity, BLAKE2b vector, OpenPGP GCM boundaries/tamper rejection passed");
+Console.WriteLine("Package consumer: invalid-input rejection, same-instance recovery and disposal passed");
+
+static void ExpectDisposed(Action operation)
+{
+    try { operation(); }
+    catch (ObjectDisposedException) { return; }
+    throw new Exception("Packaged OpenPGP operation after disposal was accepted");
+}
 '''
 
 

@@ -60,6 +60,15 @@ REQUIRED_JOBS["RC2 full suite (linux-x64 runtime)"] = (
 )
 
 
+REQUIRED_JOBS["RC2 compiler (linux-x64 original TFMs)"] = (
+    "Checkout exact compiler source",
+    "Setup existing target SDKs",
+    "Setup exact official RC2 SDK",
+    "Compile original TFMs and execute complete suite",
+    "Retain RC2 compiler evidence",
+)
+
+
 def select_run(workflow, runs, commit, repository):
     if (workflow.get("path") != WORKFLOW_PATH or workflow.get("name") != WORKFLOW_NAME
             or workflow.get("state") != "active" or not isinstance(workflow.get("id"), int)):

@@ -1,4 +1,5 @@
 """Contract tests for the package gates; run with Python's unittest."""
+import json
 import subprocess
 import sys
 import tempfile
@@ -325,7 +326,7 @@ class CiGateTests(unittest.TestCase):
         chosen = self.ci.select_run(self.workflow, [self.run], SHA, self.repository)
         self.assertEqual(chosen["run_attempt"], 2)
         self.ci.validate_jobs(chosen, self.jobs)
-        self.assertEqual(len(self.jobs), 18)
+        self.assertEqual(len(self.jobs), 19)
 
     def test_rc2_job_and_each_critical_step_are_required(self):
         import copy
@@ -609,6 +610,42 @@ class FullRuntimeQualificationTests(unittest.TestCase):
             self.assertIn(required, job)
         for forbidden in ("--filter", "-filter", "secrets.", "nuget push", "contents: write"):
             self.assertNotIn(forbidden, job)
+
+
+class RcCompileTests(unittest.TestCase):
+    def test_compilation_uses_locked_restore_and_all_original_targets(self):
+        import rc_compile_tests
+        commands = rc_compile_tests.compile_commands("/sdk/dotnet", "a" * 40)
+        self.assertEqual(len(commands), 3)
+        self.assertIn("--locked-mode", commands[0])
+        self.assertIn("-p:NuGetAuditMode=all", commands[0])
+        self.assertIn("-p:TreatWarningsAsErrors=true", commands[0])
+        for command in commands[1:]:
+            self.assertIn("--no-restore", command)
+            self.assertNotIn("--framework", command)
+            self.assertIn("-p:SourceRevisionId=" + "a" * 40, command)
+
+    def test_isolated_sdk_selection_preserves_test_runner(self):
+        import rc_compile_tests
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            config = {"test": {"runner": "Microsoft.Testing.Platform"}, "sdk": {"version": "10.0.402"}}
+            (root / "global.json").write_text(json.dumps(config))
+            rc_compile_tests.select_sdk(root, "11.0.100-rc.2.26504.105")
+            result = json.loads((root / "global.json").read_text())
+            self.assertEqual(result["test"], config["test"])
+            self.assertEqual(result["sdk"], {"version": "11.0.100-rc.2.26504.105", "rollForward": "disable", "allowPrerelease": True})
+
+    def test_lock_mutation_is_rejected(self):
+        import rc_compile_tests
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            lock = root / "packages.lock.json"
+            lock.write_text("original")
+            before = rc_compile_tests.lock_hashes(root)
+            lock.write_text("changed")
+            with self.assertRaisesRegex(ValueError, "Lock files changed"):
+                rc_compile_tests.verify_locks(root, before)
 
 
 if __name__ == "__main__":

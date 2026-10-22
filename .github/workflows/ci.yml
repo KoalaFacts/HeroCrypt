@@ -394,6 +394,41 @@ jobs:
         if-no-files-found: warn
         retention-days: 14
 
+  rc2-compiler:
+    name: RC2 compiler (linux-x64 original TFMs)
+    needs: setup
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      RC_SDK: 11.0.100-rc.2.26504.105
+      RC_RUNTIME: 11.0.0-rc.2.26504.105
+    steps:
+    - name: Checkout exact compiler source
+      uses: actions/checkout@v7
+      with:
+        persist-credentials: false
+    - name: Setup existing target SDKs
+      uses: ./.github/actions/setup-dotnet-sdks
+      with:
+        dotnet-version: ${{ needs.setup.outputs.versions }}
+    - name: Setup exact official RC2 SDK
+      uses: actions/setup-dotnet@v6
+      with:
+        dotnet-version: ${{ env.RC_SDK }}
+    - name: Compile original TFMs and execute complete suite
+      shell: bash
+      run: |
+        python scripts/rc_compile_tests.py --dotnet "$(realpath "$(command -v dotnet)")" --sdk-version "$RC_SDK" --runtime-version "$RC_RUNTIME" --commit "$GITHUB_SHA" --output "$RUNNER_TEMP/rc2-compiler"
+        git diff --exit-code
+    - name: Retain RC2 compiler evidence
+      if: always()
+      uses: actions/upload-artifact@v7
+      with:
+        name: rc2-compiler-linux-x64
+        path: ${{ runner.temp }}/rc2-compiler/
+        if-no-files-found: warn
+        retention-days: 14
+
   dependency-review:
     name: Dependency Review
     runs-on: ubuntu-latest

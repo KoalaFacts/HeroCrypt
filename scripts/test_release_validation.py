@@ -467,5 +467,36 @@ class ExactToolchainTests(unittest.TestCase):
         self.assertIn("Exact toolchain requires", result.stderr)
 
 
+class RcConsumerEvidenceTests(unittest.TestCase):
+    def test_ci_has_exact_nonpublishing_rc_consumer_job(self):
+        workflow = (Path(__file__).resolve().parents[1] / ".github/workflows/ci.yml").read_text()
+        self.assertIn("  rc2-consumer:", workflow)
+        job = workflow.split("  rc2-consumer:", 1)[1].split("  dependency-review:", 1)[0]
+        for required in ("needs: package-validation", "ubuntu-latest", "11.0.100-rc.2.26504.105",
+                         "11.0.0-rc.2.26504.105", "validated-release-packages-ubuntu-latest",
+                         "--verify-execution", "--aot --rid linux-x64", "actions/setup-dotnet@v6"):
+            self.assertIn(required, job)
+        for forbidden in ("sudo ", "secrets.", "nuget push", "gh release", "contents: write"):
+            self.assertNotIn(forbidden, job)
+
+    def test_elf_validation_rejects_managed_binary(self):
+        import release_smoke
+        self.assertTrue(hasattr(release_smoke, "verify_linux_elf"), "Native ELF verification missing")
+        with tempfile.TemporaryDirectory() as directory:
+            binary = Path(directory) / "Smoke"
+            binary.write_bytes(b"MZ" + bytes(62))
+            with self.assertRaisesRegex(ValueError, "ELF"):
+                release_smoke.verify_linux_elf(binary)
+
+    def test_negative_control_requires_specific_failure(self):
+        import release_smoke
+        self.assertTrue(hasattr(release_smoke, "expect_failure"), "Specific negative-control verification missing")
+        with self.assertRaisesRegex(ValueError, "Expected failure"):
+            release_smoke.expect_failure([sys.executable, "-c", "raise Exception('unrelated')"], "Runtime identity mismatch")
+        with self.assertRaisesRegex(ValueError, "Expected failure"):
+            release_smoke.expect_failure([sys.executable, "-c", "print('Runtime identity mismatch')"], "Runtime identity mismatch")
+        release_smoke.expect_failure([sys.executable, "-c", "raise Exception('Runtime identity mismatch')"], "Runtime identity mismatch")
+
+
 if __name__ == "__main__":
     unittest.main()

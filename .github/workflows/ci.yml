@@ -215,6 +215,68 @@ jobs:
         if-no-files-found: error
         retention-days: 14
 
+  rc2-consumer:
+    name: RC2 consumer (linux-x64 JIT and NativeAOT)
+    needs: package-validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      RC_SDK: 11.0.100-rc.2.26504.105
+      RC_RUNTIME: 11.0.0-rc.2.26504.105
+      RELEASE_VERSION: 1.0.0-ci
+      PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+    steps:
+    - name: Checkout exact package source
+      uses: actions/checkout@v7
+      with:
+        persist-credentials: false
+    - name: Download this run's stable-built Linux package
+      uses: actions/download-artifact@v8
+      with:
+        name: validated-release-packages-ubuntu-latest
+        path: ${{ runner.temp }}/rc2-packages
+    - name: Setup exact official RC2 SDK
+      uses: actions/setup-dotnet@v6
+      with:
+        dotnet-version: ${{ env.RC_SDK }}
+    - name: Verify exact source and package identity
+      shell: bash
+      run: |
+        mkdir -p "$RUNNER_TEMP/rc2-evidence"
+        test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+        python scripts/release_validation.py validate "$RUNNER_TEMP/rc2-packages/HeroCrypt.$RELEASE_VERSION.nupkg" "$RUNNER_TEMP/rc2-packages/HeroCrypt.$RELEASE_VERSION.snupkg" --version "$RELEASE_VERSION" --commit "$GITHUB_SHA" --repository "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
+        python - <<'PY'
+        import hashlib, json, os, platform, subprocess
+        from pathlib import Path
+        package = Path(os.environ["RUNNER_TEMP"]) / "rc2-packages" / ("HeroCrypt." + os.environ["RELEASE_VERSION"] + ".nupkg")
+        digest = hashlib.sha256(package.read_bytes()).hexdigest()
+        record = {key: os.environ.get(key) for key in ("GITHUB_SHA", "GITHUB_REF", "GITHUB_EVENT_NAME", "PR_HEAD_SHA", "PR_BASE_SHA", "RC_SDK", "RC_RUNTIME", "RELEASE_VERSION", "GITHUB_RUN_ID", "GITHUB_RUN_ATTEMPT")}
+        record.update(package_id="HeroCrypt", package_sha256=digest, tree=subprocess.check_output(["git", "rev-parse", "HEAD^{tree}"], text=True).strip(), os=platform.platform(), rid="linux-x64", scope="RC2 Linux x64 consumer only; not GA, all-OS or WASM; no publication")
+        (Path(os.environ["RUNNER_TEMP"]) / "rc2-evidence/identity.json").write_text(json.dumps(record, indent=2))
+        with open(os.environ["GITHUB_ENV"], "a") as stream:
+            stream.write("PACKAGE_SHA256=" + digest + "\n")
+        print(json.dumps(record, indent=2))
+        PY
+    - name: Execute RC2 JIT and native consumers with negative controls
+      shell: bash
+      run: |
+        set -euo pipefail
+        dotnet_path="$(realpath "$(command -v dotnet)")"
+        (cd "$RUNNER_TEMP" && "$dotnet_path" --info) | tee "$RUNNER_TEMP/rc2-evidence/toolchain.log"
+        common=("$RUNNER_TEMP/rc2-packages" --version "$RELEASE_VERSION" --commit "$GITHUB_SHA" --sha256 "$PACKAGE_SHA256" --framework net11.0 --dotnet "$dotnet_path" --sdk-version "$RC_SDK" --runtime-version "$RC_RUNTIME" --verify-execution)
+        python scripts/release_smoke.py "${common[@]}" 2>&1 | tee "$RUNNER_TEMP/rc2-evidence/jit.log"
+        python scripts/release_smoke.py "${common[@]}" --aot --rid linux-x64 2>&1 | tee "$RUNNER_TEMP/rc2-evidence/aot.log"
+        git diff --exit-code
+    - name: Retain RC2 consumer evidence
+      if: always()
+      uses: actions/upload-artifact@v7
+      with:
+        name: rc2-consumer-evidence-linux-x64
+        path: ${{ runner.temp }}/rc2-evidence/
+        if-no-files-found: warn
+        retention-days: 14
+
   dependency-review:
     name: Dependency Review
     runs-on: ubuntu-latest

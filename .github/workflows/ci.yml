@@ -354,6 +354,46 @@ jobs:
         if-no-files-found: warn
         retention-days: 14
 
+  rc2-full-suite:
+    name: RC2 full suite (linux-x64 runtime)
+    needs: setup
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      RC_SDK: 11.0.100-rc.2.26504.105
+      RC_RUNTIME: 11.0.0-rc.2.26504.105
+    steps:
+    - name: Checkout exact test source
+      uses: actions/checkout@v7
+      with:
+        persist-credentials: false
+    - name: Setup stable build SDKs
+      uses: ./.github/actions/setup-dotnet-sdks
+      with:
+        dotnet-version: ${{ needs.setup.outputs.versions }}
+    - name: Build complete test assembly with locked stable dependencies
+      run: |
+        dotnet --version
+        dotnet restore tests/HeroCrypt.Tests/HeroCrypt.Tests.csproj --locked-mode -p:NuGetAudit=true -p:NuGetAuditMode=all -p:TreatWarningsAsErrors=true
+        dotnet build tests/HeroCrypt.Tests/HeroCrypt.Tests.csproj --configuration Release --no-restore --framework net10.0
+    - name: Setup exact official RC2 SDK
+      uses: actions/setup-dotnet@v6
+      with:
+        dotnet-version: ${{ env.RC_SDK }}
+    - name: Execute complete suite on exact RC2 runtime
+      shell: bash
+      run: |
+        python scripts/rc_full_tests.py --dotnet "$(realpath "$(command -v dotnet)")" --sdk-version "$RC_SDK" --runtime-version "$RC_RUNTIME" --commit "$GITHUB_SHA" --output "$RUNNER_TEMP/rc2-full-suite"
+        git diff --exit-code
+    - name: Retain full RC2 suite evidence
+      if: always()
+      uses: actions/upload-artifact@v7
+      with:
+        name: rc2-full-suite-linux-x64
+        path: ${{ runner.temp }}/rc2-full-suite/
+        if-no-files-found: warn
+        retention-days: 14
+
   dependency-review:
     name: Dependency Review
     runs-on: ubuntu-latest

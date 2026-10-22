@@ -32,6 +32,15 @@ REQUIRED_JOBS.update({
     for os in ("ubuntu-latest", "windows-latest")
 })
 
+REQUIRED_JOBS["RC2 consumer (linux-x64 JIT and NativeAOT)"] = (
+    "Checkout exact package source",
+    "Download this run's stable-built Linux package",
+    "Setup exact official RC2 SDK",
+    "Verify exact source and package identity",
+    "Execute RC2 JIT and native consumers with negative controls",
+    "Retain RC2 consumer evidence",
+)
+
 
 def select_run(workflow, runs, commit, repository):
     if (workflow.get("path") != WORKFLOW_PATH or workflow.get("name") != WORKFLOW_NAME

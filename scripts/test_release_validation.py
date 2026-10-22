@@ -325,7 +325,34 @@ class CiGateTests(unittest.TestCase):
         chosen = self.ci.select_run(self.workflow, [self.run], SHA, self.repository)
         self.assertEqual(chosen["run_attempt"], 2)
         self.ci.validate_jobs(chosen, self.jobs)
-        self.assertEqual(len(self.jobs), 15)
+        self.assertEqual(len(self.jobs), 16)
+
+    def test_rc2_job_and_each_critical_step_are_required(self):
+        import copy
+        name = "RC2 consumer (linux-x64 JIT and NativeAOT)"
+        steps = (
+            "Checkout exact package source",
+            "Download this run's stable-built Linux package",
+            "Setup exact official RC2 SDK",
+            "Verify exact source and package identity",
+            "Execute RC2 JIT and native consumers with negative controls",
+            "Retain RC2 consumer evidence",
+        )
+        jobs = [job for job in self.jobs if job["name"] != name]
+        with self.assertRaises(ValueError):
+            self.ci.validate_jobs(self.run, jobs)
+        rc2 = dict(self.jobs[0], name=name, steps=[
+            {"name": step, "status": "completed", "conclusion": "success"} for step in steps])
+        self.ci.validate_jobs(self.run, jobs + [rc2])
+        for step in steps:
+            for state in ("absent", "skipped", "failure"):
+                changed = copy.deepcopy(rc2)
+                if state == "absent":
+                    changed["steps"] = [s for s in changed["steps"] if s["name"] != step]
+                else:
+                    next(s for s in changed["steps"] if s["name"] == step)["conclusion"] = state
+                with self.subTest(step=step, state=state), self.assertRaises(ValueError):
+                    self.ci.validate_jobs(self.run, jobs + [changed])
 
     def test_rejects_wrong_workflow_event_branch_sha_repository_and_incomplete_runs(self):
         import copy

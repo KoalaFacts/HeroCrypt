@@ -277,6 +277,83 @@ jobs:
         if-no-files-found: warn
         retention-days: 14
 
+  rc2-windows-consumer:
+    name: RC2 consumer (win-x64 managed JIT)
+    needs: package-validation
+    runs-on: windows-latest
+    timeout-minutes: 20
+    env:
+      RC_SDK: 11.0.100-rc.2.26504.105
+      RC_RUNTIME: 11.0.0-rc.2.26504.105
+      RELEASE_VERSION: 1.0.0-ci
+      PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+    steps:
+    - name: Checkout exact package source
+      uses: actions/checkout@v7
+      with:
+        persist-credentials: false
+    - name: Download this run's stable-built Windows package
+      uses: actions/download-artifact@v8
+      with:
+        name: validated-release-packages-windows-latest
+        path: ${{ runner.temp }}/windows-rc2-packages
+    - name: Setup exact official RC2 SDK
+      uses: actions/setup-dotnet@v6
+      with:
+        dotnet-version: ${{ env.RC_SDK }}
+    - name: Verify exact source and package identity
+      shell: bash
+      run: |
+        mkdir -p "$RUNNER_TEMP/windows-rc2-evidence"
+        test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+        python scripts/release_validation.py validate "$RUNNER_TEMP/windows-rc2-packages/HeroCrypt.$RELEASE_VERSION.nupkg" "$RUNNER_TEMP/windows-rc2-packages/HeroCrypt.$RELEASE_VERSION.snupkg" --version "$RELEASE_VERSION" --commit "$GITHUB_SHA" --repository "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
+        python - <<'PY'
+        import hashlib, json, os, platform, subprocess
+        from pathlib import Path
+        package = Path(os.environ["RUNNER_TEMP"]) / "windows-rc2-packages" / ("HeroCrypt." + os.environ["RELEASE_VERSION"] + ".nupkg")
+        digest = hashlib.sha256(package.read_bytes()).hexdigest()
+        record = {key: os.environ.get(key) for key in ("GITHUB_SHA", "GITHUB_REF", "GITHUB_EVENT_NAME", "PR_HEAD_SHA", "PR_BASE_SHA", "RC_SDK", "RC_RUNTIME", "RELEASE_VERSION", "GITHUB_RUN_ID", "GITHUB_RUN_ATTEMPT")}
+        record.update(package_id="HeroCrypt", package_sha256=digest, tree=subprocess.check_output(["git", "rev-parse", "HEAD^{tree}"], text=True).strip(), os=platform.platform(), rid="win-x64", scope="RC2 Windows x64 managed JIT consumer only; not GA, all-OS or WASM; no publication")
+        (Path(os.environ["RUNNER_TEMP"]) / "windows-rc2-evidence/identity.json").write_text(json.dumps(record, indent=2))
+        with open(os.environ["GITHUB_ENV"], "a") as stream:
+            stream.write("PACKAGE_SHA256=" + digest + "\n")
+        print(json.dumps(record, indent=2))
+        PY
+    - name: Execute Windows RC2 JIT consumer with negative controls
+      shell: bash
+      run: |
+        python - <<'PYTHON'
+        import os, re, shutil, subprocess, sys
+        from pathlib import Path
+        root = Path(os.environ["RUNNER_TEMP"])
+        dotnet = str(Path(shutil.which("dotnet")).resolve())
+        info = subprocess.check_output([dotnet, "--info"], cwd=root, text=True)
+        (root / "windows-rc2-evidence/toolchain.log").write_text(info)
+        print(info, flush=True)
+        if not re.search(r"(?m)^\s*RID:\s*win-x64\s*$", info):
+            raise SystemExit("Expected Windows x64 SDK host RID")
+        command = [sys.executable, "scripts/release_smoke.py", str(root / "windows-rc2-packages"),
+                   "--version", os.environ["RELEASE_VERSION"], "--commit", os.environ["GITHUB_SHA"],
+                   "--sha256", os.environ["PACKAGE_SHA256"], "--framework", "net11.0", "--dotnet", dotnet,
+                   "--sdk-version", os.environ["RC_SDK"], "--runtime-version", os.environ["RC_RUNTIME"],
+                   "--verify-execution"]
+        with (root / "windows-rc2-evidence/jit.log").open("w") as log:
+            result = subprocess.run(command, stdout=log, stderr=subprocess.STDOUT)
+        print((root / "windows-rc2-evidence/jit.log").read_text(), flush=True)
+        if result.returncode:
+            raise SystemExit(result.returncode)
+        PYTHON
+        git diff --exit-code
+    - name: Retain Windows RC2 consumer evidence
+      if: always()
+      uses: actions/upload-artifact@v7
+      with:
+        name: rc2-consumer-evidence-win-x64
+        path: ${{ runner.temp }}/windows-rc2-evidence/
+        if-no-files-found: warn
+        retention-days: 14
+
   dependency-review:
     name: Dependency Review
     runs-on: ubuntu-latest

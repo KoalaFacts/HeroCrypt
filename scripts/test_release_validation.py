@@ -325,7 +325,7 @@ class CiGateTests(unittest.TestCase):
         chosen = self.ci.select_run(self.workflow, [self.run], SHA, self.repository)
         self.assertEqual(chosen["run_attempt"], 2)
         self.ci.validate_jobs(chosen, self.jobs)
-        self.assertEqual(len(self.jobs), 16)
+        self.assertEqual(len(self.jobs), 17)
 
     def test_rc2_job_and_each_critical_step_are_required(self):
         import copy
@@ -337,6 +337,33 @@ class CiGateTests(unittest.TestCase):
             "Verify exact source and package identity",
             "Execute RC2 JIT and native consumers with negative controls",
             "Retain RC2 consumer evidence",
+        )
+        jobs = [job for job in self.jobs if job["name"] != name]
+        with self.assertRaises(ValueError):
+            self.ci.validate_jobs(self.run, jobs)
+        rc2 = dict(self.jobs[0], name=name, steps=[
+            {"name": step, "status": "completed", "conclusion": "success"} for step in steps])
+        self.ci.validate_jobs(self.run, jobs + [rc2])
+        for step in steps:
+            for state in ("absent", "skipped", "failure"):
+                changed = copy.deepcopy(rc2)
+                if state == "absent":
+                    changed["steps"] = [s for s in changed["steps"] if s["name"] != step]
+                else:
+                    next(s for s in changed["steps"] if s["name"] == step)["conclusion"] = state
+                with self.subTest(step=step, state=state), self.assertRaises(ValueError):
+                    self.ci.validate_jobs(self.run, jobs + [changed])
+
+    def test_windows_rc2_job_and_critical_steps_are_required(self):
+        import copy
+        name = "RC2 consumer (win-x64 managed JIT)"
+        steps = (
+            "Checkout exact package source",
+            "Download this run's stable-built Windows package",
+            "Setup exact official RC2 SDK",
+            "Verify exact source and package identity",
+            "Execute Windows RC2 JIT consumer with negative controls",
+            "Retain Windows RC2 consumer evidence",
         )
         jobs = [job for job in self.jobs if job["name"] != name]
         with self.assertRaises(ValueError):
@@ -504,6 +531,17 @@ class RcConsumerEvidenceTests(unittest.TestCase):
                          "--verify-execution", "--aot --rid linux-x64", "actions/setup-dotnet@v6"):
             self.assertIn(required, job)
         for forbidden in ("sudo ", "secrets.", "nuget push", "gh release", "contents: write"):
+            self.assertNotIn(forbidden, job)
+
+    def test_windows_rc2_consumes_same_run_package_without_aot_or_publication(self):
+        workflow = (Path(__file__).resolve().parents[1] / ".github/workflows/ci.yml").read_text()
+        self.assertIn("  rc2-windows-consumer:", workflow)
+        job = workflow.split("  rc2-windows-consumer:", 1)[1].split("  dependency-review:", 1)[0]
+        for required in ("windows-latest", "needs: package-validation", "validated-release-packages-windows-latest",
+                         "11.0.100-rc.2.26504.105", "11.0.0-rc.2.26504.105", "--verify-execution",
+                         "--sha256", "--commit", "GITHUB_SHA", "win-x64", "actions/setup-dotnet@v6"):
+            self.assertIn(required, job)
+        for forbidden in ("--aot", "sudo ", "secrets.", "nuget push", "gh release", "contents: write"):
             self.assertNotIn(forbidden, job)
 
     def test_elf_validation_rejects_managed_binary(self):

@@ -294,3 +294,11 @@ The retained CI evidence identifies checkout/PR head/base/tree, package version,
 source SHA/hash, SDK/runtime and OS/RID, with separate JIT and AOT logs. This is
 only a Linux x64 consumer compatibility check, not full .NET 11 library test,
 all-OS, WASM or GA qualification. It creates no NuGet publication, tag or release.
+
+A separate Windows x64 RC2 managed/JIT job consumes this same run's validated
+Windows-built package with the same pinned official SDK/runtime. It checks the
+selected host RID is `win-x64`, reuses the package hash/source identity and
+source/runtime/execution-mode negative controls, and retains Windows toolchain,
+identity and JIT logs. Both RC2 jobs and their critical steps are required by the
+release CI completeness gate. Windows NativeAOT, WASM and GA qualification are
+not covered; stable library TFMs and default consumer invocations are unchanged.

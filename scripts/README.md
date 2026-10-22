@@ -239,5 +239,20 @@ Apache License 2.0 - Same as HeroCrypt project
   smoke-project configuration and workflow contracts
 
 Run `python3 -m unittest discover -s scripts -p 'test_release_validation.py' -v`.
+An explicit Native AOT baseline can use the same package checks and public API
+vectors (this does not establish .NET 11 compatibility):
+
+```bash
+python3 scripts/release_smoke.py /path/to/packages --version 1.1.0 \
+  --commit <full-source-sha> --sha256 <nupkg-sha256> \
+  --aot --framework net10.0 --rid linux-x64
+```
+
+AOT requires one explicit framework, a host-compatible RID, the matching SDK and
+native compiler prerequisites. It runs `dotnet publish -p:PublishAot=true`, then
+executes the native output; failures are fatal. The default remains JIT on
+.NET 8/9/10. `--framework` can also select explicit JIT targets. The repository's
+pinned SDK still applies; these options do not install or qualify a new SDK.
+
 For publication and partial-failure recovery, follow the
 [workflow guide](../.github/workflows/README.md).

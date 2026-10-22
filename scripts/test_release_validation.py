@@ -1,4 +1,6 @@
 """Contract tests for the package gates; run with Python's unittest."""
+import subprocess
+import sys
 import tempfile
 import unittest
 import zipfile
@@ -394,6 +396,33 @@ class SmokeProjectTests(unittest.TestCase):
             program = (root / "Program.cs").read_text()
             self.assertIn("TryDecrypt", program)
             self.assertIn("AssemblyInformationalVersionAttribute", program)
+
+
+class ConsumerInputsTests(unittest.TestCase):
+    def invoke(self, directory, *extra):
+        return subprocess.run([sys.executable, str(Path(__file__).with_name('release_smoke.py')), str(directory),
+            '--version', '1.1.0', '--commit', 'a' * 40, *extra], capture_output=True, text=True)
+
+    def test_wrong_package_hash_is_rejected_before_execution(self):
+        with tempfile.TemporaryDirectory() as directory:
+            (Path(directory) / 'HeroCrypt.1.1.0.nupkg').write_bytes(b'wrong package')
+            result = self.invoke(directory, '--sha256', '0' * 64)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('Package SHA256 mismatch', result.stderr)
+
+    def test_aot_requires_explicit_framework_rid_and_hash(self):
+        with tempfile.TemporaryDirectory() as directory:
+            result = self.invoke(directory, '--aot')
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('AOT requires --framework, --rid and --sha256', result.stderr)
+
+    def test_project_can_target_one_explicit_framework(self):
+        import release_smoke
+        import xml.etree.ElementTree as ET
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            release_smoke.write_project(root, root, '1.1.0', frameworks=('net10.0',))
+            self.assertEqual(ET.parse(root / 'Smoke.csproj').findtext('.//TargetFrameworks'), 'net10.0')
 
 
 if __name__ == "__main__":

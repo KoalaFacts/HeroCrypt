@@ -312,3 +312,15 @@ visible. Evidence records source/tree, assembly/library hashes, SDK/runtime and
 OS/RID. This validates full-suite runtime compatibility, not net11 target
 compilation: the test locks still cover net8/net9/net10. It does not publish or
 change the library TFMs. The release CI completeness gate requires this job.
+
+### Exact SDK compilation without changing released targets
+
+`rc_compile_tests.py` archives the exact clean checkout into a disposable directory,
+changes only that copy's SDK selector, and verifies the exact SDK and Roslyn identity.
+It restores the original locks with audit enabled and locked mode, then builds all
+existing library and test TFMs with that SDK. It executes the newly compiled full
+net10 test assembly on the requested exact runtime without a filter. Lock hashes,
+compiler and output hashes, source/tree, commands, logs and TRX counts are retained.
+The normal Linux RC2 compiler job uses SDK `11.0.100-rc.2.26504.105` and runtime
+`11.0.0-rc.2.26504.105`. A lock incompatibility fails closed; this does not update
+release locks, add net11 targets, publish packages, or qualify GA/all platforms.

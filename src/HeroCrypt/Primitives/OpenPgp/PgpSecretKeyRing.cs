@@ -270,14 +270,11 @@ public readonly struct PgpSecretKeyRing : IEquatable<PgpSecretKeyRing>
         var targetBody = masterKey.PublicKey.ToArray();
 
         // Read remaining packets
-        while (reader.ReadNextPacket(out tag, out body))
+        while (reader.ReadNextPacket(out tag, out body) && tag != PgpPacketTag.SecretKey)
         {
 #pragma warning disable IDE0010 // PgpPacketTag has many values; we only handle relevant ones
             switch (tag)
             {
-                case PgpPacketTag.SecretKey:
-                    // Next key ring starts - we're done with this one
-                    goto done;
 
                 case PgpPacketTag.SecretSubkey:
                     if (!PgpSecretKeyPacket.TryRead(body.Span, isSubkey: true, out var subkey, out packetError))
@@ -333,7 +330,6 @@ public readonly struct PgpSecretKeyRing : IEquatable<PgpSecretKeyRing>
 #pragma warning restore IDE0010
         }
 
-    done:
         keyRing = new PgpSecretKeyRing(masterKey, subkeys, userIds, userAttributes, signatures).WithSignatureAssociations(associations);
         return true;
     }

@@ -139,7 +139,7 @@ internal sealed class ChaCha20Core
     /// </summary>
     /// <param name="output">64-byte output buffer</param>
     /// <param name="state">ChaCha20 state</param>
-    public void GenerateKeystream(Span<byte> output, Span<uint> state)
+    public void GenerateKeystream(Span<byte> output, ReadOnlySpan<uint> state)
     {
         if (output.Length < BLOCK_SIZE)
         {
@@ -240,7 +240,7 @@ internal sealed class ChaCha20Core
     /// Processes a single 64-byte block
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void ProcessSingleBlock(Span<byte> output, ReadOnlySpan<byte> input, Span<uint> state)
+    private void ProcessSingleBlock(Span<byte> output, ReadOnlySpan<byte> input, ReadOnlySpan<uint> state)
     {
         Span<byte> keystream = stackalloc byte[BLOCK_SIZE];
         GenerateKeystream(keystream, state);

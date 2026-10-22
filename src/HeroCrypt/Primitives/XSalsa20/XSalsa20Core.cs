@@ -284,7 +284,7 @@ internal sealed class XSalsa20Core
     /// Generates a single keystream block using Salsa20 round function
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void GenerateKeystreamBlock(Span<byte> keystream, Span<uint> state)
+    private void GenerateKeystreamBlock(Span<byte> keystream, ReadOnlySpan<uint> state)
     {
         // Create working copy
         Span<uint> workingState = stackalloc uint[16];

@@ -20,6 +20,7 @@ A cryptographic library for .NET with standards-based primitives, OpenPGP suppor
 - [RFC Compliance](#-rfc-compliance)
 - [Security](#-security)
 - [Documentation](#-documentation)
+- [Development](#development)
 - [Contributing](#-contributing)
 - [License](#-license)
 
@@ -115,29 +116,29 @@ A cryptographic library for .NET with standards-based primitives, OpenPGP suppor
   - Hardware capability detection - Automatic fallback for maximum compatibility
 
 - **🔗 Cryptographic Protocols**
-  - Noise Protocol Framework - Modern secure transport with multiple handshake patterns
+  - Noise Protocol Framework - Educational/reference implementation; not a qualified production protocol
   - [Double Ratchet](docs/double-ratchet.md) - Classical X25519 DH and symmetric ratchets for HeroCrypt endpoints, with authenticated messages, bounded out-of-order delivery and replay rejection. Accepts authenticated bootstrap inputs, including the separate X3DH profile.
   - [X3DH Identity Handshake](docs/x3dh.md) - X25519/SHA-256 and normalized XEdDSA signed prekeys, optional one-time prekeys, explicit expected-peer identity checks and transactional first-message acceptance. Requires independently verified identities; no Signal wire interoperability or persistence.
-  - OTR Messaging - Off-the-Record messaging with deniable authentication
-  - OPAQUE PAKE - RFC 9497 password-authenticated key exchange
+  - OTR Messaging - Educational/reference implementation; not a qualified production protocol
+  - OPAQUE PAKE - Educational/reference implementation; not a qualified production protocol
   - TLS 1.3 - Custom cipher suites, 0-RTT resumption, certificate pinning
 
 - **🏢 Enterprise Features**
   - Certificate Authority - X.509 certificate generation, CRL, OCSP responder
-  - Compliance Framework - FIPS 140-2, Common Criteria, SOC 2, PCI-DSS validation
+  - Compliance Framework - Abstractions requiring external implementations and security review; API names do not confer certification
   - Key Management Service - Centralized KMS with lifecycle management and RBAC
   - Audit Logging - Comprehensive security event tracking and compliance reporting
 
 ## 🎯 Framework Support
 
-HeroCrypt supports a wide range of .NET platforms for maximum compatibility:
+The library targets the following frameworks. Target compatibility does not mean every API is available on every runtime; see [Production Readiness](PRODUCTION_READINESS.md).
 
 | Framework | Version | Status | Notes |
 |-----------|---------|--------|-------|
-| .NET Standard | 2.0 | ✅ Full Support | Compatible with .NET Framework 4.6.1+, Unity, Xamarin |
-| .NET | 8.0 | ✅ Full Support | Long-term support (LTS) |
-| .NET | 9.0 | ✅ Full Support | Standard term support |
-| .NET | 10.0 | ✅ Full Support | Includes native post-quantum cryptography |
+| .NET Standard | 2.0 | Library target | AES-GCM operations unsupported; post-quantum primitives excluded; consumer/runtime compatibility requires validation |
+| .NET | 8.0 | Library and test target | Runtime/provider limits apply |
+| .NET | 9.0 | Library and test target | Runtime/provider limits apply |
+| .NET | 10.0 | Library and test target | Native post-quantum APIs require platform support |
 
 ### Feature Availability by Framework
 
@@ -145,14 +146,14 @@ HeroCrypt supports a wide range of .NET platforms for maximum compatibility:
 - ✅ Argon2, Blake2b, PBKDF2, HKDF, Scrypt
 - ✅ ChaCha20-Poly1305, XChaCha20-Poly1305
 - ✅ RSA, ECDSA, Ed25519
+- ✅ AES-CCM: HeroCrypt's CBC-MAC/CTR construction over the platform AES primitive
 - ✅ Stream ciphers (Rabbit, ChaCha, HC-128/256, etc.)
 - ✅ Hash functions (SHA-2, SHA-3, BLAKE2, etc.)
 
 #### .NET 8.0+ Enhanced Features
-- ✅ AES-GCM with custom tag sizes (hardware-accelerated AEAD)
-- ✅ AES-CCM (authenticated encryption)
-- ✅ Ed25519 (built-in BCL implementation)
-- 📝 Note: AES-GCM is available on all frameworks, but .NET 8+ adds support for custom tag sizes
+- ✅ Platform AES-GCM with a fixed 16-byte authentication tag; runtime/provider limits apply
+- 📝 Ed25519 uses HeroCrypt's managed implementation across supported target frameworks, not a built-in BCL implementation.
+- 📝 AES-GCM is unavailable when targeting .NET Standard 2.0; its operations throw `PlatformNotSupportedException`.
 
 #### .NET 10.0+ Only
 - ✅ **ML-KEM (FIPS 203)** - Post-quantum key encapsulation
@@ -164,9 +165,10 @@ HeroCrypt supports a wide range of .NET platforms for maximum compatibility:
 
 When targeting .NET Standard 2.0, HeroCrypt automatically uses polyfills and fallback implementations:
 - Uses `RandomNumberGenerator.Create().GetBytes()` instead of `RandomNumberGenerator.Fill()`
-- AES-GCM/CCM operations throw `NotSupportedException` with clear upgrade guidance
+- AES-GCM operations throw `PlatformNotSupportedException`; use ChaCha20-Poly1305 or XChaCha20-Poly1305 as an alternative
+- AES-CCM uses HeroCrypt's CBC-MAC/CTR construction over the platform AES primitive
 - Post-quantum cryptography is not available (compile-time excluded)
-- All other features work identically across all frameworks
+- Feature availability still depends on the selected API and runtime; see [Production Readiness](PRODUCTION_READINESS.md)
 
 ## 📦 Installation
 
@@ -178,7 +180,7 @@ dotnet add package HeroCrypt
 
 HeroCrypt provides three levels of API access:
 1. **Primitives** - Direct access to algorithms: `HeroCryptBuilder.ChaCha20Poly1305()`
-2. **Operations** - Algorithm-agnostic facades: `HeroCryptBuilder.Encrypt.WithChaCha20Poly1305()`
+2. **Operations** - Algorithm-agnostic facades: `HeroCryptBuilder.Encrypt().WithChaCha20Poly1305()`
 3. **Protocols** - Complex constructions: `HeroCryptBuilder.Pgp()`, `HeroCryptBuilder.Bip32()`
 
 ### Encryption with ChaCha20-Poly1305
@@ -460,6 +462,26 @@ HeroCrypt is built with a small, layered architecture:
 - **[Standards Compliance](STANDARDS_COMPLIANCE.md)** - RFC compliance and test vectors
 - **[Development Roadmap](DEVELOPMENT_ROADMAP.md)** - Future features and roadmap
 - **[Test Status](TEST_STATUS.md)** - Test coverage and platform compatibility
+
+## Development
+
+Repository builds use the exact .NET SDK pinned in `global.json` (currently 10.0.402, with roll-forward disabled). Install the .NET 8 and 9 runtimes as well when running their test targets. CI uses locked dependency restore and Microsoft.Testing.Platform.
+
+For the .NET 10 target:
+
+```bash
+dotnet restore --locked-mode
+dotnet build --configuration Release --no-restore --framework net10.0
+dotnet test --project tests/HeroCrypt.Tests/HeroCrypt.Tests.csproj --configuration Release --no-build --framework net10.0 --no-restore
+```
+
+For `net8.0` or `net9.0`, replace `net10.0` in both the build and test commands with the desired target. To compile the library's .NET Standard target (there is no .NET Standard test runtime):
+
+```bash
+dotnet build src/HeroCrypt/HeroCrypt.csproj --configuration Release --no-restore --framework netstandard2.0
+```
+
+The test matrix runs `net8.0`, `net9.0`, and `net10.0`. Passing tests does not establish independent security certification or support for every platform-dependent feature.
 
 ## 🤝 Contributing
 

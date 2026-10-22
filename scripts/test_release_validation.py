@@ -613,6 +613,16 @@ class FullRuntimeQualificationTests(unittest.TestCase):
 
 
 class RcCompileTests(unittest.TestCase):
+    def test_compiler_evidence_accepts_sdk_native_or_managed_entry_only(self):
+        import rc_compile_tests
+        compiler = Path("/sdk/11/Roslyn/bincore/csc.dll")
+        for command in ('/sdk/11/Roslyn/bincore/csc /noconfig /out:test.dll',
+                        'dotnet exec "/sdk/11/Roslyn/bincore/csc.dll" /out:test.dll'):
+            self.assertEqual(rc_compile_tests.compiler_invocations(command, compiler), [command])
+        for command in ('/sdk/10/Roslyn/bincore/csc /out:test.dll', 'no compiler here'):
+            with self.assertRaisesRegex(ValueError, "compiler invocation"):
+                rc_compile_tests.compiler_invocations(command, compiler)
+
     def test_compilation_uses_locked_restore_and_all_original_targets(self):
         import rc_compile_tests
         commands = rc_compile_tests.compile_commands("/sdk/dotnet", "a" * 40)

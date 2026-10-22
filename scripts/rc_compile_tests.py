@@ -42,6 +42,15 @@ def compile_commands(dotnet, commit):
         for project in ("src/HeroCrypt/HeroCrypt.csproj", tests)]
 
 
+def compiler_invocations(log, compiler):
+    entries = (str(compiler), str(compiler.with_suffix("")))
+    lines = [line.strip() for line in log.splitlines() if " /out:" in line
+             and any(entry + " " in line or entry + '\" ' in line for entry in entries)]
+    if not lines:
+        raise ValueError("Build log does not prove expected compiler invocation")
+    return lines
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dotnet", type=Path, required=True)
@@ -88,7 +97,7 @@ def main():
         select_sdk(isolated, args.sdk_version)
         verify_sdk(dotnet, isolated, env, args.sdk_version)
         compiler = Path(dotnet).parent / "sdk" / args.sdk_version / "Roslyn/bincore/csc.dll"
-        identity.update(lock_sha256=before, compiler_sha256=hashlib.sha256(compiler.read_bytes()).hexdigest(),
+        identity.update(lock_sha256=before, compiler_sha256={str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in (compiler, compiler.with_suffix("")) if path.is_file()},
                         compiler_version=subprocess.check_output([dotnet, str(compiler), "-version"], cwd=isolated, env=env, text=True).strip())
         record()
         try:
@@ -103,10 +112,7 @@ def main():
                 print(f"Command {index} exit: {result.returncode}", flush=True)
                 result.check_returncode()
                 if index:
-                    invocations = [line.strip() for line in build_log.splitlines()
-                                   if str(compiler) in line and " /out:" in line]
-                    if not invocations:
-                        raise ValueError("Build log does not prove expected compiler invocation")
+                    invocations = compiler_invocations(build_log, compiler)
                     identity.setdefault("compiler_invocations", {})[str(index)] = invocations
                     record()
         finally:

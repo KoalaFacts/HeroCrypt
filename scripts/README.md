@@ -234,7 +234,11 @@ Apache License 2.0 - Same as HeroCrypt project
 - `release_validation.py`: verifies package identity, source SHA, framework payloads,
   symbols and source-matching documents; compares repeated-build payloads
 - `release_smoke.py`: creates a temporary consumer with an exact package reference
-  and isolated NuGet cache, then checks the actual package on .NET 8/9/10
+  and isolated NuGet cache, then checks the actual package on .NET 8/9/10.
+  Its synthetic OpenPGP GCM fixture checks authentication/input rejection without
+  plaintext, recovery on the same decryptor after each failure, repeated disposal,
+  and rejection of calls after disposal. These assertions also run in the existing
+  explicit RC JIT/AOT modes; they do not establish memory zeroization.
 - `test_release_validation.py`: Python standard-library regressions for validators,
   smoke-project configuration and workflow contracts
 

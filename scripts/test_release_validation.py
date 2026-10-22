@@ -563,8 +563,7 @@ class RcConsumerEvidenceTests(unittest.TestCase):
         release_smoke.expect_failure([sys.executable, "-c", "raise Exception('Runtime identity mismatch')"], "Runtime identity mismatch")
 
 
-if __name__ == "__main__":
-    unittest.main()
+
 
 
 class FullRuntimeQualificationTests(unittest.TestCase):
@@ -610,3 +609,7 @@ class FullRuntimeQualificationTests(unittest.TestCase):
             self.assertIn(required, job)
         for forbidden in ("--filter", "-filter", "secrets.", "nuget push", "contents: write"):
             self.assertNotIn(forbidden, job)
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -252,7 +252,31 @@ AOT requires one explicit framework, a host-compatible RID, the matching SDK and
 native compiler prerequisites. It runs `dotnet publish -p:PublishAot=true`, then
 executes the native output; failures are fatal. The default remains JIT on
 .NET 8/9/10. `--framework` can also select explicit JIT targets. The repository's
-pinned SDK still applies; these options do not install or qualify a new SDK.
+pinned SDK still applies unless an exact toolchain is explicitly supplied.
+
+To use an already installed toolchain, provide all three identity inputs, one
+framework, and the package hash. For example, a stable verification uses:
+
+```bash
+python3 scripts/release_smoke.py /path/to/packages --version 1.1.0 \
+  --commit <full-source-sha> --sha256 <nupkg-sha256> --framework net10.0 \
+  --dotnet /absolute/path/to/dotnet --sdk-version 10.0.402 --runtime-version 10.0.13
+```
+
+Add `--aot --rid linux-x64` to publish and execute a native consumer separately.
+The temporary consumer pins the exact SDK with SDK roll-forward disabled and
+allows prereleases only for an explicitly supplied prerelease SDK version. It
+also pins the runtime without runtime roll-forward, verifies `dotnet --version`
+using the specified executable, and checks the executing consumer's exact
+`RuntimeInformation.FrameworkDescription` (including prerelease suffix). SDK,
+runtime, package hash or assembly source mismatches fail the check. The repository
+SDK and library TFMs remain unchanged.
+
+An RC run requires an actually available, authorized official SDK/runtime and
+native prerequisites for AOT. These options neither install a toolchain nor prove
+its official provenance. RC-shaped versions in regression fixtures test only
+configuration generation; stable runs do not establish .NET 11 compatibility,
+and RC results do not establish GA qualification.
 
 For publication and partial-failure recovery, follow the
 [workflow guide](../.github/workflows/README.md).

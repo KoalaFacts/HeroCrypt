@@ -2,6 +2,7 @@
 """Consume the actual nupkg from an isolated cache; requires installed .NET SDKs."""
 import argparse
 import hashlib
+import json
 import re
 import os
 import subprocess
@@ -19,6 +20,13 @@ using HeroCrypt.Primitives.OpenPgp;
 var info = typeof(HeroCryptBuilder).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
 if (info != args[0] + "+" + args[1])
     throw new Exception("Loaded assembly version/source commit mismatch: " + info);
+if (args.Length > 2)
+{
+    var runtime = System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription;
+    if (runtime != ".NET " + args[2])
+        throw new Exception("Runtime identity mismatch: " + runtime);
+    Console.WriteLine("Verified runtime: " + runtime);
+}
 using var hasher = HeroCryptBuilder.Blake2b().WithOutputLength(32);
 var hash = Convert.ToHexString(hasher.ComputeHash(Encoding.UTF8.GetBytes("abc")));
 if (hash != "BDDD813C634239723171EF3FEE98579B94964E3BB1CB3E427262C8C068D52319")
@@ -62,14 +70,23 @@ Console.WriteLine("Package consumer: source identity, BLAKE2b vector, OpenPGP GC
 '''
 
 
-def write_project(root, package_dir, version, frameworks=("net8.0", "net9.0", "net10.0")):
+def write_project(root, package_dir, version, frameworks=("net8.0", "net9.0", "net10.0"),
+                  sdk_version=None, runtime_version=None):
     root, package_dir = Path(root), Path(package_dir)
     (root / "global.json").write_bytes((Path(__file__).resolve().parents[1] / "global.json").read_bytes())
+    if sdk_version:
+        config = json.loads((root / "global.json").read_text())
+        config["sdk"] = {"version": sdk_version, "rollForward": "disable", "allowPrerelease": "-" in sdk_version}
+        (root / "global.json").write_text(json.dumps(config, indent=2) + "\n")
     project = ET.Element("Project", Sdk="Microsoft.NET.Sdk")
     props = ET.SubElement(project, "PropertyGroup")
     for key, value in (("OutputType", "Exe"), ("TargetFrameworks", ";".join(frameworks)),
                        ("ImplicitUsings", "enable"), ("Nullable", "enable")):
         ET.SubElement(props, key).text = value
+    if runtime_version:
+        for key, value in (("RuntimeFrameworkVersion", runtime_version), ("RollForward", "Disable"),
+                           ("TargetLatestRuntimePatch", "false")):
+            ET.SubElement(props, key).text = value
     ET.SubElement(ET.SubElement(project, "ItemGroup"), "PackageReference", Include="HeroCrypt", Version=f"[{version}]")
     ET.ElementTree(project).write(root / "Smoke.csproj", encoding="utf-8", xml_declaration=True)
     config = ET.Element("configuration")
@@ -87,6 +104,14 @@ def write_project(root, package_dir, version, frameworks=("net8.0", "net9.0", "n
     (root / "Program.cs").write_text(PROGRAM, encoding="utf-8")
 
 
+def verify_sdk(dotnet, root, env, expected):
+    actual = subprocess.run([dotnet, "--version"], cwd=root, env=env, check=True,
+                            capture_output=True, text=True).stdout.strip()
+    if actual != expected:
+        raise ValueError(f"SDK identity mismatch: expected {expected}, got {actual}")
+    print(f"Verified SDK: {actual}; executable: {dotnet}", flush=True)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("package_dir", type=Path)
@@ -96,7 +121,19 @@ def main():
     parser.add_argument("--aot", action="store_true", help="Publish and execute a native consumer")
     parser.add_argument("--rid", help="Native consumer runtime identifier")
     parser.add_argument("--sha256", help="Expected SHA256 of the exact nupkg")
+    parser.add_argument("--dotnet", type=Path, help="Absolute path to an already installed dotnet executable")
+    parser.add_argument("--sdk-version", help="Exact SDK version; no roll-forward")
+    parser.add_argument("--runtime-version", help="Exact runtime version, checked inside the consumer")
     args = parser.parse_args()
+    explicit_toolchain = any((args.dotnet, args.sdk_version, args.runtime_version))
+    if explicit_toolchain:
+        if not all((args.dotnet, args.sdk_version, args.runtime_version, args.sha256, args.framework)) or len(args.framework) != 1:
+            parser.error("Exact toolchain requires --dotnet, --sdk-version, --runtime-version, --sha256 and one --framework")
+        if not args.dotnet.is_absolute() or not args.dotnet.is_file():
+            parser.error("--dotnet must be an existing absolute executable path")
+        for version in (args.sdk_version, args.runtime_version):
+            if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?", version):
+                parser.error("SDK/runtime versions must be exact versions")
     if args.aot and (not args.framework or not args.rid or not args.sha256):
         parser.error("AOT requires --framework, --rid and --sha256")
     if args.aot and len(args.framework) != 1:
@@ -115,24 +152,35 @@ def main():
         print(f"Package: HeroCrypt {args.version} source={args.commit} sha256={args.sha256}", flush=True)
     with tempfile.TemporaryDirectory(prefix="herocrypt-consumer-") as directory:
         root = Path(directory)
-        write_project(root, args.package_dir, args.version, frameworks=frameworks)
+        write_project(root, args.package_dir, args.version, frameworks=frameworks,
+                      sdk_version=args.sdk_version, runtime_version=args.runtime_version)
         env = dict(os.environ, NUGET_PACKAGES=str(root / ".packages"))
+        dotnet = str(args.dotnet.resolve()) if explicit_toolchain else "dotnet"
+        consumer_args = [args.version, args.commit]
+        if explicit_toolchain:
+            # Prevent an inherited architecture-specific root from selecting another installation.
+            env = {key: value for key, value in env.items() if not key.startswith("DOTNET_ROOT")}
+            env.update(DOTNET_ROOT=str(Path(dotnet).parent), DOTNET_HOST_PATH=dotnet,
+                       PATH=str(Path(dotnet).parent) + os.pathsep + env.get("PATH", ""),
+                       DOTNET_ROLL_FORWARD="Disable")
+            verify_sdk(dotnet, root, env, args.sdk_version)
+            consumer_args.append(args.runtime_version)
         native_args = ["--runtime", args.rid, "-p:PublishAot=true"] if args.aot else []
-        subprocess.run(["dotnet", "restore", "Smoke.csproj", *native_args, "--configfile", "NuGet.Config",
+        subprocess.run([dotnet, "restore", "Smoke.csproj", *native_args, "--configfile", "NuGet.Config",
                         "-p:NuGetAudit=true", "-p:NuGetAuditMode=all", "-p:TreatWarningsAsErrors=true"],
                        cwd=root, env=env, check=True)
         if args.aot:
             output = root / "native"
-            subprocess.run(["dotnet", "publish", "Smoke.csproj", "--configuration", "Release",
+            subprocess.run([dotnet, "publish", "Smoke.csproj", "--configuration", "Release",
                             "--framework", frameworks[0], *native_args, "--no-restore",
                             "-p:TreatWarningsAsErrors=true", "--output", str(output)], cwd=root, env=env, check=True)
             executable = output / ("Smoke.exe" if args.rid.startswith("win-") else "Smoke")
             print(f"Native artifact SHA256: {hashlib.sha256(executable.read_bytes()).hexdigest()}", flush=True)
-            subprocess.run([str(executable), args.version, args.commit], cwd=root, env=env, check=True)
+            subprocess.run([str(executable), *consumer_args], cwd=root, env=env, check=True)
             return
         for framework in frameworks:
-            subprocess.run(["dotnet", "run", "--project", "Smoke.csproj", "--configuration", "Release",
-                            "--framework", framework, "--no-restore", "--", args.version, args.commit],
+            subprocess.run([dotnet, "run", "--project", "Smoke.csproj", "--configuration", "Release",
+                            "--framework", framework, "--no-restore", "--", *consumer_args],
                            cwd=root, env=env, check=True)
 
 

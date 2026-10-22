@@ -425,5 +425,47 @@ class ConsumerInputsTests(unittest.TestCase):
             self.assertEqual(ET.parse(root / 'Smoke.csproj').findtext('.//TargetFrameworks'), 'net10.0')
 
 
+class ExactToolchainTests(unittest.TestCase):
+    def test_explicit_sdk_configuration_is_exact_and_preserves_package_identity(self):
+        import json
+        import release_smoke
+        import xml.etree.ElementTree as ET
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            try:
+                release_smoke.write_project(root, root, VERSION, frameworks=("net11.0",),
+                    sdk_version="11.0.100-rc.2.99999.1", runtime_version="11.0.0-rc.2.99999.1")
+            except TypeError:
+                self.fail("Exact SDK/runtime configuration is not supported")
+            sdk = json.loads((root / "global.json").read_text())["sdk"]
+            self.assertEqual(sdk, {"version": "11.0.100-rc.2.99999.1", "rollForward": "disable", "allowPrerelease": True})
+            project = ET.parse(root / "Smoke.csproj")
+            self.assertEqual(project.findtext(".//RuntimeFrameworkVersion"), "11.0.0-rc.2.99999.1")
+            self.assertEqual(project.findtext(".//RollForward"), "Disable")
+            self.assertEqual(project.find(".//PackageReference").get("Version"), "[1.0.0]")
+
+    def test_wrong_sdk_identity_is_rejected_using_real_process(self):
+        import release_smoke
+        import os
+        with tempfile.TemporaryDirectory() as directory:
+            try:
+                verify = release_smoke.verify_sdk
+            except AttributeError:
+                self.fail("SDK executable identity verification is missing")
+            with self.assertRaisesRegex(ValueError, "SDK identity mismatch"):
+                verify(sys.executable, Path(directory), dict(os.environ), "10.0.402")
+
+    def test_partial_toolchain_selection_is_rejected(self):
+        result = ConsumerInputsTests().invoke(".", "--sdk-version", "10.0.402")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Exact toolchain requires", result.stderr)
+
+    def test_exact_toolchain_cannot_omit_package_hash(self):
+        result = ConsumerInputsTests().invoke(".", "--dotnet", sys.executable,
+            "--sdk-version", "10.0.402", "--runtime-version", "10.0.13", "--framework", "net10.0")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Exact toolchain requires", result.stderr)
+
+
 if __name__ == "__main__":
     unittest.main()

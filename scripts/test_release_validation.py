@@ -325,7 +325,7 @@ class CiGateTests(unittest.TestCase):
         chosen = self.ci.select_run(self.workflow, [self.run], SHA, self.repository)
         self.assertEqual(chosen["run_attempt"], 2)
         self.ci.validate_jobs(chosen, self.jobs)
-        self.assertEqual(len(self.jobs), 17)
+        self.assertEqual(len(self.jobs), 18)
 
     def test_rc2_job_and_each_critical_step_are_required(self):
         import copy
@@ -565,3 +565,48 @@ class RcConsumerEvidenceTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FullRuntimeQualificationTests(unittest.TestCase):
+    def module(self):
+        self.assertTrue((Path(__file__).parent / "rc_full_tests.py").is_file(), "Full-suite runtime qualification entry is missing")
+        import rc_full_tests
+        return rc_full_tests
+
+    def test_runtime_identity_rejects_other_runtime_architecture_and_target(self):
+        module = self.module()
+        info = {"runtime-framework": ".NET 11.0.0-rc.2.26504.105", "arch-process": "X64",
+                "target-framework": ".NETCoreApp,Version=v10.0"}
+        module.validate_runtime(info, "11.0.0-rc.2.26504.105")
+        for key, value in (("runtime-framework", ".NET 10.0.13"), ("arch-process", "Arm64"),
+                           ("target-framework", ".NETCoreApp,Version=v8.0")):
+            with self.subTest(key=key), self.assertRaises(ValueError):
+                module.validate_runtime(dict(info, **{key: value}), "11.0.0-rc.2.26504.105")
+
+    def test_full_suite_report_rejects_empty_failed_or_inconsistent_results(self):
+        module = self.module()
+        with tempfile.TemporaryDirectory() as directory:
+            report = Path(directory) / "suite.trx"
+            for total, executed, passed, failed, skipped, valid in (
+                    (10, 9, 9, 0, 1, True), (0, 0, 0, 0, 0, False),
+                    (10, 10, 9, 1, 0, False), (10, 0, 0, 0, 10, False),
+                    (10, 8, 9, 0, 1, False)):
+                report.write_text(f'<TestRun xmlns="urn:test"><ResultSummary><Counters total="{total}" executed="{executed}" passed="{passed}" failed="{failed}" notExecuted="{skipped}" /></ResultSummary></TestRun>')
+                if valid:
+                    self.assertEqual(module.validate_report(report)["passed"], 9)
+                else:
+                    with self.subTest(total=total, executed=executed), self.assertRaises(ValueError):
+                        module.validate_report(report)
+
+    def test_rc_full_suite_job_is_required_and_unfiltered(self):
+        import release_ci
+        name = "RC2 full suite (linux-x64 runtime)"
+        self.assertIn(name, release_ci.REQUIRED_JOBS)
+        workflow = (Path(__file__).resolve().parents[1] / ".github/workflows/ci.yml").read_text()
+        self.assertIn("  rc2-full-suite:", workflow)
+        job = workflow.split("  rc2-full-suite:", 1)[1].split("  dependency-review:", 1)[0]
+        for required in ("--locked-mode", "--framework net10.0", "rc_full_tests.py",
+                         "11.0.100-rc.2.26504.105", "11.0.0-rc.2.26504.105"):
+            self.assertIn(required, job)
+        for forbidden in ("--filter", "-filter", "secrets.", "nuget push", "contents: write"):
+            self.assertNotIn(forbidden, job)

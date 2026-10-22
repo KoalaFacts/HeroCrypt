@@ -302,3 +302,13 @@ source/runtime/execution-mode negative controls, and retains Windows toolchain,
 identity and JIT logs. Both RC2 jobs and their critical steps are required by the
 release CI completeness gate. Windows NativeAOT, WASM and GA qualification are
 not covered; stable library TFMs and default consumer invocations are unchanged.
+
+The Linux RC2 full-suite job builds the complete net10 test assembly with the
+stable SDK and committed locks, then executes all tests on the exact RC2 runtime
+using `rc_full_tests.py`. It verifies the actual test process runtime, X64
+architecture and net10 compilation target before running without a filter.
+TRX counters must describe nonempty successful execution; existing skips remain
+visible. Evidence records source/tree, assembly/library hashes, SDK/runtime and
+OS/RID. This validates full-suite runtime compatibility, not net11 target
+compilation: the test locks still cover net8/net9/net10. It does not publish or
+change the library TFMs. The release CI completeness gate requires this job.

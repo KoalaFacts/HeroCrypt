@@ -50,6 +50,15 @@ REQUIRED_JOBS["RC2 consumer (win-x64 managed JIT)"] = (
     "Retain Windows RC2 consumer evidence",
 )
 
+REQUIRED_JOBS["RC2 full suite (linux-x64 runtime)"] = (
+    "Checkout exact test source",
+    "Setup stable build SDKs",
+    "Build complete test assembly with locked stable dependencies",
+    "Setup exact official RC2 SDK",
+    "Execute complete suite on exact RC2 runtime",
+    "Retain full RC2 suite evidence",
+)
+
 
 def select_run(workflow, runs, commit, repository):
     if (workflow.get("path") != WORKFLOW_PATH or workflow.get("name") != WORKFLOW_NAME

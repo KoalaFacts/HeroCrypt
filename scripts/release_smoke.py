@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Consume the actual nupkg from an isolated cache; requires installed .NET SDKs."""
 import argparse
+import hashlib
+import re
 import os
 import subprocess
 import tempfile
@@ -60,12 +62,12 @@ Console.WriteLine("Package consumer: source identity, BLAKE2b vector, OpenPGP GC
 '''
 
 
-def write_project(root, package_dir, version):
+def write_project(root, package_dir, version, frameworks=("net8.0", "net9.0", "net10.0")):
     root, package_dir = Path(root), Path(package_dir)
     (root / "global.json").write_bytes((Path(__file__).resolve().parents[1] / "global.json").read_bytes())
     project = ET.Element("Project", Sdk="Microsoft.NET.Sdk")
     props = ET.SubElement(project, "PropertyGroup")
-    for key, value in (("OutputType", "Exe"), ("TargetFrameworks", "net8.0;net9.0;net10.0"),
+    for key, value in (("OutputType", "Exe"), ("TargetFrameworks", ";".join(frameworks)),
                        ("ImplicitUsings", "enable"), ("Nullable", "enable")):
         ET.SubElement(props, key).text = value
     ET.SubElement(ET.SubElement(project, "ItemGroup"), "PackageReference", Include="HeroCrypt", Version=f"[{version}]")
@@ -90,15 +92,45 @@ def main():
     parser.add_argument("package_dir", type=Path)
     parser.add_argument("--version", required=True)
     parser.add_argument("--commit", required=True)
+    parser.add_argument("--framework", action="append", help="Explicit consumer TFM (repeatable for JIT)")
+    parser.add_argument("--aot", action="store_true", help="Publish and execute a native consumer")
+    parser.add_argument("--rid", help="Native consumer runtime identifier")
+    parser.add_argument("--sha256", help="Expected SHA256 of the exact nupkg")
     args = parser.parse_args()
+    if args.aot and (not args.framework or not args.rid or not args.sha256):
+        parser.error("AOT requires --framework, --rid and --sha256")
+    if args.aot and len(args.framework) != 1:
+        parser.error("AOT requires exactly one --framework")
+    if args.rid and not args.aot:
+        parser.error("--rid requires --aot")
+    if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+(?:-[a-zA-Z0-9]+)?", args.version):
+        parser.error("Invalid version")
+    if not re.fullmatch(r"[0-9a-f]{40}", args.commit):
+        parser.error("Invalid source commit")
+    frameworks = args.framework or ("net8.0", "net9.0", "net10.0")
+    if args.sha256:
+        package = args.package_dir / f"HeroCrypt.{args.version}.nupkg"
+        if not re.fullmatch(r"[0-9a-f]{64}", args.sha256) or hashlib.sha256(package.read_bytes()).hexdigest() != args.sha256:
+            parser.error("Package SHA256 mismatch")
+        print(f"Package: HeroCrypt {args.version} source={args.commit} sha256={args.sha256}", flush=True)
     with tempfile.TemporaryDirectory(prefix="herocrypt-consumer-") as directory:
         root = Path(directory)
-        write_project(root, args.package_dir, args.version)
+        write_project(root, args.package_dir, args.version, frameworks=frameworks)
         env = dict(os.environ, NUGET_PACKAGES=str(root / ".packages"))
-        subprocess.run(["dotnet", "restore", "Smoke.csproj", "--configfile", "NuGet.Config",
+        native_args = ["--runtime", args.rid, "-p:PublishAot=true"] if args.aot else []
+        subprocess.run(["dotnet", "restore", "Smoke.csproj", *native_args, "--configfile", "NuGet.Config",
                         "-p:NuGetAudit=true", "-p:NuGetAuditMode=all", "-p:TreatWarningsAsErrors=true"],
                        cwd=root, env=env, check=True)
-        for framework in ("net8.0", "net9.0", "net10.0"):
+        if args.aot:
+            output = root / "native"
+            subprocess.run(["dotnet", "publish", "Smoke.csproj", "--configuration", "Release",
+                            "--framework", frameworks[0], *native_args, "--no-restore",
+                            "-p:TreatWarningsAsErrors=true", "--output", str(output)], cwd=root, env=env, check=True)
+            executable = output / ("Smoke.exe" if args.rid.startswith("win-") else "Smoke")
+            print(f"Native artifact SHA256: {hashlib.sha256(executable.read_bytes()).hexdigest()}", flush=True)
+            subprocess.run([str(executable), args.version, args.commit], cwd=root, env=env, check=True)
+            return
+        for framework in frameworks:
             subprocess.run(["dotnet", "run", "--project", "Smoke.csproj", "--configuration", "Release",
                             "--framework", framework, "--no-restore", "--", args.version, args.commit],
                            cwd=root, env=env, check=True)

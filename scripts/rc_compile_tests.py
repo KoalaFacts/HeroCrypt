@@ -38,7 +38,7 @@ def compile_commands(dotnet, commit):
     return [[dotnet, "restore", tests, "--locked-mode", "-p:NuGetAudit=true",
              "-p:NuGetAuditMode=all", "-p:TreatWarningsAsErrors=true"]] + [
         [dotnet, "build", project, "--configuration", "Release", "--no-restore",
-         "-p:SourceRevisionId=" + commit, "-p:UseSharedCompilation=false"]
+         "-p:SourceRevisionId=" + commit, "-p:UseSharedCompilation=false", "--verbosity", "normal"]
         for project in ("src/HeroCrypt/HeroCrypt.csproj", tests)]
 
 
@@ -67,10 +67,13 @@ def main():
     output.mkdir(parents=True)
     dotnet = str(args.dotnet.resolve())
     env = {key: value for key, value in os.environ.items() if not key.startswith("DOTNET_ROOT")}
+    for key in ("MSBuildSDKsPath", "MSBUILD_EXE_PATH", "MSBuildExtensionsPath", "CscToolPath", "CscToolExe", "RoslynTargetsPath"):
+        if key in env:
+            parser.error("Compiler environment override is not allowed: " + key)
     env.update(DOTNET_ROOT=str(Path(dotnet).parent), DOTNET_HOST_PATH=dotnet,
                PATH=str(Path(dotnet).parent) + os.pathsep + env.get("PATH", ""), DOTNET_ROLL_FORWARD="Disable")
     identity = dict(source_sha=args.commit, tree=git("rev-parse", "HEAD^{tree}"),
-                    sdk=args.sdk_version, runtime=args.runtime_version, os=platform.platform(),
+                    sdk=args.sdk_version, runtime=args.runtime_version, dotnet=dotnet, commands=[], os=platform.platform(),
                     scope="Exact SDK compilation of original library/test TFMs; net10 full suite execution; no package publication")
     def record():
         (output / "identity.json").write_text(json.dumps(identity, indent=2))
@@ -93,9 +96,19 @@ def main():
                 print(json.dumps(command), flush=True)
                 with (output / f"compile-{index}.log").open("w") as log:
                     result = subprocess.run(command, cwd=isolated, env=env, stdout=log, stderr=subprocess.STDOUT)
-                print((output / f"compile-{index}.log").read_text(), flush=True)
+                build_log = (output / f"compile-{index}.log").read_text()
+                print(build_log[-12000:], flush=True)
+                identity["commands"].append(dict(command=command, exit_code=result.returncode))
+                record()
                 print(f"Command {index} exit: {result.returncode}", flush=True)
                 result.check_returncode()
+                if index:
+                    invocations = [line.strip() for line in build_log.splitlines()
+                                   if str(compiler) in line and " /out:" in line]
+                    if not invocations:
+                        raise ValueError("Build log does not prove expected compiler invocation")
+                    identity.setdefault("compiler_invocations", {})[str(index)] = invocations
+                    record()
         finally:
             verify_locks(isolated, before)
         assembly = isolated / "tests/HeroCrypt.Tests/bin/Release/net10.0/HeroCrypt.Tests.dll"
@@ -109,6 +122,8 @@ def main():
         with (output / "full-suite.log").open("w") as log:
             result = subprocess.run(command + ["-noColor", "-result-trx", str(report)], cwd=isolated, env=env, stdout=log, stderr=subprocess.STDOUT)
         print((output / "full-suite.log").read_text(), flush=True)
+        identity["commands"].append(dict(command=command + ["-noColor", "-result-trx", str(report)], exit_code=result.returncode))
+        record()
         result.check_returncode()
         identity["counts"] = validate_report(report)
         record()

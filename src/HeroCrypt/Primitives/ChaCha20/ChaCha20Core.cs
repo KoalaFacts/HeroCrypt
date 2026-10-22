@@ -139,7 +139,7 @@ internal sealed class ChaCha20Core
     /// </summary>
     /// <param name="output">64-byte output buffer</param>
     /// <param name="state">ChaCha20 state</param>
-    public void GenerateKeystream(Span<byte> output, Span<uint> state)
+    public void GenerateKeystream(Span<byte> output, ReadOnlySpan<uint> state)
     {
         if (output.Length < BLOCK_SIZE)
         {

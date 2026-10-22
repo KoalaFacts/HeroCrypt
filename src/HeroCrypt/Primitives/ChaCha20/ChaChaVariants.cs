@@ -246,7 +246,7 @@ public static class ChaChaVariants
     /// Generates a single keystream block using the specified number of rounds
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void GenerateKeystreamBlock(Span<byte> keystream, Span<uint> state, int rounds)
+    private static void GenerateKeystreamBlock(Span<byte> keystream, ReadOnlySpan<uint> state, int rounds)
     {
         // Create working copy
         Span<uint> workingState = stackalloc uint[16];

@@ -256,7 +256,7 @@ public sealed class Blake2bBuilder : IDisposable
 
         var blake2bCore = new Blake2bCore(securityPolicy);
         return blake2bCore.ComputeHash(
-            input.ToArray(),
+            input,
             outputLength,
             key,
             salt,

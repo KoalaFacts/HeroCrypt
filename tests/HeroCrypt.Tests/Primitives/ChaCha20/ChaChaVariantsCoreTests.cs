@@ -339,9 +339,9 @@ public class ChaChaVariantsCoreTests
         [InlineData(ChaChaVariant.ChaCha20)]
         public void EmptyRequestsAtLastCounterAreAllowed(ChaChaVariant variant)
         {
-            Transform(Array.Empty<byte>(), Array.Empty<byte>(),
+            Transform([], [],
                 ReferenceKey, ReferenceNonce, uint.MaxValue, variant);
-            GenerateKeystream(Array.Empty<byte>(), ReferenceKey, ReferenceNonce, uint.MaxValue, variant);
+            GenerateKeystream([], ReferenceKey, ReferenceNonce, uint.MaxValue, variant);
         }
     }
 

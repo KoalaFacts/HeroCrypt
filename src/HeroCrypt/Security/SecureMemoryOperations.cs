@@ -100,7 +100,7 @@ public static class SecureMemoryOperations
         // remain outside this span's lifetime and cannot be erased here.
         for (int i = 0; i < sensitiveData.Length; i++)
         {
-            Volatile.Write(ref sensitiveData[i], (byte)0);
+            Volatile.Write(ref sensitiveData[i], 0);
         }
 
         Thread.MemoryBarrier();

@@ -82,7 +82,7 @@ internal sealed class ChaCha20Core
         // Preflight the entire request before touching the caller's output. The
         // last allowed IETF ChaCha20 block uses counter uint.MaxValue; wrapping
         // would reuse counter 0 with the same key and nonce.
-        if (!input.IsEmpty && (ulong)counter + (ulong)((input.Length - 1) / BLOCK_SIZE) > uint.MaxValue)
+        if (!input.IsEmpty && counter + (ulong)((input.Length - 1) / BLOCK_SIZE) > uint.MaxValue)
         {
             throw new CryptographicException("ChaCha20 counter overflow: requested input exceeds the remaining counter space.");
         }

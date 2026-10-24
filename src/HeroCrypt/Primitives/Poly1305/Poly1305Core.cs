@@ -72,7 +72,7 @@ internal sealed class Poly1305Core
     /// <param name="message">Message to authenticate</param>
     /// <param name="key">32-byte key</param>
     public void ComputeMac(Span<byte> tag, ReadOnlySpan<byte> message, ReadOnlySpan<byte> key)
-        => ComputeMacCore(tag, message, ReadOnlySpan<byte>.Empty, key, isAead: false);
+        => ComputeMacCore(tag, message, [], key, isAead: false);
 
     /// <summary>
     /// Computes the RFC 8439 AEAD Poly1305 tag without concatenating AAD,

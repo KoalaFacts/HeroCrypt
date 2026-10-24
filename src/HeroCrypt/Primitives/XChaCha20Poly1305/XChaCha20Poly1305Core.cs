@@ -281,22 +281,18 @@ internal sealed class XChaCha20Poly1305Core
             state[1] = HChaCha20Constants[1];
             state[2] = HChaCha20Constants[2];
             state[3] = HChaCha20Constants[3];
-    
             // Key - use explicit little-endian reads for platform independence
             for (var i = 0; i < 8; i++)
             {
                 state[4 + i] = BinaryHelpers.ReadUInt32LittleEndian(key.Slice(i * 4, 4));
             }
-    
             // Nonce - use explicit little-endian reads for platform independence
             for (var i = 0; i < 4; i++)
             {
                 state[12 + i] = BinaryHelpers.ReadUInt32LittleEndian(nonce.Slice(i * 4, 4));
             }
-    
             // Perform 20 rounds (same as ChaCha20)
             ChaChaUtils.DoubleRound(state);
-    
             // Output only state[0], state[1], state[2], state[3], state[12], state[13], state[14], state[15]
             // Use explicit little-endian writes for platform independence
             BinaryHelpers.WriteUInt32LittleEndian(output.Slice(0, 4), state[0]);
@@ -307,7 +303,6 @@ internal sealed class XChaCha20Poly1305Core
             BinaryHelpers.WriteUInt32LittleEndian(output.Slice(20, 4), state[13]);
             BinaryHelpers.WriteUInt32LittleEndian(output.Slice(24, 4), state[14]);
             BinaryHelpers.WriteUInt32LittleEndian(output.Slice(28, 4), state[15]);
-    
         }
         finally
         {

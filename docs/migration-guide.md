@@ -2,6 +2,26 @@
 
 This guide helps you migrate between HeroCrypt versions and from other cryptographic libraries.
 
+## OpenPGP encrypted-content cipher policy
+
+Message decryption now validates the recovered **data cipher** against the configured
+security policy before decrypting content. Standard (the default), Strict and Compliance
+reject 3DES content for RSA recipients, direct-key SKESK messages and AES-wrapped SKESK
+messages. An allowed AES wrapping cipher does not authorize a disallowed inner data
+cipher. `TryDecrypt` returns `false` with no plaintext and the same generic failure used
+for session-key or integrity failures; `Decrypt` throws `CryptographicException`.
+
+For deliberate import of supported legacy 3DES data, configure that decryptor with
+`.WithSecurityPolicy(new SecurityPolicyOptions(SecurityLevel.None))`. This opt-in does
+not enable the dangerous deterministic-mode switch included in `SecurityPolicyOptions.Testing`.
+Validate recovered data against trusted records and re-encrypt it with AES. Policy is
+checked on every decryption, including after a policy change on a reused decryptor;
+configuring a key or passphrase before the policy does not bypass it.
+
+High-level encryption remains AES-only (AES-128, AES-192 and AES-256), including with a
+legacy policy. The historical Twofish/Camellia recovery guidance below still applies:
+the legacy opt-in does not reinterpret mislabeled AES bytes or add automatic repair.
+
 ## Release qualification in v1.0.5
 
 This is a security patch with deliberate acceptance-policy changes. Previously

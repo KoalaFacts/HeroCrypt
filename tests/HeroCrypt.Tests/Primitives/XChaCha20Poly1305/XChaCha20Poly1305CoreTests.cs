@@ -319,6 +319,7 @@ public class XChaCha20Poly1305CoreTests
 
             CryptoAssertions.AssertBytesEqual(plaintext, decrypted);
         }
+
         /// <summary>
         /// Independent HChaCha20 + platform ChaCha20-Poly1305 reference tags.
         /// These cases cover the empty, partial and cross-block inputs.
@@ -340,6 +341,5 @@ public class XChaCha20Poly1305CoreTests
                 result.Ciphertext.AsSpan(length, TAG_SIZE).ToArray());
             Assert.Equal(plaintext, core.Decrypt(result.Ciphertext, key, nonce, associatedData));
         }
-
     }
 }

@@ -136,6 +136,70 @@ public class HkdfCoreTests
         }
     }
 
+    [Trait("Category", TestCategories.COMPLIANCE)]
+    [Trait("Category", TestCategories.EDGE_CASE)]
+    [Trait("Category", TestCategories.FAST)]
+    public class BclCompatibility
+    {
+        public static TheoryData<string, int, bool> BoundaryCases
+        {
+            get
+            {
+                var cases = new TheoryData<string, int, bool>();
+                foreach (var (name, hashLength) in new[] { ("SHA256", 32), ("SHA384", 48), ("SHA512", 64) })
+                {
+                    foreach (int length in new[] { 1, hashLength - 1, hashLength, hashLength + 1, 2 * hashLength + 1, 255 * hashLength })
+                    {
+                        cases.Add(name, length, false);
+                        cases.Add(name, length, true);
+                    }
+                }
+
+                return cases;
+            }
+        }
+
+        [Theory]
+        [MemberData(nameof(BoundaryCases))]
+        public void Expand_BlockBoundaries_MatchesBclAndPreservesInputs(string hashName, int length, bool withInfo)
+        {
+            var algorithm = new HashAlgorithmName(hashName);
+            // 80 bytes is at least the hash length for every algorithm under test.
+            var prk = Enumerable.Range(1, 80).Select(i => (byte)i).ToArray();
+            var info = withInfo ? "HKDF Expand context"u8.ToArray() : [];
+            var originalPrk = prk.ToArray();
+            var originalInfo = info.ToArray();
+            var expected = HKDF.Expand(algorithm, prk, length, info);
+
+            var actual = new HkdfCore(SecurityPolicyOptions.Default).Expand(prk, info, length, algorithm);
+
+            Assert.Equal(expected, actual);
+            Assert.Equal(originalPrk, prk);
+            Assert.Equal(originalInfo, info);
+        }
+
+        [Theory]
+        [MemberData(nameof(BoundaryCases))]
+        public void DeriveKey_BlockBoundaries_MatchesBclAndPreservesInputs(string hashName, int length, bool withInfo)
+        {
+            var algorithm = new HashAlgorithmName(hashName);
+            var ikm = Enumerable.Range(1, 80).Select(i => (byte)i).ToArray();
+            var salt = "HKDF salt"u8.ToArray();
+            var info = withInfo ? "HKDF DeriveKey context"u8.ToArray() : [];
+            var originalIkm = ikm.ToArray();
+            var originalSalt = salt.ToArray();
+            var originalInfo = info.ToArray();
+            var expected = HKDF.DeriveKey(algorithm, ikm, length, salt, info);
+
+            var actual = new HkdfCore(SecurityPolicyOptions.Default).DeriveKey(ikm, salt, info, length, algorithm);
+
+            Assert.Equal(expected, actual);
+            Assert.Equal(originalIkm, ikm);
+            Assert.Equal(originalSalt, salt);
+            Assert.Equal(originalInfo, info);
+        }
+    }
+
     /// <summary>
     /// Edge case tests for boundary conditions.
     /// </summary>
@@ -233,6 +297,47 @@ public class HkdfCoreTests
     [Trait("Category", TestCategories.FAST)]
     public class ParameterValidation
     {
+        [Fact]
+        public void Expand_EmptyPrk_ThrowsArgumentException()
+        {
+            var exception = Assert.Throws<ArgumentException>(() =>
+                new HkdfCore(SecurityPolicyOptions.Default).Expand([], [], 32, HashAlgorithmName.SHA256));
+
+            Assert.Equal("prk", exception.ParamName);
+        }
+
+        [Theory]
+        [InlineData(0)]
+        [InlineData(-1)]
+        public void Expand_NonPositiveLength_ThrowsArgumentException(int length)
+        {
+            var exception = Assert.Throws<ArgumentException>(() =>
+                new HkdfCore(SecurityPolicyOptions.Default).Expand(new byte[32], [], length, HashAlgorithmName.SHA256));
+
+            Assert.Equal("length", exception.ParamName);
+        }
+
+        [Theory]
+        [InlineData("SHA256", 8161)]
+        [InlineData("SHA384", 12241)]
+        [InlineData("SHA512", 16321)]
+        public void Expand_LengthAboveAlgorithmMaximum_ThrowsArgumentException(string hashName, int length)
+        {
+            var exception = Assert.Throws<ArgumentException>(() =>
+                new HkdfCore(SecurityPolicyOptions.Default).Expand(new byte[80], [], length, new HashAlgorithmName(hashName)));
+
+            Assert.Equal("length", exception.ParamName);
+        }
+
+        [Fact]
+        public void Expand_Sha1_BlockedAtStandardLevel()
+        {
+            var exception = Assert.Throws<SecurityPolicyException>(() =>
+                new HkdfCore(SecurityPolicyOptions.Default).Expand(new byte[20], [], 32, HashAlgorithmName.SHA1));
+
+            Assert.Equal("SHA1", exception.Algorithm);
+        }
+
         [Fact]
         public void DeriveKey_InvalidLength_ThrowsArgumentException()
         {
@@ -367,6 +472,10 @@ public class HkdfCoreTests
             var prk = new HkdfCore(SecurityPolicyOptions.Default).Extract(ikm, salt, HashAlgorithmName.SHA256);
             CryptoAssertions.AssertBytesEqual(expectedPrk, prk);
 
+            // Test Expand directly with the published PRK, independently of Extract.
+            var expanded = new HkdfCore(SecurityPolicyOptions.Default).Expand(expectedPrk, info, expectedOkm.Length, HashAlgorithmName.SHA256);
+            CryptoAssertions.AssertBytesEqual(expectedOkm, expanded);
+
             // Test full DeriveKey
             var okm = new HkdfCore(SecurityPolicyOptions.Default).DeriveKey(ikm, salt, info, 42, HashAlgorithmName.SHA256);
             CryptoAssertions.AssertBytesEqual(expectedOkm, okm);
@@ -398,6 +507,10 @@ public class HkdfCoreTests
             var prk = new HkdfCore(SecurityPolicyOptions.Default).Extract(ikm, salt, HashAlgorithmName.SHA256);
             CryptoAssertions.AssertBytesEqual(expectedPrk, prk);
 
+            // Test Expand directly with the published PRK, independently of Extract.
+            var expanded = new HkdfCore(SecurityPolicyOptions.Default).Expand(expectedPrk, info, expectedOkm.Length, HashAlgorithmName.SHA256);
+            CryptoAssertions.AssertBytesEqual(expectedOkm, expanded);
+
             // Test full DeriveKey
             var okm = new HkdfCore(SecurityPolicyOptions.Default).DeriveKey(ikm, salt, info, 82, HashAlgorithmName.SHA256);
             CryptoAssertions.AssertBytesEqual(expectedOkm, okm);
@@ -416,6 +529,10 @@ public class HkdfCoreTests
             // Test Extract
             var prk = new HkdfCore(SecurityPolicyOptions.Default).Extract(ikm, salt, HashAlgorithmName.SHA256);
             CryptoAssertions.AssertBytesEqual(expectedPrk, prk);
+
+            // Test Expand directly with the published PRK, independently of Extract.
+            var expanded = new HkdfCore(SecurityPolicyOptions.Default).Expand(expectedPrk, info, expectedOkm.Length, HashAlgorithmName.SHA256);
+            CryptoAssertions.AssertBytesEqual(expectedOkm, expanded);
 
             // Test full DeriveKey
             var okm = new HkdfCore(SecurityPolicyOptions.Default).DeriveKey(ikm, salt, info, 42, HashAlgorithmName.SHA256);
@@ -438,6 +555,10 @@ public class HkdfCoreTests
                 // Test Extract
                 var prk = new HkdfCore(SecurityPolicy.CurrentPolicy).Extract(ikm, salt, HashAlgorithmName.SHA1);
                 CryptoAssertions.AssertBytesEqual(expectedPrk, prk);
+
+                // Test Expand directly with the published PRK, independently of Extract.
+                var expanded = new HkdfCore(SecurityPolicy.CurrentPolicy).Expand(expectedPrk, info, expectedOkm.Length, HashAlgorithmName.SHA1);
+                CryptoAssertions.AssertBytesEqual(expectedOkm, expanded);
 
                 // Test full DeriveKey
                 var okm = new HkdfCore(SecurityPolicy.CurrentPolicy).DeriveKey(ikm, salt, info, 42, HashAlgorithmName.SHA1);
@@ -474,6 +595,10 @@ public class HkdfCoreTests
                 var prk = new HkdfCore(SecurityPolicy.CurrentPolicy).Extract(ikm, salt, HashAlgorithmName.SHA1);
                 CryptoAssertions.AssertBytesEqual(expectedPrk, prk);
 
+                // Test Expand directly with the published PRK, independently of Extract.
+                var expanded = new HkdfCore(SecurityPolicy.CurrentPolicy).Expand(expectedPrk, info, expectedOkm.Length, HashAlgorithmName.SHA1);
+                CryptoAssertions.AssertBytesEqual(expectedOkm, expanded);
+
                 // Test full DeriveKey
                 var okm = new HkdfCore(SecurityPolicy.CurrentPolicy).DeriveKey(ikm, salt, info, 82, HashAlgorithmName.SHA1);
                 CryptoAssertions.AssertBytesEqual(expectedOkm, okm);
@@ -496,6 +621,10 @@ public class HkdfCoreTests
                 // Test Extract
                 var prk = new HkdfCore(SecurityPolicy.CurrentPolicy).Extract(ikm, salt, HashAlgorithmName.SHA1);
                 CryptoAssertions.AssertBytesEqual(expectedPrk, prk);
+
+                // Test Expand directly with the published PRK, independently of Extract.
+                var expanded = new HkdfCore(SecurityPolicy.CurrentPolicy).Expand(expectedPrk, info, expectedOkm.Length, HashAlgorithmName.SHA1);
+                CryptoAssertions.AssertBytesEqual(expectedOkm, expanded);
 
                 // Test full DeriveKey
                 var okm = new HkdfCore(SecurityPolicy.CurrentPolicy).DeriveKey(ikm, salt, info, 42, HashAlgorithmName.SHA1);
@@ -520,6 +649,10 @@ public class HkdfCoreTests
                 // Test Extract
                 var prk = new HkdfCore(SecurityPolicy.CurrentPolicy).Extract(ikm, salt, HashAlgorithmName.SHA1);
                 CryptoAssertions.AssertBytesEqual(expectedPrk, prk);
+
+                // Test Expand directly with the published PRK, independently of Extract.
+                var expanded = new HkdfCore(SecurityPolicy.CurrentPolicy).Expand(expectedPrk, info, expectedOkm.Length, HashAlgorithmName.SHA1);
+                CryptoAssertions.AssertBytesEqual(expectedOkm, expanded);
 
                 // Test full DeriveKey
                 var okm = new HkdfCore(SecurityPolicy.CurrentPolicy).DeriveKey(ikm, salt, info, 42, HashAlgorithmName.SHA1);

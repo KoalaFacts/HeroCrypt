@@ -163,57 +163,59 @@ internal sealed class HkdfCore
         byte[] okm = new byte[length];
         byte[] t = []; // T(0) = empty string
 
-        // Create arrays once to avoid memory leaks in loop
-        byte[] prkArray = prk.ToArray();
-        byte[]? infoArray = info.IsEmpty ? null : info.ToArray();
+        byte[]? prkArray = null;
+        byte[]? infoArray = null;
 
         try
         {
-            using var hmac = HashAlgorithmHelper.CreateHmac(hashAlgorithm, prkArray);
-
-            for (int i = 1; i <= n; i++)
+            try
             {
-                // T(i) = HMAC-Hash(PRK, T(i-1) | info | i)
-                hmac.Initialize();
+                // Protect each owned copy even if a later allocation fails.
+                prkArray = prk.ToArray();
+                infoArray = info.IsEmpty ? null : info.ToArray();
+                using var hmac = HashAlgorithmHelper.CreateHmac(hashAlgorithm, prkArray);
 
-                if (t.Length > 0)
+                for (int i = 1; i <= n; i++)
                 {
-                    _ = hmac.TransformBlock(t, 0, t.Length, null, 0);
+                    // T(i) = HMAC-Hash(PRK, T(i-1) | info | i)
+                    hmac.Initialize();
+
+                    if (t.Length > 0)
+                    {
+                        _ = hmac.TransformBlock(t, 0, t.Length, null, 0);
+                        // TransformBlock consumes T(i-1) synchronously; clear it before losing the reference.
+                        SecureMemoryOperations.SecureClear(t.AsSpan());
+                    }
+
+                    if (infoArray != null)
+                    {
+                        _ = hmac.TransformBlock(infoArray, 0, infoArray.Length, null, 0);
+                    }
+
+                    _ = hmac.TransformFinalBlock([(byte)i], 0, 1);
+                    t = hmac.Hash ?? throw new InvalidOperationException("HMAC computation failed");
+
+                    // Copy T(i) to output
+                    int copyLength = Math.Min(hashLength, length - ((i - 1) * hashLength));
+                    Array.Copy(t, 0, okm, (i - 1) * hashLength, copyLength);
                 }
-
-                if (infoArray != null)
-                {
-                    _ = hmac.TransformBlock(infoArray, 0, infoArray.Length, null, 0);
-                }
-
-                _ = hmac.TransformFinalBlock([(byte)i], 0, 1);
-                byte[] nextBlock = hmac.Hash ?? throw new InvalidOperationException("HMAC computation failed");
-
-                // The previous HMAC block is no longer needed after its bytes have
-                // been consumed by TransformBlock. Avoid leaving T(1)..T(n-1)
-                // intact in managed arrays until a future garbage collection.
-                byte[] previousBlock = t;
-                t = nextBlock;
-                // The netstandard2.0 byte[] fallback forces two full GCs. The
-                // span overload avoids a collection on every HKDF block.
-                SecureMemoryOperations.SecureClear(previousBlock.AsSpan());
-
-                // Copy T(i) to output
-                int copyLength = Math.Min(hashLength, length - ((i - 1) * hashLength));
-                Array.Copy(t, 0, okm, (i - 1) * hashLength, copyLength);
+            }
+            finally
+            {
+                // Span clearing avoids allocations and forced collections on legacy targets.
+                // The legacy fallback remains best-effort; modern targets use ZeroMemory.
+                SecureMemoryOperations.SecureClear(prkArray.AsSpan());
+                SecureMemoryOperations.SecureClear(infoArray.AsSpan());
+                SecureMemoryOperations.SecureClear(t.AsSpan());
             }
 
+            // Transfer ownership only after HMAC disposal and internal cleanup succeed.
             return okm;
         }
-        finally
+        catch
         {
-            // Clear sensitive key material
-            SecureMemoryOperations.SecureClear(prkArray);
-            if (infoArray != null)
-            {
-                SecureMemoryOperations.SecureClear(infoArray);
-            }
-            SecureMemoryOperations.SecureClear(t);
+            SecureMemoryOperations.SecureClear(okm.AsSpan());
+            throw;
         }
     }
 

@@ -319,5 +319,27 @@ public class XChaCha20Poly1305CoreTests
 
             CryptoAssertions.AssertBytesEqual(plaintext, decrypted);
         }
+        /// <summary>
+        /// Independent HChaCha20 + platform ChaCha20-Poly1305 reference tags.
+        /// These cases cover the empty, partial and cross-block inputs.
+        /// </summary>
+        [Theory]
+        [InlineData(0, "2D4C4FE29658AA98AF7FF9B8A926863C")]
+        [InlineData(1, "FA1F5605A344842811F5DA5C5182ACF1")]
+        [InlineData(65, "BE7160A4E5AF96EDF1F40A32B641E8C0")]
+        public void XChaCha20Poly1305_OneTimeKey_MatchesIndependentReferenceTags(int length, string expectedTagHex)
+        {
+            var key = Enumerable.Range(0, KEY_SIZE).Select(i => (byte)i).ToArray();
+            var nonce = Enumerable.Range(0, NONCE_SIZE).Select(i => (byte)i).ToArray();
+            var associatedData = Encoding.ASCII.GetBytes("HeroCrypt XChaCha20 AAD");
+            var plaintext = Enumerable.Range(0, length).Select(i => (byte)((i * 17 + 3) % 256)).ToArray();
+
+            var result = core.Encrypt(plaintext, key, nonce, associatedData);
+
+            Assert.Equal(Convert.FromHexString(expectedTagHex),
+                result.Ciphertext.AsSpan(length, TAG_SIZE).ToArray());
+            Assert.Equal(plaintext, core.Decrypt(result.Ciphertext, key, nonce, associatedData));
+        }
+
     }
 }

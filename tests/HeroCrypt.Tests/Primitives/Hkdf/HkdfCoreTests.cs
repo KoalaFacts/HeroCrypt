@@ -324,6 +324,35 @@ public class HkdfCoreTests
     [Trait("Category", TestCategories.FAST)]
     public class KnownAnswerTests
     {
+        [Theory]
+        [InlineData("SHA256", 8160, "9477B7BA88122F5AA4E2D7B296483C1C288800F885777FE92F5888AB9C6C5430")]
+        [InlineData("SHA512", 16320, "4224B7B7ED7BD4FD34BE44D1131D44B0E7D177B605A74EE0FA0A2FE827AC0685")]
+        public void Expand_Maximum255Blocks_MatchesIndependentHmacReference(
+            string algorithmName, int length, string expectedSha256)
+        {
+            // Reference independently calculated using Python hashlib/hmac:
+            // PRK = HMAC(salt, ikm); T(i) = HMAC(PRK, T(i-1) || info || i).
+            // Inputs deliberately cover multiple blocks and the final 255 counter.
+            byte[] ikm = Enumerable.Range(0, 47).Select(i => (byte)((i * 7 + 11) % 256)).ToArray();
+            byte[] salt = Enumerable.Range(0, 23).Select(i => (byte)((i * 5 + 19) % 256)).ToArray();
+            byte[] info = Enumerable.Range(0, 39).Select(i => (byte)((i * 13 + 3) % 256)).ToArray();
+            HashAlgorithmName algorithm = algorithmName == "SHA256"
+                ? HashAlgorithmName.SHA256 : HashAlgorithmName.SHA512;
+            var hkdf = new HkdfCore(SecurityPolicyOptions.Default);
+            byte[] prk = hkdf.Extract(ikm, salt, algorithm);
+            try
+            {
+                byte[] okm = hkdf.Expand(prk, info, length, algorithm);
+                Assert.Equal(length, okm.Length);
+                Assert.Equal(expectedSha256, Convert.ToHexString(SHA256.HashData(okm)));
+                Assert.Throws<ArgumentException>(() => hkdf.Expand(prk, info, length + 1, algorithm));
+            }
+            finally
+            {
+                SecureMemoryOperations.SecureClear(prk);
+            }
+        }
+
         [Fact]
         public void Rfc5869_TestCase1_Sha256_BasicTest()
         {

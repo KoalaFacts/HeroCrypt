@@ -187,7 +187,16 @@ internal sealed class HkdfCore
                 }
 
                 _ = hmac.TransformFinalBlock([(byte)i], 0, 1);
-                t = hmac.Hash ?? throw new InvalidOperationException("HMAC computation failed");
+                byte[] nextBlock = hmac.Hash ?? throw new InvalidOperationException("HMAC computation failed");
+
+                // The previous HMAC block is no longer needed after its bytes have
+                // been consumed by TransformBlock. Avoid leaving T(1)..T(n-1)
+                // intact in managed arrays until a future garbage collection.
+                byte[] previousBlock = t;
+                t = nextBlock;
+                // The netstandard2.0 byte[] fallback forces two full GCs. The
+                // span overload avoids a collection on every HKDF block.
+                SecureMemoryOperations.SecureClear(previousBlock.AsSpan());
 
                 // Copy T(i) to output
                 int copyLength = Math.Min(hashLength, length - ((i - 1) * hashLength));

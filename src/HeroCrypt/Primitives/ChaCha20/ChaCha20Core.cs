@@ -79,6 +79,14 @@ internal sealed class ChaCha20Core
             throw new ArgumentException("Output buffer too small", nameof(output));
         }
 
+        // Preflight the entire request before touching the caller's output. The
+        // last allowed IETF ChaCha20 block uses counter uint.MaxValue; wrapping
+        // would reuse counter 0 with the same key and nonce.
+        if (!input.IsEmpty && (ulong)counter + (ulong)((input.Length - 1) / BLOCK_SIZE) > uint.MaxValue)
+        {
+            throw new CryptographicException("ChaCha20 counter overflow: requested input exceeds the remaining counter space.");
+        }
+
         // Initialize state
         Span<uint> state = stackalloc uint[16];
         InitializeState(state, key, nonce, counter);
@@ -90,7 +98,7 @@ internal sealed class ChaCha20Core
         // Process full blocks
         while (remaining >= BLOCK_SIZE)
         {
-            if (IsHardwareAccelerated && remaining >= BLOCK_SIZE * 4)
+            if (IsHardwareAccelerated && remaining >= BLOCK_SIZE * 4 && state[12] <= uint.MaxValue - 4)
             {
                 // Process 4 blocks in parallel using SIMD
                 ProcessFourBlocksSIMD(
@@ -114,7 +122,12 @@ internal sealed class ChaCha20Core
                 inputOffset += BLOCK_SIZE;
                 outputOffset += BLOCK_SIZE;
                 remaining -= BLOCK_SIZE;
-                IncrementCounter(state, 1);
+                // The last counter value is valid for the final block. Only
+                // advance when another block still needs processing.
+                if (remaining > 0)
+                {
+                    IncrementCounter(state, 1);
+                }
             }
         }
 
@@ -304,8 +317,13 @@ internal sealed class ChaCha20Core
         ArgumentOutOfRangeException.ThrowIfNegative(position);
 #endif
 
-        uint blockNumber = (uint)(position / BLOCK_SIZE);
-        state[12] = blockNumber;
+        long blockNumber = position / BLOCK_SIZE;
+        if (blockNumber > uint.MaxValue)
+        {
+            throw new ArgumentOutOfRangeException(nameof(position), "Position exceeds the 32-bit ChaCha20 counter space.");
+        }
+
+        state[12] = (uint)blockNumber;
     }
 
     /// <summary>

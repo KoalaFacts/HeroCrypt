@@ -87,64 +87,75 @@ internal sealed class ChaCha20Core
             throw new CryptographicException("ChaCha20 counter overflow: requested input exceeds the remaining counter space.");
         }
 
-        // Initialize state
+        // Wipe owned key-derived state on normal and exceptional exits.
         Span<uint> state = stackalloc uint[16];
-        InitializeState(state, key, nonce, counter);
-
-        int inputOffset = 0;
-        int outputOffset = 0;
-        int remaining = input.Length;
-
-        // Process full blocks
-        while (remaining >= BLOCK_SIZE)
+        try
         {
-            if (IsHardwareAccelerated && remaining >= BLOCK_SIZE * 4 && state[12] <= uint.MaxValue - 4)
-            {
-                // Process 4 blocks in parallel using SIMD
-                ProcessFourBlocksSIMD(
-                    output.Slice(outputOffset, BLOCK_SIZE * 4),
-                    input.Slice(inputOffset, BLOCK_SIZE * 4),
-                    state);
+            InitializeState(state, key, nonce, counter);
 
-                inputOffset += BLOCK_SIZE * 4;
-                outputOffset += BLOCK_SIZE * 4;
-                remaining -= BLOCK_SIZE * 4;
-                // Counter already incremented by ProcessFourBlocksSIMD
-            }
-            else
-            {
-                // Process single block
-                ProcessSingleBlock(
-                    output.Slice(outputOffset, BLOCK_SIZE),
-                    input.Slice(inputOffset, BLOCK_SIZE),
-                    state);
+            int inputOffset = 0;
+            int outputOffset = 0;
+            int remaining = input.Length;
 
-                inputOffset += BLOCK_SIZE;
-                outputOffset += BLOCK_SIZE;
-                remaining -= BLOCK_SIZE;
-                // The last counter value is valid for the final block. Only
-                // advance when another block still needs processing.
-                if (remaining > 0)
+            // Process full blocks
+            while (remaining >= BLOCK_SIZE)
+            {
+                if (IsHardwareAccelerated && remaining >= BLOCK_SIZE * 4 && state[12] <= uint.MaxValue - 4)
                 {
-                    IncrementCounter(state, 1);
+                    // Process 4 blocks in parallel using SIMD
+                    ProcessFourBlocksSIMD(
+                        output.Slice(outputOffset, BLOCK_SIZE * 4),
+                        input.Slice(inputOffset, BLOCK_SIZE * 4),
+                        state);
+
+                    inputOffset += BLOCK_SIZE * 4;
+                    outputOffset += BLOCK_SIZE * 4;
+                    remaining -= BLOCK_SIZE * 4;
+                    // Counter already incremented by ProcessFourBlocksSIMD
+                }
+                else
+                {
+                    // Process single block
+                    ProcessSingleBlock(
+                        output.Slice(outputOffset, BLOCK_SIZE),
+                        input.Slice(inputOffset, BLOCK_SIZE),
+                        state);
+
+                    inputOffset += BLOCK_SIZE;
+                    outputOffset += BLOCK_SIZE;
+                    remaining -= BLOCK_SIZE;
+                    // The last counter value is valid for the final block. Only
+                    // advance when another block still needs processing.
+                    if (remaining > 0)
+                    {
+                        IncrementCounter(state, 1);
+                    }
                 }
             }
-        }
 
-        // Process final partial block
-        if (remaining > 0)
-        {
-            Span<byte> keystream = stackalloc byte[BLOCK_SIZE];
-            GenerateKeystream(keystream, state);
-
-            for (int i = 0; i < remaining; i++)
+            // Process final partial block
+            if (remaining > 0)
             {
-                output[outputOffset + i] = (byte)(input[inputOffset + i] ^ keystream[i]);
+                Span<byte> keystream = stackalloc byte[BLOCK_SIZE];
+                try
+                {
+                    GenerateKeystream(keystream, state);
+                    for (int i = 0; i < remaining; i++)
+                    {
+                        output[outputOffset + i] = (byte)(input[inputOffset + i] ^ keystream[i]);
+                    }
+                }
+                finally
+                {
+                    SecureMemoryOperations.SecureClear(keystream);
+                }
             }
-        }
 
-        // Clear sensitive data
-        SecureMemoryOperations.SecureClear(state);
+        }
+        finally
+        {
+            SecureMemoryOperations.SecureClear(state);
+        }
     }
 
     /// <summary>
@@ -159,31 +170,41 @@ internal sealed class ChaCha20Core
             throw new ArgumentException($"Output must be at least {BLOCK_SIZE} bytes", nameof(output));
         }
 
-        // Copy state for processing
+        // Reject malformed state before any output changes.
+        if (state.Length != 16)
+        {
+            throw new ArgumentException("State must contain exactly 16 words", nameof(state));
+        }
+
         Span<uint> workingState = stackalloc uint[16];
-        state.CopyTo(workingState);
-
-        // Perform 20 rounds (10 double rounds)
-        ChaCha20Round(workingState);
-
-        // Add initial state
-        for (int i = 0; i < 16; i++)
+        try
         {
-            workingState[i] += state[i];
-        }
+            state.CopyTo(workingState);
 
-        // Convert to bytes
-        for (int i = 0; i < 16; i++)
+            // Perform 20 rounds (10 double rounds)
+            ChaCha20Round(workingState);
+
+            // Add initial state
+            for (int i = 0; i < 16; i++)
+            {
+                workingState[i] += state[i];
+            }
+
+            // Convert to bytes
+            for (int i = 0; i < 16; i++)
+            {
+                uint value = workingState[i];
+                output[i * 4] = (byte)value;
+                output[(i * 4) + 1] = (byte)(value >> 8);
+                output[(i * 4) + 2] = (byte)(value >> 16);
+                output[(i * 4) + 3] = (byte)(value >> 24);
+            }
+
+        }
+        finally
         {
-            uint value = workingState[i];
-            output[i * 4] = (byte)value;
-            output[(i * 4) + 1] = (byte)(value >> 8);
-            output[(i * 4) + 2] = (byte)(value >> 16);
-            output[(i * 4) + 3] = (byte)(value >> 24);
+            SecureMemoryOperations.SecureClear(workingState);
         }
-
-        // Clear working state
-        SecureMemoryOperations.SecureClear(workingState);
     }
 
     /// <summary>
@@ -256,16 +277,20 @@ internal sealed class ChaCha20Core
     private void ProcessSingleBlock(Span<byte> output, ReadOnlySpan<byte> input, ReadOnlySpan<uint> state)
     {
         Span<byte> keystream = stackalloc byte[BLOCK_SIZE];
-        GenerateKeystream(keystream, state);
-
-        // XOR input with keystream
-        for (int i = 0; i < BLOCK_SIZE; i++)
+        try
         {
-            output[i] = (byte)(input[i] ^ keystream[i]);
-        }
+            GenerateKeystream(keystream, state);
 
-        // Clear keystream
-        SecureMemoryOperations.SecureClear(keystream);
+            // XOR input with keystream.
+            for (int i = 0; i < BLOCK_SIZE; i++)
+            {
+                output[i] = (byte)(input[i] ^ keystream[i]);
+            }
+        }
+        finally
+        {
+            SecureMemoryOperations.SecureClear(keystream);
+        }
     }
 
     /// <summary>

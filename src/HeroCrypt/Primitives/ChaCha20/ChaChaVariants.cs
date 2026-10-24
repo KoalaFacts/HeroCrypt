@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using System.Security.Cryptography;
 using HeroCrypt.Security;
 
 namespace HeroCrypt.Primitives.ChaCha20;
@@ -120,8 +121,12 @@ public static class ChaChaVariants
             throw new ArgumentException($"Output buffer must be at least {input.Length} bytes, but was {output.Length} bytes", nameof(output));
         }
 
+        // Compute the count without int overflow, and reject counter wrapping
+        // before modifying any part of the caller-provided output buffer.
+        int blocks = input.IsEmpty ? 0 : 1 + ((input.Length - 1) / BLOCK_SIZE);
+        ValidateCounterRange(counter, blocks);
+
         Span<uint> state = stackalloc uint[16];
-        int blocks = (input.Length + BLOCK_SIZE - 1) / BLOCK_SIZE;
 
         // Move stackalloc outside the loop to prevent stack overflow
         Span<byte> keystream = stackalloc byte[BLOCK_SIZE];
@@ -178,8 +183,10 @@ public static class ChaChaVariants
             throw new ArgumentException("Keystream length must be multiple of block size", nameof(keystream));
         }
 
-        Span<uint> state = stackalloc uint[16];
         int blocks = keystream.Length / BLOCK_SIZE;
+        ValidateCounterRange(counter, blocks);
+
+        Span<uint> state = stackalloc uint[16];
 
         for (int blockIndex = 0; blockIndex < blocks; blockIndex++)
         {
@@ -195,6 +202,20 @@ public static class ChaChaVariants
 
         // Clear state
         SecureMemoryOperations.SecureClear(state);
+    }
+
+    /// <summary>
+    /// Rejects requests that would reuse a block counter under the same key and nonce.
+    /// </summary>
+    private static void ValidateCounterRange(uint counter, int blockCount)
+    {
+        // The last uint.MaxValue block is legal. Only crossing into counter 0
+        // would repeat an earlier keystream block for the same key and nonce.
+        if (blockCount > 0 && counter + (ulong)(blockCount - 1) > uint.MaxValue)
+        {
+            throw new CryptographicException(
+                "ChaCha counter overflow: requested input exceeds the remaining 32-bit counter space.");
+        }
     }
 
     /// <summary>

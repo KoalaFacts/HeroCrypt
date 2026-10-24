@@ -367,6 +367,80 @@ public class ChaChaVariantsCoreTests
     }
 
     /// <summary>
+    /// Public operations must not accept arbitrary enum values as ChaCha round counts.
+    /// </summary>
+    [Trait("Category", TestCategories.SECURITY)]
+    [Trait("Category", TestCategories.FAST)]
+    public class InvalidVariantTests
+    {
+        [Theory]
+        [InlineData(0)]
+        [InlineData(1)]
+        [InlineData(2)]
+        [InlineData(7)]
+        [InlineData(9)]
+        [InlineData(21)]
+        [InlineData(-1)]
+        public void Transform_RejectsUndefinedVariantWithoutChangingOutput(int invalidRoundCount)
+        {
+            var variant = (ChaChaVariant)invalidRoundCount;
+            byte[] key = new byte[KEY_SIZE];
+            byte[] nonce = new byte[NONCE_SIZE];
+            int[] lengths = [0, 1, 63, 64, 65];
+
+            foreach (int length in lengths)
+            {
+                var output = Enumerable.Repeat((byte)0xA5, length).ToArray();
+                var exception = Assert.Throws<ArgumentException>(() =>
+                    Transform(output, new byte[length], key, nonce, 0, variant));
+                Assert.Equal("variant", exception.ParamName);
+                Assert.All(output, b => Assert.Equal((byte)0xA5, b));
+            }
+        }
+
+        [Theory]
+        [InlineData(0)]
+        [InlineData(1)]
+        [InlineData(2)]
+        [InlineData(7)]
+        [InlineData(9)]
+        [InlineData(21)]
+        [InlineData(-1)]
+        public void GenerateKeystream_RejectsUndefinedVariantWithoutChangingOutput(int invalidRoundCount)
+        {
+            var variant = (ChaChaVariant)invalidRoundCount;
+            byte[] key = new byte[KEY_SIZE];
+            byte[] nonce = new byte[NONCE_SIZE];
+            int[] lengths = [0, 64, 128];
+
+            foreach (int length in lengths)
+            {
+                var output = Enumerable.Repeat((byte)0xA5, length).ToArray();
+                var exception = Assert.Throws<ArgumentException>(() =>
+                    GenerateKeystream(output, key, nonce, 0, variant));
+                Assert.Equal("variant", exception.ParamName);
+                Assert.All(output, b => Assert.Equal((byte)0xA5, b));
+            }
+        }
+
+        [Theory]
+        [InlineData(0)]
+        [InlineData(1)]
+        [InlineData(2)]
+        [InlineData(7)]
+        [InlineData(9)]
+        [InlineData(21)]
+        [InlineData(-1)]
+        public void ValidateParameters_RejectsUndefinedVariant(int invalidRoundCount)
+        {
+            var exception = Assert.Throws<ArgumentException>(() =>
+                ValidateParameters(new byte[KEY_SIZE], new byte[NONCE_SIZE],
+                    (ChaChaVariant)invalidRoundCount));
+            Assert.Equal("variant", exception.ParamName);
+        }
+    }
+
+    /// <summary>
     /// Known Answer Tests using RFC 8439 vectors.
     /// </summary>
     [Trait("Category", TestCategories.KNOWN_ANSWER)]

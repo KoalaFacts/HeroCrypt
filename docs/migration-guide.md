@@ -19,6 +19,23 @@ key/nonce assignments. Callers issuing separate transforms must still track
 counter ranges and prevent key/nonce reuse across calls; this validation only
 covers each individual request. The ChaCha20 core has its own counter preflight.
 
+## ChaCha variant selector validation
+
+`ChaChaVariants.Transform` and `ChaChaVariants.GenerateKeystream` now reject
+undefined `ChaChaVariant` enum values with `ArgumentException` **before
+writing output**, even for an empty request. Only `ChaCha8`, `ChaCha12`
+and `ChaCha20` are supported. The existing `ValidateParameters` method
+already checked this; the operations now enforce the same check themselves.
+
+Previously, casting arbitrary integers to `ChaChaVariant` could select an
+unreviewed number of rounds. In particular, a zero-round value skips the
+ChaCha mixing rounds entirely, yielding cryptographically unsafe output.
+Previously produced data under an undefined selector must not be regarded as
+confidential. Identify impacted records with trusted metadata and re-encrypt
+from a trusted plaintext source using a supported algorithm, fresh key/nonce
+material and authenticated encryption. Valid ChaCha8/12/20 outputs and API
+signatures are unchanged.
+
 ## OpenPGP encrypted-content cipher policy
 
 Message decryption now validates the recovered **data cipher** against the configured

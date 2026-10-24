@@ -121,6 +121,9 @@ public static class ChaChaVariants
             throw new ArgumentException($"Output buffer must be at least {input.Length} bytes, but was {output.Length} bytes", nameof(output));
         }
 
+        // Refuse unsupported round counts before processing any caller data.
+        ValidateVariant(variant);
+
         // Compute the count without int overflow, and reject counter wrapping
         // before modifying any part of the caller-provided output buffer.
         int blocks = input.IsEmpty ? 0 : 1 + ((input.Length - 1) / BLOCK_SIZE);
@@ -183,6 +186,8 @@ public static class ChaChaVariants
             throw new ArgumentException("Keystream length must be multiple of block size", nameof(keystream));
         }
 
+        ValidateVariant(variant);
+
         int blocks = keystream.Length / BLOCK_SIZE;
         ValidateCounterRange(counter, blocks);
 
@@ -202,6 +207,17 @@ public static class ChaChaVariants
 
         // Clear state
         SecureMemoryOperations.SecureClear(state);
+    }
+
+    /// <summary>
+    /// Allows only the three defined ChaCha round counts.
+    /// </summary>
+    private static void ValidateVariant(ChaChaVariant variant)
+    {
+        if (!Enum.IsDefined(variant))
+        {
+            throw new ArgumentException("Invalid ChaCha variant", nameof(variant));
+        }
     }
 
     /// <summary>
@@ -387,9 +403,6 @@ public static class ChaChaVariants
         {
             throw new ArgumentException($"Nonce must be {NONCE_SIZE} bytes", nameof(nonce));
         }
-        if (!Enum.IsDefined(variant))
-        {
-            throw new ArgumentException("Invalid ChaCha variant", nameof(variant));
-        }
+        ValidateVariant(variant);
     }
 }

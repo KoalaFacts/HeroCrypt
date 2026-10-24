@@ -453,3 +453,43 @@ jobs:
         # For PRs, these are automatically detected
         base-ref: ${{ github.event_name == 'push' && github.event.before || '' }}
         head-ref: ${{ github.event_name == 'push' && github.sha || '' }}
+
+  netstandard-clear-consumer:
+    name: netstandard2.0 memory-clear consumer (.NET 10 host)
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup .NET SDKs
+        uses: ./.github/actions/setup-dotnet-sdks
+        with:
+          dotnet-version: ${{ needs.setup.outputs.versions }}
+
+      - name: Build the netstandard2.0 library with locked dependencies
+        run: |
+          dotnet restore src/HeroCrypt/HeroCrypt.csproj --locked-mode
+          dotnet build src/HeroCrypt/HeroCrypt.csproj --configuration Release --framework netstandard2.0 --no-restore -p:GeneratePackageOnBuild=false
+
+      - name: Build .NET 10 consumer against the exact netstandard2.0 DLL
+        run: |
+          dotnet restore tests/HeroCrypt.NetstandardClearConsumer/HeroCrypt.NetstandardClearConsumer.csproj
+          dotnet build tests/HeroCrypt.NetstandardClearConsumer/HeroCrypt.NetstandardClearConsumer.csproj --configuration Release --no-restore
+
+      - name: Cross-check digest, zeroization, and forced-collection regression
+        shell: bash
+        run: |
+          dotnet run --project tests/HeroCrypt.NetstandardClearConsumer/HeroCrypt.NetstandardClearConsumer.csproj --configuration Release --no-build --no-restore | tee "$RUNNER_TEMP/netstandard-clear-consumer.json"
+          git diff --exit-code
+
+      - name: Retain raw assembly identity and per-call GC evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: netstandard-clear-consumer-evidence
+          path: ${{ runner.temp }}/netstandard-clear-consumer.json
+          if-no-files-found: warn
+          retention-days: 30

@@ -20,21 +20,19 @@ namespace HeroCrypt.Security;
 /// <list type="bullet">
 ///   <item><b>.NET 5.0+:</b> Uses CryptographicOperations.ZeroMemory which is
 ///   guaranteed not to be optimized away by the JIT compiler.</item>
-///   <item><b>.NET Standard 2.0:</b> Uses a fallback implementation with Array.Clear,
-///   random data overwrite, and GC.Collect to reduce the risk of optimization, but this
-///   is <b>not guaranteed</b> to prevent all optimizations.</item>
+///   <item><b>.NET Standard 2.0:</b> Uses volatile byte writes and a memory barrier
+///   without forcing garbage collection. Clearing owned managed buffers remains
+///   best-effort and cannot guarantee removal of runtime or native copies.</item>
 /// </list>
 /// </para>
 /// <para>
 /// <b>⚠️ .NET Standard 2.0 Limitation:</b>
 /// On .NET Standard 2.0 and older frameworks, the JIT compiler may theoretically optimize
 /// away the memory clearing operations if it determines the array is not used after clearing.
-/// The fallback implementation includes multiple mitigations:
-/// <list type="number">
-///   <item>Multiple clear operations with random data in between</item>
-///   <item>GC.Collect calls to encourage immediate memory reclamation</item>
-///   <item>Volatile.Write for span-based clearing</item>
-/// </list>
+/// The fallback uses <see cref="Volatile.Write(ref byte, byte)"/> for each byte
+/// followed by <see cref="Thread.MemoryBarrier"/>. This makes the writes observable
+/// to the runtime without performing full garbage collections. It does not erase
+/// other managed or native copies of the data, nor guarantee hardware-level erasure.
 /// However, for maximum security on sensitive applications, consider:
 /// <list type="bullet">
 ///   <item>Targeting .NET 5.0 or later where CryptographicOperations.ZeroMemory is available</item>
@@ -59,20 +57,10 @@ public static class SecureMemoryOperations
         // Use the built-in cryptographically secure clear method
         CryptographicOperations.ZeroMemory(sensitiveData);
 #else
-        // For older frameworks, use multiple clearing methods to prevent compiler optimization
-        Array.Clear(sensitiveData, 0, sensitiveData.Length);
-
-        // Fill with random data first to prevent memory recovery
-        using var rng = RandomNumberGenerator.Create();
-        rng.GetBytes(sensitiveData);
-
-        // Clear again
-        Array.Clear(sensitiveData, 0, sensitiveData.Length);
-
-        // Force garbage collection to ensure memory is reclaimed
-        GC.Collect();
-        GC.WaitForPendingFinalizers();
-        GC.Collect();
+        // A caller can still hold this array: forced collections cannot reclaim it,
+        // and repeated full GCs impose disproportionate cost on cryptographic loops.
+        // Share the best-effort volatile wipe with the Span<byte> overload.
+        SecureClear(sensitiveData.AsSpan());
 #endif
     }
 
@@ -107,13 +95,15 @@ public static class SecureMemoryOperations
 #if NET5_0_OR_GREATER
         CryptographicOperations.ZeroMemory(sensitiveData);
 #else
-        sensitiveData.Clear();
-
-        // Additional clearing for older frameworks
-        for (var i = 0; i < sensitiveData.Length; i++)
+        // On legacy runtimes, volatile writes resist removal as dead stores.
+        // This is best-effort: JIT copies, native buffers and other references
+        // remain outside this span's lifetime and cannot be erased here.
+        for (int i = 0; i < sensitiveData.Length; i++)
         {
-            sensitiveData[i] = 0;
+            Volatile.Write(ref sensitiveData[i], (byte)0);
         }
+
+        Thread.MemoryBarrier();
 #endif
     }
 

@@ -103,37 +103,43 @@ internal sealed class XChaCha20Poly1305Core
         // Derive ChaCha20 key and nonce from XChaCha20 parameters
         Span<byte> derivedKey = stackalloc byte[32];
         Span<byte> derivedNonce = stackalloc byte[12];
-        DeriveKeyAndNonce(derivedKey, derivedNonce, key, nonceArray);
-
         try
         {
+            DeriveKeyAndNonce(derivedKey, derivedNonce, key, nonceArray);
             // Allocate ciphertext buffer
             var ciphertext = new byte[plaintext.Length + TAG_SIZE];
 
             var ciphertextWithoutTag = ciphertext.AsSpan(0, plaintext.Length);
             var tag = ciphertext.AsSpan(plaintext.Length, TAG_SIZE);
 
-            // Generate Poly1305 key using the derived ChaCha20 key
+            // Derive the one-time Poly1305 key from an explicitly zero-filled block.
+            // Stackalloc storage must not be assumed initialized on every runtime.
             Span<byte> poly1305Key = stackalloc byte[32];
             Span<byte> zeroBlock = stackalloc byte[32];
-            chaCha20Core.Transform(poly1305Key, zeroBlock, derivedKey, derivedNonce, 0);
-
-            // Encrypt plaintext using ChaCha20 with counter=1
-            chaCha20Core.Transform(ciphertextWithoutTag, plaintext, derivedKey, derivedNonce, 1);
-
-            // Compute authentication tag
-            ComputeTag(tag, associatedData, ciphertextWithoutTag, poly1305Key);
-
-            // Clear sensitive data
-            SecureMemoryOperations.SecureClear(poly1305Key);
-            SecureMemoryOperations.SecureClear(zeroBlock);
-
-            return new XChaCha20Poly1305EncryptionResult
+            try
             {
-                Ciphertext = ciphertext,
-                Nonce = nonceArray,
-                TagSize = TAG_SIZE
-            };
+                zeroBlock.Clear();
+                chaCha20Core.Transform(poly1305Key, zeroBlock, derivedKey, derivedNonce, 0);
+
+                // Encrypt plaintext using ChaCha20 with counter=1.
+                chaCha20Core.Transform(ciphertextWithoutTag, plaintext, derivedKey, derivedNonce, 1);
+
+                // Compute authentication tag.
+                ComputeTag(tag, associatedData, ciphertextWithoutTag, poly1305Key);
+
+                return new XChaCha20Poly1305EncryptionResult
+                {
+                    Ciphertext = ciphertext,
+                    Nonce = nonceArray,
+                    TagSize = TAG_SIZE
+                };
+            }
+            finally
+            {
+                // Best-effort cleanup also runs when encryption or MAC generation fails.
+                SecureMemoryOperations.SecureClear(poly1305Key);
+                SecureMemoryOperations.SecureClear(zeroBlock);
+            }
         }
         finally
         {
@@ -176,42 +182,42 @@ internal sealed class XChaCha20Poly1305Core
         // Derive ChaCha20 key and nonce from XChaCha20 parameters
         Span<byte> derivedKey = stackalloc byte[32];
         Span<byte> derivedNonce = stackalloc byte[12];
-        DeriveKeyAndNonce(derivedKey, derivedNonce, key, nonce);
-
         try
         {
+            DeriveKeyAndNonce(derivedKey, derivedNonce, key, nonce);
             var ciphertextLength = ciphertext.Length - TAG_SIZE;
             var plaintext = new byte[ciphertextLength];
 
             var ciphertextWithoutTag = ciphertext[..ciphertextLength];
             var receivedTag = ciphertext.Slice(ciphertextLength, TAG_SIZE);
 
-            // Generate Poly1305 key using the derived ChaCha20 key
+            // Derive the one-time Poly1305 key from an explicitly zero-filled block.
             Span<byte> poly1305Key = stackalloc byte[32];
             Span<byte> zeroBlock = stackalloc byte[32];
-            chaCha20Core.Transform(poly1305Key, zeroBlock, derivedKey, derivedNonce, 0);
-
-            // Compute expected authentication tag
             Span<byte> expectedTag = stackalloc byte[TAG_SIZE];
-            ComputeTag(expectedTag, associatedData, ciphertextWithoutTag, poly1305Key);
-
-            // Verify tag in constant time
-            var tagValid = SecureMemoryOperations.ConstantTimeEquals(receivedTag, expectedTag);
-
-            // Clear computed tag and Poly1305 key
-            SecureMemoryOperations.SecureClear(expectedTag);
-            SecureMemoryOperations.SecureClear(poly1305Key);
-            SecureMemoryOperations.SecureClear(zeroBlock);
-
-            if (!tagValid)
+            try
             {
-                throw new CryptographicException("XChaCha20-Poly1305 decryption failed: authentication tag mismatch.");
+                zeroBlock.Clear();
+                chaCha20Core.Transform(poly1305Key, zeroBlock, derivedKey, derivedNonce, 0);
+
+                // Compute and verify the authentication tag before decryption.
+                ComputeTag(expectedTag, associatedData, ciphertextWithoutTag, poly1305Key);
+                if (!SecureMemoryOperations.ConstantTimeEquals(receivedTag, expectedTag))
+                {
+                    throw new CryptographicException("XChaCha20-Poly1305 decryption failed: authentication tag mismatch.");
+                }
+
+                // Decrypt ciphertext using ChaCha20 with counter=1.
+                chaCha20Core.Transform(plaintext, ciphertextWithoutTag, derivedKey, derivedNonce, 1);
+                return plaintext;
             }
-
-            // Decrypt ciphertext using ChaCha20 with counter=1
-            chaCha20Core.Transform(plaintext, ciphertextWithoutTag, derivedKey, derivedNonce, 1);
-
-            return plaintext;
+            finally
+            {
+                // Wipe intermediate key and tag even on failed authentication.
+                SecureMemoryOperations.SecureClear(expectedTag);
+                SecureMemoryOperations.SecureClear(poly1305Key);
+                SecureMemoryOperations.SecureClear(zeroBlock);
+            }
         }
         finally
         {
@@ -268,40 +274,46 @@ internal sealed class XChaCha20Poly1305Core
         // Initialize HChaCha20 state
         Span<uint> state = stackalloc uint[16];
 
-        // Constants
-        state[0] = HChaCha20Constants[0];
-        state[1] = HChaCha20Constants[1];
-        state[2] = HChaCha20Constants[2];
-        state[3] = HChaCha20Constants[3];
-
-        // Key - use explicit little-endian reads for platform independence
-        for (var i = 0; i < 8; i++)
+        try
         {
-            state[4 + i] = BinaryHelpers.ReadUInt32LittleEndian(key.Slice(i * 4, 4));
+            // Constants
+            state[0] = HChaCha20Constants[0];
+            state[1] = HChaCha20Constants[1];
+            state[2] = HChaCha20Constants[2];
+            state[3] = HChaCha20Constants[3];
+    
+            // Key - use explicit little-endian reads for platform independence
+            for (var i = 0; i < 8; i++)
+            {
+                state[4 + i] = BinaryHelpers.ReadUInt32LittleEndian(key.Slice(i * 4, 4));
+            }
+    
+            // Nonce - use explicit little-endian reads for platform independence
+            for (var i = 0; i < 4; i++)
+            {
+                state[12 + i] = BinaryHelpers.ReadUInt32LittleEndian(nonce.Slice(i * 4, 4));
+            }
+    
+            // Perform 20 rounds (same as ChaCha20)
+            ChaChaUtils.DoubleRound(state);
+    
+            // Output only state[0], state[1], state[2], state[3], state[12], state[13], state[14], state[15]
+            // Use explicit little-endian writes for platform independence
+            BinaryHelpers.WriteUInt32LittleEndian(output.Slice(0, 4), state[0]);
+            BinaryHelpers.WriteUInt32LittleEndian(output.Slice(4, 4), state[1]);
+            BinaryHelpers.WriteUInt32LittleEndian(output.Slice(8, 4), state[2]);
+            BinaryHelpers.WriteUInt32LittleEndian(output.Slice(12, 4), state[3]);
+            BinaryHelpers.WriteUInt32LittleEndian(output.Slice(16, 4), state[12]);
+            BinaryHelpers.WriteUInt32LittleEndian(output.Slice(20, 4), state[13]);
+            BinaryHelpers.WriteUInt32LittleEndian(output.Slice(24, 4), state[14]);
+            BinaryHelpers.WriteUInt32LittleEndian(output.Slice(28, 4), state[15]);
+    
         }
-
-        // Nonce - use explicit little-endian reads for platform independence
-        for (var i = 0; i < 4; i++)
+        finally
         {
-            state[12 + i] = BinaryHelpers.ReadUInt32LittleEndian(nonce.Slice(i * 4, 4));
+            // Wipe the key-derived state also if round computation fails.
+            SecureMemoryOperations.SecureClear(state);
         }
-
-        // Perform 20 rounds (same as ChaCha20)
-        ChaChaUtils.DoubleRound(state);
-
-        // Output only state[0], state[1], state[2], state[3], state[12], state[13], state[14], state[15]
-        // Use explicit little-endian writes for platform independence
-        BinaryHelpers.WriteUInt32LittleEndian(output.Slice(0, 4), state[0]);
-        BinaryHelpers.WriteUInt32LittleEndian(output.Slice(4, 4), state[1]);
-        BinaryHelpers.WriteUInt32LittleEndian(output.Slice(8, 4), state[2]);
-        BinaryHelpers.WriteUInt32LittleEndian(output.Slice(12, 4), state[3]);
-        BinaryHelpers.WriteUInt32LittleEndian(output.Slice(16, 4), state[12]);
-        BinaryHelpers.WriteUInt32LittleEndian(output.Slice(20, 4), state[13]);
-        BinaryHelpers.WriteUInt32LittleEndian(output.Slice(24, 4), state[14]);
-        BinaryHelpers.WriteUInt32LittleEndian(output.Slice(28, 4), state[15]);
-
-        // Clear state
-        SecureMemoryOperations.SecureClear(state);
     }
 
     /// <summary>

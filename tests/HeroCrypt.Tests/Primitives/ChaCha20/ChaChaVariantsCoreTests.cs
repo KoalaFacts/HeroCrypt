@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using HeroCrypt.Tests.Infrastructure;
 using static HeroCrypt.Primitives.ChaCha20.ChaChaVariants;
 
@@ -236,6 +237,111 @@ public class ChaChaVariantsCoreTests
             }
             int totalBits = ciphertext1.Length * 8;
             Assert.InRange(diffBits, totalBits / 4, totalBits * 3 / 4);
+        }
+    }
+
+    /// <summary>
+    /// Prevents IETF 32-bit counter reuse in every ChaCha round-count variant.
+    /// </summary>
+    [Trait("Category", TestCategories.SECURITY)]
+    [Trait("Category", TestCategories.FAST)]
+    public class CounterBoundaryTests
+    {
+        private static readonly byte[] ReferenceKey = Enumerable.Range(0, KEY_SIZE).Select(i => (byte)i).ToArray();
+        private static readonly byte[] ReferenceNonce = Convert.FromHexString("000000090000004A00000000");
+
+        // Independent ChaCha quarter-round construction at counter 0xFFFFFFFF,
+        // cross-checked against the RFC 8439 ChaCha20 counter-1 block.
+        private static byte[] LastCounterReference(ChaChaVariant variant) => Convert.FromHexString(variant switch
+        {
+            ChaChaVariant.ChaCha8 =>
+                "D9DA6C0CC37F522435D4B712355BC1C4C4824F4A3920796202C79ACC350F2E35" +
+                "A1708EC0F333CA5347FFC08A285FD30051F4FC0146451675B0151E52948F82EE",
+            ChaChaVariant.ChaCha12 =>
+                "A58058D90377803BEC0B01D822566D6B961C75D350FF87375C482E405E9EEFB2D" +
+                "D4C80C61BCF5E50A2926662E79E83A8948CDAE0E3073C4DAD877248DE4BFF2A",
+            ChaChaVariant.ChaCha20 =>
+                "FF2941B8D740F6CBB50936BF997EBD5218CB108DC53F41C64841D0218167430CA" +
+                "03B770CA74CCB642A28194D1DEDD2ED13151E25EC5D7FAEB6D060BFB7E6B146",
+            _ => throw new ArgumentOutOfRangeException(nameof(variant))
+        });
+
+        [Theory]
+        [InlineData(ChaChaVariant.ChaCha8)]
+        [InlineData(ChaChaVariant.ChaCha12)]
+        [InlineData(ChaChaVariant.ChaCha20)]
+        public void Transform_LastLegalCounter_ProducesIndependentReferenceForPartialAndFullBlocks(ChaChaVariant variant)
+        {
+            var expected = LastCounterReference(variant);
+            foreach (int length in new[] { 1, 63, 64 })
+            {
+                var output = new byte[length];
+                Transform(output, new byte[length], ReferenceKey, ReferenceNonce, uint.MaxValue, variant);
+                Assert.Equal(expected.AsSpan(0, length).ToArray(), output);
+            }
+
+            var finalTwoBlocks = new byte[2 * BLOCK_SIZE];
+            Transform(finalTwoBlocks, new byte[finalTwoBlocks.Length],
+                ReferenceKey, ReferenceNonce, uint.MaxValue - 1u, variant);
+            Assert.Equal(expected, finalTwoBlocks.AsSpan(BLOCK_SIZE, BLOCK_SIZE).ToArray());
+        }
+
+        [Theory]
+        [InlineData(ChaChaVariant.ChaCha8)]
+        [InlineData(ChaChaVariant.ChaCha12)]
+        [InlineData(ChaChaVariant.ChaCha20)]
+        public void GenerateKeystream_LastLegalCounter_MatchesIndependentReference(ChaChaVariant variant)
+        {
+            var output = new byte[BLOCK_SIZE];
+            GenerateKeystream(output, ReferenceKey, ReferenceNonce, uint.MaxValue, variant);
+            Assert.Equal(LastCounterReference(variant), output);
+
+            var finalTwoBlocks = new byte[2 * BLOCK_SIZE];
+            GenerateKeystream(finalTwoBlocks, ReferenceKey, ReferenceNonce, uint.MaxValue - 1u, variant);
+            Assert.Equal(LastCounterReference(variant), finalTwoBlocks.AsSpan(BLOCK_SIZE).ToArray());
+        }
+
+        [Theory]
+        [InlineData(ChaChaVariant.ChaCha8, uint.MaxValue, 65)]
+        [InlineData(ChaChaVariant.ChaCha12, uint.MaxValue, 65)]
+        [InlineData(ChaChaVariant.ChaCha20, uint.MaxValue, 65)]
+        [InlineData(ChaChaVariant.ChaCha8, uint.MaxValue - 1u, 129)]
+        [InlineData(ChaChaVariant.ChaCha12, uint.MaxValue - 1u, 129)]
+        [InlineData(ChaChaVariant.ChaCha20, uint.MaxValue - 1u, 129)]
+        public void Transform_OverflowRejectsBeforeMutatingAnyCallerOutput(
+            ChaChaVariant variant, uint counter, int length)
+        {
+            var output = Enumerable.Repeat((byte)0xA5, length).ToArray();
+            Assert.Throws<CryptographicException>(() =>
+                Transform(output, new byte[length], ReferenceKey, ReferenceNonce, counter, variant));
+            Assert.All(output, b => Assert.Equal((byte)0xA5, b));
+        }
+
+        [Theory]
+        [InlineData(ChaChaVariant.ChaCha8, uint.MaxValue, 128)]
+        [InlineData(ChaChaVariant.ChaCha12, uint.MaxValue, 128)]
+        [InlineData(ChaChaVariant.ChaCha20, uint.MaxValue, 128)]
+        [InlineData(ChaChaVariant.ChaCha8, uint.MaxValue - 1u, 192)]
+        [InlineData(ChaChaVariant.ChaCha12, uint.MaxValue - 1u, 192)]
+        [InlineData(ChaChaVariant.ChaCha20, uint.MaxValue - 1u, 192)]
+        public void GenerateKeystream_OverflowRejectsBeforeMutatingAnyCallerOutput(
+            ChaChaVariant variant, uint counter, int length)
+        {
+            var output = Enumerable.Repeat((byte)0xA5, length).ToArray();
+            Assert.Throws<CryptographicException>(() =>
+                GenerateKeystream(output, ReferenceKey, ReferenceNonce, counter, variant));
+            Assert.All(output, b => Assert.Equal((byte)0xA5, b));
+        }
+
+        [Theory]
+        [InlineData(ChaChaVariant.ChaCha8)]
+        [InlineData(ChaChaVariant.ChaCha12)]
+        [InlineData(ChaChaVariant.ChaCha20)]
+        public void EmptyRequestsAtLastCounterAreAllowed(ChaChaVariant variant)
+        {
+            Transform(Array.Empty<byte>(), Array.Empty<byte>(),
+                ReferenceKey, ReferenceNonce, uint.MaxValue, variant);
+            GenerateKeystream(Array.Empty<byte>(), ReferenceKey, ReferenceNonce, uint.MaxValue, variant);
         }
     }
 

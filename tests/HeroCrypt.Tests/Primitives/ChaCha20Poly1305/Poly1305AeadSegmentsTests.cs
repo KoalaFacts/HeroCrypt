@@ -1,6 +1,5 @@
 using HeroCrypt.Primitives.ChaCha20Poly1305;
 using HeroCrypt.Primitives.Poly1305;
-using HeroCrypt.Tests.Infrastructure;
 
 namespace HeroCrypt.Tests.Primitives.ChaCha20Poly1305;
 

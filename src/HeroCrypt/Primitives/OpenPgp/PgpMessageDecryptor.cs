@@ -391,6 +391,7 @@ public sealed class PgpMessageDecryptor : IDisposable
         bool authenticated = false;
         try
         {
+            securityPolicy.ValidateOpenPgpSymmetric((byte)algorithm);
             if (key.Length != GetKeySize(algorithm))
             {
                 throw new CryptographicException("Session key length does not match the data algorithm.");

@@ -106,14 +106,11 @@ A cryptographic library for .NET with standards-based primitives, OpenPGP suppor
   - Sealed storage, remote attestation, and secure key management
   - ⚠️ Abstraction layers requiring vendor SDK and hardware/cloud access
 
-- **⚡ Performance & Optimization**
-  - SIMD acceleration - AVX-512, AVX2, SSE2, and ARM NEON optimizations
-  - Memory pool management - Efficient buffer reuse with automatic security zeroing
-  - Parallel cryptography - Multi-threaded operations with automatic load balancing
-  - Batch operations - 3-10x throughput improvement for bulk operations
-  - Zero-copy operations - Span<T> and stackalloc for minimal allocations
-  - Cache-line alignment - Optimized memory layout for better cache performance
-  - Hardware capability detection - Automatic fallback for maximum compatibility
+- **⚡ Performance & allocation**
+  - Synchronous `ReadOnlySpan<byte>` entry points avoid some caller-side copying; individual implementations can still allocate internally
+  - BLAKE2b-256 builder span-input change removes one full-input copy; see [paired allocation samples](docs/performance/blake2b-span-allocation.md)
+  - The `netstandard2.0` secure-clear fallback no longer forces two garbage collections per call; see [the scoped consumer and GC evidence](docs/performance/netstandard-secureclear-gc.md)
+  - No universal SIMD acceleration, zero-allocation, batch throughput multiplier or cryptographic side-channel guarantee is implied; [benchmark and validation guidance](docs/performance-guide.md)
 
 - **🔗 Cryptographic Protocols**
   - Noise Protocol Framework - Educational/reference implementation; not a qualified production protocol

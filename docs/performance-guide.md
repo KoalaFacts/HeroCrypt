@@ -1,708 +1,78 @@
-# Performance Optimization Guide
+# Performance and allocation guide
 
-This guide covers performance optimization strategies for HeroCrypt.
+This guide describes **measured HeroCrypt behaviour** and shows public API patterns that exist in the repository. It replaces examples that referenced non-existent batch, parallel, memory-pool and hardware-detection APIs, along with unsourced benchmark multipliers. Do not infer throughput, hardware acceleration or security certification from a feature name.
 
-## Table of Contents
+## Evidence and limits
 
-1. [Performance Overview](#performance-overview)
-2. [Hardware Acceleration](#hardware-acceleration)
-3. [Batch Operations](#batch-operations)
-4. [Memory Optimization](#memory-optimization)
-5. [Parallel Processing](#parallel-processing)
-6. [Algorithm Selection](#algorithm-selection)
-7. [Benchmarking](#benchmarking)
-8. [Common Pitfalls](#common-pitfalls)
-9. [Text Encoding Performance](#text-encoding-performance)
+| Change | What was measured | Scope |
+| --- | --- | --- |
+| [BLAKE2b span input](performance/blake2b-span-allocation.md) | Unkeyed BLAKE2b-256, 1 KiB input: **2,008 to 960 managed bytes/call**; 1 MiB input: **1,050,017.5–1,050,663.5 to 960 managed bytes/call** | Ubuntu x64, .NET 10.0.13 Release, SDK 10.0.402; three samples of 32 calls, with warmups. Inputs/builders were constructed outside the measurement. |
+| [netstandard2.0 secure clearing](performance/netstandard-secureclear-gc.md) | A `netstandard2.0` library assembly running under a modern .NET 10 Linux host showed **0/0/0 per-generation GC deltas** on each measured 1 KiB and 16 KiB BLAKE2b invocation after removing forced collections | Three samples per size, two warmups. The earlier 16/16/16 and 256/256/256 counts are historical observations, not a new paired throughput benchmark. |
 
-## Performance Overview
+The linked reports contain the source commits, assembly fingerprints, runtime/OS details, input patterns, raw samples, and reproduction instructions. **These results measure managed allocation and garbage-collection counts, not elapsed time, throughput, power use, memory lifetime or resistance to side-channel attacks.** The Gen0/Gen1/Gen2 collection counts overlap; do not sum them. Do not extrapolate the `netstandard2.0` result to .NET Framework or Mono.
 
-### Performance Priorities
+Claims such as “3–10× faster batches”, “8.5 GB/s AES”, and “4–8× AVX-512” were previously shown without reproducible source measurements. They are intentionally not repeated here. Detecting an instruction set does not prove that a particular HeroCrypt code path uses it.
 
-HeroCrypt balances three priorities:
+## Work with existing public APIs
 
-1. **Security** - Always the top priority
-2. **Performance** - Optimized where safe
-3. **Ease of use** - Simple, intuitive APIs
-
-**Never sacrifice security for performance.**
-
-### Performance Features
-
-- ✅ SIMD acceleration (AVX-512, AVX2, SSE2, ARM NEON)
-- ✅ Hardware acceleration (AES-NI, SHA extensions)
-- ✅ Batch operations (3-10x throughput)
-- ✅ Memory pooling (reduced allocations)
-- ✅ Zero-copy operations with `Span<T>`
-- ✅ Parallel processing for bulk operations
-- ✅ Automatic hardware capability detection
-
-## Hardware Acceleration
-
-### Detecting Hardware Capabilities
+### BLAKE2b hashing
 
 ```csharp
-using HeroCrypt.Hardware;
+using HeroCrypt;
 
-var capabilities = HardwareAccelerationDetector.DetectCapabilities();
+// data is a caller-owned byte[] (or another buffer).
+using var hasher = HeroCryptBuilder.Blake2b()
+    .WithOutputLength(32);
 
-Console.WriteLine($"AVX-512: {capabilities.HasAvx512}");
-Console.WriteLine($"AVX2: {capabilities.HasAvx2}");
-Console.WriteLine($"SSE2: {capabilities.HasSse2}");
-Console.WriteLine($"AES-NI: {capabilities.HasAesNi}");
-Console.WriteLine($"SHA: {capabilities.HasShaExtensions}");
-Console.WriteLine($"ARM NEON: {capabilities.HasNeon}");
+byte[] digest = hasher.ComputeHash(data.AsSpan());
 ```
 
-### Enabling Hardware Acceleration
+This calls the public span overload and avoids a full-input copy in the builder. It **does not** mean that all internal BLAKE2b work is allocation-free. Compare the result with an independent RFC 7693 implementation for your chosen output size, key, salt and personalization settings.
+
+### ChaCha20-Poly1305 authenticated encryption
 
 ```csharp
-// Automatic detection and usage via builder
-var hash = HeroCryptBuilder.DeriveKey()
-    .UseArgon2()
-    .WithPassword("password"u8.ToArray())
-    .WithSalt(RandomNumberGenerator.GetBytes(16))
-    .WithIterations(3)
-    .WithParallelism(4)
-    .WithKeyLength(32)
-    .Build();
+using HeroCrypt;
+
+// key is 32 bytes, plaintext/aad are caller-owned byte[] values.
+using var encryptor = HeroCryptBuilder.ChaCha20Poly1305()
+    .WithKey(key)
+    .WithRandomNonce()
+    .WithAssociatedData(aad);
+
+byte[] ciphertextAndTag = encryptor.Encrypt(plaintext);
+byte[] nonce = encryptor.GetNonce(); // Store with this ciphertext.
+
+// In the receiving path, recover the original nonce, AAD and key.
+using var decryptor = HeroCryptBuilder.ChaCha20Poly1305()
+    .WithKey(key)
+    .WithNonce(nonce)
+    .WithAssociatedData(aad);
+byte[] recovered = decryptor.Decrypt(ciphertextAndTag);
 ```
 
-### Platform-Specific Optimizations
+**Never encrypt two distinct messages with the same ChaCha20-Poly1305 key and nonce.** A builder's nonce does not automatically rotate between `Encrypt` calls; create a new random nonce for each encryption and preserve it with the ciphertext. Authentication failure must abort processing—do not consume unverified plaintext.
 
-```csharp
-// Intel/AMD (x64)
-// - AVX-512: 512-bit SIMD operations
-// - AVX2: 256-bit SIMD operations
-// - AES-NI: Hardware AES acceleration
+## Span, allocation, and secret handling
 
-// ARM (ARM64)
-// - NEON: 128-bit SIMD operations
-// - SHA extensions: Hardware SHA acceleration
+A `ReadOnlySpan<byte>` input can reduce copies across an API boundary, but internal buffers, returned results, cryptographic provider state and the runtime may still allocate. `stackalloc` is not an automatic secure-wipe mechanism: explicitly erase sensitive spans in `finally` after their last use. Avoid storing secret keys or recovery phrases as immutable strings where callers require reliable memory erasure.
 
-// Fallback
-// - Portable C# implementation
-// - Still secure, but slower
-```
+Use the APIs and security guidance appropriate to the targeted runtime. On modern .NET, `CryptographicOperations.ZeroMemory` expresses an intent to wipe the supplied buffer. HeroCrypt's `netstandard2.0` fallback uses best-effort volatile writes and a memory barrier. Neither method can guarantee that copies in registers, JIT spills, dumps, unmanaged providers or previous allocations have been erased. See [the security policy and limitations](../SECURITY.md) and [production readiness](../PRODUCTION_READINESS.md).
 
-### Performance Impact
+Use `IDisposable` builders for key-bearing operations and dispose them promptly. Clear caller-owned sensitive arrays separately after the operation; disposing a builder does not clear every independent copy the caller might hold. Avoid logging keys, nonces with private context, passphrases, or secret-derived buffers.
 
-| Feature | Speedup | Algorithm |
-|---------|---------|-----------|
-| AVX-512 | 4-8x | Blake2b, ChaCha20 |
-| AVX2 | 2-4x | Blake2b, ChaCha20 |
-| AES-NI | 5-10x | AES-GCM, AES-CCM |
-| ARM NEON | 2-3x | Blake2b, ChaCha20 |
+## Reproducible benchmarking checklist
 
-## Batch Operations
+1. **Choose a fixed workload:** exact public API, key/AAD configuration, message sizes, data-generation pattern, number of iterations, expected output, and encryption nonce policy.
+2. **Identify both builds:** record source commits and SHA-256 of the actual assemblies under test. Keep before and after builds in separate directories, using the same SDK, runtime and configuration.
+3. **Verify correctness independently:** check BLAKE2b against `hashlib.blake2b` or RFC 7693 test vectors; use RFC 8439 and an independent AEAD implementation for ChaCha20-Poly1305. Test wrong keys, truncated data and tag/AAD tampering for the affected paths.
+4. **Keep setup outside the measured region:** prepare payloads and keys first, warm up each path, and retain raw per-sample results. Never put `GC.Collect` inside a normal timed workload merely to make it look stable.
+5. **Separate metrics:** `GC.GetAllocatedBytesForCurrentThread()` measures managed allocations on the calling thread for synchronous code; `GC.CollectionCount(generation)` counts overlapping collections by generation. Use an appropriate timed harness (such as BenchmarkDotNet) for elapsed time and throughput, and report uncertainty and hardware conditions.
+6. **Run compatibility gates:** verify the intended TFM assembly actually loads on the target host; run the repository's xUnit/Microsoft.Testing.Platform tests across required frameworks and platforms. Recheck public wire formats and failure semantics after any optimization.
 
-### When to Use Batch Operations
+Existing reproducible harnesses and raw measurements:
 
-Use batch operations when:
-- Processing multiple items (>10)
-- Items are independent
-- Throughput matters more than latency
+- [BLAKE2b builder allocation](performance/blake2b-span-allocation.md)
+- [netstandard2.0 secure clearing GC](performance/netstandard-secureclear-gc.md)
 
-```csharp
-using HeroCrypt.Performance.Batch;
-
-// ✅ GOOD: Batch encryption for bulk data
-var plaintexts = new List<byte[]>
-{
-    data1, data2, data3, /* ... hundreds more ... */
-};
-
-var ciphertexts = await BatchOperations.EncryptBatchAsync(
-    plaintexts,
-    key,
-    nonces,
-    algorithm: EncryptionAlgorithm.ChaCha20Poly1305
-);
-
-// ❌ BAD: Individual encryption in a loop
-foreach (var plaintext in plaintexts)
-{
-    var ciphertext = await EncryptAsync(plaintext, key);
-}
-```
-
-### Batch Encryption
-
-```csharp
-using HeroCrypt.Performance.Batch;
-
-// Prepare data
-var plaintexts = new List<byte[]>();
-var nonces = new List<byte[]>();
-
-for (int i = 0; i < 1000; i++)
-{
-    plaintexts.Add(GeneratePlaintext());
-    nonces.Add(GenerateNonce());
-}
-
-// Batch encrypt (3-10x faster than individual encryption)
-var ciphertexts = BatchOperations.EncryptBatch(
-    plaintexts,
-    key,
-    nonces,
-    associatedData: null
-);
-```
-
-### Batch Password Hashing
-
-```csharp
-// ⚠️ Note: Batch Argon2 is CPU-intensive
-// Consider rate limiting and queue-based processing
-
-var passwords = new[] { "password1", "password2", "password3" };
-var hashes = new ConcurrentBag<string>();
-
-await Parallel.ForEachAsync(passwords, async (password, ct) =>
-{
-    var hash = Argon2.Hash(
-        password: password,
-        salt: RandomNumberGenerator.GetBytes(16),
-        iterations: 2,              // Consider lower level for batch
-        memorySizeKB: 19456,
-        parallelism: 2,
-        hashLength: 32,
-        type: Argon2Type.Argon2id);
-
-    hashes.Add(hash);
-});
-```
-
-### Performance Comparison
-
-```
-Single encryption:      100 ops/sec
-Batch encryption:       800 ops/sec  (8x improvement)
-
-Single hash:            20 hashes/sec
-Parallel hash (4 core): 60 hashes/sec (3x improvement)
-```
-
-## Memory Optimization
-
-### Use Span<T> for Stack Allocation
-
-```csharp
-// ✅ GOOD: Stack allocation (no GC pressure)
-public void ProcessData(ReadOnlySpan<byte> data)
-{
-    Span<byte> buffer = stackalloc byte[32];
-    // Use buffer
-    // Automatically cleared when method returns
-}
-
-// ❌ BAD: Heap allocation (GC pressure)
-public void ProcessData(byte[] data)
-{
-    var buffer = new byte[32];
-    // Creates garbage
-}
-```
-
-### Memory Pooling
-
-```csharp
-using HeroCrypt.Performance.Memory;
-
-// ✅ GOOD: Use memory pool
-var pool = CryptoMemoryPool.Shared;
-var buffer = pool.Rent(1024);
-
-try
-{
-    // Use buffer
-}
-finally
-{
-    pool.Return(buffer, clearArray: true);  // Automatically cleared
-}
-
-// ❌ BAD: Allocate and discard
-var buffer = new byte[1024];
-// Creates garbage
-```
-
-### Zero-Copy Operations
-
-```csharp
-// ✅ GOOD: Zero-copy with Span<T>
-public void Encrypt(
-    ReadOnlySpan<byte> plaintext,
-    Span<byte> ciphertext,
-    ReadOnlySpan<byte> key,
-    ReadOnlySpan<byte> nonce)
-{
-    // No allocations
-    ChaCha20Poly1305Core.Encrypt(plaintext, ciphertext, key, nonce);
-}
-
-// ❌ BAD: Multiple allocations
-public byte[] Encrypt(byte[] plaintext, byte[] key, byte[] nonce)
-{
-    var ciphertext = new byte[plaintext.Length + 16];
-    // Creates new array
-    return ciphertext;
-}
-```
-
-### Reducing Allocations
-
-```csharp
-// ✅ GOOD: Reuse buffers
-var buffer = new byte[1024];
-for (int i = 0; i < 1000; i++)
-{
-    ProcessData(buffer);
-    Array.Clear(buffer);  // Clear for next iteration
-}
-
-// ❌ BAD: Allocate in loop
-for (int i = 0; i < 1000; i++)
-{
-    var buffer = new byte[1024];  // 1000 allocations
-    ProcessData(buffer);
-}
-```
-
-## Parallel Processing
-
-### Parallel Encryption
-
-```csharp
-using HeroCrypt.Performance.Parallel;
-
-// ✅ GOOD: Parallel processing for large data
-var largeFile = File.ReadAllBytes("large-file.dat");
-
-var encrypted = await ParallelAesGcm.EncryptParallelAsync(
-    largeFile,
-    key,
-    nonce,
-    chunkSize: 1024 * 1024  // 1 MB chunks
-);
-```
-
-### Parallel Decryption
-
-```csharp
-// ✅ Two-phase authentication ensures security
-var decrypted = await ParallelAesGcm.DecryptParallelAsync(
-    encrypted,
-    key,
-    nonce,
-    chunkSize: 1024 * 1024
-);
-// Phase 1: Decrypt all chunks in parallel
-// Phase 2: Verify all MACs (ensures authenticity)
-```
-
-### Thread Pool Configuration
-
-```csharp
-// ✅ Configure for CPU-intensive work
-ThreadPool.GetMinThreads(out int workerThreads, out int ioThreads);
-ThreadPool.SetMinThreads(Environment.ProcessorCount, ioThreads);
-
-// ✅ Use ParallelOptions for control
-var options = new ParallelOptions
-{
-    MaxDegreeOfParallelism = Environment.ProcessorCount
-};
-
-await Parallel.ForEachAsync(items, options, async (item, ct) =>
-{
-    await ProcessAsync(item);
-});
-```
-
-## Algorithm Selection
-
-### Symmetric Encryption
-
-```csharp
-// Performance comparison (approximate):
-
-// ChaCha20-Poly1305: 1.5 GB/s (software)
-// - Best for software-only systems
-// - Constant-time, side-channel resistant
-var encrypted = ChaCha20Poly1305Cipher.Encrypt(plaintext, key, nonce, aad);
-
-// AES-GCM: 5-10 GB/s (with AES-NI)
-// - Best when hardware acceleration available
-// - Requires AES-NI for security
-using var aesGcm = new AesGcm(key);
-aesGcm.Encrypt(nonce, plaintext, ciphertext, tag, aad);
-```
-
-### Password Hashing
-
-```csharp
-// Argon2 configuration trade-offs:
-
-// High security (recommended for production)
-var hash = Argon2.Hash(
-    password, salt,
-    iterations: 3,
-    memorySizeKB: 65536,  // 64 MB
-    parallelism: 4,
-    hashLength: 32,
-    type: Argon2Type.Argon2id
-);
-// Time: ~200ms on modern CPU
-
-// Medium security (for resource-constrained systems)
-var hash = Argon2.Hash(
-    password, salt,
-    iterations: 2,
-    memorySizeKB: 19456,  // 19 MB
-    parallelism: 1,
-    hashLength: 32,
-    type: Argon2Type.Argon2id
-);
-// Time: ~50ms on modern CPU
-```
-
-### Hashing
-
-```csharp
-// Blake2b: 1-2 GB/s (faster than SHA-256)
-var hash = Blake2bCore.ComputeHash(data, 32);
-
-// SHA-256: 500 MB/s (with hardware acceleration)
-// Use .NET built-in for FIPS compliance
-using var sha256 = SHA256.Create();
-var hash = sha256.ComputeHash(data);
-```
-
-## Benchmarking
-
-### Custom Benchmarking
-
-```csharp
-using System.Diagnostics;
-
-public class CryptoBenchmark
-{
-    public static async Task<double> BenchmarkHashingAsync(int iterations)
-    {
-        var sw = Stopwatch.StartNew();
-
-        for (int i = 0; i < iterations; i++)
-        {
-            var hash = await HashAsync("password");
-        }
-
-        sw.Stop();
-        return sw.ElapsedMilliseconds / (double)iterations;
-    }
-
-    public static double BenchmarkThroughput(int dataSize, int iterations)
-    {
-        var data = new byte[dataSize];
-        RandomNumberGenerator.Fill(data);
-
-        var sw = Stopwatch.StartNew();
-
-        for (int i = 0; i < iterations; i++)
-        {
-            var hash = Blake2bCore.ComputeHash(data, 32);
-        }
-
-        sw.Stop();
-
-        double totalMB = (dataSize * iterations) / (1024.0 * 1024.0);
-        double seconds = sw.ElapsedMilliseconds / 1000.0;
-        return totalMB / seconds;  // MB/s
-    }
-}
-```
-
-### BenchmarkDotNet Integration
-
-```csharp
-using BenchmarkDotNet.Attributes;
-using BenchmarkDotNet.Running;
-
-[MemoryDiagnoser]
-public class CryptoBenchmarks
-{
-    private byte[] _data;
-    private byte[] _key;
-    private byte[] _nonce;
-
-    [GlobalSetup]
-    public void Setup()
-    {
-        _data = new byte[1024];
-        _key = new byte[32];
-        _nonce = new byte[12];
-        RandomNumberGenerator.Fill(_data);
-        RandomNumberGenerator.Fill(_key);
-        RandomNumberGenerator.Fill(_nonce);
-    }
-
-    [Benchmark]
-    public byte[] ChaCha20Poly1305_Encrypt()
-    {
-        return ChaCha20Poly1305Cipher.Encrypt(_data, _key, _nonce, null);
-    }
-
-    [Benchmark]
-    public byte[] Blake2b_Hash()
-    {
-        return Blake2bCore.ComputeHash(_data, 32);
-    }
-}
-
-// Run benchmarks
-BenchmarkRunner.Run<CryptoBenchmarks>();
-```
-
-## Common Pitfalls
-
-### 1. Not Using Hardware Acceleration
-
-```csharp
-// Recommended: use strong parameters and let hardware acceleration kick in automatically
-var hash = Argon2.Hash(
-    password, salt,
-    iterations: 3,
-    memorySizeKB: 65536,
-    parallelism: 4,
-    hashLength: 32,
-    type: Argon2Type.Argon2id);
-```
-
-### 2. Allocating in Loops
-
-```csharp
-// ❌ BAD: Allocates 1000 times
-for (int i = 0; i < 1000; i++)
-{
-    var buffer = new byte[1024];
-    Process(buffer);
-}
-
-// ✅ GOOD: Allocate once, reuse
-var buffer = new byte[1024];
-for (int i = 0; i < 1000; i++)
-{
-    Process(buffer);
-    Array.Clear(buffer);
-}
-```
-
-### 3. Not Using Span<T>
-
-```csharp
-// ❌ BAD: Creates arrays
-public byte[] Encrypt(byte[] plaintext, byte[] key)
-{
-    var temp = new byte[plaintext.Length];
-    // ...
-    return temp;
-}
-
-// ✅ GOOD: Uses Span<T>
-public void Encrypt(
-    ReadOnlySpan<byte> plaintext,
-    Span<byte> ciphertext,
-    ReadOnlySpan<byte> key)
-{
-    Span<byte> temp = stackalloc byte[plaintext.Length];
-    // No heap allocations
-}
-```
-
-### 4. Over-Parallelization
-
-```csharp
-// ❌ BAD: Too many parallel tasks
-await Parallel.ForEachAsync(smallItems, new ParallelOptions
-{
-    MaxDegreeOfParallelism = 100  // Too many!
-}, async (item, ct) => await ProcessAsync(item));
-
-// ✅ GOOD: Match CPU core count
-await Parallel.ForEachAsync(items, new ParallelOptions
-{
-    MaxDegreeOfParallelism = Environment.ProcessorCount
-}, async (item, ct) => await ProcessAsync(item));
-```
-
-### 5. Using Weak Parameters for Performance
-
-```csharp
-// ❌ BAD: Weak Argon2 parameters
-var hash = Argon2.Hash(
-    password, salt,
-    iterations: 1,        // Too low!
-    memorySizeKB: 8192,   // Too low!
-    parallelism: 1,
-    hashLength: 32,
-    type: Argon2Type.Argon2id
-);
-
-// ✅ GOOD: Strong parameters
-var hash = Argon2.Hash(
-    password, salt,
-    iterations: 3,        // Minimum recommended
-    memorySizeKB: 65536,  // 64 MB minimum
-    parallelism: 4,
-    hashLength: 32,
-    type: Argon2Type.Argon2id
-);
-```
-
-## Text Encoding Performance
-
-### Encoding Overhead
-
-Text encoding adds overhead. Choose the right approach for your use case:
-
-| Format | Overhead | Best For |
-|--------|----------|----------|
-| Raw bytes | 0% | Internal APIs, in-memory |
-| Hex | +100% size | Debugging, logs |
-| Base64 | +33% size | Storage, JSON |
-| Base64Url | +33% size | URLs, APIs |
-
-### Avoid Repeated Encoding
-
-```csharp
-// ❌ BAD: Encode multiple times
-for (int i = 0; i < 1000; i++)
-{
-    var hex = builder.GetKeyAsHex();  // Encodes each iteration
-    SendToApi(hex);
-}
-
-// ✅ GOOD: Encode once, reuse
-var hex = builder.GetKeyAsHex();
-for (int i = 0; i < 1000; i++)
-{
-    SendToApi(hex);  // Reuse encoded string
-}
-```
-
-### Use Bytes Internally, Encode at Boundaries
-
-```csharp
-// ✅ GOOD: Keep bytes internally, encode only at API boundaries
-public class CryptoService
-{
-    private byte[] _key;  // Store as bytes internally
-
-    public string EncryptForApi(string plaintext)
-    {
-        var result = Encrypt(plaintext, _key);  // Use bytes internally
-        return result.CiphertextAsBase64Url;     // Encode only for output
-    }
-
-    public void LoadKeyFromApi(string hexKey)
-    {
-        _key = Convert.FromHexString(hexKey);   // Decode at boundary
-    }
-}
-
-// ❌ BAD: Store and pass encoded strings internally
-public class SlowCryptoService
-{
-    private string _keyHex;  // String storage = slower
-
-    public string EncryptForApi(string plaintext)
-    {
-        var key = Convert.FromHexString(_keyHex);  // Decode every time
-        var result = Encrypt(plaintext, key);
-        return Convert.ToHexString(result);         // Encode every time
-    }
-}
-```
-
-### Span-Based Encoding (Advanced)
-
-```csharp
-// ✅ GOOD: Use Span for encoding without allocations
-Span<char> hexBuffer = stackalloc char[64];  // 32 bytes = 64 hex chars
-Convert.TryToHexString(keyBytes, hexBuffer, out int written);
-var hexString = hexBuffer[..written].ToString();
-
-// ✅ GOOD: Pre-sized buffers for Base64
-var base64Length = ((keyBytes.Length + 2) / 3) * 4;
-Span<char> base64Buffer = stackalloc char[base64Length];
-Convert.TryToBase64Chars(keyBytes, base64Buffer, out written);
-```
-
-### Caching Encoded Values
-
-```csharp
-// ✅ GOOD: Cache frequently used encoded values
-public readonly struct EncryptionResult
-{
-    private readonly byte[] _ciphertext;
-    private string? _cachedHex;
-    private string? _cachedBase64Url;
-
-    public string CiphertextAsHex => _cachedHex ??= Convert.ToHexString(_ciphertext);
-    public string CiphertextAsBase64Url => _cachedBase64Url ??= TextEncodings.ToBase64Url(_ciphertext);
-}
-```
-
-### Encoding Performance Tips
-
-1. **Use bytes for internal processing** - Only encode at system boundaries
-2. **Cache encoded values** - If you need the same encoding multiple times
-3. **Choose the smallest format** - Base64 is 33% smaller than Hex
-4. **Use Span<T> when possible** - Reduces allocations for high-throughput scenarios
-5. **Batch encoding** - Encode multiple items together when possible
-
-## Performance Checklist
-
-- [ ] Enable hardware acceleration where available
-- [ ] Use batch operations for bulk processing
-- [ ] Use `Span<T>` and stack allocation when possible
-- [ ] Reuse buffers instead of allocating in loops
-- [ ] Use memory pooling for large allocations
-- [ ] Configure parallelism based on CPU cores
-- [ ] Choose appropriate algorithm for use case
-- [ ] Benchmark your specific workload
-- [ ] Monitor GC pressure and allocations
-- [ ] Never sacrifice security for performance
-
-## Benchmarking Results
-
-### Reference Performance (Intel i7-12700K)
-
-| Operation | Throughput | Notes |
-|-----------|------------|-------|
-| Blake2b | 2.1 GB/s | AVX2 acceleration |
-| ChaCha20-Poly1305 | 1.8 GB/s | SIMD acceleration |
-| AES-GCM | 8.5 GB/s | AES-NI acceleration |
-| Argon2id (High) | 5 hashes/sec | 64 MB, 3 iterations |
-| RSA-2048 sign | 2000 ops/sec | Software |
-| RSA-2048 verify | 50000 ops/sec | Software |
-| ECDSA-P256 sign | 15000 ops/sec | Hardware |
-| ECDSA-P256 verify | 8000 ops/sec | Hardware |
-
-### Batch Operation Speedups
-
-| Operation | Single | Batch | Speedup |
-|-----------|--------|-------|---------|
-| ChaCha20-Poly1305 | 100 ops/s | 800 ops/s | 8x |
-| AES-GCM | 150 ops/s | 1200 ops/s | 8x |
-| Blake2b | 500 ops/s | 2000 ops/s | 4x |
-
-## Additional Resources
-
-- [API Patterns](api-patterns.md#text-encoding-conventions) - Encoding naming conventions
-- [Troubleshooting](troubleshooting.md#text-encoding-issues) - Common encoding errors
-- [Best Practices](best-practices.md) - Security best practices
-- [Hardware Acceleration](../src/HeroCrypt/Hardware/)
-- [Batch Operations](../src/HeroCrypt/Performance/Batch/)
-- [Memory Pooling](../src/HeroCrypt/Performance/Memory/)
-- [Parallel Operations](../src/HeroCrypt/Performance/Parallel/)
+Do not advertise benchmark numbers from a different machine, TFM or operation as measured HeroCrypt performance. Treat any unmeasured speedups as hypotheses until reproducible evidence is captured.

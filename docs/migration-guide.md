@@ -2,6 +2,23 @@
 
 This guide helps you migrate between HeroCrypt versions and from other cryptographic libraries.
 
+## ChaCha variant counter boundary
+
+`ChaChaVariants.Transform` and `ChaChaVariants.GenerateKeystream` now reject
+requests that would extend past the final 32-bit ChaCha block counter
+(`uint.MaxValue`). A counter exhaustion error is reported as
+`CryptographicException` **before modifying the caller's output buffer**.
+The last valid 64-byte block, including a partial block, is still supported.
+Empty requests remain permitted.
+
+Earlier versions could silently wrap to counter zero in these variant APIs and
+repeat keystream for the same key/nonce pair. Do not rely on the former wrapping
+behavior or treat such historical ciphertext as safely encrypted. Identify affected
+records using trusted metadata and regenerate encryption using fresh, unique
+key/nonce assignments. Callers issuing separate transforms must still track
+counter ranges and prevent key/nonce reuse across calls; this validation only
+covers each individual request. The ChaCha20 core has its own counter preflight.
+
 ## OpenPGP encrypted-content cipher policy
 
 Message decryption now validates the recovered **data cipher** against the configured

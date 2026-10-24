@@ -275,6 +275,68 @@ public class ChaCha20CoreTests
                 core.Transform(ciphertext, plaintext, key, nonce, uint.MaxValue));
         }
 
+        // Independent IETF ChaCha20 block value from the RFC 8439 quarter-round
+        // construction (the same reference reproduces section 2.3.2 at counter 1).
+        private static readonly byte[] MaxCounterBlock = Convert.FromHexString(
+            "FF2941B8D740F6CBB50936BF997EBD5218CB108DC53F41C64841D0218167430CA" +
+            "03B770CA74CCB642A28194D1DEDD2ED13151E25EC5D7FAEB6D060BFB7E6B146");
+
+        [Theory]
+        [InlineData(1)]
+        [InlineData(63)]
+        [InlineData(64)]
+        public void Transform_LastCounterBlock_IsValidAndMatchesReference(int length)
+        {
+            var key = Enumerable.Range(0, KEY_SIZE).Select(i => (byte)i).ToArray();
+            var nonce = Convert.FromHexString("000000090000004A00000000");
+            var output = new byte[length];
+
+            core.Transform(output, new byte[length], key, nonce, uint.MaxValue);
+
+            Assert.Equal(MaxCounterBlock.AsSpan(0, length).ToArray(), output);
+        }
+
+        [Fact]
+        public void Transform_LastFourBlocks_DoNotWrapOrRejectValidFinalCounter()
+        {
+            var key = Enumerable.Range(0, KEY_SIZE).Select(i => (byte)i).ToArray();
+            var nonce = Convert.FromHexString("000000090000004A00000000");
+            var output = new byte[BLOCK_SIZE * 4];
+
+            core.Transform(output, new byte[output.Length], key, nonce, uint.MaxValue - 3);
+
+            Assert.Equal(MaxCounterBlock, output.AsSpan(BLOCK_SIZE * 3).ToArray());
+        }
+
+        [Theory]
+        [InlineData(uint.MaxValue, 65)]
+        [InlineData(uint.MaxValue - 1u, 129)]
+        [InlineData(uint.MaxValue - 3u, 257)]
+        public void Transform_OverflowRejectsBeforeModifyingAnyCallerOutput(uint counter, int length)
+        {
+            var output = Enumerable.Repeat((byte)0xA5, length).ToArray();
+            var input = new byte[length];
+
+            Assert.Throws<CryptographicException>(() =>
+                core.Transform(output, input, new byte[KEY_SIZE], new byte[NONCE_SIZE], counter));
+
+            Assert.All(output, value => Assert.Equal((byte)0xA5, value));
+        }
+
+        [Fact]
+        public void Seek_DoesNotTruncatePositionsBeyondCounterSpace()
+        {
+            var state = new uint[16];
+            long lastBytePosition = (long)uint.MaxValue * BLOCK_SIZE + (BLOCK_SIZE - 1);
+            core.Seek(state, lastBytePosition);
+            Assert.Equal(uint.MaxValue, state[12]);
+
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                core.Seek(state, lastBytePosition + 1));
+
+            Assert.Equal(uint.MaxValue, state[12]);
+        }
+
         [Fact]
         public void Transform_NonceReuse_LeaksKeystreamRelationship()
         {

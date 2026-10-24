@@ -194,7 +194,9 @@ internal sealed class HkdfCore
                 // intact in managed arrays until a future garbage collection.
                 byte[] previousBlock = t;
                 t = nextBlock;
-                SecureMemoryOperations.SecureClear(previousBlock);
+                // The netstandard2.0 byte[] fallback forces two full GCs. The
+                // span overload avoids a collection on every HKDF block.
+                SecureMemoryOperations.SecureClear(previousBlock.AsSpan());
 
                 // Copy T(i) to output
                 int copyLength = Math.Min(hashLength, length - ((i - 1) * hashLength));

@@ -1,5 +1,6 @@
 using System.Numerics;
 using System.Runtime.CompilerServices;
+using HeroCrypt.Polyfills;
 using HeroCrypt.Security;
 
 namespace HeroCrypt.Primitives.Poly1305;
@@ -71,84 +72,103 @@ internal sealed class Poly1305Core
     /// <param name="message">Message to authenticate</param>
     /// <param name="key">32-byte key</param>
     public void ComputeMac(Span<byte> tag, ReadOnlySpan<byte> message, ReadOnlySpan<byte> key)
+        => ComputeMacCore(tag, message, ReadOnlySpan<byte>.Empty, key, isAead: false);
+
+    /// <summary>
+    /// Computes the RFC 8439 AEAD Poly1305 tag without concatenating AAD,
+    /// ciphertext, padding and lengths into a message-sized temporary buffer.
+    /// Each partial AAD/ciphertext block is zero-padded to a full 16-byte
+    /// Poly1305 block before appending the full-block Poly1305 high bit.
+    /// </summary>
+    internal void ComputeAeadMac(Span<byte> tag, ReadOnlySpan<byte> associatedData,
+        ReadOnlySpan<byte> ciphertext, ReadOnlySpan<byte> key)
+        => ComputeMacCore(tag, associatedData, ciphertext, key, isAead: true);
+
+    private void ComputeMacCore(Span<byte> tag, ReadOnlySpan<byte> first,
+        ReadOnlySpan<byte> second, ReadOnlySpan<byte> key, bool isAead)
     {
         policy.ValidateSignature("POLY1305");
         if (tag.Length != TAG_SIZE)
         {
             throw new ArgumentException($"Tag must be {TAG_SIZE} bytes", nameof(tag));
         }
+
         if (key.Length != KEY_SIZE)
         {
             throw new ArgumentException($"Key must be {KEY_SIZE} bytes", nameof(key));
         }
 
-        // Extract r and s from key
         Span<byte> rBytes = stackalloc byte[16];
         Span<byte> sBytes = stackalloc byte[16];
-
-        key[..16].CopyTo(rBytes);
-        key.Slice(16, 16).CopyTo(sBytes);
-
-        // Clamp r
-        ClampR(rBytes);
-
-        // Convert r and s to BigInteger
-        // Append 0 byte to ensure positive (unsigned) interpretation
-        var rPos = new byte[17];
-        rBytes.CopyTo(rPos);
-        var r = new BigInteger(rPos);
-
-        var sPos = new byte[17];
-        sBytes.CopyTo(sPos);
-        var s = new BigInteger(sPos);
-
-        BigInteger acc = BigInteger.Zero;
+        byte[] rPos = new byte[17];
+        byte[] sPos = new byte[17];
 
         try
         {
-            var offset = 0;
-            while (offset < message.Length)
+            key[..16].CopyTo(rBytes);
+            key.Slice(16, 16).CopyTo(sBytes);
+            ClampR(rBytes);
+
+            // Preserve the existing unsigned little-endian BigInteger treatment.
+            rBytes.CopyTo(rPos);
+            sBytes.CopyTo(sPos);
+            var r = new BigInteger(rPos);
+            var s = new BigInteger(sPos);
+
+            BigInteger acc = AccumulateBlocks(BigInteger.Zero, first, r, padFinalBlock: isAead);
+            if (isAead)
             {
-                var blockSize = Math.Min(BLOCK_SIZE, message.Length - offset);
-                var block = message.Slice(offset, blockSize);
+                acc = AccumulateBlocks(acc, second, r, padFinalBlock: true);
 
-                // Convert block to number
-                // Rule: add 0x01 byte after block
-                var blockNumBytes = new byte[blockSize + 2]; // +1 for 0x01, +1 for sign (0)
-                block.CopyTo(blockNumBytes);
-                blockNumBytes[blockSize] = 1;
-
-                var n = new BigInteger(blockNumBytes);
-
-                // acc += n
-                acc += n;
-
-                // acc = (acc * r) % P
-                acc = (acc * r) % P;
-
-                offset += blockSize;
+                // RFC 8439 length block: two unsigned little-endian 64-bit lengths.
+                // This is also a complete Poly1305 block and requires no padding.
+                Span<byte> lengths = stackalloc byte[16];
+                try
+                {
+                    BinaryHelpers.WriteUInt64LittleEndian(lengths[..8], (ulong)first.Length);
+                    BinaryHelpers.WriteUInt64LittleEndian(lengths[8..], (ulong)second.Length);
+                    acc = AccumulateBlocks(acc, lengths, r, padFinalBlock: false);
+                }
+                finally
+                {
+                    SecureMemoryOperations.SecureClear(lengths);
+                }
             }
 
-            // acc += s
             acc += s;
-
-            // tag = acc % 2^128
-            // Effectively take lower 16 bytes
             var finalBytes = acc.ToByteArray();
-            var resultTag = new byte[16]; // Zeros
-
-            // Copy bytes up to 16
-            var loopLen = Math.Min(16, finalBytes.Length);
-            Array.Copy(finalBytes, resultTag, loopLen);
-
+            var resultTag = new byte[TAG_SIZE];
+            Array.Copy(finalBytes, resultTag, Math.Min(TAG_SIZE, finalBytes.Length));
             resultTag.CopyTo(tag);
         }
         finally
         {
-            // Clean up stack buffers
+            // Best effort only: BigInteger is immutable and can retain key-derived
+            // values in managed/JIT/native copies outside these owned buffers.
             SecureMemoryOperations.SecureClear(rBytes);
             SecureMemoryOperations.SecureClear(sBytes);
+            SecureMemoryOperations.SecureClear(rPos.AsSpan());
+            SecureMemoryOperations.SecureClear(sPos.AsSpan());
         }
+    }
+
+    private static BigInteger AccumulateBlocks(BigInteger accumulator, ReadOnlySpan<byte> input,
+        BigInteger r, bool padFinalBlock)
+    {
+        int offset = 0;
+        while (offset < input.Length)
+        {
+            int actualLength = Math.Min(BLOCK_SIZE, input.Length - offset);
+            int authenticatedLength = padFinalBlock ? BLOCK_SIZE : actualLength;
+            byte[] blockBytes = new byte[authenticatedLength + 2];
+            input.Slice(offset, actualLength).CopyTo(blockBytes);
+            blockBytes[authenticatedLength] = 1;
+            var n = new BigInteger(blockBytes);
+            accumulator = ((accumulator + n) * r) % P;
+            offset += actualLength;
+        }
+
+        return accumulator;
     }
 
     /// <summary>

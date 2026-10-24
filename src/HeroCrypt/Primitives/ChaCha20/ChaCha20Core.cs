@@ -150,7 +150,6 @@ internal sealed class ChaCha20Core
                     SecureMemoryOperations.SecureClear(keystream);
                 }
             }
-
         }
         finally
         {
@@ -199,7 +198,6 @@ internal sealed class ChaCha20Core
                 output[(i * 4) + 2] = (byte)(value >> 16);
                 output[(i * 4) + 3] = (byte)(value >> 24);
             }
-
         }
         finally
         {

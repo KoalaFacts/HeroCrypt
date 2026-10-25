@@ -159,7 +159,6 @@ public static class ChaChaVariants
                 // Clear keystream
                 SecureMemoryOperations.SecureClear(keystream);
             }
-
         }
         finally
         {
@@ -212,7 +211,6 @@ public static class ChaChaVariants
                 // Generate keystream block
                 GenerateKeystreamBlock(keystreamBlock, state, (int)variant);
             }
-
         }
         finally
         {
@@ -334,7 +332,6 @@ public static class ChaChaVariants
                 keystream[(i * 4) + 2] = (byte)(value >> 16);
                 keystream[(i * 4) + 3] = (byte)(value >> 24);
             }
-
         }
         finally
         {

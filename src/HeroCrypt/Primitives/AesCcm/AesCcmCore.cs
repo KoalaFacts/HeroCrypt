@@ -278,6 +278,9 @@ internal sealed class AesCcmCore
         {
             // Encode AAD length
             Span<byte> aadBlock = stackalloc byte[BLOCK_SIZE];
+            // CBC-MAC authenticates a complete block: the unused AAD prefix tail
+            // must be explicit zero padding, never unspecified stackalloc data.
+            aadBlock.Clear();
             int aadOffset;
 
             if (associatedData.Length < 0xFF00)
@@ -570,6 +573,8 @@ internal sealed class AesCcmCore
     private long GetMaxPlaintextLength(int nonceSize)
     {
         var L = 15 - nonceSize;
-        return (1L << (L * 8)) - 1;
+        // A seven-byte nonce gives L=8. Shifting a signed long by 64
+        // wraps the shift count to zero; all int-sized spans fit in that case.
+        return L == 8 ? int.MaxValue : (1L << (L * 8)) - 1;
     }
 }

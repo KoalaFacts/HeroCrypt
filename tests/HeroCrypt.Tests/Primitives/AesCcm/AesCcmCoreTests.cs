@@ -245,5 +245,88 @@ public class AesCcmCoreTests
             Assert.Equal(plaintext.Length + 8, result.Ciphertext.Length);
             CryptoAssertions.AssertBytesEqual(expectedCiphertext, result.Ciphertext);
         }
+
+        [Fact]
+        public void IndependentAesCcm_SevenByteNonceShortAad_MatchesReferenceVector()
+        {
+            // Independent AES-CCM reference output generated using the PyCA
+            // cryptography AESCCM implementation (AES-128, tag length 8).
+            // This runs even where the platform's .NET AesCcm is unsupported.
+            var key = TestHelpers.HexToBytes("000102030405060708090a0b0c0d0e0f");
+            var nonce = TestHelpers.HexToBytes("00010203040506");
+            var plaintext = TestHelpers.HexToBytes("42");
+            var associatedData = TestHelpers.HexToBytes("010203");
+            var expectedCiphertextAndTag = TestHelpers.HexToBytes("150d713f03056422e8");
+
+            var actual = core.Encrypt(plaintext, key, nonce, associatedData, tagSize: 8);
+            CryptoAssertions.AssertBytesEqual(expectedCiphertextAndTag, actual.Ciphertext);
+            CryptoAssertions.AssertBytesEqual(plaintext,
+                core.Decrypt(expectedCiphertextAndTag, key, nonce, associatedData, tagSize: 8));
+        }
+
+        [Theory]
+        [InlineData(7, 0, 0, 8)]
+        [InlineData(7, 1, 3, 8)]
+        [InlineData(7, 17, 14, 8)]
+        [InlineData(7, 17, 15, 8)]
+        [InlineData(13, 1, 1, 16)]
+        [InlineData(13, 31, 13, 16)]
+        [InlineData(13, 31, 14, 16)]
+        [InlineData(13, 31, 15, 16)]
+        [InlineData(13, 1, 0xFEFF, 16)]
+        [InlineData(13, 1, 0xFF00, 16)]
+        public void DotNetAesCcm_EncryptDecrypt_MatchesAcrossAadAndNonceBoundaries(
+            int nonceLength, int plaintextLength, int associatedDataLength, int tagSize)
+        {
+            // RFC 3610 known-answer and the independent seven-byte-nonce
+            // vector above remain unconditional, even on unsupported platforms.
+            Assert.SkipUnless(
+                System.Security.Cryptography.AesCcm.IsSupported,
+                "The platform BCL has no AES-CCM provider; independent vectors still run.");
+
+            var key = new byte[KEY_SIZE];
+            for (var i = 0; i < key.Length; i++) key[i] = (byte)i;
+            var nonce = new byte[nonceLength];
+            for (var i = 0; i < nonce.Length; i++) nonce[i] = (byte)(i + 1);
+            var plaintext = new byte[plaintextLength];
+            for (var i = 0; i < plaintext.Length; i++) plaintext[i] = (byte)(i * 17 + 3);
+            var associatedData = new byte[associatedDataLength];
+            for (var i = 0; i < associatedData.Length; i++)
+                associatedData[i] = (byte)(i * 13 + 5);
+
+            var referenceCiphertext = new byte[plaintextLength];
+            var referenceTag = new byte[tagSize];
+            using var bcl = new System.Security.Cryptography.AesCcm(key);
+            bcl.Encrypt(nonce, plaintext, referenceCiphertext, referenceTag, associatedData);
+
+            var result = core.Encrypt(plaintext, key, nonce, associatedData, tagSize);
+            CryptoAssertions.AssertBytesEqual(referenceCiphertext,
+                result.Ciphertext.AsSpan(0, plaintextLength).ToArray());
+            CryptoAssertions.AssertBytesEqual(referenceTag,
+                result.Ciphertext.AsSpan(plaintextLength, tagSize).ToArray());
+
+            // Verify HeroCrypt accepts independent BCL output.
+            var referenceCombined = new byte[plaintextLength + tagSize];
+            referenceCiphertext.CopyTo(referenceCombined, 0);
+            referenceTag.CopyTo(referenceCombined, plaintextLength);
+            CryptoAssertions.AssertBytesEqual(plaintext,
+                core.Decrypt(referenceCombined, key, nonce, associatedData, tagSize));
+
+            // Verify the reverse interoperability direction.
+            var bclPlaintext = new byte[plaintextLength];
+            bcl.Decrypt(nonce,
+                result.Ciphertext.AsSpan(0, plaintextLength),
+                result.Ciphertext.AsSpan(plaintextLength, tagSize),
+                bclPlaintext, associatedData);
+            CryptoAssertions.AssertBytesEqual(plaintext, bclPlaintext);
+
+            if (associatedDataLength > 0 && associatedDataLength < 16)
+            {
+                var alteredAad = (byte[])associatedData.Clone();
+                alteredAad[0] ^= 1;
+                Assert.Throws<CryptographicException>(
+                    () => core.Decrypt(referenceCombined, key, nonce, alteredAad, tagSize));
+            }
+        }
     }
 }

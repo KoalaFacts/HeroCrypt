@@ -187,6 +187,7 @@ internal sealed class AesCcmCore
 
         // Create key array once and clear it in finally block (avoid memory leak)
         var keyArray = key.ToArray();
+        var plaintextReturned = false;
 
         try
         {
@@ -202,34 +203,38 @@ internal sealed class AesCcmCore
             var ciphertextOnly = ciphertext[..plaintextLength];
             var receivedTag = ciphertext.Slice(plaintextLength, tagSize);
 
-            // Decrypt ciphertext using CTR mode
+            // Clear both temporary tags even if a crypto provider throws while
+            // processing attacker-controlled ciphertext or authentication data.
             Span<byte> decryptedTag = stackalloc byte[tagSize];
-            DecryptCtr(plaintext, decryptedTag, ciphertextOnly, receivedTag, nonce, encryptor);
-
-            // Compute expected tag
             Span<byte> expectedTag = stackalloc byte[BLOCK_SIZE];
-            ComputeTag(expectedTag, plaintext, associatedData, nonce, encryptor, tagSize);
-
-            // Verify tag in constant time
-            var tagMatch = SecureMemoryOperations.ConstantTimeEquals(
-                decryptedTag,
-                expectedTag[..tagSize]);
-
-            // Clear sensitive data
-            SecureMemoryOperations.SecureClear(expectedTag);
-            SecureMemoryOperations.SecureClear(decryptedTag);
-
-            if (!tagMatch)
+            var tagMatch = false;
+            try
             {
-                // Clear plaintext on authentication failure
-                SecureMemoryOperations.SecureClear(plaintext);
-                throw new CryptographicException("AES-CCM decryption failed: authentication tag mismatch.");
+                DecryptCtr(plaintext, decryptedTag, ciphertextOnly, receivedTag, nonce, encryptor);
+                ComputeTag(expectedTag, plaintext, associatedData, nonce, encryptor, tagSize);
+
+                // Verify the entire authentication tag in constant time.
+                tagMatch = SecureMemoryOperations.ConstantTimeEquals(
+                    decryptedTag, expectedTag[..tagSize]);
+            }
+            finally
+            {
+                SecureMemoryOperations.SecureClear(expectedTag);
+                SecureMemoryOperations.SecureClear(decryptedTag);
             }
 
+            if (!tagMatch)
+                throw new CryptographicException("AES-CCM decryption failed: authentication tag mismatch.");
+
+            plaintextReturned = true;
             return plaintext;
         }
         finally
         {
+            // Never leave partially decrypted or unauthenticated plaintext in
+            // a managed buffer when authentication or a crypto provider fails.
+            if (!plaintextReturned)
+                SecureMemoryOperations.SecureClear(plaintext);
             SecureMemoryOperations.SecureClear(keyArray);
         }
     }

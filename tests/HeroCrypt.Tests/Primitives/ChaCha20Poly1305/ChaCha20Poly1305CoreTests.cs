@@ -321,7 +321,6 @@ public class ChaCha20Poly1305CoreTests
 
             CryptoAssertions.AssertBytesEqual(plaintext, decrypted);
         }
-    }
 
         [Theory]
         [InlineData(0, 0)]
@@ -378,5 +377,5 @@ public class ChaCha20Poly1305CoreTests
             alteredNonce[0] ^= 1;
             Assert.Throws<CryptographicException>(() => core.Decrypt(bclCombined, key, alteredNonce, associatedData));
         }
-
+    }
 }

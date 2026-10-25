@@ -134,32 +134,37 @@ public static class ChaChaVariants
         // Move stackalloc outside the loop to prevent stack overflow
         Span<byte> keystream = stackalloc byte[BLOCK_SIZE];
 
-        for (int blockIndex = 0; blockIndex < blocks; blockIndex++)
+        try
         {
-            int blockStart = blockIndex * BLOCK_SIZE;
-            int blockSize = Math.Min(BLOCK_SIZE, input.Length - blockStart);
-
-            ReadOnlySpan<byte> inputBlock = input.Slice(blockStart, blockSize);
-            Span<byte> outputBlock = output.Slice(blockStart, blockSize);
-
-            // Initialize state for this block
-            InitializeState(state, key, nonce, counter + (uint)blockIndex);
-
-            // Generate keystream block (reuse the keystream buffer)
-            GenerateKeystreamBlock(keystream, state, (int)variant);
-
-            // XOR with input
-            for (int i = 0; i < blockSize; i++)
+            for (int blockIndex = 0; blockIndex < blocks; blockIndex++)
             {
-                outputBlock[i] = (byte)(inputBlock[i] ^ keystream[i]);
+                int blockStart = blockIndex * BLOCK_SIZE;
+                int blockSize = Math.Min(BLOCK_SIZE, input.Length - blockStart);
+
+                ReadOnlySpan<byte> inputBlock = input.Slice(blockStart, blockSize);
+                Span<byte> outputBlock = output.Slice(blockStart, blockSize);
+
+                // Initialize state for this block
+                InitializeState(state, key, nonce, counter + (uint)blockIndex);
+
+                // Generate keystream block (reuse the keystream buffer)
+                GenerateKeystreamBlock(keystream, state, (int)variant);
+
+                // XOR with input
+                for (int i = 0; i < blockSize; i++)
+                {
+                    outputBlock[i] = (byte)(inputBlock[i] ^ keystream[i]);
+                }
+
+                // Clear keystream
+                SecureMemoryOperations.SecureClear(keystream);
             }
-
-            // Clear keystream
-            SecureMemoryOperations.SecureClear(keystream);
         }
-
-        // Clear state
-        SecureMemoryOperations.SecureClear(state);
+        finally
+        {
+            SecureMemoryOperations.SecureClear(keystream);
+            SecureMemoryOperations.SecureClear(state);
+        }
     }
 
     /// <summary>
@@ -193,20 +198,24 @@ public static class ChaChaVariants
 
         Span<uint> state = stackalloc uint[16];
 
-        for (int blockIndex = 0; blockIndex < blocks; blockIndex++)
+        try
         {
-            int blockStart = blockIndex * BLOCK_SIZE;
-            Span<byte> keystreamBlock = keystream.Slice(blockStart, BLOCK_SIZE);
+            for (int blockIndex = 0; blockIndex < blocks; blockIndex++)
+            {
+                int blockStart = blockIndex * BLOCK_SIZE;
+                Span<byte> keystreamBlock = keystream.Slice(blockStart, BLOCK_SIZE);
 
-            // Initialize state for this block
-            InitializeState(state, key, nonce, counter + (uint)blockIndex);
+                // Initialize state for this block
+                InitializeState(state, key, nonce, counter + (uint)blockIndex);
 
-            // Generate keystream block
-            GenerateKeystreamBlock(keystreamBlock, state, (int)variant);
+                // Generate keystream block
+                GenerateKeystreamBlock(keystreamBlock, state, (int)variant);
+            }
         }
-
-        // Clear state
-        SecureMemoryOperations.SecureClear(state);
+        finally
+        {
+            SecureMemoryOperations.SecureClear(state);
+        }
     }
 
     /// <summary>
@@ -287,43 +296,47 @@ public static class ChaChaVariants
     {
         // Create working copy
         Span<uint> workingState = stackalloc uint[16];
-        state.CopyTo(workingState);
-
-        // Perform the specified number of rounds
-        int doubleRounds = rounds / 2;
-        for (int i = 0; i < doubleRounds; i++)
+        try
         {
-            // Odd round - column rounds
-            QuarterRound(workingState, 0, 4, 8, 12);
-            QuarterRound(workingState, 1, 5, 9, 13);
-            QuarterRound(workingState, 2, 6, 10, 14);
-            QuarterRound(workingState, 3, 7, 11, 15);
+            state.CopyTo(workingState);
 
-            // Even round - diagonal rounds
-            QuarterRound(workingState, 0, 5, 10, 15);
-            QuarterRound(workingState, 1, 6, 11, 12);
-            QuarterRound(workingState, 2, 7, 8, 13);
-            QuarterRound(workingState, 3, 4, 9, 14);
+            // Perform the specified number of rounds
+            int doubleRounds = rounds / 2;
+            for (int i = 0; i < doubleRounds; i++)
+            {
+                // Odd round - column rounds
+                QuarterRound(workingState, 0, 4, 8, 12);
+                QuarterRound(workingState, 1, 5, 9, 13);
+                QuarterRound(workingState, 2, 6, 10, 14);
+                QuarterRound(workingState, 3, 7, 11, 15);
+
+                // Even round - diagonal rounds
+                QuarterRound(workingState, 0, 5, 10, 15);
+                QuarterRound(workingState, 1, 6, 11, 12);
+                QuarterRound(workingState, 2, 7, 8, 13);
+                QuarterRound(workingState, 3, 4, 9, 14);
+            }
+
+            // Add original state to working state
+            for (int i = 0; i < 16; i++)
+            {
+                workingState[i] += state[i];
+            }
+
+            // Convert to bytes (little-endian)
+            for (int i = 0; i < 16; i++)
+            {
+                uint value = workingState[i];
+                keystream[i * 4] = (byte)value;
+                keystream[(i * 4) + 1] = (byte)(value >> 8);
+                keystream[(i * 4) + 2] = (byte)(value >> 16);
+                keystream[(i * 4) + 3] = (byte)(value >> 24);
+            }
         }
-
-        // Add original state to working state
-        for (int i = 0; i < 16; i++)
+        finally
         {
-            workingState[i] += state[i];
+            SecureMemoryOperations.SecureClear(workingState);
         }
-
-        // Convert to bytes (little-endian)
-        for (int i = 0; i < 16; i++)
-        {
-            uint value = workingState[i];
-            keystream[i * 4] = (byte)value;
-            keystream[(i * 4) + 1] = (byte)(value >> 8);
-            keystream[(i * 4) + 2] = (byte)(value >> 16);
-            keystream[(i * 4) + 3] = (byte)(value >> 24);
-        }
-
-        // Clear working state
-        SecureMemoryOperations.SecureClear(workingState);
     }
 
     /// <summary>

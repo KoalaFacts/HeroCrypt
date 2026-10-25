@@ -97,14 +97,9 @@ A cryptographic library for .NET with standards-based primitives, OpenPGP suppor
   - Threshold signature operations are disabled: the former simulation did not authenticate signatures
   - MPC, private set intersection, and Beaver triple operations are disabled in 1.0.2: the former local simulation did not provide distributed privacy or authenticated computation; see the [migration guide](docs/migration-guide.md#mpc-security-change-in-v102).
 
-- **🔒 Hardware Security Integration (Abstraction Layer)**
-  - PKCS#11 HSM integration - Industry-standard hardware security module API
-  - Azure Key Vault connector - Cloud HSM integration with Azure
-  - TPM 2.0 support - Trusted Platform Module for platform integrity
-  - TEE abstractions - Intel SGX and ARM TrustZone trusted execution
-  - Hardware RNG - Intel RDRAND/RDSEED optimizations with automatic fallback
-  - Sealed storage, remote attestation, and secure key management
-  - ⚠️ Abstraction layers requiring vendor SDK and hardware/cloud access
+- **🔒 Integration boundaries**
+  - The repository includes hardware capability detection helpers, not integrated PKCS#11 HSM, Azure Key Vault, TPM/TEE, sealed storage or remote-attestation providers.
+  - External HSM/cloud-key integrations require separate implementations and security review.
 
 - **⚡ Performance & allocation**
   - Synchronous `ReadOnlySpan<byte>` entry points avoid some caller-side copying; individual implementations can still allocate internally
@@ -118,13 +113,7 @@ A cryptographic library for .NET with standards-based primitives, OpenPGP suppor
   - [X3DH Identity Handshake](docs/x3dh.md) - X25519/SHA-256 and normalized XEdDSA signed prekeys, optional one-time prekeys, explicit expected-peer identity checks and transactional first-message acceptance. Requires independently verified identities; no Signal wire interoperability or persistence.
   - OTR Messaging - Educational/reference implementation; not a qualified production protocol
   - OPAQUE PAKE - Educational/reference implementation; not a qualified production protocol
-  - TLS 1.3 - Custom cipher suites, 0-RTT resumption, certificate pinning
-
-- **🏢 Enterprise Features**
-  - Certificate Authority - X.509 certificate generation, CRL, OCSP responder
-  - Compliance Framework - Abstractions requiring external implementations and security review; API names do not confer certification
-  - Key Management Service - Centralized KMS with lifecycle management and RBAC
-  - Audit Logging - Comprehensive security event tracking and compliance reporting
+  - TLS 1.3 transport, CA/OCSP responder, hosted KMS/RBAC, and compliance certification are not provided by this library.
 
 ## 🎯 Framework Support
 
@@ -178,7 +167,7 @@ dotnet add package HeroCrypt
 HeroCrypt provides three levels of API access:
 1. **Primitives** - Direct access to algorithms: `HeroCryptBuilder.ChaCha20Poly1305()`
 2. **Operations** - Algorithm-agnostic facades: `HeroCryptBuilder.Encrypt().WithChaCha20Poly1305()`
-3. **Protocols** - Complex constructions: `HeroCryptBuilder.Pgp()`, `HeroCryptBuilder.Bip32()`
+3. **Protocols** - Complex constructions: `HeroCryptBuilder.HdWallet()` for supported BIP32/BIP39 operations; OpenPGP message/packet APIs are separate from these fluent factories
 
 ### Encryption with ChaCha20-Poly1305
 
@@ -238,7 +227,8 @@ var signature = signer
 bool isValid = signer
     .WithPublicKey(publicKey)
     .WithMessage(data)
-    .Verify(signature);
+    .WithSignature(signature)
+    .Verify();
 ```
 
 ### Key Derivation with Argon2
@@ -310,27 +300,41 @@ var decrypted = HeroCryptBuilder.Decrypt()
 
 ### Password Hashing with Text Storage
 
+Store the KDF algorithm, its parameters, salt and derived verifier together. Restore **the same parameters** when verifying. Compare verifier **bytes**, not hex strings, using a fixed-time comparison:
+
 ```csharp
 using HeroCrypt;
+using System;
+using System.Security.Cryptography;
 
-// Hash a password and get values as text for storage
 using var kdf = HeroCryptBuilder.DeriveKey()
     .WithArgon2id()
     .WithPassword("mySecurePassword")
     .WithRandomSalt(16);
 
-var saltHex = kdf.GetSaltAsHex();
-var keyHex = kdf.DeriveKeyToHex();
-// Store saltHex and keyHex in your database
+string saltHex = kdf.GetSaltAsHex();
+byte[] keyBytes = kdf.DeriveKey();
+string keyHex = Convert.ToHexString(keyBytes);
+CryptographicOperations.ZeroMemory(keyBytes);
+// Store saltHex and keyHex, with the Argon2id parameters.
 
-// Later: Verify password using stored text values
-var derivedKey = HeroCryptBuilder.DeriveKey()
+using var verifier = HeroCryptBuilder.DeriveKey()
     .WithArgon2id()
     .WithPassword(enteredPassword)
-    .WithSaltFromHex(storedSaltHex)
-    .DeriveKeyToHex();
+    .WithSaltFromHex(storedSaltHex);
 
-bool isValid = derivedKey == storedKeyHex;
+byte[] candidate = verifier.DeriveKey();
+byte[] stored = Convert.FromHexString(storedKeyHex);
+bool isValid;
+try
+{
+    isValid = CryptographicOperations.FixedTimeEquals(candidate, stored);
+}
+finally
+{
+    CryptographicOperations.ZeroMemory(candidate);
+    CryptographicOperations.ZeroMemory(stored);
+}
 ```
 
 ### Hybrid Encryption with Text Formats (X25519)
@@ -379,25 +383,9 @@ var plaintext = HeroCryptBuilder.Decrypt()
 
 ### Post-Quantum Cryptography (.NET 10+)
 
-```csharp
-using HeroCrypt;
+The .NET 10 source exposes `HeroCryptBuilder.MLKem()` and `HeroCryptBuilder.MLDsa()` when a compatible provider is available. Configure `WithSecurityLevel(...)` and the appropriate key pair, public key or data before invoking the parameterless `Encapsulate()` or `Sign()` methods. Earlier examples using `MlKem()` / `MlDsa()`, `WithParameterSet(...)`, and positional sign/encapsulation arguments did not match these APIs and were removed.
 
-// ML-KEM: Quantum-resistant key encapsulation
-using var mlKem = HeroCryptBuilder.MlKem()
-    .WithParameterSet(MlKemParameterSet.MlKem768);
-
-var (publicKey, privateKey) = mlKem.GenerateKeyPair();
-var (ciphertext, sharedSecret) = mlKem.Encapsulate(publicKey);
-var decapsulated = mlKem.Decapsulate(ciphertext, privateKey);
-
-// ML-DSA: Quantum-resistant digital signatures
-using var mlDsa = HeroCryptBuilder.MlDsa()
-    .WithParameterSet(MlDsaParameterSet.MlDsa65);
-
-var (signingKey, verifyKey) = mlDsa.GenerateKeyPair();
-var signature = mlDsa.Sign(data, signingKey);
-bool isValid = mlDsa.Verify(data, signature, verifyKey);
-```
+A published-package PQC example still requires an actual consumer compilation before it is labelled runnable; repository CI does not prove that separate package-consumer example.
 
 ## 🏗️ Architecture
 

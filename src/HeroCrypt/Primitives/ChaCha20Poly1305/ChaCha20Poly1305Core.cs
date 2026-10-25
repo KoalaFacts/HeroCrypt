@@ -104,30 +104,34 @@ internal sealed class ChaCha20Poly1305Core
         var ciphertextWithoutTag = ciphertext.AsSpan(0, plaintext.Length);
         var tag = ciphertext.AsSpan(plaintext.Length, TAG_SIZE);
 
-        // Generate Poly1305 key using ChaCha20 with counter=0
+        // Generate the RFC 8439 Poly1305 one-time key from ChaCha20 block 0.
         Span<byte> poly1305Key = stackalloc byte[32];
         Span<byte> zeroBlock = stackalloc byte[32];
-        // The RFC 8439 block-0 Poly1305 key must be derived from an all-zero input.
-        // stackalloc contents are unspecified; do not depend on CLR local initialization.
-        zeroBlock.Clear();
-        chaCha20Core.Transform(poly1305Key, zeroBlock, key, nonceArray, 0);
-
-        // Encrypt plaintext using ChaCha20 with counter=1
-        chaCha20Core.Transform(ciphertextWithoutTag, plaintext, key, nonceArray, 1);
-
-        // Compute authentication tag
-        ComputeTag(tag, associatedData, ciphertextWithoutTag, poly1305Key);
-
-        // Clear sensitive data
-        SecureMemoryOperations.SecureClear(poly1305Key);
-        SecureMemoryOperations.SecureClear(zeroBlock);
-
-        return new ChaCha20Poly1305EncryptionResult
+        try
         {
-            Ciphertext = ciphertext,
-            Nonce = nonceArray,
-            TagSize = TAG_SIZE
-        };
+            // stackalloc contents are unspecified; block-0 input must be all zero.
+            zeroBlock.Clear();
+            chaCha20Core.Transform(poly1305Key, zeroBlock, key, nonceArray, 0);
+
+            // Encrypt plaintext using ChaCha20 with counter=1.
+            chaCha20Core.Transform(ciphertextWithoutTag, plaintext, key, nonceArray, 1);
+
+            // Compute authentication tag.
+            ComputeTag(tag, associatedData, ciphertextWithoutTag, poly1305Key);
+
+            return new ChaCha20Poly1305EncryptionResult
+            {
+                Ciphertext = ciphertext,
+                Nonce = nonceArray,
+                TagSize = TAG_SIZE
+            };
+        }
+        finally
+        {
+            // Best-effort cleanup, including failed encryption and MAC operations.
+            SecureMemoryOperations.SecureClear(poly1305Key);
+            SecureMemoryOperations.SecureClear(zeroBlock);
+        }
     }
 
     /// <summary>
@@ -166,40 +170,33 @@ internal sealed class ChaCha20Poly1305Core
         var ciphertextWithoutTag = ciphertext[..ciphertextLength];
         var receivedTag = ciphertext.Slice(ciphertextLength, TAG_SIZE);
 
-        // Generate Poly1305 key using ChaCha20 with counter=0
+        // Derive the RFC 8439 Poly1305 one-time key from ChaCha20 block 0.
         Span<byte> poly1305Key = stackalloc byte[32];
         Span<byte> zeroBlock = stackalloc byte[32];
-        // The RFC 8439 block-0 Poly1305 key must be derived from an all-zero input.
-        // stackalloc contents are unspecified; do not depend on CLR local initialization.
-        zeroBlock.Clear();
-        chaCha20Core.Transform(poly1305Key, zeroBlock, key, nonce, 0);
-
-        // Compute expected authentication tag
         Span<byte> expectedTag = stackalloc byte[TAG_SIZE];
-        ComputeTag(expectedTag, associatedData, ciphertextWithoutTag, poly1305Key);
-
-        // Verify tag in constant time
-        var tagValid = SecureMemoryOperations.ConstantTimeEquals(receivedTag, expectedTag);
-
-        // Clear computed tag
-        SecureMemoryOperations.SecureClear(expectedTag);
-
-        if (!tagValid)
+        try
         {
-            // Clear sensitive data and throw
+            // stackalloc contents are unspecified; block-0 input must be all zero.
+            zeroBlock.Clear();
+            chaCha20Core.Transform(poly1305Key, zeroBlock, key, nonce, 0);
+
+            // Verify the authentication tag before decrypting.
+            ComputeTag(expectedTag, associatedData, ciphertextWithoutTag, poly1305Key);
+            if (!SecureMemoryOperations.ConstantTimeEquals(receivedTag, expectedTag))
+            {
+                throw new CryptographicException("ChaCha20-Poly1305 decryption failed: authentication tag mismatch.");
+            }
+
+            chaCha20Core.Transform(plaintext, ciphertextWithoutTag, key, nonce, 1);
+            return plaintext;
+        }
+        finally
+        {
+            // Best-effort cleanup also runs on authentication or cipher failures.
+            SecureMemoryOperations.SecureClear(expectedTag);
             SecureMemoryOperations.SecureClear(poly1305Key);
             SecureMemoryOperations.SecureClear(zeroBlock);
-            throw new CryptographicException("ChaCha20-Poly1305 decryption failed: authentication tag mismatch.");
         }
-
-        // Decrypt ciphertext using ChaCha20 with counter=1
-        chaCha20Core.Transform(plaintext, ciphertextWithoutTag, key, nonce, 1);
-
-        // Clear sensitive data
-        SecureMemoryOperations.SecureClear(poly1305Key);
-        SecureMemoryOperations.SecureClear(zeroBlock);
-
-        return plaintext;
     }
 
     /// <summary>

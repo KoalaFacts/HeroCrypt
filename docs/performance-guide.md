@@ -13,6 +13,20 @@ The linked reports contain the source commits, assembly fingerprints, runtime/OS
 
 Claims such as “3–10× faster batches”, “8.5 GB/s AES”, and “4–8× AVX-512” were previously shown without reproducible source measurements. They are intentionally not repeated here. Detecting an instruction set does not prove that a particular HeroCrypt code path uses it.
 
+## ChaCha variant metadata is not a security or speed guarantee
+
+`ChaChaVariants.GetSecurityBits(...)` returns historical **64/96/128** labels and
+`ChaChaVariants.GetPerformanceMultiplier(...)` returns historical **2.5/1.7/1.0**
+ratios. Both methods are retained with their existing numeric values for public
+API compatibility; **neither provides an audited cryptanalytic security bound or
+measured HeroCrypt throughput**. In particular, reduced-round ChaCha8/12 does not
+acquire a defensible bit-security estimate merely from its round count. Do not
+use those values to select cryptography, claim compliance, or size production
+capacity. RFC 8439 specifies the 20-round variant; prefer its ChaCha20-Poly1305
+authenticated construction when integrity and authenticity are required. Measure
+runtime behavior with the reproducible methodology below and independently
+review any reduced-round deployment.
+
 ## Work with existing public APIs
 
 ### BLAKE2b hashing

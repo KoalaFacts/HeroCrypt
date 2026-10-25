@@ -264,6 +264,41 @@ public class AesCcmCoreTests
                 core.Decrypt(expectedCiphertextAndTag, key, nonce, associatedData, tagSize: 8));
         }
 
+
+        [Theory]
+        [InlineData(14, "157e0f1772e35d0dff")]
+        [InlineData(15, "150155db61e7f09333")]
+        [InlineData(0xFEFF, "15013f00b2ff339738")]
+        [InlineData(0xFF00, "151d14dfa7e2401fbd")]
+        public void IndependentAesCcm_AadEncodingBoundaries_MatchReferenceAndRejectTampering(
+            int associatedDataLength, string expectedCiphertextAndTagHex)
+        {
+            // Fixed independent PyCA cryptography 46.0.4 AESCCM/AES-128 vectors:
+            // nonce=00010203040506, plaintext=42, tag length=8; AAD bytes
+            // follow (13 * index + 5) modulo 256. These always execute,
+            // including where the platform BCL AesCcm provider is unsupported.
+            // Length 14 exactly fills the short-form first block after the
+            // two-byte length prefix; 15 crosses it. 0xFEFF/0xFF00 straddle
+            // the RFC 3610 short/extended AAD length encoding boundary.
+            var key = TestHelpers.HexToBytes("000102030405060708090a0b0c0d0e0f");
+            var nonce = TestHelpers.HexToBytes("00010203040506");
+            var plaintext = TestHelpers.HexToBytes("42");
+            var associatedData = new byte[associatedDataLength];
+            for (var i = 0; i < associatedData.Length; i++)
+                associatedData[i] = (byte)(i * 13 + 5);
+            var expected = TestHelpers.HexToBytes(expectedCiphertextAndTagHex);
+
+            var actual = core.Encrypt(plaintext, key, nonce, associatedData, tagSize: 8);
+            CryptoAssertions.AssertBytesEqual(expected, actual.Ciphertext);
+            CryptoAssertions.AssertBytesEqual(plaintext,
+                core.Decrypt(expected, key, nonce, associatedData, tagSize: 8));
+
+            var alteredAad = (byte[])associatedData.Clone();
+            alteredAad[0] ^= 1;
+            Assert.Throws<CryptographicException>(
+                () => core.Decrypt(expected, key, nonce, alteredAad, tagSize: 8));
+        }
+
         [Theory]
         [InlineData(7, 0, 0, 8)]
         [InlineData(7, 1, 3, 8)]

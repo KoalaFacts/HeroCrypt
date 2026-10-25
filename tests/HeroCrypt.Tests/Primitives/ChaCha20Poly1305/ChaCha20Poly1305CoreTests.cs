@@ -334,10 +334,9 @@ public class ChaCha20Poly1305CoreTests
         {
             // The published RFC vector above remains unconditional across all platforms.
             // The .NET BCL implementation is an independent interoperability oracle when available.
-            if (!System.Security.Cryptography.ChaCha20Poly1305.IsSupported)
-            {
-                return;
-            }
+            Assert.SkipUnless(
+                System.Security.Cryptography.ChaCha20Poly1305.IsSupported,
+                "The platform BCL has no ChaCha20-Poly1305 provider; the RFC 8439 vector still runs.");
 
             var key = TestHelpers.RandomBytes(KEY_SIZE);
             var nonce = TestHelpers.RandomBytes(NONCE_SIZE);

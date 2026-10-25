@@ -165,7 +165,6 @@ internal sealed class ChaCha20Poly1305Core
         }
 
         var ciphertextLength = ciphertext.Length - TAG_SIZE;
-        var plaintext = new byte[ciphertextLength];
 
         var ciphertextWithoutTag = ciphertext[..ciphertextLength];
         var receivedTag = ciphertext.Slice(ciphertextLength, TAG_SIZE);
@@ -187,6 +186,9 @@ internal sealed class ChaCha20Poly1305Core
                 throw new CryptographicException("ChaCha20-Poly1305 decryption failed: authentication tag mismatch.");
             }
 
+            // Allocate plaintext only after authenticating the untrusted ciphertext.
+            // A forged tag must not force a message-sized plaintext allocation.
+            var plaintext = new byte[ciphertextLength];
             chaCha20Core.Transform(plaintext, ciphertextWithoutTag, key, nonce, 1);
             return plaintext;
         }

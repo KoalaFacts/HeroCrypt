@@ -449,6 +449,27 @@ public class ChaChaVariantsCoreTests
     public class KnownAnswerTests
     {
         [Fact]
+        public void ChaCha20_RFC8439_Section232_ProducesSameBlockForBothEntryPoints()
+        {
+            // RFC 8439 section 2.3.2: key 00..1F, counter 1,
+            // nonce 000000090000004A00000000.
+            byte[] key = Convert.FromHexString(
+                "000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F");
+            byte[] nonce = Convert.FromHexString("000000090000004A00000000");
+            byte[] expected = Convert.FromHexString(
+                "10F1E7E4D13B5915500FDD1FA32071C4C7D1F4C733C068030422AA9AC3D46C4E" +
+                "D2826446079FAA0914C2D705D98B02A2B5129CD1DE164EB9CBD083E8A2503C4E");
+            byte[] keystream = new byte[BLOCK_SIZE];
+            byte[] transformed = new byte[BLOCK_SIZE];
+
+            GenerateKeystream(keystream, key, nonce, 1, ChaChaVariant.ChaCha20);
+            Transform(transformed, new byte[BLOCK_SIZE], key, nonce, 1, ChaChaVariant.ChaCha20);
+
+            Assert.Equal(expected, keystream);
+            Assert.Equal(expected, transformed);
+        }
+
+        [Fact]
         public void ChaCha20_IsDeterministic()
         {
             var key = TestHelpers.RandomBytes(KEY_SIZE);

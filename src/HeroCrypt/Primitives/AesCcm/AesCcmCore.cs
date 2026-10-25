@@ -231,8 +231,9 @@ internal sealed class AesCcmCore
         }
         finally
         {
-            // Never leave partially decrypted or unauthenticated plaintext in
-            // a managed buffer when authentication or a crypto provider fails.
+            // Best-effort scrub of the managed plaintext buffer after an
+            // authentication/provider exception; JIT, GC or native copies
+            // cannot be guaranteed to be cleared.
             if (!plaintextReturned)
                 SecureMemoryOperations.SecureClear(plaintext);
             SecureMemoryOperations.SecureClear(keyArray);

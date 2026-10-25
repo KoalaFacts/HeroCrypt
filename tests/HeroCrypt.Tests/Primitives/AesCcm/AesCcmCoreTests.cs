@@ -168,6 +168,46 @@ public class AesCcmCoreTests
     }
 
     /// <summary>
+    /// Tampering must not return unauthenticated plaintext or poison later calls.
+    /// The source additionally scrubs partial plaintext/tags on exceptions;
+    /// managed-buffer erasure is a best-effort property, not asserted here.
+    /// </summary>
+    [Trait("Category", TestCategories.SECURITY)]
+    [Trait("Category", TestCategories.FAST)]
+    public class AuthenticationFailureRecovery
+    {
+        private readonly AesCcmCore core = new();
+
+        [Fact]
+        public void Decrypt_RejectsTampering_ThenAcceptsAuthenticCiphertext()
+        {
+            var key = TestHelpers.RandomBytes(KEY_SIZE);
+            var nonce = TestHelpers.RandomBytes(NONCE_SIZE);
+            var plaintext = TestHelpers.RandomBytes(33);
+            var associatedData = TestHelpers.RandomBytes(17);
+            var result = core.Encrypt(plaintext, key, nonce, associatedData);
+
+            var alteredCiphertext = (byte[])result.Ciphertext.Clone();
+            alteredCiphertext[0] ^= 0x80;
+            Assert.Throws<CryptographicException>(() =>
+                core.Decrypt(alteredCiphertext, key, nonce, associatedData));
+
+            var alteredTag = (byte[])result.Ciphertext.Clone();
+            alteredTag[^1] ^= 0x01;
+            Assert.Throws<CryptographicException>(() =>
+                core.Decrypt(alteredTag, key, nonce, associatedData));
+
+            var alteredAad = (byte[])associatedData.Clone();
+            alteredAad[0] ^= 0x01;
+            Assert.Throws<CryptographicException>(() =>
+                core.Decrypt(result.Ciphertext, key, nonce, alteredAad));
+
+            CryptoAssertions.AssertBytesEqual(plaintext,
+                core.Decrypt(result.Ciphertext, key, nonce, associatedData));
+        }
+    }
+
+    /// <summary>
     /// Parameter validation tests.
     /// </summary>
     [Trait("Category", TestCategories.UNIT)]

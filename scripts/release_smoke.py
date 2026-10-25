@@ -97,6 +97,66 @@ foreach (var length in new[] { 0, 4087, 4088 })
 Console.WriteLine("Package consumer: source identity, BLAKE2b vector, OpenPGP GCM boundaries/tamper rejection passed");
 Console.WriteLine("Package consumer: invalid-input rejection, same-instance recovery and disposal passed");
 
+// Compiled against the exact nupkg, rather than linked source or a guessed API.
+// These cover the Ed25519 signing/verification and password-verifier builder
+// chains corrected in README.md. They do NOT validate every README example.
+{
+    using var signer = HeroCryptBuilder.Ed25519();
+    var (privateKey, publicKey) = signer.GenerateKeyPair();
+    var message = Encoding.UTF8.GetBytes("HeroCrypt packaged README Ed25519");
+    try
+    {
+        var signature = signer.WithPrivateKey(privateKey).WithMessage(message).Sign();
+        if (!signer.WithPublicKey(publicKey).WithMessage(message).WithSignature(signature).Verify())
+            throw new Exception("Packaged README-pattern Ed25519 signature failed verification");
+
+        var altered = (byte[])message.Clone();
+        altered[0] ^= 1;
+        if (signer.WithMessage(altered).Verify())
+            throw new Exception("Packaged README-pattern Ed25519 accepted a changed message");
+        System.Security.Cryptography.CryptographicOperations.ZeroMemory(signature);
+    }
+    finally
+    {
+        System.Security.Cryptography.CryptographicOperations.ZeroMemory(privateKey);
+    }
+}
+{
+    const string password = "HeroCrypt packaged README Argon2 verifier";
+    string saltHex;
+    string storedKeyHex;
+    using (var kdf = HeroCryptBuilder.DeriveKey().WithArgon2id()
+        .WithPassword(password).WithRandomSalt(16))
+    {
+        saltHex = kdf.GetSaltAsHex();
+        byte[] key = kdf.DeriveKey();
+        try
+        {
+            storedKeyHex = Convert.ToHexString(key);
+        }
+        finally
+        {
+            System.Security.Cryptography.CryptographicOperations.ZeroMemory(key);
+        }
+    }
+
+    using var verifier = HeroCryptBuilder.DeriveKey().WithArgon2id()
+        .WithPassword(password).WithSaltFromHex(saltHex);
+    byte[] candidate = verifier.DeriveKey();
+    byte[] stored = Convert.FromHexString(storedKeyHex);
+    try
+    {
+        if (!System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(candidate, stored))
+            throw new Exception("Packaged README-pattern Argon2 password verification failed");
+    }
+    finally
+    {
+        System.Security.Cryptography.CryptographicOperations.ZeroMemory(candidate);
+        System.Security.Cryptography.CryptographicOperations.ZeroMemory(stored);
+    }
+}
+Console.WriteLine("Packaged README-pattern Ed25519 and Argon2 verifier builder chains passed");
+
 static void ExpectDisposed(Action operation)
 {
     try { operation(); }

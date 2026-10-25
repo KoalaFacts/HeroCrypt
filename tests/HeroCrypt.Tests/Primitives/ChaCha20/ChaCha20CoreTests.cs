@@ -387,6 +387,21 @@ public class ChaCha20CoreTests
     {
         private readonly ChaCha20Core core = new();
 
+        [Theory]
+        [InlineData(0)]
+        [InlineData(15)]
+        [InlineData(17)]
+        public void GenerateKeystream_InvalidStateSize_RejectsBeforeModifyingOutput(int stateLength)
+        {
+            var output = Enumerable.Repeat((byte)0xA5, BLOCK_SIZE).ToArray();
+            var state = new uint[stateLength];
+
+            var exception = Assert.Throws<ArgumentException>(() => core.GenerateKeystream(output, state));
+
+            Assert.Equal("state", exception.ParamName);
+            Assert.All(output, value => Assert.Equal((byte)0xA5, value));
+        }
+
         [Fact]
         public void Transform_InvalidKeySize_ThrowsArgumentException()
         {
@@ -500,6 +515,27 @@ public class ChaCha20CoreTests
     public class KnownAnswerTests
     {
         private readonly ChaCha20Core core = new();
+
+        [Fact]
+        public void GenerateKeystream_RFC8439_Section232_ProducesExpectedBlock()
+        {
+            // RFC 8439 section 2.3.2: key 00..1F, counter 1, nonce 000000090000004A00000000.
+            uint[] state =
+            [
+                0x61707865u, 0x3320646eu, 0x79622d32u, 0x6b206574u,
+                0x03020100u, 0x07060504u, 0x0b0a0908u, 0x0f0e0d0cu,
+                0x13121110u, 0x17161514u, 0x1b1a1918u, 0x1f1e1d1cu,
+                1u, 0x09000000u, 0x4a000000u, 0u
+            ];
+            var expected = Convert.FromHexString(
+                "10F1E7E4D13B5915500FDD1FA32071C4C7D1F4C733C068030422AA9AC3D46C4E" +
+                "D2826446079FAA0914C2D705D98B02A2B5129CD1DE164EB9CBD083E8A2503C4E");
+            var output = new byte[BLOCK_SIZE];
+
+            core.GenerateKeystream(output, state);
+
+            Assert.Equal(expected, output);
+        }
 
         [Fact]
         public void RFC8439_Section242_TestVector()

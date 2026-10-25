@@ -122,11 +122,11 @@ Console.WriteLine("Package consumer: invalid-input rejection, same-instance reco
     }
 }
 {
-    const string password = "HeroCrypt packaged README Argon2 verifier";
+    const string argon2Password = "HeroCrypt packaged README Argon2 verifier";
     string saltHex;
     string storedKeyHex;
     using (var kdf = HeroCryptBuilder.DeriveKey().WithArgon2id()
-        .WithPassword(password).WithRandomSalt(16))
+        .WithPassword(argon2Password).WithRandomSalt(16))
     {
         saltHex = kdf.GetSaltAsHex();
         byte[] key = kdf.DeriveKey();
@@ -141,7 +141,7 @@ Console.WriteLine("Package consumer: invalid-input rejection, same-instance reco
     }
 
     using var verifier = HeroCryptBuilder.DeriveKey().WithArgon2id()
-        .WithPassword(password).WithSaltFromHex(saltHex);
+        .WithPassword(argon2Password).WithSaltFromHex(saltHex);
     byte[] candidate = verifier.DeriveKey();
     byte[] stored = Convert.FromHexString(storedKeyHex);
     try

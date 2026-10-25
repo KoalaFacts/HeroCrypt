@@ -295,12 +295,25 @@ public class ChaCha20Poly1305CoreTests
             var ad = TestHelpers.HexToBytes("50515253c0c1c2c3c4c5c6c7");
             var plaintext = Encoding.UTF8.GetBytes("Ladies and Gentlemen of the class of '99: If I could offer you only one tip for the future, sunscreen would be it.");
 
+            // RFC 8439 §2.8.2: independently specified complete ciphertext, not only its tag.
+            var expectedCiphertext = TestHelpers.HexToBytes(
+                "d31a8d34648e60db7b86afbc53ef7ec2" +
+                "a4aded51296e08fea9e2b5a736ee62d6" +
+                "3dbea45e8ca9671282fafb69da92728b" +
+                "1a71de0a9e060b2905d6a5b67ecd3b36" +
+                "92ddbd7f2d778b8c9803aee328091b58" +
+                "fab324e4fad675945585808b4831d7bc" +
+                "3ff4def08e4b7a9de576d26586cec64b" +
+                "6116");
+
             var expectedTag = TestHelpers.HexToBytes("1ae10b594f09e26a7e902ecbd0600691");
 
             var result = core.Encrypt(plaintext, key, nonce, ad);
 
             var actualTag = result.Ciphertext.AsSpan().Slice(plaintext.Length, TAG_SIZE).ToArray();
 
+            CryptoAssertions.AssertBytesEqual(expectedCiphertext,
+                result.Ciphertext.AsSpan(0, plaintext.Length).ToArray());
             CryptoAssertions.AssertBytesEqual(expectedTag, actualTag);
 
             // Decrypt as well

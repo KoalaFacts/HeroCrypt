@@ -107,6 +107,9 @@ internal sealed class ChaCha20Poly1305Core
         // Generate Poly1305 key using ChaCha20 with counter=0
         Span<byte> poly1305Key = stackalloc byte[32];
         Span<byte> zeroBlock = stackalloc byte[32];
+        // The RFC 8439 block-0 Poly1305 key must be derived from an all-zero input.
+        // stackalloc contents are unspecified; do not depend on CLR local initialization.
+        zeroBlock.Clear();
         chaCha20Core.Transform(poly1305Key, zeroBlock, key, nonceArray, 0);
 
         // Encrypt plaintext using ChaCha20 with counter=1
@@ -166,6 +169,9 @@ internal sealed class ChaCha20Poly1305Core
         // Generate Poly1305 key using ChaCha20 with counter=0
         Span<byte> poly1305Key = stackalloc byte[32];
         Span<byte> zeroBlock = stackalloc byte[32];
+        // The RFC 8439 block-0 Poly1305 key must be derived from an all-zero input.
+        // stackalloc contents are unspecified; do not depend on CLR local initialization.
+        zeroBlock.Clear();
         chaCha20Core.Transform(poly1305Key, zeroBlock, key, nonce, 0);
 
         // Compute expected authentication tag

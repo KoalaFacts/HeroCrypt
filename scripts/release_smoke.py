@@ -148,6 +148,21 @@ Console.WriteLine("Package consumer: invalid-input rejection, same-instance reco
     {
         if (!System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(candidate, stored))
             throw new Exception("Packaged README-pattern Argon2 password verification failed");
+
+        // A positive-only password test would not catch a verifier that ignores
+        // the entered password. Keep the stored salt and KDF parameters fixed.
+        using var incorrectVerifier = HeroCryptBuilder.DeriveKey().WithArgon2id()
+            .WithPassword(argon2Password + " (incorrect)").WithSaltFromHex(saltHex);
+        byte[] incorrectCandidate = incorrectVerifier.DeriveKey();
+        try
+        {
+            if (System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(incorrectCandidate, stored))
+                throw new Exception("Packaged README-pattern Argon2 accepted an incorrect password");
+        }
+        finally
+        {
+            System.Security.Cryptography.CryptographicOperations.ZeroMemory(incorrectCandidate);
+        }
     }
     finally
     {

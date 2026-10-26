@@ -4,6 +4,8 @@
 
 ### Security
 
+- **AES-SIV builder missing/empty nonce (proposed; not released):** Fix no-nonce encryption implicitly generating a random nonce that the builder discarded, leaving its ciphertext undecryptable through that API. Missing/empty nonce now selects RFC 5297 deterministic mode; a zero-length request for a *random* nonce is rejected. Pre-fix ciphertext with an unrecorded internal nonce may be unrecoverable; do not skip authentication or guess a nonce. See [issue #198](https://github.com/KoalaFacts/HeroCrypt/issues/198).
+
 - Validate OpenPGP Argon2 S2K passes, parallelism, and the full memory-exponent
   range before shifting or deriving keys. Reject exponent aliases and explicitly
   report the implementation limit for exponent 31.

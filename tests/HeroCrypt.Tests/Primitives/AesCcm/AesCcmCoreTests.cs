@@ -422,6 +422,103 @@ public class AesCcmCoreTests
         }
 
         [Theory]
+        [InlineData(24, 7, 0, 15, 12, "798cea25155c2414c23383f9")]
+        [InlineData(24, 10, 33, 0, 4, "1698bb6d9e4560ae3704f87d28183078e51e37c645343ac727b65ce3453e57545cc340c60d")]
+        [InlineData(32, 13, 17, 15, 16, "d7f6baa933c68b9f47aabdcf0383b615aa4e20aca144d7d36583734eec5ee5b3f4")]
+        [InlineData(32, 9, 31, 14, 6, "5e860efea8cc3b5b1e7e7fa0566e40d62f0034e0c1bce7a6abb375221c538ca18f33e8d7ef")]
+        public void IndependentAesCcm_Aes192AndAes256_MatchReferenceAndRejectTampering(
+            int keySize, int nonceSize, int plaintextLength, int associatedDataLength,
+            int tagSize, string expectedCiphertextAndTagHex)
+        {
+            // Fixed external PyCA cryptography 46.0.4 AESCCM references.
+            // Covers 192/256-bit AES, zero-length plaintext, short tags, and
+            // CBC-MAC AAD padding; executes even without a platform BCL provider.
+            var key = new byte[keySize];
+            for (var i = 0; i < key.Length; i++) key[i] = (byte)i;
+            var nonce = new byte[nonceSize];
+            for (var i = 0; i < nonce.Length; i++) nonce[i] = (byte)(i + 1);
+            var plaintext = new byte[plaintextLength];
+            for (var i = 0; i < plaintext.Length; i++)
+                plaintext[i] = (byte)(i * 17 + 3);
+            var associatedData = new byte[associatedDataLength];
+            for (var i = 0; i < associatedData.Length; i++)
+                associatedData[i] = (byte)(i * 13 + 5);
+            var expected = TestHelpers.HexToBytes(expectedCiphertextAndTagHex);
+
+            var actual = core.Encrypt(plaintext, key, nonce, associatedData, tagSize);
+            CryptoAssertions.AssertBytesEqual(expected, actual.Ciphertext);
+            CryptoAssertions.AssertBytesEqual(plaintext,
+                core.Decrypt(expected, key, nonce, associatedData, tagSize));
+
+            var alteredTag = (byte[])expected.Clone();
+            alteredTag[^1] ^= 0x01;
+            Assert.Throws<CryptographicException>(() =>
+                core.Decrypt(alteredTag, key, nonce, associatedData, tagSize));
+
+            var wrongKey = (byte[])key.Clone();
+            wrongKey[0] ^= 0x01;
+            Assert.Throws<CryptographicException>(() =>
+                core.Decrypt(expected, wrongKey, nonce, associatedData, tagSize));
+
+            if (associatedDataLength > 0)
+            {
+                var alteredAad = (byte[])associatedData.Clone();
+                alteredAad[0] ^= 0x01;
+                Assert.Throws<CryptographicException>(() =>
+                    core.Decrypt(expected, key, nonce, alteredAad, tagSize));
+            }
+        }
+
+        [Theory]
+        [InlineData(24, 7, 0, 15, 12)]
+        [InlineData(24, 10, 33, 0, 4)]
+        [InlineData(32, 13, 17, 15, 16)]
+        [InlineData(32, 9, 31, 14, 6)]
+        public void DotNetAesCcm_Aes192AndAes256_BidirectionalInteroperability(
+            int keySize, int nonceSize, int plaintextLength, int associatedDataLength, int tagSize)
+        {
+            // The independent AES-192/256 vectors above always run, even if
+            // the platform BCL AES-CCM provider is unavailable.
+            Assert.SkipUnless(System.Security.Cryptography.AesCcm.IsSupported,
+                "BCL AES-CCM provider unavailable; independent fixed vectors still execute.");
+
+            var key = new byte[keySize];
+            for (var i = 0; i < key.Length; i++) key[i] = (byte)i;
+            var nonce = new byte[nonceSize];
+            for (var i = 0; i < nonce.Length; i++) nonce[i] = (byte)(i + 1);
+            var plaintext = new byte[plaintextLength];
+            for (var i = 0; i < plaintext.Length; i++)
+                plaintext[i] = (byte)(i * 17 + 3);
+            var associatedData = new byte[associatedDataLength];
+            for (var i = 0; i < associatedData.Length; i++)
+                associatedData[i] = (byte)(i * 13 + 5);
+
+            using var bcl = new System.Security.Cryptography.AesCcm(key);
+            var bclCiphertext = new byte[plaintextLength];
+            var bclTag = new byte[tagSize];
+            bcl.Encrypt(nonce, plaintext, bclCiphertext, bclTag, associatedData);
+
+            var actual = core.Encrypt(plaintext, key, nonce, associatedData, tagSize);
+            CryptoAssertions.AssertBytesEqual(bclCiphertext,
+                actual.Ciphertext.AsSpan(0, plaintextLength).ToArray());
+            CryptoAssertions.AssertBytesEqual(bclTag,
+                actual.Ciphertext.AsSpan(plaintextLength, tagSize).ToArray());
+
+            var bclPlaintext = new byte[plaintextLength];
+            bcl.Decrypt(nonce,
+                actual.Ciphertext.AsSpan(0, plaintextLength),
+                actual.Ciphertext.AsSpan(plaintextLength, tagSize),
+                bclPlaintext, associatedData);
+            CryptoAssertions.AssertBytesEqual(plaintext, bclPlaintext);
+
+            var bclCombined = new byte[plaintextLength + tagSize];
+            bclCiphertext.CopyTo(bclCombined, 0);
+            bclTag.CopyTo(bclCombined, plaintextLength);
+            CryptoAssertions.AssertBytesEqual(plaintext,
+                core.Decrypt(bclCombined, key, nonce, associatedData, tagSize));
+        }
+
+        [Theory]
         [InlineData(13, 0xFFFF, "6bc40f63f19555f5f62abc056b53737700e9ec95eedb1da2bc69a2f3a5240c0a")]
         [InlineData(12, 0x10000, "4d36b4cd7f9dd2379a384bab3e8938c621a030a100a6b32cfce311a24ffd0242")]
         public void IndependentAesCcm_CounterLengthBoundary_MatchesReferenceAndEnforcesNonceLimit(

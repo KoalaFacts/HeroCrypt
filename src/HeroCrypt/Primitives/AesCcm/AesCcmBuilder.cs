@@ -12,25 +12,22 @@ namespace HeroCrypt.Primitives.AesCcm;
 /// <para>
 /// AES-CCM is widely used in IoT protocols including Bluetooth LE, Zigbee, Thread, and 802.15.4.
 /// </para>
-/// <para><b>Platform Support:</b></para>
-/// <list type="bullet">
-///   <item>
-///     <term>Windows</term>
-///     <description>Fully supported via Windows CNG.</description>
-///   </item>
-///   <item>
-///     <term>Linux</term>
-///     <description>Fully supported via OpenSSL.</description>
-///   </item>
-///   <item>
-///     <term>macOS</term>
-///     <description>
-///       Not supported. The macOS Security framework does not implement
-///       the CCM mode. Operations will throw <see cref="PlatformNotSupportedException"/>.
-///       Use AES-GCM as an alternative on macOS.
-///     </description>
-///   </item>
-/// </list>
+/// <para>
+/// <b>Platform support:</b> HeroCrypt implements CCM with CBC-MAC and CTR
+/// over the platform AES block cipher (<c>Aes.Create()</c>), not the
+/// <c>System.Security.Cryptography.AesCcm</c> AEAD provider. The implementation
+/// is exercised on Windows, Linux and macOS, including environments where
+/// the platform AES-CCM AEAD provider is unavailable. A working AES block
+/// cipher provider is still required.
+/// </para>
+/// <para>
+/// <b>Nonce safety:</b> A builder retains its configured nonce. Calling
+/// <c>Encrypt</c> repeatedly with the same key and nonce (even after
+/// <c>WithRandomNonce</c>) repeats a CCM nonce and compromises security.
+/// Choose a fresh nonce for every encryption under the same key, for example
+/// by invoking <c>WithRandomNonce</c> before each encryption, and save
+/// <c>GetNonce()</c> with the ciphertext. The builder does not prevent reuse.
+/// </para>
 /// </remarks>
 /// <example>
 /// <code>
@@ -127,7 +124,9 @@ public sealed class AesCcmBuilder : IDisposable
     }
 
     /// <summary>
-    /// Generates a random nonce and sets it.
+    /// Generates a random nonce and sets it. The value remains fixed until changed;
+    /// call again before every encryption with the same key to avoid AES-CCM
+    /// nonce reuse.
     /// </summary>
     /// <param name="nonceSize">The nonce size in bytes (default is 13).</param>
     /// <returns>The builder instance for method chaining.</returns>
@@ -178,6 +177,8 @@ public sealed class AesCcmBuilder : IDisposable
 
     /// <summary>
     /// Encrypts the plaintext and returns the ciphertext with authentication tag.
+    /// Configure a fresh unique nonce for each encryption with the same key;
+    /// this operation does not rotate the stored nonce automatically.
     /// </summary>
     /// <param name="plaintext">The data to encrypt.</param>
     /// <returns>The ciphertext including authentication tag.</returns>
@@ -192,6 +193,8 @@ public sealed class AesCcmBuilder : IDisposable
 
     /// <summary>
     /// Encrypts the plaintext and returns the ciphertext with authentication tag.
+    /// Configure a fresh unique nonce for each encryption with the same key;
+    /// this operation does not rotate the stored nonce automatically.
     /// </summary>
     /// <param name="plaintext">The data to encrypt.</param>
     /// <returns>The ciphertext including authentication tag.</returns>

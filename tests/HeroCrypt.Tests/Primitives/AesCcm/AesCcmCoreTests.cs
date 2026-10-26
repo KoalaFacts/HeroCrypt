@@ -378,6 +378,48 @@ public class AesCcmCoreTests
         }
 
         [Theory]
+        [InlineData(13, 0xFFFF, "6bc40f63f19555f5f62abc056b53737700e9ec95eedb1da2bc69a2f3a5240c0a")]
+        [InlineData(12, 0x10000, "4d36b4cd7f9dd2379a384bab3e8938c621a030a100a6b32cfce311a24ffd0242")]
+        public void IndependentAesCcm_CounterLengthBoundary_MatchesReferenceAndEnforcesNonceLimit(
+            int nonceSize, int plaintextLength, string expectedCiphertextSha256)
+        {
+            // Independent PyCA cryptography 46.0.4 AES-128-CCM reference output.
+            // Digest covers ALL ciphertext bytes plus the 16-byte tag. It catches
+            // CBC-MAC length-encoding and CTR counter errors at the L=2 limit.
+            // Always runs on all hosts, including those without BCL AES-CCM.
+            var key = TestHelpers.HexToBytes("000102030405060708090a0b0c0d0e0f");
+            var nonce = new byte[nonceSize];
+            for (var i = 0; i < nonce.Length; i++)
+                nonce[i] = (byte)i;
+            var associatedData = new byte[14];
+            for (var i = 0; i < associatedData.Length; i++)
+                associatedData[i] = (byte)(i * 13 + 5);
+            var plaintext = new byte[plaintextLength];
+            for (var i = 0; i < plaintext.Length; i++)
+                plaintext[i] = (byte)(i * 17 + 3);
+
+            var result = core.Encrypt(plaintext, key, nonce, associatedData, tagSize: 16);
+            Assert.Equal(plaintextLength + 16, result.Ciphertext.Length);
+            CryptoAssertions.AssertBytesEqual(
+                TestHelpers.HexToBytes(expectedCiphertextSha256),
+                SHA256.HashData(result.Ciphertext));
+            CryptoAssertions.AssertBytesEqual(plaintext,
+                core.Decrypt(result.Ciphertext, key, nonce, associatedData, tagSize: 16));
+
+            if (nonceSize == 13)
+            {
+                // L=2 can encode at most 65535 message bytes; preflight must
+                // reject 65536 BEFORE attempting CBC-MAC/CTR.
+                var overlongPlaintext = new byte[0x10000];
+                var overlongCiphertextAndTag = new byte[0x10000 + 16];
+                Assert.Throws<ArgumentException>(() =>
+                    core.Encrypt(overlongPlaintext, key, nonce, associatedData, tagSize: 16));
+                Assert.Throws<ArgumentException>(() =>
+                    core.Decrypt(overlongCiphertextAndTag, key, nonce, associatedData, tagSize: 16));
+            }
+        }
+
+        [Theory]
         [InlineData(7, 0, 0, 8)]
         [InlineData(7, 1, 3, 8)]
         [InlineData(7, 17, 14, 8)]

@@ -164,6 +164,14 @@ internal sealed class AesCcmCore
                 TagSize = tagSize
             };
         }
+        catch
+        {
+            // A provider failure can leave partial encrypted output in this
+            // otherwise unreturned buffer. Scrub it on exceptional exits.
+            // Managed/JIT/native copies are outside this best-effort guarantee.
+            SecureMemoryOperations.SecureClear(ciphertext);
+            throw;
+        }
         finally
         {
             SecureMemoryOperations.SecureClear(keyArray);

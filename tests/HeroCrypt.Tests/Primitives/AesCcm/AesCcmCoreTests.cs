@@ -112,6 +112,45 @@ public class AesCcmCoreTests
         private readonly AesCcmCore core = new();
 
         [Fact]
+        public void Encrypt_DeterministicMode_RejectsDefaultPolicyEvenWithExplicitNonce()
+        {
+            var key = new byte[KEY_SIZE];
+            var plaintext = new byte[] { 0x42 };
+            var secureCore = new AesCcmCore(HeroCrypt.Security.SecurityPolicyOptions.Default);
+
+            Assert.Throws<InvalidOperationException>(
+                () => secureCore.Encrypt(plaintext, key, deterministicMode: true));
+            Assert.Throws<InvalidOperationException>(
+                () => secureCore.Encrypt(plaintext, key, new byte[NONCE_SIZE], deterministicMode: true));
+        }
+
+        [Fact]
+        public void Encrypt_DeterministicMode_RequiresExplicitOptInAndRoundTripsInTesting()
+        {
+            var key = new byte[KEY_SIZE];
+            var plaintext = new byte[] { 0x42, 0x43, 0x44 };
+            var optedInPolicy = HeroCrypt.Security.SecurityPolicyOptions.Default
+                with { AllowDeterministicNonSiv = true };
+            var optedInCore = new AesCcmCore(optedInPolicy);
+
+            var first = optedInCore.Encrypt(plaintext, key, deterministicMode: true);
+            var second = optedInCore.Encrypt(plaintext, key, deterministicMode: true);
+
+            Assert.Equal(new byte[NONCE_SIZE], first.Nonce);
+            CryptoAssertions.AssertBytesEqual(first.Ciphertext, second.Ciphertext);
+            CryptoAssertions.AssertBytesEqual(plaintext,
+                optedInCore.Decrypt(first.Ciphertext, key, first.Nonce));
+
+            // A testing policy has the same explicit opt-in; never rely on it
+            // for production nonces.
+            var testingCore = new AesCcmCore(HeroCrypt.Security.SecurityPolicyOptions.Testing);
+            var testResult = testingCore.Encrypt(plaintext, key, deterministicMode: true);
+            Assert.Equal(new byte[NONCE_SIZE], testResult.Nonce);
+            CryptoAssertions.AssertBytesEqual(plaintext,
+                testingCore.Decrypt(testResult.Ciphertext, key, testResult.Nonce));
+        }
+
+        [Fact]
         public void Decrypt_ModifiedCiphertext_ThrowsCryptographicException()
         {
             // Arrange

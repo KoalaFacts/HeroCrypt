@@ -91,6 +91,14 @@ internal sealed class AesCcmCore
         int tagSize = DEFAULT_TAG_SIZE,
         bool deterministicMode = false)
     {
+        // The public encryption facade enforces this policy too, but the core must
+        // never mint a fixed nonce when called by another internal integration.
+        if (deterministicMode && !policy.AllowDeterministicNonSiv)
+        {
+            throw new InvalidOperationException(
+                "AES-CCM deterministic mode is not permitted by the current security policy.");
+        }
+
         // Generate random nonce if not provided and not in deterministic mode
         byte[] nonceArray;
         if (nonce.IsEmpty)

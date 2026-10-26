@@ -280,12 +280,9 @@ public class AesOcbCoreTests
         {
             var key = TestHelpers.HexToBytes("000102030405060708090A0B0C0D0E0F");
             var nonce = TestHelpers.HexToBytes("BBAA998877665544332211" + nonceSuffix);
-            var associatedData = associatedDataHex.Length == 0
-                ? Array.Empty<byte>()
-                : TestHelpers.HexToBytes(associatedDataHex);
-            var plaintext = plaintextHex.Length == 0
-                ? Array.Empty<byte>()
-                : TestHelpers.HexToBytes(plaintextHex);
+            // TestHelpers uses Convert.FromHexString, which handles empty strings.
+            var associatedData = TestHelpers.HexToBytes(associatedDataHex);
+            var plaintext = TestHelpers.HexToBytes(plaintextHex);
             var expectedCiphertext = TestHelpers.HexToBytes(expectedCiphertextHex);
 
             var result = core.Encrypt(plaintext, key, nonce, associatedData);

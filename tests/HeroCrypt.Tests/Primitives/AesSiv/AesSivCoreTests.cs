@@ -262,7 +262,8 @@ public class AesSivCoreTests
         {
             var key = TestHelpers.RandomBytes(KEY_SIZE_512);
             var plaintext = TestHelpers.RandomBytes(41);
-            using var writer = AesSivBuilder.Create().WithKey(key).WithNonce(Array.Empty<byte>());
+            byte[] emptyNonce = [];
+            using var writer = AesSivBuilder.Create().WithKey(key).WithNonce(emptyNonce);
             var first = writer.Encrypt(plaintext);
             var second = writer.Encrypt(plaintext);
 
@@ -270,7 +271,7 @@ public class AesSivCoreTests
             Assert.Empty(writer.GetNonce()!);
             CryptoAssertions.AssertBytesEqual(first, second);
 
-            using var reader = AesSivBuilder.Create().WithKey(key).WithNonce(Array.Empty<byte>());
+            using var reader = AesSivBuilder.Create().WithKey(key).WithNonce(emptyNonce);
             CryptoAssertions.AssertBytesEqual(plaintext, reader.Decrypt(first));
         }
 

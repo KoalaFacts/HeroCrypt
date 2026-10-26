@@ -136,13 +136,18 @@ internal sealed class AesCcmCore
 
             // Compute authentication tag using CBC-MAC
             Span<byte> fullTag = stackalloc byte[BLOCK_SIZE];
-            ComputeTag(fullTag, plaintext, associatedData, nonceArray, encryptor, tagSize);
+            try
+            {
+                ComputeTag(fullTag, plaintext, associatedData, nonceArray, encryptor, tagSize);
 
-            // Encrypt plaintext using CTR mode and encrypt tag
-            EncryptCtr(ciphertextOnly, tag, plaintext, fullTag[..tagSize], nonceArray, encryptor);
-
-            // Clear sensitive data
-            SecureMemoryOperations.SecureClear(fullTag);
+                // Encrypt plaintext using CTR mode and encrypt tag
+                EncryptCtr(ciphertextOnly, tag, plaintext, fullTag[..tagSize], nonceArray, encryptor);
+            }
+            finally
+            {
+                // Best-effort cleanup, including provider/transform failure paths.
+                SecureMemoryOperations.SecureClear(fullTag);
+            }
 
             return new AesCcmEncryptionResult
             {
@@ -275,97 +280,104 @@ internal sealed class AesCcmCore
         Span<byte> mac = stackalloc byte[BLOCK_SIZE];
         var macArray = new byte[BLOCK_SIZE];
         var blockArray = new byte[BLOCK_SIZE];
-        block.CopyTo(blockArray);
-        aes.TransformBlock(blockArray, 0, BLOCK_SIZE, macArray, 0);
-        macArray.CopyTo(mac);
-
-        // Process associated data if present
-        if (associatedData.Length > 0)
+        try
         {
-            // Encode AAD length
-            Span<byte> aadBlock = stackalloc byte[BLOCK_SIZE];
-            // CBC-MAC authenticates a complete block: the unused AAD prefix tail
-            // must be explicit zero padding, never unspecified stackalloc data.
-            aadBlock.Clear();
-            int aadOffset;
+            block.CopyTo(blockArray);
+            aes.TransformBlock(blockArray, 0, BLOCK_SIZE, macArray, 0);
+            macArray.CopyTo(mac);
 
-            if (associatedData.Length < 0xFF00)
+            // Process associated data if present
+            if (associatedData.Length > 0)
             {
-                // Short form: 2 bytes
-                aadBlock[0] = (byte)(associatedData.Length >> 8);
-                aadBlock[1] = (byte)associatedData.Length;
-                aadOffset = 2;
-            }
-            else
-            {
-                // Long form: 6 bytes (0xFFFE followed by 4-byte length)
-                aadBlock[0] = 0xFF;
-                aadBlock[1] = 0xFE;
-                aadBlock[2] = (byte)(associatedData.Length >> 24);
-                aadBlock[3] = (byte)(associatedData.Length >> 16);
-                aadBlock[4] = (byte)(associatedData.Length >> 8);
-                aadBlock[5] = (byte)associatedData.Length;
-                aadOffset = 6;
-            }
+                // Encode AAD length
+                Span<byte> aadBlock = stackalloc byte[BLOCK_SIZE];
+                // CBC-MAC authenticates a complete block: the unused AAD prefix tail
+                // must be explicit zero padding, never unspecified stackalloc data.
+                aadBlock.Clear();
+                int aadOffset;
 
-            // Copy AAD data and process blocks
-            var aadRemaining = associatedData;
-            var firstBlockSpace = BLOCK_SIZE - aadOffset;
-
-            if (aadRemaining.Length <= firstBlockSpace)
-            {
-                // AAD fits in first block
-                aadRemaining.CopyTo(aadBlock[aadOffset..]);
-                XorBlock(mac, aadBlock);
-                mac.CopyTo(macArray);
-                aes.TransformBlock(macArray, 0, BLOCK_SIZE, macArray, 0);
-                macArray.CopyTo(mac);
-            }
-            else
-            {
-                // First block
-                aadRemaining[..firstBlockSpace].CopyTo(aadBlock[aadOffset..]);
-                XorBlock(mac, aadBlock);
-                mac.CopyTo(macArray);
-                aes.TransformBlock(macArray, 0, BLOCK_SIZE, macArray, 0);
-                macArray.CopyTo(mac);
-                aadRemaining = aadRemaining[firstBlockSpace..];
-
-                // Remaining AAD blocks
-                while (aadRemaining.Length > 0)
+                if (associatedData.Length < 0xFF00)
                 {
-                    aadBlock.Clear();
-                    var copyLen = Math.Min(BLOCK_SIZE, aadRemaining.Length);
-                    aadRemaining[..copyLen].CopyTo(aadBlock);
+                    // Short form: 2 bytes
+                    aadBlock[0] = (byte)(associatedData.Length >> 8);
+                    aadBlock[1] = (byte)associatedData.Length;
+                    aadOffset = 2;
+                }
+                else
+                {
+                    // Long form: 6 bytes (0xFFFE followed by 4-byte length)
+                    aadBlock[0] = 0xFF;
+                    aadBlock[1] = 0xFE;
+                    aadBlock[2] = (byte)(associatedData.Length >> 24);
+                    aadBlock[3] = (byte)(associatedData.Length >> 16);
+                    aadBlock[4] = (byte)(associatedData.Length >> 8);
+                    aadBlock[5] = (byte)associatedData.Length;
+                    aadOffset = 6;
+                }
+
+                // Copy AAD data and process blocks
+                var aadRemaining = associatedData;
+                var firstBlockSpace = BLOCK_SIZE - aadOffset;
+
+                if (aadRemaining.Length <= firstBlockSpace)
+                {
+                    // AAD fits in first block
+                    aadRemaining.CopyTo(aadBlock[aadOffset..]);
                     XorBlock(mac, aadBlock);
                     mac.CopyTo(macArray);
                     aes.TransformBlock(macArray, 0, BLOCK_SIZE, macArray, 0);
                     macArray.CopyTo(mac);
-                    aadRemaining = aadRemaining[copyLen..];
+                }
+                else
+                {
+                    // First block
+                    aadRemaining[..firstBlockSpace].CopyTo(aadBlock[aadOffset..]);
+                    XorBlock(mac, aadBlock);
+                    mac.CopyTo(macArray);
+                    aes.TransformBlock(macArray, 0, BLOCK_SIZE, macArray, 0);
+                    macArray.CopyTo(mac);
+                    aadRemaining = aadRemaining[firstBlockSpace..];
+
+                    // Remaining AAD blocks
+                    while (aadRemaining.Length > 0)
+                    {
+                        aadBlock.Clear();
+                        var copyLen = Math.Min(BLOCK_SIZE, aadRemaining.Length);
+                        aadRemaining[..copyLen].CopyTo(aadBlock);
+                        XorBlock(mac, aadBlock);
+                        mac.CopyTo(macArray);
+                        aes.TransformBlock(macArray, 0, BLOCK_SIZE, macArray, 0);
+                        macArray.CopyTo(mac);
+                        aadRemaining = aadRemaining[copyLen..];
+                    }
                 }
             }
-        }
 
-        // Process plaintext blocks
-        var remaining = plaintext;
-        while (remaining.Length > 0)
+            // Process plaintext blocks
+            var remaining = plaintext;
+            while (remaining.Length > 0)
+            {
+                block.Clear();
+                var copyLen = Math.Min(BLOCK_SIZE, remaining.Length);
+                remaining[..copyLen].CopyTo(block);
+                XorBlock(mac, block);
+                mac.CopyTo(macArray);
+                aes.TransformBlock(macArray, 0, BLOCK_SIZE, macArray, 0);
+                macArray.CopyTo(mac);
+                remaining = remaining[copyLen..];
+            }
+
+            // Final MAC is the tag
+            mac.CopyTo(tag);
+        }
+        finally
         {
-            block.Clear();
-            var copyLen = Math.Min(BLOCK_SIZE, remaining.Length);
-            remaining[..copyLen].CopyTo(block);
-            XorBlock(mac, block);
-            mac.CopyTo(macArray);
-            aes.TransformBlock(macArray, 0, BLOCK_SIZE, macArray, 0);
-            macArray.CopyTo(mac);
-            remaining = remaining[copyLen..];
+            // CBC-MAC state and working arrays may contain authentication intermediates.
+            SecureMemoryOperations.SecureClear(mac);
+            SecureMemoryOperations.SecureClear(block);
+            SecureMemoryOperations.SecureClear(macArray);
+            SecureMemoryOperations.SecureClear(blockArray);
         }
-
-        // Final MAC is the tag
-        mac.CopyTo(tag);
-
-        // Clear sensitive intermediate arrays
-        SecureMemoryOperations.SecureClear(macArray);
-        SecureMemoryOperations.SecureClear(blockArray);
     }
 
     /// <summary>
@@ -392,56 +404,60 @@ internal sealed class AesCcmCore
         // Reusable arrays for AES transform (avoid memory leaks in loops)
         var keystreamArray = new byte[BLOCK_SIZE];
         var counterArray = new byte[BLOCK_SIZE];
-
-        // Encrypt tag with A_0 (counter = 0)
-        counter.Clear();
-        counter[0] = flags;
-        nonce.CopyTo(counter.Slice(1, nonce.Length));
-        // Counter bytes already 0
-        counter.CopyTo(counterArray);
-        aes.TransformBlock(counterArray, 0, BLOCK_SIZE, keystreamArray, 0);
-        keystreamArray.CopyTo(keystream);
-
-        for (var i = 0; i < tag.Length; i++)
+        try
         {
-            encryptedTag[i] = (byte)(tag[i] ^ keystream[i]);
-        }
 
-        // Encrypt plaintext with A_1, A_2, ...
-        var remaining = plaintext;
-        var outputOffset = 0;
-        var ctrValue = 1;
-
-        while (remaining.Length > 0)
-        {
-            // Build counter block
+            // Encrypt tag with A_0 (counter = 0)
             counter.Clear();
             counter[0] = flags;
             nonce.CopyTo(counter.Slice(1, nonce.Length));
-            WriteLength(counter.Slice(BLOCK_SIZE - L, L), ctrValue);
-
-            // Generate keystream
+            // Counter bytes already 0
             counter.CopyTo(counterArray);
             aes.TransformBlock(counterArray, 0, BLOCK_SIZE, keystreamArray, 0);
             keystreamArray.CopyTo(keystream);
 
-            // XOR with plaintext
-            var blockSize = Math.Min(BLOCK_SIZE, remaining.Length);
-            for (var i = 0; i < blockSize; i++)
+            for (var i = 0; i < tag.Length; i++)
             {
-                ciphertext[outputOffset + i] = (byte)(remaining[i] ^ keystream[i]);
+                encryptedTag[i] = (byte)(tag[i] ^ keystream[i]);
             }
 
-            remaining = remaining[blockSize..];
-            outputOffset += blockSize;
-            ctrValue++;
-        }
+            // Encrypt plaintext with A_1, A_2, ...
+            var remaining = plaintext;
+            var outputOffset = 0;
+            var ctrValue = 1;
 
-        // Clear sensitive data
-        SecureMemoryOperations.SecureClear(counter);
-        SecureMemoryOperations.SecureClear(keystream);
-        SecureMemoryOperations.SecureClear(keystreamArray);
-        SecureMemoryOperations.SecureClear(counterArray);
+            while (remaining.Length > 0)
+            {
+                // Build counter block
+                counter.Clear();
+                counter[0] = flags;
+                nonce.CopyTo(counter.Slice(1, nonce.Length));
+                WriteLength(counter.Slice(BLOCK_SIZE - L, L), ctrValue);
+
+                // Generate keystream
+                counter.CopyTo(counterArray);
+                aes.TransformBlock(counterArray, 0, BLOCK_SIZE, keystreamArray, 0);
+                keystreamArray.CopyTo(keystream);
+
+                // XOR with plaintext
+                var blockSize = Math.Min(BLOCK_SIZE, remaining.Length);
+                for (var i = 0; i < blockSize; i++)
+                {
+                    ciphertext[outputOffset + i] = (byte)(remaining[i] ^ keystream[i]);
+                }
+
+                remaining = remaining[blockSize..];
+                outputOffset += blockSize;
+                ctrValue++;
+            }
+        }
+        finally
+        {
+            SecureMemoryOperations.SecureClear(counter);
+            SecureMemoryOperations.SecureClear(keystream);
+            SecureMemoryOperations.SecureClear(keystreamArray);
+            SecureMemoryOperations.SecureClear(counterArray);
+        }
     }
 
     /// <summary>
@@ -468,55 +484,59 @@ internal sealed class AesCcmCore
         // Reusable arrays for AES transform (avoid memory leaks in loops)
         var keystreamArray = new byte[BLOCK_SIZE];
         var counterArray = new byte[BLOCK_SIZE];
-
-        // Decrypt tag with A_0 (counter = 0)
-        counter.Clear();
-        counter[0] = flags;
-        nonce.CopyTo(counter.Slice(1, nonce.Length));
-        counter.CopyTo(counterArray);
-        aes.TransformBlock(counterArray, 0, BLOCK_SIZE, keystreamArray, 0);
-        keystreamArray.CopyTo(keystream);
-
-        for (var i = 0; i < encryptedTag.Length; i++)
+        try
         {
-            decryptedTag[i] = (byte)(encryptedTag[i] ^ keystream[i]);
-        }
 
-        // Decrypt ciphertext with A_1, A_2, ... (same as encryption)
-        var remaining = ciphertext;
-        var outputOffset = 0;
-        var ctrValue = 1;
-
-        while (remaining.Length > 0)
-        {
-            // Build counter block
+            // Decrypt tag with A_0 (counter = 0)
             counter.Clear();
             counter[0] = flags;
             nonce.CopyTo(counter.Slice(1, nonce.Length));
-            WriteLength(counter.Slice(BLOCK_SIZE - L, L), ctrValue);
-
-            // Generate keystream
             counter.CopyTo(counterArray);
             aes.TransformBlock(counterArray, 0, BLOCK_SIZE, keystreamArray, 0);
             keystreamArray.CopyTo(keystream);
 
-            // XOR with ciphertext
-            var blockSize = Math.Min(BLOCK_SIZE, remaining.Length);
-            for (var i = 0; i < blockSize; i++)
+            for (var i = 0; i < encryptedTag.Length; i++)
             {
-                plaintext[outputOffset + i] = (byte)(remaining[i] ^ keystream[i]);
+                decryptedTag[i] = (byte)(encryptedTag[i] ^ keystream[i]);
             }
 
-            remaining = remaining[blockSize..];
-            outputOffset += blockSize;
-            ctrValue++;
-        }
+            // Decrypt ciphertext with A_1, A_2, ... (same as encryption)
+            var remaining = ciphertext;
+            var outputOffset = 0;
+            var ctrValue = 1;
 
-        // Clear sensitive data
-        SecureMemoryOperations.SecureClear(counter);
-        SecureMemoryOperations.SecureClear(keystream);
-        SecureMemoryOperations.SecureClear(keystreamArray);
-        SecureMemoryOperations.SecureClear(counterArray);
+            while (remaining.Length > 0)
+            {
+                // Build counter block
+                counter.Clear();
+                counter[0] = flags;
+                nonce.CopyTo(counter.Slice(1, nonce.Length));
+                WriteLength(counter.Slice(BLOCK_SIZE - L, L), ctrValue);
+
+                // Generate keystream
+                counter.CopyTo(counterArray);
+                aes.TransformBlock(counterArray, 0, BLOCK_SIZE, keystreamArray, 0);
+                keystreamArray.CopyTo(keystream);
+
+                // XOR with ciphertext
+                var blockSize = Math.Min(BLOCK_SIZE, remaining.Length);
+                for (var i = 0; i < blockSize; i++)
+                {
+                    plaintext[outputOffset + i] = (byte)(remaining[i] ^ keystream[i]);
+                }
+
+                remaining = remaining[blockSize..];
+                outputOffset += blockSize;
+                ctrValue++;
+            }
+        }
+        finally
+        {
+            SecureMemoryOperations.SecureClear(counter);
+            SecureMemoryOperations.SecureClear(keystream);
+            SecureMemoryOperations.SecureClear(keystreamArray);
+            SecureMemoryOperations.SecureClear(counterArray);
+        }
     }
 
     /// <summary>

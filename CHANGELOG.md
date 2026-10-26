@@ -4,6 +4,7 @@
 
 ### Security
 
+- **Proposed AES-OCB RFC 7253 correction (Draft PR #197; not released):** Fix offset derivation and all-zero MAC/HASH initialization; add 16 independent RFC ciphertext vectors. **Breaking stored ciphertext/tag compatibility:** pre-fix OCB records can fail authentication after upgrade, including empty-message tags. Do not deploy or auto-retry legacy decryption. Inventory trusted writer provenance, preserve backups, use independently authenticated plaintext or an isolated explicitly chosen legacy recovery process, and re-encrypt with fresh key/nonce assignments and a versioned envelope. See [required OCB migration and release gate](docs/migration-guide.md#aes-ocb-rfc-7253-ciphertext-format-correction-proposed-not-yet-released). No release or security-approval claim is made.
 - Validate OpenPGP Argon2 S2K passes, parallelism, and the full memory-exponent
   range before shifting or deriving keys. Reject exponent aliases and explicitly
   report the implementation limit for exponent 31.

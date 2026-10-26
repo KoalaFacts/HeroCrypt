@@ -288,6 +288,9 @@ internal sealed class AesCcmCore
         Span<byte> mac = stackalloc byte[BLOCK_SIZE];
         var macArray = new byte[BLOCK_SIZE];
         var blockArray = new byte[BLOCK_SIZE];
+        // Contains a potentially sensitive prefix of associated data. Keep it
+        // in the cleanup scope even when the AES provider throws.
+        Span<byte> aadBlock = stackalloc byte[BLOCK_SIZE];
         try
         {
             block.CopyTo(blockArray);
@@ -298,7 +301,6 @@ internal sealed class AesCcmCore
             if (associatedData.Length > 0)
             {
                 // Encode AAD length
-                Span<byte> aadBlock = stackalloc byte[BLOCK_SIZE];
                 // CBC-MAC authenticates a complete block: the unused AAD prefix tail
                 // must be explicit zero padding, never unspecified stackalloc data.
                 aadBlock.Clear();
@@ -383,6 +385,7 @@ internal sealed class AesCcmCore
             // CBC-MAC state and working arrays may contain authentication intermediates.
             SecureMemoryOperations.SecureClear(mac);
             SecureMemoryOperations.SecureClear(block);
+            SecureMemoryOperations.SecureClear(aadBlock);
             SecureMemoryOperations.SecureClear(macArray);
             SecureMemoryOperations.SecureClear(blockArray);
         }

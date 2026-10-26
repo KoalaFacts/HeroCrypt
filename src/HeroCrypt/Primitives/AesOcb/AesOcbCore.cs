@@ -174,6 +174,8 @@ internal sealed class AesOcbCore
         Span<byte> l_dollar = stackalloc byte[BLOCK_SIZE];
         Span<byte> offset = stackalloc byte[BLOCK_SIZE];
         Span<byte> checksum = stackalloc byte[BLOCK_SIZE];
+        // RFC 7253 Checksum_0 is the all-zero block, not uninitialized stack data.
+        checksum.Clear();
 
         try
         {
@@ -186,7 +188,7 @@ internal sealed class AesOcbCore
             Double(l_dollar, l_star);
 
             // Initialize offset from nonce
-            InitializeOffset(encryptor, offset, nonce, l_dollar, inputBuffer, outputBuffer);
+            InitializeOffset(encryptor, offset, nonce, inputBuffer, outputBuffer);
 
             // Process plaintext blocks
             var fullBlocks = plaintext.Length / BLOCK_SIZE;
@@ -203,7 +205,7 @@ internal sealed class AesOcbCore
                 var ciphertextBlock = ciphertextOnly.Slice(i * BLOCK_SIZE, BLOCK_SIZE);
 
                 // Offset = Offset xor L_i
-                GetL(l_i, l_star, i + 1);
+                GetL(l_i, l_dollar, i + 1);
                 XorBlock(offset, offset, l_i);
 
                 // Checksum = Checksum xor Plaintext_i
@@ -301,6 +303,8 @@ internal sealed class AesOcbCore
         Span<byte> l_dollar = stackalloc byte[BLOCK_SIZE];
         Span<byte> offset = stackalloc byte[BLOCK_SIZE];
         Span<byte> checksum = stackalloc byte[BLOCK_SIZE];
+        // RFC 7253 Checksum_0 is the all-zero block, not uninitialized stack data.
+        checksum.Clear();
 
         try
         {
@@ -313,7 +317,7 @@ internal sealed class AesOcbCore
             Double(l_dollar, l_star);
 
             // Initialize offset from nonce
-            InitializeOffset(encryptor, offset, nonce, l_dollar, inputBuffer, outputBuffer);
+            InitializeOffset(encryptor, offset, nonce, inputBuffer, outputBuffer);
 
             // Process ciphertext blocks
             var ciphertextOnly = ciphertext[..plaintextLength];
@@ -330,7 +334,7 @@ internal sealed class AesOcbCore
                 var plaintextBlock = plaintext.Slice(i * BLOCK_SIZE, BLOCK_SIZE);
 
                 // Offset = Offset xor L_i
-                GetL(l_i, l_star, i + 1);
+                GetL(l_i, l_dollar, i + 1);
                 XorBlock(offset, offset, l_i);
 
                 // P_i = Offset xor DECIPHER(K, C_i xor Offset)
@@ -404,7 +408,7 @@ internal sealed class AesOcbCore
     /// Initializes the offset from nonce per RFC 7253
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void InitializeOffset(ICryptoTransform encryptor, Span<byte> offset, ReadOnlySpan<byte> nonce, ReadOnlySpan<byte> l_dollar, byte[] inputBuffer, byte[] outputBuffer)
+    private void InitializeOffset(ICryptoTransform encryptor, Span<byte> offset, ReadOnlySpan<byte> nonce, byte[] inputBuffer, byte[] outputBuffer)
     {
         // Nonce = num2str(TAGLEN mod 128, 7) || zeros(120 - bitlen(N)) || 1 || N
         Span<byte> nonceBlock = stackalloc byte[BLOCK_SIZE];
@@ -447,8 +451,8 @@ internal sealed class AesOcbCore
             offset[i] = (byte)((stretch[byteOffset + i] << bitShift) | (stretch[byteOffset + i + 1] >> (8 - bitShift)));
         }
 
-        // Offset = Offset xor L_$
-        XorBlock(offset, offset, l_dollar);
+        // RFC 7253 Offset_0 is exactly the selected Stretch bits; L_$ is
+        // applied only when computing the authentication tag, not here.
 
         SecureMemoryOperations.SecureClear(nonceBlock);
         SecureMemoryOperations.SecureClear(ktop);
@@ -493,6 +497,9 @@ internal sealed class AesOcbCore
         Span<byte> offset = stackalloc byte[BLOCK_SIZE];
         Span<byte> sum = stackalloc byte[BLOCK_SIZE];
         Span<byte> l_star = stackalloc byte[BLOCK_SIZE];
+        // RFC 7253 HASH: Offset_0 = Sum_0 = zeros(128).
+        offset.Clear();
+        sum.Clear();
 
         try
         {
@@ -511,7 +518,7 @@ internal sealed class AesOcbCore
                 var adBlock = associatedData.Slice(i * BLOCK_SIZE, BLOCK_SIZE);
 
                 // Offset = Offset xor L_i
-                GetL(l_i, l_star, i + 1);
+                GetL(l_i, l_dollar, i + 1);
                 XorBlock(offset, offset, l_i);
 
                 // Sum = Sum xor ENCIPHER(K, A_i xor Offset)
@@ -556,7 +563,7 @@ internal sealed class AesOcbCore
     /// Gets L_i value per RFC 7253
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void GetL(Span<byte> l_i, ReadOnlySpan<byte> l_star, int i)
+    private void GetL(Span<byte> l_i, ReadOnlySpan<byte> l_dollar, int i)
     {
         // ntz(i) = number of trailing zeros in binary representation of i
         var ntz = 0;
@@ -567,8 +574,9 @@ internal sealed class AesOcbCore
             temp >>= 1;
         }
 
-        // L_i = double^ntz(L_*)
-        l_star.CopyTo(l_i);
+        // RFC 7253: L_0 = double(L_$), then L_ntz(i) = double^ntz(i)(L_0).
+        // Using L_* here produces a mutually compatible but non-RFC wire format.
+        Double(l_i, l_dollar);
 
         for (var j = 0; j < ntz; j++)
         {

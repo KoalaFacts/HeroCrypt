@@ -2,7 +2,7 @@ name: Build and Test
 
 on:
   push:
-    branches: [ '*' ]
+    branches: [ '**' ]
     tags: [ 'v*' ]  # Run on version tags for artifact generation
   pull_request:
     branches: [ main, develop ]

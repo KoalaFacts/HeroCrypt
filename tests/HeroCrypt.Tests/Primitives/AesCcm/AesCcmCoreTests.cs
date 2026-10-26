@@ -67,6 +67,24 @@ public class AesCcmCoreTests
     {
         private readonly AesCcmCore core = new();
 
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public void Builder_EmptyNonce_MustNotSilentlyGenerateAnUnretrievableNonce(bool useSpanOverload)
+        {
+            var key = new byte[KEY_SIZE];
+            using var builder = AesCcmBuilder.Create().WithKey(key);
+            if (useSpanOverload)
+                builder.WithNonce(ReadOnlySpan<byte>.Empty);
+            else
+                builder.WithNonce(Array.Empty<byte>());
+
+            // Before the fix, core.Encrypt treated the configured empty nonce
+            // as omitted, made a random nonce, and GetNonce() still returned empty.
+            Assert.Throws<InvalidOperationException>(() => builder.Encrypt(new byte[] { 1, 2, 3 }));
+            Assert.Empty(builder.GetNonce());
+        }
+
         [Fact]
         public void Encrypt_EmptyPlaintext_ReturnsTagOnly()
         {

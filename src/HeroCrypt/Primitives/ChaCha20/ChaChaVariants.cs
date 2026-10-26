@@ -10,7 +10,8 @@ namespace HeroCrypt.Primitives.ChaCha20;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The ChaCha family offers different round counts trading security for performance:
+/// The ChaCha family has 8-, 12-, and 20-round variants. Fewer rounds change the security
+/// margin, but no fixed bit-strength or throughput ratio follows from the round count:
 /// </para>
 /// <list type="table">
 ///   <listheader>
@@ -19,22 +20,22 @@ namespace HeroCrypt.Primitives.ChaCha20;
 ///   </listheader>
 ///   <item>
 ///     <term>ChaCha20</term>
-///     <description><b>Default</b> - Full 128-bit security, RFC 8439 standard</description>
+///     <description><b>Default</b> - 20-round stream cipher specified in RFC 8439</description>
 ///   </item>
 ///   <item>
 ///     <term>ChaCha12</term>
-///     <description>Performance-critical scenarios with ~96-bit security</description>
+///     <description>Reduced-round variant; RFC 8439 does not define its security strength</description>
 ///   </item>
 ///   <item>
 ///     <term>ChaCha8</term>
-///     <description>Non-cryptographic or very high-throughput needs only</description>
+///     <description>Reduced-round variant; requires a separate security assessment</description>
 ///   </item>
 /// </list>
 /// <para>
-/// <b>Recommendation:</b> Always use ChaCha20 unless you have specific performance
-/// requirements that have been validated through benchmarking. ChaCha12 is acceptable
-/// for high-throughput scenarios. ChaCha8 should generally be avoided for security-sensitive
-/// applications.
+/// <b>Recommendation:</b> Prefer the standardized ChaCha20 variant. This raw stream
+/// cipher provides no authentication; choose ChaCha20-Poly1305 when authenticated
+/// encryption is required. Do not select reduced-round variants using the legacy
+/// numeric security or speed estimates without independent analysis and benchmarking.
 /// </para>
 /// </remarks>
 public static class ChaChaVariants
@@ -64,7 +65,8 @@ public static class ChaChaVariants
     /// </summary>
     /// <remarks>
     /// The numeric value represents the number of rounds in the cipher.
-    /// More rounds = more security but slower performance.
+    /// Reduced-round variants have different security margins; neither bit-security nor
+    /// elapsed-time ratios can be inferred directly from the number of rounds.
     /// </remarks>
     public enum ChaChaVariant
     {
@@ -72,8 +74,9 @@ public static class ChaChaVariants
         /// ChaCha8 - 8 rounds (4 double rounds).
         /// </summary>
         /// <remarks>
-        /// ~2.5x faster than ChaCha20 but with reduced security (~64-bit).
-        /// <b>Warning:</b> Not recommended for security-sensitive applications.
+        /// Reduced-round variant not specified for IETF protocols by RFC 8439.
+        /// No audited bit-security level or cross-platform speedup is established here.
+        /// <b>Warning:</b> Avoid for security-sensitive applications without expert review.
         /// </remarks>
         ChaCha8 = 8,
 
@@ -81,8 +84,9 @@ public static class ChaChaVariants
         /// ChaCha12 - 12 rounds (6 double rounds).
         /// </summary>
         /// <remarks>
-        /// ~1.7x faster than ChaCha20 with good security (~96-bit).
-        /// Acceptable for high-throughput scenarios where performance is critical.
+        /// Reduced-round variant not specified for IETF protocols by RFC 8439.
+        /// No audited bit-security level or cross-platform speedup is established here.
+        /// Use only after an explicit security assessment and workload benchmark.
         /// </remarks>
         ChaCha12 = 12,
 
@@ -90,8 +94,9 @@ public static class ChaChaVariants
         /// ChaCha20 - 20 rounds (10 double rounds).
         /// </summary>
         /// <remarks>
-        /// Full 128-bit security level. This is the standard variant specified in RFC 8439
-        /// and used in TLS 1.3, WireGuard, and other protocols. <b>Use this by default.</b>
+        /// RFC 8439 specifies this 20-round variant with a 256-bit key and 96-bit nonce.
+        /// This raw stream cipher does not authenticate ciphertext. <b>Use this by default</b>
+        /// among the variants, and use an authenticated construction where appropriate.
         /// </remarks>
         ChaCha20 = 20
     }
@@ -372,33 +377,46 @@ public static class ChaChaVariants
     }
 
     /// <summary>
-    /// Gets the recommended security level for each variant
+    /// Gets legacy numeric security labels retained for API compatibility.
     /// </summary>
+    /// <remarks>
+    /// The returned 64/96/128 values are historical labels, not proven security-bit
+    /// bounds or independently verified cryptanalytic estimates. Do not use them
+    /// to approve algorithms, choose key sizes, or make compliance claims.
+    /// Prefer the RFC 8439 ChaCha20 variant and obtain an independent security
+    /// assessment before choosing a reduced-round alternative.
+    /// </remarks>
     /// <param name="variant">ChaCha variant</param>
-    /// <returns>Estimated security bits</returns>
+    /// <returns>Legacy numeric label, not a verified bit-security measurement.</returns>
     public static int GetSecurityBits(ChaChaVariant variant)
     {
         return variant switch
         {
-            ChaChaVariant.ChaCha8 => 64,    // Reduced security - use only for performance-critical scenarios
-            ChaChaVariant.ChaCha12 => 96,   // Good balance of security and performance
-            ChaChaVariant.ChaCha20 => 128,  // Full security
+            ChaChaVariant.ChaCha8 => 64,    // Historical, unverified label; kept for compatibility
+            ChaChaVariant.ChaCha12 => 96,   // Historical, unverified label; kept for compatibility
+            ChaChaVariant.ChaCha20 => 128,  // Historical, unverified label; kept for compatibility
             _ => throw new ArgumentException("Unknown ChaCha variant", nameof(variant))
         };
     }
 
     /// <summary>
-    /// Gets the performance characteristics for each variant (relative to ChaCha20)
+    /// Gets legacy illustrative performance ratios retained for API compatibility.
     /// </summary>
+    /// <remarks>
+    /// The 2.5/1.7/1.0 ratios are not measured HeroCrypt throughput or latency
+    /// results. Performance depends on message size, target framework, CPU, JIT,
+    /// operating system and the exact operation. Do not use these constants for
+    /// capacity planning or advertised speedups; measure the actual workload.
+    /// </remarks>
     /// <param name="variant">ChaCha variant</param>
-    /// <returns>Performance multiplier relative to ChaCha20</returns>
+    /// <returns>Legacy, unmeasured ratio relative to ChaCha20.</returns>
     public static double GetPerformanceMultiplier(ChaChaVariant variant)
     {
         return variant switch
         {
-            ChaChaVariant.ChaCha8 => 2.5,   // ~2.5x faster than ChaCha20
-            ChaChaVariant.ChaCha12 => 1.7,  // ~1.7x faster than ChaCha20
-            ChaChaVariant.ChaCha20 => 1.0,  // Baseline
+            ChaChaVariant.ChaCha8 => 2.5,   // Historical placeholder, not a benchmark
+            ChaChaVariant.ChaCha12 => 1.7,  // Historical placeholder, not a benchmark
+            ChaChaVariant.ChaCha20 => 1.0,  // Historical reference value
             _ => throw new ArgumentException("Unknown ChaCha variant", nameof(variant))
         };
     }

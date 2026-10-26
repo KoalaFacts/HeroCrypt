@@ -292,6 +292,15 @@ public sealed class AesCcmBuilder : IDisposable
         {
             throw new InvalidOperationException("Nonce has not been set. Use WithNonce() or WithRandomNonce() first.");
         }
+
+        // The core treats an empty nonce as *omitted* and generates a random
+        // nonce. A builder explicitly configured with an empty nonce would then
+        // return that empty value from GetNonce(), losing the actual nonce and
+        // preventing decryption. Reject it before calling the core.
+        if (nonce.Length == 0)
+        {
+            throw new InvalidOperationException("AES-CCM nonce cannot be empty. Configure a 7-13 byte nonce.");
+        }
     }
 
     private void ClearKey()

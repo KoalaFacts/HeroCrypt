@@ -14,12 +14,12 @@
     <PackageReference Include="coverlet.MTP" Version="10.1.0">
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.13" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="10.0.13" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.14" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="10.0.14" />
     <PackageReference Include="xunit.v3" Version="4.0.2" />
     <!-- Update compatible test-infrastructure transitives beyond upstream minimums. -->
-    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.13" PrivateAssets="all" />
-    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="10.0.13" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.14" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="10.0.14" PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup>

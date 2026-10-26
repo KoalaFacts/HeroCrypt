@@ -295,18 +295,86 @@ public class ChaCha20Poly1305CoreTests
             var ad = TestHelpers.HexToBytes("50515253c0c1c2c3c4c5c6c7");
             var plaintext = Encoding.UTF8.GetBytes("Ladies and Gentlemen of the class of '99: If I could offer you only one tip for the future, sunscreen would be it.");
 
+            // RFC 8439 §2.8.2: independently specified complete ciphertext, not only its tag.
+            var expectedCiphertext = TestHelpers.HexToBytes(
+                "d31a8d34648e60db7b86afbc53ef7ec2" +
+                "a4aded51296e08fea9e2b5a736ee62d6" +
+                "3dbea45e8ca9671282fafb69da92728b" +
+                "1a71de0a9e060b2905d6a5b67ecd3b36" +
+                "92ddbd7f2d778b8c9803aee328091b58" +
+                "fab324e4fad675945585808b4831d7bc" +
+                "3ff4def08e4b7a9de576d26586cec64b" +
+                "6116");
+
             var expectedTag = TestHelpers.HexToBytes("1ae10b594f09e26a7e902ecbd0600691");
 
             var result = core.Encrypt(plaintext, key, nonce, ad);
 
             var actualTag = result.Ciphertext.AsSpan().Slice(plaintext.Length, TAG_SIZE).ToArray();
 
+            CryptoAssertions.AssertBytesEqual(expectedCiphertext,
+                result.Ciphertext.AsSpan(0, plaintext.Length).ToArray());
             CryptoAssertions.AssertBytesEqual(expectedTag, actualTag);
 
             // Decrypt as well
             var decrypted = core.Decrypt(result.Ciphertext, key, nonce, ad);
 
             CryptoAssertions.AssertBytesEqual(plaintext, decrypted);
+        }
+
+        [Theory]
+        [InlineData(0, 0)]
+        [InlineData(0, 19)]
+        [InlineData(1, 0)]
+        [InlineData(63, 17)]
+        [InlineData(64, 32)]
+        [InlineData(65, 1)]
+        [InlineData(256, 71)]
+        public void DotNetBcl_EncryptAndDecrypt_AgreeAcrossLengths(int plaintextLength, int associatedDataLength)
+        {
+            // The published RFC vector above remains unconditional across all platforms.
+            // The .NET BCL implementation is an independent interoperability oracle when available.
+            Assert.SkipUnless(
+                System.Security.Cryptography.ChaCha20Poly1305.IsSupported,
+                "The platform BCL has no ChaCha20-Poly1305 provider; the RFC 8439 vector still runs.");
+
+            var key = TestHelpers.RandomBytes(KEY_SIZE);
+            var nonce = TestHelpers.RandomBytes(NONCE_SIZE);
+            var plaintext = TestHelpers.RandomBytes(plaintextLength);
+            var associatedData = TestHelpers.RandomBytes(associatedDataLength);
+            var bclCiphertext = new byte[plaintextLength];
+            var bclTag = new byte[TAG_SIZE];
+
+            using var bcl = new System.Security.Cryptography.ChaCha20Poly1305(key);
+            bcl.Encrypt(nonce, plaintext, bclCiphertext, bclTag, associatedData);
+
+            var encrypted = core.Encrypt(plaintext, key, nonce, associatedData);
+            CryptoAssertions.AssertBytesEqual(bclCiphertext,
+                encrypted.Ciphertext.AsSpan(0, plaintextLength).ToArray());
+            CryptoAssertions.AssertBytesEqual(bclTag,
+                encrypted.Ciphertext.AsSpan(plaintextLength, TAG_SIZE).ToArray());
+
+            // Test that our decryptor accepts an independent BCL-produced ciphertext + tag.
+            var bclCombined = new byte[plaintextLength + TAG_SIZE];
+            bclCiphertext.CopyTo(bclCombined, 0);
+            bclTag.CopyTo(bclCombined, plaintextLength);
+            CryptoAssertions.AssertBytesEqual(plaintext, core.Decrypt(bclCombined, key, nonce, associatedData));
+
+            // Test the opposite direction: BCL must accept our encrypted output.
+            var bclPlaintext = new byte[plaintextLength];
+            bcl.Decrypt(nonce,
+                encrypted.Ciphertext.AsSpan(0, plaintextLength),
+                encrypted.Ciphertext.AsSpan(plaintextLength, TAG_SIZE),
+                bclPlaintext, associatedData);
+            CryptoAssertions.AssertBytesEqual(plaintext, bclPlaintext);
+
+            // Reject forged authentication data even when the plaintext is empty.
+            bclCombined[^1] ^= 1;
+            Assert.Throws<CryptographicException>(() => core.Decrypt(bclCombined, key, nonce, associatedData));
+            bclCombined[^1] ^= 1;
+            var alteredNonce = (byte[])nonce.Clone();
+            alteredNonce[0] ^= 1;
+            Assert.Throws<CryptographicException>(() => core.Decrypt(bclCombined, key, alteredNonce, associatedData));
         }
     }
 }

@@ -441,6 +441,39 @@ public class ChaChaVariantsCoreTests
     }
 
     /// <summary>
+    /// Preserve the published numeric metadata contract while its estimates are
+    /// explicitly documented as unverified (not cryptographic assurances).
+    /// </summary>
+    [Trait("Category", TestCategories.UNIT)]
+    [Trait("Category", TestCategories.FAST)]
+    public class LegacyMetadataCompatibilityTests
+    {
+        [Theory]
+        [InlineData(ChaChaVariant.ChaCha8, 64, 2.5)]
+        [InlineData(ChaChaVariant.ChaCha12, 96, 1.7)]
+        [InlineData(ChaChaVariant.ChaCha20, 128, 1.0)]
+        public void LegacyNumericValues_RemainBackwardCompatible(
+            ChaChaVariant variant, int securityLabel, double ratio)
+        {
+            Assert.Equal(securityLabel, GetSecurityBits(variant));
+            Assert.Equal(ratio, GetPerformanceMultiplier(variant));
+        }
+
+        [Theory]
+        [InlineData(-1)]
+        [InlineData(0)]
+        [InlineData(21)]
+        public void LegacyMetadata_RejectsUndefinedVariant(int rounds)
+        {
+            ChaChaVariant variant = (ChaChaVariant)rounds;
+            Assert.Equal("variant", Assert.Throws<ArgumentException>(
+                () => GetSecurityBits(variant)).ParamName);
+            Assert.Equal("variant", Assert.Throws<ArgumentException>(
+                () => GetPerformanceMultiplier(variant)).ParamName);
+        }
+    }
+
+    /// <summary>
     /// Known Answer Tests using RFC 8439 vectors.
     /// </summary>
     [Trait("Category", TestCategories.KNOWN_ANSWER)]

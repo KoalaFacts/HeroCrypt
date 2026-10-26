@@ -32,25 +32,21 @@ public readonly struct AesCcmEncryptionResult
 /// AES-CCM is widely used in IoT protocols including Bluetooth LE, Zigbee, Thread, and 802.15.4.
 /// </para>
 /// <para><b>Standard:</b> RFC 3610, NIST SP 800-38C</para>
-/// <para><b>Platform Support:</b></para>
-/// <list type="bullet">
-///   <item>
-///     <term>Windows</term>
-///     <description>Fully supported via Windows CNG.</description>
-///   </item>
-///   <item>
-///     <term>Linux</term>
-///     <description>Fully supported via OpenSSL.</description>
-///   </item>
-///   <item>
-///     <term>macOS</term>
-///     <description>
-///       <b>Not supported.</b> The macOS Security framework (CommonCrypto) does not implement
-///       the CCM (Counter with CBC-MAC) mode. Operations will throw
-///       <see cref="PlatformNotSupportedException"/>. Use AES-GCM as an alternative on macOS.
-///     </description>
-///   </item>
-/// </list>
+/// <para>
+/// <b>Platform support:</b> HeroCrypt implements CCM's CBC-MAC and CTR using
+/// the platform AES block cipher via <c>Aes.Create()</c>, not the platform
+/// <c>System.Security.Cryptography.AesCcm</c> AEAD provider. Cross-platform
+/// CI executes this implementation on Windows, Linux and macOS, including
+/// hosts where the platform AEAD provider is unavailable. An operational
+/// AES block-cipher provider is still required.
+/// </para>
+/// <para>
+/// <b>Nonce and tag safety:</b> Never reuse a nonce with the same key.
+/// The core does not track caller-supplied nonce reuse or enforce a replay
+/// policy. CCM supports tags as short as four bytes, but they offer
+/// substantially less forgery resistance than the default 16-byte tag.
+/// Applications must choose appropriate tag sizes and manage nonce uniqueness.
+/// </para>
 /// </remarks>
 internal sealed class AesCcmCore
 {
@@ -81,7 +77,7 @@ internal sealed class AesCcmCore
     /// <param name="nonce">Nonce (7-13 bytes). Default: auto-generated 13-byte random nonce.</param>
     /// <param name="associatedData">Additional authenticated data. Default: empty.</param>
     /// <param name="tagSize">Authentication tag size (4, 6, 8, 10, 12, 14, or 16 bytes). Default: 16.</param>
-    /// <param name="deterministicMode">When true and nonce is empty, uses zero nonce (dangerous - only for testing). Default: false.</param>
+    /// <param name="deterministicMode">When true with an omitted nonce, uses a zero nonce only when the security policy explicitly permits deterministic non-SIV operation; never enable this for production. Default: false.</param>
     /// <returns>Encryption result containing ciphertext, nonce, and metadata.</returns>
     public AesCcmEncryptionResult Encrypt(
         ReadOnlySpan<byte> plaintext,

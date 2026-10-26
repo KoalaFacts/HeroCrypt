@@ -129,8 +129,7 @@ public class AesCcmCoreTests
         {
             var key = new byte[KEY_SIZE];
             var plaintext = new byte[] { 0x42, 0x43, 0x44 };
-            var optedInPolicy = HeroCrypt.Security.SecurityPolicyOptions.Default
-                with { AllowDeterministicNonSiv = true };
+            var optedInPolicy = HeroCrypt.Security.SecurityPolicyOptions.Default with { AllowDeterministicNonSiv = true };
             var optedInCore = new AesCcmCore(optedInPolicy);
 
             var first = optedInCore.Encrypt(plaintext, key, deterministicMode: true);

@@ -228,6 +228,76 @@ public class AesSivCoreTests
         }
     }
 
+    /// <summary>Public builder nonce modes must preserve inputs needed to authenticate.</summary>
+    [Trait("Category", TestCategories.SECURITY)]
+    [Trait("Category", TestCategories.FAST)]
+    public class BuilderNonceModes
+    {
+        [Fact]
+        public void NoNonce_MatchesRfc5297AppendixA1_AndDecrypts()
+        {
+            var key = TestHelpers.HexToBytes(
+                "fffefdfcfbfaf9f8f7f6f5f4f3f2f1f0f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff");
+            var aad = TestHelpers.HexToBytes(
+                "101112131415161718191a1b1c1d1e1f2021222324252627");
+            var plaintext = TestHelpers.HexToBytes("112233445566778899aabbccddee");
+            var expected = TestHelpers.HexToBytes(
+                "85632d07c6e8f37f950acd320a2ecc93" +
+                "40c02b9690c4dc04daef7f6afe5c");
+
+            using var writer = AesSivBuilder.Create().WithKey(key).WithAssociatedData(aad);
+            var first = writer.Encrypt(plaintext);
+            var second = writer.Encrypt(plaintext);
+
+            Assert.Null(writer.GetNonce());
+            CryptoAssertions.AssertBytesEqual(expected, first);
+            CryptoAssertions.AssertBytesEqual(first, second);
+
+            using var reader = AesSivBuilder.Create().WithKey(key).WithAssociatedData(aad);
+            CryptoAssertions.AssertBytesEqual(plaintext, reader.Decrypt(first));
+        }
+
+        [Fact]
+        public void ExplicitEmptyNonce_IsDeterministicAndDecryptable()
+        {
+            var key = TestHelpers.RandomBytes(KEY_SIZE_512);
+            var plaintext = TestHelpers.RandomBytes(41);
+            byte[] emptyNonce = [];
+            using var writer = AesSivBuilder.Create().WithKey(key).WithNonce(emptyNonce);
+            var first = writer.Encrypt(plaintext);
+            var second = writer.Encrypt(plaintext);
+
+            Assert.NotNull(writer.GetNonce());
+            Assert.Empty(writer.GetNonce()!);
+            CryptoAssertions.AssertBytesEqual(first, second);
+
+            using var reader = AesSivBuilder.Create().WithKey(key).WithNonce(emptyNonce);
+            CryptoAssertions.AssertBytesEqual(plaintext, reader.Decrypt(first));
+        }
+
+        [Fact]
+        public void RandomNonce_IsExposedForIndependentDecryption()
+        {
+            var key = TestHelpers.RandomBytes(KEY_SIZE_512);
+            var plaintext = TestHelpers.RandomBytes(33);
+            using var writer = AesSivBuilder.Create().WithKey(key).WithRandomNonce();
+            var ciphertext = writer.Encrypt(plaintext);
+            var nonce = writer.GetNonce();
+
+            Assert.NotNull(nonce);
+            Assert.Equal(16, nonce!.Length);
+            using var reader = AesSivBuilder.Create().WithKey(key).WithNonce(nonce);
+            CryptoAssertions.AssertBytesEqual(plaintext, reader.Decrypt(ciphertext));
+        }
+
+        [Fact]
+        public void ZeroLengthRandomNonce_IsRejected()
+        {
+            using var builder = AesSivBuilder.Create();
+            Assert.Throws<ArgumentOutOfRangeException>(() => builder.WithRandomNonce(0));
+        }
+    }
+
     /// <summary>
     /// Known Answer Tests using RFC 5297 vectors.
     /// </summary>

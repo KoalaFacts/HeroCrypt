@@ -5,6 +5,8 @@
 ### Security
 
 - **Proposed AES-OCB RFC 7253 correction (Draft PR #197; not released):** Fix offset derivation and all-zero MAC/HASH initialization; add 16 independent RFC ciphertext vectors. **Breaking stored ciphertext/tag compatibility:** pre-fix OCB records can fail authentication after upgrade, including empty-message tags. Do not deploy or auto-retry legacy decryption. Inventory trusted writer provenance, preserve backups, use independently authenticated plaintext or an isolated explicitly chosen legacy recovery process, and re-encrypt with fresh key/nonce assignments and a versioned envelope. See [required OCB migration and release gate](docs/migration-guide.md#aes-ocb-rfc-7253-ciphertext-format-correction-proposed-not-yet-released). No release or security-approval claim is made.
+- **AES-SIV builder missing/empty nonce (proposed; not released):** Fix no-nonce encryption implicitly generating a random nonce that the builder discarded, leaving its ciphertext undecryptable through that API. Missing/empty nonce now selects RFC 5297 deterministic mode; a zero-length request for a *random* nonce is rejected. Pre-fix ciphertext with an unrecorded internal nonce may be unrecoverable; do not skip authentication or guess a nonce. See [issue #198](https://github.com/KoalaFacts/HeroCrypt/issues/198).
+
 - Validate OpenPGP Argon2 S2K passes, parallelism, and the full memory-exponent
   range before shifting or deriving keys. Reject exponent aliases and explicitly
   report the implementation limit for exponent 31.

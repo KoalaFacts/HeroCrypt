@@ -24,6 +24,49 @@ The previous HeroCrypt AES-OCB implementation does **not** produce the RFC 7253 
 
 This guide helps you migrate between HeroCrypt versions and from other cryptographic libraries.
 
+## AES-SIV builder missing or empty nonce (proposed; not released)
+
+[PR #199](https://github.com/KoalaFacts/HeroCrypt/pull/199) addresses
+[issue #198](https://github.com/KoalaFacts/HeroCrypt/issues/198) in the
+**high-level** `AesSivBuilder`; it does not change `AesSivCore` default
+random-nonce behaviour. Before this correction, `Encrypt` with no configured
+nonce or an explicitly empty nonce silently asked the core to generate a fresh
+random nonce. The builder returned only the SIV-prefixed ciphertext, not that
+nonce. Authentication depends on the nonce as an S2V input, so a record for
+which that nonce was never captured generally **cannot be decrypted** using
+the public API. Supplying an empty nonce does not recover the old data.
+
+For a controlled upgrade:
+
+1. **Inventory** stored AES-SIV records and their exact producing package,
+   assembly and API usage. Distinguish explicit `WithNonce` /
+   `WithRandomNonce` calls with a separately retained nonce from legacy
+   omitted/empty-nonce builder calls. Do not infer this classification from
+   SIV-prefixed ciphertext alone.
+2. Preserve original records, application metadata and authenticated backups.
+   For records with an externally retained correct nonce, validate decryption
+   and authentication with the original key, nonce and associated data before
+   re-encrypting or changing formats.
+3. If a legacy random nonce was discarded, **do not** attempt a silent
+   deterministic fallback, skip tag checks, guess nonces, or claim a migration
+   succeeded. Restore a trusted, independently authenticated plaintext source
+   or original backup if one exists; otherwise treat the affected plaintext
+   as unrecoverable.
+4. For new writes, omitted/empty nonce requests use RFC 5297 deterministic
+   mode. Identical key, associated data and plaintext yield identical outputs,
+   which leaks message equality; decide explicitly whether this is acceptable.
+   If randomized encryption is required, use `WithRandomNonce()` and persist
+   the value returned by `GetNonce()` **alongside** ciphertext and the
+   authenticated-data context for future decryption.
+5. Test fixed RFC 5297 vectors, cross-instance decryption, tampered-ciphertext
+   rejection and a representative recovery dataset before deployment. Roll
+   forward only after identifying and accounting for affected stored records.
+
+This is **unreleased** compatibility guidance; it does not assert that every
+published HeroCrypt version has the same defect. Confirm affected versions
+using their actual package/assembly and source provenance. No automatic
+unauthenticated legacy-decryption mode is provided.
+
 ## ChaCha variant counter boundary
 
 `ChaChaVariants.Transform` and `ChaChaVariants.GenerateKeystream` now reject

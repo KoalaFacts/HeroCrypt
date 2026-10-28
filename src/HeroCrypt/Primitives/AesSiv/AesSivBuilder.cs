@@ -133,6 +133,11 @@ public sealed class AesSivBuilder : IDisposable
     public AesSivBuilder WithRandomNonce(int nonceSize = DefaultNonceSize)
     {
         ArgumentHelper.ThrowIfNegative(nonceSize);
+        if (nonceSize == 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(nonceSize), "Random nonce size must be positive.");
+        }
+
         ClearNonce();
         nonce = new byte[nonceSize];
         SecureRandomNumberGenerator.Fill(nonce);
@@ -189,7 +194,14 @@ public sealed class AesSivBuilder : IDisposable
         ArgumentHelper.ThrowIfDisposed(disposed, this);
         ValidateState();
 
-        var result = core.Encrypt(plaintext, key!, nonce ?? ReadOnlySpan<byte>.Empty, associatedData ?? ReadOnlySpan<byte>.Empty);
+        // Missing/empty nonce must select RFC 5297 deterministic mode. Otherwise
+        // the core generates a random nonce that this builder never exposes.
+        var result = core.Encrypt(
+            plaintext,
+            key!,
+            nonce ?? ReadOnlySpan<byte>.Empty,
+            associatedData ?? ReadOnlySpan<byte>.Empty,
+            deterministicMode: nonce is null || nonce.Length == 0);
         return result.Ciphertext;
     }
 

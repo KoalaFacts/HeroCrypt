@@ -232,6 +232,13 @@ public sealed class AesOcbBuilder : IDisposable
         {
             throw new InvalidOperationException("Nonce has not been set. Use WithNonce() or WithRandomNonce() first.");
         }
+
+        // An empty nonce makes the core generate a random nonce that this
+        // ciphertext-only builder cannot return. Reject it before encryption.
+        if (nonce.Length == 0)
+        {
+            throw new InvalidOperationException("AES-OCB nonce cannot be empty. Configure a 1-15 byte nonce.");
+        }
     }
 
     private void ClearKey()

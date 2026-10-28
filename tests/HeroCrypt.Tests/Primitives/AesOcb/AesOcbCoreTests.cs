@@ -89,6 +89,38 @@ public class AesOcbCoreTests
     {
         private readonly AesOcbCore core = new();
 
+        [Theory]
+        [InlineData(0)]
+        [InlineData(1)]
+        [InlineData(2)]
+        public void Builder_EmptyNonce_RejectsBeforeReturningUnrecoverableCiphertext(int nonceMode)
+        {
+            using var builder = AesOcbBuilder.Create().WithKey(new byte[KEY_SIZE_128]);
+            if (nonceMode == 0)
+            {
+                byte[] emptyNonce = [];
+                builder.WithNonce(emptyNonce);
+            }
+            else if (nonceMode == 1)
+            {
+                ReadOnlySpan<byte> emptyNonce = [];
+                builder.WithNonce(emptyNonce);
+            }
+            else
+            {
+                builder.WithRandomNonce(0);
+            }
+
+            byte[] plaintext = [1, 2, 3];
+            Assert.Throws<InvalidOperationException>(() => builder.Encrypt(plaintext));
+            Assert.Throws<InvalidOperationException>(() => builder.Decrypt(new byte[TAG_SIZE]));
+            Assert.Empty(builder.GetNonce());
+
+            builder.WithNonce(new byte[DEFAULT_NONCE_SIZE]);
+            var ciphertext = builder.Encrypt(plaintext);
+            CryptoAssertions.AssertBytesEqual(plaintext, builder.Decrypt(ciphertext));
+        }
+
         [Fact]
         public void Encrypt_EmptyPlaintext_Success()
         {

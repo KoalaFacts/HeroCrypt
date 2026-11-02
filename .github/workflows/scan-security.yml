@@ -137,7 +137,7 @@ jobs:
 
       - name: Run Microsoft Security DevOps
         # MSDO v1 with a native Node 24 runtime; pin the reviewed upstream revision.
-        uses: microsoft/security-devops-action@241d09d34a00dc03aad8b1e8cf988a6f66ecd3f5
+        uses: microsoft/security-devops-action@9fe580e3cbc6c40cc75ffa96061ea94fcdbcf0d8
         id: msdo
         with:
           # Available tools: antimalware, binskim, credscan, eslint, templateanalyzer, terrascan, trivy

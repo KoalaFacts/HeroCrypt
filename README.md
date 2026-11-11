@@ -4,7 +4,7 @@
 [![Build Status](https://github.com/KoalaFacts/HeroCrypt/actions/workflows/ci.yml/badge.svg)](https://github.com/KoalaFacts/HeroCrypt/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 [![.NET](https://img.shields.io/badge/.NET%20Standard-2.0-purple)](https://dotnet.microsoft.com/download)
-[![.NET](https://img.shields.io/badge/.NET-8.0%20|%209.0%20|%2010.0-purple)](https://dotnet.microsoft.com/download)
+[![.NET](https://img.shields.io/badge/.NET-8.0%20|%209.0%20|%2010.0%20|%2011.0-purple)](https://dotnet.microsoft.com/download)
 
 A cryptographic library for .NET with standards-based primitives, OpenPGP support and multi-framework APIs. Supported production profiles and limitations are documented below.
 
@@ -122,9 +122,10 @@ The library targets the following frameworks. Target compatibility does not mean
 | Framework | Version | Status | Notes |
 |-----------|---------|--------|-------|
 | .NET Standard | 2.0 | Library target | AES-GCM operations unsupported; post-quantum primitives excluded; consumer/runtime compatibility requires validation |
-| .NET | 8.0 | Library and test target | Runtime/provider limits apply |
-| .NET | 9.0 | Library and test target | Runtime/provider limits apply |
+| .NET | 8.0 | Library and test target | Runtime/provider limits apply; Microsoft support ended 2026-11-10 |
+| .NET | 9.0 | Library and test target | Runtime/provider limits apply; Microsoft support ended 2026-11-10 |
 | .NET | 10.0 | Library and test target | Native post-quantum APIs require platform support |
+| .NET | 11.0 | Library and test target | GA 2026-11-10 (STS); same API surface as .NET 10, including native post-quantum APIs where the platform supports them |
 
 ### Feature Availability by Framework
 
@@ -450,7 +451,7 @@ HeroCrypt is built with a small, layered architecture:
 
 ## Development
 
-Repository builds use the exact .NET SDK pinned in `global.json` (currently 10.0.402, with roll-forward disabled). Install the .NET 8 and 9 runtimes as well when running their test targets. CI uses locked dependency restore and Microsoft.Testing.Platform.
+Repository builds use the exact .NET SDK pinned in `global.json` (currently the .NET 11 GA SDK 11.0.100, with roll-forward disabled). Install the .NET 8, 9 and 10 runtimes as well when running their test targets. CI uses locked dependency restore and Microsoft.Testing.Platform.
 
 For the .NET 10 target:
 
@@ -460,13 +461,13 @@ dotnet build --configuration Release --no-restore --framework net10.0
 dotnet test --project tests/HeroCrypt.Tests/HeroCrypt.Tests.csproj --configuration Release --no-build --framework net10.0 --no-restore
 ```
 
-For `net8.0` or `net9.0`, replace `net10.0` in both the build and test commands with the desired target. To compile the library's .NET Standard target (there is no .NET Standard test runtime):
+For `net8.0`, `net9.0` or `net11.0`, replace `net10.0` in both the build and test commands with the desired target. To compile the library's .NET Standard target (there is no .NET Standard test runtime):
 
 ```bash
 dotnet build src/HeroCrypt/HeroCrypt.csproj --configuration Release --no-restore --framework netstandard2.0
 ```
 
-The test matrix runs `net8.0`, `net9.0`, and `net10.0`. Passing tests does not establish independent security certification or support for every platform-dependent feature.
+The test matrix runs `net8.0`, `net9.0`, `net10.0`, and `net11.0`. Passing tests does not establish independent security certification or support for every platform-dependent feature.
 
 ## 🤝 Contributing
 

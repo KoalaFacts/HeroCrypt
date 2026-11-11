@@ -181,7 +181,7 @@ static void ExpectDisposed(Action operation)
 '''
 
 
-def write_project(root, package_dir, version, frameworks=("net8.0", "net9.0", "net10.0"),
+def write_project(root, package_dir, version, frameworks=("net8.0", "net9.0", "net10.0", "net11.0"),
                   sdk_version=None, runtime_version=None):
     root, package_dir = Path(root), Path(package_dir)
     (root / "global.json").write_bytes((Path(__file__).resolve().parents[1] / "global.json").read_bytes())
@@ -283,7 +283,7 @@ def main():
         parser.error("Invalid version")
     if not re.fullmatch(r"[0-9a-f]{40}", args.commit):
         parser.error("Invalid source commit")
-    frameworks = args.framework or ("net8.0", "net9.0", "net10.0")
+    frameworks = args.framework or ("net8.0", "net9.0", "net10.0", "net11.0")
     if args.sha256:
         package = args.package_dir / f"HeroCrypt.{args.version}.nupkg"
         if not re.fullmatch(r"[0-9a-f]{64}", args.sha256) or hashlib.sha256(package.read_bytes()).hexdigest() != args.sha256:

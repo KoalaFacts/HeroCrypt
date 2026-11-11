@@ -14,7 +14,7 @@ WORKFLOW_NAME = "Build and Test"
 REQUIRED_JOBS = {
     f"Build and Test ({os}, {framework})": ("Build", "Run tests")
     for os in ("ubuntu-latest", "windows-latest", "macos-latest")
-    for framework in ("net8.0", "net9.0", "net10.0")
+    for framework in ("net8.0", "net9.0", "net10.0", "net11.0")
 }
 REQUIRED_JOBS.update({
     "Extract Build Configuration": ("Extract configuration",),
@@ -32,40 +32,40 @@ REQUIRED_JOBS.update({
     for os in ("ubuntu-latest", "windows-latest")
 })
 
-REQUIRED_JOBS["RC2 consumer (linux-x64 JIT and NativeAOT)"] = (
+REQUIRED_JOBS[".NET 11 GA consumer (linux-x64 JIT and NativeAOT)"] = (
     "Checkout exact package source",
     "Download this run's stable-built Linux package",
-    "Setup exact official RC2 SDK",
+    "Setup exact .NET 11 GA SDK",
     "Verify exact source and package identity",
-    "Execute RC2 JIT and native consumers with negative controls",
-    "Retain RC2 consumer evidence",
+    "Execute .NET 11 GA JIT and native consumers with negative controls",
+    "Retain .NET 11 GA consumer evidence",
 )
 
-REQUIRED_JOBS["RC2 consumer (win-x64 managed JIT)"] = (
+REQUIRED_JOBS[".NET 11 GA consumer (win-x64 managed JIT)"] = (
     "Checkout exact package source",
     "Download this run's stable-built Windows package",
-    "Setup exact official RC2 SDK",
+    "Setup exact .NET 11 GA SDK",
     "Verify exact source and package identity",
-    "Execute Windows RC2 JIT consumer with negative controls",
-    "Retain Windows RC2 consumer evidence",
+    "Execute Windows .NET 11 GA JIT consumer with negative controls",
+    "Retain Windows .NET 11 GA consumer evidence",
 )
 
-REQUIRED_JOBS["RC2 full suite (linux-x64 runtime)"] = (
+REQUIRED_JOBS[".NET 11 GA full suite (linux-x64 runtime)"] = (
     "Checkout exact test source",
     "Setup stable build SDKs",
     "Build complete test assembly with locked stable dependencies",
-    "Setup exact official RC2 SDK",
-    "Execute complete suite on exact RC2 runtime",
-    "Retain full RC2 suite evidence",
+    "Setup exact .NET 11 GA SDK",
+    "Execute complete suite on exact .NET 11 GA runtime",
+    "Retain full .NET 11 GA suite evidence",
 )
 
 
-REQUIRED_JOBS["RC2 compiler (linux-x64 original TFMs)"] = (
+REQUIRED_JOBS[".NET 11 GA compiler (linux-x64 original TFMs)"] = (
     "Checkout exact compiler source",
     "Setup existing target SDKs",
-    "Setup exact official RC2 SDK",
+    "Setup exact .NET 11 GA SDK",
     "Compile original TFMs and execute complete suite",
-    "Retain RC2 compiler evidence",
+    "Retain .NET 11 GA compiler evidence",
 )
 
 

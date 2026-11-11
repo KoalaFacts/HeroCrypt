@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Platform
+
+- Add the `net11.0` target (.NET 11 GA, 2026-11-10) to the library, examples and test matrix. The repository SDK pin moves to the GA SDK `11.0.100`; the exact-toolchain consumer, full-suite and compiler CI jobs that ran on .NET 11 RC2 now run on the GA SDK/runtime. Existing `netstandard2.0`, `net8.0`, `net9.0` and `net10.0` targets are unchanged (.NET 8 and 9 left Microsoft support on 2026-11-10).
+
 ### Security
 
 - Reject an explicitly empty AES-OCB builder nonce before encryption can return ciphertext with a discarded internal nonce. Valid 1–15 byte nonce behavior is unchanged.

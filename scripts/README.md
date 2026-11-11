@@ -255,7 +255,7 @@ python3 scripts/release_smoke.py /path/to/packages --version 1.1.0 \
 AOT requires one explicit framework, a host-compatible RID, the matching SDK and
 native compiler prerequisites. It runs `dotnet publish -p:PublishAot=true`, then
 executes the native output; failures are fatal. The default remains JIT on
-.NET 8/9/10. `--framework` can also select explicit JIT targets. The repository's
+.NET 8/9/10/11. `--framework` can also select explicit JIT targets. The repository's
 pinned SDK still applies unless an exact toolchain is explicitly supplied.
 
 To use an already installed toolchain, provide all three identity inputs, one
@@ -279,43 +279,35 @@ SDK and library TFMs remain unchanged.
 An RC run requires an actually available, authorized official SDK/runtime and
 native prerequisites for AOT. These options neither install a toolchain nor prove
 its official provenance. RC-shaped versions in regression fixtures test only
-configuration generation; stable runs do not establish .NET 11 compatibility,
-and RC results do not establish GA qualification.
+configuration generation; stable runs on older SDKs do not establish .NET 11 compatibility.
 
 For publication and partial-failure recovery, follow the
 [workflow guide](../.github/workflows/README.md).
 
 
-The ordinary Build and Test workflow also has a Linux x64 RC2 consumer job. It
-uses this same run's validated, stable-SDK-built package, then official
-`actions/setup-dotnet` with SDK `11.0.100-rc.2.26504.105` and runtime
-`11.0.0-rc.2.26504.105`. An unavailable or mismatched version fails; no fallback
-version is accepted. `--verify-execution` additionally checks JIT/AOT dynamic-code
-state, Linux x64 native ELF identity, and expected source/runtime/mode rejection
-controls. Default consumer invocations remain unchanged.
+Since .NET 11 GA (2026-11-10), net11.0 is a regular library, application and test
+target: the ordinary Build and Test matrix builds and runs the full suite on
+net11.0 on Linux, Windows and macOS with SDK `11.0.100`.
 
-The retained CI evidence identifies checkout/PR head/base/tree, package version,
-source SHA/hash, SDK/runtime and OS/RID, with separate JIT and AOT logs. This is
-only a Linux x64 consumer compatibility check, not full .NET 11 library test,
-all-OS, WASM or GA qualification. It creates no NuGet publication, tag or release.
+The Build and Test workflow also keeps the exact-toolchain consumer jobs that were
+added for the release candidates, now pinned to the GA SDK `11.0.100` and runtime
+`11.0.0` through official `actions/setup-dotnet`. An unavailable or mismatched
+version fails; no fallback version is accepted:
 
-A separate Windows x64 RC2 managed/JIT job consumes this same run's validated
-Windows-built package with the same pinned official SDK/runtime. It checks the
-selected host RID is `win-x64`, reuses the package hash/source identity and
-source/runtime/execution-mode negative controls, and retains Windows toolchain,
-identity and JIT logs. Both RC2 jobs and their critical steps are required by the
-release CI completeness gate. Windows NativeAOT, WASM and GA qualification are
-not covered; stable library TFMs and default consumer invocations are unchanged.
+- **.NET 11 GA consumer (linux-x64 JIT and NativeAOT)** consumes this same run's
+  validated package and runs JIT and NativeAOT consumers with `--verify-execution`
+  (dynamic-code state, Linux x64 native ELF identity, source/runtime/mode rejection
+  controls).
+- **.NET 11 GA consumer (win-x64 managed JIT)** does the same for the Windows-built
+  package and checks the host RID is `win-x64`.
+- **.NET 11 GA full suite (linux-x64 runtime)** builds the net10 test assembly with
+  the stable SDK and committed locks and runs it unfiltered on the exact .NET 11
+  runtime (`rc_full_tests.py`), i.e. net10 binaries rolled forward onto .NET 11.
 
-The Linux RC2 full-suite job builds the complete net10 test assembly with the
-stable SDK and committed locks, then executes all tests on the exact RC2 runtime
-using `rc_full_tests.py`. It verifies the actual test process runtime, X64
-architecture and net10 compilation target before running without a filter.
-TRX counters must describe nonempty successful execution; existing skips remain
-visible. Evidence records source/tree, assembly/library hashes, SDK/runtime and
-OS/RID. This validates full-suite runtime compatibility, not net11 target
-compilation: the test locks still cover net8/net9/net10. It does not publish or
-change the library TFMs. The release CI completeness gate requires this job.
+The retained evidence identifies checkout/PR head/base/tree, package version,
+source SHA/hash, SDK/runtime and OS/RID. These jobs and their critical steps are
+required by the release CI completeness gate. They create no NuGet publication,
+tag or release. Windows NativeAOT and WASM are not covered.
 
 ### Exact SDK compilation without changing released targets
 
@@ -325,6 +317,6 @@ It restores the original locks with audit enabled and locked mode, then builds a
 existing library and test TFMs with that SDK. It executes the newly compiled full
 net10 test assembly on the requested exact runtime without a filter. Lock hashes,
 compiler and output hashes, source/tree, commands, logs and TRX counts are retained.
-The normal Linux RC2 compiler job uses SDK `11.0.100-rc.2.26504.105` and runtime
-`11.0.0-rc.2.26504.105`. A lock incompatibility fails closed; this does not update
-release locks, add net11 targets, publish packages, or qualify GA/all platforms.
+The normal Linux ".NET 11 GA compiler" job uses SDK `11.0.100` and runtime
+`11.0.0`. A lock incompatibility fails closed; this does not update release locks
+or publish packages.

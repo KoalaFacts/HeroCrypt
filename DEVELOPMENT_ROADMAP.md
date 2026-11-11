@@ -114,7 +114,7 @@ HeroCrypt v1.0.0 provides a comprehensive cryptographic library with:
 
 | Framework | Expected | Notes |
 |-----------|----------|-------|
-| .NET 11.0 | Q4 2026 | Upon release |
+| .NET 11.0 | Q4 2026 | Done: net11.0 target added at GA (2026-11-10) |
 | .NET 12.0 LTS | Q4 2027 | Upon release |
 
 ### Deprecation Schedule

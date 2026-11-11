@@ -12,7 +12,7 @@ import release_validation as release
 SHA = "a" * 40
 VERSION = "1.0.0"
 REPOSITORY = "https://github.com/KoalaFacts/HeroCrypt"
-FRAMEWORKS = ("netstandard2.0", "net8.0", "net9.0", "net10.0")
+FRAMEWORKS = ("netstandard2.0", "net8.0", "net9.0", "net10.0", "net11.0")
 DOCS = ("README.md", "LICENSE", "THIRD-PARTY-NOTICES.md", "SECURITY.md", "PRODUCTION_READINESS.md")
 
 
@@ -297,7 +297,7 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertIn('releases" --paginate', workflow)
         self.assertLess(workflow.index("release_validation.py validate"), workflow.index("gh release create"))
         self.assertIn("release_validation.py compare", workflow)
-        self.assertIn("netstandard2.0 net8.0 net9.0 net10.0", workflow)
+        self.assertIn("netstandard2.0 net8.0 net9.0 net10.0 net11.0", workflow)
 
     def test_publish_uses_verified_sha_and_validates_before_oidc(self):
         workflow = self.workflow("publish-nuget.yml")
@@ -326,18 +326,18 @@ class CiGateTests(unittest.TestCase):
         chosen = self.ci.select_run(self.workflow, [self.run], SHA, self.repository)
         self.assertEqual(chosen["run_attempt"], 2)
         self.ci.validate_jobs(chosen, self.jobs)
-        self.assertEqual(len(self.jobs), 19)
+        self.assertEqual(len(self.jobs), 22)
 
     def test_rc2_job_and_each_critical_step_are_required(self):
         import copy
-        name = "RC2 consumer (linux-x64 JIT and NativeAOT)"
+        name = ".NET 11 GA consumer (linux-x64 JIT and NativeAOT)"
         steps = (
             "Checkout exact package source",
             "Download this run's stable-built Linux package",
-            "Setup exact official RC2 SDK",
+            "Setup exact .NET 11 GA SDK",
             "Verify exact source and package identity",
-            "Execute RC2 JIT and native consumers with negative controls",
-            "Retain RC2 consumer evidence",
+            "Execute .NET 11 GA JIT and native consumers with negative controls",
+            "Retain .NET 11 GA consumer evidence",
         )
         jobs = [job for job in self.jobs if job["name"] != name]
         with self.assertRaises(ValueError):
@@ -357,14 +357,14 @@ class CiGateTests(unittest.TestCase):
 
     def test_windows_rc2_job_and_critical_steps_are_required(self):
         import copy
-        name = "RC2 consumer (win-x64 managed JIT)"
+        name = ".NET 11 GA consumer (win-x64 managed JIT)"
         steps = (
             "Checkout exact package source",
             "Download this run's stable-built Windows package",
-            "Setup exact official RC2 SDK",
+            "Setup exact .NET 11 GA SDK",
             "Verify exact source and package identity",
-            "Execute Windows RC2 JIT consumer with negative controls",
-            "Retain Windows RC2 consumer evidence",
+            "Execute Windows .NET 11 GA JIT consumer with negative controls",
+            "Retain Windows .NET 11 GA consumer evidence",
         )
         jobs = [job for job in self.jobs if job["name"] != name]
         with self.assertRaises(ValueError):
@@ -527,8 +527,8 @@ class RcConsumerEvidenceTests(unittest.TestCase):
         workflow = (Path(__file__).resolve().parents[1] / ".github/workflows/ci.yml").read_text()
         self.assertIn("  rc2-consumer:", workflow)
         job = workflow.split("  rc2-consumer:", 1)[1].split("  dependency-review:", 1)[0]
-        for required in ("needs: package-validation", "ubuntu-latest", "11.0.100-rc.2.26504.105",
-                         "11.0.0-rc.2.26504.105", "validated-release-packages-ubuntu-latest",
+        for required in ("needs: package-validation", "ubuntu-latest", "11.0.100",
+                         "11.0.0", "validated-release-packages-ubuntu-latest",
                          "--verify-execution", "--aot --rid linux-x64", "actions/setup-dotnet@v6"):
             self.assertIn(required, job)
         for forbidden in ("sudo ", "secrets.", "nuget push", "gh release", "contents: write"):
@@ -539,7 +539,7 @@ class RcConsumerEvidenceTests(unittest.TestCase):
         self.assertIn("  rc2-windows-consumer:", workflow)
         job = workflow.split("  rc2-windows-consumer:", 1)[1].split("  dependency-review:", 1)[0]
         for required in ("windows-latest", "needs: package-validation", "validated-release-packages-windows-latest",
-                         "11.0.100-rc.2.26504.105", "11.0.0-rc.2.26504.105", "--verify-execution",
+                         "11.0.100", "11.0.0", "--verify-execution",
                          "--sha256", "--commit", "GITHUB_SHA", "win-x64", "actions/setup-dotnet@v6"):
             self.assertIn(required, job)
         for forbidden in ("--aot", "sudo ", "secrets.", "nuget push", "gh release", "contents: write"):
@@ -600,13 +600,13 @@ class FullRuntimeQualificationTests(unittest.TestCase):
 
     def test_rc_full_suite_job_is_required_and_unfiltered(self):
         import release_ci
-        name = "RC2 full suite (linux-x64 runtime)"
+        name = ".NET 11 GA full suite (linux-x64 runtime)"
         self.assertIn(name, release_ci.REQUIRED_JOBS)
         workflow = (Path(__file__).resolve().parents[1] / ".github/workflows/ci.yml").read_text()
         self.assertIn("  rc2-full-suite:", workflow)
         job = workflow.split("  rc2-full-suite:", 1)[1].split("  dependency-review:", 1)[0]
         for required in ("--locked-mode", "--framework net10.0", "rc_full_tests.py",
-                         "11.0.100-rc.2.26504.105", "11.0.0-rc.2.26504.105"):
+                         "11.0.100", "11.0.0"):
             self.assertIn(required, job)
         for forbidden in ("--filter", "-filter", "secrets.", "nuget push", "contents: write"):
             self.assertNotIn(forbidden, job)

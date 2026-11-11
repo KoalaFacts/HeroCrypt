@@ -10,7 +10,7 @@ import xml.etree.ElementTree as ET
 import zipfile
 from pathlib import Path, PurePosixPath
 
-FRAMEWORKS = {"netstandard2.0", "net8.0", "net9.0", "net10.0"}
+FRAMEWORKS = {"netstandard2.0", "net8.0", "net9.0", "net10.0", "net11.0"}
 DOCUMENTS = ("README.md", "LICENSE", "THIRD-PARTY-NOTICES.md", "SECURITY.md", "PRODUCTION_READINESS.md")
 
 
